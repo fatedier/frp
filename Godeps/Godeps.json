@@ -1,0 +1,18 @@
+{
+	"ImportPath": "frp",
+	"GoVersion": "go1.4",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/astaxie/beego/logs",
+			"Comment": "v1.5.0-9-gfb7314f",
+			"Rev": "fb7314f8ac86b83ccd34386518d97cf2363e2ae5"
+		},
+		{
+			"ImportPath": "github.com/vaughan0/go-ini",
+			"Rev": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
+		}
+	]
+}
