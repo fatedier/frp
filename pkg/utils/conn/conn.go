@@ -1,18 +1,18 @@
 package conn
 
 import (
-	"fmt"
-	"net"
 	"bufio"
-	"sync"
+	"fmt"
 	"io"
+	"net"
+	"sync"
 
 	"github.com/fatedier/frp/pkg/utils/log"
 )
 
 type Listener struct {
-	Addr	net.Addr
-	Conns	chan *Conn
+	Addr  net.Addr
+	Conns chan *Conn
 }
 
 // wait util get one
@@ -22,8 +22,8 @@ func (l *Listener) GetConn() (conn *Conn) {
 }
 
 type Conn struct {
-	TcpConn		*net.TCPConn
-	Reader		*bufio.Reader
+	TcpConn *net.TCPConn
+	Reader  *bufio.Reader
 }
 
 func (c *Conn) ConnectServer(host string, port int64) (err error) {
@@ -70,8 +70,8 @@ func Listen(bindAddr string, bindPort int64) (l *Listener, err error) {
 	}
 
 	l = &Listener{
-		Addr:	listener.Addr(),
-		Conns:	make(chan *Conn),
+		Addr:  listener.Addr(),
+		Conns: make(chan *Conn),
 	}
 
 	go func() {
@@ -83,7 +83,7 @@ func Listen(bindAddr string, bindPort int64) (l *Listener, err error) {
 			}
 
 			c := &Conn{
-				TcpConn:	conn,
+				TcpConn: conn,
 			}
 			c.Reader = bufio.NewReader(c.TcpConn)
 			l.Conns <- c

@@ -1,8 +1,8 @@
 package models
 
 import (
-	"sync"
 	"container/list"
+	"sync"
 
 	"github.com/fatedier/frp/pkg/utils/conn"
 	"github.com/fatedier/frp/pkg/utils/log"
@@ -14,17 +14,17 @@ const (
 )
 
 type ProxyServer struct {
-	Name			string
-	Passwd			string
-	BindAddr		string
-	ListenPort		int64
+	Name       string
+	Passwd     string
+	BindAddr   string
+	ListenPort int64
 
-	Status			int64
-	Listener		*conn.Listener		// accept new connection from remote users
-	CtlMsgChan		chan int64			// every time accept a new user conn, put "1" to the channel
-	CliConnChan		chan *conn.Conn		// get client conns from control goroutine
-	UserConnList	*list.List			// store user conns
-	Mutex			sync.Mutex
+	Status       int64
+	Listener     *conn.Listener  // accept new connection from remote users
+	CtlMsgChan   chan int64      // every time accept a new user conn, put "1" to the channel
+	CliConnChan  chan *conn.Conn // get client conns from control goroutine
+	UserConnList *list.List      // store user conns
+	Mutex        sync.Mutex
 }
 
 func (p *ProxyServer) Init() {
@@ -55,7 +55,7 @@ func (p *ProxyServer) Start() (err error) {
 	go func() {
 		for {
 			// block
-			c := p.Listener.GetConn()	
+			c := p.Listener.GetConn()
 			log.Debug("ProxyName [%s], get one new user conn [%s]", p.Name, c.GetRemoteAddr())
 
 			// put to list
@@ -93,7 +93,7 @@ func (p *ProxyServer) Start() (err error) {
 
 			// msg will transfer to another without modifying
 			log.Debug("Join two conns, (l[%s] r[%s]) (l[%s] r[%s])", cliConn.GetLocalAddr(), cliConn.GetRemoteAddr(),
-					userConn.GetLocalAddr(), userConn.GetRemoteAddr())
+				userConn.GetLocalAddr(), userConn.GetRemoteAddr())
 			go conn.Join(cliConn, userConn)
 		}
 	}()
@@ -112,5 +112,5 @@ func (p *ProxyServer) Close() {
 
 func (p *ProxyServer) WaitUserConn() (res int64) {
 	res = <-p.CtlMsgChan
-	return 
+	return
 }

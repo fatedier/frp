@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 
-	"github.com/fatedier/frp/pkg/utils/log"
-	"github.com/fatedier/frp/pkg/utils/conn"
 	"github.com/fatedier/frp/pkg/models"
+	"github.com/fatedier/frp/pkg/utils/conn"
+	"github.com/fatedier/frp/pkg/utils/log"
 )
 
 func ProcessControlConn(l *conn.Listener) {
@@ -41,7 +41,7 @@ func controlWorker(c *conn.Conn) {
 		clientCtlRes.Code = 1
 		clientCtlRes.Msg = msg
 	}
-	
+
 	if needRes {
 		buf, _ := json.Marshal(clientCtlRes)
 		err = c.Write(string(buf) + "\n")
@@ -49,7 +49,7 @@ func controlWorker(c *conn.Conn) {
 			log.Warn("Write error, %v", err)
 		}
 	} else {
-	// work conn, just return
+		// work conn, just return
 		return
 	}
 
@@ -96,7 +96,7 @@ func checkProxy(req *models.ClientCtlReq, c *conn.Conn) (succ bool, msg string, 
 		log.Warn(msg)
 		return
 	}
-	
+
 	// control conn
 	if req.Type == models.ControlConn {
 		if server.Status != models.Idle {
@@ -115,7 +115,7 @@ func checkProxy(req *models.ClientCtlReq, c *conn.Conn) (succ bool, msg string, 
 
 		log.Info("ProxyName [%s], start proxy success", req.ProxyName)
 	} else if req.Type == models.WorkConn {
-	// work conn
+		// work conn
 		needRes = false
 		if server.Status != models.Working {
 			log.Warn("ProxyName [%s], is not working when it gets one new work conn", req.ProxyName)

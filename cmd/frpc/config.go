@@ -11,15 +11,14 @@ import (
 
 // common config
 var (
-	ServerAddr	string = "0.0.0.0"
-	ServerPort	int64  = 7000
-	LogFile		string = "./frpc.log"
-	LogLevel	string = "warn"
-	LogWay		string = "file"
+	ServerAddr string = "0.0.0.0"
+	ServerPort int64  = 7000
+	LogFile    string = "./frpc.log"
+	LogLevel   string = "warn"
+	LogWay     string = "file"
 )
 
 var ProxyClients map[string]*models.ProxyClient = make(map[string]*models.ProxyClient)
-
 
 func LoadConf(confFile string) (err error) {
 	var tmpStr string

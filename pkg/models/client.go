@@ -8,9 +8,9 @@ import (
 )
 
 type ProxyClient struct {
-	Name		string
-	Passwd		string
-	LocalPort	int64
+	Name      string
+	Passwd    string
+	LocalPort int64
 }
 
 func (p *ProxyClient) GetLocalConn() (c *conn.Conn, err error) {
@@ -24,7 +24,7 @@ func (p *ProxyClient) GetLocalConn() (c *conn.Conn, err error) {
 
 func (p *ProxyClient) GetRemoteConn(addr string, port int64) (c *conn.Conn, err error) {
 	c = &conn.Conn{}
-	defer func(){
+	defer func() {
 		if err != nil {
 			c.Close()
 		}
@@ -37,9 +37,9 @@ func (p *ProxyClient) GetRemoteConn(addr string, port int64) (c *conn.Conn, err 
 	}
 
 	req := &ClientCtlReq{
-		Type:		WorkConn,
-		ProxyName:	p.Name,
-		Passwd:		p.Passwd,
+		Type:      WorkConn,
+		ProxyName: p.Name,
+		Passwd:    p.Passwd,
 	}
 
 	buf, _ := json.Marshal(req)
@@ -64,7 +64,7 @@ func (p *ProxyClient) StartTunnel(serverAddr string, serverPort int64) (err erro
 	}
 
 	log.Debug("Join two conns, (l[%s] r[%s]) (l[%s] r[%s])", localConn.GetLocalAddr(), localConn.GetRemoteAddr(),
-			remoteConn.GetLocalAddr(), remoteConn.GetRemoteAddr())
+		remoteConn.GetLocalAddr(), remoteConn.GetRemoteAddr())
 	go conn.Join(localConn, remoteConn)
 	return nil
 }

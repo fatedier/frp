@@ -22,7 +22,7 @@ func SetLogFile(logWay string, logFile string) {
 	if logWay == "console" {
 		Log.SetLogger("console", "")
 	} else {
-		Log.SetLogger("file", `{"filename": "` + logFile + `"}`)
+		Log.SetLogger("file", `{"filename": "`+logFile+`"}`)
 	}
 }
 

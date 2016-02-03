@@ -1,9 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
 	"sync"
-	"encoding/json"
 
 	"github.com/fatedier/frp/pkg/models"
 	"github.com/fatedier/frp/pkg/utils/conn"
@@ -22,9 +22,9 @@ func ControlProcess(cli *models.ProxyClient, wait *sync.WaitGroup) {
 	defer c.Close()
 
 	req := &models.ClientCtlReq{
-		Type:		models.ControlConn,
-		ProxyName:	cli.Name,
-		Passwd:		cli.Passwd,
+		Type:      models.ControlConn,
+		ProxyName: cli.Name,
+		Passwd:    cli.Passwd,
 	}
 	buf, _ := json.Marshal(req)
 	err = c.Write(string(buf) + "\n")
