@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"frp/pkg/utils/log"
-	"frp/pkg/utils/conn"
+	"github.com/fatedier/frp/pkg/utils/log"
+	"github.com/fatedier/frp/pkg/utils/conn"
 )
 
 func main() {

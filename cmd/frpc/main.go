@@ -4,7 +4,7 @@ import (
 	"os"
 	"sync"
 	
-	"frp/pkg/utils/log"
+	"github.com/fatedier/frp/pkg/utils/log"
 )
 
 func main() {

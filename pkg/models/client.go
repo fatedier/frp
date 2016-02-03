@@ -3,8 +3,8 @@ package models
 import (
 	"encoding/json"
 
-	"frp/pkg/utils/conn"
-	"frp/pkg/utils/log"
+	"github.com/fatedier/frp/pkg/utils/conn"
+	"github.com/fatedier/frp/pkg/utils/log"
 )
 
 type ProxyClient struct {

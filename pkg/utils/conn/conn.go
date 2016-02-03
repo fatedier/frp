@@ -7,7 +7,7 @@ import (
 	"sync"
 	"io"
 
-	"frp/pkg/utils/log"
+	"github.com/fatedier/frp/pkg/utils/log"
 )
 
 type Listener struct {

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"encoding/json"
 
-	"frp/pkg/utils/log"
-	"frp/pkg/utils/conn"
-	"frp/pkg/models"
+	"github.com/fatedier/frp/pkg/utils/log"
+	"github.com/fatedier/frp/pkg/utils/conn"
+	"github.com/fatedier/frp/pkg/models"
 )
 
 func ProcessControlConn(l *conn.Listener) {

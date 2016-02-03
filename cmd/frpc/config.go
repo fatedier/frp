@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"frp/pkg/models"
+	"github.com/fatedier/frp/pkg/models"
 
 	ini "github.com/vaughan0/go-ini"
 )

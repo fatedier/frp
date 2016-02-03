@@ -5,9 +5,9 @@ import (
 	"sync"
 	"encoding/json"
 
-	"frp/pkg/models"
-	"frp/pkg/utils/conn"
-	"frp/pkg/utils/log"
+	"github.com/fatedier/frp/pkg/models"
+	"github.com/fatedier/frp/pkg/utils/conn"
+	"github.com/fatedier/frp/pkg/utils/log"
 )
 
 func ControlProcess(cli *models.ProxyClient, wait *sync.WaitGroup) {
