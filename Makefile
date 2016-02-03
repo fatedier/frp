@@ -13,3 +13,6 @@ frps:
 
 frpc:
 	godep go build -o bin/frpc ./cmd/frpc
+
+test:
+	@godep go test ./...

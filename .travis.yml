@@ -1,0 +1,14 @@
+go_import_path: github.com/fatedier/frp
+sudo: false
+language: go
+
+go:
+    - 1.4.2
+    - 1.5.2 
+    - tip
+
+install:
+    - make
+
+script:
+    - make test
