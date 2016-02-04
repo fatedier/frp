@@ -11,11 +11,12 @@ import (
 	"frp/pkg/utils/log"
 )
 
-// 重连时的间隔时间区间
 const (
-	sleepMinDuration = 1
-	sleepMaxDuration = 60
+	heartbeatDuration = 2 //心跳检测时间间隔，单位秒
 )
+
+// client与server之间连接的保护锁
+var connProtect sync.Mutex
 
 func ControlProcess(cli *models.ProxyClient, wait *sync.WaitGroup) {
 	defer wait.Done()
@@ -27,11 +28,13 @@ func ControlProcess(cli *models.ProxyClient, wait *sync.WaitGroup) {
 	}
 	defer c.Close()
 
+	go startHeartBeat(c)
+
 	for {
 		// ignore response content now
 		_, err := c.ReadLine()
 		if err == io.EOF {
-			// reconnect when disconnect
+			connProtect.Lock() // 除了这里，其他地方禁止对连接进行任何操作
 			log.Debug("ProxyName [%s], server close this control conn", cli.Name)
 			var sleepTime time.Duration = 1
 			for {
@@ -48,6 +51,7 @@ func ControlProcess(cli *models.ProxyClient, wait *sync.WaitGroup) {
 				}
 				time.Sleep(sleepTime * time.Second)
 			}
+			connProtect.Unlock()
 			continue
 		} else if err != nil {
 			log.Warn("ProxyName [%s], read from server error, %v", cli.Name, err)
@@ -107,4 +111,17 @@ func loginToServer(cli *models.ProxyClient) (connection *conn.Conn) {
 	}
 
 	return
+}
+
+func startHeartBeat(con *conn.Conn) {
+	for {
+		time.Sleep(heartbeatDuration * time.Second)
+
+		connProtect.Lock()
+		err := con.Write("\r\n")
+		connProtect.Unlock()
+		if err != nil {
+			log.Error("Send hearbeat to server failed! Err:%s", err.Error())
+		}
+	}
 }
