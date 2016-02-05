@@ -11,10 +11,6 @@ import (
 	"frp/pkg/utils/log"
 )
 
-const (
-	heartbeatDuration = 2 //心跳检测时间间隔，单位秒
-)
-
 var isHeartBeatContinue bool = true
 
 func ControlProcess(cli *models.ProxyClient, wait *sync.WaitGroup) {
@@ -114,7 +110,7 @@ func loginToServer(cli *models.ProxyClient) (connection *conn.Conn) {
 func startHeartBeat(con *conn.Conn) {
 	isHeartBeatContinue = true
 	for {
-		time.Sleep(heartbeatDuration * time.Second)
+		time.Sleep(time.Duration(HeartBeatInterval) * time.Second)
 		if isHeartBeatContinue { // 把isHeartBeatContinue放在这里是为了防止SIGPIPE
 			err := con.Write("\r\n")
 			//log.Debug("send heart beat to server!")

@@ -11,15 +11,15 @@ import (
 
 // common config
 var (
-	BindAddr	string = "0.0.0.0"
-	BindPort	int64  = 9527
-	LogFile		string = "./frps.log"
-	LogLevel	string = "warn"
-	LogWay		string = "file"
+	BindAddr         string = "0.0.0.0"
+	BindPort         int64  = 9527
+	LogFile          string = "./frps.log"
+	LogLevel         string = "warn"
+	LogWay           string = "file"
+	HeartBeatTimeout int64  = 30
 )
 
 var ProxyServers map[string]*models.ProxyServer = make(map[string]*models.ProxyServer)
-
 
 func LoadConf(confFile string) (err error) {
 	var tmpStr string

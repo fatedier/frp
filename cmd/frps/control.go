@@ -151,7 +151,7 @@ func readControlMsgFromClient(server *models.ProxyServer, c *conn.Conn) {
 		isContinueRead = false
 		server.StopWaitUserConn()
 	}
-	timer := time.AfterFunc(10*time.Second, f)
+	timer := time.AfterFunc(time.Duration(HeartBeatTimeout)*time.Second, f)
 	defer timer.Stop()
 
 	for isContinueRead {
@@ -169,7 +169,7 @@ func readControlMsgFromClient(server *models.ProxyServer, c *conn.Conn) {
 
 		if content == "\r\n" {
 			log.Debug("receive hearbeat:%s", content)
-			timer.Reset(10 * time.Second)
+			timer.Reset(time.Duration(HeartBeatTimeout) * time.Second)
 		}
 	}
 }
