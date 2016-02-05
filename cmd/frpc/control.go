@@ -15,8 +15,7 @@ const (
 	heartbeatDuration = 2 //心跳检测时间间隔，单位秒
 )
 
-// client与server之间连接的保护锁
-var connProtect sync.Mutex
+var isHeartBeatContinue bool = true
 
 func ControlProcess(cli *models.ProxyClient, wait *sync.WaitGroup) {
 	defer wait.Done()
@@ -28,13 +27,11 @@ func ControlProcess(cli *models.ProxyClient, wait *sync.WaitGroup) {
 	}
 	defer c.Close()
 
-	go startHeartBeat(c)
-
 	for {
 		// ignore response content now
 		_, err := c.ReadLine()
 		if err == io.EOF {
-			connProtect.Lock() // 除了这里，其他地方禁止对连接进行任何操作
+			isHeartBeatContinue = false
 			log.Debug("ProxyName [%s], server close this control conn", cli.Name)
 			var sleepTime time.Duration = 1
 			for {
@@ -51,7 +48,6 @@ func ControlProcess(cli *models.ProxyClient, wait *sync.WaitGroup) {
 				}
 				time.Sleep(sleepTime * time.Second)
 			}
-			connProtect.Unlock()
 			continue
 		} else if err != nil {
 			log.Warn("ProxyName [%s], read from server error, %v", cli.Name, err)
@@ -104,6 +100,8 @@ func loginToServer(cli *models.ProxyClient) (connection *conn.Conn) {
 		}
 
 		connection = c
+		go startHeartBeat(connection)
+		log.Debug("ProxyName [%s], connect to server[%s:%d] success!", cli.Name, ServerAddr, ServerPort)
 	}
 
 	if connection == nil {
@@ -114,14 +112,17 @@ func loginToServer(cli *models.ProxyClient) (connection *conn.Conn) {
 }
 
 func startHeartBeat(con *conn.Conn) {
+	isHeartBeatContinue = true
 	for {
 		time.Sleep(heartbeatDuration * time.Second)
-
-		connProtect.Lock()
-		err := con.Write("\r\n")
-		connProtect.Unlock()
-		if err != nil {
-			log.Error("Send hearbeat to server failed! Err:%s", err.Error())
+		if isHeartBeatContinue { // 把isHeartBeatContinue放在这里是为了防止SIGPIPE
+			err := con.Write("\r\n")
+			//log.Debug("send heart beat to server!")
+			if err != nil {
+				log.Error("Send hearbeat to server failed! Err:%s", err.Error())
+			}
+		} else {
+			break
 		}
 	}
 }

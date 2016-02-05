@@ -1,12 +1,14 @@
 package main
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
+	"io"
+	"time"
 
-	"frp/pkg/utils/log"
-	"frp/pkg/utils/conn"
 	"frp/pkg/models"
+	"frp/pkg/utils/conn"
+	"frp/pkg/utils/log"
 )
 
 func ProcessControlConn(l *conn.Listener) {
@@ -19,6 +21,8 @@ func ProcessControlConn(l *conn.Listener) {
 
 // control connection from every client and server
 func controlWorker(c *conn.Conn) {
+	defer c.Close()
+
 	// the first message is from client to server
 	// if error, close connection
 	res, err := c.ReadLine()
@@ -41,19 +45,20 @@ func controlWorker(c *conn.Conn) {
 		clientCtlRes.Code = 1
 		clientCtlRes.Msg = msg
 	}
-	
+
 	if needRes {
 		buf, _ := json.Marshal(clientCtlRes)
 		err = c.Write(string(buf) + "\n")
 		if err != nil {
 			log.Warn("Write error, %v", err)
+			time.Sleep(1 * time.Second)
+			return
 		}
 	} else {
-	// work conn, just return
+		// work conn, just return
 		return
 	}
 
-	defer c.Close()
 	// others is from server to client
 	server, ok := ProxyServers[clientCtlReq.ProxyName]
 	if !ok {
@@ -61,10 +66,16 @@ func controlWorker(c *conn.Conn) {
 		return
 	}
 
+	// read control msg from client
+	go readControlMsgFromClient(server, c)
+
 	serverCtlReq := &models.ClientCtlReq{}
 	serverCtlReq.Type = models.WorkConn
 	for {
-		server.WaitUserConn()
+		_, isStop := server.WaitUserConn()
+		if isStop {
+			break
+		}
 		buf, _ := json.Marshal(serverCtlReq)
 		err = c.Write(string(buf) + "\n")
 		if err != nil {
@@ -76,6 +87,7 @@ func controlWorker(c *conn.Conn) {
 		log.Debug("ProxyName [%s], write to client to add work conn success", server.Name)
 	}
 
+	log.Error("ProxyName [%s], I'm dead!", server.Name)
 	return
 }
 
@@ -96,7 +108,7 @@ func checkProxy(req *models.ClientCtlReq, c *conn.Conn) (succ bool, msg string, 
 		log.Warn(msg)
 		return
 	}
-	
+
 	// control conn
 	if req.Type == models.ControlConn {
 		if server.Status != models.Idle {
@@ -115,7 +127,7 @@ func checkProxy(req *models.ClientCtlReq, c *conn.Conn) (succ bool, msg string, 
 
 		log.Info("ProxyName [%s], start proxy success", req.ProxyName)
 	} else if req.Type == models.WorkConn {
-	// work conn
+		// work conn
 		needRes = false
 		if server.Status != models.Working {
 			log.Warn("ProxyName [%s], is not working when it gets one new work conn", req.ProxyName)
@@ -131,4 +143,33 @@ func checkProxy(req *models.ClientCtlReq, c *conn.Conn) (succ bool, msg string, 
 
 	succ = true
 	return
+}
+
+func readControlMsgFromClient(server *models.ProxyServer, c *conn.Conn) {
+	isContinueRead := true
+	f := func() {
+		isContinueRead = false
+		server.StopWaitUserConn()
+	}
+	timer := time.AfterFunc(10*time.Second, f)
+	defer timer.Stop()
+
+	for isContinueRead {
+		content, err := c.ReadLine()
+		//log.Debug("Receive msg from client! content:%s", content)
+		if err != nil {
+			if err == io.EOF {
+				log.Warn("Server detect client[%s] is dead!", server.Name)
+				server.StopWaitUserConn()
+				break
+			}
+			log.Error("ProxyName [%s], read error:%s", server.Name, err.Error())
+			continue
+		}
+
+		if content == "\r\n" {
+			log.Debug("receive hearbeat:%s", content)
+			timer.Reset(10 * time.Second)
+		}
+	}
 }
