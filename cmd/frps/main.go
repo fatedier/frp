@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"frp/pkg/utils/log"
 	"frp/pkg/utils/conn"
+	"frp/pkg/utils/log"
 )
 
 func main() {

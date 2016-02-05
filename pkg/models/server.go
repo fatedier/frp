@@ -89,6 +89,7 @@ func (p *ProxyServer) Start() (err error) {
 				p.UserConnList.Remove(element)
 			} else {
 				cliConn.Close()
+				p.Unlock()
 				continue
 			}
 			p.Unlock()
