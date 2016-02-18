@@ -59,7 +59,9 @@ func (c *Conn) Write(content string) (err error) {
 }
 
 func (c *Conn) Close() {
-	c.TcpConn.Close()
+	if c.TcpConn != nil {
+		c.TcpConn.Close()
+	}
 }
 
 func Listen(bindAddr string, bindPort int64) (l *Listener, err error) {

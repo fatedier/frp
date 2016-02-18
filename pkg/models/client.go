@@ -63,6 +63,7 @@ func (p *ProxyClient) StartTunnel(serverAddr string, serverPort int64) (err erro
 		return
 	}
 
+	// l means local, r means remote
 	log.Debug("Join two conns, (l[%s] r[%s]) (l[%s] r[%s])", localConn.GetLocalAddr(), localConn.GetRemoteAddr(),
 		remoteConn.GetLocalAddr(), remoteConn.GetRemoteAddr())
 	go conn.Join(localConn, remoteConn)
