@@ -1,16 +1,12 @@
-package models
+package server
 
 import (
 	"container/list"
 	"sync"
 
-	"github.com/fatedier/frp/pkg/utils/conn"
-	"github.com/fatedier/frp/pkg/utils/log"
-)
-
-const (
-	Idle = iota
-	Working
+	"github.com/fatedier/frp/models/consts"
+	"github.com/fatedier/frp/utils/conn"
+	"github.com/fatedier/frp/utils/log"
 )
 
 type ProxyServer struct {
@@ -29,7 +25,7 @@ type ProxyServer struct {
 }
 
 func (p *ProxyServer) Init() {
-	p.Status = Idle
+	p.Status = consts.Idle
 	p.CtlMsgChan = make(chan int64)
 	p.StopBlockChan = make(chan int64)
 	p.CliConnChan = make(chan *conn.Conn)
@@ -51,7 +47,7 @@ func (p *ProxyServer) Start() (err error) {
 		return err
 	}
 
-	p.Status = Working
+	p.Status = consts.Working
 
 	// start a goroutine for listener
 	go func() {
@@ -62,7 +58,7 @@ func (p *ProxyServer) Start() (err error) {
 
 			// put to list
 			p.Lock()
-			if p.Status != Working {
+			if p.Status != consts.Working {
 				log.Debug("ProxyName [%s] is not working, new user conn close", p.Name)
 				c.Close()
 				p.Unlock()
@@ -107,7 +103,7 @@ func (p *ProxyServer) Start() (err error) {
 
 func (p *ProxyServer) Close() {
 	p.Lock()
-	p.Status = Idle
+	p.Status = consts.Idle
 	p.CtlMsgChan = make(chan int64)
 	p.CliConnChan = make(chan *conn.Conn)
 	p.UserConnList = list.New()

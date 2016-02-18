@@ -6,14 +6,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/pkg/models"
-	"github.com/fatedier/frp/pkg/utils/conn"
-	"github.com/fatedier/frp/pkg/utils/log"
+	"github.com/fatedier/frp/models/client"
+	"github.com/fatedier/frp/models/consts"
+	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/utils/conn"
+	"github.com/fatedier/frp/utils/log"
 )
 
 var isHeartBeatContinue bool = true
 
-func ControlProcess(cli *models.ProxyClient, wait *sync.WaitGroup) {
+func ControlProcess(cli *client.ProxyClient, wait *sync.WaitGroup) {
 	defer wait.Done()
 
 	c := loginToServer(cli)
@@ -54,7 +56,7 @@ func ControlProcess(cli *models.ProxyClient, wait *sync.WaitGroup) {
 	}
 }
 
-func loginToServer(cli *models.ProxyClient) (connection *conn.Conn) {
+func loginToServer(cli *client.ProxyClient) (connection *conn.Conn) {
 	c := &conn.Conn{}
 
 	connection = nil
@@ -65,8 +67,8 @@ func loginToServer(cli *models.ProxyClient) (connection *conn.Conn) {
 			break
 		}
 
-		req := &models.ClientCtlReq{
-			Type:      models.ControlConn,
+		req := &msg.ClientCtlReq{
+			Type:      consts.CtlConn,
 			ProxyName: cli.Name,
 			Passwd:    cli.Passwd,
 		}
@@ -84,7 +86,7 @@ func loginToServer(cli *models.ProxyClient) (connection *conn.Conn) {
 		}
 		log.Debug("ProxyName [%s], read [%s]", cli.Name, res)
 
-		clientCtlRes := &models.ClientCtlRes{}
+		clientCtlRes := &msg.ClientCtlRes{}
 		if err = json.Unmarshal([]byte(res), &clientCtlRes); err != nil {
 			log.Error("ProxyName [%s], format server response error, %v", cli.Name, err)
 			break

@@ -1,10 +1,12 @@
-package models
+package client
 
 import (
 	"encoding/json"
 
-	"github.com/fatedier/frp/pkg/utils/conn"
-	"github.com/fatedier/frp/pkg/utils/log"
+	"github.com/fatedier/frp/models/consts"
+	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/utils/conn"
+	"github.com/fatedier/frp/utils/log"
 )
 
 type ProxyClient struct {
@@ -36,8 +38,8 @@ func (p *ProxyClient) GetRemoteConn(addr string, port int64) (c *conn.Conn, err 
 		return
 	}
 
-	req := &ClientCtlReq{
-		Type:      WorkConn,
+	req := &msg.ClientCtlReq{
+		Type:      consts.WorkConn,
 		ProxyName: p.Name,
 		Passwd:    p.Passwd,
 	}

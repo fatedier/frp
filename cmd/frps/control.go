@@ -6,9 +6,11 @@ import (
 	"io"
 	"time"
 
-	"github.com/fatedier/frp/pkg/models"
-	"github.com/fatedier/frp/pkg/utils/conn"
-	"github.com/fatedier/frp/pkg/utils/log"
+	"github.com/fatedier/frp/models/consts"
+	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/models/server"
+	"github.com/fatedier/frp/utils/conn"
+	"github.com/fatedier/frp/utils/log"
 )
 
 func ProcessControlConn(l *conn.Listener) {
@@ -30,18 +32,18 @@ func controlWorker(c *conn.Conn) {
 	}
 	log.Debug("get: %s", res)
 
-	clientCtlReq := &models.ClientCtlReq{}
-	clientCtlRes := &models.ClientCtlRes{}
+	clientCtlReq := &msg.ClientCtlReq{}
+	clientCtlRes := &msg.ClientCtlRes{}
 	if err := json.Unmarshal([]byte(res), &clientCtlReq); err != nil {
 		log.Warn("Parse err: %v : %s", err, res)
 		return
 	}
 
 	// check
-	succ, msg, needRes := checkProxy(clientCtlReq, c)
+	succ, info, needRes := checkProxy(clientCtlReq, c)
 	if !succ {
 		clientCtlRes.Code = 1
-		clientCtlRes.Msg = msg
+		clientCtlRes.Msg = info
 	}
 
 	if needRes {
@@ -70,8 +72,8 @@ func controlWorker(c *conn.Conn) {
 	// read control msg from client
 	go readControlMsgFromClient(server, c)
 
-	serverCtlReq := &models.ClientCtlReq{}
-	serverCtlReq.Type = models.WorkConn
+	serverCtlReq := &msg.ClientCtlReq{}
+	serverCtlReq.Type = consts.WorkConn
 	for {
 		_, isStop := server.WaitUserConn()
 		if isStop {
@@ -92,52 +94,53 @@ func controlWorker(c *conn.Conn) {
 	return
 }
 
-func checkProxy(req *models.ClientCtlReq, c *conn.Conn) (succ bool, msg string, needRes bool) {
+func checkProxy(req *msg.ClientCtlReq, c *conn.Conn) (succ bool, info string, needRes bool) {
 	succ = false
 	needRes = true
 	// check if proxy name exist
 	server, ok := ProxyServers[req.ProxyName]
 	if !ok {
-		msg = fmt.Sprintf("ProxyName [%s] is not exist", req.ProxyName)
-		log.Warn(msg)
+		info = fmt.Sprintf("ProxyName [%s] is not exist", req.ProxyName)
+		log.Warn(info)
 		return
 	}
 
 	// check password
 	if req.Passwd != server.Passwd {
-		msg = fmt.Sprintf("ProxyName [%s], password is not correct", req.ProxyName)
-		log.Warn(msg)
+		info = fmt.Sprintf("ProxyName [%s], password is not correct", req.ProxyName)
+		log.Warn(info)
 		return
 	}
 
 	// control conn
-	if req.Type == models.ControlConn {
-		if server.Status != models.Idle {
-			msg = fmt.Sprintf("ProxyName [%s], already in use", req.ProxyName)
-			log.Warn(msg)
+	if req.Type == consts.CtlConn {
+		if server.Status != consts.Idle {
+			info = fmt.Sprintf("ProxyName [%s], already in use", req.ProxyName)
+			log.Warn(info)
 			return
 		}
 
 		// start proxy and listen for user conn, no block
 		err := server.Start()
 		if err != nil {
-			msg = fmt.Sprintf("ProxyName [%s], start proxy error: %v", req.ProxyName, err.Error())
-			log.Warn(msg)
+			info = fmt.Sprintf("ProxyName [%s], start proxy error: %v", req.ProxyName, err.Error())
+			log.Warn(info)
 			return
 		}
 
 		log.Info("ProxyName [%s], start proxy success", req.ProxyName)
-	} else if req.Type == models.WorkConn {
+	} else if req.Type == consts.WorkConn {
 		// work conn
 		needRes = false
-		if server.Status != models.Working {
+		if server.Status != consts.Working {
 			log.Warn("ProxyName [%s], is not working when it gets one new work conn", req.ProxyName)
 			return
 		}
 
 		server.CliConnChan <- c
 	} else {
-		log.Warn("ProxyName [%s], type [%d] unsupport", req.ProxyName, req.Type)
+		info = fmt.Sprintf("ProxyName [%s], type [%d] unsupport", req.ProxyName, req.Type)
+		log.Warn(info)
 		return
 	}
 
@@ -145,7 +148,7 @@ func checkProxy(req *models.ClientCtlReq, c *conn.Conn) (succ bool, msg string, 
 	return
 }
 
-func readControlMsgFromClient(server *models.ProxyServer, c *conn.Conn) {
+func readControlMsgFromClient(server *server.ProxyServer, c *conn.Conn) {
 	isContinueRead := true
 	f := func() {
 		isContinueRead = false

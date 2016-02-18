@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/fatedier/frp/pkg/models"
-
+	"github.com/fatedier/frp/models/client"
 	ini "github.com/vaughan0/go-ini"
 )
 
@@ -19,7 +18,7 @@ var (
 	HeartBeatInterval int64  = 5
 )
 
-var ProxyClients map[string]*models.ProxyClient = make(map[string]*models.ProxyClient)
+var ProxyClients map[string]*client.ProxyClient = make(map[string]*client.ProxyClient)
 
 func LoadConf(confFile string) (err error) {
 	var tmpStr string
@@ -59,7 +58,7 @@ func LoadConf(confFile string) (err error) {
 	// servers
 	for name, section := range conf {
 		if name != "common" {
-			proxyClient := &models.ProxyClient{}
+			proxyClient := &client.ProxyClient{}
 			proxyClient.Name = name
 
 			proxyClient.Passwd, ok = section["passwd"]

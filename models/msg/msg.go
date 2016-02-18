@@ -1,15 +1,9 @@
-package models
+package msg
 
 type GeneralRes struct {
 	Code int64  `json:"code"`
 	Msg  string `json:"msg"`
 }
-
-// type
-const (
-	ControlConn = iota
-	WorkConn
-)
 
 type ClientCtlReq struct {
 	Type      int64  `json:"type"`
