@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"time"
 
 	"github.com/fatedier/frp/pkg/models"
 	"github.com/fatedier/frp/pkg/utils/conn"
@@ -17,7 +19,7 @@ func ProcessControlConn(l *conn.Listener) {
 	}
 }
 
-// control connection from every client and server
+// connection from every client and server
 func controlWorker(c *conn.Conn) {
 	// the first message is from client to server
 	// if error, close connection
@@ -43,17 +45,21 @@ func controlWorker(c *conn.Conn) {
 	}
 
 	if needRes {
+		// control conn
+		defer c.Close()
+
 		buf, _ := json.Marshal(clientCtlRes)
 		err = c.Write(string(buf) + "\n")
 		if err != nil {
 			log.Warn("Write error, %v", err)
+			time.Sleep(1 * time.Second)
+			return
 		}
 	} else {
 		// work conn, just return
 		return
 	}
 
-	defer c.Close()
 	// others is from server to client
 	server, ok := ProxyServers[clientCtlReq.ProxyName]
 	if !ok {
@@ -61,10 +67,16 @@ func controlWorker(c *conn.Conn) {
 		return
 	}
 
+	// read control msg from client
+	go readControlMsgFromClient(server, c)
+
 	serverCtlReq := &models.ClientCtlReq{}
 	serverCtlReq.Type = models.WorkConn
 	for {
-		server.WaitUserConn()
+		_, isStop := server.WaitUserConn()
+		if isStop {
+			break
+		}
 		buf, _ := json.Marshal(serverCtlReq)
 		err = c.Write(string(buf) + "\n")
 		if err != nil {
@@ -76,6 +88,7 @@ func controlWorker(c *conn.Conn) {
 		log.Debug("ProxyName [%s], write to client to add work conn success", server.Name)
 	}
 
+	log.Error("ProxyName [%s], I'm dead!", server.Name)
 	return
 }
 
@@ -124,11 +137,38 @@ func checkProxy(req *models.ClientCtlReq, c *conn.Conn) (succ bool, msg string, 
 
 		server.CliConnChan <- c
 	} else {
-		msg = fmt.Sprintf("ProxyName [%s], type [%d] unsupport", req.ProxyName)
-		log.Warn(msg)
+		log.Warn("ProxyName [%s], type [%d] unsupport", req.ProxyName, req.Type)
 		return
 	}
 
 	succ = true
 	return
+}
+
+func readControlMsgFromClient(server *models.ProxyServer, c *conn.Conn) {
+	isContinueRead := true
+	f := func() {
+		isContinueRead = false
+		server.StopWaitUserConn()
+	}
+	timer := time.AfterFunc(time.Duration(HeartBeatTimeout)*time.Second, f)
+	defer timer.Stop()
+
+	for isContinueRead {
+		content, err := c.ReadLine()
+		//log.Debug("Receive msg from client! content:%s", content)
+		if err != nil {
+			if err == io.EOF {
+				log.Warn("Server detect client[%s] is dead!", server.Name)
+				server.StopWaitUserConn()
+				break
+			}
+			log.Error("ProxyName [%s], read error:%s", server.Name, err.Error())
+			continue
+		}
+
+		if content == "\n" {
+			timer.Reset(time.Duration(HeartBeatTimeout) * time.Second)
+		}
+	}
 }

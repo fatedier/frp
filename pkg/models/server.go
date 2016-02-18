@@ -19,17 +19,19 @@ type ProxyServer struct {
 	BindAddr   string
 	ListenPort int64
 
-	Status       int64
-	Listener     *conn.Listener  // accept new connection from remote users
-	CtlMsgChan   chan int64      // every time accept a new user conn, put "1" to the channel
-	CliConnChan  chan *conn.Conn // get client conns from control goroutine
-	UserConnList *list.List      // store user conns
-	Mutex        sync.Mutex
+	Status        int64
+	Listener      *conn.Listener  // accept new connection from remote users
+	CtlMsgChan    chan int64      // every time accept a new user conn, put "1" to the channel
+	StopBlockChan chan int64      // put any number to the channel, if you want to stop wait user conn
+	CliConnChan   chan *conn.Conn // get client conns from control goroutine
+	UserConnList  *list.List      // store user conns
+	Mutex         sync.Mutex
 }
 
 func (p *ProxyServer) Init() {
 	p.Status = Idle
 	p.CtlMsgChan = make(chan int64)
+	p.StopBlockChan = make(chan int64)
 	p.CliConnChan = make(chan *conn.Conn)
 	p.UserConnList = list.New()
 }
@@ -87,11 +89,13 @@ func (p *ProxyServer) Start() (err error) {
 				p.UserConnList.Remove(element)
 			} else {
 				cliConn.Close()
+				p.Unlock()
 				continue
 			}
 			p.Unlock()
 
 			// msg will transfer to another without modifying
+			// l means local, r means remote
 			log.Debug("Join two conns, (l[%s] r[%s]) (l[%s] r[%s])", cliConn.GetLocalAddr(), cliConn.GetRemoteAddr(),
 				userConn.GetLocalAddr(), userConn.GetRemoteAddr())
 			go conn.Join(cliConn, userConn)
@@ -110,7 +114,15 @@ func (p *ProxyServer) Close() {
 	p.Unlock()
 }
 
-func (p *ProxyServer) WaitUserConn() (res int64) {
-	res = <-p.CtlMsgChan
-	return
+func (p *ProxyServer) WaitUserConn() (res int64, isStop bool) {
+	select {
+	case res = <-p.CtlMsgChan:
+		return res, false
+	case <-p.StopBlockChan:
+		return 0, true
+	}
+}
+
+func (p *ProxyServer) StopWaitUserConn() {
+	p.StopBlockChan <- 1
 }
