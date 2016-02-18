@@ -63,34 +63,34 @@ func controlWorker(c *conn.Conn) {
 	}
 
 	// others is from server to client
-	server, ok := ProxyServers[clientCtlReq.ProxyName]
+	s, ok := server.ProxyServers[clientCtlReq.ProxyName]
 	if !ok {
 		log.Warn("ProxyName [%s] is not exist", clientCtlReq.ProxyName)
 		return
 	}
 
 	// read control msg from client
-	go readControlMsgFromClient(server, c)
+	go readControlMsgFromClient(s, c)
 
 	serverCtlReq := &msg.ClientCtlReq{}
 	serverCtlReq.Type = consts.WorkConn
 	for {
-		_, isStop := server.WaitUserConn()
+		_, isStop := s.WaitUserConn()
 		if isStop {
 			break
 		}
 		buf, _ := json.Marshal(serverCtlReq)
 		err = c.Write(string(buf) + "\n")
 		if err != nil {
-			log.Warn("ProxyName [%s], write to client error, proxy exit", server.Name)
-			server.Close()
+			log.Warn("ProxyName [%s], write to client error, proxy exit", s.Name)
+			s.Close()
 			return
 		}
 
-		log.Debug("ProxyName [%s], write to client to add work conn success", server.Name)
+		log.Debug("ProxyName [%s], write to client to add work conn success", s.Name)
 	}
 
-	log.Error("ProxyName [%s], I'm dead!", server.Name)
+	log.Error("ProxyName [%s], I'm dead!", s.Name)
 	return
 }
 
@@ -98,7 +98,7 @@ func checkProxy(req *msg.ClientCtlReq, c *conn.Conn) (succ bool, info string, ne
 	succ = false
 	needRes = true
 	// check if proxy name exist
-	server, ok := ProxyServers[req.ProxyName]
+	s, ok := server.ProxyServers[req.ProxyName]
 	if !ok {
 		info = fmt.Sprintf("ProxyName [%s] is not exist", req.ProxyName)
 		log.Warn(info)
@@ -106,7 +106,7 @@ func checkProxy(req *msg.ClientCtlReq, c *conn.Conn) (succ bool, info string, ne
 	}
 
 	// check password
-	if req.Passwd != server.Passwd {
+	if req.Passwd != s.Passwd {
 		info = fmt.Sprintf("ProxyName [%s], password is not correct", req.ProxyName)
 		log.Warn(info)
 		return
@@ -114,14 +114,14 @@ func checkProxy(req *msg.ClientCtlReq, c *conn.Conn) (succ bool, info string, ne
 
 	// control conn
 	if req.Type == consts.CtlConn {
-		if server.Status != consts.Idle {
+		if s.Status != consts.Idle {
 			info = fmt.Sprintf("ProxyName [%s], already in use", req.ProxyName)
 			log.Warn(info)
 			return
 		}
 
 		// start proxy and listen for user conn, no block
-		err := server.Start()
+		err := s.Start()
 		if err != nil {
 			info = fmt.Sprintf("ProxyName [%s], start proxy error: %v", req.ProxyName, err.Error())
 			log.Warn(info)
@@ -132,12 +132,12 @@ func checkProxy(req *msg.ClientCtlReq, c *conn.Conn) (succ bool, info string, ne
 	} else if req.Type == consts.WorkConn {
 		// work conn
 		needRes = false
-		if server.Status != consts.Working {
+		if s.Status != consts.Working {
 			log.Warn("ProxyName [%s], is not working when it gets one new work conn", req.ProxyName)
 			return
 		}
 
-		server.CliConnChan <- c
+		s.CliConnChan <- c
 	} else {
 		info = fmt.Sprintf("ProxyName [%s], type [%d] unsupport", req.ProxyName, req.Type)
 		log.Warn(info)
@@ -148,13 +148,13 @@ func checkProxy(req *msg.ClientCtlReq, c *conn.Conn) (succ bool, info string, ne
 	return
 }
 
-func readControlMsgFromClient(server *server.ProxyServer, c *conn.Conn) {
+func readControlMsgFromClient(s *server.ProxyServer, c *conn.Conn) {
 	isContinueRead := true
 	f := func() {
 		isContinueRead = false
-		server.StopWaitUserConn()
+		s.StopWaitUserConn()
 	}
-	timer := time.AfterFunc(time.Duration(HeartBeatTimeout)*time.Second, f)
+	timer := time.AfterFunc(time.Duration(server.HeartBeatTimeout)*time.Second, f)
 	defer timer.Stop()
 
 	for isContinueRead {
@@ -162,16 +162,16 @@ func readControlMsgFromClient(server *server.ProxyServer, c *conn.Conn) {
 		//log.Debug("Receive msg from client! content:%s", content)
 		if err != nil {
 			if err == io.EOF {
-				log.Warn("Server detect client[%s] is dead!", server.Name)
-				server.StopWaitUserConn()
+				log.Warn("Server detect client[%s] is dead!", s.Name)
+				s.StopWaitUserConn()
 				break
 			}
-			log.Error("ProxyName [%s], read error:%s", server.Name, err.Error())
+			log.Error("ProxyName [%s], read error:%s", s.Name, err.Error())
 			continue
 		}
 
 		if content == "\n" {
-			timer.Reset(time.Duration(HeartBeatTimeout) * time.Second)
+			timer.Reset(time.Duration(server.HeartBeatTimeout) * time.Second)
 		}
 	}
 }

@@ -80,7 +80,6 @@ func Listen(bindAddr string, bindPort int64) (l *Listener, err error) {
 		for {
 			conn, err := listener.AcceptTCP()
 			if err != nil {
-				log.Error("Accept new tcp connection error, %v", err)
 				continue
 			}
 

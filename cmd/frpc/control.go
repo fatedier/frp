@@ -33,7 +33,7 @@ func ControlProcess(cli *client.ProxyClient, wait *sync.WaitGroup) {
 			log.Debug("ProxyName [%s], server close this control conn", cli.Name)
 			var sleepTime time.Duration = 1
 			for {
-				log.Debug("ProxyName [%s], try to reconnect to server[%s:%d]...", cli.Name, ServerAddr, ServerPort)
+				log.Debug("ProxyName [%s], try to reconnect to server[%s:%d]...", cli.Name, client.ServerAddr, client.ServerPort)
 				tmpConn := loginToServer(cli)
 				if tmpConn != nil {
 					c.Close()
@@ -52,7 +52,7 @@ func ControlProcess(cli *client.ProxyClient, wait *sync.WaitGroup) {
 			continue
 		}
 
-		cli.StartTunnel(ServerAddr, ServerPort)
+		cli.StartTunnel(client.ServerAddr, client.ServerPort)
 	}
 }
 
@@ -61,9 +61,9 @@ func loginToServer(cli *client.ProxyClient) (connection *conn.Conn) {
 
 	connection = nil
 	for i := 0; i < 1; i++ {
-		err := c.ConnectServer(ServerAddr, ServerPort)
+		err := c.ConnectServer(client.ServerAddr, client.ServerPort)
 		if err != nil {
-			log.Error("ProxyName [%s], connect to server [%s:%d] error, %v", cli.Name, ServerAddr, ServerPort, err)
+			log.Error("ProxyName [%s], connect to server [%s:%d] error, %v", cli.Name, client.ServerAddr, client.ServerPort, err)
 			break
 		}
 
@@ -99,7 +99,7 @@ func loginToServer(cli *client.ProxyClient) (connection *conn.Conn) {
 
 		connection = c
 		go startHeartBeat(connection)
-		log.Debug("ProxyName [%s], connect to server[%s:%d] success!", cli.Name, ServerAddr, ServerPort)
+		log.Debug("ProxyName [%s], connect to server[%s:%d] success!", cli.Name, client.ServerAddr, client.ServerPort)
 	}
 
 	if connection == nil {
@@ -113,7 +113,7 @@ func startHeartBeat(con *conn.Conn) {
 	isHeartBeatContinue = true
 	log.Debug("Start to send heartbeat")
 	for {
-		time.Sleep(time.Duration(HeartBeatInterval) * time.Second)
+		time.Sleep(time.Duration(client.HeartBeatInterval) * time.Second)
 		if isHeartBeatContinue {
 			err := con.Write("\n")
 			if err != nil {
