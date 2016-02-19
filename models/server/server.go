@@ -10,39 +10,38 @@ import (
 )
 
 type ProxyServer struct {
-	Name       string
-	Passwd     string
-	BindAddr   string
-	ListenPort int64
+	Name        string
+	Passwd      string
+	BindAddr    string
+	ListenPort  int64
+	Status      int64
+	CliConnChan chan *conn.Conn // get client conns from control goroutine
 
-	Status        int64
-	Listener      *conn.Listener  // accept new connection from remote users
-	CtlMsgChan    chan int64      // every time accept a new user conn, put "1" to the channel
-	StopBlockChan chan int64      // put any number to the channel, if you want to stop wait user conn
-	CliConnChan   chan *conn.Conn // get client conns from control goroutine
-	UserConnList  *list.List      // store user conns
-	Mutex         sync.Mutex
+	listener     *conn.Listener // accept new connection from remote users
+	ctlMsgChan   chan int64     // every time accept a new user conn, put "1" to the channel
+	userConnList *list.List     // store user conns
+	mutex        sync.Mutex
 }
 
 func (p *ProxyServer) Init() {
 	p.Status = consts.Idle
-	p.CtlMsgChan = make(chan int64)
-	p.StopBlockChan = make(chan int64)
 	p.CliConnChan = make(chan *conn.Conn)
-	p.UserConnList = list.New()
+	p.ctlMsgChan = make(chan int64)
+	p.userConnList = list.New()
 }
 
 func (p *ProxyServer) Lock() {
-	p.Mutex.Lock()
+	p.mutex.Lock()
 }
 
 func (p *ProxyServer) Unlock() {
-	p.Mutex.Unlock()
+	p.mutex.Unlock()
 }
 
 // start listening for user conns
 func (p *ProxyServer) Start() (err error) {
-	p.Listener, err = conn.Listen(p.BindAddr, p.ListenPort)
+	p.Init()
+	p.listener, err = conn.Listen(p.BindAddr, p.ListenPort)
 	if err != nil {
 		return err
 	}
@@ -53,10 +52,15 @@ func (p *ProxyServer) Start() (err error) {
 	go func() {
 		for {
 			// block
-			c := p.Listener.GetConn()
+			// if listener is closed, get nil
+			c := p.listener.GetConn()
+			if c == nil {
+				log.Info("ProxyName [%s], listener is closed", p.Name)
+				return
+			}
 			log.Debug("ProxyName [%s], get one new user conn [%s]", p.Name, c.GetRemoteAddr())
 
-			// put to list
+			// insert into list
 			p.Lock()
 			if p.Status != consts.Working {
 				log.Debug("ProxyName [%s] is not working, new user conn close", p.Name)
@@ -64,25 +68,29 @@ func (p *ProxyServer) Start() (err error) {
 				p.Unlock()
 				return
 			}
-			p.UserConnList.PushBack(c)
+			p.userConnList.PushBack(c)
 			p.Unlock()
 
 			// put msg to control conn
-			p.CtlMsgChan <- 1
+			p.ctlMsgChan <- 1
 		}
 	}()
 
 	// start another goroutine for join two conns from client and user
 	go func() {
 		for {
-			cliConn := <-p.CliConnChan
+			cliConn, ok := <-p.CliConnChan
+			if !ok {
+				return
+			}
+
 			p.Lock()
-			element := p.UserConnList.Front()
+			element := p.userConnList.Front()
 
 			var userConn *conn.Conn
 			if element != nil {
 				userConn = element.Value.(*conn.Conn)
-				p.UserConnList.Remove(element)
+				p.userConnList.Remove(element)
 			} else {
 				cliConn.Close()
 				p.Unlock()
@@ -104,21 +112,19 @@ func (p *ProxyServer) Start() (err error) {
 func (p *ProxyServer) Close() {
 	p.Lock()
 	p.Status = consts.Idle
-	p.CtlMsgChan = make(chan int64)
-	p.CliConnChan = make(chan *conn.Conn)
-	p.UserConnList = list.New()
+	p.listener.Close()
+	close(p.ctlMsgChan)
+	close(p.CliConnChan)
+	p.userConnList = list.New()
 	p.Unlock()
 }
 
-func (p *ProxyServer) WaitUserConn() (res int64, isStop bool) {
-	select {
-	case res = <-p.CtlMsgChan:
-		return res, false
-	case <-p.StopBlockChan:
-		return 0, true
-	}
-}
+func (p *ProxyServer) WaitUserConn() (closeFlag bool) {
+	closeFlag = false
 
-func (p *ProxyServer) StopWaitUserConn() {
-	p.StopBlockChan <- 1
+	_, ok := <-p.ctlMsgChan
+	if !ok {
+		closeFlag = true
+	}
+	return
 }

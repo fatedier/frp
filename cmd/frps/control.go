@@ -75,8 +75,9 @@ func controlWorker(c *conn.Conn) {
 	serverCtlReq := &msg.ClientCtlReq{}
 	serverCtlReq.Type = consts.WorkConn
 	for {
-		_, isStop := s.WaitUserConn()
-		if isStop {
+		closeFlag := s.WaitUserConn()
+		if closeFlag {
+			log.Debug("ProxyName [%s], goroutine for dealing user conn is closed", s.Name)
 			break
 		}
 		buf, _ := json.Marshal(serverCtlReq)
@@ -90,7 +91,7 @@ func controlWorker(c *conn.Conn) {
 		log.Debug("ProxyName [%s], write to client to add work conn success", s.Name)
 	}
 
-	log.Error("ProxyName [%s], I'm dead!", s.Name)
+	log.Info("ProxyName [%s], I'm dead!", s.Name)
 	return
 }
 
@@ -152,26 +153,25 @@ func readControlMsgFromClient(s *server.ProxyServer, c *conn.Conn) {
 	isContinueRead := true
 	f := func() {
 		isContinueRead = false
-		s.StopWaitUserConn()
+		c.Close()
+		s.Close()
 	}
 	timer := time.AfterFunc(time.Duration(server.HeartBeatTimeout)*time.Second, f)
 	defer timer.Stop()
 
 	for isContinueRead {
-		content, err := c.ReadLine()
-		//log.Debug("Receive msg from client! content:%s", content)
+		_, err := c.ReadLine()
 		if err != nil {
 			if err == io.EOF {
-				log.Warn("Server detect client[%s] is dead!", s.Name)
-				s.StopWaitUserConn()
+				log.Warn("ProxyName [%s], client is dead!", s.Name)
+				c.Close()
+				s.Close()
 				break
 			}
-			log.Error("ProxyName [%s], read error:%s", s.Name, err.Error())
+			log.Error("ProxyName [%s], read error: %v", s.Name, err)
 			continue
 		}
 
-		if content == "\n" {
-			timer.Reset(time.Duration(server.HeartBeatTimeout) * time.Second)
-		}
+		timer.Reset(time.Duration(server.HeartBeatTimeout) * time.Second)
 	}
 }

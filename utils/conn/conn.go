@@ -11,33 +11,87 @@ import (
 )
 
 type Listener struct {
-	Addr  net.Addr
-	Conns chan *Conn
+	addr      net.Addr
+	l         *net.TCPListener
+	conns     chan *Conn
+	closeFlag bool
 }
 
-// wait util get one
+func Listen(bindAddr string, bindPort int64) (l *Listener, err error) {
+	tcpAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", bindAddr, bindPort))
+	listener, err := net.ListenTCP("tcp", tcpAddr)
+	if err != nil {
+		return l, err
+	}
+
+	l = &Listener{
+		addr:      listener.Addr(),
+		l:         listener,
+		conns:     make(chan *Conn),
+		closeFlag: false,
+	}
+
+	go func() {
+		for {
+			conn, err := l.l.AcceptTCP()
+			if err != nil {
+				if l.closeFlag {
+					return
+				}
+				continue
+			}
+
+			c := &Conn{
+				TcpConn:   conn,
+				closeFlag: false,
+			}
+			c.Reader = bufio.NewReader(c.TcpConn)
+			l.conns <- c
+		}
+	}()
+	return l, err
+}
+
+// wait util get one new connection or close
+// if listener is closed, return nil
 func (l *Listener) GetConn() (conn *Conn) {
-	conn = <-l.Conns
+	var ok bool
+	conn, ok = <-l.conns
+	if !ok {
+		return nil
+	}
 	return conn
 }
 
-type Conn struct {
-	TcpConn *net.TCPConn
-	Reader  *bufio.Reader
+func (l *Listener) Close() {
+	if l.l != nil && l.closeFlag == false {
+		l.closeFlag = true
+		l.l.Close()
+		close(l.conns)
+	}
 }
 
-func (c *Conn) ConnectServer(host string, port int64) (err error) {
+// wrap for TCPConn
+type Conn struct {
+	TcpConn   *net.TCPConn
+	Reader    *bufio.Reader
+	closeFlag bool
+}
+
+func ConnectServer(host string, port int64) (c *Conn, err error) {
+	c = &Conn{}
 	servertAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
-		return err
+		return
 	}
 	conn, err := net.DialTCP("tcp", nil, servertAddr)
 	if err != nil {
-		return err
+		return
 	}
 	c.TcpConn = conn
 	c.Reader = bufio.NewReader(c.TcpConn)
-	return nil
+	c.closeFlag = false
+	return c, nil
 }
 
 func (c *Conn) GetRemoteAddr() (addr string) {
@@ -50,6 +104,9 @@ func (c *Conn) GetLocalAddr() (addr string) {
 
 func (c *Conn) ReadLine() (buff string, err error) {
 	buff, err = c.Reader.ReadString('\n')
+	if err == io.EOF {
+		c.closeFlag = true
+	}
 	return buff, err
 }
 
@@ -60,40 +117,16 @@ func (c *Conn) Write(content string) (err error) {
 
 func (c *Conn) Close() {
 	if c.TcpConn != nil {
+		c.closeFlag = true
 		c.TcpConn.Close()
 	}
 }
 
-func Listen(bindAddr string, bindPort int64) (l *Listener, err error) {
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", bindAddr, bindPort))
-	listener, err := net.ListenTCP("tcp", tcpAddr)
-	if err != nil {
-		return l, err
-	}
-
-	l = &Listener{
-		Addr:  listener.Addr(),
-		Conns: make(chan *Conn),
-	}
-
-	go func() {
-		for {
-			conn, err := listener.AcceptTCP()
-			if err != nil {
-				continue
-			}
-
-			c := &Conn{
-				TcpConn: conn,
-			}
-			c.Reader = bufio.NewReader(c.TcpConn)
-			l.Conns <- c
-		}
-	}()
-	return l, err
+func (c *Conn) IsClosed() bool {
+	return c.closeFlag
 }
 
-// will block until conn close
+// will block until connection close
 func Join(c1 *Conn, c2 *Conn) {
 	var wait sync.WaitGroup
 	pipe := func(to *Conn, from *Conn) {
