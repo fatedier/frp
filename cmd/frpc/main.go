@@ -3,23 +3,24 @@ package main
 import (
 	"os"
 	"sync"
-	
-	"frp/pkg/utils/log"
+
+	"github.com/fatedier/frp/models/client"
+	"github.com/fatedier/frp/utils/log"
 )
 
 func main() {
-	err := LoadConf("./frpc.ini")
+	err := client.LoadConf("./frpc.ini")
 	if err != nil {
 		os.Exit(-1)
 	}
 
-	log.InitLog(LogWay, LogFile, LogLevel)
+	log.InitLog(client.LogWay, client.LogFile, client.LogLevel)
 
 	// wait until all control goroutine exit
 	var wait sync.WaitGroup
-	wait.Add(len(ProxyClients))
+	wait.Add(len(client.ProxyClients))
 
-	for _, client := range ProxyClients {
+	for _, client := range client.ProxyClients {
 		go ControlProcess(client, &wait)
 	}
 

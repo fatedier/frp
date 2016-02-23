@@ -1,30 +1,73 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"sync"
-	"encoding/json"
+	"time"
 
-	"frp/pkg/models"
-	"frp/pkg/utils/conn"
-	"frp/pkg/utils/log"
+	"github.com/fatedier/frp/models/client"
+	"github.com/fatedier/frp/models/consts"
+	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/utils/conn"
+	"github.com/fatedier/frp/utils/log"
 )
 
-func ControlProcess(cli *models.ProxyClient, wait *sync.WaitGroup) {
+var isHeartBeatContinue bool = true
+
+func ControlProcess(cli *client.ProxyClient, wait *sync.WaitGroup) {
 	defer wait.Done()
 
-	c := &conn.Conn{}
-	err := c.ConnectServer(ServerAddr, ServerPort)
+	c, err := loginToServer(cli)
 	if err != nil {
-		log.Error("ProxyName [%s], connect to server [%s:%d] error, %v", cli.Name, ServerAddr, ServerPort, err)
+		log.Error("ProxyName [%s], connect to server failed!", cli.Name)
 		return
 	}
 	defer c.Close()
 
-	req := &models.ClientCtlReq{
-		Type:		models.ControlConn,
-		ProxyName:	cli.Name,
-		Passwd:		cli.Passwd,
+	for {
+		// ignore response content now
+		_, err := c.ReadLine()
+		if err == io.EOF {
+			isHeartBeatContinue = false
+			log.Debug("ProxyName [%s], server close this control conn", cli.Name)
+			var sleepTime time.Duration = 1
+			for {
+				log.Debug("ProxyName [%s], try to reconnect to server[%s:%d]...", cli.Name, client.ServerAddr, client.ServerPort)
+				tmpConn, err := loginToServer(cli)
+				if err == nil {
+					c.Close()
+					c = tmpConn
+					break
+				}
+
+				if sleepTime < 60 {
+					sleepTime = sleepTime * 2
+				}
+				time.Sleep(sleepTime * time.Second)
+			}
+			continue
+		} else if err != nil {
+			log.Warn("ProxyName [%s], read from server error, %v", cli.Name, err)
+			continue
+		}
+
+		cli.StartTunnel(client.ServerAddr, client.ServerPort)
+	}
+}
+
+func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
+	c, err = conn.ConnectServer(client.ServerAddr, client.ServerPort)
+	if err != nil {
+		log.Error("ProxyName [%s], connect to server [%s:%d] error, %v", cli.Name, client.ServerAddr, client.ServerPort, err)
+		return
+	}
+
+	req := &msg.ClientCtlReq{
+		Type:      consts.CtlConn,
+		ProxyName: cli.Name,
+		Passwd:    cli.Passwd,
 	}
 	buf, _ := json.Marshal(req)
 	err = c.Write(string(buf) + "\n")
@@ -40,7 +83,7 @@ func ControlProcess(cli *models.ProxyClient, wait *sync.WaitGroup) {
 	}
 	log.Debug("ProxyName [%s], read [%s]", cli.Name, res)
 
-	clientCtlRes := &models.ClientCtlRes{}
+	clientCtlRes := &msg.ClientCtlRes{}
 	if err = json.Unmarshal([]byte(res), &clientCtlRes); err != nil {
 		log.Error("ProxyName [%s], format server response error, %v", cli.Name, err)
 		return
@@ -48,20 +91,28 @@ func ControlProcess(cli *models.ProxyClient, wait *sync.WaitGroup) {
 
 	if clientCtlRes.Code != 0 {
 		log.Error("ProxyName [%s], start proxy error, %s", cli.Name, clientCtlRes.Msg)
-		return
+		return c, fmt.Errorf("%s", clientCtlRes.Msg)
 	}
 
+	go startHeartBeat(c)
+	log.Debug("ProxyName [%s], connect to server[%s:%d] success!", cli.Name, client.ServerAddr, client.ServerPort)
+
+	return
+}
+
+func startHeartBeat(c *conn.Conn) {
+	log.Debug("Start to send heartbeat")
 	for {
-		// ignore response content now
-		_, err := c.ReadLine()
-		if err == io.EOF {
-			log.Debug("ProxyName [%s], server close this control conn", cli.Name)
+		time.Sleep(time.Duration(client.HeartBeatInterval) * time.Second)
+		if !c.IsClosed() {
+			err := c.Write("\n")
+			if err != nil {
+				log.Error("Send hearbeat to server failed! Err:%s", err.Error())
+				continue
+			}
+		} else {
 			break
-		} else if err != nil {
-			log.Warn("ProxyName [%s], read from server error, %v", cli.Name, err)
-			continue
 		}
-
-		cli.StartTunnel(ServerAddr, ServerPort)
 	}
+	log.Info("heartbeat exit")
 }

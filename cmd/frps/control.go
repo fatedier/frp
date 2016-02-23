@@ -1,12 +1,16 @@
 package main
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
+	"io"
+	"time"
 
-	"frp/pkg/utils/log"
-	"frp/pkg/utils/conn"
-	"frp/pkg/models"
+	"github.com/fatedier/frp/models/consts"
+	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/models/server"
+	"github.com/fatedier/frp/utils/conn"
+	"github.com/fatedier/frp/utils/log"
 )
 
 func ProcessControlConn(l *conn.Listener) {
@@ -17,7 +21,7 @@ func ProcessControlConn(l *conn.Listener) {
 	}
 }
 
-// control connection from every client and server
+// connection from every client and server
 func controlWorker(c *conn.Conn) {
 	// the first message is from client to server
 	// if error, close connection
@@ -28,107 +32,146 @@ func controlWorker(c *conn.Conn) {
 	}
 	log.Debug("get: %s", res)
 
-	clientCtlReq := &models.ClientCtlReq{}
-	clientCtlRes := &models.ClientCtlRes{}
+	clientCtlReq := &msg.ClientCtlReq{}
+	clientCtlRes := &msg.ClientCtlRes{}
 	if err := json.Unmarshal([]byte(res), &clientCtlReq); err != nil {
 		log.Warn("Parse err: %v : %s", err, res)
 		return
 	}
 
 	// check
-	succ, msg, needRes := checkProxy(clientCtlReq, c)
+	succ, info, needRes := checkProxy(clientCtlReq, c)
 	if !succ {
 		clientCtlRes.Code = 1
-		clientCtlRes.Msg = msg
+		clientCtlRes.Msg = info
 	}
-	
+
 	if needRes {
+		// control conn
+		defer c.Close()
+
 		buf, _ := json.Marshal(clientCtlRes)
 		err = c.Write(string(buf) + "\n")
 		if err != nil {
 			log.Warn("Write error, %v", err)
+			time.Sleep(1 * time.Second)
+			return
 		}
 	} else {
-	// work conn, just return
+		// work conn, just return
 		return
 	}
 
-	defer c.Close()
 	// others is from server to client
-	server, ok := ProxyServers[clientCtlReq.ProxyName]
+	s, ok := server.ProxyServers[clientCtlReq.ProxyName]
 	if !ok {
 		log.Warn("ProxyName [%s] is not exist", clientCtlReq.ProxyName)
 		return
 	}
 
-	serverCtlReq := &models.ClientCtlReq{}
-	serverCtlReq.Type = models.WorkConn
+	// read control msg from client
+	go readControlMsgFromClient(s, c)
+
+	serverCtlReq := &msg.ClientCtlReq{}
+	serverCtlReq.Type = consts.WorkConn
 	for {
-		server.WaitUserConn()
+		closeFlag := s.WaitUserConn()
+		if closeFlag {
+			log.Debug("ProxyName [%s], goroutine for dealing user conn is closed", s.Name)
+			break
+		}
 		buf, _ := json.Marshal(serverCtlReq)
 		err = c.Write(string(buf) + "\n")
 		if err != nil {
-			log.Warn("ProxyName [%s], write to client error, proxy exit", server.Name)
-			server.Close()
+			log.Warn("ProxyName [%s], write to client error, proxy exit", s.Name)
+			s.Close()
 			return
 		}
 
-		log.Debug("ProxyName [%s], write to client to add work conn success", server.Name)
+		log.Debug("ProxyName [%s], write to client to add work conn success", s.Name)
 	}
 
+	log.Info("ProxyName [%s], I'm dead!", s.Name)
 	return
 }
 
-func checkProxy(req *models.ClientCtlReq, c *conn.Conn) (succ bool, msg string, needRes bool) {
+func checkProxy(req *msg.ClientCtlReq, c *conn.Conn) (succ bool, info string, needRes bool) {
 	succ = false
 	needRes = true
 	// check if proxy name exist
-	server, ok := ProxyServers[req.ProxyName]
+	s, ok := server.ProxyServers[req.ProxyName]
 	if !ok {
-		msg = fmt.Sprintf("ProxyName [%s] is not exist", req.ProxyName)
-		log.Warn(msg)
+		info = fmt.Sprintf("ProxyName [%s] is not exist", req.ProxyName)
+		log.Warn(info)
 		return
 	}
 
 	// check password
-	if req.Passwd != server.Passwd {
-		msg = fmt.Sprintf("ProxyName [%s], password is not correct", req.ProxyName)
-		log.Warn(msg)
+	if req.Passwd != s.Passwd {
+		info = fmt.Sprintf("ProxyName [%s], password is not correct", req.ProxyName)
+		log.Warn(info)
 		return
 	}
-	
+
 	// control conn
-	if req.Type == models.ControlConn {
-		if server.Status != models.Idle {
-			msg = fmt.Sprintf("ProxyName [%s], already in use", req.ProxyName)
-			log.Warn(msg)
+	if req.Type == consts.CtlConn {
+		if s.Status != consts.Idle {
+			info = fmt.Sprintf("ProxyName [%s], already in use", req.ProxyName)
+			log.Warn(info)
 			return
 		}
 
 		// start proxy and listen for user conn, no block
-		err := server.Start()
+		err := s.Start()
 		if err != nil {
-			msg = fmt.Sprintf("ProxyName [%s], start proxy error: %v", req.ProxyName, err.Error())
-			log.Warn(msg)
+			info = fmt.Sprintf("ProxyName [%s], start proxy error: %v", req.ProxyName, err.Error())
+			log.Warn(info)
 			return
 		}
 
 		log.Info("ProxyName [%s], start proxy success", req.ProxyName)
-	} else if req.Type == models.WorkConn {
-	// work conn
+	} else if req.Type == consts.WorkConn {
+		// work conn
 		needRes = false
-		if server.Status != models.Working {
+		if s.Status != consts.Working {
 			log.Warn("ProxyName [%s], is not working when it gets one new work conn", req.ProxyName)
 			return
 		}
 
-		server.CliConnChan <- c
+		s.CliConnChan <- c
 	} else {
-		msg = fmt.Sprintf("ProxyName [%s], type [%d] unsupport", req.ProxyName)
-		log.Warn(msg)
+		info = fmt.Sprintf("ProxyName [%s], type [%d] unsupport", req.ProxyName, req.Type)
+		log.Warn(info)
 		return
 	}
 
 	succ = true
 	return
+}
+
+func readControlMsgFromClient(s *server.ProxyServer, c *conn.Conn) {
+	isContinueRead := true
+	f := func() {
+		isContinueRead = false
+		c.Close()
+		s.Close()
+	}
+	timer := time.AfterFunc(time.Duration(server.HeartBeatTimeout)*time.Second, f)
+	defer timer.Stop()
+
+	for isContinueRead {
+		_, err := c.ReadLine()
+		if err != nil {
+			if err == io.EOF {
+				log.Warn("ProxyName [%s], client is dead!", s.Name)
+				c.Close()
+				s.Close()
+				break
+			}
+			log.Error("ProxyName [%s], read error: %v", s.Name, err)
+			continue
+		}
+
+		timer.Reset(time.Duration(server.HeartBeatTimeout) * time.Second)
+	}
 }
