@@ -14,8 +14,6 @@ import (
 	"github.com/fatedier/frp/utils/log"
 )
 
-var isHeartBeatContinue bool = true
-
 func ControlProcess(cli *client.ProxyClient, wait *sync.WaitGroup) {
 	defer wait.Done()
 
@@ -30,9 +28,10 @@ func ControlProcess(cli *client.ProxyClient, wait *sync.WaitGroup) {
 		// ignore response content now
 		_, err := c.ReadLine()
 		if err == io.EOF {
-			isHeartBeatContinue = false
 			log.Debug("ProxyName [%s], server close this control conn", cli.Name)
 			var sleepTime time.Duration = 1
+
+			// loop until connect to server
 			for {
 				log.Debug("ProxyName [%s], try to reconnect to server[%s:%d]...", cli.Name, client.ServerAddr, client.ServerPort)
 				tmpConn, err := loginToServer(cli)
@@ -114,5 +113,5 @@ func startHeartBeat(c *conn.Conn) {
 			break
 		}
 	}
-	log.Info("heartbeat exit")
+	log.Debug("heartbeat exit")
 }
