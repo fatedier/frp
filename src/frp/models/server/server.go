@@ -3,29 +3,30 @@ package server
 import (
 	"container/list"
 	"sync"
+	"time"
 
-	"github.com/fatedier/frp/models/consts"
-	"github.com/fatedier/frp/utils/conn"
-	"github.com/fatedier/frp/utils/log"
+	"frp/models/consts"
+	"frp/utils/conn"
+	"frp/utils/log"
 )
 
 type ProxyServer struct {
-	Name        string
-	Passwd      string
-	BindAddr    string
-	ListenPort  int64
-	Status      int64
-	CliConnChan chan *conn.Conn // get client conns from control goroutine
+	Name       string
+	Passwd     string
+	BindAddr   string
+	ListenPort int64
+	Status     int64
 
-	listener     *conn.Listener // accept new connection from remote users
-	ctlMsgChan   chan int64     // every time accept a new user conn, put "1" to the channel
-	userConnList *list.List     // store user conns
+	listener     *conn.Listener  // accept new connection from remote users
+	ctlMsgChan   chan int64      // every time accept a new user conn, put "1" to the channel
+	cliConnChan  chan *conn.Conn // get client conns from control goroutine
+	userConnList *list.List      // store user conns
 	mutex        sync.Mutex
 }
 
 func (p *ProxyServer) Init() {
 	p.Status = consts.Idle
-	p.CliConnChan = make(chan *conn.Conn)
+	p.cliConnChan = make(chan *conn.Conn)
 	p.ctlMsgChan = make(chan int64)
 	p.userConnList = list.New()
 }
@@ -48,13 +49,13 @@ func (p *ProxyServer) Start() (err error) {
 
 	p.Status = consts.Working
 
-	// start a goroutine for listener
+	// start a goroutine for listener to accept user connection
 	go func() {
 		for {
 			// block
-			// if listener is closed, get nil
-			c := p.listener.GetConn()
-			if c == nil {
+			// if listener is closed, err returned
+			c, err := p.listener.GetConn()
+			if err != nil {
 				log.Info("ProxyName [%s], listener is closed", p.Name)
 				return
 			}
@@ -73,13 +74,28 @@ func (p *ProxyServer) Start() (err error) {
 
 			// put msg to control conn
 			p.ctlMsgChan <- 1
+
+			// set timeout
+			time.AfterFunc(time.Duration(UserConnTimeout)*time.Second, func() {
+				p.Lock()
+				defer p.Unlock()
+				element := p.userConnList.Front()
+				if element == nil {
+					return
+				}
+
+				userConn := element.Value.(*conn.Conn)
+				if userConn == c {
+					log.Warn("ProxyName [%s], user conn [%s] timeout", p.Name, c.GetRemoteAddr())
+				}
+			})
 		}
 	}()
 
 	// start another goroutine for join two conns from client and user
 	go func() {
 		for {
-			cliConn, ok := <-p.CliConnChan
+			cliConn, ok := <-p.cliConnChan
 			if !ok {
 				return
 			}
@@ -114,7 +130,7 @@ func (p *ProxyServer) Close() {
 	p.Status = consts.Idle
 	p.listener.Close()
 	close(p.ctlMsgChan)
-	close(p.CliConnChan)
+	close(p.cliConnChan)
 	p.userConnList = list.New()
 	p.Unlock()
 }
@@ -127,4 +143,8 @@ func (p *ProxyServer) WaitUserConn() (closeFlag bool) {
 		closeFlag = true
 	}
 	return
+}
+
+func (p *ProxyServer) GetNewCliConn(c *conn.Conn) {
+	p.cliConnChan <- c
 }

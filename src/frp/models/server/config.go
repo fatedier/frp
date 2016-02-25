@@ -15,6 +15,7 @@ var (
 	LogLevel         string = "warn"
 	LogWay           string = "file"
 	HeartBeatTimeout int64  = 30
+	UserConnTimeout  int64  = 10
 )
 
 var ProxyServers map[string]*ProxyServer = make(map[string]*ProxyServer)

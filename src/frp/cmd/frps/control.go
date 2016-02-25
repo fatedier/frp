@@ -6,16 +6,19 @@ import (
 	"io"
 	"time"
 
-	"github.com/fatedier/frp/models/consts"
-	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/models/server"
-	"github.com/fatedier/frp/utils/conn"
-	"github.com/fatedier/frp/utils/log"
+	"frp/models/consts"
+	"frp/models/msg"
+	"frp/models/server"
+	"frp/utils/conn"
+	"frp/utils/log"
 )
 
 func ProcessControlConn(l *conn.Listener) {
 	for {
-		c := l.GetConn()
+		c, err := l.GetConn()
+		if err != nil {
+			return
+		}
 		log.Debug("Get one new conn, %v", c.GetRemoteAddr())
 		go controlWorker(c)
 	}
@@ -47,7 +50,6 @@ func controlWorker(c *conn.Conn) {
 	}
 
 	if needRes {
-		// control conn
 		defer c.Close()
 
 		buf, _ := json.Marshal(clientCtlRes)
@@ -62,7 +64,7 @@ func controlWorker(c *conn.Conn) {
 		return
 	}
 
-	// others is from server to client
+	// other messages is from server to client
 	s, ok := server.ProxyServers[clientCtlReq.ProxyName]
 	if !ok {
 		log.Warn("ProxyName [%s] is not exist", clientCtlReq.ProxyName)
@@ -138,7 +140,7 @@ func checkProxy(req *msg.ClientCtlReq, c *conn.Conn) (succ bool, info string, ne
 			return
 		}
 
-		s.CliConnChan <- c
+		s.GetNewCliConn(c)
 	} else {
 		info = fmt.Sprintf("ProxyName [%s], type [%d] unsupport", req.ProxyName, req.Type)
 		log.Warn(info)
@@ -153,8 +155,8 @@ func readControlMsgFromClient(s *server.ProxyServer, c *conn.Conn) {
 	isContinueRead := true
 	f := func() {
 		isContinueRead = false
-		c.Close()
 		s.Close()
+		log.Error("ProxyName [%s], client heartbeat timeout", s.Name)
 	}
 	timer := time.AfterFunc(time.Duration(server.HeartBeatTimeout)*time.Second, f)
 	defer timer.Stop()
@@ -164,13 +166,17 @@ func readControlMsgFromClient(s *server.ProxyServer, c *conn.Conn) {
 		if err != nil {
 			if err == io.EOF {
 				log.Warn("ProxyName [%s], client is dead!", s.Name)
-				c.Close()
 				s.Close()
 				break
+			} else if c.IsClosed() {
+				log.Warn("ProxyName [%s], client connection is closed", s.Name)
+				break
 			}
+
 			log.Error("ProxyName [%s], read error: %v", s.Name, err)
 			continue
 		}
+		log.Debug("ProxyName [%s], get heartbeat", s.Name)
 
 		timer.Reset(time.Duration(server.HeartBeatTimeout) * time.Second)
 	}

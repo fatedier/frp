@@ -4,8 +4,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/fatedier/frp/models/client"
-	"github.com/fatedier/frp/utils/log"
+	"frp/models/client"
+	"frp/utils/log"
 )
 
 func main() {

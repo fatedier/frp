@@ -7,7 +7,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/fatedier/frp/utils/log"
+	"frp/utils/log"
 )
 
 type Listener struct {
@@ -52,15 +52,15 @@ func Listen(bindAddr string, bindPort int64) (l *Listener, err error) {
 	return l, err
 }
 
-// wait util get one new connection or close
-// if listener is closed, return nil
-func (l *Listener) GetConn() (conn *Conn) {
+// wait util get one new connection or listener is closed
+// if listener is closed, err returned
+func (l *Listener) GetConn() (conn *Conn, err error) {
 	var ok bool
 	conn, ok = <-l.conns
 	if !ok {
-		return nil
+		return conn, fmt.Errorf("channel close")
 	}
-	return conn
+	return conn, nil
 }
 
 func (l *Listener) Close() {
@@ -116,7 +116,7 @@ func (c *Conn) Write(content string) (err error) {
 }
 
 func (c *Conn) Close() {
-	if c.TcpConn != nil {
+	if c.TcpConn != nil && c.closeFlag == false {
 		c.closeFlag = true
 		c.TcpConn.Close()
 	}

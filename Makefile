@@ -1,4 +1,5 @@
 export PATH := $(GOPATH)/bin:$(PATH)
+export NEW_GOPATH := $(shell pwd)
 
 all: build
 
@@ -9,13 +10,13 @@ godep:
 	godep restore
 
 fmt:
-	@godep go fmt ./...
+	@GOPATH=$(NEW_GOPATH) godep go fmt ./...
 
 frps:
-	godep go build -o bin/frps ./cmd/frps
+	GOPATH=$(NEW_GOPATH) godep go build -o bin/frps ./src/frp/cmd/frps
 
 frpc:
-	godep go build -o bin/frpc ./cmd/frpc
+	GOPATH=$(NEW_GOPATH) godep go build -o bin/frpc ./src/frp/cmd/frpc
 
 test:
-	@godep go test ./...
+	@GOPATH=$(NEW_GOPATH) godep go test ./...
