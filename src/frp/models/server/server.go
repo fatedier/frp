@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/models/consts"
-	"github.com/fatedier/frp/utils/conn"
-	"github.com/fatedier/frp/utils/log"
+	"frp/models/consts"
+	"frp/utils/conn"
+	"frp/utils/log"
 )
 
 type ProxyServer struct {

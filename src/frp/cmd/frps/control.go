@@ -6,11 +6,11 @@ import (
 	"io"
 	"time"
 
-	"github.com/fatedier/frp/models/consts"
-	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/models/server"
-	"github.com/fatedier/frp/utils/conn"
-	"github.com/fatedier/frp/utils/log"
+	"frp/models/consts"
+	"frp/models/msg"
+	"frp/models/server"
+	"frp/utils/conn"
+	"frp/utils/log"
 )
 
 func ProcessControlConn(l *conn.Listener) {

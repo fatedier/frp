@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/models/client"
-	"github.com/fatedier/frp/models/consts"
-	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/conn"
-	"github.com/fatedier/frp/utils/log"
+	"frp/models/client"
+	"frp/models/consts"
+	"frp/models/msg"
+	"frp/utils/conn"
+	"frp/utils/log"
 )
 
 func ControlProcess(cli *client.ProxyClient, wait *sync.WaitGroup) {

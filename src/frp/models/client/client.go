@@ -3,10 +3,10 @@ package client
 import (
 	"encoding/json"
 
-	"github.com/fatedier/frp/models/consts"
-	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/conn"
-	"github.com/fatedier/frp/utils/log"
+	"frp/models/consts"
+	"frp/models/msg"
+	"frp/utils/conn"
+	"frp/utils/log"
 )
 
 type ProxyClient struct {

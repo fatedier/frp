@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"github.com/fatedier/frp/models/server"
-	"github.com/fatedier/frp/utils/conn"
-	"github.com/fatedier/frp/utils/log"
+	"frp/models/server"
+	"frp/utils/conn"
+	"frp/utils/log"
 )
 
 func main() {
