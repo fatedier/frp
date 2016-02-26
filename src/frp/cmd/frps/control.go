@@ -162,13 +162,13 @@ func readControlMsgFromClient(s *server.ProxyServer, c *conn.Conn) {
 	defer timer.Stop()
 
 	for isContinueRead {
-		_, err := c.ReadLine()
+		content, err := c.ReadLine()
 		if err != nil {
 			if err == io.EOF {
 				log.Warn("ProxyName [%s], client is dead!", s.Name)
 				s.Close()
 				break
-			} else if c.IsClosed() {
+			} else if nil == c || c.IsClosed() {
 				log.Warn("ProxyName [%s], client connection is closed", s.Name)
 				break
 			}
@@ -176,8 +176,29 @@ func readControlMsgFromClient(s *server.ProxyServer, c *conn.Conn) {
 			log.Error("ProxyName [%s], read error: %v", s.Name, err)
 			continue
 		}
-		log.Debug("ProxyName [%s], get heartbeat", s.Name)
 
-		timer.Reset(time.Duration(server.HeartBeatTimeout) * time.Second)
+		clientCtlReq := &msg.ClientCtlReq{}
+		if err := json.Unmarshal([]byte(content), clientCtlReq); err != nil {
+			log.Warn("Parse err: %v : %s", err, content)
+			continue
+		}
+		if consts.CSHeartBeatReq == clientCtlReq.Type {
+			log.Debug("ProxyName [%s], get heartbeat", s.Name)
+			timer.Reset(time.Duration(server.HeartBeatTimeout) * time.Second)
+
+			clientCtlRes := &msg.ClientCtlRes{}
+			clientCtlRes.GeneralRes.Code = consts.SCHeartBeatRes
+			response, err := json.Marshal(clientCtlRes)
+			if err != nil {
+				log.Warn("Serialize ClientCtlRes err! err: %v", err)
+				continue
+			}
+
+			err = c.Write(string(response) + "\n")
+			if err != nil {
+				log.Error("Send heartbeat response to client failed! Err:%v", err)
+				continue
+			}
+		}
 	}
 }

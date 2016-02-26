@@ -15,6 +15,7 @@ var (
 	LogLevel          string = "warn"
 	LogWay            string = "file"
 	HeartBeatInterval int64  = 5
+	HeartBeatTimeout  int64  = 30
 )
 
 var ProxyClients map[string]*ProxyClient = make(map[string]*ProxyClient)
