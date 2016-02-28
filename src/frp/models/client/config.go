@@ -1,25 +1,24 @@
-package main
+package client
 
 import (
 	"fmt"
 	"strconv"
-
-	"frp/pkg/models"
 
 	ini "github.com/vaughan0/go-ini"
 )
 
 // common config
 var (
-	ServerAddr	string = "0.0.0.0"
-	ServerPort	int64  = 7000
-	LogFile		string = "./frpc.log"
-	LogLevel	string = "warn"
-	LogWay		string = "file"
+	ServerAddr        string = "0.0.0.0"
+	ServerPort        int64  = 7000
+	LogFile           string = "./frpc.log"
+	LogLevel          string = "warn"
+	LogWay            string = "file"
+	HeartBeatInterval int64  = 5
+	HeartBeatTimeout  int64  = 30
 )
 
-var ProxyClients map[string]*models.ProxyClient = make(map[string]*models.ProxyClient)
-
+var ProxyClients map[string]*ProxyClient = make(map[string]*ProxyClient)
 
 func LoadConf(confFile string) (err error) {
 	var tmpStr string
@@ -59,7 +58,7 @@ func LoadConf(confFile string) (err error) {
 	// servers
 	for name, section := range conf {
 		if name != "common" {
-			proxyClient := &models.ProxyClient{}
+			proxyClient := &ProxyClient{}
 			proxyClient.Name = name
 
 			proxyClient.Passwd, ok = section["passwd"]
