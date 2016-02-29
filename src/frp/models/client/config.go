@@ -55,7 +55,7 @@ func LoadConf(confFile string) (err error) {
 		LogWay = tmpStr
 	}
 
-	// servers
+	// proxies
 	for name, section := range conf {
 		if name != "common" {
 			proxyClient := &ProxyClient{}
@@ -68,7 +68,8 @@ func LoadConf(confFile string) (err error) {
 
 			proxyClient.LocalIp, ok = section["local_ip"]
 			if !ok {
-				return fmt.Errorf("Parse ini file error: proxy [%s] no local_ip found", proxyClient.Name)
+				// use 127.0.0.1 as default
+				proxyClient.LocalIp = "127.0.0.1"
 			}
 
 			portStr, ok := section["local_port"]
