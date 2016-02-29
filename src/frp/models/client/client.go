@@ -12,11 +12,12 @@ import (
 type ProxyClient struct {
 	Name      string
 	Passwd    string
+	LocalIp   string
 	LocalPort int64
 }
 
 func (p *ProxyClient) GetLocalConn() (c *conn.Conn, err error) {
-	c, err = conn.ConnectServer("127.0.0.1", p.LocalPort)
+	c, err = conn.ConnectServer(p.LocalIp, p.LocalPort)
 	if err != nil {
 		log.Error("ProxyName [%s], connect to local port error, %v", p.Name, err)
 	}

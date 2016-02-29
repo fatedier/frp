@@ -66,6 +66,11 @@ func LoadConf(confFile string) (err error) {
 				return fmt.Errorf("Parse ini file error: proxy [%s] no passwd found", proxyClient.Name)
 			}
 
+			proxyClient.LocalIp, ok = section["local_ip"]
+			if !ok {
+				return fmt.Errorf("Parse ini file error: proxy [%s] no local_ip found", proxyClient.Name)
+			}
+
 			portStr, ok := section["local_port"]
 			if ok {
 				proxyClient.LocalPort, err = strconv.ParseInt(portStr, 10, 64)
