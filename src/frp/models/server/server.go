@@ -128,7 +128,9 @@ func (p *ProxyServer) Start() (err error) {
 func (p *ProxyServer) Close() {
 	p.Lock()
 	p.Status = consts.Idle
-	p.listener.Close()
+	if p.listener != nil {
+		p.listener.Close()
+	}
 	close(p.ctlMsgChan)
 	close(p.cliConnChan)
 	p.userConnList = list.New()
