@@ -10,10 +10,10 @@ import (
 // common config
 var (
 	BindAddr         string = "0.0.0.0"
-	BindPort         int64  = 9527
-	LogFile          string = "./frps.log"
-	LogLevel         string = "warn"
-	LogWay           string = "file"
+	BindPort         int64  = 7000
+	LogFile          string = "console"
+	LogWay           string = "console" // console or file
+	LogLevel         string = "info"
 	HeartBeatTimeout int64  = 30
 	UserConnTimeout  int64  = 10
 )
@@ -43,16 +43,16 @@ func LoadConf(confFile string) (err error) {
 	tmpStr, ok = conf.Get("common", "log_file")
 	if ok {
 		LogFile = tmpStr
+		if LogFile == "console" {
+			LogWay = "console"
+		} else {
+			LogWay = "file"
+		}
 	}
 
 	tmpStr, ok = conf.Get("common", "log_level")
 	if ok {
 		LogLevel = tmpStr
-	}
-
-	tmpStr, ok = conf.Get("common", "log_way")
-	if ok {
-		LogWay = tmpStr
 	}
 
 	// servers
