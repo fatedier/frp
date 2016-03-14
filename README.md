@@ -12,7 +12,7 @@ frp is under development and you can try it with available version 0.1.
 
 ## Quick Start
 
-Read the [QuickStart](doc/quick_start_en.md) [使用文档](doc/quick_start_zh.md)
+Read the [QuickStart](doc/quick_start_en.md) | [使用文档](doc/quick_start_zh.md)
 
 ## Architecture
 
