@@ -26,7 +26,7 @@ frp 相比于其他项目而言非常易于部署和使用，这里我们用一�
 3. 修改两边的配置文件，见下一节说明。
 4. 在服务器B执行 `nohup ./frps &` 或者 `nohup ./frps -c ./frps.ini &`。
 5. 在服务器A执行 `nohup ./frpc &` 或者 `nohup ./frpc -c ./frpc.ini &`。
-6. 通过 `ssh -oPort=6000 {user}@x.x.x.x` 测试是否能够成功连接服务器A（{user}替换为服务器B上存在的真实用户）。
+6. 通过 `ssh -oPort=6000 {user}@x.x.x.x` 测试是否能够成功连接服务器A（{user}替换为服务器A上存在的真实用户）。
 
 ### 配置文件
 
