@@ -6,7 +6,7 @@ frp 相比于其他项目而言非常易于部署和使用，这里我们用一�
 
 推荐直接使用 `go get github.com/fatedier/frp` 下载源代码安装，执行命令后代码将会拷贝到 `$GOPATH/src/github.com/fatedier/frp` 目录下。
 
-或者可以使用 `git clone https://github.com/fatedier/frp.git $GOPATH/src` 拷贝到 `$GOPATH/src/github.com/fatedier/frp` 目录下。
+或者可以使用 `git clone https://github.com/fatedier/frp.git $GOPATH/src/github.com/fatedier/frp` 拷贝到相应目录下。
 
 ### 编译
 
