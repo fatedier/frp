@@ -25,7 +25,7 @@ func TestEncrypto(t *testing.T) {
 	pp.Init([]byte("Hana"))
 	res, err := pp.Encrypto([]byte("Just One Test!"))
 	if err != nil {
-		t.Error(err)
+		t.Fatalf(err)
 	}
 
 	fmt.Printf("[%x]\n", res)
@@ -36,12 +36,12 @@ func TestDecrypto(t *testing.T) {
 	pp.Init([]byte("Hana"))
 	res, err := pp.Encrypto([]byte("Just One Test!"))
 	if err != nil {
-		t.Error(err)
+		t.Fatalf(err)
 	}
 
 	res, err = pp.Decrypto(res)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf(err)
 	}
 
 	fmt.Printf("[%s]\n", string(res))

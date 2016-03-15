@@ -29,7 +29,7 @@ var (
 func TestBroadcast(t *testing.T) {
 	b := NewBroadcast()
 	if b == nil {
-		t.Errorf("New Broadcast error, nil return")
+		t.Fatalf("New Broadcast error, nil return")
 	}
 	defer b.Close()
 
@@ -45,7 +45,7 @@ func TestBroadcast(t *testing.T) {
 
 	wait.Wait()
 	if succNum != totalNum {
-		t.Errorf("TotalNum %d, FailNum(timeout) %d", totalNum, totalNum-succNum)
+		t.Fatalf("TotalNum %d, FailNum(timeout) %d", totalNum, totalNum-succNum)
 	}
 }
 
