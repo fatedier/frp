@@ -1,3 +1,17 @@
+// Copyright 2016 fatedier, fatedier@gmail.com
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package server
 
 import (
@@ -10,11 +24,11 @@ import (
 // common config
 var (
 	BindAddr         string = "0.0.0.0"
-	BindPort         int64  = 9527
-	LogFile          string = "./frps.log"
-	LogLevel         string = "warn"
-	LogWay           string = "file"
-	HeartBeatTimeout int64  = 30
+	BindPort         int64  = 7000
+	LogFile          string = "console"
+	LogWay           string = "console" // console or file
+	LogLevel         string = "info"
+	HeartBeatTimeout int64  = 90
 	UserConnTimeout  int64  = 10
 )
 
@@ -43,16 +57,16 @@ func LoadConf(confFile string) (err error) {
 	tmpStr, ok = conf.Get("common", "log_file")
 	if ok {
 		LogFile = tmpStr
+		if LogFile == "console" {
+			LogWay = "console"
+		} else {
+			LogWay = "file"
+		}
 	}
 
 	tmpStr, ok = conf.Get("common", "log_level")
 	if ok {
 		LogLevel = tmpStr
-	}
-
-	tmpStr, ok = conf.Get("common", "log_way")
-	if ok {
-		LogWay = tmpStr
 	}
 
 	// servers

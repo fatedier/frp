@@ -1,3 +1,17 @@
+// Copyright 2016 fatedier, fatedier@gmail.com
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package client
 
 import (
@@ -12,11 +26,12 @@ import (
 type ProxyClient struct {
 	Name      string
 	Passwd    string
+	LocalIp   string
 	LocalPort int64
 }
 
 func (p *ProxyClient) GetLocalConn() (c *conn.Conn, err error) {
-	c, err = conn.ConnectServer("127.0.0.1", p.LocalPort)
+	c, err = conn.ConnectServer(p.LocalIp, p.LocalPort)
 	if err != nil {
 		log.Error("ProxyName [%s], connect to local port error, %v", p.Name, err)
 	}

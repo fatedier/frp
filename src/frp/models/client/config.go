@@ -1,3 +1,17 @@
+// Copyright 2016 fatedier, fatedier@gmail.com
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package client
 
 import (
@@ -11,11 +25,11 @@ import (
 var (
 	ServerAddr        string = "0.0.0.0"
 	ServerPort        int64  = 7000
-	LogFile           string = "./frpc.log"
-	LogLevel          string = "warn"
-	LogWay            string = "file"
-	HeartBeatInterval int64  = 5
-	HeartBeatTimeout  int64  = 30
+	LogFile           string = "console"
+	LogWay            string = "console"
+	LogLevel          string = "info"
+	HeartBeatInterval int64  = 20
+	HeartBeatTimeout  int64  = 90
 )
 
 var ProxyClients map[string]*ProxyClient = make(map[string]*ProxyClient)
@@ -43,6 +57,11 @@ func LoadConf(confFile string) (err error) {
 	tmpStr, ok = conf.Get("common", "log_file")
 	if ok {
 		LogFile = tmpStr
+		if LogFile == "console" {
+			LogWay = "console"
+		} else {
+			LogWay = "file"
+		}
 	}
 
 	tmpStr, ok = conf.Get("common", "log_level")
@@ -50,12 +69,7 @@ func LoadConf(confFile string) (err error) {
 		LogLevel = tmpStr
 	}
 
-	tmpStr, ok = conf.Get("common", "log_way")
-	if ok {
-		LogWay = tmpStr
-	}
-
-	// servers
+	// proxies
 	for name, section := range conf {
 		if name != "common" {
 			proxyClient := &ProxyClient{}
@@ -64,6 +78,12 @@ func LoadConf(confFile string) (err error) {
 			proxyClient.Passwd, ok = section["passwd"]
 			if !ok {
 				return fmt.Errorf("Parse ini file error: proxy [%s] no passwd found", proxyClient.Name)
+			}
+
+			proxyClient.LocalIp, ok = section["local_ip"]
+			if !ok {
+				// use 127.0.0.1 as default
+				proxyClient.LocalIp = "127.0.0.1"
 			}
 
 			portStr, ok := section["local_port"]
