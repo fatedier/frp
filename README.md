@@ -8,7 +8,7 @@ frp is a fast reverse proxy which can help you expose a local server behind a NA
 
 ## Status
 
-frp is under development and you can try it with available version 0.1.
+frp is under development and you can try it with available version 0.2.0.
 
 ## Quick Start
 
