@@ -11,4 +11,4 @@ RUN cd /usr/share/frp && make
 EXPOSE 80
 EXPOSE 7000
 
-CMD ["/usr/share/frp/bin/frps -c /usr/share/frps.ini"]
+CMD ["/usr/share/frp/bin/frps", "-c", "/usr/share/frps.ini"]
