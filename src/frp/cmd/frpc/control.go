@@ -156,6 +156,7 @@ func startHeartBeat(c *conn.Conn) {
 	for {
 		time.Sleep(time.Duration(client.HeartBeatInterval) * time.Second)
 		if c != nil && !c.IsClosed() {
+			log.Debug("Send heartbeat to server")
 			err = c.Write(string(request) + "\n")
 			if err != nil {
 				log.Error("Send hearbeat to server failed! Err:%v", err)
@@ -165,5 +166,5 @@ func startHeartBeat(c *conn.Conn) {
 			break
 		}
 	}
-	log.Debug("Heartbeat exit")
+	log.Debug("Heartbeat goroutine exit")
 }

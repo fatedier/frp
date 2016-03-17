@@ -29,7 +29,7 @@ var (
 	LogWay            string = "console"
 	LogLevel          string = "info"
 	HeartBeatInterval int64  = 20
-	HeartBeatTimeout  int64  = 60
+	HeartBeatTimeout  int64  = 90
 )
 
 var ProxyClients map[string]*ProxyClient = make(map[string]*ProxyClient)

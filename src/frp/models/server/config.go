@@ -28,7 +28,7 @@ var (
 	LogFile          string = "console"
 	LogWay           string = "console" // console or file
 	LogLevel         string = "info"
-	HeartBeatTimeout int64  = 30
+	HeartBeatTimeout int64  = 90
 	UserConnTimeout  int64  = 10
 )
 
