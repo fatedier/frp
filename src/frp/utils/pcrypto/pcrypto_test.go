@@ -15,7 +15,6 @@
 package pcrypto
 
 import (
-	"crypto/aes"
 	"fmt"
 	"testing"
 )
@@ -45,17 +44,4 @@ func TestDecrypto(t *testing.T) {
 	}
 
 	fmt.Printf("[%s]\n", string(res))
-}
-
-func TestPKCS7Padding(t *testing.T) {
-	ltt := []byte("Test_PKCS7Padding")
-	ltt = PKCS7Padding(ltt, aes.BlockSize)
-	// fmt.Printf("[%x]\n", (ltt))
-}
-
-func TestPKCS7UnPadding(t *testing.T) {
-	ltt := []byte("Test_PKCS7Padding")
-	ltt = PKCS7Padding(ltt, aes.BlockSize)
-	ltt = PKCS7UnPadding(ltt)
-	// fmt.Printf("[%x]\n", ltt)
 }
