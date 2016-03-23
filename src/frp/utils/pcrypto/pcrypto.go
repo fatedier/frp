@@ -33,7 +33,7 @@ type Pcrypto struct {
 
 func (pc *Pcrypto) Init(key []byte) error {
 	var err error
-	pc.pkey = PKCS7Padding(key, aes.BlockSize)
+	pc.pkey = pKCS7Padding(key, aes.BlockSize)
 	pc.paes, err = aes.NewCipher(pc.pkey)
 
 	return err
@@ -41,7 +41,7 @@ func (pc *Pcrypto) Init(key []byte) error {
 
 func (pc *Pcrypto) Encrypto(src []byte) ([]byte, error) {
 	// aes
-	src = PKCS7Padding(src, aes.BlockSize)
+	src = pKCS7Padding(src, aes.BlockSize)
 	blockMode := cipher.NewCBCEncrypter(pc.paes, pc.pkey)
 	crypted := make([]byte, len(src))
 	blockMode.CryptBlocks(crypted, src)
@@ -83,18 +83,18 @@ func (pc *Pcrypto) Decrypto(str []byte) ([]byte, error) {
 	blockMode := cipher.NewCBCDecrypter(pc.paes, pc.pkey)
 
 	blockMode.CryptBlocks(decryptText, decryptText)
-	decryptText = PKCS7UnPadding(decryptText)
+	decryptText = pKCS7UnPadding(decryptText)
 
 	return decryptText, nil
 }
 
-func PKCS7Padding(ciphertext []byte, blockSize int) []byte {
+func pKCS7Padding(ciphertext []byte, blockSize int) []byte {
 	padding := blockSize - len(ciphertext)%blockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(ciphertext, padtext...)
 }
 
-func PKCS7UnPadding(origData []byte) []byte {
+func pKCS7UnPadding(origData []byte) []byte {
 	length := len(origData)
 	unpadding := int(origData[length-1])
 	return origData[:(length - unpadding)]
