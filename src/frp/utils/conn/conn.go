@@ -175,23 +175,22 @@ func PipeDecryptoReader(r net.Conn, w net.Conn, key string) {
 		return
 	}
 
-	log.Debug("PipeDecryptoReader")
-
-	buf := make([]byte, 10*1024)
+	nreader := bufio.NewReader(r)
 
 	for {
-		n, err := r.Read(buf)
+		buf, err := nreader.ReadBytes('\n')
 		if err != nil {
-			log.Error("Conn ReadLine error, [%v]", err)
+			log.Error("Conn ReadBytes error, [%v]", err)
 			return
 		}
 
-		res, err := laes.Decrypto(buf[:n])
+		res, err := laes.Decrypto(buf)
 		if err != nil {
-			log.Error("Decrypto error, [%s] [%s]", err, string(buf[:n]))
+			log.Error("Decrypto error, [%s] [%s]", err, string(buf))
 			return
 		}
 
+		// res = append(res, '\n')
 		_, err = w.Write(res)
 		if err != nil {
 			log.Error("net.Conn Write error, [%v]", err)
@@ -213,20 +212,21 @@ func PipeEncryptoWriter(r net.Conn, w net.Conn, key string) {
 
 	log.Debug("PipeEncryptoWriter")
 
-	buf := make([]byte, 10*1024)
+	nreader := bufio.NewReader(r)
 
 	for {
-		n, err := r.Read(buf)
+		buf, err := nreader.ReadBytes('\n')
 		if err != nil {
 			log.Error("Conn ReadLine error, [%v]", err)
 			return
 		}
-		res, err := laes.Encrypto(buf[:n])
+		res, err := laes.Encrypto(buf)
 		if err != nil {
 			log.Error("Encrypto error, [%v]", err)
 			return
 		}
 
+		res = append(res, '\n')
 		_, err = w.Write(res)
 		if err != nil {
 			log.Error("net.Conn Write error, [%v]", err)
