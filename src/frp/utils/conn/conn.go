@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"frp/utils/log"
+	"frp/utils/pcrypto"
 )
 
 type Listener struct {
@@ -127,6 +128,7 @@ func (c *Conn) ReadLine() (buff string, err error) {
 func (c *Conn) Write(content string) (err error) {
 	_, err = c.TcpConn.Write([]byte(content))
 	return err
+
 }
 
 func (c *Conn) Close() {
@@ -160,4 +162,75 @@ func Join(c1 *Conn, c2 *Conn) {
 	go pipe(c2, c1)
 	wait.Wait()
 	return
+}
+
+// decrypto msg from reader, then write into writer
+func PipeDecryptoReader(r net.Conn, w net.Conn, key string) {
+	defer r.Close()
+	defer w.Close()
+
+	laes := new(pcrypto.Pcrypto)
+	if err := laes.Init([]byte(key)); err != nil {
+		log.Error("Pcrypto Init error, [%v]", err)
+		return
+	}
+
+	nreader := bufio.NewReader(r)
+
+	for {
+		buf, err := nreader.ReadBytes('\n')
+		if err != nil {
+			log.Error("Conn ReadBytes error, [%v]", err)
+			return
+		}
+
+		res, err := laes.Decrypto(buf)
+		if err != nil {
+			log.Error("Decrypto error, [%s] [%s]", err, string(buf))
+			return
+		}
+
+		_, err = w.Write(res)
+		if err != nil {
+			log.Error("net.Conn Write error, [%v]", err)
+			return
+		}
+	}
+}
+
+// recvive msg from reader, then encrypto msg into write
+func PipeEncryptoWriter(r net.Conn, w net.Conn, key string) {
+	defer r.Close()
+	defer w.Close()
+
+	laes := new(pcrypto.Pcrypto)
+	if err := laes.Init([]byte(key)); err != nil {
+		log.Error("Pcrypto Init error, [%v]", err)
+		return
+	}
+
+	log.Debug("PipeEncryptoWriter")
+
+	nreader := bufio.NewReader(r)
+	buf := make([]byte, 10*1024)
+
+	for {
+		n, err := nreader.Read(buf)
+		if err != nil {
+			log.Error("Conn ReadLine error, [%v]", err)
+			return
+		}
+		res, err := laes.Encrypto(buf[:n])
+		if err != nil {
+			log.Error("Encrypto error, [%v]", err)
+			return
+		}
+
+		res = append(res, '\n')
+		_, err = w.Write(res)
+		if err != nil {
+			log.Error("net.Conn Write error, [%v]", err)
+			return
+		}
+	}
 }
