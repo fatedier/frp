@@ -133,8 +133,7 @@ func (p *ProxyServer) Start() (err error) {
 			log.Debug("Join two conns, (l[%s] r[%s]) (l[%s] r[%s])", cliConn.GetLocalAddr(), cliConn.GetRemoteAddr(),
 				userConn.GetLocalAddr(), userConn.GetRemoteAddr())
 			// go conn.Join(cliConn, userConn)
-			go conn.PipeEncryptoWriter(userConn.TcpConn, cliConn.TcpConn, p.Passwd)
-			go conn.PipeDecryptoReader(cliConn.TcpConn, userConn.TcpConn, p.Passwd)
+			go conn.JoinMore(userConn, cliConn, p.Passwd)
 		}
 	}()
 
