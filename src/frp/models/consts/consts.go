@@ -20,18 +20,12 @@ const (
 	Working
 )
 
-// connection type
+// msg type
 const (
-	CtlConn = iota
-	WorkConn
-)
-
-// msg from client to server
-const (
-	CSHeartBeatReq = 1
-)
-
-// msg from server to client
-const (
-	SCHeartBeatRes = 100
+	NewCtlConn = iota
+	NewWorkConn
+	NoticeUserConn
+	NewCtlConnRes
+	HeartbeatReq
+	HeartbeatRes
 )

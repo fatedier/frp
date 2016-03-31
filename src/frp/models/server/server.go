@@ -33,14 +33,14 @@ type ProxyServer struct {
 
 	listener     *conn.Listener  // accept new connection from remote users
 	ctlMsgChan   chan int64      // every time accept a new user conn, put "1" to the channel
-	cliConnChan  chan *conn.Conn // get client conns from control goroutine
+	workConnChan chan *conn.Conn // get new work conns from control goroutine
 	userConnList *list.List      // store user conns
 	mutex        sync.Mutex
 }
 
 func (p *ProxyServer) Init() {
 	p.Status = consts.Idle
-	p.cliConnChan = make(chan *conn.Conn)
+	p.workConnChan = make(chan *conn.Conn)
 	p.ctlMsgChan = make(chan int64)
 	p.userConnList = list.New()
 }
@@ -109,7 +109,7 @@ func (p *ProxyServer) Start() (err error) {
 	// start another goroutine for join two conns from client and user
 	go func() {
 		for {
-			cliConn, ok := <-p.cliConnChan
+			workConn, ok := <-p.workConnChan
 			if !ok {
 				return
 			}
@@ -122,7 +122,7 @@ func (p *ProxyServer) Start() (err error) {
 				userConn = element.Value.(*conn.Conn)
 				p.userConnList.Remove(element)
 			} else {
-				cliConn.Close()
+				workConn.Close()
 				p.Unlock()
 				continue
 			}
@@ -130,10 +130,10 @@ func (p *ProxyServer) Start() (err error) {
 
 			// msg will transfer to another without modifying
 			// l means local, r means remote
-			log.Debug("Join two conns, (l[%s] r[%s]) (l[%s] r[%s])", cliConn.GetLocalAddr(), cliConn.GetRemoteAddr(),
+			log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", workConn.GetLocalAddr(), workConn.GetRemoteAddr(),
 				userConn.GetLocalAddr(), userConn.GetRemoteAddr())
-			// go conn.Join(cliConn, userConn)
-			go conn.JoinMore(userConn, cliConn, p.Passwd)
+			// go conn.Join(workConn, userConn)
+			go conn.JoinMore(userConn, workConn, p.Passwd)
 		}
 	}()
 
@@ -147,7 +147,7 @@ func (p *ProxyServer) Close() {
 		p.listener.Close()
 	}
 	close(p.ctlMsgChan)
-	close(p.cliConnChan)
+	close(p.workConnChan)
 	p.userConnList = list.New()
 	p.Unlock()
 }
@@ -162,6 +162,6 @@ func (p *ProxyServer) WaitUserConn() (closeFlag bool) {
 	return
 }
 
-func (p *ProxyServer) GetNewCliConn(c *conn.Conn) {
-	p.cliConnChan <- c
+func (p *ProxyServer) RecvNewWorkConn(c *conn.Conn) {
+	p.workConnChan <- c
 }

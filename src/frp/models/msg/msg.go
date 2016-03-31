@@ -19,16 +19,15 @@ type GeneralRes struct {
 	Msg  string `json:"msg"`
 }
 
-type ClientCtlReq struct {
+// messages between control connection of frpc and frps
+type ControlReq struct {
 	Type      int64  `json:"type"`
-	ProxyName string `json:"proxy_name"`
-	Passwd    string `json:"passwd"`
+	ProxyName string `json:"proxy_name,omitempty"`
+	Passwd    string `json:"passwd, omitempty"`
 }
 
-type ClientCtlRes struct {
-	GeneralRes
-}
-
-type ServerCtlReq struct {
-	Type int64 `json:"type"`
+type ControlRes struct {
+	Type int64  `json:"type"`
+	Code int64  `json:"code"`
+	Msg  string `json:"msg"`
 }

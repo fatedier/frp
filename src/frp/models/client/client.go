@@ -51,8 +51,8 @@ func (p *ProxyClient) GetRemoteConn(addr string, port int64) (c *conn.Conn, err 
 		return
 	}
 
-	req := &msg.ClientCtlReq{
-		Type:      consts.WorkConn,
+	req := &msg.ControlReq{
+		Type:      consts.NewWorkConn,
 		ProxyName: p.Name,
 		Passwd:    p.Passwd,
 	}
@@ -79,7 +79,7 @@ func (p *ProxyClient) StartTunnel(serverAddr string, serverPort int64) (err erro
 	}
 
 	// l means local, r means remote
-	log.Debug("Join two conns, (l[%s] r[%s]) (l[%s] r[%s])", localConn.GetLocalAddr(), localConn.GetRemoteAddr(),
+	log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", localConn.GetLocalAddr(), localConn.GetRemoteAddr(),
 		remoteConn.GetLocalAddr(), remoteConn.GetRemoteAddr())
 	// go conn.Join(localConn, remoteConn)
 	go conn.JoinMore(localConn, remoteConn, p.Passwd)

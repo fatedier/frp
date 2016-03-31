@@ -153,7 +153,7 @@ func Join(c1 *Conn, c2 *Conn) {
 		var err error
 		_, err = io.Copy(to.TcpConn, from.TcpConn)
 		if err != nil {
-			log.Warn("join conns error, %v", err)
+			log.Warn("join connections error, %v", err)
 		}
 	}
 
@@ -171,10 +171,8 @@ func JoinMore(local *Conn, remote *Conn, cryptoKey string) {
 		defer to.Close()
 		defer wait.Done()
 
-		err := PipeEncryptoWriter(from.TcpConn, to.TcpConn, key)
-		if err != nil {
-			log.Warn("join conns error, %v", err)
-		}
+		// we don't care about errors here
+		PipeEncryptoWriter(from.TcpConn, to.TcpConn, key)
 	}
 
 	decryptoPipe := func(to *Conn, from *Conn, key string) {
@@ -182,16 +180,15 @@ func JoinMore(local *Conn, remote *Conn, cryptoKey string) {
 		defer to.Close()
 		defer wait.Done()
 
-		err := PipeDecryptoReader(to.TcpConn, from.TcpConn, key)
-		if err != nil {
-			log.Warn("join conns error, %v", err)
-		}
+		// we don't care about errors here
+		PipeDecryptoReader(to.TcpConn, from.TcpConn, key)
 	}
 
 	wait.Add(2)
 	go encrypPipe(local, remote, cryptoKey)
 	go decryptoPipe(remote, local, cryptoKey)
 	wait.Wait()
+	log.Debug("One tunnel stopped")
 	return
 }
 
