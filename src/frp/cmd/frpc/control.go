@@ -131,9 +131,10 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 	}
 
 	req := &msg.ControlReq{
-		Type:      consts.NewCtlConn,
-		ProxyName: cli.Name,
-		Passwd:    cli.Passwd,
+		Type:          consts.NewCtlConn,
+		ProxyName:     cli.Name,
+		Passwd:        cli.Passwd,
+		UseEncryption: cli.UseEncryption,
 	}
 	buf, _ := json.Marshal(req)
 	err = c.Write(string(buf) + "\n")

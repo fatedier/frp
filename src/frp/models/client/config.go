@@ -73,19 +73,23 @@ func LoadConf(confFile string) (err error) {
 	for name, section := range conf {
 		if name != "common" {
 			proxyClient := &ProxyClient{}
+			// name
 			proxyClient.Name = name
 
+			// passwd
 			proxyClient.Passwd, ok = section["passwd"]
 			if !ok {
 				return fmt.Errorf("Parse ini file error: proxy [%s] no passwd found", proxyClient.Name)
 			}
 
+			// local_ip
 			proxyClient.LocalIp, ok = section["local_ip"]
 			if !ok {
 				// use 127.0.0.1 as default
 				proxyClient.LocalIp = "127.0.0.1"
 			}
 
+			// local_port
 			portStr, ok := section["local_port"]
 			if ok {
 				proxyClient.LocalPort, err = strconv.ParseInt(portStr, 10, 64)
@@ -94,6 +98,13 @@ func LoadConf(confFile string) (err error) {
 				}
 			} else {
 				return fmt.Errorf("Parse ini file error: proxy [%s] local_port not found", proxyClient.Name)
+			}
+
+			// use_encryption
+			proxyClient.UseEncryption = false
+			useEncryptionStr, ok := section["use_encryption"]
+			if ok && useEncryptionStr == "true" {
+				proxyClient.UseEncryption = true
 			}
 
 			ProxyClients[proxyClient.Name] = proxyClient

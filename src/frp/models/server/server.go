@@ -25,11 +25,12 @@ import (
 )
 
 type ProxyServer struct {
-	Name       string
-	Passwd     string
-	BindAddr   string
-	ListenPort int64
-	Status     int64
+	Name          string
+	Passwd        string
+	UseEncryption bool
+	BindAddr      string
+	ListenPort    int64
+	Status        int64
 
 	listener     *conn.Listener  // accept new connection from remote users
 	ctlMsgChan   chan int64      // every time accept a new user conn, put "1" to the channel
@@ -132,8 +133,12 @@ func (p *ProxyServer) Start() (err error) {
 			// l means local, r means remote
 			log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", workConn.GetLocalAddr(), workConn.GetRemoteAddr(),
 				userConn.GetLocalAddr(), userConn.GetRemoteAddr())
-			// go conn.Join(workConn, userConn)
-			go conn.JoinMore(userConn, workConn, p.Passwd)
+
+			if p.UseEncryption {
+				go conn.JoinMore(userConn, workConn, p.Passwd)
+			} else {
+				go conn.Join(userConn, workConn)
+			}
 		}
 	}()
 

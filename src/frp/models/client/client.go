@@ -24,10 +24,11 @@ import (
 )
 
 type ProxyClient struct {
-	Name      string
-	Passwd    string
-	LocalIp   string
-	LocalPort int64
+	Name          string
+	Passwd        string
+	LocalIp       string
+	LocalPort     int64
+	UseEncryption bool
 }
 
 func (p *ProxyClient) GetLocalConn() (c *conn.Conn, err error) {
@@ -81,8 +82,11 @@ func (p *ProxyClient) StartTunnel(serverAddr string, serverPort int64) (err erro
 	// l means local, r means remote
 	log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", localConn.GetLocalAddr(), localConn.GetRemoteAddr(),
 		remoteConn.GetLocalAddr(), remoteConn.GetRemoteAddr())
-	// go conn.Join(localConn, remoteConn)
-	go conn.JoinMore(localConn, remoteConn, p.Passwd)
+	if p.UseEncryption {
+		go conn.JoinMore(localConn, remoteConn, p.Passwd)
+	} else {
+		go conn.Join(localConn, remoteConn)
+	}
 
 	return nil
 }

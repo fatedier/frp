@@ -21,9 +21,10 @@ type GeneralRes struct {
 
 // messages between control connection of frpc and frps
 type ControlReq struct {
-	Type      int64  `json:"type"`
-	ProxyName string `json:"proxy_name,omitempty"`
-	Passwd    string `json:"passwd, omitempty"`
+	Type          int64  `json:"type"`
+	ProxyName     string `json:"proxy_name,omitempty"`
+	Passwd        string `json:"passwd, omitempty"`
+	UseEncryption bool   `json:"use_encryption, omitempty"`
 }
 
 type ControlRes struct {

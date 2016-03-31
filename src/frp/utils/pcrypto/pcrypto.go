@@ -39,7 +39,7 @@ func (pc *Pcrypto) Init(key []byte) error {
 	return err
 }
 
-func (pc *Pcrypto) Encrypto(src []byte) ([]byte, error) {
+func (pc *Pcrypto) Encrypt(src []byte) ([]byte, error) {
 	// aes
 	src = pKCS7Padding(src, aes.BlockSize)
 	blockMode := cipher.NewCBCEncrypter(pc.paes, pc.pkey)
@@ -57,7 +57,7 @@ func (pc *Pcrypto) Encrypto(src []byte) ([]byte, error) {
 	return []byte(base64.StdEncoding.EncodeToString(zbuf.Bytes())), nil
 }
 
-func (pc *Pcrypto) Decrypto(str []byte) ([]byte, error) {
+func (pc *Pcrypto) Decrypt(str []byte) ([]byte, error) {
 	// base64
 	data, err := base64.StdEncoding.DecodeString(string(str))
 	if err != nil {
