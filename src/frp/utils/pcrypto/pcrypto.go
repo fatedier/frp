@@ -40,21 +40,27 @@ func (pc *Pcrypto) Init(key []byte) error {
 }
 
 func (pc *Pcrypto) Encrypt(src []byte) ([]byte, error) {
+	// gzip
+	var zbuf bytes.Buffer
+	zwr, err := gzip.NewWriterLevel(&zbuf, -1)
+	if err != nil {
+		return nil, err
+	}
+	defer zwr.Close()
+	zwr.Write(src)
+	zwr.Flush()
+	fmt.Println("com,src,en", len(src), len(zbuf.Bytes()))
+
 	// aes
-	src = pKCS7Padding(src, aes.BlockSize)
+	src = pKCS7Padding(zbuf.Bytes(), aes.BlockSize)
 	blockMode := cipher.NewCBCEncrypter(pc.paes, pc.pkey)
 	crypted := make([]byte, len(src))
 	blockMode.CryptBlocks(crypted, src)
 
-	// gzip
-	var zbuf bytes.Buffer
-	zwr := gzip.NewWriter(&zbuf)
-	defer zwr.Close()
-	zwr.Write(crypted)
-	zwr.Flush()
+	fmt.Println("aes,src,en", len(src), len(crypted))
 
 	// base64
-	return []byte(base64.StdEncoding.EncodeToString(zbuf.Bytes())), nil
+	return []byte(base64.StdEncoding.EncodeToString(crypted)), nil
 }
 
 func (pc *Pcrypto) Decrypt(str []byte) ([]byte, error) {
@@ -63,12 +69,6 @@ func (pc *Pcrypto) Decrypt(str []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// gunzip
-	zbuf := bytes.NewBuffer(data)
-	zrd, _ := gzip.NewReader(zbuf)
-	defer zrd.Close()
-	data, _ = ioutil.ReadAll(zrd)
 
 	// aes
 	decryptText, err := hex.DecodeString(fmt.Sprintf("%x", data))
@@ -85,7 +85,13 @@ func (pc *Pcrypto) Decrypt(str []byte) ([]byte, error) {
 	blockMode.CryptBlocks(decryptText, decryptText)
 	decryptText = pKCS7UnPadding(decryptText)
 
-	return decryptText, nil
+	// gunzip
+	zbuf := bytes.NewBuffer(decryptText)
+	zrd, _ := gzip.NewReader(zbuf)
+	defer zrd.Close()
+	data, _ = ioutil.ReadAll(zrd)
+
+	return data, nil
 }
 
 func pKCS7Padding(ciphertext []byte, blockSize int) []byte {
