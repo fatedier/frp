@@ -26,6 +26,7 @@ import (
 	"frp/models/msg"
 	"frp/utils/conn"
 	"frp/utils/log"
+	"frp/utils/pcrypto"
 )
 
 func ControlProcess(cli *client.ProxyClient, wait *sync.WaitGroup) {
@@ -130,11 +131,14 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 		return
 	}
 
+	nowTime := time.Now().Unix()
+	authKey := pcrypto.GetAuthKey(cli.Name + cli.AuthToken + fmt.Sprintf("%d", nowTime))
 	req := &msg.ControlReq{
 		Type:          consts.NewCtlConn,
 		ProxyName:     cli.Name,
-		Passwd:        cli.Passwd,
+		AuthKey:       authKey,
 		UseEncryption: cli.UseEncryption,
+		Timestamp:     nowTime,
 	}
 	buf, _ := json.Marshal(req)
 	err = c.Write(string(buf) + "\n")

@@ -16,16 +16,19 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
+	"time"
 
 	"frp/models/consts"
 	"frp/models/msg"
 	"frp/utils/conn"
 	"frp/utils/log"
+	"frp/utils/pcrypto"
 )
 
 type ProxyClient struct {
 	Name          string
-	Passwd        string
+	AuthToken     string
 	LocalIp       string
 	LocalPort     int64
 	UseEncryption bool
@@ -52,10 +55,13 @@ func (p *ProxyClient) GetRemoteConn(addr string, port int64) (c *conn.Conn, err 
 		return
 	}
 
+	nowTime := time.Now().Unix()
+	authKey := pcrypto.GetAuthKey(p.Name + p.AuthToken + fmt.Sprintf("%d", nowTime))
 	req := &msg.ControlReq{
 		Type:      consts.NewWorkConn,
 		ProxyName: p.Name,
-		Passwd:    p.Passwd,
+		AuthKey:   authKey,
+		Timestamp: nowTime,
 	}
 
 	buf, _ := json.Marshal(req)
@@ -83,7 +89,7 @@ func (p *ProxyClient) StartTunnel(serverAddr string, serverPort int64) (err erro
 	log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", localConn.GetLocalAddr(), localConn.GetRemoteAddr(),
 		remoteConn.GetLocalAddr(), remoteConn.GetRemoteAddr())
 	if p.UseEncryption {
-		go conn.JoinMore(localConn, remoteConn, p.Passwd)
+		go conn.JoinMore(localConn, remoteConn, p.AuthToken)
 	} else {
 		go conn.Join(localConn, remoteConn)
 	}

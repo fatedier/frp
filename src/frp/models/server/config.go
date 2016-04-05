@@ -75,9 +75,9 @@ func LoadConf(confFile string) (err error) {
 			proxyServer := &ProxyServer{}
 			proxyServer.Name = name
 
-			proxyServer.Passwd, ok = section["passwd"]
+			proxyServer.AuthToken, ok = section["auth_token"]
 			if !ok {
-				return fmt.Errorf("Parse ini file error: proxy [%s] no passwd found", proxyServer.Name)
+				return fmt.Errorf("Parse ini file error: proxy [%s] no auth_token found", proxyServer.Name)
 			}
 
 			proxyServer.BindAddr, ok = section["bind_addr"]

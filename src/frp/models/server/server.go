@@ -26,7 +26,7 @@ import (
 
 type ProxyServer struct {
 	Name          string
-	Passwd        string
+	AuthToken     string
 	UseEncryption bool
 	BindAddr      string
 	ListenPort    int64
@@ -135,7 +135,7 @@ func (p *ProxyServer) Start() (err error) {
 				userConn.GetLocalAddr(), userConn.GetRemoteAddr())
 
 			if p.UseEncryption {
-				go conn.JoinMore(userConn, workConn, p.Passwd)
+				go conn.JoinMore(userConn, workConn, p.AuthToken)
 			} else {
 				go conn.Join(userConn, workConn)
 			}
@@ -147,13 +147,15 @@ func (p *ProxyServer) Start() (err error) {
 
 func (p *ProxyServer) Close() {
 	p.Lock()
-	p.Status = consts.Idle
-	if p.listener != nil {
-		p.listener.Close()
+	if p.Status != consts.Closed {
+		p.Status = consts.Closed
+		if p.listener != nil {
+			p.listener.Close()
+		}
+		close(p.ctlMsgChan)
+		close(p.workConnChan)
+		p.userConnList = list.New()
 	}
-	close(p.ctlMsgChan)
-	close(p.workConnChan)
-	p.userConnList = list.New()
 	p.Unlock()
 }
 

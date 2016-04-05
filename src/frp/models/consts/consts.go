@@ -18,6 +18,7 @@ package consts
 const (
 	Idle = iota
 	Working
+	Closed
 )
 
 // msg type

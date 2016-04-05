@@ -23,8 +23,9 @@ type GeneralRes struct {
 type ControlReq struct {
 	Type          int64  `json:"type"`
 	ProxyName     string `json:"proxy_name,omitempty"`
-	Passwd        string `json:"passwd, omitempty"`
+	AuthKey       string `json:"auth_key, omitempty"`
 	UseEncryption bool   `json:"use_encryption, omitempty"`
+	Timestamp     int64  `json:"timestamp, omitempty"`
 }
 
 type ControlRes struct {

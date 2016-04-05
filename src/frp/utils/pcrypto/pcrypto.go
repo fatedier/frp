@@ -19,6 +19,7 @@ import (
 	"compress/gzip"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -104,4 +105,11 @@ func pKCS7UnPadding(origData []byte) []byte {
 	length := len(origData)
 	unpadding := int(origData[length-1])
 	return origData[:(length - unpadding)]
+}
+
+func GetAuthKey(str string) (authKey string) {
+	md5Ctx := md5.New()
+	md5Ctx.Write([]byte(str))
+	md5Str := md5Ctx.Sum(nil)
+	return hex.EncodeToString(md5Str)
 }

@@ -69,6 +69,14 @@ func LoadConf(confFile string) (err error) {
 		LogLevel = tmpStr
 	}
 
+	var authToken string
+	tmpStr, ok = conf.Get("common", "auth_token")
+	if ok {
+		authToken = tmpStr
+	} else {
+		return fmt.Errorf("auth_token not found")
+	}
+
 	// proxies
 	for name, section := range conf {
 		if name != "common" {
@@ -76,11 +84,8 @@ func LoadConf(confFile string) (err error) {
 			// name
 			proxyClient.Name = name
 
-			// passwd
-			proxyClient.Passwd, ok = section["passwd"]
-			if !ok {
-				return fmt.Errorf("Parse ini file error: proxy [%s] no passwd found", proxyClient.Name)
-			}
+			// auth_token
+			proxyClient.AuthToken = authToken
 
 			// local_ip
 			proxyClient.LocalIp, ok = section["local_ip"]

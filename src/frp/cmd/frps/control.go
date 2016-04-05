@@ -25,6 +25,7 @@ import (
 	"frp/models/server"
 	"frp/utils/conn"
 	"frp/utils/log"
+	"frp/utils/pcrypto"
 )
 
 func ProcessControlConn(l *conn.Listener) {
@@ -197,16 +198,23 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		return
 	}
 
-	// check password
-	if req.Passwd != s.Passwd {
-		info = fmt.Sprintf("ProxyName [%s], password is not correct", req.ProxyName)
+	// check authKey
+	nowTime := time.Now().Unix()
+	authKey := pcrypto.GetAuthKey(req.ProxyName + s.AuthToken + fmt.Sprintf("%d", req.Timestamp))
+	// authKey avaiable in 15 minutes
+	if nowTime-req.Timestamp > 15*60 {
+		info = fmt.Sprintf("ProxyName [%s], authorization timeout", req.ProxyName)
+		log.Warn(info)
+		return
+	} else if req.AuthKey != authKey {
+		info = fmt.Sprintf("ProxyName [%s], authorization failed", req.ProxyName)
 		log.Warn(info)
 		return
 	}
 
 	// control conn
 	if req.Type == consts.NewCtlConn {
-		if s.Status != consts.Idle {
+		if s.Status == consts.Working {
 			info = fmt.Sprintf("ProxyName [%s], already in use", req.ProxyName)
 			log.Warn(info)
 			return
