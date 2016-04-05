@@ -1,17 +1,3 @@
-// Copyright 2016 fatedier, fatedier@gmail.com
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package pcrypto
 
 import (
@@ -40,21 +26,24 @@ func (pc *Pcrypto) Init(key []byte) error {
 }
 
 func (pc *Pcrypto) Encrypt(src []byte) ([]byte, error) {
+	// gzip
+	var zbuf bytes.Buffer
+	zwr, err := gzip.NewWriterLevel(&zbuf, -1)
+	if err != nil {
+		return nil, err
+	}
+	defer zwr.Close()
+	zwr.Write(src)
+	zwr.Flush()
+
 	// aes
-	src = pKCS7Padding(src, aes.BlockSize)
+	src = pKCS7Padding(zbuf.Bytes(), aes.BlockSize)
 	blockMode := cipher.NewCBCEncrypter(pc.paes, pc.pkey)
 	crypted := make([]byte, len(src))
 	blockMode.CryptBlocks(crypted, src)
 
-	// gzip
-	var zbuf bytes.Buffer
-	zwr := gzip.NewWriter(&zbuf)
-	defer zwr.Close()
-	zwr.Write(crypted)
-	zwr.Flush()
-
 	// base64
-	return []byte(base64.StdEncoding.EncodeToString(zbuf.Bytes())), nil
+	return []byte(base64.StdEncoding.EncodeToString(crypted)), nil
 }
 
 func (pc *Pcrypto) Decrypt(str []byte) ([]byte, error) {
@@ -63,12 +52,6 @@ func (pc *Pcrypto) Decrypt(str []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// gunzip
-	zbuf := bytes.NewBuffer(data)
-	zrd, _ := gzip.NewReader(zbuf)
-	defer zrd.Close()
-	data, _ = ioutil.ReadAll(zrd)
 
 	// aes
 	decryptText, err := hex.DecodeString(fmt.Sprintf("%x", data))
@@ -85,7 +68,13 @@ func (pc *Pcrypto) Decrypt(str []byte) ([]byte, error) {
 	blockMode.CryptBlocks(decryptText, decryptText)
 	decryptText = pKCS7UnPadding(decryptText)
 
-	return decryptText, nil
+	// gunzip
+	zbuf := bytes.NewBuffer(decryptText)
+	zrd, _ := gzip.NewReader(zbuf)
+	defer zrd.Close()
+	data, _ = ioutil.ReadAll(zrd)
+
+	return data, nil
 }
 
 func pKCS7Padding(ciphertext []byte, blockSize int) []byte {
