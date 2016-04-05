@@ -209,7 +209,7 @@ func PipeDecrypt(r net.Conn, w net.Conn, key string) error {
 			return err
 		}
 
-		res, err := laes.Decrypto(buf)
+		res, err := laes.Decrypt(buf)
 		if err != nil {
 			log.Error("Decrypt [%s] error, %v", string(buf), err)
 			return fmt.Errorf("Decrypt [%s] error: %v", string(buf), err)
@@ -239,7 +239,7 @@ func PipeEncrypt(r net.Conn, w net.Conn, key string) error {
 		if err != nil {
 			return err
 		}
-		res, err := laes.Encrypto(buf[:n])
+		res, err := laes.Encrypt(buf[:n])
 		if err != nil {
 			log.Error("Encrypt error: %v", err)
 			return fmt.Errorf("Encrypt error: %v", err)
