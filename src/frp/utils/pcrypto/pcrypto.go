@@ -49,15 +49,12 @@ func (pc *Pcrypto) Encrypt(src []byte) ([]byte, error) {
 	defer zwr.Close()
 	zwr.Write(src)
 	zwr.Flush()
-	fmt.Println("com,src,en", len(src), len(zbuf.Bytes()))
 
 	// aes
 	src = pKCS7Padding(zbuf.Bytes(), aes.BlockSize)
 	blockMode := cipher.NewCBCEncrypter(pc.paes, pc.pkey)
 	crypted := make([]byte, len(src))
 	blockMode.CryptBlocks(crypted, src)
-
-	fmt.Println("aes,src,en", len(src), len(crypted))
 
 	// base64
 	return []byte(base64.StdEncoding.EncodeToString(crypted)), nil
@@ -87,7 +84,10 @@ func (pc *Pcrypto) Decrypt(str []byte) ([]byte, error) {
 
 	// gunzip
 	zbuf := bytes.NewBuffer(decryptText)
-	zrd, _ := gzip.NewReader(zbuf)
+	zrd, err := gzip.NewReader(zbuf)
+	if err != nil {
+		return nil, err
+	}
 	defer zrd.Close()
 	data, _ = ioutil.ReadAll(zrd)
 
