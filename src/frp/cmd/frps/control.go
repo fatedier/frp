@@ -25,6 +25,7 @@ import (
 	"frp/models/server"
 	"frp/utils/conn"
 	"frp/utils/log"
+	"frp/utils/pcrypto"
 )
 
 func ProcessControlConn(l *conn.Listener) {
@@ -33,87 +34,162 @@ func ProcessControlConn(l *conn.Listener) {
 		if err != nil {
 			return
 		}
-		log.Debug("Get one new conn, %v", c.GetRemoteAddr())
+		log.Debug("Get new connection, %v", c.GetRemoteAddr())
 		go controlWorker(c)
 	}
 }
 
 // connection from every client and server
 func controlWorker(c *conn.Conn) {
-	// the first message is from client to server
-	// if error, close connection
-	res, err := c.ReadLine()
+	// if login message type is NewWorkConn, don't close this connection
+	var closeFlag bool = true
+	var s *server.ProxyServer
+	defer func() {
+		if closeFlag {
+			c.Close()
+			if s != nil {
+				s.Close()
+			}
+		}
+	}()
+
+	// get login message
+	buf, err := c.ReadLine()
 	if err != nil {
 		log.Warn("Read error, %v", err)
 		return
 	}
-	log.Debug("get: %s", res)
+	log.Debug("Get msg from frpc: %s", buf)
 
-	clientCtlReq := &msg.ClientCtlReq{}
-	clientCtlRes := &msg.ClientCtlRes{}
-	if err := json.Unmarshal([]byte(res), &clientCtlReq); err != nil {
-		log.Warn("Parse err: %v : %s", err, res)
+	cliReq := &msg.ControlReq{}
+	if err := json.Unmarshal([]byte(buf), &cliReq); err != nil {
+		log.Warn("Parse msg from frpc error: %v : %s", err, buf)
 		return
 	}
 
-	// check
-	succ, info, needRes := checkProxy(clientCtlReq, c)
-	if !succ {
-		clientCtlRes.Code = 1
-		clientCtlRes.Msg = info
+	// do login when type is NewCtlConn or NewWorkConn
+	ret, info := doLogin(cliReq, c)
+	s, ok := server.ProxyServers[cliReq.ProxyName]
+	if !ok {
+		log.Warn("ProxyName [%s] is not exist", cliReq.ProxyName)
+		return
 	}
-
-	if needRes {
-		defer c.Close()
-
-		buf, _ := json.Marshal(clientCtlRes)
-		err = c.Write(string(buf) + "\n")
+	// if login type is NewWorkConn, nothing will be send to frpc
+	if cliReq.Type != consts.NewWorkConn {
+		cliRes := &msg.ControlRes{
+			Type: consts.NewCtlConnRes,
+			Code: ret,
+			Msg:  info,
+		}
+		byteBuf, _ := json.Marshal(cliRes)
+		err = c.Write(string(byteBuf) + "\n")
 		if err != nil {
-			log.Warn("Write error, %v", err)
+			log.Warn("ProxyName [%s], write to client error, proxy exit", s.Name)
 			time.Sleep(1 * time.Second)
 			return
 		}
 	} else {
-		// work conn, just return
+		closeFlag = false
 		return
 	}
 
-	// other messages is from server to client
-	s, ok := server.ProxyServers[clientCtlReq.ProxyName]
-	if !ok {
-		log.Warn("ProxyName [%s] is not exist", clientCtlReq.ProxyName)
-		return
-	}
+	// create a channel for sending messages
+	msgSendChan := make(chan interface{}, 1024)
+	go msgSender(s, c, msgSendChan)
+	go noticeUserConn(s, msgSendChan)
 
-	// read control msg from client
-	go readControlMsgFromClient(s, c)
+	// loop for reading control messages from frpc and deal with different types
+	msgReader(s, c, msgSendChan)
 
-	serverCtlReq := &msg.ClientCtlReq{}
-	serverCtlReq.Type = consts.WorkConn
-	for {
-		closeFlag := s.WaitUserConn()
-		if closeFlag {
-			log.Debug("ProxyName [%s], goroutine for dealing user conn is closed", s.Name)
-			break
-		}
-		buf, _ := json.Marshal(serverCtlReq)
-		err = c.Write(string(buf) + "\n")
-		if err != nil {
-			log.Warn("ProxyName [%s], write to client error, proxy exit", s.Name)
-			s.Close()
-			return
-		}
-
-		log.Debug("ProxyName [%s], write to client to add work conn success", s.Name)
-	}
-
+	close(msgSendChan)
 	log.Info("ProxyName [%s], I'm dead!", s.Name)
 	return
 }
 
-func checkProxy(req *msg.ClientCtlReq, c *conn.Conn) (succ bool, info string, needRes bool) {
-	succ = false
-	needRes = true
+// when frps get one new user connection, send NoticeUserConn message to frpc and accept one new WorkConn later
+func noticeUserConn(s *server.ProxyServer, msgSendChan chan interface{}) {
+	for {
+		closeFlag := s.WaitUserConn()
+		if closeFlag {
+			log.Debug("ProxyName [%s], goroutine for noticing user conn is closed", s.Name)
+			break
+		}
+		notice := &msg.ControlRes{
+			Type: consts.NoticeUserConn,
+		}
+		msgSendChan <- notice
+		log.Debug("ProxyName [%s], notice client to add work conn", s.Name)
+	}
+}
+
+// loop for reading messages from frpc after control connection is established
+func msgReader(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}) error {
+	// for heartbeat
+	var heartbeatTimeout bool = false
+	timer := time.AfterFunc(time.Duration(server.HeartBeatTimeout)*time.Second, func() {
+		heartbeatTimeout = true
+		s.Close()
+		c.Close()
+		log.Error("ProxyName [%s], client heartbeat timeout", s.Name)
+	})
+	defer timer.Stop()
+
+	for {
+		buf, err := c.ReadLine()
+		if err != nil {
+			if err == io.EOF {
+				log.Warn("ProxyName [%s], client is dead!", s.Name)
+				return err
+			} else if c == nil || c.IsClosed() {
+				log.Warn("ProxyName [%s], client connection is closed", s.Name)
+				return err
+			}
+			log.Warn("ProxyName [%s], read error: %v", s.Name, err)
+			continue
+		}
+
+		cliReq := &msg.ControlReq{}
+		if err := json.Unmarshal([]byte(buf), &cliReq); err != nil {
+			log.Warn("ProxyName [%s], parse msg from frpc error: %v : %s", s.Name, err, buf)
+			continue
+		}
+
+		switch cliReq.Type {
+		case consts.HeartbeatReq:
+			log.Debug("ProxyName [%s], get heartbeat", s.Name)
+			timer.Reset(time.Duration(server.HeartBeatTimeout) * time.Second)
+			heartbeatRes := msg.ControlRes{
+				Type: consts.HeartbeatRes,
+			}
+			msgSendChan <- heartbeatRes
+		default:
+			log.Warn("ProxyName [%s}, unsupport msgType [%d]", s.Name, cliReq.Type)
+		}
+	}
+	return nil
+}
+
+// loop for sending messages from channel to frpc
+func msgSender(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}) {
+	for {
+		msg, ok := <-msgSendChan
+		if !ok {
+			break
+		}
+
+		buf, _ := json.Marshal(msg)
+		err := c.Write(string(buf) + "\n")
+		if err != nil {
+			log.Warn("ProxyName [%s], write to client error, proxy exit", s.Name)
+			s.Close()
+			break
+		}
+	}
+}
+
+// if success, ret equals 0, otherwise greater than 0
+func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
+	ret = 1
 	// check if proxy name exist
 	s, ok := server.ProxyServers[req.ProxyName]
 	if !ok {
@@ -122,97 +198,53 @@ func checkProxy(req *msg.ClientCtlReq, c *conn.Conn) (succ bool, info string, ne
 		return
 	}
 
-	// check password
-	if req.Passwd != s.Passwd {
-		info = fmt.Sprintf("ProxyName [%s], password is not correct", req.ProxyName)
+	// check authKey
+	nowTime := time.Now().Unix()
+	authKey := pcrypto.GetAuthKey(req.ProxyName + s.AuthToken + fmt.Sprintf("%d", req.Timestamp))
+	// authKey avaiable in 15 minutes
+	if nowTime-req.Timestamp > 15*60 {
+		info = fmt.Sprintf("ProxyName [%s], authorization timeout", req.ProxyName)
+		log.Warn(info)
+		return
+	} else if req.AuthKey != authKey {
+		info = fmt.Sprintf("ProxyName [%s], authorization failed", req.ProxyName)
 		log.Warn(info)
 		return
 	}
 
 	// control conn
-	if req.Type == consts.CtlConn {
-		if s.Status != consts.Idle {
+	if req.Type == consts.NewCtlConn {
+		if s.Status == consts.Working {
 			info = fmt.Sprintf("ProxyName [%s], already in use", req.ProxyName)
 			log.Warn(info)
 			return
 		}
 
-		// start proxy and listen for user conn, no block
+		// set infomations from frpc
+		s.UseEncryption = req.UseEncryption
+
+		// start proxy and listen for user connections, no block
 		err := s.Start()
 		if err != nil {
-			info = fmt.Sprintf("ProxyName [%s], start proxy error: %v", req.ProxyName, err.Error())
+			info = fmt.Sprintf("ProxyName [%s], start proxy error: %v", req.ProxyName, err)
 			log.Warn(info)
 			return
 		}
-
 		log.Info("ProxyName [%s], start proxy success", req.ProxyName)
-	} else if req.Type == consts.WorkConn {
+	} else if req.Type == consts.NewWorkConn {
 		// work conn
-		needRes = false
 		if s.Status != consts.Working {
-			log.Warn("ProxyName [%s], is not working when it gets one new work conn", req.ProxyName)
+			log.Warn("ProxyName [%s], is not working when it gets one new work connnection", req.ProxyName)
 			return
 		}
-
-		s.GetNewCliConn(c)
+		// the connection will close after join over
+		s.RecvNewWorkConn(c)
 	} else {
-		info = fmt.Sprintf("ProxyName [%s], type [%d] unsupport", req.ProxyName, req.Type)
-		log.Warn(info)
+		info = fmt.Sprintf("Unsupport login message type [%d]", req.Type)
+		log.Warn("Unsupport login message type [%d]", req.Type)
 		return
 	}
 
-	succ = true
+	ret = 0
 	return
-}
-
-func readControlMsgFromClient(s *server.ProxyServer, c *conn.Conn) {
-	isContinueRead := true
-	f := func() {
-		isContinueRead = false
-		s.Close()
-		log.Error("ProxyName [%s], client heartbeat timeout", s.Name)
-	}
-	timer := time.AfterFunc(time.Duration(server.HeartBeatTimeout)*time.Second, f)
-	defer timer.Stop()
-
-	for isContinueRead {
-		content, err := c.ReadLine()
-		if err != nil {
-			if err == io.EOF {
-				log.Warn("ProxyName [%s], client is dead!", s.Name)
-				s.Close()
-				break
-			} else if nil == c || c.IsClosed() {
-				log.Warn("ProxyName [%s], client connection is closed", s.Name)
-				break
-			}
-
-			log.Error("ProxyName [%s], read error: %v", s.Name, err)
-			continue
-		}
-
-		clientCtlReq := &msg.ClientCtlReq{}
-		if err := json.Unmarshal([]byte(content), clientCtlReq); err != nil {
-			log.Warn("Parse err: %v : %s", err, content)
-			continue
-		}
-		if consts.CSHeartBeatReq == clientCtlReq.Type {
-			log.Debug("ProxyName [%s], get heartbeat", s.Name)
-			timer.Reset(time.Duration(server.HeartBeatTimeout) * time.Second)
-
-			clientCtlRes := &msg.ClientCtlRes{}
-			clientCtlRes.GeneralRes.Code = consts.SCHeartBeatRes
-			response, err := json.Marshal(clientCtlRes)
-			if err != nil {
-				log.Warn("Serialize ClientCtlRes err! err: %v", err)
-				continue
-			}
-
-			err = c.Write(string(response) + "\n")
-			if err != nil {
-				log.Error("Send heartbeat response to client failed! Err:%v", err)
-				continue
-			}
-		}
-	}
 }

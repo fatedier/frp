@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"frp/utils/log"
+	"frp/utils/pcrypto"
 )
 
 type Listener struct {
@@ -127,6 +128,7 @@ func (c *Conn) ReadLine() (buff string, err error) {
 func (c *Conn) Write(content string) (err error) {
 	_, err = c.TcpConn.Write([]byte(content))
 	return err
+
 }
 
 func (c *Conn) Close() {
@@ -151,7 +153,7 @@ func Join(c1 *Conn, c2 *Conn) {
 		var err error
 		_, err = io.Copy(to.TcpConn, from.TcpConn)
 		if err != nil {
-			log.Warn("join conns error, %v", err)
+			log.Warn("join connections error, %v", err)
 		}
 	}
 
@@ -160,4 +162,94 @@ func Join(c1 *Conn, c2 *Conn) {
 	go pipe(c2, c1)
 	wait.Wait()
 	return
+}
+
+// messages from c1 to c2 will be encrypted
+// and from c2 to c1 will be decrypted
+func JoinMore(c1 *Conn, c2 *Conn, cryptKey string) {
+	var wait sync.WaitGroup
+	encryptPipe := func(from *Conn, to *Conn, key string) {
+		defer from.Close()
+		defer to.Close()
+		defer wait.Done()
+
+		// we don't care about errors here
+		PipeEncrypt(from.TcpConn, to.TcpConn, key)
+	}
+
+	decryptPipe := func(to *Conn, from *Conn, key string) {
+		defer from.Close()
+		defer to.Close()
+		defer wait.Done()
+
+		// we don't care about errors here
+		PipeDecrypt(to.TcpConn, from.TcpConn, key)
+	}
+
+	wait.Add(2)
+	go encryptPipe(c1, c2, cryptKey)
+	go decryptPipe(c2, c1, cryptKey)
+	wait.Wait()
+	log.Debug("One tunnel stopped")
+	return
+}
+
+// decrypt msg from reader, then write into writer
+func PipeDecrypt(r net.Conn, w net.Conn, key string) error {
+	laes := new(pcrypto.Pcrypto)
+	if err := laes.Init([]byte(key)); err != nil {
+		log.Error("Pcrypto Init error: %v", err)
+		return fmt.Errorf("Pcrypto Init error: %v", err)
+	}
+
+	nreader := bufio.NewReader(r)
+	for {
+		buf, err := nreader.ReadBytes('\n')
+		if err != nil {
+			return err
+		}
+
+		res, err := laes.Decrypt(buf)
+		if err != nil {
+			log.Error("Decrypt [%s] error, %v", string(buf), err)
+			return fmt.Errorf("Decrypt [%s] error: %v", string(buf), err)
+		}
+
+		_, err = w.Write(res)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// recvive msg from reader, then encrypt msg into write
+func PipeEncrypt(r net.Conn, w net.Conn, key string) error {
+	laes := new(pcrypto.Pcrypto)
+	if err := laes.Init([]byte(key)); err != nil {
+		log.Error("Pcrypto Init error: %v", err)
+		return fmt.Errorf("Pcrypto Init error: %v", err)
+	}
+
+	nreader := bufio.NewReader(r)
+	buf := make([]byte, 10*1024)
+
+	for {
+		n, err := nreader.Read(buf)
+		if err != nil {
+			return err
+		}
+		res, err := laes.Encrypt(buf[:n])
+		if err != nil {
+			log.Error("Encrypt error: %v", err)
+			return fmt.Errorf("Encrypt error: %v", err)
+		}
+
+		res = append(res, '\n')
+		_, err = w.Write(res)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

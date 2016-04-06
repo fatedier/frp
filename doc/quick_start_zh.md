@@ -42,7 +42,7 @@ log_level = info
 
 # test 为代理的自定义名称，可以有多个，不能重复，和frpc中名称对应
 [test]
-passwd = 123
+auth_token = 123
 bind_addr = 0.0.0.0
 # 最后将通过此端口访问后端服务
 listen_port = 6000
@@ -57,10 +57,13 @@ server_addr = x.x.x.x
 server_port = 7000
 log_file = ./frpc.log
 log_level = info
+# 用于身份验证
+auth_token = 123
 
 # test需要和 frps.ini 中配置一致
 [test]
-passwd = 123
 # 需要转发的本地端口
 local_port = 22
+# 启用加密，frpc与frps之间通信加密，默认为 false
+use_encryption = true
 ```

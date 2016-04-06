@@ -44,7 +44,7 @@ log_level = info
 
 # test is the custom name of proxy and there can be many proxies with unique name in one configure file
 [test]
-passwd = 123
+auth_token = 123
 bind_addr = 0.0.0.0
 # finally we connect to server A by this port
 listen_port = 6000
@@ -59,10 +59,13 @@ server_addr = x.x.x.x
 server_port = 7000
 log_file = ./frpc.log
 log_level = info
+# for authentication
+auth_token = 123
 
 # test is proxy name same with configure in frps.ini
 [test]
-passwd = 123
 # local port which need to be transferred
 local_port = 22
+# if use_encryption equals true, messages between frpc and frps will be encrypted, default is false
+use_encryption = true
 ```
