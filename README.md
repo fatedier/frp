@@ -2,13 +2,17 @@
 
 [![Build Status](https://travis-ci.org/fatedier/frp.svg)](https://travis-ci.org/fatedier/frp)
 
+[README](README.md) | [中文文档](README_zh.md)
+
 ## What is frp?
 
 frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet.
 
 ## Status
 
-frp is under development and you can try it with available version 0.3.0.
+frp is under development and you can try it with latest release version.Master branch for releasing stable version when dev branch for developing.
+
+**We may change any protocol and can't promise backward compatible before version 1.x.**
 
 ## Quick Start
 
@@ -31,3 +35,9 @@ Interested in getting involved? We would love to help you!
 For simple bug fixes, just submit a PR with the fix and we can discuss the fix directly in the PR. If the fix is more complex, start with an issue.
 
 If you have some wanderful ideas, send email to fatedier@gmail.com.
+
+## Contributors
+
+* [fatedier](https://github.com/fatedier)
+* [Hurricanezwf](https://github.com/Hurricanezwf)
+* [vashstorm](https://github.com/vashstorm)
