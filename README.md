@@ -32,9 +32,8 @@ Read the [QuickStart](doc/quick_start_en.md) | [使用文档](doc/quick_start_zh
 
 Interested in getting involved? We would love to help you!
 
-For simple bug fixes, just submit a PR with the fix and we can discuss the fix directly in the PR. If the fix is more complex, start with an issue.
-
-If you have some wanderful ideas, send email to fatedier@gmail.com.
+* Take a look at our [issues list](https://github.com/fatedier/frp/issues) and consider submitting a patch
+* If you have some wanderful ideas, send email to fatedier@gmail.com.
 
 ## Contributors
 

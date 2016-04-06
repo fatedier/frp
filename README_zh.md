@@ -30,7 +30,7 @@ frp 目前正在前期开发阶段，master分支用于发布稳定版本，dev�
 
 如果您对这个项目感兴趣，并且想要参与其中，我们非常欢迎！
 
-* 如果您需要提交问题，可以通过 [issue](https://github.com/fatedier/frp/issues) 来完成。
+* 如果您需要提交问题，可以通过 [issues](https://github.com/fatedier/frp/issues) 来完成。
 * 如果您有新的功能需求，可以反馈至 fatedier@gmail.com 共同讨论。
 
 ## 贡献者
