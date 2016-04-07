@@ -72,7 +72,10 @@ func msgReader(cli *client.ProxyClient, c *conn.Conn, msgSendChan chan interface
 				log.Info("ProxyName [%s], try to reconnect to frps [%s:%d]...", cli.Name, client.ServerAddr, client.ServerPort)
 				c, err = loginToServer(cli)
 				if err == nil {
+					close(msgSendChan)
+					msgSendChan = make(chan interface{}, 1024)
 					go heartbeatSender(c, msgSendChan)
+					go msgSender(cli, c, msgSendChan)
 					break
 				}
 
@@ -81,6 +84,7 @@ func msgReader(cli *client.ProxyClient, c *conn.Conn, msgSendChan chan interface
 				}
 				time.Sleep(delayTime * time.Second)
 			}
+			continue
 		} else if err != nil {
 			log.Warn("ProxyName [%s], read from frps error: %v", cli.Name, err)
 			continue
@@ -117,7 +121,7 @@ func msgSender(cli *client.ProxyClient, c *conn.Conn, msgSendChan chan interface
 		buf, _ := json.Marshal(msg)
 		err := c.Write(string(buf) + "\n")
 		if err != nil {
-			log.Warn("ProxyName [%s], write to client error, proxy exit", cli.Name)
+			log.Warn("ProxyName [%s], write to server error, proxy exit", cli.Name)
 			c.Close()
 			break
 		}
