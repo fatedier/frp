@@ -25,6 +25,7 @@ _testmain.go
 
 # Self
 bin/
+packages/
 
 # Cache
 *.swp

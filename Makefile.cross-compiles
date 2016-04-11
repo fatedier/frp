@@ -1,0 +1,15 @@
+export PATH := $(GOPATH)/bin:$(PATH)
+export OLDGOPATH := $(GOPATH)
+export GOPATH := $(shell pwd)/Godeps/_workspace:$(shell pwd):$(GOPATH)
+export OS_TARGETS=linux windows
+export ARCH_TARGETS=386 amd64
+
+all: build
+
+build: godep app 
+
+godep:
+	GOPATH=$(OLDGOPATH) go get github.com/mitchellh/gox
+
+app:
+	gox -os "$(OS_TARGETS)" -arch="$(ARCH_TARGETS)" ./...
