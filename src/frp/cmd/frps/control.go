@@ -158,7 +158,7 @@ func msgReader(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}
 		case consts.HeartbeatReq:
 			log.Debug("ProxyName [%s], get heartbeat", s.Name)
 			timer.Reset(time.Duration(server.HeartBeatTimeout) * time.Second)
-			heartbeatRes := msg.ControlRes{
+			heartbeatRes := &msg.ControlRes{
 				Type: consts.HeartbeatRes,
 			}
 			msgSendChan <- heartbeatRes

@@ -1,21 +1,22 @@
 export PATH := $(GOPATH)/bin:$(PATH)
-export NEW_GOPATH := $(shell pwd)
+export OLDGOPATH := $(GOPATH)
+export GOPATH := $(shell pwd):$(GOPATH)
 
 all: build
 
 build: godep fmt frps frpc
 
 godep:
-	@go get github.com/tools/godep
+	GOPATH=$(OLDGOPATH) go get github.com/tools/godep
 
 fmt:
-	GOPATH=$(NEW_GOPATH) godep go fmt ./...
+	godep go fmt ./...
 
 frps:
-	GOPATH=$(NEW_GOPATH) godep go build -o bin/frps ./src/frp/cmd/frps
+	godep go build -o bin/frps ./src/frp/cmd/frps
 
 frpc:
-	GOPATH=$(NEW_GOPATH) godep go build -o bin/frpc ./src/frp/cmd/frpc
+	godep go build -o bin/frpc ./src/frp/cmd/frpc
 
 test:
-	@GOPATH=$(NEW_GOPATH) godep go test -v ./...
+	godep go test -v ./...
