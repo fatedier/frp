@@ -1,4 +1,5 @@
 export PATH := $(GOPATH)/bin:$(PATH)
+export OLDGOPATH := $(GOPATH)
 export GOPATH := $(shell pwd):$(GOPATH)
 
 all: build
@@ -6,7 +7,8 @@ all: build
 build: godep fmt frps frpc
 
 godep:
-	@go get github.com/tools/godep
+	@GOPATH=$(OLDGOPATH)
+	go get github.com/tools/godep
 
 fmt:
 	godep go fmt ./...
