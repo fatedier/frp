@@ -7,8 +7,7 @@ all: build
 build: godep fmt frps frpc
 
 godep:
-	@GOPATH=$(OLDGOPATH)
-	go get github.com/tools/godep
+	GOPATH=$(OLDGOPATH) go get github.com/tools/godep
 
 fmt:
 	godep go fmt ./...
