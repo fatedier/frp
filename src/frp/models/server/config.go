@@ -47,11 +47,23 @@ func LoadConf(confFile string) (err error) {
 	tmpStr, ok = conf.Get("common", "bind_addr")
 	if ok {
 		BindAddr = tmpStr
+	} else {
+		tmpStr, ok = conf.Get("common", "BIND_ADDR")
+
+		if ok {
+			BindAddr = tmpStr
+		}
 	}
 
 	tmpStr, ok = conf.Get("common", "bind_port")
 	if ok {
 		BindPort, _ = strconv.ParseInt(tmpStr, 10, 64)
+	} else {
+		tmpStr, ok = conf.Get("common", "BIND_PORT")
+
+		if ok {
+			BindPort, _ = strconv.ParseInt(tmpStr, 10, 64)
+		}
 	}
 
 	tmpStr, ok = conf.Get("common", "log_file")
@@ -62,11 +74,28 @@ func LoadConf(confFile string) (err error) {
 		} else {
 			LogWay = "file"
 		}
+	} else {
+		tmpStr, ok = conf.Get("common", "LOG_FILE")
+
+		if ok {
+			LogFile = tmpStr
+			if LogFile == "console" {
+				LogWay = "console"
+			} else {
+				LogWay = "file"
+			}
+		}
 	}
 
 	tmpStr, ok = conf.Get("common", "log_level")
 	if ok {
 		LogLevel = tmpStr
+	} else {
+		tmpStr, ok = conf.Get("common", "LOG_LEVEL")
+
+		if ok {
+			LogLevel = tmpStr
+		}
 	}
 
 	// servers
@@ -77,12 +106,18 @@ func LoadConf(confFile string) (err error) {
 
 			proxyServer.AuthToken, ok = section["auth_token"]
 			if !ok {
-				return fmt.Errorf("Parse ini file error: proxy [%s] no auth_token found", proxyServer.Name)
+				proxyServer.AuthToken, ok = section["AUTH_TOKEN"]
+				if !ok {
+					return fmt.Errorf("Parse ini file error: proxy [%s] no auth_token found", proxyServer.Name)
+				}
 			}
 
 			proxyServer.BindAddr, ok = section["bind_addr"]
 			if !ok {
-				proxyServer.BindAddr = "0.0.0.0"
+				proxyServer.BindAddr, ok = section["BIND_ADDR"]
+				if !ok {
+					proxyServer.BindAddr = "0.0.0.0"
+				}
 			}
 
 			portStr, ok := section["listen_port"]
@@ -92,7 +127,15 @@ func LoadConf(confFile string) (err error) {
 					return fmt.Errorf("Parse ini file error: proxy [%s] listen_port error", proxyServer.Name)
 				}
 			} else {
-				return fmt.Errorf("Parse ini file error: proxy [%s] listen_port not found", proxyServer.Name)
+				portStr, ok := section["LISTEN_PORT"]
+				if ok {
+					proxyServer.ListenPort, err = strconv.ParseInt(portStr, 10, 64)
+					if err != nil {
+						return fmt.Errorf("Parse ini file error: proxy [%s] listen_port error", proxyServer.Name)
+					}
+				} else {
+					return fmt.Errorf("Parse ini file error: proxy [%s] listen_port not found", proxyServer.Name)
+				}
 			}
 
 			proxyServer.Init()

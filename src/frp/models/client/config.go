@@ -47,11 +47,23 @@ func LoadConf(confFile string) (err error) {
 	tmpStr, ok = conf.Get("common", "server_addr")
 	if ok {
 		ServerAddr = tmpStr
+	} else {
+		tmpStr, ok = conf.Get("common", "SERVER_ADDR")
+
+		if ok {
+			ServerAddr = tmpStr
+		}
 	}
 
 	tmpStr, ok = conf.Get("common", "server_port")
 	if ok {
 		ServerPort, _ = strconv.ParseInt(tmpStr, 10, 64)
+	} else {
+		tmpStr, ok = conf.Get("common", "SERVER_PORT")
+
+		if ok {
+			ServerPort, _ = strconv.ParseInt(tmpStr, 10, 64)
+		}
 	}
 
 	tmpStr, ok = conf.Get("common", "log_file")
@@ -62,11 +74,28 @@ func LoadConf(confFile string) (err error) {
 		} else {
 			LogWay = "file"
 		}
+	} else {
+		tmpStr, ok = conf.Get("common", "LOG_FILE")
+
+		if ok {
+			LogFile = tmpStr
+			if LogFile == "console" {
+				LogWay = "console"
+			} else {
+				LogWay = "file"
+			}
+		}
 	}
 
 	tmpStr, ok = conf.Get("common", "log_level")
 	if ok {
 		LogLevel = tmpStr
+	} else {
+		tmpStr, ok = conf.Get("common", "LOG_LEVEL")
+
+		if ok {
+			LogLevel = tmpStr
+		}
 	}
 
 	var authToken string
@@ -74,7 +103,13 @@ func LoadConf(confFile string) (err error) {
 	if ok {
 		authToken = tmpStr
 	} else {
-		return fmt.Errorf("auth_token not found")
+		tmpStr, ok = conf.Get("common", "AUTH_TOKEN")
+
+		if ok {
+			authToken = tmpStr
+		} else {
+			return fmt.Errorf("auth_token not found")
+		}
 	}
 
 	// proxies
@@ -90,8 +125,12 @@ func LoadConf(confFile string) (err error) {
 			// local_ip
 			proxyClient.LocalIp, ok = section["local_ip"]
 			if !ok {
-				// use 127.0.0.1 as default
-				proxyClient.LocalIp = "127.0.0.1"
+				proxyClient.LocalIp, ok = section["LOCAL_IP"]
+
+				if !ok {
+					// use 127.0.0.1 as default
+					proxyClient.LocalIp = "127.0.0.1"
+				}
 			}
 
 			// local_port
@@ -102,7 +141,16 @@ func LoadConf(confFile string) (err error) {
 					return fmt.Errorf("Parse ini file error: proxy [%s] local_port error", proxyClient.Name)
 				}
 			} else {
-				return fmt.Errorf("Parse ini file error: proxy [%s] local_port not found", proxyClient.Name)
+				portStr, ok := section["LOCAL_PORT"]
+
+				if ok {
+					proxyClient.LocalPort, err = strconv.ParseInt(portStr, 10, 64)
+					if err != nil {
+						return fmt.Errorf("Parse ini file error: proxy [%s] local_port error", proxyClient.Name)
+					}
+				} else {
+					return fmt.Errorf("Parse ini file error: proxy [%s] local_port not found", proxyClient.Name)
+				}
 			}
 
 			// use_encryption
@@ -110,8 +158,12 @@ func LoadConf(confFile string) (err error) {
 			useEncryptionStr, ok := section["use_encryption"]
 			if ok && useEncryptionStr == "true" {
 				proxyClient.UseEncryption = true
+			} else {
+				useEncryptionStr, ok := section["USE_ENCRYPTION"]
+				if ok && useEncryptionStr == "true" {
+					proxyClient.UseEncryption = true
+				}
 			}
-
 			ProxyClients[proxyClient.Name] = proxyClient
 		}
 	}
