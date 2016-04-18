@@ -24,7 +24,7 @@ Read the [QuickStart](doc/quick_start_en.md) | [使用文档](doc/quick_start_zh
 
 ## What can I do with frp?
 
-* Expose any http service behind a NAT or firewall to the internet by a server with public IP address.
+* Expose any http service behind a NAT or firewall to the internet by a server with public IP address(Name-based Virtual Host Support).
 * Expose any tcp service behind a NAT or firewall to the internet by a server with public IP address.
 * Inspect all http requests/responses that are transmitted over the tunnel(future).
 
