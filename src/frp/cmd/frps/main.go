@@ -19,6 +19,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	docopt "github.com/docopt/docopt-go"
 
@@ -26,6 +27,7 @@ import (
 	"frp/utils/conn"
 	"frp/utils/log"
 	"frp/utils/version"
+	"frp/utils/vhost"
 )
 
 var (
@@ -92,8 +94,20 @@ func main() {
 
 	l, err := conn.Listen(server.BindAddr, server.BindPort)
 	if err != nil {
-		log.Error("Create listener error, %v", err)
-		os.Exit(-1)
+		log.Error("Create server listener error, %v", err)
+		os.Exit(1)
+	}
+
+	if server.VhostHttpPort != 0 {
+		vhostListener, err := conn.Listen(server.BindAddr, server.VhostHttpPort)
+		if err != nil {
+			log.Error("Create vhost http listener error, %v", err)
+			os.Exit(1)
+		}
+		server.VhostMuxer, err = vhost.NewHttpMuxer(vhostListener, 30*time.Second)
+		if err != nil {
+			log.Error("Create vhost httpMuxer error, %v", err)
+		}
 	}
 
 	log.Info("Start frps success")

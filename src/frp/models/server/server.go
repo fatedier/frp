@@ -24,15 +24,22 @@ import (
 	"frp/utils/log"
 )
 
+type Listener interface {
+	Accept() (*conn.Conn, error)
+	Close() error
+}
+
 type ProxyServer struct {
 	Name          string
 	AuthToken     string
-	UseEncryption bool
+	Type          string
 	BindAddr      string
 	ListenPort    int64
-	Status        int64
+	UseEncryption bool
+	CustomDomains []string
 
-	listener     *conn.Listener  // accept new connection from remote users
+	Status       int64
+	listeners    []Listener      // accept new connection from remote users
 	ctlMsgChan   chan int64      // every time accept a new user conn, put "1" to the channel
 	workConnChan chan *conn.Conn // get new work conns from control goroutine
 	userConnList *list.List      // store user conns
@@ -44,6 +51,7 @@ func (p *ProxyServer) Init() {
 	p.workConnChan = make(chan *conn.Conn)
 	p.ctlMsgChan = make(chan int64)
 	p.userConnList = list.New()
+	p.listeners = make([]Listener, 0)
 }
 
 func (p *ProxyServer) Lock() {
@@ -57,57 +65,71 @@ func (p *ProxyServer) Unlock() {
 // start listening for user conns
 func (p *ProxyServer) Start() (err error) {
 	p.Init()
-	p.listener, err = conn.Listen(p.BindAddr, p.ListenPort)
-	if err != nil {
-		return err
+	if p.Type == "tcp" {
+		l, err := conn.Listen(p.BindAddr, p.ListenPort)
+		if err != nil {
+			return err
+		}
+		p.listeners = append(p.listeners, l)
+	} else if p.Type == "http" {
+		for _, domain := range p.CustomDomains {
+			l, err := VhostMuxer.Listen(domain)
+			if err != nil {
+				return err
+			}
+			p.listeners = append(p.listeners, l)
+		}
 	}
 
 	p.Status = consts.Working
 
 	// start a goroutine for listener to accept user connection
-	go func() {
-		for {
-			// block
-			// if listener is closed, err returned
-			c, err := p.listener.GetConn()
-			if err != nil {
-				log.Info("ProxyName [%s], listener is closed", p.Name)
-				return
-			}
-			log.Debug("ProxyName [%s], get one new user conn [%s]", p.Name, c.GetRemoteAddr())
-
-			// insert into list
-			p.Lock()
-			if p.Status != consts.Working {
-				log.Debug("ProxyName [%s] is not working, new user conn close", p.Name)
-				c.Close()
-				p.Unlock()
-				return
-			}
-			p.userConnList.PushBack(c)
-			p.Unlock()
-
-			// put msg to control conn
-			p.ctlMsgChan <- 1
-
-			// set timeout
-			time.AfterFunc(time.Duration(UserConnTimeout)*time.Second, func() {
-				p.Lock()
-				defer p.Unlock()
-				element := p.userConnList.Front()
-				if element == nil {
+	for _, listener := range p.listeners {
+		go func(l Listener) {
+			for {
+				// block
+				// if listener is closed, err returned
+				c, err := l.Accept()
+				if err != nil {
+					log.Info("ProxyName [%s], listener is closed", p.Name)
 					return
 				}
+				log.Debug("ProxyName [%s], get one new user conn [%s]", p.Name, c.GetRemoteAddr())
 
-				userConn := element.Value.(*conn.Conn)
-				if userConn == c {
-					log.Warn("ProxyName [%s], user conn [%s] timeout", p.Name, c.GetRemoteAddr())
+				// insert into list
+				p.Lock()
+				if p.Status != consts.Working {
+					log.Debug("ProxyName [%s] is not working, new user conn close", p.Name)
+					c.Close()
+					p.Unlock()
+					return
 				}
-			})
-		}
-	}()
+				p.userConnList.PushBack(c)
+				p.Unlock()
 
-	// start another goroutine for join two conns from client and user
+				// put msg to control conn
+				p.ctlMsgChan <- 1
+
+				// set timeout
+				time.AfterFunc(time.Duration(UserConnTimeout)*time.Second, func() {
+					p.Lock()
+					defer p.Unlock()
+					element := p.userConnList.Front()
+					if element == nil {
+						return
+					}
+
+					userConn := element.Value.(*conn.Conn)
+					if userConn == c {
+						log.Warn("ProxyName [%s], user conn [%s] timeout", p.Name, c.GetRemoteAddr())
+						userConn.Close()
+					}
+				})
+			}
+		}(listener)
+	}
+
+	// start another goroutine for join two conns from frpc and user
 	go func() {
 		for {
 			workConn, ok := <-p.workConnChan
@@ -149,8 +171,12 @@ func (p *ProxyServer) Close() {
 	p.Lock()
 	if p.Status != consts.Closed {
 		p.Status = consts.Closed
-		if p.listener != nil {
-			p.listener.Close()
+		if len(p.listeners) != 0 {
+			for _, l := range p.listeners {
+				if l != nil {
+					l.Close()
+				}
+			}
 		}
 		close(p.ctlMsgChan)
 		close(p.workConnChan)

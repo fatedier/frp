@@ -105,6 +105,16 @@ func LoadConf(confFile string) (err error) {
 				return fmt.Errorf("Parse ini file error: proxy [%s] local_port not found", proxyClient.Name)
 			}
 
+			// type
+			proxyClient.Type = "tcp"
+			typeStr, ok := section["type"]
+			if ok {
+				if typeStr != "tcp" && typeStr != "http" {
+					return fmt.Errorf("Parse ini file error: proxy [%s] type error", proxyClient.Name)
+				}
+				proxyClient.Type = typeStr
+			}
+
 			// use_encryption
 			proxyClient.UseEncryption = false
 			useEncryptionStr, ok := section["use_encryption"]
