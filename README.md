@@ -8,6 +8,12 @@
 
 frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet.
 
+## What can I do with frp?
+
+* Expose any http service behind a NAT or firewall to the internet by a server with public IP address(Name-based Virtual Host Support).
+* Expose any tcp service behind a NAT or firewall to the internet by a server with public IP address.
+* Inspect all http requests/responses that are transmitted over the tunnel(future).
+
 ## Status
 
 frp is under development and you can try it with latest release version.Master branch for releasing stable version when dev branch for developing.
@@ -18,15 +24,13 @@ frp is under development and you can try it with latest release version.Master b
 
 Read the [QuickStart](doc/quick_start_en.md) | [使用文档](doc/quick_start_zh.md)
 
+[Tcp port forwarding](doc/quick_start_en.md#Tcp-port-forwarding)
+
+[Http port forwarding and Custom domain binding](doc/quick_start_en.md#Http-port-forwarding-and-Custom-domains-binding)
+
 ## Architecture
 
 ![architecture](doc/pic/architecture.png)
-
-## What can I do with frp?
-
-* Expose any http service behind a NAT or firewall to the internet by a server with public IP address(Name-based Virtual Host Support).
-* Expose any tcp service behind a NAT or firewall to the internet by a server with public IP address.
-* Inspect all http requests/responses that are transmitted over the tunnel(future).
 
 ## Contributing
 
