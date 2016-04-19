@@ -21,15 +21,15 @@ frp 目前正在前期开发阶段，master分支用于发布稳定版本，dev�
 
 ## 快速开始
 
-[使用文档](doc/quick_start_zh.md)
+[使用文档](/doc/quick_start_zh.md)
 
-[tcp 端口转发](doc/quick_start_zh.md#tcp-端口转发)
+[tcp 端口转发](/doc/quick_start_zh.md#tcp-端口转发)
 
-[http 端口转发，自定义域名绑定](doc/quick_start_zh.md#http-端口转发自定义域名绑定)
+[http 端口转发，自定义域名绑定](/doc/quick_start_zh.md#http-端口转发自定义域名绑定)
 
 ## 架构
 
-![architecture](doc/pic/architecture.png)
+![architecture](/doc/pic/architecture.png)
 
 ## 贡献代码
 

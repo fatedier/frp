@@ -79,7 +79,7 @@ use_encryption = true
 
 ## Http port forwarding and Custom domains binding
 
-If you only want to forward port one by one, you just need refer to [Tcp port forwarding](doc/quick_start_en.md#Tcp-port-forwarding).If you want to visit different web pages deployed in different web servers by **server B**'s **80 port**, you should specify the type as **http**.
+If you only want to forward port one by one, you just need refer to [Tcp port forwarding](/doc/quick_start_en.md#Tcp-port-forwarding).If you want to visit different web pages deployed in different web servers by **server B**'s **80 port**, you should specify the type as **http**.
 
 You also need to resolve your **A record** of your custom domain to [server_addr], or resolve your **CNAME record** to [server_addr] if [server_addr] is a domain.
 
