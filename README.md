@@ -22,11 +22,11 @@ frp is under development and you can try it with latest release version.Master b
 
 ## Quick Start
 
-Read the [QuickStart](doc/quick_start_en.md) | [使用文档](doc/quick_start_zh.md)
+Read the [QuickStart](doc/quick_start_en.md)
 
-[Tcp port forwarding](doc/quick_start_en.md#Tcp-port-forwarding)
+[Tcp port forwarding](doc/quick_start_en.md#tcp-port-forwarding)
 
-[Http port forwarding and Custom domain binding](doc/quick_start_en.md#Http-port-forwarding-and-Custom-domains-binding)
+[Http port forwarding and Custom domain binding](doc/quick_start_en.md#http-port-forwarding-and-custom-domains-binding)
 
 ## Architecture
 

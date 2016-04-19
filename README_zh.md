@@ -25,7 +25,7 @@ frp 目前正在前期开发阶段，master分支用于发布稳定版本，dev�
 
 [tcp 端口转发](doc/quick_start_zh.md#tcp-端口转发)
 
-[http 端口转发，自定义域名绑定](doc/quick_start_zh.md#http-端口转发，绑定自定义域名)
+[http 端口转发，自定义域名绑定](doc/quick_start_zh.md#http-端口转发自定义域名绑定)
 
 ## 架构
 
