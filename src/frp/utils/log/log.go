@@ -15,6 +15,7 @@
 package log
 
 import (
+	"fmt"
 	"github.com/astaxie/beego/logs"
 )
 
@@ -26,24 +27,24 @@ func init() {
 	Log.SetLogFuncCallDepth(Log.GetLogFuncCallDepth() + 1)
 }
 
-func InitLog(logWay string, logFile string, logLevel string) {
-	SetLogFile(logWay, logFile)
+func InitLog(logWay string, logFile string, logLevel string, maxdays int64) {
+	SetLogFile(logWay, logFile, maxdays)
 	SetLogLevel(logLevel)
 }
 
-// logWay: such as file or console
-func SetLogFile(logWay string, logFile string) {
+// logWay: file or console
+func SetLogFile(logWay string, logFile string, maxdays int64) {
 	if logWay == "console" {
 		Log.SetLogger("console", "")
 	} else {
-		Log.SetLogger("file", `{"filename": "`+logFile+`"}`)
+		params := fmt.Sprintf(`{"filename": "%s", "maxdays": %d}`, logFile, maxdays)
+		Log.SetLogger("file", params)
 	}
 }
 
 // value: error, warning, info, debug
 func SetLogLevel(logLevel string) {
 	level := 4 // warning
-
 	switch logLevel {
 	case "error":
 		level = 3
@@ -56,7 +57,6 @@ func SetLogLevel(logLevel string) {
 	default:
 		level = 4
 	}
-
 	Log.SetLevel(level)
 }
 

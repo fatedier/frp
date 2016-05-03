@@ -32,6 +32,7 @@ var (
 	LogFile          string = "console"
 	LogWay           string = "console" // console or file
 	LogLevel         string = "info"
+	LogMaxDays       int64  = 3
 	HeartBeatTimeout int64  = 90
 	UserConnTimeout  int64  = 10
 
@@ -80,6 +81,11 @@ func LoadConf(confFile string) (err error) {
 	tmpStr, ok = conf.Get("common", "log_level")
 	if ok {
 		LogLevel = tmpStr
+	}
+
+	tmpStr, ok = conf.Get("common", "log_max_days")
+	if ok {
+		LogMaxDays, _ = strconv.ParseInt(tmpStr, 10, 64)
 	}
 
 	// servers

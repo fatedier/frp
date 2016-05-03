@@ -90,7 +90,7 @@ func main() {
 		server.BindPort = bindPort
 	}
 
-	log.InitLog(server.LogWay, server.LogFile, server.LogLevel)
+	log.InitLog(server.LogWay, server.LogFile, server.LogLevel, server.LogMaxDays)
 
 	l, err := conn.Listen(server.BindAddr, server.BindPort)
 	if err != nil {
@@ -98,6 +98,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	// create vhost if VhostHttpPort != 0
 	if server.VhostHttpPort != 0 {
 		vhostListener, err := conn.Listen(server.BindAddr, server.VhostHttpPort)
 		if err != nil {

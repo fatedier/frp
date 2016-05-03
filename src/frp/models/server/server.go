@@ -113,8 +113,8 @@ func (p *ProxyServer) Start() (err error) {
 				// set timeout
 				time.AfterFunc(time.Duration(UserConnTimeout)*time.Second, func() {
 					p.Lock()
-					defer p.Unlock()
 					element := p.userConnList.Front()
+					p.Unlock()
 					if element == nil {
 						return
 					}
