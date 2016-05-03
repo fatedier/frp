@@ -88,7 +88,7 @@ func main() {
 		client.ServerPort = serverPort
 	}
 
-	log.InitLog(client.LogWay, client.LogFile, client.LogLevel)
+	log.InitLog(client.LogWay, client.LogFile, client.LogLevel, client.LogMaxDays)
 
 	// wait until all control goroutine exit
 	var wait sync.WaitGroup

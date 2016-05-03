@@ -20,6 +20,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 
 	"frp/utils/log"
 	"frp/utils/pcrypto"
@@ -28,7 +29,7 @@ import (
 type Listener struct {
 	addr      net.Addr
 	l         *net.TCPListener
-	conns     chan *Conn
+	accept    chan *Conn
 	closeFlag bool
 }
 
@@ -42,7 +43,7 @@ func Listen(bindAddr string, bindPort int64) (l *Listener, err error) {
 	l = &Listener{
 		addr:      listener.Addr(),
 		l:         listener,
-		conns:     make(chan *Conn),
+		accept:    make(chan *Conn),
 		closeFlag: false,
 	}
 
@@ -61,7 +62,7 @@ func Listen(bindAddr string, bindPort int64) (l *Listener, err error) {
 				closeFlag: false,
 			}
 			c.Reader = bufio.NewReader(c.TcpConn)
-			l.conns <- c
+			l.accept <- c
 		}
 	}()
 	return l, err
@@ -69,28 +70,36 @@ func Listen(bindAddr string, bindPort int64) (l *Listener, err error) {
 
 // wait util get one new connection or listener is closed
 // if listener is closed, err returned
-func (l *Listener) GetConn() (conn *Conn, err error) {
-	var ok bool
-	conn, ok = <-l.conns
+func (l *Listener) Accept() (*Conn, error) {
+	conn, ok := <-l.accept
 	if !ok {
 		return conn, fmt.Errorf("channel close")
 	}
 	return conn, nil
 }
 
-func (l *Listener) Close() {
+func (l *Listener) Close() error {
 	if l.l != nil && l.closeFlag == false {
 		l.closeFlag = true
 		l.l.Close()
-		close(l.conns)
+		close(l.accept)
 	}
+	return nil
 }
 
 // wrap for TCPConn
 type Conn struct {
-	TcpConn   *net.TCPConn
+	TcpConn   net.Conn
 	Reader    *bufio.Reader
 	closeFlag bool
+}
+
+func NewConn(conn net.Conn) (c *Conn) {
+	c = &Conn{}
+	c.TcpConn = conn
+	c.Reader = bufio.NewReader(c.TcpConn)
+	c.closeFlag = false
+	return c
 }
 
 func ConnectServer(host string, port int64) (c *Conn, err error) {
@@ -129,6 +138,11 @@ func (c *Conn) Write(content string) (err error) {
 	_, err = c.TcpConn.Write([]byte(content))
 	return err
 
+}
+
+func (c *Conn) SetDeadline(t time.Time) error {
+	err := c.TcpConn.SetDeadline(t)
+	return err
 }
 
 func (c *Conn) Close() {

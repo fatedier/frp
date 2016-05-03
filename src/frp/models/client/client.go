@@ -31,6 +31,7 @@ type ProxyClient struct {
 	AuthToken     string
 	LocalIp       string
 	LocalPort     int64
+	Type          string
 	UseEncryption bool
 }
 

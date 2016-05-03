@@ -30,7 +30,7 @@ import (
 
 func ProcessControlConn(l *conn.Listener) {
 	for {
-		c, err := l.GetConn()
+		c, err := l.Accept()
 		if err != nil {
 			return
 		}

@@ -28,6 +28,7 @@ var (
 	LogFile           string = "console"
 	LogWay            string = "console"
 	LogLevel          string = "info"
+	LogMaxDays        int64  = 3
 	HeartBeatInterval int64  = 20
 	HeartBeatTimeout  int64  = 90
 )
@@ -69,6 +70,11 @@ func LoadConf(confFile string) (err error) {
 		LogLevel = tmpStr
 	}
 
+	tmpStr, ok = conf.Get("common", "log_max_days")
+	if ok {
+		LogMaxDays, _ = strconv.ParseInt(tmpStr, 10, 64)
+	}
+
 	var authToken string
 	tmpStr, ok = conf.Get("common", "auth_token")
 	if ok {
@@ -103,6 +109,16 @@ func LoadConf(confFile string) (err error) {
 				}
 			} else {
 				return fmt.Errorf("Parse ini file error: proxy [%s] local_port not found", proxyClient.Name)
+			}
+
+			// type
+			proxyClient.Type = "tcp"
+			typeStr, ok := section["type"]
+			if ok {
+				if typeStr != "tcp" && typeStr != "http" {
+					return fmt.Errorf("Parse ini file error: proxy [%s] type error", proxyClient.Name)
+				}
+				proxyClient.Type = typeStr
 			}
 
 			// use_encryption
