@@ -93,6 +93,11 @@ func controlWorker(c *conn.Conn) {
 		return
 	}
 
+	// if login failed, just return
+	if ret > 0 {
+		return
+	}
+
 	// create a channel for sending messages
 	msgSendChan := make(chan interface{}, 1024)
 	go msgSender(s, c, msgSendChan)
