@@ -14,18 +14,32 @@ make -f ./Makefile.cross-compiles
 rm -rf ./packages
 mkdir ./packages
 
-os_all='linux windows'
-arch_all='386 amd64'
+os_all='linux windows darwin'
+arch_all='386 amd64 arm'
 
 for os in $os_all; do
     for arch in $arch_all; do
         frp_dir_name="frp_${frp_version}_${os}_${arch}"
         frp_path="./packages/frp_${frp_version}_${os}_${arch}"
-        mkdir ${frp_path}
+
         if [ "x${os}" = x"windows" ]; then
+            if [ ! -f "./frpc_${os}_${arch}.exe" ]; then
+                continue
+            fi
+            if [ ! -f "./frps_${os}_${arch}.exe" ]; then
+                continue
+            fi
+            mkdir ${frp_path}
             mv ./frpc_${os}_${arch}.exe ${frp_path}/frpc.exe
             mv ./frps_${os}_${arch}.exe ${frp_path}/frps.exe
         else
+            if [ ! -f "./frpc_${os}_${arch}" ]; then
+                continue
+            fi
+            if [ ! -f "./frps_${os}_${arch}" ]; then
+                continue
+            fi
+            mkdir ${frp_path}
             mv ./frpc_${os}_${arch} ${frp_path}/frpc
             mv ./frps_${os}_${arch} ${frp_path}/frps
         fi  
