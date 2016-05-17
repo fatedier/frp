@@ -35,14 +35,14 @@ gotest:
 	godep go test -v ./src/...
 
 alltest:
-	cd ./test && sh ./run_test.sh && cd -
+	cd ./test && ./run_test.sh && cd -
 	godep go test -v ./src/...
 	godep go test -v ./test/func_test.go
-	cd ./test && sh ./clean_test.sh && cd -
+	cd ./test && ./clean_test.sh && cd -
 
 clean:
 	rm -f ./bin/frpc
 	rm -f ./bin/frps
 	rm -f ./test/bin/echo_server
 	rm -f ./test/bin/http_server
-	cd ./test && sh ./clean_test.sh && cd -
+	cd ./test && ./clean_test.sh && cd -
