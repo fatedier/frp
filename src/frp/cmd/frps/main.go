@@ -111,6 +111,15 @@ func main() {
 		}
 	}
 
+	// create dashboard web server if DashboardPort != 0
+	if server.DashboardPort != 0 {
+		err := server.RunDashboardServer(server.BindAddr, server.DashboardPort)
+		if err != nil {
+			log.Error("Create dashboard web server error, %v", err)
+			os.Exit(1)
+		}
+	}
+
 	log.Info("Start frps success")
 	ProcessControlConn(l)
 }

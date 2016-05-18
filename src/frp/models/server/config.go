@@ -28,7 +28,8 @@ import (
 var (
 	BindAddr         string = "0.0.0.0"
 	BindPort         int64  = 7000
-	VhostHttpPort    int64  = 0 // if VhostHttpPort equals 0, do not listen a public port for http
+	VhostHttpPort    int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http
+	DashboardPort    int64  = 0 // if DashboardPort equals 0, dashboard is not available
 	LogFile          string = "console"
 	LogWay           string = "console" // console or file
 	LogLevel         string = "info"
@@ -66,6 +67,13 @@ func LoadConf(confFile string) (err error) {
 		VhostHttpPort, _ = strconv.ParseInt(tmpStr, 10, 64)
 	} else {
 		VhostHttpPort = 0
+	}
+
+	tmpStr, ok = conf.Get("common", "dashboard_port")
+	if ok {
+		DashboardPort, _ = strconv.ParseInt(tmpStr, 10, 64)
+	} else {
+		DashboardPort = 0
 	}
 
 	tmpStr, ok = conf.Get("common", "log_file")
