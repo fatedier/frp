@@ -243,7 +243,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 			return
 		}
 		// the connection will close after join over
-		s.RecvNewWorkConn(c)
+		s.RegisterNewWorkConn(c)
 	} else {
 		info = fmt.Sprintf("Unsupport login message type [%d]", req.Type)
 		log.Warn("Unsupport login message type [%d]", req.Type)
