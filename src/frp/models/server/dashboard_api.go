@@ -15,12 +15,32 @@
 package server
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/gin-gonic/gin"
+
+	"frp/utils/log"
 )
 
+type GeneralResponse struct {
+	Code int64  `json:"code"`
+	Msg  string `json:"msg"`
+}
+
 func apiReload(c *gin.Context) {
-	c.JSON(200, gin.H{
-		"code": 0,
-		"msg":  "ok",
-	})
+	res := &GeneralResponse{}
+	defer func() {
+		buf, _ := json.Marshal(res)
+		log.Info("Http response [/api/reload]: %s", string(buf))
+	}()
+
+	log.Info("Http request: [/api/reload]")
+	err := ReloadConf(ConfigFile)
+	if err != nil {
+		res.Code = 2
+		res.Msg = fmt.Sprintf("%v", err)
+		log.Error("frps reload error: %v", err)
+	}
+	c.JSON(200, res)
 }

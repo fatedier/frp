@@ -35,21 +35,49 @@ type ProxyServer struct {
 	Type          string
 	BindAddr      string
 	ListenPort    int64
-	UseEncryption bool
 	CustomDomains []string
 
+	// configure in frpc.ini
+	UseEncryption bool
+
 	Status       int64
+	CtlConn      *conn.Conn      // control connection with frpc
 	listeners    []Listener      // accept new connection from remote users
 	ctlMsgChan   chan int64      // every time accept a new user conn, put "1" to the channel
 	workConnChan chan *conn.Conn // get new work conns from control goroutine
 	mutex        sync.Mutex
 }
 
+func NewProxyServer() (p *ProxyServer) {
+	p = &ProxyServer{
+		CustomDomains: make([]string, 0),
+	}
+	return p
+}
+
 func (p *ProxyServer) Init() {
+	p.Lock()
 	p.Status = consts.Idle
 	p.workConnChan = make(chan *conn.Conn, 100)
 	p.ctlMsgChan = make(chan int64)
 	p.listeners = make([]Listener, 0)
+	p.Unlock()
+}
+
+func (p *ProxyServer) Compare(p2 *ProxyServer) bool {
+	if p.Name != p2.Name || p.AuthToken != p2.AuthToken || p.Type != p2.Type ||
+		p.BindAddr != p2.BindAddr || p.ListenPort != p2.ListenPort {
+		return false
+	}
+	if len(p.CustomDomains) != len(p2.CustomDomains) {
+		return false
+	}
+	for i, _ := range p.CustomDomains {
+		if p.CustomDomains[i] != p2.CustomDomains[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *ProxyServer) Lock() {
@@ -61,7 +89,8 @@ func (p *ProxyServer) Unlock() {
 }
 
 // start listening for user conns
-func (p *ProxyServer) Start() (err error) {
+func (p *ProxyServer) Start(c *conn.Conn) (err error) {
+	p.CtlConn = c
 	p.Init()
 	if p.Type == "tcp" {
 		l, err := conn.Listen(p.BindAddr, p.ListenPort)
@@ -79,9 +108,11 @@ func (p *ProxyServer) Start() (err error) {
 		}
 	}
 
+	p.Lock()
 	p.Status = consts.Working
+	p.Unlock()
 
-	// start a goroutine for listener to accept user connection
+	// start a goroutine for every listener to accept user connection
 	for _, listener := range p.listeners {
 		go func(l Listener) {
 			for {
@@ -138,6 +169,9 @@ func (p *ProxyServer) Close() {
 		}
 		close(p.ctlMsgChan)
 		close(p.workConnChan)
+		if p.CtlConn != nil {
+			p.CtlConn.Close()
+		}
 	}
 	p.Unlock()
 }

@@ -18,14 +18,17 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	ini "github.com/vaughan0/go-ini"
 
+	"frp/utils/log"
 	"frp/utils/vhost"
 )
 
 // common config
 var (
+	ConfigFile       string = "./frps.ini"
 	BindAddr         string = "0.0.0.0"
 	BindPort         int64  = 7000
 	VhostHttpPort    int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http
@@ -37,20 +40,39 @@ var (
 	HeartBeatTimeout int64  = 90
 	UserConnTimeout  int64  = 10
 
-	VhostMuxer *vhost.HttpMuxer
+	VhostMuxer        *vhost.HttpMuxer
+	ProxyServers      map[string]*ProxyServer = make(map[string]*ProxyServer) // all proxy servers info and resources
+	ProxyServersMutex sync.RWMutex
 )
 
-var ProxyServers map[string]*ProxyServer = make(map[string]*ProxyServer)
-
 func LoadConf(confFile string) (err error) {
-	var tmpStr string
-	var ok bool
-
-	conf, err := ini.LoadFile(confFile)
+	err = loadCommonConf(confFile)
 	if err != nil {
 		return err
 	}
 
+	// load all proxy server's configure and initialize
+	// and set ProxyServers map
+	newProxyServers, err := loadProxyConf(confFile)
+	if err != nil {
+		return err
+	}
+	for _, proxyServer := range newProxyServers {
+		proxyServer.Init()
+	}
+	ProxyServersMutex.Lock()
+	ProxyServers = newProxyServers
+	ProxyServersMutex.Unlock()
+	return nil
+}
+
+func loadCommonConf(confFile string) error {
+	var tmpStr string
+	var ok bool
+	conf, err := ini.LoadFile(confFile)
+	if err != nil {
+		return err
+	}
 	// common
 	tmpStr, ok = conf.Get("common", "bind_addr")
 	if ok {
@@ -95,18 +117,26 @@ func LoadConf(confFile string) (err error) {
 	if ok {
 		LogMaxDays, _ = strconv.ParseInt(tmpStr, 10, 64)
 	}
+	return nil
+}
 
+func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err error) {
+	var ok bool
+	proxyServers = make(map[string]*ProxyServer)
+	conf, err := ini.LoadFile(confFile)
+	if err != nil {
+		return proxyServers, err
+	}
 	// servers
 	for name, section := range conf {
 		if name != "common" {
-			proxyServer := &ProxyServer{}
-			proxyServer.CustomDomains = make([]string, 0)
+			proxyServer := NewProxyServer()
 			proxyServer.Name = name
 
 			proxyServer.Type, ok = section["type"]
 			if ok {
 				if proxyServer.Type != "tcp" && proxyServer.Type != "http" {
-					return fmt.Errorf("Parse ini file error: proxy [%s] type error", proxyServer.Name)
+					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] type error", proxyServer.Name)
 				}
 			} else {
 				proxyServer.Type = "tcp"
@@ -114,7 +144,7 @@ func LoadConf(confFile string) (err error) {
 
 			proxyServer.AuthToken, ok = section["auth_token"]
 			if !ok {
-				return fmt.Errorf("Parse ini file error: proxy [%s] no auth_token found", proxyServer.Name)
+				return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] no auth_token found", proxyServer.Name)
 			}
 
 			// for tcp
@@ -128,10 +158,10 @@ func LoadConf(confFile string) (err error) {
 				if ok {
 					proxyServer.ListenPort, err = strconv.ParseInt(portStr, 10, 64)
 					if err != nil {
-						return fmt.Errorf("Parse ini file error: proxy [%s] listen_port error", proxyServer.Name)
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] listen_port error", proxyServer.Name)
 					}
 				} else {
-					return fmt.Errorf("Parse ini file error: proxy [%s] listen_port not found", proxyServer.Name)
+					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] listen_port not found", proxyServer.Name)
 				}
 			} else if proxyServer.Type == "http" {
 				// for http
@@ -142,20 +172,53 @@ func LoadConf(confFile string) (err error) {
 						suffix = fmt.Sprintf(":%d", VhostHttpPort)
 					}
 					proxyServer.CustomDomains = strings.Split(domainStr, ",")
+					if len(proxyServer.CustomDomains) == 0 {
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyServer.Name)
+					}
 					for i, domain := range proxyServer.CustomDomains {
 						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain)) + suffix
 					}
 				}
 			}
+			proxyServers[proxyServer.Name] = proxyServer
+		}
+	}
+	return proxyServers, nil
+}
 
+// the function can only reload proxy configures
+// common section won't be changed
+func ReloadConf(confFile string) (err error) {
+	loadProxyServers, err := loadProxyConf(confFile)
+	if err != nil {
+		return err
+	}
+
+	ProxyServersMutex.Lock()
+	for name, proxyServer := range loadProxyServers {
+		oldProxyServer, ok := ProxyServers[name]
+		if ok {
+			if !oldProxyServer.Compare(proxyServer) {
+				oldProxyServer.Close()
+				proxyServer.Init()
+				ProxyServers[name] = proxyServer
+				log.Info("ProxyName [%s] configure change, restart", name)
+			}
+		} else {
 			proxyServer.Init()
-			ProxyServers[proxyServer.Name] = proxyServer
+			ProxyServers[name] = proxyServer
+			log.Info("ProxyName [%s] is new, init it", name)
 		}
 	}
 
-	if len(ProxyServers) == 0 {
-		return fmt.Errorf("Parse ini file error: no proxy config found")
+	for name, oldProxyServer := range ProxyServers {
+		_, ok := loadProxyServers[name]
+		if !ok {
+			oldProxyServer.Close()
+			delete(ProxyServers, name)
+			log.Info("ProxyName [%s] deleted, close it", name)
+		}
 	}
-
+	ProxyServersMutex.Unlock()
 	return nil
 }

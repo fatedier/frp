@@ -15,7 +15,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -30,15 +33,13 @@ import (
 	"frp/utils/vhost"
 )
 
-var (
-	configFile string = "./frps.ini"
-)
-
 var usage string = `frps is the server of frp
 
 Usage: 
 	frps [-c config_file] [-L log_file] [--log-level=<log_level>] [--addr=<bind_addr>]
-	frps -h | --help | --version
+	frps --reload
+	frps -h | --help
+	frps -v | --version
 
 Options:
 	-c config_file            set config file
@@ -46,7 +47,7 @@ Options:
 	--log-level=<log_level>   set log level: debug, info, warn, error
 	--addr=<bind_addr>        listen addr for client, example: 0.0.0.0:7000
 	-h --help                 show this screen
-	--version                 show version
+	-v --version              show version
 `
 
 func main() {
@@ -54,12 +55,41 @@ func main() {
 	args, err := docopt.Parse(usage, nil, true, version.Full(), false)
 
 	if args["-c"] != nil {
-		configFile = args["-c"].(string)
+		server.ConfigFile = args["-c"].(string)
 	}
-	err = server.LoadConf(configFile)
+	err = server.LoadConf(server.ConfigFile)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
+	}
+
+	// reload check
+	if args["--reload"] != nil {
+		if args["--reload"].(bool) {
+			resp, err := http.Get("http://" + server.BindAddr + ":" + fmt.Sprintf("%d", server.DashboardPort) + "/api/reload")
+			if err != nil {
+				fmt.Printf("frps reload error: %v\n", err)
+				os.Exit(1)
+			} else {
+				defer resp.Body.Close()
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					fmt.Printf("frps reload error: %v\n", err)
+					os.Exit(1)
+				}
+				res := &server.GeneralResponse{}
+				err = json.Unmarshal(body, &res)
+				if err != nil {
+					fmt.Printf("http response error: %v\n", err)
+					os.Exit(1)
+				} else if res.Code != 0 {
+					fmt.Printf("reload error: %s\n", res.Msg)
+					os.Exit(1)
+				}
+				fmt.Printf("reload success\n")
+				os.Exit(0)
+			}
+		}
 	}
 
 	if args["-L"] != nil {
@@ -90,6 +120,13 @@ func main() {
 		server.BindPort = bindPort
 	}
 
+	if args["-v"] != nil {
+		if args["-v"].(bool) {
+			fmt.Println(version.Full())
+			os.Exit(0)
+		}
+	}
+
 	log.InitLog(server.LogWay, server.LogFile, server.LogLevel, server.LogMaxDays)
 
 	l, err := conn.Listen(server.BindAddr, server.BindPort)
@@ -111,7 +148,7 @@ func main() {
 		}
 	}
 
-	// create dashboard web server if DashboardPort != 0
+	// create dashboard web server if DashboardPort is set, so it won't be 0
 	if server.DashboardPort != 0 {
 		err := server.RunDashboardServer(server.BindAddr, server.DashboardPort)
 		if err != nil {

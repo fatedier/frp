@@ -28,7 +28,7 @@ func RunDashboardServer(addr string, port int64) (err error) {
 	}()
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
-	router.LoadHTMLGlob("assets/*")
+	//router.LoadHTMLGlob("assets/*")
 	router.GET("/api/reload", apiReload)
 	go router.Run(fmt.Sprintf("%s:%d", addr, port))
 	return
