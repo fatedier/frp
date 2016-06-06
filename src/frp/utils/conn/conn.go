@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -129,10 +130,13 @@ func (c *Conn) GetLocalAddr() (addr string) {
 
 func (c *Conn) ReadLine() (buff string, err error) {
 	buff, err = c.Reader.ReadString('\n')
-	if err == io.EOF {
-		c.mutex.Lock()
-		c.closeFlag = true
-		c.mutex.Unlock()
+	if err != nil {
+		// wsarecv error in windows means connection closed
+		if err == io.EOF || strings.Contains(err.Error(), "wsarecv: An existing connection was forcibly closed") {
+			c.mutex.Lock()
+			c.closeFlag = true
+			c.mutex.Unlock()
+		}
 	}
 	return buff, err
 }

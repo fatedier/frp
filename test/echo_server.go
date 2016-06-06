@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 
 	"frp/utils/conn"
 )
@@ -31,6 +32,9 @@ func main() {
 func echoWorker(c *conn.Conn) {
 	for {
 		buff, err := c.ReadLine()
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
 			fmt.Printf("echo server read error: %v\n", err)
 			return
