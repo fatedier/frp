@@ -4,9 +4,9 @@ export GOPATH := $(shell pwd)/Godeps/_workspace:$(shell pwd):$(GOPATH)
 
 all: build
 
-build: godep app 
+build: gox app 
 
-godep:
+gox:
 	GOPATH=$(OLDGOPATH) go get github.com/mitchellh/gox
 
 app:
