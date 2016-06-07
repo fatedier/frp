@@ -36,19 +36,19 @@ import (
 var usage string = `frps is the server of frp
 
 Usage: 
-	frps [-c config_file] [-L log_file] [--log-level=<log_level>] [--addr=<bind_addr>]
-	frps --reload
-	frps -h | --help
-	frps -v | --version
+    frps [-c config_file] [-L log_file] [--log-level=<log_level>] [--addr=<bind_addr>]
+    frps --reload
+    frps -h | --help
+    frps -v | --version
 
 Options:
-	-c config_file            set config file
-	-L log_file               set output log file, including console
-	--log-level=<log_level>   set log level: debug, info, warn, error
-	--addr=<bind_addr>        listen addr for client, example: 0.0.0.0:7000
-	--reload                  reload ini file and configures in common section won't be changed
-	-h --help                 show this screen
-	-v --version              show version
+    -c config_file            set config file
+    -L log_file               set output log file, including console
+    --log-level=<log_level>   set log level: debug, info, warn, error
+    --addr=<bind_addr>        listen addr for client, example: 0.0.0.0:7000
+    --reload                  reload ini file and configures in common section won't be changed
+    -h --help                 show this screen
+    -v --version              show version
 `
 
 func main() {
