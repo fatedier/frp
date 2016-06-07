@@ -36,7 +36,8 @@ var usage string = `frpc is the client of frp
 
 Usage: 
     frpc [-c config_file] [-L log_file] [--log-level=<log_level>] [--server-addr=<server_addr>]
-    frpc -h | --help | --version
+    frpc -h | --help
+    frpc -v | --version
 
 Options:
     -c config_file              set config file
@@ -86,6 +87,13 @@ func main() {
 		}
 		client.ServerAddr = addr[0]
 		client.ServerPort = serverPort
+	}
+
+	if args["-v"] != nil {
+		if args["-v"].(bool) {
+			fmt.Println(version.Full())
+			os.Exit(0)
+		}
 	}
 
 	log.InitLog(client.LogWay, client.LogFile, client.LogLevel, client.LogMaxDays)

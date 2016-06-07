@@ -9,4 +9,4 @@ install:
     - make
 
 script:
-    - make test
+    - make alltest

@@ -102,7 +102,8 @@ func msgReader(cli *client.ProxyClient, c *conn.Conn, msgSendChan chan interface
 			timer.Reset(time.Duration(client.HeartBeatTimeout) * time.Second)
 		case consts.NoticeUserConn:
 			log.Debug("ProxyName [%s], new user connection", cli.Name)
-			cli.StartTunnel(client.ServerAddr, client.ServerPort)
+			// join local and remote connections, async
+			go cli.StartTunnel(client.ServerAddr, client.ServerPort)
 		default:
 			log.Warn("ProxyName [%s}, unsupport msgType [%d]", cli.Name, ctlRes.Type)
 		}

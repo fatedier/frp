@@ -67,7 +67,7 @@ func controlWorker(c *conn.Conn) {
 		return
 	}
 
-	// do login when type is NewCtlConn or NewWorkConn
+	// login when type is NewCtlConn or NewWorkConn
 	ret, info := doLogin(cliReq, c)
 	s, ok := server.ProxyServers[cliReq.ProxyName]
 	if !ok {
@@ -134,7 +134,6 @@ func msgReader(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}
 	timer := time.AfterFunc(time.Duration(server.HeartBeatTimeout)*time.Second, func() {
 		heartbeatTimeout = true
 		s.Close()
-		c.Close()
 		log.Error("ProxyName [%s], client heartbeat timeout", s.Name)
 	})
 	defer timer.Stop()
@@ -229,7 +228,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		s.UseEncryption = req.UseEncryption
 
 		// start proxy and listen for user connections, no block
-		err := s.Start()
+		err := s.Start(c)
 		if err != nil {
 			info = fmt.Sprintf("ProxyName [%s], start proxy error: %v", req.ProxyName, err)
 			log.Warn(info)
@@ -243,7 +242,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 			return
 		}
 		// the connection will close after join over
-		s.RecvNewWorkConn(c)
+		s.RegisterNewWorkConn(c)
 	} else {
 		info = fmt.Sprintf("Unsupport login message type [%d]", req.Type)
 		log.Warn("Unsupport login message type [%d]", req.Type)

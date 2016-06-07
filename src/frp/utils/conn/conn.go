@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -92,6 +93,7 @@ type Conn struct {
 	TcpConn   net.Conn
 	Reader    *bufio.Reader
 	closeFlag bool
+	mutex     sync.RWMutex
 }
 
 func NewConn(conn net.Conn) (c *Conn) {
@@ -128,8 +130,13 @@ func (c *Conn) GetLocalAddr() (addr string) {
 
 func (c *Conn) ReadLine() (buff string, err error) {
 	buff, err = c.Reader.ReadString('\n')
-	if err == io.EOF {
-		c.closeFlag = true
+	if err != nil {
+		// wsarecv error in windows means connection closed
+		if err == io.EOF || strings.Contains(err.Error(), "wsarecv: An existing connection was forcibly closed") {
+			c.mutex.Lock()
+			c.closeFlag = true
+			c.mutex.Unlock()
+		}
 	}
 	return buff, err
 }
@@ -146,14 +153,19 @@ func (c *Conn) SetDeadline(t time.Time) error {
 }
 
 func (c *Conn) Close() {
+	c.mutex.Lock()
 	if c.TcpConn != nil && c.closeFlag == false {
 		c.closeFlag = true
 		c.TcpConn.Close()
 	}
+	c.mutex.Unlock()
 }
 
-func (c *Conn) IsClosed() bool {
-	return c.closeFlag
+func (c *Conn) IsClosed() (closeFlag bool) {
+	c.mutex.RLock()
+	closeFlag = c.closeFlag
+	c.mutex.RUnlock()
+	return
 }
 
 // will block until connection close
