@@ -32,6 +32,7 @@ var (
 	BindAddr         string = "0.0.0.0"
 	BindPort         int64  = 7000
 	VhostHttpPort    int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http
+	VhostHttpsPort   int64  = 0 // if VhostHttpsPort equals 0, don't listen a public port for http
 	DashboardPort    int64  = 0 // if DashboardPort equals 0, dashboard is not available
 	LogFile          string = "console"
 	LogWay           string = "console" // console or file
@@ -40,7 +41,8 @@ var (
 	HeartBeatTimeout int64  = 90
 	UserConnTimeout  int64  = 10
 
-	VhostMuxer        *vhost.HttpMuxer
+	VhostHttpMuxer    *vhost.HttpMuxer
+	VhostHttpsMuxer   *vhost.HttpsMuxer
 	ProxyServers      map[string]*ProxyServer = make(map[string]*ProxyServer) // all proxy servers info and resources
 	ProxyServersMutex sync.RWMutex
 )
@@ -91,6 +93,14 @@ func loadCommonConf(confFile string) error {
 		VhostHttpPort = 0
 	}
 
+	tmpStr, ok = conf.Get("common", "vhost_https_port")
+	if ok {
+		VhostHttpsPort, _ = strconv.ParseInt(tmpStr, 10, 64)
+	} else {
+		VhostHttpsPort = 0
+	}
+	vhost.VhostHttpsPort = VhostHttpsPort
+
 	tmpStr, ok = conf.Get("common", "dashboard_port")
 	if ok {
 		DashboardPort, _ = strconv.ParseInt(tmpStr, 10, 64)
@@ -135,7 +145,7 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 
 			proxyServer.Type, ok = section["type"]
 			if ok {
-				if proxyServer.Type != "tcp" && proxyServer.Type != "http" {
+				if proxyServer.Type != "tcp" && proxyServer.Type != "http" && proxyServer.Type != "https" {
 					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] type error", proxyServer.Name)
 				}
 			} else {
@@ -178,6 +188,23 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 					for i, domain := range proxyServer.CustomDomains {
 						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain)) + suffix
 					}
+				}
+			} else if proxyServer.Type == "https" {
+				// for https
+				domainStr, ok := section["custom_domains"]
+				if ok {
+					var suffix string
+					if VhostHttpsPort != 443 {
+						suffix = fmt.Sprintf(":%d", VhostHttpsPort)
+					}
+					proxyServer.CustomDomains = strings.Split(domainStr, ",")
+					if len(proxyServer.CustomDomains) == 0 {
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyServer.Name)
+					}
+					for i, domain := range proxyServer.CustomDomains {
+						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain)) + suffix
+					}
+					log.Info("proxyServer: %+v", proxyServer.CustomDomains)
 				}
 			}
 			proxyServers[proxyServer.Name] = proxyServer
