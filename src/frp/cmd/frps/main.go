@@ -143,9 +143,22 @@ func main() {
 			log.Error("Create vhost http listener error, %v", err)
 			os.Exit(1)
 		}
-		server.VhostMuxer, err = vhost.NewHttpMuxer(vhostListener, 30*time.Second)
+		server.VhostHttpMuxer, err = vhost.NewHttpMuxer(vhostListener, 30*time.Second)
 		if err != nil {
 			log.Error("Create vhost httpMuxer error, %v", err)
+		}
+	}
+
+	// create vhost if VhostHttpPort != 0
+	if server.VhostHttpsPort != 0 {
+		vhostListener, err := conn.Listen(server.BindAddr, server.VhostHttpsPort)
+		if err != nil {
+			log.Error("Create vhost https listener error, %v", err)
+			os.Exit(1)
+		}
+		server.VhostHttpsMuxer, err = vhost.NewHttpsMuxer(vhostListener, 30*time.Second)
+		if err != nil {
+			log.Error("Create vhost httpsMuxer error, %v", err)
 		}
 	}
 
