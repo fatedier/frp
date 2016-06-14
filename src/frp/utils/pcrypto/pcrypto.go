@@ -20,7 +20,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/md5"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -30,69 +29,80 @@ import (
 type Pcrypto struct {
 	pkey []byte
 	paes cipher.Block
+	// 0: nono; 1:compress; 2: encrypt; 3: compress and encrypt
+	ptyp int
 }
 
-func (pc *Pcrypto) Init(key []byte) error {
+func (pc *Pcrypto) Init(key []byte, ptyp int) error {
 	var err error
 	pc.pkey = pKCS7Padding(key, aes.BlockSize)
 	pc.paes, err = aes.NewCipher(pc.pkey)
+	if ptyp == 1 || ptyp == 2 || ptyp == 3 {
+		pc.ptyp = ptyp
+	} else {
+		pc.ptyp = 0
+	}
 
 	return err
 }
 
 func (pc *Pcrypto) Encrypt(src []byte) ([]byte, error) {
-	// gzip
 	var zbuf bytes.Buffer
-	zwr, err := gzip.NewWriterLevel(&zbuf, -1)
-	if err != nil {
-		return nil, err
+
+	// gzip
+	if pc.ptyp == 1 || pc.ptyp == 3 {
+		zwr, err := gzip.NewWriterLevel(&zbuf, gzip.DefaultCompression)
+		if err != nil {
+			return nil, err
+		}
+		defer zwr.Close()
+		zwr.Write(src)
+		zwr.Flush()
+		src = zbuf.Bytes()
 	}
-	defer zwr.Close()
-	zwr.Write(src)
-	zwr.Flush()
 
 	// aes
-	src = pKCS7Padding(zbuf.Bytes(), aes.BlockSize)
-	blockMode := cipher.NewCBCEncrypter(pc.paes, pc.pkey)
-	crypted := make([]byte, len(src))
-	blockMode.CryptBlocks(crypted, src)
+	if pc.ptyp == 2 || pc.ptyp == 3 {
+		src = pKCS7Padding(src, aes.BlockSize)
+		blockMode := cipher.NewCBCEncrypter(pc.paes, pc.pkey)
+		crypted := make([]byte, len(src))
+		blockMode.CryptBlocks(crypted, src)
+		src = crypted
+	}
 
-	// base64
-	return []byte(base64.StdEncoding.EncodeToString(crypted)), nil
+	return src, nil
 }
 
 func (pc *Pcrypto) Decrypt(str []byte) ([]byte, error) {
-	// base64
-	data, err := base64.StdEncoding.DecodeString(string(str))
-	if err != nil {
-		return nil, err
-	}
-
 	// aes
-	decryptText, err := hex.DecodeString(fmt.Sprintf("%x", data))
-	if err != nil {
-		return nil, err
+	if pc.ptyp == 2 || pc.ptyp == 3 {
+		decryptText, err := hex.DecodeString(fmt.Sprintf("%x", str))
+		if err != nil {
+			return nil, err
+		}
+
+		if len(decryptText)%aes.BlockSize != 0 {
+			return nil, errors.New("crypto/cipher: ciphertext is not a multiple of the block size")
+		}
+
+		blockMode := cipher.NewCBCDecrypter(pc.paes, pc.pkey)
+
+		blockMode.CryptBlocks(decryptText, decryptText)
+		str = pKCS7UnPadding(decryptText)
 	}
-
-	if len(decryptText)%aes.BlockSize != 0 {
-		return nil, errors.New("crypto/cipher: ciphertext is not a multiple of the block size")
-	}
-
-	blockMode := cipher.NewCBCDecrypter(pc.paes, pc.pkey)
-
-	blockMode.CryptBlocks(decryptText, decryptText)
-	decryptText = pKCS7UnPadding(decryptText)
 
 	// gunzip
-	zbuf := bytes.NewBuffer(decryptText)
-	zrd, err := gzip.NewReader(zbuf)
-	if err != nil {
-		return nil, err
+	if pc.ptyp == 1 || pc.ptyp == 3 {
+		zbuf := bytes.NewBuffer(str)
+		zrd, err := gzip.NewReader(zbuf)
+		if err != nil {
+			return nil, err
+		}
+		defer zrd.Close()
+		str, _ = ioutil.ReadAll(zrd)
 	}
-	defer zrd.Close()
-	data, _ = ioutil.ReadAll(zrd)
 
-	return data, nil
+	return str, nil
 }
 
 func pKCS7Padding(ciphertext []byte, blockSize int) []byte {

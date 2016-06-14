@@ -20,28 +20,78 @@ import (
 )
 
 func TestEncrypt(t *testing.T) {
+	return
 	pp := new(Pcrypto)
-	pp.Init([]byte("Hana"))
-	res, err := pp.Encrypt([]byte("Just One Test!"))
+	pp.Init([]byte("Hana"), 1)
+	res, err := pp.Encrypt([]byte("Test Encrypt!"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fmt.Printf("[%x]\n", res)
+	fmt.Printf("Encrypt: len %d, [%x]\n", len(res), res)
 }
 
 func TestDecrypt(t *testing.T) {
-	pp := new(Pcrypto)
-	pp.Init([]byte("Hana"))
-	res, err := pp.Encrypt([]byte("Just One Test!"))
-	if err != nil {
-		t.Fatal(err)
+	fmt.Println("*****************************************************")
+	{
+		pp := new(Pcrypto)
+		pp.Init([]byte("Hana"), 0)
+		res, err := pp.Encrypt([]byte("Test Decrypt! 0"))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		res, err = pp.Decrypt(res)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		fmt.Printf("[%s]\n", string(res))
+	}
+	{
+		pp := new(Pcrypto)
+		pp.Init([]byte("Hana"), 1)
+		res, err := pp.Encrypt([]byte("Test Decrypt! 1"))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		res, err = pp.Decrypt(res)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		fmt.Printf("[%s]\n", string(res))
+	}
+	{
+		pp := new(Pcrypto)
+		pp.Init([]byte("Hana"), 2)
+		res, err := pp.Encrypt([]byte("Test Decrypt! 2"))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		res, err = pp.Decrypt(res)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		fmt.Printf("[%s]\n", string(res))
+	}
+	{
+		pp := new(Pcrypto)
+		pp.Init([]byte("Hana"), 3)
+		res, err := pp.Encrypt([]byte("Test Decrypt! 3"))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		res, err = pp.Decrypt(res)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		fmt.Printf("[%s]\n", string(res))
 	}
 
-	res, err = pp.Decrypt(res)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	fmt.Printf("[%s]\n", string(res))
 }

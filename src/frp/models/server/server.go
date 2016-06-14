@@ -38,7 +38,7 @@ type ProxyServer struct {
 	CustomDomains []string
 
 	// configure in frpc.ini
-	UseEncryption bool
+	UseEncryption int
 
 	Status       int64
 	CtlConn      *conn.Conn      // control connection with frpc
@@ -144,11 +144,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 					log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", workConn.GetLocalAddr(), workConn.GetRemoteAddr(),
 						userConn.GetLocalAddr(), userConn.GetRemoteAddr())
 
-					if p.UseEncryption {
-						go conn.JoinMore(userConn, workConn, p.AuthToken)
-					} else {
-						go conn.Join(userConn, workConn)
-					}
+					go conn.JoinMore(userConn, workConn, p.AuthToken, p.UseEncryption)
 				}()
 			}
 		}(listener)
