@@ -16,6 +16,8 @@ package conn
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -192,47 +194,69 @@ func Join(c1 *Conn, c2 *Conn) {
 
 // messages from c1 to c2 will be encrypted
 // and from c2 to c1 will be decrypted
-func JoinMore(c1 *Conn, c2 *Conn, cryptKey string) {
+func JoinMore(c1 *Conn, c2 *Conn, cryptKey string, ptype int) {
 	var wait sync.WaitGroup
-	encryptPipe := func(from *Conn, to *Conn, key string) {
+	encryptPipe := func(from *Conn, to *Conn, key string, ttype int) {
 		defer from.Close()
 		defer to.Close()
 		defer wait.Done()
 
 		// we don't care about errors here
-		PipeEncrypt(from.TcpConn, to.TcpConn, key)
+		PipeEncrypt(from.TcpConn, to.TcpConn, key, ttype)
 	}
 
-	decryptPipe := func(to *Conn, from *Conn, key string) {
+	decryptPipe := func(to *Conn, from *Conn, key string, ttype int) {
 		defer from.Close()
 		defer to.Close()
 		defer wait.Done()
 
 		// we don't care about errors here
-		PipeDecrypt(to.TcpConn, from.TcpConn, key)
+		PipeDecrypt(to.TcpConn, from.TcpConn, key, ttype)
 	}
 
 	wait.Add(2)
-	go encryptPipe(c1, c2, cryptKey)
-	go decryptPipe(c2, c1, cryptKey)
+	go encryptPipe(c1, c2, cryptKey, ptype)
+
+	go decryptPipe(c2, c1, cryptKey, ptype)
 	wait.Wait()
 	log.Debug("One tunnel stopped")
 	return
 }
 
+func unpkgMsg(data []byte) (int, []byte, []byte) {
+	if len(data) < 4 {
+		return -1, nil, nil
+	}
+	llen := int(binary.BigEndian.Uint32(data[0:4]))
+	// no complete
+	if len(data) < llen+4 {
+		return -1, nil, nil
+	}
+
+	return 0, data[4 : llen+4], data[llen+4:]
+}
+
 // decrypt msg from reader, then write into writer
-func PipeDecrypt(r net.Conn, w net.Conn, key string) error {
+func PipeDecrypt(r net.Conn, w net.Conn, key string, ptype int) error {
 	laes := new(pcrypto.Pcrypto)
-	if err := laes.Init([]byte(key)); err != nil {
+	if err := laes.Init([]byte(key), ptype); err != nil {
 		log.Error("Pcrypto Init error: %v", err)
 		return fmt.Errorf("Pcrypto Init error: %v", err)
 	}
 
+	buf := make([]byte, 10*1024)
+	var left []byte
 	nreader := bufio.NewReader(r)
 	for {
-		buf, err := nreader.ReadBytes('\n')
+		n, err := nreader.Read(buf)
 		if err != nil {
 			return err
+		}
+		left := append(left, buf[:n]...)
+		cnt, buf, left := unpkgMsg(left)
+
+		if cnt < 0 {
+			continue
 		}
 
 		res, err := laes.Decrypt(buf)
@@ -249,10 +273,18 @@ func PipeDecrypt(r net.Conn, w net.Conn, key string) error {
 	return nil
 }
 
+func pkgMsg(data []byte) []byte {
+	llen := uint32(len(data))
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, llen)
+	buf.Write(data)
+	return buf.Bytes()
+}
+
 // recvive msg from reader, then encrypt msg into write
-func PipeEncrypt(r net.Conn, w net.Conn, key string) error {
+func PipeEncrypt(r net.Conn, w net.Conn, key string, ptype int) error {
 	laes := new(pcrypto.Pcrypto)
-	if err := laes.Init([]byte(key)); err != nil {
+	if err := laes.Init([]byte(key), ptype); err != nil {
 		log.Error("Pcrypto Init error: %v", err)
 		return fmt.Errorf("Pcrypto Init error: %v", err)
 	}
@@ -271,11 +303,12 @@ func PipeEncrypt(r net.Conn, w net.Conn, key string) error {
 			return fmt.Errorf("Encrypt error: %v", err)
 		}
 
-		res = append(res, '\n')
+		res = pkgMsg(res)
 		_, err = w.Write(res)
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
