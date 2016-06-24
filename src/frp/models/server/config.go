@@ -31,8 +31,8 @@ var (
 	ConfigFile       string = "./frps.ini"
 	BindAddr         string = "0.0.0.0"
 	BindPort         int64  = 7000
-	VhostHttpPort    int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http
-	VhostHttpsPort   int64  = 0 // if VhostHttpsPort equals 0, don't listen a public port for http
+	VhostHttpPort    int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http protocol
+	VhostHttpsPort   int64  = 0 // if VhostHttpsPort equals 0, don't listen a public port for https protocol
 	DashboardPort    int64  = 0 // if DashboardPort equals 0, dashboard is not available
 	LogFile          string = "console"
 	LogWay           string = "console" // console or file
@@ -102,7 +102,6 @@ func loadCommonConf(confFile string) error {
 	} else {
 		VhostHttpsPort = 0
 	}
-	vhost.VhostHttpsPort = VhostHttpsPort
 
 	tmpStr, ok = conf.Get("common", "dashboard_port")
 	if ok {
@@ -183,34 +182,25 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				// for http
 				domainStr, ok := section["custom_domains"]
 				if ok {
-					var suffix string
-					if VhostHttpPort != 80 {
-						suffix = fmt.Sprintf(":%d", VhostHttpPort)
-					}
 					proxyServer.CustomDomains = strings.Split(domainStr, ",")
 					if len(proxyServer.CustomDomains) == 0 {
 						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyServer.Name)
 					}
 					for i, domain := range proxyServer.CustomDomains {
-						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain)) + suffix
+						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
 					}
 				}
 			} else if proxyServer.Type == "https" {
 				// for https
 				domainStr, ok := section["custom_domains"]
 				if ok {
-					var suffix string
-					if VhostHttpsPort != 443 {
-						suffix = fmt.Sprintf(":%d", VhostHttpsPort)
-					}
 					proxyServer.CustomDomains = strings.Split(domainStr, ",")
 					if len(proxyServer.CustomDomains) == 0 {
-						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyServer.Name)
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals https", proxyServer.Name)
 					}
 					for i, domain := range proxyServer.CustomDomains {
-						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain)) + suffix
+						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
 					}
-					log.Info("proxyServer: %+v", proxyServer.CustomDomains)
 				}
 			}
 			proxyServers[proxyServer.Name] = proxyServer

@@ -225,8 +225,13 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		}
 
 		// check if vhost_port is set
-		if s.Type == "http" && server.VhostMuxer == nil {
+		if s.Type == "http" && server.VhostHttpMuxer == nil {
 			info = fmt.Sprintf("ProxyName [%s], type [http] not support when vhost_http_port is not set", req.ProxyName)
+			log.Warn(info)
+			return
+		}
+		if s.Type == "https" && server.VhostHttpsMuxer == nil {
+			info = fmt.Sprintf("ProxyName [%s], type [https] not support when vhost_https_port is not set", req.ProxyName)
 			log.Warn(info)
 			return
 		}
