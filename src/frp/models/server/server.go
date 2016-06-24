@@ -19,7 +19,9 @@ import (
 	"sync"
 	"time"
 
+	"frp/models/config"
 	"frp/models/consts"
+	"frp/models/msg"
 	"frp/utils/conn"
 	"frp/utils/log"
 )
@@ -30,15 +32,10 @@ type Listener interface {
 }
 
 type ProxyServer struct {
-	Name          string
-	AuthToken     string
-	Type          string
+	config.BaseConf
 	BindAddr      string
 	ListenPort    int64
 	CustomDomains []string
-
-	// configure in frpc.ini
-	UseEncryption int
 
 	Status       int64
 	CtlConn      *conn.Conn      // control connection with frpc
@@ -144,7 +141,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 					log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", workConn.GetLocalAddr(), workConn.GetRemoteAddr(),
 						userConn.GetLocalAddr(), userConn.GetRemoteAddr())
 
-					go conn.JoinMore(userConn, workConn, p.AuthToken, p.UseEncryption)
+					go msg.JoinMore(userConn, workConn, p.BaseConf)
 				}()
 			}
 		}(listener)
@@ -186,9 +183,9 @@ func (p *ProxyServer) RegisterNewWorkConn(c *conn.Conn) {
 	p.workConnChan <- c
 }
 
-// when frps get one user connection, we get one work connection from the pool and return it
-// if no workConn available in the pool, send message to frpc to get one or more
-// and wait until it is available
+// When frps get one user connection, we get one work connection from the pool and return it.
+// If no workConn available in the pool, send message to frpc to get one or more
+// and wait until it is available.
 // return an error if wait timeout
 func (p *ProxyServer) getWorkConn() (workConn *conn.Conn, err error) {
 	var ok bool

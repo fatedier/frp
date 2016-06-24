@@ -12,19 +12,19 @@ do
     sleep 1
     str=`ss -ant|grep 10700|grep LISTEN`
     if [ -z "${str}" ]; then
-        echo "kong"
+        echo "wait"
         continue
     fi
 
     str=`ss -ant|grep 10710|grep LISTEN`
     if [ -z "${str}" ]; then
-        echo "kong"
+        echo "wait"
         continue
     fi
 
     str=`ss -ant|grep 10711|grep LISTEN`
     if [ -z "${str}" ]; then
-        echo "kong"
+        echo "wait"
         continue
     fi
 

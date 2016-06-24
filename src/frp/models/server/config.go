@@ -81,7 +81,10 @@ func loadCommonConf(confFile string) error {
 
 	tmpStr, ok = conf.Get("common", "bind_port")
 	if ok {
-		BindPort, _ = strconv.ParseInt(tmpStr, 10, 64)
+		v, err := strconv.ParseInt(tmpStr, 10, 64)
+		if err == nil {
+			BindPort = v
+		}
 	}
 
 	tmpStr, ok = conf.Get("common", "vhost_http_port")
@@ -115,7 +118,10 @@ func loadCommonConf(confFile string) error {
 
 	tmpStr, ok = conf.Get("common", "log_max_days")
 	if ok {
-		LogMaxDays, _ = strconv.ParseInt(tmpStr, 10, 64)
+		v, err := strconv.ParseInt(tmpStr, 10, 64)
+		if err == nil {
+			LogMaxDays = v
+		}
 	}
 	return nil
 }

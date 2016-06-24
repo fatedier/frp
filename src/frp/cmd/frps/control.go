@@ -226,6 +226,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 
 		// set infomations from frpc
 		s.UseEncryption = req.UseEncryption
+		s.UseGzip = req.UseGzip
 
 		// start proxy and listen for user connections, no block
 		err := s.Start(c)

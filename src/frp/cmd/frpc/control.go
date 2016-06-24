@@ -143,6 +143,7 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 		ProxyName:     cli.Name,
 		AuthKey:       authKey,
 		UseEncryption: cli.UseEncryption,
+		UseGzip:       cli.UseGzip,
 		Timestamp:     nowTime,
 	}
 	buf, _ := json.Marshal(req)

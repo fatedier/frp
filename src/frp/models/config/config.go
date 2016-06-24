@@ -12,25 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package msg
+package config
 
-type GeneralRes struct {
-	Code int64  `json:"code"`
-	Msg  string `json:"msg"`
-}
-
-// messages between control connections of frpc and frps
-type ControlReq struct {
-	Type          int64  `json:"type"`
-	ProxyName     string `json:"proxy_name,omitempty"`
-	AuthKey       string `json:"auth_key, omitempty"`
-	UseEncryption bool   `json:"use_encryption, omitempty"`
-	UseGzip       bool   `json:"use_gzip, omitempty"`
-	Timestamp     int64  `json:"timestamp, omitempty"`
-}
-
-type ControlRes struct {
-	Type int64  `json:"type"`
-	Code int64  `json:"code"`
-	Msg  string `json:"msg"`
+type BaseConf struct {
+	Name          string
+	AuthToken     string
+	Type          string
+	UseEncryption bool
+	UseGzip       bool
 }

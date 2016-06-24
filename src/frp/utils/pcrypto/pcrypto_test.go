@@ -15,83 +15,48 @@
 package pcrypto
 
 import (
-	"fmt"
 	"testing"
 )
 
-func TestEncrypt(t *testing.T) {
-	return
-	pp := new(Pcrypto)
-	pp.Init([]byte("Hana"), 1)
-	res, err := pp.Encrypt([]byte("Test Encrypt!"))
-	if err != nil {
-		t.Fatal(err)
-	}
+var (
+	pp *Pcrypto
+)
 
-	fmt.Printf("Encrypt: len %d, [%x]\n", len(res), res)
+func init() {
+	pp = &Pcrypto{}
+	pp.Init([]byte("Hana"))
 }
 
-func TestDecrypt(t *testing.T) {
-	fmt.Println("*****************************************************")
-	{
-		pp := new(Pcrypto)
-		pp.Init([]byte("Hana"), 0)
-		res, err := pp.Encrypt([]byte("Test Decrypt! 0"))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		res, err = pp.Decrypt(res)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		fmt.Printf("[%s]\n", string(res))
-	}
-	{
-		pp := new(Pcrypto)
-		pp.Init([]byte("Hana"), 1)
-		res, err := pp.Encrypt([]byte("Test Decrypt! 1"))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		res, err = pp.Decrypt(res)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		fmt.Printf("[%s]\n", string(res))
-	}
-	{
-		pp := new(Pcrypto)
-		pp.Init([]byte("Hana"), 2)
-		res, err := pp.Encrypt([]byte("Test Decrypt! 2"))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		res, err = pp.Decrypt(res)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		fmt.Printf("[%s]\n", string(res))
-	}
-	{
-		pp := new(Pcrypto)
-		pp.Init([]byte("Hana"), 3)
-		res, err := pp.Encrypt([]byte("Test Decrypt! 3"))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		res, err = pp.Decrypt(res)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		fmt.Printf("[%s]\n", string(res))
+func TestEncrypt(t *testing.T) {
+	testStr := "Test Encrypt!"
+	res, err := pp.Encrypt([]byte(testStr))
+	if err != nil {
+		t.Fatalf("encrypt error: %v", err)
 	}
 
+	res, err = pp.Decrypt([]byte(res))
+	if err != nil {
+		t.Fatalf("decrypt error: %v", err)
+	}
+
+	if string(res) != testStr {
+		t.Fatalf("test encrypt error, from [%s] to [%s]", testStr, string(res))
+	}
+}
+
+func TestCompression(t *testing.T) {
+	testStr := "Test Compression!"
+	res, err := pp.Compression([]byte(testStr))
+	if err != nil {
+		t.Fatalf("compression error: %v", err)
+	}
+
+	res, err = pp.Decompression(res)
+	if err != nil {
+		t.Fatalf("decompression error: %v", err)
+	}
+
+	if string(res) != testStr {
+		t.Fatalf("test compression error, from [%s] to [%s]", testStr, string(res))
+	}
 }

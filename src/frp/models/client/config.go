@@ -122,15 +122,17 @@ func LoadConf(confFile string) (err error) {
 			}
 
 			// use_encryption
-			proxyClient.UseEncryption = 0
+			proxyClient.UseEncryption = false
 			useEncryptionStr, ok := section["use_encryption"]
-			if ok {
-				tmpRes, err := strconv.Atoi(useEncryptionStr)
-				if err != nil {
-					proxyClient.UseEncryption = 0
-				}
+			if ok && useEncryptionStr == "true" {
+				proxyClient.UseEncryption = true
+			}
 
-				proxyClient.UseEncryption = tmpRes
+			// use_gzip
+			proxyClient.UseGzip = false
+			useGzipStr, ok := section["use_gzip"]
+			if ok && useGzipStr == "true" {
+				proxyClient.UseGzip = true
 			}
 
 			ProxyClients[proxyClient.Name] = proxyClient
