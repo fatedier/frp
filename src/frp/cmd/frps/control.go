@@ -224,6 +224,13 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 			return
 		}
 
+		// check if vhost_port is set
+		if s.Type == "http" && server.VhostMuxer == nil {
+			info = fmt.Sprintf("ProxyName [%s], type [http] not support when vhost_http_port is not set", req.ProxyName)
+			log.Warn(info)
+			return
+		}
+
 		// set infomations from frpc
 		s.UseEncryption = req.UseEncryption
 		s.UseGzip = req.UseGzip
