@@ -194,30 +194,68 @@ func msgSender(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}
 // if success, ret equals 0, otherwise greater than 0
 func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 	ret = 1
-	// check if proxy name exist
-	s, ok := server.ProxyServers[req.ProxyName]
-	if !ok {
-		info = fmt.Sprintf("ProxyName [%s] is not exist", req.ProxyName)
-		log.Warn(info)
+	if req.PrivilegeMode && !server.PrivilegeMode {
+		info = fmt.Sprintf("ProxyName [%s], PrivilegeMode is disabled in frps", req.ProxyName)
+		log.Warn("info")
 		return
 	}
 
-	// check authKey
+	var (
+		s  *server.ProxyServer
+		ok bool
+	)
+	s, ok = server.ProxyServers[req.ProxyName]
+	if req.PrivilegeMode && req.Type == consts.NewCtlConn {
+		log.Debug("ProxyName [%s], doLogin and privilege mode is enabled", req.ProxyName)
+	} else {
+		if !ok {
+			info = fmt.Sprintf("ProxyName [%s] is not exist", req.ProxyName)
+			log.Warn(info)
+			return
+		}
+	}
+
+	// check authKey or privilegeKey
 	nowTime := time.Now().Unix()
-	authKey := pcrypto.GetAuthKey(req.ProxyName + s.AuthToken + fmt.Sprintf("%d", req.Timestamp))
-	// authKey avaiable in 15 minutes
-	if nowTime-req.Timestamp > 15*60 {
-		info = fmt.Sprintf("ProxyName [%s], authorization timeout", req.ProxyName)
-		log.Warn(info)
-		return
-	} else if req.AuthKey != authKey {
-		info = fmt.Sprintf("ProxyName [%s], authorization failed", req.ProxyName)
-		log.Warn(info)
-		return
+	if req.PrivilegeMode {
+		privilegeKey := pcrypto.GetAuthKey(req.ProxyName + server.PrivilegeKey + fmt.Sprintf("%d", req.Timestamp))
+		// privilegeKey avaiable in 15 minutes
+		if nowTime-req.Timestamp > 15*60 {
+			info = fmt.Sprintf("ProxyName [%s], privilege mode authorization timeout", req.ProxyName)
+			log.Warn(info)
+			return
+		} else if req.AuthKey != privilegeKey {
+			log.Debug("%s  %s", req.AuthKey, privilegeKey)
+			info = fmt.Sprintf("ProxyName [%s], privilege mode authorization failed", req.ProxyName)
+			log.Warn(info)
+			return
+		}
+	} else {
+		authKey := pcrypto.GetAuthKey(req.ProxyName + s.AuthToken + fmt.Sprintf("%d", req.Timestamp))
+		// authKey avaiable in 15 minutes
+		if nowTime-req.Timestamp > 15*60 {
+			info = fmt.Sprintf("ProxyName [%s], authorization timeout", req.ProxyName)
+			log.Warn(info)
+			return
+		} else if req.AuthKey != authKey {
+			info = fmt.Sprintf("ProxyName [%s], authorization failed", req.ProxyName)
+			log.Warn(info)
+			return
+		}
 	}
 
 	// control conn
 	if req.Type == consts.NewCtlConn {
+		if req.PrivilegeMode {
+			s = server.NewProxyServerFromCtlMsg(req)
+			err := server.CreateProxy(s)
+			if err != nil {
+				info = fmt.Sprintf("ProxyName [%s], %v", req.ProxyName, err)
+				log.Warn(info)
+				return
+			}
+		}
+
 		if s.Status == consts.Working {
 			info = fmt.Sprintf("ProxyName [%s], already in use", req.ProxyName)
 			log.Warn(info)
@@ -248,6 +286,9 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 			return
 		}
 		log.Info("ProxyName [%s], start proxy success", req.ProxyName)
+		if req.PrivilegeMode {
+			log.Info("ProxyName [%s], created by PrivilegeMode", req.ProxyName)
+		}
 	} else if req.Type == consts.NewWorkConn {
 		// work conn
 		if s.Status != consts.Working {

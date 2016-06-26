@@ -20,4 +20,5 @@ type BaseConf struct {
 	Type          string
 	UseEncryption bool
 	UseGzip       bool
+	PrivilegeMode bool
 }
