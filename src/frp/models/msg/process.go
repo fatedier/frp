@@ -141,7 +141,6 @@ func pipeDecrypt(r net.Conn, w net.Conn, conf config.BaseConf) (err error) {
 		}
 		// gzip
 		if conf.UseGzip {
-			log.Warn("%x", res)
 			res, err = laes.Decompression(res)
 			if err != nil {
 				log.Warn("ProxyName [%s], decompression error, %v", conf.Name, err)

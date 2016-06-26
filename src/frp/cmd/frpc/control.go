@@ -144,8 +144,15 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 		AuthKey:       authKey,
 		UseEncryption: cli.UseEncryption,
 		UseGzip:       cli.UseGzip,
+		PrivilegeMode: cli.PrivilegeMode,
+		ProxyType:     cli.Type,
 		Timestamp:     nowTime,
 	}
+	if cli.PrivilegeMode {
+		req.RemotePort = cli.RemotePort
+		req.CustomDomains = cli.CustomDomains
+	}
+
 	buf, _ := json.Marshal(req)
 	err = c.Write(string(buf) + "\n")
 	if err != nil {

@@ -31,6 +31,9 @@ type ProxyClient struct {
 	config.BaseConf
 	LocalIp   string
 	LocalPort int64
+
+	RemotePort    int64
+	CustomDomains []string
 }
 
 func (p *ProxyClient) GetLocalConn() (c *conn.Conn, err error) {
@@ -57,10 +60,11 @@ func (p *ProxyClient) GetRemoteConn(addr string, port int64) (c *conn.Conn, err 
 	nowTime := time.Now().Unix()
 	authKey := pcrypto.GetAuthKey(p.Name + p.AuthToken + fmt.Sprintf("%d", nowTime))
 	req := &msg.ControlReq{
-		Type:      consts.NewWorkConn,
-		ProxyName: p.Name,
-		AuthKey:   authKey,
-		Timestamp: nowTime,
+		Type:          consts.NewWorkConn,
+		ProxyName:     p.Name,
+		AuthKey:       authKey,
+		PrivilegeMode: p.PrivilegeMode,
+		Timestamp:     nowTime,
 	}
 
 	buf, _ := json.Marshal(req)

@@ -52,6 +52,20 @@ func NewProxyServer() (p *ProxyServer) {
 	return p
 }
 
+func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
+	p = &ProxyServer{}
+	p.Name = req.ProxyName
+	p.Type = req.ProxyType
+	p.UseEncryption = req.UseEncryption
+	p.UseGzip = req.UseGzip
+	p.PrivilegeMode = req.PrivilegeMode
+	p.BindAddr = BindAddr
+	p.ListenPort = req.RemotePort
+	p.CustomDomains = req.CustomDomains
+	p.AuthToken = PrivilegeKey
+	return
+}
+
 func (p *ProxyServer) Init() {
 	p.Lock()
 	p.Status = consts.Idle
@@ -161,11 +175,9 @@ func (p *ProxyServer) Close() {
 	p.Lock()
 	if p.Status != consts.Closed {
 		p.Status = consts.Closed
-		if len(p.listeners) != 0 {
-			for _, l := range p.listeners {
-				if l != nil {
-					l.Close()
-				}
+		for _, l := range p.listeners {
+			if l != nil {
+				l.Close()
 			}
 		}
 		close(p.ctlMsgChan)

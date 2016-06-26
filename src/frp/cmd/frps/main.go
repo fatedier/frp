@@ -172,5 +172,8 @@ func main() {
 	}
 
 	log.Info("Start frps success")
+	if server.PrivilegeMode == true {
+		log.Info("PrivilegeMode is enabled, you should pay more attention to security issues")
+	}
 	ProcessControlConn(l)
 }

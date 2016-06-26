@@ -22,6 +22,7 @@ import (
 
 	ini "github.com/vaughan0/go-ini"
 
+	"frp/models/consts"
 	"frp/utils/log"
 	"frp/utils/vhost"
 )
@@ -38,6 +39,8 @@ var (
 	LogWay           string = "console" // console or file
 	LogLevel         string = "info"
 	LogMaxDays       int64  = 3
+	PrivilegeMode    bool   = false
+	PrivilegeKey     string = ""
 	HeartBeatTimeout int64  = 90
 	UserConnTimeout  int64  = 10
 
@@ -132,6 +135,22 @@ func loadCommonConf(confFile string) error {
 			LogMaxDays = v
 		}
 	}
+
+	tmpStr, ok = conf.Get("common", "privilege_mode")
+	if ok {
+		if tmpStr == "true" {
+			PrivilegeMode = true
+		}
+	}
+
+	if PrivilegeMode == true {
+		tmpStr, ok = conf.Get("common", "privilege_key")
+		if ok {
+			PrivilegeKey = tmpStr
+		} else {
+			return fmt.Errorf("Parse conf error: privilege_key must be set if privilege_mode is enabled")
+		}
+	}
 	return nil
 }
 
@@ -189,6 +208,8 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 					for i, domain := range proxyServer.CustomDomains {
 						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
 					}
+				} else {
+					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyServer.Name)
 				}
 			} else if proxyServer.Type == "https" {
 				// for https
@@ -201,6 +222,8 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 					for i, domain := range proxyServer.CustomDomains {
 						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
 					}
+				} else {
+					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals https", proxyServer.Name)
 				}
 			}
 			proxyServers[proxyServer.Name] = proxyServer
@@ -234,14 +257,37 @@ func ReloadConf(confFile string) (err error) {
 		}
 	}
 
+	// proxies created by PrivilegeMode won't be deleted
 	for name, oldProxyServer := range ProxyServers {
 		_, ok := loadProxyServers[name]
 		if !ok {
-			oldProxyServer.Close()
-			delete(ProxyServers, name)
-			log.Info("ProxyName [%s] deleted, close it", name)
+			if !oldProxyServer.PrivilegeMode {
+				oldProxyServer.Close()
+				delete(ProxyServers, name)
+				log.Info("ProxyName [%s] deleted, close it", name)
+			} else {
+				log.Info("ProxyName [%s] created by PrivilegeMode, won't be closed", name)
+			}
 		}
 	}
 	ProxyServersMutex.Unlock()
+	return nil
+}
+
+func CreateProxy(s *ProxyServer) error {
+	ProxyServersMutex.Lock()
+	defer ProxyServersMutex.Unlock()
+	oldServer, ok := ProxyServers[s.Name]
+	if ok {
+		if oldServer.Status == consts.Working {
+			return fmt.Errorf("this proxy is already working now")
+		}
+		oldServer.Close()
+		if oldServer.PrivilegeMode {
+			delete(ProxyServers, s.Name)
+		}
+	}
+	s.Init()
+	ProxyServers[s.Name] = s
 	return nil
 }
