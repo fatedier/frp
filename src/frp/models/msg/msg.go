@@ -29,6 +29,7 @@ type ControlReq struct {
 
 	// configures used if privilege_mode is enabled
 	PrivilegeMode bool     `json:"privilege_mode"`
+	PrivilegeKey  string   `json:"privilege_key"`
 	ProxyType     string   `json:"proxy_type"`
 	RemotePort    int64    `json:"remote_port"`
 	CustomDomains []string `json:"custom_domains, omitempty"`

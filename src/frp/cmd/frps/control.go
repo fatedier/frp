@@ -218,14 +218,13 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 	// check authKey or privilegeKey
 	nowTime := time.Now().Unix()
 	if req.PrivilegeMode {
-		privilegeKey := pcrypto.GetAuthKey(req.ProxyName + server.PrivilegeKey + fmt.Sprintf("%d", req.Timestamp))
+		privilegeKey := pcrypto.GetAuthKey(req.ProxyName + server.PrivilegeToken + fmt.Sprintf("%d", req.Timestamp))
 		// privilegeKey avaiable in 15 minutes
 		if nowTime-req.Timestamp > 15*60 {
 			info = fmt.Sprintf("ProxyName [%s], privilege mode authorization timeout", req.ProxyName)
 			log.Warn(info)
 			return
-		} else if req.AuthKey != privilegeKey {
-			log.Debug("%s  %s", req.AuthKey, privilegeKey)
+		} else if req.PrivilegeKey != privilegeKey {
 			info = fmt.Sprintf("ProxyName [%s], privilege mode authorization failed", req.ProxyName)
 			log.Warn(info)
 			return

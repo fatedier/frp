@@ -58,13 +58,18 @@ func (p *ProxyClient) GetRemoteConn(addr string, port int64) (c *conn.Conn, err 
 	}
 
 	nowTime := time.Now().Unix()
-	authKey := pcrypto.GetAuthKey(p.Name + p.AuthToken + fmt.Sprintf("%d", nowTime))
 	req := &msg.ControlReq{
 		Type:          consts.NewWorkConn,
 		ProxyName:     p.Name,
-		AuthKey:       authKey,
 		PrivilegeMode: p.PrivilegeMode,
 		Timestamp:     nowTime,
+	}
+	if p.PrivilegeMode == true {
+		privilegeKey := pcrypto.GetAuthKey(p.Name + PrivilegeToken + fmt.Sprintf("%d", nowTime))
+		req.PrivilegeKey = privilegeKey
+	} else {
+		authKey := pcrypto.GetAuthKey(p.Name + p.AuthToken + fmt.Sprintf("%d", nowTime))
+		req.AuthKey = authKey
 	}
 
 	buf, _ := json.Marshal(req)

@@ -40,7 +40,7 @@ var (
 	LogLevel         string = "info"
 	LogMaxDays       int64  = 3
 	PrivilegeMode    bool   = false
-	PrivilegeKey     string = ""
+	PrivilegeToken   string = ""
 	HeartBeatTimeout int64  = 90
 	UserConnTimeout  int64  = 10
 
@@ -144,11 +144,14 @@ func loadCommonConf(confFile string) error {
 	}
 
 	if PrivilegeMode == true {
-		tmpStr, ok = conf.Get("common", "privilege_key")
+		tmpStr, ok = conf.Get("common", "privilege_token")
 		if ok {
-			PrivilegeKey = tmpStr
+			if tmpStr == "" {
+				return fmt.Errorf("Parse conf error: privilege_token can not be null")
+			}
+			PrivilegeToken = tmpStr
 		} else {
-			return fmt.Errorf("Parse conf error: privilege_key must be set if privilege_mode is enabled")
+			return fmt.Errorf("Parse conf error: privilege_token must be set if privilege_mode is enabled")
 		}
 	}
 	return nil

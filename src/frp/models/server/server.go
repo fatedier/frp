@@ -59,10 +59,10 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 	p.UseEncryption = req.UseEncryption
 	p.UseGzip = req.UseGzip
 	p.PrivilegeMode = req.PrivilegeMode
+	p.PrivilegeToken = PrivilegeToken
 	p.BindAddr = BindAddr
 	p.ListenPort = req.RemotePort
 	p.CustomDomains = req.CustomDomains
-	p.AuthToken = PrivilegeKey
 	return
 }
 

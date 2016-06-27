@@ -104,7 +104,11 @@ func unpkgMsg(data []byte) (int, []byte, []byte) {
 // decrypt msg from reader, then write into writer
 func pipeDecrypt(r net.Conn, w net.Conn, conf config.BaseConf) (err error) {
 	laes := new(pcrypto.Pcrypto)
-	if err := laes.Init([]byte(conf.AuthToken)); err != nil {
+	key := conf.AuthToken
+	if conf.PrivilegeMode {
+		key = conf.PrivilegeToken
+	}
+	if err := laes.Init([]byte(key)); err != nil {
 		log.Warn("ProxyName [%s], Pcrypto Init error: %v", conf.Name, err)
 		return fmt.Errorf("Pcrypto Init error: %v", err)
 	}
@@ -159,7 +163,11 @@ func pipeDecrypt(r net.Conn, w net.Conn, conf config.BaseConf) (err error) {
 // recvive msg from reader, then encrypt msg into writer
 func pipeEncrypt(r net.Conn, w net.Conn, conf config.BaseConf) (err error) {
 	laes := new(pcrypto.Pcrypto)
-	if err := laes.Init([]byte(conf.AuthToken)); err != nil {
+	key := conf.AuthToken
+	if conf.PrivilegeMode {
+		key = conf.PrivilegeToken
+	}
+	if err := laes.Init([]byte(key)); err != nil {
 		log.Warn("ProxyName [%s], Pcrypto Init error: %v", conf.Name, err)
 		return fmt.Errorf("Pcrypto Init error: %v", err)
 	}

@@ -30,7 +30,7 @@ var (
 	LogWay            string = "console"
 	LogLevel          string = "info"
 	LogMaxDays        int64  = 3
-	PrivilegeKey      string = ""
+	PrivilegeToken    string = ""
 	HeartBeatInterval int64  = 20
 	HeartBeatTimeout  int64  = 90
 )
@@ -77,9 +77,9 @@ func LoadConf(confFile string) (err error) {
 		LogMaxDays, _ = strconv.ParseInt(tmpStr, 10, 64)
 	}
 
-	tmpStr, ok = conf.Get("common", "privilege_key")
+	tmpStr, ok = conf.Get("common", "privilege_token")
 	if ok {
-		PrivilegeKey = tmpStr
+		PrivilegeToken = tmpStr
 	}
 
 	var authToken string
@@ -94,6 +94,9 @@ func LoadConf(confFile string) (err error) {
 			proxyClient := &ProxyClient{}
 			// name
 			proxyClient.Name = name
+
+			// auth_token
+			proxyClient.AuthToken = authToken
 
 			// local_ip
 			proxyClient.LocalIp, ok = section["local_ip"]
@@ -146,8 +149,11 @@ func LoadConf(confFile string) (err error) {
 
 			// configures used in privilege mode
 			if proxyClient.PrivilegeMode == true {
-				// auth_token
-				proxyClient.AuthToken = PrivilegeKey
+				if PrivilegeToken == "" {
+					return fmt.Errorf("Parse conf error: proxy [%s] privilege_key must be set when privilege_mode = true", proxyClient.Name)
+				} else {
+					proxyClient.PrivilegeToken = PrivilegeToken
+				}
 
 				if proxyClient.Type == "tcp" {
 					// remote_port
@@ -187,9 +193,6 @@ func LoadConf(confFile string) (err error) {
 						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyClient.Name)
 					}
 				}
-			} else /* proxyClient.PrivilegeMode == false */ {
-				// authToken
-				proxyClient.AuthToken = authToken
 			}
 
 			ProxyClients[proxyClient.Name] = proxyClient
