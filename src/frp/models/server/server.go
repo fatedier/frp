@@ -186,6 +186,10 @@ func (p *ProxyServer) Close() {
 			p.CtlConn.Close()
 		}
 	}
+	// if the proxy created by PrivilegeMode, delete it when closed
+	if p.PrivilegeMode {
+		DeleteProxy(p.Name)
+	}
 	p.Unlock()
 }
 

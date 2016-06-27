@@ -294,3 +294,9 @@ func CreateProxy(s *ProxyServer) error {
 	ProxyServers[s.Name] = s
 	return nil
 }
+
+func DeleteProxy(proxyName string) {
+	ProxyServersMutex.Lock()
+	defer ProxyServersMutex.Unlock()
+	delete(ProxyServers, proxyName)
+}
