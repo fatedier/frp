@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"frp/models/config"
 	"frp/models/consts"
 	"frp/models/msg"
 	"frp/utils/conn"
@@ -27,12 +28,12 @@ import (
 )
 
 type ProxyClient struct {
-	Name          string
-	AuthToken     string
-	LocalIp       string
-	LocalPort     int64
-	Type          string
-	UseEncryption bool
+	config.BaseConf
+	LocalIp   string
+	LocalPort int64
+
+	RemotePort    int64
+	CustomDomains []string
 }
 
 func (p *ProxyClient) GetLocalConn() (c *conn.Conn, err error) {
@@ -57,12 +58,18 @@ func (p *ProxyClient) GetRemoteConn(addr string, port int64) (c *conn.Conn, err 
 	}
 
 	nowTime := time.Now().Unix()
-	authKey := pcrypto.GetAuthKey(p.Name + p.AuthToken + fmt.Sprintf("%d", nowTime))
 	req := &msg.ControlReq{
-		Type:      consts.NewWorkConn,
-		ProxyName: p.Name,
-		AuthKey:   authKey,
-		Timestamp: nowTime,
+		Type:          consts.NewWorkConn,
+		ProxyName:     p.Name,
+		PrivilegeMode: p.PrivilegeMode,
+		Timestamp:     nowTime,
+	}
+	if p.PrivilegeMode == true {
+		privilegeKey := pcrypto.GetAuthKey(p.Name + PrivilegeToken + fmt.Sprintf("%d", nowTime))
+		req.PrivilegeKey = privilegeKey
+	} else {
+		authKey := pcrypto.GetAuthKey(p.Name + p.AuthToken + fmt.Sprintf("%d", nowTime))
+		req.AuthKey = authKey
 	}
 
 	buf, _ := json.Marshal(req)
@@ -89,11 +96,7 @@ func (p *ProxyClient) StartTunnel(serverAddr string, serverPort int64) (err erro
 	// l means local, r means remote
 	log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", localConn.GetLocalAddr(), localConn.GetRemoteAddr(),
 		remoteConn.GetLocalAddr(), remoteConn.GetRemoteAddr())
-	if p.UseEncryption {
-		go conn.JoinMore(localConn, remoteConn, p.AuthToken)
-	} else {
-		go conn.Join(localConn, remoteConn)
-	}
+	go msg.JoinMore(localConn, remoteConn, p.BaseConf)
 
 	return nil
 }

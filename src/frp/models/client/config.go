@@ -17,6 +17,7 @@ package client
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	ini "github.com/vaughan0/go-ini"
 )
@@ -29,6 +30,7 @@ var (
 	LogWay            string = "console"
 	LogLevel          string = "info"
 	LogMaxDays        int64  = 3
+	PrivilegeToken    string = ""
 	HeartBeatInterval int64  = 20
 	HeartBeatTimeout  int64  = 90
 )
@@ -75,12 +77,15 @@ func LoadConf(confFile string) (err error) {
 		LogMaxDays, _ = strconv.ParseInt(tmpStr, 10, 64)
 	}
 
+	tmpStr, ok = conf.Get("common", "privilege_token")
+	if ok {
+		PrivilegeToken = tmpStr
+	}
+
 	var authToken string
 	tmpStr, ok = conf.Get("common", "auth_token")
 	if ok {
 		authToken = tmpStr
-	} else {
-		return fmt.Errorf("auth_token not found")
 	}
 
 	// proxies
@@ -101,31 +106,93 @@ func LoadConf(confFile string) (err error) {
 			}
 
 			// local_port
-			portStr, ok := section["local_port"]
+			tmpStr, ok = section["local_port"]
 			if ok {
-				proxyClient.LocalPort, err = strconv.ParseInt(portStr, 10, 64)
+				proxyClient.LocalPort, err = strconv.ParseInt(tmpStr, 10, 64)
 				if err != nil {
-					return fmt.Errorf("Parse ini file error: proxy [%s] local_port error", proxyClient.Name)
+					return fmt.Errorf("Parse conf error: proxy [%s] local_port error", proxyClient.Name)
 				}
 			} else {
-				return fmt.Errorf("Parse ini file error: proxy [%s] local_port not found", proxyClient.Name)
+				return fmt.Errorf("Parse conf error: proxy [%s] local_port not found", proxyClient.Name)
 			}
 
 			// type
 			proxyClient.Type = "tcp"
-			typeStr, ok := section["type"]
+			tmpStr, ok = section["type"]
 			if ok {
-				if typeStr != "tcp" && typeStr != "http" {
-					return fmt.Errorf("Parse ini file error: proxy [%s] type error", proxyClient.Name)
+				if tmpStr != "tcp" && tmpStr != "http" && tmpStr != "https" {
+					return fmt.Errorf("Parse conf error: proxy [%s] type error", proxyClient.Name)
 				}
-				proxyClient.Type = typeStr
+				proxyClient.Type = tmpStr
 			}
 
 			// use_encryption
 			proxyClient.UseEncryption = false
-			useEncryptionStr, ok := section["use_encryption"]
-			if ok && useEncryptionStr == "true" {
+			tmpStr, ok = section["use_encryption"]
+			if ok && tmpStr == "true" {
 				proxyClient.UseEncryption = true
+			}
+
+			// use_gzip
+			proxyClient.UseGzip = false
+			tmpStr, ok = section["use_gzip"]
+			if ok && tmpStr == "true" {
+				proxyClient.UseGzip = true
+			}
+
+			// privilege_mode
+			proxyClient.PrivilegeMode = false
+			tmpStr, ok = section["privilege_mode"]
+			if ok && tmpStr == "true" {
+				proxyClient.PrivilegeMode = true
+			}
+
+			// configures used in privilege mode
+			if proxyClient.PrivilegeMode == true {
+				if PrivilegeToken == "" {
+					return fmt.Errorf("Parse conf error: proxy [%s] privilege_key must be set when privilege_mode = true", proxyClient.Name)
+				} else {
+					proxyClient.PrivilegeToken = PrivilegeToken
+				}
+
+				if proxyClient.Type == "tcp" {
+					// remote_port
+					tmpStr, ok = section["remote_port"]
+					if ok {
+						proxyClient.RemotePort, err = strconv.ParseInt(tmpStr, 10, 64)
+						if err != nil {
+							return fmt.Errorf("Parse conf error: proxy [%s] remote_port error", proxyClient.Name)
+						}
+					} else {
+						return fmt.Errorf("Parse conf error: proxy [%s] remote_port not found", proxyClient.Name)
+					}
+				} else if proxyClient.Type == "http" {
+					domainStr, ok := section["custom_domains"]
+					if ok {
+						proxyClient.CustomDomains = strings.Split(domainStr, ",")
+						if len(proxyClient.CustomDomains) == 0 {
+							return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyClient.Name)
+						}
+						for i, domain := range proxyClient.CustomDomains {
+							proxyClient.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
+						}
+					} else {
+						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyClient.Name)
+					}
+				} else if proxyClient.Type == "https" {
+					domainStr, ok := section["custom_domains"]
+					if ok {
+						proxyClient.CustomDomains = strings.Split(domainStr, ",")
+						if len(proxyClient.CustomDomains) == 0 {
+							return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals https", proxyClient.Name)
+						}
+						for i, domain := range proxyClient.CustomDomains {
+							proxyClient.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
+						}
+					} else {
+						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyClient.Name)
+					}
+				}
 			}
 
 			ProxyClients[proxyClient.Name] = proxyClient
@@ -133,7 +200,7 @@ func LoadConf(confFile string) (err error) {
 	}
 
 	if len(ProxyClients) == 0 {
-		return fmt.Errorf("Parse ini file error: no proxy config found")
+		return fmt.Errorf("Parse conf error: no proxy config found")
 	}
 
 	return nil

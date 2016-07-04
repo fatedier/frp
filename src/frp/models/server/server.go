@@ -19,7 +19,9 @@ import (
 	"sync"
 	"time"
 
+	"frp/models/config"
 	"frp/models/consts"
+	"frp/models/msg"
 	"frp/utils/conn"
 	"frp/utils/log"
 )
@@ -30,15 +32,10 @@ type Listener interface {
 }
 
 type ProxyServer struct {
-	Name          string
-	AuthToken     string
-	Type          string
+	config.BaseConf
 	BindAddr      string
 	ListenPort    int64
 	CustomDomains []string
-
-	// configure in frpc.ini
-	UseEncryption bool
 
 	Status       int64
 	CtlConn      *conn.Conn      // control connection with frpc
@@ -53,6 +50,20 @@ func NewProxyServer() (p *ProxyServer) {
 		CustomDomains: make([]string, 0),
 	}
 	return p
+}
+
+func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
+	p = &ProxyServer{}
+	p.Name = req.ProxyName
+	p.Type = req.ProxyType
+	p.UseEncryption = req.UseEncryption
+	p.UseGzip = req.UseGzip
+	p.PrivilegeMode = req.PrivilegeMode
+	p.PrivilegeToken = PrivilegeToken
+	p.BindAddr = BindAddr
+	p.ListenPort = req.RemotePort
+	p.CustomDomains = req.CustomDomains
+	return
 }
 
 func (p *ProxyServer) Init() {
@@ -100,7 +111,15 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 		p.listeners = append(p.listeners, l)
 	} else if p.Type == "http" {
 		for _, domain := range p.CustomDomains {
-			l, err := VhostMuxer.Listen(domain)
+			l, err := VhostHttpMuxer.Listen(domain)
+			if err != nil {
+				return err
+			}
+			p.listeners = append(p.listeners, l)
+		}
+	} else if p.Type == "https" {
+		for _, domain := range p.CustomDomains {
+			l, err := VhostHttpsMuxer.Listen(domain)
 			if err != nil {
 				return err
 			}
@@ -144,11 +163,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 					log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", workConn.GetLocalAddr(), workConn.GetRemoteAddr(),
 						userConn.GetLocalAddr(), userConn.GetRemoteAddr())
 
-					if p.UseEncryption {
-						go conn.JoinMore(userConn, workConn, p.AuthToken)
-					} else {
-						go conn.Join(userConn, workConn)
-					}
+					go msg.JoinMore(userConn, workConn, p.BaseConf)
 				}()
 			}
 		}(listener)
@@ -160,11 +175,9 @@ func (p *ProxyServer) Close() {
 	p.Lock()
 	if p.Status != consts.Closed {
 		p.Status = consts.Closed
-		if len(p.listeners) != 0 {
-			for _, l := range p.listeners {
-				if l != nil {
-					l.Close()
-				}
+		for _, l := range p.listeners {
+			if l != nil {
+				l.Close()
 			}
 		}
 		close(p.ctlMsgChan)
@@ -172,6 +185,10 @@ func (p *ProxyServer) Close() {
 		if p.CtlConn != nil {
 			p.CtlConn.Close()
 		}
+	}
+	// if the proxy created by PrivilegeMode, delete it when closed
+	if p.PrivilegeMode {
+		DeleteProxy(p.Name)
 	}
 	p.Unlock()
 }
@@ -190,9 +207,9 @@ func (p *ProxyServer) RegisterNewWorkConn(c *conn.Conn) {
 	p.workConnChan <- c
 }
 
-// when frps get one user connection, we get one work connection from the pool and return it
-// if no workConn available in the pool, send message to frpc to get one or more
-// and wait until it is available
+// When frps get one user connection, we get one work connection from the pool and return it.
+// If no workConn available in the pool, send message to frpc to get one or more
+// and wait until it is available.
 // return an error if wait timeout
 func (p *ProxyServer) getWorkConn() (workConn *conn.Conn, err error) {
 	var ok bool

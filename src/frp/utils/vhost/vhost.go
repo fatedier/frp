@@ -15,12 +15,10 @@
 package vhost
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -99,7 +97,6 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 	}
 
 	name = strings.ToLower(name)
-
 	l, ok := v.getListener(name)
 	if !ok {
 		return
@@ -111,28 +108,6 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 	c.TcpConn = sConn
 
 	l.accept <- c
-}
-
-type HttpMuxer struct {
-	*VhostMuxer
-}
-
-func GetHttpHostname(c *conn.Conn) (_ net.Conn, routerName string, err error) {
-	sc, rd := newShareConn(c.TcpConn)
-
-	request, err := http.ReadRequest(bufio.NewReader(rd))
-	if err != nil {
-		return sc, "", err
-	}
-	routerName = request.Host
-	request.Body.Close()
-
-	return sc, routerName, nil
-}
-
-func NewHttpMuxer(listener *conn.Listener, timeout time.Duration) (*HttpMuxer, error) {
-	mux, err := NewVhostMuxer(listener, GetHttpHostname, timeout)
-	return &HttpMuxer{mux}, err
 }
 
 type Listener struct {

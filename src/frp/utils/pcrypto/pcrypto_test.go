@@ -15,33 +15,48 @@
 package pcrypto
 
 import (
-	"fmt"
 	"testing"
 )
 
-func TestEncrypt(t *testing.T) {
-	pp := new(Pcrypto)
-	pp.Init([]byte("Hana"))
-	res, err := pp.Encrypt([]byte("Just One Test!"))
-	if err != nil {
-		t.Fatal(err)
-	}
+var (
+	pp *Pcrypto
+)
 
-	fmt.Printf("[%x]\n", res)
+func init() {
+	pp = &Pcrypto{}
+	pp.Init([]byte("Hana"))
 }
 
-func TestDecrypt(t *testing.T) {
-	pp := new(Pcrypto)
-	pp.Init([]byte("Hana"))
-	res, err := pp.Encrypt([]byte("Just One Test!"))
+func TestEncrypt(t *testing.T) {
+	testStr := "Test Encrypt!"
+	res, err := pp.Encrypt([]byte(testStr))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("encrypt error: %v", err)
 	}
 
-	res, err = pp.Decrypt(res)
+	res, err = pp.Decrypt([]byte(res))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("decrypt error: %v", err)
 	}
 
-	fmt.Printf("[%s]\n", string(res))
+	if string(res) != testStr {
+		t.Fatalf("test encrypt error, from [%s] to [%s]", testStr, string(res))
+	}
+}
+
+func TestCompression(t *testing.T) {
+	testStr := "Test Compression!"
+	res, err := pp.Compression([]byte(testStr))
+	if err != nil {
+		t.Fatalf("compression error: %v", err)
+	}
+
+	res, err = pp.Decompression(res)
+	if err != nil {
+		t.Fatalf("decompression error: %v", err)
+	}
+
+	if string(res) != testStr {
+		t.Fatalf("test compression error, from [%s] to [%s]", testStr, string(res))
+	}
 }

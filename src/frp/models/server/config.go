@@ -22,6 +22,7 @@ import (
 
 	ini "github.com/vaughan0/go-ini"
 
+	"frp/models/consts"
 	"frp/utils/log"
 	"frp/utils/vhost"
 )
@@ -31,16 +32,20 @@ var (
 	ConfigFile       string = "./frps.ini"
 	BindAddr         string = "0.0.0.0"
 	BindPort         int64  = 7000
-	VhostHttpPort    int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http
+	VhostHttpPort    int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http protocol
+	VhostHttpsPort   int64  = 0 // if VhostHttpsPort equals 0, don't listen a public port for https protocol
 	DashboardPort    int64  = 0 // if DashboardPort equals 0, dashboard is not available
 	LogFile          string = "console"
 	LogWay           string = "console" // console or file
 	LogLevel         string = "info"
 	LogMaxDays       int64  = 3
+	PrivilegeMode    bool   = false
+	PrivilegeToken   string = ""
 	HeartBeatTimeout int64  = 90
 	UserConnTimeout  int64  = 10
 
-	VhostMuxer        *vhost.HttpMuxer
+	VhostHttpMuxer    *vhost.HttpMuxer
+	VhostHttpsMuxer   *vhost.HttpsMuxer
 	ProxyServers      map[string]*ProxyServer = make(map[string]*ProxyServer) // all proxy servers info and resources
 	ProxyServersMutex sync.RWMutex
 )
@@ -81,7 +86,10 @@ func loadCommonConf(confFile string) error {
 
 	tmpStr, ok = conf.Get("common", "bind_port")
 	if ok {
-		BindPort, _ = strconv.ParseInt(tmpStr, 10, 64)
+		v, err := strconv.ParseInt(tmpStr, 10, 64)
+		if err == nil {
+			BindPort = v
+		}
 	}
 
 	tmpStr, ok = conf.Get("common", "vhost_http_port")
@@ -89,6 +97,13 @@ func loadCommonConf(confFile string) error {
 		VhostHttpPort, _ = strconv.ParseInt(tmpStr, 10, 64)
 	} else {
 		VhostHttpPort = 0
+	}
+
+	tmpStr, ok = conf.Get("common", "vhost_https_port")
+	if ok {
+		VhostHttpsPort, _ = strconv.ParseInt(tmpStr, 10, 64)
+	} else {
+		VhostHttpsPort = 0
 	}
 
 	tmpStr, ok = conf.Get("common", "dashboard_port")
@@ -115,7 +130,29 @@ func loadCommonConf(confFile string) error {
 
 	tmpStr, ok = conf.Get("common", "log_max_days")
 	if ok {
-		LogMaxDays, _ = strconv.ParseInt(tmpStr, 10, 64)
+		v, err := strconv.ParseInt(tmpStr, 10, 64)
+		if err == nil {
+			LogMaxDays = v
+		}
+	}
+
+	tmpStr, ok = conf.Get("common", "privilege_mode")
+	if ok {
+		if tmpStr == "true" {
+			PrivilegeMode = true
+		}
+	}
+
+	if PrivilegeMode == true {
+		tmpStr, ok = conf.Get("common", "privilege_token")
+		if ok {
+			if tmpStr == "" {
+				return fmt.Errorf("Parse conf error: privilege_token can not be null")
+			}
+			PrivilegeToken = tmpStr
+		} else {
+			return fmt.Errorf("Parse conf error: privilege_token must be set if privilege_mode is enabled")
+		}
 	}
 	return nil
 }
@@ -135,7 +172,7 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 
 			proxyServer.Type, ok = section["type"]
 			if ok {
-				if proxyServer.Type != "tcp" && proxyServer.Type != "http" {
+				if proxyServer.Type != "tcp" && proxyServer.Type != "http" && proxyServer.Type != "https" {
 					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] type error", proxyServer.Name)
 				}
 			} else {
@@ -167,17 +204,29 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				// for http
 				domainStr, ok := section["custom_domains"]
 				if ok {
-					var suffix string
-					if VhostHttpPort != 80 {
-						suffix = fmt.Sprintf(":%d", VhostHttpPort)
-					}
 					proxyServer.CustomDomains = strings.Split(domainStr, ",")
 					if len(proxyServer.CustomDomains) == 0 {
 						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyServer.Name)
 					}
 					for i, domain := range proxyServer.CustomDomains {
-						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain)) + suffix
+						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
 					}
+				} else {
+					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyServer.Name)
+				}
+			} else if proxyServer.Type == "https" {
+				// for https
+				domainStr, ok := section["custom_domains"]
+				if ok {
+					proxyServer.CustomDomains = strings.Split(domainStr, ",")
+					if len(proxyServer.CustomDomains) == 0 {
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals https", proxyServer.Name)
+					}
+					for i, domain := range proxyServer.CustomDomains {
+						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
+					}
+				} else {
+					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals https", proxyServer.Name)
 				}
 			}
 			proxyServers[proxyServer.Name] = proxyServer
@@ -211,14 +260,43 @@ func ReloadConf(confFile string) (err error) {
 		}
 	}
 
+	// proxies created by PrivilegeMode won't be deleted
 	for name, oldProxyServer := range ProxyServers {
 		_, ok := loadProxyServers[name]
 		if !ok {
-			oldProxyServer.Close()
-			delete(ProxyServers, name)
-			log.Info("ProxyName [%s] deleted, close it", name)
+			if !oldProxyServer.PrivilegeMode {
+				oldProxyServer.Close()
+				delete(ProxyServers, name)
+				log.Info("ProxyName [%s] deleted, close it", name)
+			} else {
+				log.Info("ProxyName [%s] created by PrivilegeMode, won't be closed", name)
+			}
 		}
 	}
 	ProxyServersMutex.Unlock()
 	return nil
+}
+
+func CreateProxy(s *ProxyServer) error {
+	ProxyServersMutex.Lock()
+	defer ProxyServersMutex.Unlock()
+	oldServer, ok := ProxyServers[s.Name]
+	if ok {
+		if oldServer.Status == consts.Working {
+			return fmt.Errorf("this proxy is already working now")
+		}
+		oldServer.Close()
+		if oldServer.PrivilegeMode {
+			delete(ProxyServers, s.Name)
+		}
+	}
+	s.Init()
+	ProxyServers[s.Name] = s
+	return nil
+}
+
+func DeleteProxy(proxyName string) {
+	ProxyServersMutex.Lock()
+	defer ProxyServersMutex.Unlock()
+	delete(ProxyServers, proxyName)
 }

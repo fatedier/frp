@@ -19,13 +19,21 @@ type GeneralRes struct {
 	Msg  string `json:"msg"`
 }
 
-// messages between control connection of frpc and frps
+// messages between control connections of frpc and frps
 type ControlReq struct {
 	Type          int64  `json:"type"`
-	ProxyName     string `json:"proxy_name,omitempty"`
-	AuthKey       string `json:"auth_key, omitempty"`
-	UseEncryption bool   `json:"use_encryption, omitempty"`
-	Timestamp     int64  `json:"timestamp, omitempty"`
+	ProxyName     string `json:"proxy_name"`
+	AuthKey       string `json:"auth_key"`
+	UseEncryption bool   `json:"use_encryption"`
+	UseGzip       bool   `json:"use_gzip"`
+
+	// configures used if privilege_mode is enabled
+	PrivilegeMode bool     `json:"privilege_mode"`
+	PrivilegeKey  string   `json:"privilege_key"`
+	ProxyType     string   `json:"proxy_type"`
+	RemotePort    int64    `json:"remote_port"`
+	CustomDomains []string `json:"custom_domains, omitempty"`
+	Timestamp     int64    `json:"timestamp"`
 }
 
 type ControlRes struct {

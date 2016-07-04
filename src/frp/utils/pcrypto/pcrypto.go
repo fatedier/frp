@@ -20,7 +20,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/md5"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -36,40 +35,21 @@ func (pc *Pcrypto) Init(key []byte) error {
 	var err error
 	pc.pkey = pKCS7Padding(key, aes.BlockSize)
 	pc.paes, err = aes.NewCipher(pc.pkey)
-
 	return err
 }
 
 func (pc *Pcrypto) Encrypt(src []byte) ([]byte, error) {
-	// gzip
-	var zbuf bytes.Buffer
-	zwr, err := gzip.NewWriterLevel(&zbuf, -1)
-	if err != nil {
-		return nil, err
-	}
-	defer zwr.Close()
-	zwr.Write(src)
-	zwr.Flush()
-
 	// aes
-	src = pKCS7Padding(zbuf.Bytes(), aes.BlockSize)
+	src = pKCS7Padding(src, aes.BlockSize)
 	blockMode := cipher.NewCBCEncrypter(pc.paes, pc.pkey)
 	crypted := make([]byte, len(src))
 	blockMode.CryptBlocks(crypted, src)
-
-	// base64
-	return []byte(base64.StdEncoding.EncodeToString(crypted)), nil
+	return crypted, nil
 }
 
 func (pc *Pcrypto) Decrypt(str []byte) ([]byte, error) {
-	// base64
-	data, err := base64.StdEncoding.DecodeString(string(str))
-	if err != nil {
-		return nil, err
-	}
-
 	// aes
-	decryptText, err := hex.DecodeString(fmt.Sprintf("%x", data))
+	decryptText, err := hex.DecodeString(fmt.Sprintf("%x", str))
 	if err != nil {
 		return nil, err
 	}
@@ -81,18 +61,30 @@ func (pc *Pcrypto) Decrypt(str []byte) ([]byte, error) {
 	blockMode := cipher.NewCBCDecrypter(pc.paes, pc.pkey)
 
 	blockMode.CryptBlocks(decryptText, decryptText)
-	decryptText = pKCS7UnPadding(decryptText)
+	return pKCS7UnPadding(decryptText), nil
+}
 
-	// gunzip
-	zbuf := bytes.NewBuffer(decryptText)
+func (pc *Pcrypto) Compression(src []byte) ([]byte, error) {
+	var zbuf bytes.Buffer
+	zwr, err := gzip.NewWriterLevel(&zbuf, gzip.DefaultCompression)
+	if err != nil {
+		return nil, err
+	}
+	defer zwr.Close()
+	zwr.Write(src)
+	zwr.Flush()
+	return zbuf.Bytes(), nil
+}
+
+func (pc *Pcrypto) Decompression(src []byte) ([]byte, error) {
+	zbuf := bytes.NewBuffer(src)
 	zrd, err := gzip.NewReader(zbuf)
 	if err != nil {
 		return nil, err
 	}
 	defer zrd.Close()
-	data, _ = ioutil.ReadAll(zrd)
-
-	return data, nil
+	str, _ := ioutil.ReadAll(zrd)
+	return str, nil
 }
 
 func pKCS7Padding(ciphertext []byte, blockSize int) []byte {

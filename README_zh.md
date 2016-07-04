@@ -45,3 +45,4 @@ frp 目前正在前期开发阶段，master 分支用于发布稳定版本，dev
 * [fatedier](https://github.com/fatedier)
 * [Hurricanezwf](https://github.com/Hurricanezwf)
 * [vashstorm](https://github.com/vashstorm)
+* [maodanp](https://github.com/maodanp)
