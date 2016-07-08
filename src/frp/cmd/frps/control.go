@@ -69,11 +69,6 @@ func controlWorker(c *conn.Conn) {
 
 	// login when type is NewCtlConn or NewWorkConn
 	ret, info := doLogin(cliReq, c)
-	s, ok := server.ProxyServers[cliReq.ProxyName]
-	if !ok {
-		log.Warn("ProxyName [%s] is not exist", cliReq.ProxyName)
-		return
-	}
 	// if login type is NewWorkConn, nothing will be send to frpc
 	if cliReq.Type != consts.NewWorkConn {
 		cliRes := &msg.ControlRes{
@@ -84,7 +79,7 @@ func controlWorker(c *conn.Conn) {
 		byteBuf, _ := json.Marshal(cliRes)
 		err = c.Write(string(byteBuf) + "\n")
 		if err != nil {
-			log.Warn("ProxyName [%s], write to client error, proxy exit", s.Name)
+			log.Warn("ProxyName [%s], write to client error, proxy exit", cliReq.ProxyName)
 			time.Sleep(1 * time.Second)
 			return
 		}
@@ -95,6 +90,12 @@ func controlWorker(c *conn.Conn) {
 
 	// if login failed, just return
 	if ret > 0 {
+		return
+	}
+
+	s, ok := server.ProxyServers[cliReq.ProxyName]
+	if !ok {
+		log.Warn("ProxyName [%s], is not exist now", cliReq.ProxyName)
 		return
 	}
 
