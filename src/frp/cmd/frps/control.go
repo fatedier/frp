@@ -80,7 +80,6 @@ func controlWorker(c *conn.Conn) {
 		err = c.Write(string(byteBuf) + "\n")
 		if err != nil {
 			log.Warn("ProxyName [%s], write to client error, proxy exit", cliReq.ProxyName)
-			time.Sleep(1 * time.Second)
 			return
 		}
 	} else {
