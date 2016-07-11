@@ -178,12 +178,11 @@ reload 命令仅能用于修改代理的配置内容，[common] 内的公共配�
 
   `./frps -c ./frps.ini`
 
-3. 修改 frpc.ini 增加一个新的代理 [new_ssh]
+3. 修改 frps.ini 增加一个新的代理 [new_ssh]:
 
   ```ini
-  # frpc.ini
+  # frps.ini
   [common]
-  server_addr = x.x.x.x
   bind_port = 7000
   dashboard_port = 7500
 
