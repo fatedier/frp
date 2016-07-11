@@ -10,20 +10,20 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
 
 ## Catalog
 
-* [What can I do with frp?](#What-can-I-do-with-frp?)
-* [Status](#Status)
-* [Architecture](#Architecture)
-* [Example Usage](#Example-Usage) 
-  * [Communicate with your computer in LAN by SSH](#Communicate-with-your-computer-in-LAN-by-SSH)
-  * [Visit your web service in LAN by specific domain](#Visit-your-web-service-in-LAN-by-specific-domain)
-* [Features](#Features)
-  * [Authentication](#Authentication)
-  * [Encryption and Compression](#Encryption-and-Compression)
-  * [Reload configures without frps stopped](#Reload-configures-without-frps-stopped)
-  * [Privilege Mode](#Privilege Mode)
-* [Development Plan](#Development-Plan)
-* [Contributing](#Contributing)
-* [Contributors](#Contributors)
+* [What can I do with frp?](#what-can-i-do-with-frp)
+* [Status](#status)
+* [Architecture](#architecture)
+* [Example Usage](#example-usage) 
+  * [Communicate with your computer in LAN by SSH](#communicate-with-your-computer-in-lan-by-ssh)
+  * [Visit your web service in LAN by specific domain](#visit-your-web-service-in-lan-by-specific-domain)
+* [Features](#features)
+  * [Authentication](#authentication)
+  * [Encryption and Compression](#encryption-and-compression)
+  * [Reload configures without frps stopped](#reload-configures-without-frps-stopped)
+  * [Privilege Mode](#privilege-mode)
+* [Development Plan](#development-plan)
+* [Contributing](#contributing)
+* [Contributors](#contributors)
 
 ## What can I do with frp?
 
