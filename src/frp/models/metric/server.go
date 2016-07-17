@@ -16,6 +16,7 @@ package metric
 
 import (
 	"encoding/json"
+	"sort"
 	"sync"
 	"time"
 
@@ -52,22 +53,32 @@ type DailyServerStats struct {
 	TotalAcceptConns int64  `json:"total_accept_conns"`
 }
 
+// for sort
+type ServerMetricList []*ServerMetric
+
+func (l ServerMetricList) Len() int           { return len(l) }
+func (l ServerMetricList) Less(i, j int) bool { return l[i].Name < l[j].Name }
+func (l ServerMetricList) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
+
 func init() {
 	ServerMetricInfoMap = make(map[string]*ServerMetric)
 }
 
-func GetAllProxyMetrics() map[string]*ServerMetric {
-	result := make(map[string]*ServerMetric)
+func GetAllProxyMetrics() []*ServerMetric {
+	result := make(ServerMetricList, 0)
 	smMutex.RLock()
-	defer smMutex.RUnlock()
-	for proxyName, metric := range ServerMetricInfoMap {
+	for _, metric := range ServerMetricInfoMap {
 		metric.mutex.RLock()
 		byteBuf, _ := json.Marshal(metric)
 		metric.mutex.RUnlock()
 		tmpMetric := &ServerMetric{}
 		json.Unmarshal(byteBuf, &tmpMetric)
-		result[proxyName] = tmpMetric
+		result = append(result, tmpMetric)
 	}
+	smMutex.RUnlock()
+
+	// sort for result by proxy name
+	sort.Sort(result)
 	return result
 }
 
