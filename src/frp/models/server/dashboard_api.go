@@ -20,6 +20,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"frp/models/metric"
 	"frp/utils/log"
 )
 
@@ -41,6 +42,27 @@ func apiReload(c *gin.Context) {
 		res.Code = 2
 		res.Msg = fmt.Sprintf("%v", err)
 		log.Error("frps reload error: %v", err)
+	}
+	c.JSON(200, res)
+}
+
+type ProxiesResponse struct {
+	Code    int64                  `json:"code"`
+	Msg     string                 `json:"msg"`
+	Proxies []*metric.ServerMetric `json:"proxies"`
+}
+
+func apiProxies(c *gin.Context) {
+	res := &ProxiesResponse{}
+	res.Proxies = make([]*metric.ServerMetric, 0)
+	defer func() {
+		log.Info("Http response [/api/proxies]: code [%d]", res.Code)
+	}()
+
+	log.Info("Http request: [/api/proxies]")
+	serverMetricMap := metric.GetAllProxyMetrics()
+	for _, metric := range serverMetricMap {
+		res.Proxies = append(res.Proxies, metric)
 	}
 	c.JSON(200, res)
 }

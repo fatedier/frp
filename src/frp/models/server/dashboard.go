@@ -30,6 +30,7 @@ func RunDashboardServer(addr string, port int64) (err error) {
 	router := gin.New()
 	//router.LoadHTMLGlob("assets/*")
 	router.GET("/api/reload", apiReload)
+	router.GET("/api/proxies", apiProxies)
 	go router.Run(fmt.Sprintf("%s:%d", addr, port))
 	return
 }
