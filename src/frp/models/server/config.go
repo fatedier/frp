@@ -23,6 +23,7 @@ import (
 	ini "github.com/vaughan0/go-ini"
 
 	"frp/models/consts"
+	"frp/models/metric"
 	"frp/utils/log"
 	"frp/utils/vhost"
 )
@@ -231,6 +232,12 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 			}
 			proxyServers[proxyServer.Name] = proxyServer
 		}
+	}
+
+	// set metric statistics of all proxies
+	for name, p := range proxyServers {
+		metric.SetProxyInfo(name, p.Type, p.BindAddr, p.UseEncryption, p.UseGzip,
+			p.PrivilegeMode, p.CustomDomains, p.ListenPort)
 	}
 	return proxyServers, nil
 }

@@ -21,6 +21,7 @@ import (
 
 	"frp/models/config"
 	"frp/models/consts"
+	"frp/models/metric"
 	"frp/models/msg"
 	"frp/utils/conn"
 	"frp/utils/log"
@@ -69,6 +70,7 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 func (p *ProxyServer) Init() {
 	p.Lock()
 	p.Status = consts.Idle
+	metric.SetStatus(p.Name, p.Status)
 	p.workConnChan = make(chan *conn.Conn, 100)
 	p.ctlMsgChan = make(chan int64)
 	p.listeners = make([]Listener, 0)
@@ -130,6 +132,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 	p.Lock()
 	p.Status = consts.Working
 	p.Unlock()
+	metric.SetStatus(p.Name, p.Status)
 
 	// start a goroutine for every listener to accept user connection
 	for _, listener := range p.listeners {
@@ -163,7 +166,9 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 					log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", workConn.GetLocalAddr(), workConn.GetRemoteAddr(),
 						userConn.GetLocalAddr(), userConn.GetRemoteAddr())
 
-					go msg.JoinMore(userConn, workConn, p.BaseConf)
+					needRecord := true
+					go msg.JoinMore(userConn, workConn, p.BaseConf, needRecord)
+					metric.OpenConnection(p.Name)
 				}()
 			}
 		}(listener)
@@ -186,6 +191,7 @@ func (p *ProxyServer) Close() {
 			p.CtlConn.Close()
 		}
 	}
+	metric.SetStatus(p.Name, p.Status)
 	// if the proxy created by PrivilegeMode, delete it when closed
 	if p.PrivilegeMode {
 		DeleteProxy(p.Name)
