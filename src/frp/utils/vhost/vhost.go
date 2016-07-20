@@ -105,7 +105,7 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 	if err = sConn.SetDeadline(time.Time{}); err != nil {
 		return
 	}
-	c.TcpConn = sConn
+	c.SetTcpConn(sConn)
 
 	l.accept <- c
 }
