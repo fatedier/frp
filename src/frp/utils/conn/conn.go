@@ -117,6 +117,11 @@ func ConnectServer(host string, port int64) (c *Conn, err error) {
 	return c, nil
 }
 
+func (c *Conn) SetTcpConn(tcpConn net.Conn) {
+	c.TcpConn = tcpConn
+	c.Reader = bufio.NewReader(c.TcpConn)
+}
+
 func (c *Conn) GetRemoteAddr() (addr string) {
 	return c.TcpConn.RemoteAddr().String()
 }
