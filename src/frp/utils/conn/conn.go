@@ -125,6 +125,11 @@ func (c *Conn) GetLocalAddr() (addr string) {
 	return c.TcpConn.LocalAddr().String()
 }
 
+func (c *Conn) Read(p []byte) (n int, err error) {
+	n, err = c.Reader.Read(p)
+	return
+}
+
 func (c *Conn) ReadLine() (buff string, err error) {
 	buff, err = c.Reader.ReadString('\n')
 	if err != nil {
@@ -138,10 +143,14 @@ func (c *Conn) ReadLine() (buff string, err error) {
 	return buff, err
 }
 
+func (c *Conn) WriteBytes(content []byte) (n int, err error) {
+	n, err = c.TcpConn.Write(content)
+	return
+}
+
 func (c *Conn) Write(content string) (err error) {
 	_, err = c.TcpConn.Write([]byte(content))
 	return err
-
 }
 
 func (c *Conn) SetDeadline(t time.Time) error {

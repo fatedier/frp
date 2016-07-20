@@ -154,13 +154,12 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 				}
 
 				// start another goroutine for join two conns from frpc and user
-				go func() {
+				go func(userConn *conn.Conn) {
 					workConn, err := p.getWorkConn()
 					if err != nil {
 						return
 					}
 
-					userConn := c
 					// msg will transfer to another without modifying
 					// l means local, r means remote
 					log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", workConn.GetLocalAddr(), workConn.GetRemoteAddr(),
@@ -169,7 +168,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 					needRecord := true
 					go msg.JoinMore(userConn, workConn, p.BaseConf, needRecord)
 					metric.OpenConnection(p.Name)
-				}()
+				}(c)
 			}
 		}(listener)
 	}
