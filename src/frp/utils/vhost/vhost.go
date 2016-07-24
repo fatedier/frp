@@ -34,10 +34,6 @@ type VhostMuxer struct {
 	vhostFunc   muxFunc
 	registryMap map[string]*Listener
 	mutex       sync.RWMutex
-
-	//build map between custom_domains and client_domain
-	domainMap   map[string]string
-	domainMutex sync.RWMutex
 }
 
 func NewVhostMuxer(listener *conn.Listener, vhostFunc muxFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
