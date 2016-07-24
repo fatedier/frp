@@ -64,6 +64,7 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 	p.BindAddr = BindAddr
 	p.ListenPort = req.RemotePort
 	p.CustomDomains = req.CustomDomains
+	p.ServerPort = VhostHttpPort
 	return
 }
 
@@ -113,7 +114,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 		p.listeners = append(p.listeners, l)
 	} else if p.Type == "http" {
 		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpMuxer.Listen(domain)
+			l, err := VhostHttpMuxer.Listen(domain, p.Type, p.ClientIp, p.ClientPort, p.ServerPort)
 			if err != nil {
 				return err
 			}
@@ -121,7 +122,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 		}
 	} else if p.Type == "https" {
 		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpsMuxer.Listen(domain)
+			l, err := VhostHttpsMuxer.Listen(domain, p.Type, p.ClientIp, p.ClientPort, p.ServerPort)
 			if err != nil {
 				return err
 			}

@@ -144,6 +144,8 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 		UseGzip:       cli.UseGzip,
 		PrivilegeMode: cli.PrivilegeMode,
 		ProxyType:     cli.Type,
+		LocalIp:       cli.LocalIp,
+		LocalPort:     cli.LocalPort,
 		Timestamp:     nowTime,
 	}
 	if cli.PrivilegeMode {
