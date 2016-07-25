@@ -47,7 +47,7 @@ func NewVhostMuxer(listener *conn.Listener, vhostFunc muxFunc, timeout time.Dura
 	return mux, nil
 }
 
-func (v *VhostMuxer) Listen(name string) (l *Listener, err error) {
+func (v *VhostMuxer) Listen(name, proxytype, clientIp string, clientPort, serverPort int64) (l *Listener, err error) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 	if _, exist := v.registryMap[name]; exist {
@@ -55,9 +55,13 @@ func (v *VhostMuxer) Listen(name string) (l *Listener, err error) {
 	}
 
 	l = &Listener{
-		name:   name,
-		mux:    v,
-		accept: make(chan *conn.Conn),
+		name:       name,
+		mux:        v,
+		accept:     make(chan *conn.Conn),
+		proxyType:  proxytype,
+		clientIp:   clientIp,
+		clientPort: clientPort,
+		serverPort: serverPort,
 	}
 	v.registryMap[name] = l
 	return l, nil
@@ -111,15 +115,33 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 }
 
 type Listener struct {
-	name   string
-	mux    *VhostMuxer // for closing VhostMuxer
-	accept chan *conn.Conn
+	name       string
+	mux        *VhostMuxer // for closing VhostMuxer
+	accept     chan *conn.Conn
+	proxyType  string //suppor http host rewrite
+	clientIp   string
+	clientPort int64
+	serverPort int64
 }
 
 func (l *Listener) Accept() (*conn.Conn, error) {
 	conn, ok := <-l.accept
 	if !ok {
 		return nil, fmt.Errorf("Listener closed")
+	}
+	if net.ParseIP(l.clientIp) == nil && l.proxyType == "http" {
+		if (l.name != l.clientIp) || (l.serverPort != l.clientPort) {
+			clientHost := l.clientIp
+			if l.clientPort != 80 {
+				strPort := fmt.Sprintf(":%d", l.clientPort)
+				clientHost += strPort
+			}
+			retConn, err := HostNameRewrite(conn, clientHost)
+			if err != nil {
+				return nil, fmt.Errorf("http host rewrite failed")
+			}
+			conn.SetTcpConn(retConn)
+		}
 	}
 	return conn, nil
 }
@@ -165,4 +187,10 @@ func (sc *sharedConn) Read(p []byte) (n int, err error) {
 	}
 	sc.Unlock()
 	return
+}
+
+func (sc *sharedConn) WriteBuff(buffer []byte) (err error) {
+	sc.buff.Reset()
+	_, err = sc.buff.Write(buffer)
+	return err
 }

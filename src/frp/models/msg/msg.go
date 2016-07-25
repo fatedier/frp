@@ -26,6 +26,8 @@ type ControlReq struct {
 	AuthKey       string `json:"auth_key"`
 	UseEncryption bool   `json:"use_encryption"`
 	UseGzip       bool   `json:"use_gzip"`
+	LocalIp       string `json:"local_ip"`
+	LocalPort     int64  `json:"local_port"`
 
 	// configures used if privilege_mode is enabled
 	PrivilegeMode bool     `json:"privilege_mode"`

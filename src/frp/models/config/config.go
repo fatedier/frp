@@ -22,4 +22,7 @@ type BaseConf struct {
 	UseGzip        bool
 	PrivilegeMode  bool
 	PrivilegeToken string
+	ClientIp       string
+	ClientPort     int64
+	ServerPort     int64
 }
