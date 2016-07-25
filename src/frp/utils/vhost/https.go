@@ -47,7 +47,7 @@ type HttpsMuxer struct {
 }
 
 func NewHttpsMuxer(listener *conn.Listener, timeout time.Duration) (*HttpsMuxer, error) {
-	mux, err := NewVhostMuxer(listener, GetHttpsHostname, timeout)
+	mux, err := NewVhostMuxer(listener, GetHttpsHostname, nil, timeout)
 	return &HttpsMuxer{mux}, err
 }
 

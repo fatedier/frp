@@ -138,15 +138,14 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 
 	nowTime := time.Now().Unix()
 	req := &msg.ControlReq{
-		Type:          consts.NewCtlConn,
-		ProxyName:     cli.Name,
-		UseEncryption: cli.UseEncryption,
-		UseGzip:       cli.UseGzip,
-		PrivilegeMode: cli.PrivilegeMode,
-		ProxyType:     cli.Type,
-		LocalIp:       cli.LocalIp,
-		LocalPort:     cli.LocalPort,
-		Timestamp:     nowTime,
+		Type:              consts.NewCtlConn,
+		ProxyName:         cli.Name,
+		UseEncryption:     cli.UseEncryption,
+		UseGzip:           cli.UseGzip,
+		PrivilegeMode:     cli.PrivilegeMode,
+		ProxyType:         cli.Type,
+		HostHeaderRewrite: cli.HostHeaderRewrite,
+		Timestamp:         nowTime,
 	}
 	if cli.PrivilegeMode {
 		privilegeKey := pcrypto.GetAuthKey(cli.Name + client.PrivilegeToken + fmt.Sprintf("%d", nowTime))

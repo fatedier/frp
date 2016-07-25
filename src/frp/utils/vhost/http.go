@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"frp/utils/conn"
-	"frp/utils/log"
 )
 
 type HttpMuxer struct {
@@ -47,31 +46,28 @@ func GetHttpHostname(c *conn.Conn) (_ net.Conn, routerName string, err error) {
 }
 
 func NewHttpMuxer(listener *conn.Listener, timeout time.Duration) (*HttpMuxer, error) {
-	mux, err := NewVhostMuxer(listener, GetHttpHostname, timeout)
+	mux, err := NewVhostMuxer(listener, GetHttpHostname, HttpHostNameRewrite, timeout)
 	return &HttpMuxer{mux}, err
 }
 
-func HostNameRewrite(c *conn.Conn, clientHost string) (_ net.Conn, err error) {
-	log.Info("HostNameRewrite, clientHost: %s", clientHost)
+func HttpHostNameRewrite(c *conn.Conn, rewriteHost string) (_ net.Conn, err error) {
 	sc, rd := newShareConn(c.TcpConn)
 	var buff []byte
-	if buff, err = hostNameRewrite(rd, clientHost); err != nil {
+	if buff, err = hostNameRewrite(rd, rewriteHost); err != nil {
 		return sc, err
 	}
 	err = sc.WriteBuff(buff)
 	return sc, err
 }
 
-func hostNameRewrite(request io.Reader, clientHost string) (_ []byte, err error) {
+func hostNameRewrite(request io.Reader, rewriteHost string) (_ []byte, err error) {
 	buffer := make([]byte, 1024)
 	request.Read(buffer)
-	log.Debug("before hostNameRewrite:\n %s", string(buffer))
-	retBuffer, err := parseRequest(buffer, clientHost)
-	log.Debug("after hostNameRewrite:\n %s", string(retBuffer))
+	retBuffer, err := parseRequest(buffer, rewriteHost)
 	return retBuffer, err
 }
 
-func parseRequest(org []byte, clientHost string) (ret []byte, err error) {
+func parseRequest(org []byte, rewriteHost string) (ret []byte, err error) {
 	tp := bytes.NewBuffer(org)
 	// First line: GET /index.html HTTP/1.0
 	var b []byte
@@ -79,10 +75,10 @@ func parseRequest(org []byte, clientHost string) (ret []byte, err error) {
 		return nil, err
 	}
 	req := new(http.Request)
-	//we invoked ReadRequest in GetHttpHostname before, so we ignore error
+	// we invoked ReadRequest in GetHttpHostname before, so we ignore error
 	req.Method, req.RequestURI, req.Proto, _ = parseRequestLine(string(b))
 	rawurl := req.RequestURI
-	//CONNECT www.google.com:443 HTTP/1.1
+	// CONNECT www.google.com:443 HTTP/1.1
 	justAuthority := req.Method == "CONNECT" && !strings.HasPrefix(rawurl, "/")
 	if justAuthority {
 		rawurl = "http://" + rawurl
@@ -97,7 +93,7 @@ func parseRequest(org []byte, clientHost string) (ret []byte, err error) {
 	//  GET /index.html HTTP/1.1
 	//  Host: www.google.com
 	if req.URL.Host == "" {
-		changedBuf, err := changeHostName(tp, clientHost)
+		changedBuf, err := changeHostName(tp, rewriteHost)
 		buf := new(bytes.Buffer)
 		buf.Write(b)
 		buf.Write(changedBuf)
@@ -108,7 +104,12 @@ func parseRequest(org []byte, clientHost string) (ret []byte, err error) {
 	// GET http://www.google.com/index.html HTTP/1.1
 	// Host: doesntmatter
 	// In this case, any Host line is ignored.
-	req.URL.Host = clientHost
+	hostPort := strings.Split(req.URL.Host, ":")
+	if len(hostPort) == 1 {
+		req.URL.Host = rewriteHost
+	} else if len(hostPort) == 2 {
+		req.URL.Host = fmt.Sprintf("%s:%s", rewriteHost, hostPort[1])
+	}
 	firstLine := req.Method + " " + req.URL.String() + " " + req.Proto
 	buf := new(bytes.Buffer)
 	buf.WriteString(firstLine)
@@ -128,7 +129,7 @@ func parseRequestLine(line string) (method, requestURI, proto string, ok bool) {
 	return line[:s1], line[s1+1 : s2], line[s2+1:], true
 }
 
-func changeHostName(buff *bytes.Buffer, clientHost string) (_ []byte, err error) {
+func changeHostName(buff *bytes.Buffer, rewriteHost string) (_ []byte, err error) {
 	retBuf := new(bytes.Buffer)
 
 	peek := buff.Bytes()
@@ -145,7 +146,13 @@ func changeHostName(buff *bytes.Buffer, clientHost string) (_ []byte, err error)
 			return nil, fmt.Errorf("malformed MIME header line: " + string(kv))
 		}
 		if strings.Contains(strings.ToLower(string(kv[:j])), "host") {
-			hostHeader := fmt.Sprintf("Host: %s\n", clientHost)
+			var hostHeader string
+			portPos := bytes.IndexByte(kv[j+1:], ':')
+			if portPos == -1 {
+				hostHeader = fmt.Sprintf("Host: %s\n", rewriteHost)
+			} else {
+				hostHeader = fmt.Sprintf("Host: %s:%s\n", rewriteHost, kv[portPos+1:])
+			}
 			retBuf.WriteString(hostHeader)
 			peek = peek[i+1:]
 			break

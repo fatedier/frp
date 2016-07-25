@@ -27,41 +27,42 @@ import (
 )
 
 type muxFunc func(*conn.Conn) (net.Conn, string, error)
+type hostRewriteFunc func(*conn.Conn, string) (net.Conn, error)
 
 type VhostMuxer struct {
 	listener    *conn.Listener
 	timeout     time.Duration
 	vhostFunc   muxFunc
+	rewriteFunc hostRewriteFunc
 	registryMap map[string]*Listener
 	mutex       sync.RWMutex
 }
 
-func NewVhostMuxer(listener *conn.Listener, vhostFunc muxFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
+func NewVhostMuxer(listener *conn.Listener, vhostFunc muxFunc, rewriteFunc hostRewriteFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
 	mux = &VhostMuxer{
 		listener:    listener,
 		timeout:     timeout,
 		vhostFunc:   vhostFunc,
+		rewriteFunc: rewriteFunc,
 		registryMap: make(map[string]*Listener),
 	}
 	go mux.run()
 	return mux, nil
 }
 
-func (v *VhostMuxer) Listen(name, proxytype, clientIp string, clientPort, serverPort int64) (l *Listener, err error) {
+// listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil, then rewrite the host header to rewriteHost
+func (v *VhostMuxer) Listen(name string, rewriteHost string) (l *Listener, err error) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 	if _, exist := v.registryMap[name]; exist {
-		return nil, fmt.Errorf("name %s is already bound", name)
+		return nil, fmt.Errorf("domain name %s is already bound", name)
 	}
 
 	l = &Listener{
-		name:       name,
-		mux:        v,
-		accept:     make(chan *conn.Conn),
-		proxyType:  proxytype,
-		clientIp:   clientIp,
-		clientPort: clientPort,
-		serverPort: serverPort,
+		name:        name,
+		rewriteHost: rewriteHost,
+		mux:         v,
+		accept:      make(chan *conn.Conn),
 	}
 	v.registryMap[name] = l
 	return l, nil
@@ -115,13 +116,10 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 }
 
 type Listener struct {
-	name       string
-	mux        *VhostMuxer // for closing VhostMuxer
-	accept     chan *conn.Conn
-	proxyType  string //suppor http host rewrite
-	clientIp   string
-	clientPort int64
-	serverPort int64
+	name        string
+	rewriteHost string
+	mux         *VhostMuxer // for closing VhostMuxer
+	accept      chan *conn.Conn
 }
 
 func (l *Listener) Accept() (*conn.Conn, error) {
@@ -129,19 +127,16 @@ func (l *Listener) Accept() (*conn.Conn, error) {
 	if !ok {
 		return nil, fmt.Errorf("Listener closed")
 	}
-	if net.ParseIP(l.clientIp) == nil && l.proxyType == "http" {
-		if (l.name != l.clientIp) || (l.serverPort != l.clientPort) {
-			clientHost := l.clientIp
-			if l.clientPort != 80 {
-				strPort := fmt.Sprintf(":%d", l.clientPort)
-				clientHost += strPort
-			}
-			retConn, err := HostNameRewrite(conn, clientHost)
-			if err != nil {
-				return nil, fmt.Errorf("http host rewrite failed")
-			}
-			conn.SetTcpConn(retConn)
+
+	// if rewriteFunc is exist and rewriteHost is set
+	// rewrite http requests with a modified host header
+	if l.mux.rewriteFunc != nil && l.rewriteHost != "" {
+		fmt.Printf("host rewrite: %s\n", l.rewriteHost)
+		sConn, err := l.mux.rewriteFunc(conn, l.rewriteHost)
+		if err != nil {
+			return nil, fmt.Errorf("http host header rewrite failed")
 		}
+		conn.SetTcpConn(sConn)
 	}
 	return conn, nil
 }
@@ -162,6 +157,7 @@ type sharedConn struct {
 	buff *bytes.Buffer
 }
 
+// the bytes you read in io.Reader, will be reserved in sharedConn
 func newShareConn(conn net.Conn) (*sharedConn, io.Reader) {
 	sc := &sharedConn{
 		Conn: conn,

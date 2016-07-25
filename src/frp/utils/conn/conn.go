@@ -117,8 +117,13 @@ func ConnectServer(host string, port int64) (c *Conn, err error) {
 	return c, nil
 }
 
+// if the tcpConn is different with c.TcpConn
+// you should call c.Close() first
 func (c *Conn) SetTcpConn(tcpConn net.Conn) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	c.TcpConn = tcpConn
+	c.closeFlag = false
 	c.Reader = bufio.NewReader(c.TcpConn)
 }
 

@@ -15,14 +15,12 @@
 package config
 
 type BaseConf struct {
-	Name           string
-	AuthToken      string
-	Type           string
-	UseEncryption  bool
-	UseGzip        bool
-	PrivilegeMode  bool
-	PrivilegeToken string
-	ClientIp       string
-	ClientPort     int64
-	ServerPort     int64
+	Name              string
+	AuthToken         string
+	Type              string
+	UseEncryption     bool
+	UseGzip           bool
+	PrivilegeMode     bool
+	PrivilegeToken    string
+	HostHeaderRewrite string
 }

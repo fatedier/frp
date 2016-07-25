@@ -64,7 +64,7 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 	p.BindAddr = BindAddr
 	p.ListenPort = req.RemotePort
 	p.CustomDomains = req.CustomDomains
-	p.ServerPort = VhostHttpPort
+	p.HostHeaderRewrite = req.HostHeaderRewrite
 	return
 }
 
@@ -80,7 +80,7 @@ func (p *ProxyServer) Init() {
 
 func (p *ProxyServer) Compare(p2 *ProxyServer) bool {
 	if p.Name != p2.Name || p.AuthToken != p2.AuthToken || p.Type != p2.Type ||
-		p.BindAddr != p2.BindAddr || p.ListenPort != p2.ListenPort {
+		p.BindAddr != p2.BindAddr || p.ListenPort != p2.ListenPort || p.HostHeaderRewrite != p2.HostHeaderRewrite {
 		return false
 	}
 	if len(p.CustomDomains) != len(p2.CustomDomains) {
@@ -114,7 +114,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 		p.listeners = append(p.listeners, l)
 	} else if p.Type == "http" {
 		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpMuxer.Listen(domain, p.Type, p.ClientIp, p.ClientPort, p.ServerPort)
+			l, err := VhostHttpMuxer.Listen(domain, p.HostHeaderRewrite)
 			if err != nil {
 				return err
 			}
@@ -122,7 +122,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 		}
 	} else if p.Type == "https" {
 		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpsMuxer.Listen(domain, p.Type, p.ClientIp, p.ClientPort, p.ServerPort)
+			l, err := VhostHttpsMuxer.Listen(domain, p.HostHeaderRewrite)
 			if err != nil {
 				return err
 			}
