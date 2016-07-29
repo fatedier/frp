@@ -42,6 +42,7 @@ var (
 	LogMaxDays       int64  = 3
 	PrivilegeMode    bool   = false
 	PrivilegeToken   string = ""
+	MaxPoolCount     int64  = 100
 	HeartBeatTimeout int64  = 90
 	UserConnTimeout  int64  = 10
 
@@ -153,6 +154,14 @@ func loadCommonConf(confFile string) error {
 			PrivilegeToken = tmpStr
 		} else {
 			return fmt.Errorf("Parse conf error: privilege_token must be set if privilege_mode is enabled")
+		}
+	}
+
+	tmpStr, ok = conf.Get("common", "max_pool_count")
+	if ok {
+		v, err := strconv.ParseInt(tmpStr, 10, 64)
+		if err == nil && v >= 0 {
+			MaxPoolCount = v
 		}
 	}
 	return nil

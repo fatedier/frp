@@ -147,10 +147,21 @@ func LoadConf(confFile string) (err error) {
 				proxyClient.PrivilegeMode = true
 			}
 
+			// pool_count
+			proxyClient.PoolCount = 0
+			tmpStr, ok = section["pool_count"]
+			if ok {
+				tmpInt, err := strconv.ParseInt(tmpStr, 10, 64)
+				if err != nil || tmpInt < 0 {
+					return fmt.Errorf("Parse conf error: proxy [%s] pool_count error", proxyClient.Name)
+				}
+				proxyClient.PoolCount = tmpInt
+			}
+
 			// configures used in privilege mode
 			if proxyClient.PrivilegeMode == true {
 				if PrivilegeToken == "" {
-					return fmt.Errorf("Parse conf error: proxy [%s] privilege_key must be set when privilege_mode = true", proxyClient.Name)
+					return fmt.Errorf("Parse conf error: proxy [%s] privilege_token must be set when privilege_mode = true", proxyClient.Name)
 				} else {
 					proxyClient.PrivilegeToken = PrivilegeToken
 				}

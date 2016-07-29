@@ -142,6 +142,7 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 		ProxyName:     cli.Name,
 		UseEncryption: cli.UseEncryption,
 		UseGzip:       cli.UseGzip,
+		PoolCount:     cli.PoolCount,
 		PrivilegeMode: cli.PrivilegeMode,
 		ProxyType:     cli.Type,
 		Timestamp:     nowTime,
@@ -181,7 +182,7 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 		return c, fmt.Errorf("%s", ctlRes.Msg)
 	}
 
-	log.Debug("ProxyName [%s], connect to server [%s:%d] success!", cli.Name, client.ServerAddr, client.ServerPort)
+	log.Info("ProxyName [%s], connect to server [%s:%d] success!", cli.Name, client.ServerAddr, client.ServerPort)
 	return
 }
 
@@ -199,5 +200,5 @@ func heartbeatSender(c *conn.Conn, msgSendChan chan interface{}) {
 			break
 		}
 	}
-	log.Debug("Heartbeat goroutine exit")
+	log.Info("Heartbeat goroutine exit")
 }

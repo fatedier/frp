@@ -22,4 +22,5 @@ type BaseConf struct {
 	UseGzip        bool
 	PrivilegeMode  bool
 	PrivilegeToken string
+	PoolCount      int64
 }

@@ -145,8 +145,11 @@ func (c *Conn) Write(content string) (err error) {
 }
 
 func (c *Conn) SetDeadline(t time.Time) error {
-	err := c.TcpConn.SetDeadline(t)
-	return err
+	return c.TcpConn.SetDeadline(t)
+}
+
+func (c *Conn) SetReadDeadline(t time.Time) error {
+	return c.TcpConn.SetReadDeadline(t)
 }
 
 func (c *Conn) Close() {
@@ -160,7 +163,37 @@ func (c *Conn) Close() {
 
 func (c *Conn) IsClosed() (closeFlag bool) {
 	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 	closeFlag = c.closeFlag
-	c.mutex.RUnlock()
 	return
+}
+
+// when you call this function, you should make sure that
+// remote client won't send any bytes to this socket
+func (c *Conn) CheckClosed() bool {
+	c.mutex.RLock()
+	if c.closeFlag {
+		return true
+	}
+	c.mutex.RUnlock()
+
+	// err := c.TcpConn.SetReadDeadline(time.Now().Add(100 * time.Microsecond))
+	err := c.TcpConn.SetReadDeadline(time.Now().Add(time.Millisecond))
+	if err != nil {
+		c.Close()
+		return true
+	}
+
+	var tmp []byte = make([]byte, 1)
+	_, err = c.TcpConn.Read(tmp)
+	if err == io.EOF {
+		return true
+	}
+
+	err = c.TcpConn.SetReadDeadline(time.Time{})
+	if err != nil {
+		c.Close()
+		return true
+	}
+	return false
 }
