@@ -117,12 +117,27 @@ func ConnectServer(host string, port int64) (c *Conn, err error) {
 	return c, nil
 }
 
+// if the tcpConn is different with c.TcpConn
+// you should call c.Close() first
+func (c *Conn) SetTcpConn(tcpConn net.Conn) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.TcpConn = tcpConn
+	c.closeFlag = false
+	c.Reader = bufio.NewReader(c.TcpConn)
+}
+
 func (c *Conn) GetRemoteAddr() (addr string) {
 	return c.TcpConn.RemoteAddr().String()
 }
 
 func (c *Conn) GetLocalAddr() (addr string) {
 	return c.TcpConn.LocalAddr().String()
+}
+
+func (c *Conn) Read(p []byte) (n int, err error) {
+	n, err = c.Reader.Read(p)
+	return
 }
 
 func (c *Conn) ReadLine() (buff string, err error) {
@@ -138,10 +153,14 @@ func (c *Conn) ReadLine() (buff string, err error) {
 	return buff, err
 }
 
+func (c *Conn) WriteBytes(content []byte) (n int, err error) {
+	n, err = c.TcpConn.Write(content)
+	return
+}
+
 func (c *Conn) Write(content string) (err error) {
 	_, err = c.TcpConn.Write([]byte(content))
 	return err
-
 }
 
 func (c *Conn) SetDeadline(t time.Time) error {

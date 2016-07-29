@@ -29,12 +29,13 @@ type ControlReq struct {
 	PoolCount     int64  `json:"pool_count"`
 
 	// configures used if privilege_mode is enabled
-	PrivilegeMode bool     `json:"privilege_mode"`
-	PrivilegeKey  string   `json:"privilege_key"`
-	ProxyType     string   `json:"proxy_type"`
-	RemotePort    int64    `json:"remote_port"`
-	CustomDomains []string `json:"custom_domains, omitempty"`
-	Timestamp     int64    `json:"timestamp"`
+	PrivilegeMode     bool     `json:"privilege_mode"`
+	PrivilegeKey      string   `json:"privilege_key"`
+	ProxyType         string   `json:"proxy_type"`
+	RemotePort        int64    `json:"remote_port"`
+	CustomDomains     []string `json:"custom_domains, omitempty"`
+	HostHeaderRewrite string   `json:"host_header_rewrite"`
+	Timestamp         int64    `json:"timestamp"`
 }
 
 type ControlRes struct {

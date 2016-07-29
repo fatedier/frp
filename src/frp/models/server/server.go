@@ -65,6 +65,7 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 	p.BindAddr = BindAddr
 	p.ListenPort = req.RemotePort
 	p.CustomDomains = req.CustomDomains
+	p.HostHeaderRewrite = req.HostHeaderRewrite
 	return
 }
 
@@ -81,7 +82,7 @@ func (p *ProxyServer) Init() {
 
 func (p *ProxyServer) Compare(p2 *ProxyServer) bool {
 	if p.Name != p2.Name || p.AuthToken != p2.AuthToken || p.Type != p2.Type ||
-		p.BindAddr != p2.BindAddr || p.ListenPort != p2.ListenPort {
+		p.BindAddr != p2.BindAddr || p.ListenPort != p2.ListenPort || p.HostHeaderRewrite != p2.HostHeaderRewrite {
 		return false
 	}
 	if len(p.CustomDomains) != len(p2.CustomDomains) {
@@ -115,7 +116,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 		p.listeners = append(p.listeners, l)
 	} else if p.Type == "http" {
 		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpMuxer.Listen(domain)
+			l, err := VhostHttpMuxer.Listen(domain, p.HostHeaderRewrite)
 			if err != nil {
 				return err
 			}
@@ -123,7 +124,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 		}
 	} else if p.Type == "https" {
 		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpsMuxer.Listen(domain)
+			l, err := VhostHttpsMuxer.Listen(domain, p.HostHeaderRewrite)
 			if err != nil {
 				return err
 			}
@@ -160,14 +161,12 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 					return
 				}
 
-				// start another goroutine for join two connections between frpc and user
-				go func() {
+				go func(userConn *conn.Conn) {
 					workConn, err := p.getWorkConn()
 					if err != nil {
 						return
 					}
 
-					userConn := c
 					// message will be transferred to another without modifying
 					// l means local, r means remote
 					log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", workConn.GetLocalAddr(), workConn.GetRemoteAddr(),
@@ -176,7 +175,8 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 					metric.OpenConnection(p.Name)
 					needRecord := true
 					go msg.JoinMore(userConn, workConn, p.BaseConf, needRecord)
-				}()
+					metric.OpenConnection(p.Name)
+				}(c)
 			}
 		}(listener)
 	}

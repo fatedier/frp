@@ -140,6 +140,14 @@ func LoadConf(confFile string) (err error) {
 				proxyClient.UseGzip = true
 			}
 
+			if proxyClient.Type == "http" {
+				// host_header_rewrite
+				tmpStr, ok = section["host_header_rewrite"]
+				if ok {
+					proxyClient.HostHeaderRewrite = tmpStr
+				}
+			}
+
 			// privilege_mode
 			proxyClient.PrivilegeMode = false
 			tmpStr, ok = section["privilege_mode"]
@@ -178,6 +186,7 @@ func LoadConf(confFile string) (err error) {
 						return fmt.Errorf("Parse conf error: proxy [%s] remote_port not found", proxyClient.Name)
 					}
 				} else if proxyClient.Type == "http" {
+					// custom_domains
 					domainStr, ok := section["custom_domains"]
 					if ok {
 						proxyClient.CustomDomains = strings.Split(domainStr, ",")
@@ -191,6 +200,7 @@ func LoadConf(confFile string) (err error) {
 						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyClient.Name)
 					}
 				} else if proxyClient.Type == "https" {
+					// custom_domains
 					domainStr, ok := section["custom_domains"]
 					if ok {
 						proxyClient.CustomDomains = strings.Split(domainStr, ",")

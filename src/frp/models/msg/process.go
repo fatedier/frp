@@ -15,12 +15,10 @@
 package msg
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
-	"net"
 	"sync"
 
 	"frp/models/config"
@@ -61,7 +59,7 @@ func JoinMore(c1 *conn.Conn, c2 *conn.Conn, conf config.BaseConf, needRecord boo
 		defer wait.Done()
 
 		// we don't care about errors here
-		pipeEncrypt(from.TcpConn, to.TcpConn, conf, needRecord)
+		pipeEncrypt(from, to, conf, needRecord)
 	}
 
 	decryptPipe := func(to *conn.Conn, from *conn.Conn) {
@@ -70,7 +68,7 @@ func JoinMore(c1 *conn.Conn, c2 *conn.Conn, conf config.BaseConf, needRecord boo
 		defer wait.Done()
 
 		// we don't care about errors here
-		pipeDecrypt(to.TcpConn, from.TcpConn, conf, needRecord)
+		pipeDecrypt(to, from, conf, needRecord)
 	}
 
 	wait.Add(2)
@@ -106,7 +104,7 @@ func unpkgMsg(data []byte) (int, []byte, []byte) {
 }
 
 // decrypt msg from reader, then write into writer
-func pipeDecrypt(r net.Conn, w net.Conn, conf config.BaseConf, needRecord bool) (err error) {
+func pipeDecrypt(r *conn.Conn, w *conn.Conn, conf config.BaseConf, needRecord bool) (err error) {
 	laes := new(pcrypto.Pcrypto)
 	key := conf.AuthToken
 	if conf.PrivilegeMode {
@@ -119,7 +117,7 @@ func pipeDecrypt(r net.Conn, w net.Conn, conf config.BaseConf, needRecord bool) 
 
 	buf := make([]byte, 5*1024+4)
 	var left, res []byte
-	var cnt int
+	var cnt int = -1
 
 	// record
 	var flowBytes int64 = 0
@@ -129,13 +127,12 @@ func pipeDecrypt(r net.Conn, w net.Conn, conf config.BaseConf, needRecord bool) 
 		}()
 	}
 
-	nreader := bufio.NewReader(r)
 	for {
 		// there may be more than 1 package in variable
 		// and we read more bytes if unpkgMsg returns an error
 		var newBuf []byte
 		if cnt < 0 {
-			n, err := nreader.Read(buf)
+			n, err := r.Read(buf)
 			if err != nil {
 				return err
 			}
@@ -165,7 +162,7 @@ func pipeDecrypt(r net.Conn, w net.Conn, conf config.BaseConf, needRecord bool) 
 			}
 		}
 
-		_, err = w.Write(res)
+		_, err = w.WriteBytes(res)
 		if err != nil {
 			return err
 		}
@@ -182,7 +179,7 @@ func pipeDecrypt(r net.Conn, w net.Conn, conf config.BaseConf, needRecord bool) 
 }
 
 // recvive msg from reader, then encrypt msg into writer
-func pipeEncrypt(r net.Conn, w net.Conn, conf config.BaseConf, needRecord bool) (err error) {
+func pipeEncrypt(r *conn.Conn, w *conn.Conn, conf config.BaseConf, needRecord bool) (err error) {
 	laes := new(pcrypto.Pcrypto)
 	key := conf.AuthToken
 	if conf.PrivilegeMode {
@@ -201,10 +198,9 @@ func pipeEncrypt(r net.Conn, w net.Conn, conf config.BaseConf, needRecord bool) 
 		}()
 	}
 
-	nreader := bufio.NewReader(r)
 	buf := make([]byte, 5*1024)
 	for {
-		n, err := nreader.Read(buf)
+		n, err := r.Read(buf)
 		if err != nil {
 			return err
 		}
@@ -235,7 +231,7 @@ func pipeEncrypt(r net.Conn, w net.Conn, conf config.BaseConf, needRecord bool) 
 		}
 
 		res = pkgMsg(res)
-		_, err = w.Write(res)
+		_, err = w.WriteBytes(res)
 		if err != nil {
 			return err
 		}
