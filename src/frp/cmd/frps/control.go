@@ -277,6 +277,13 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		s.UseEncryption = req.UseEncryption
 		s.UseGzip = req.UseGzip
 		s.HostHeaderRewrite = req.HostHeaderRewrite
+		if req.PoolCount > server.MaxPoolCount {
+			s.PoolCount = server.MaxPoolCount
+		} else if req.PoolCount < 0 {
+			s.PoolCount = 0
+		} else {
+			s.PoolCount = req.PoolCount
+		}
 
 		// start proxy and listen for user connections, no block
 		err := s.Start(c)

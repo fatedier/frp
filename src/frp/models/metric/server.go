@@ -15,7 +15,6 @@
 package metric
 
 import (
-	"encoding/json"
 	"sort"
 	"sync"
 	"time"
@@ -64,15 +63,29 @@ func init() {
 	ServerMetricInfoMap = make(map[string]*ServerMetric)
 }
 
+func (s *ServerMetric) clone() *ServerMetric {
+	copy := *s
+	copy.CustomDomains = make([]string, len(s.CustomDomains))
+	var i int
+	for i = range copy.CustomDomains {
+		copy.CustomDomains[i] = s.CustomDomains[i]
+	}
+
+	copy.Daily = make([]*DailyServerStats, len(s.Daily))
+	for i = range copy.Daily {
+		tmpDaily := *s.Daily[i]
+		copy.Daily[i] = &tmpDaily
+	}
+	return &copy
+}
+
 func GetAllProxyMetrics() []*ServerMetric {
 	result := make(ServerMetricList, 0)
 	smMutex.RLock()
 	for _, metric := range ServerMetricInfoMap {
 		metric.mutex.RLock()
-		byteBuf, _ := json.Marshal(metric)
+		tmpMetric := metric.clone()
 		metric.mutex.RUnlock()
-		tmpMetric := &ServerMetric{}
-		json.Unmarshal(byteBuf, &tmpMetric)
 		result = append(result, tmpMetric)
 	}
 	smMutex.RUnlock()
@@ -88,9 +101,9 @@ func GetProxyMetrics(proxyName string) *ServerMetric {
 	defer smMutex.RUnlock()
 	metric, ok := ServerMetricInfoMap[proxyName]
 	if ok {
-		byteBuf, _ := json.Marshal(metric)
-		tmpMetric := &ServerMetric{}
-		json.Unmarshal(byteBuf, &tmpMetric)
+		metric.mutex.RLock()
+		tmpMetric := metric.clone()
+		metric.mutex.RUnlock()
 		return tmpMetric
 	} else {
 		return nil
