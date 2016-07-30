@@ -30,21 +30,24 @@ import (
 
 // common config
 var (
-	ConfigFile       string = "./frps.ini"
-	BindAddr         string = "0.0.0.0"
-	BindPort         int64  = 7000
-	VhostHttpPort    int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http protocol
-	VhostHttpsPort   int64  = 0 // if VhostHttpsPort equals 0, don't listen a public port for https protocol
-	DashboardPort    int64  = 0 // if DashboardPort equals 0, dashboard is not available
-	LogFile          string = "console"
-	LogWay           string = "console" // console or file
-	LogLevel         string = "info"
-	LogMaxDays       int64  = 3
-	PrivilegeMode    bool   = false
-	PrivilegeToken   string = ""
-	MaxPoolCount     int64  = 100
-	HeartBeatTimeout int64  = 90
-	UserConnTimeout  int64  = 10
+	ConfigFile     string = "./frps.ini"
+	BindAddr       string = "0.0.0.0"
+	BindPort       int64  = 7000
+	VhostHttpPort  int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http protocol
+	VhostHttpsPort int64  = 0 // if VhostHttpsPort equals 0, don't listen a public port for https protocol
+	DashboardPort  int64  = 0 // if DashboardPort equals 0, dashboard is not available
+	LogFile        string = "console"
+	LogWay         string = "console" // console or file
+	LogLevel       string = "info"
+	LogMaxDays     int64  = 3
+	PrivilegeMode  bool   = false
+	PrivilegeToken string = ""
+
+	// if PrivilegeAllowPorts is not nil, tcp proxies which remote port exist in this map can be connected
+	PrivilegeAllowPorts map[int64]struct{}
+	MaxPoolCount        int64 = 100
+	HeartBeatTimeout    int64 = 90
+	UserConnTimeout     int64 = 10
 
 	VhostHttpMuxer    *vhost.HttpMuxer
 	VhostHttpsMuxer   *vhost.HttpsMuxer
@@ -154,6 +157,43 @@ func loadCommonConf(confFile string) error {
 			PrivilegeToken = tmpStr
 		} else {
 			return fmt.Errorf("Parse conf error: privilege_token must be set if privilege_mode is enabled")
+		}
+
+		PrivilegeAllowPorts = make(map[int64]struct{})
+		tmpStr, ok = conf.Get("common", "privilege_allow_ports")
+		if ok {
+			// for example: 1000-2000,2001,2002,3000-4000
+			portRanges := strings.Split(tmpStr, ",")
+			for _, portRangeStr := range portRanges {
+				// 1000-2000 or 2001
+				portArray := strings.Split(portRangeStr, "-")
+				// lenght: only 1 or 2 is correct
+				rangeType := len(portArray)
+				if rangeType == 1 {
+					singlePort, err := strconv.ParseInt(portArray[0], 10, 64)
+					if err != nil {
+						return fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
+					}
+					PrivilegeAllowPorts[singlePort] = struct{}{}
+				} else if rangeType == 2 {
+					min, err := strconv.ParseInt(portArray[0], 10, 64)
+					if err != nil {
+						return fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
+					}
+					max, err := strconv.ParseInt(portArray[1], 10, 64)
+					if err != nil {
+						return fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
+					}
+					if max < min {
+						return fmt.Errorf("Parse conf error: privilege_allow_ports range incorrect")
+					}
+					for i := min; i <= max; i++ {
+						PrivilegeAllowPorts[i] = struct{}{}
+					}
+				} else {
+					return fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect")
+				}
+			}
 		}
 	}
 
