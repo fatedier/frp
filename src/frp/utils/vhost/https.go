@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"frp/utils/conn"
+	"frp/utils/pool"
 )
 
 const (
@@ -52,7 +53,9 @@ func NewHttpsMuxer(listener *conn.Listener, timeout time.Duration) (*HttpsMuxer,
 }
 
 func readHandshake(rd io.Reader) (host string, err error) {
-	data := make([]byte, 1024)
+	data := pool.GetBuf(1024)
+	origin := data
+	defer pool.PutBuf(origin)
 	length, err := rd.Read(data)
 	if err != nil {
 		return

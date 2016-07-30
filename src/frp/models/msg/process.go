@@ -26,6 +26,7 @@ import (
 	"frp/utils/conn"
 	"frp/utils/log"
 	"frp/utils/pcrypto"
+	"frp/utils/pool"
 )
 
 // will block until connection close
@@ -115,7 +116,10 @@ func pipeDecrypt(r *conn.Conn, w *conn.Conn, conf config.BaseConf, needRecord bo
 		return fmt.Errorf("Pcrypto Init error: %v", err)
 	}
 
-	buf := make([]byte, 5*1024+4)
+	// get []byte from buffer pool
+	buf := pool.GetBuf(5*1024 + 4)
+	defer pool.PutBuf(buf)
+
 	var left, res []byte
 	var cnt int = -1
 
@@ -198,7 +202,10 @@ func pipeEncrypt(r *conn.Conn, w *conn.Conn, conf config.BaseConf, needRecord bo
 		}()
 	}
 
-	buf := make([]byte, 5*1024)
+	// get []byte from buffer pool
+	buf := pool.GetBuf(5*1024 + 4)
+	defer pool.PutBuf(buf)
+
 	for {
 		n, err := r.Read(buf)
 		if err != nil {

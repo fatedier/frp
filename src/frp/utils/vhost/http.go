@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"frp/utils/conn"
+	"frp/utils/pool"
 )
 
 type HttpMuxer struct {
@@ -61,9 +62,11 @@ func HttpHostNameRewrite(c *conn.Conn, rewriteHost string) (_ net.Conn, err erro
 }
 
 func hostNameRewrite(request io.Reader, rewriteHost string) (_ []byte, err error) {
-	buffer := make([]byte, 1024)
-	request.Read(buffer)
-	retBuffer, err := parseRequest(buffer, rewriteHost)
+	buf := pool.GetBuf(1024)
+	defer pool.PutBuf(buf)
+
+	request.Read(buf)
+	retBuffer, err := parseRequest(buf, rewriteHost)
 	return retBuffer, err
 }
 
