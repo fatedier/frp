@@ -143,8 +143,8 @@ func (c *Conn) Read(p []byte) (n int, err error) {
 func (c *Conn) ReadLine() (buff string, err error) {
 	buff, err = c.Reader.ReadString('\n')
 	if err != nil {
-		// wsarecv error in windows means connection closed
-		if err == io.EOF || strings.Contains(err.Error(), "wsarecv: An existing connection was forcibly closed") {
+		// wsarecv error in windows means connection closed?
+		if err == io.EOF || strings.Contains(err.Error(), "wsarecv") {
 			c.mutex.Lock()
 			c.closeFlag = true
 			c.mutex.Unlock()
