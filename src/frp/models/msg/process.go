@@ -146,6 +146,11 @@ func pipeDecrypt(r *conn.Conn, w *conn.Conn, conf config.BaseConf, needRecord bo
 		}
 		cnt, res, left = unpkgMsg(newBuf)
 		if cnt < 0 {
+			// limit one package length, maximum is 1MB
+			if len(res) > 1024*1024 {
+				log.Warn("ProxyName [%s], package length exceeds the limit")
+				return fmt.Errorf("package length error")
+			}
 			continue
 		}
 
