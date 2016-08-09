@@ -2,16 +2,20 @@
 <html>
 
 <head>
-  <title>Frp Status</title>
+  <title>frp</title>
   <link href="static/bootstrap.min.css" rel="stylesheet">
   <script src="static/jquery.min.js"></script>
   <script src="static/bootstrap.min.js"></script>
-  <link href="http://cdn.bootcss.com/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet">
+  <link href="static/iconfont.css" rel="stylesheet">
 </head>
 
 <body>
   <div class="container-fluid">
-    <!--div class="row"> <div class="col-sm-12 text-center"> <h1 class="logo">frp</h1> </div></div-->
+    <!--div class="row">
+      <div class="col-sm-12 text-center">
+        <h1 class="logo">frp</h1>
+      </div>
+    </div-->
     <div class="row">
       <div class="col-md-5 col-sm-offset-1">
         <div class="panel panel-default">
@@ -19,17 +23,17 @@
             <table class="table table-bordered" ng-app="myTable" ng-controller="myCtrl">
               <thead>
                 <tr>
-                  <th class="tab_info" ng-click="col='name';desc=!desc">Server<i class="fa fa-sort pull-right" aria-hidden="true"></i></th>
-                  <th class="tab_info" ng-click="col='type';desc=!desc">Type<i class="fa fa-sort pull-right" aria-hidden="true"></i></th>
-                  <th class="tab_info" ng-click="col='bind_addr';desc=!desc">Ip<i class="fa fa-sort pull-right" aria-hidden="true"></i></th>
-                  <th class="tab_info" ng-click="col='listen_port';desc=!desc">Port<i class="fa fa-sort pull-right" aria-hidden="true" a></i></th>
-                  <th class="tab_info" ng-click="col='status';desc=!desc">Status<i class="fa fa-sort pull-right" aria-hidden="true"></i></th>
-                  <th class="tab_info" ng-click="col='current_conns';desc=!desc">CurCon<i class="fa fa-sort pull-right" aria-hidden="true"></i></th>
-                  <th class="tab_info" ng-click="col='daily[0].flow_out';desc=!desc">FlowOut<i class="fa fa-sort pull-right" aria-hidden="true"></i></th>
-                  <th class="tab_info" ng-click="col='daily[0].flow_in';desc=!desc">FlowIn<i class="fa fa-sort pull-right" aria-hidden="true"></i></th>
+                  <th class="tab_info" ng-click="col='name';desc=!desc">Server<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='type';desc=!desc">Type<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='bind_addr';desc=!desc">Ip<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='listen_port';desc=!desc">Port<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='status';desc=!desc">Status<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='current_conns';desc=!desc">CurCon<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='daily[0].flow_out';desc=!desc">FlowOut<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='daily[0].flow_in';desc=!desc">FlowIn<i class="iconfont pull-right">&#xe66d;</i></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="tab_body">
                 <tr ng-repeat="x in proxies|orderBy:col:desc">
                   <td>
                     <button class="btn btn-xs btn-block btn-success center-block" onclick="changeit(this)"><span ng-bind="x.name"></span></button>
@@ -48,8 +52,8 @@
         </div>
       </div>
       <div class="col-md-5">
-        <div id="view1" style="height: 300pt"> Hello World!</div>
-        <div id="view2" style="height: 300pt"> Hello World!</div>
+        <div id="view1" style="height: 300pt"></div>
+        <div id="view2" style="height: 300pt"></div>
       </div>
     </div>
   </div>
@@ -58,25 +62,26 @@
   <script>
     var alldata = new Array();
     var index = null; 
-    <<< range.proxies >>>
+    <<< range .proxies >>>
       alldata["<<< .name >>>"] = {
         name: "<<< .name >>>",
         type: "<<< .type >>>",
         bind_addr: "<<< .bind_addr >>>",
         listen_port: "<<< .listen_port >>>",
-        current_conns: "<<< .current_conns >>>",
+        current_conns: <<< .current_conns >>> ,
         domains: [ <<< range.custom_domains >>> "<<< . >>>", <<< end >>> ],
         stat: "<<< .status >>>",
         use_encryption: "<<< .use_encryption >>>",
         use_gzip: "<<< .use_gzip >>>",
         privilege_mode: "<<< .privilege_mode >>>",
-        times: [ <<< range.daily >>> "<<< .time >>>", <<< end >>> ],
-        ins: [ <<< range.daily >>> <<< .flow_in >>> , <<< end >>> ],
-        outs: [ <<< range.daily >>> <<< .flow_out >>> , <<< end >>> ],
-        conns: [ <<< range.daily >>> <<< .total_accept_conns >>> , <<< end >>> ],
+        times: [],
+        ins: [],
+        outs: [],
+        conns: [],
       }; 
     <<< end >>>
 
+    var newproxies = <<< . >>>;
     var dom1 = document.getElementById("view1");
     var dom2 = document.getElementById("view2");
     var myChart1 = echarts.init(dom1);
@@ -88,6 +93,7 @@
     var step = 1;
 
     function reloadview() {
+      console.log("in reloadview index:", index);
       window.maxval = 0;
       window.dw = " B";
       window.step = 1;
@@ -111,7 +117,7 @@
         window.step = 1024;
       }
 
-      option1 = {
+      window.option1 = {
         title: {
           text: alldata[index].name
         },
@@ -159,7 +165,7 @@
         }]
       };
 
-      option2 = {
+      window.option2 = {
         title: {
           text: ""
         },
@@ -200,13 +206,6 @@
       myChart2.setOption(option2, true);
     };;
 
-    for (oob in window.alldata) {
-      window.index = oob;
-      break;
-    };
-
-    reloadview();
-
     var showdetail = false;
     var newindex = 0;
 
@@ -241,21 +240,70 @@
       reloadview();
     };
 
+    // add somedata
+    {
+      var ttdy = new Date();
+      var today = ttdy.getFullYear() * 10000 + (1 + ttdy.getMonth()) * 100 + ttdy.getDate();
+			for (var inx in newproxies.proxies) {
+        console.log("now inx is ", inx);
+        if (newproxies.proxies[inx].current_conns == undefined) {
+          newproxies.proxies[inx].current_conns = 0;
+          alldata[newproxies.proxies[inx].name].current_conns = 0;
+        }
+
+        if (newproxies.proxies[inx].daily == undefined ) {
+          newproxies.proxies[inx].daily = [];
+        } 
+
+        newproxies.proxies[inx].daily.sort(function (a, b) {
+            return a.time > b.time;
+        });
+
+        for (var iinnx in newproxies.proxies[inx].daily) {
+          alldata[newproxies.proxies[inx].name].times.push(newproxies.proxies[inx].daily[iinnx].time);
+          alldata[newproxies.proxies[inx].name].ins.push(newproxies.proxies[inx].daily[iinnx].flow_in);
+          alldata[newproxies.proxies[inx].name].outs.push(newproxies.proxies[inx].daily[iinnx].flow_out);
+          alldata[newproxies.proxies[inx].name].conns.push(newproxies.proxies[inx].daily[iinnx].total_accept_conns);
+        }
+        
+        if (newproxies.proxies[inx].daily.length == 0 || newproxies.proxies[inx].daily[0].time != today) {
+          alldata[newproxies.proxies[inx].name].times.push(today);
+          alldata[newproxies.proxies[inx].name].ins.push(0);
+          alldata[newproxies.proxies[inx].name].outs.push(0);
+          alldata[newproxies.proxies[inx].name].conns.push(0);
+          newproxies.proxies[inx].daily.push({
+            time: today,
+            flow_in: 0,
+            flow_out: 0,
+            total_accept_conns: 0
+          });
+        }
+      }
+    }
+
     var app = angular.module('myTable', []);
 
     app.controller('myCtrl', function($scope) {
       $scope.col = 'name';
       $scope.desc = 0;
-      $scope.proxies = <<< .proxies >>> ;
+      $scope.proxies = newproxies.proxies;
     });
 
     $(".tab_info").hover(
-      function() {
-        $(this).css("color", "orange");
-      },
-      function() {
-        $(this).css("color", "black");
-      });
+        function() {
+          $(this).css("color", "orange");
+        },
+        function() {
+          $(this).css("color", "black");
+        });
+    // set default index
+    for (var inx in alldata) {
+      if (window.index == null || window.index > inx) {
+        window.index = inx;
+      }
+    }
+
+    reloadview();
   </script>
 </body>
 
