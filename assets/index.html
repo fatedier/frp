@@ -1,0 +1,262 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+  <title>Frp Status</title>
+  <link href="static/bootstrap.min.css" rel="stylesheet">
+  <script src="static/jquery.min.js"></script>
+  <script src="static/bootstrap.min.js"></script>
+  <link href="http://cdn.bootcss.com/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet">
+</head>
+
+<body>
+  <div class="container-fluid">
+    <!--div class="row"> <div class="col-sm-12 text-center"> <h1 class="logo">frp</h1> </div></div-->
+    <div class="row">
+      <div class="col-md-5 col-sm-offset-1">
+        <div class="panel panel-default">
+          <div ng-app="myTable" class="panel-body">
+            <table class="table table-bordered" ng-app="myTable" ng-controller="myCtrl">
+              <thead>
+                <tr>
+                  <th class="tab_info" ng-click="col='name';desc=!desc">Server<i class="fa fa-sort pull-right" aria-hidden="true"></i></th>
+                  <th class="tab_info" ng-click="col='type';desc=!desc">Type<i class="fa fa-sort pull-right" aria-hidden="true"></i></th>
+                  <th class="tab_info" ng-click="col='bind_addr';desc=!desc">Ip<i class="fa fa-sort pull-right" aria-hidden="true"></i></th>
+                  <th class="tab_info" ng-click="col='listen_port';desc=!desc">Port<i class="fa fa-sort pull-right" aria-hidden="true" a></i></th>
+                  <th class="tab_info" ng-click="col='status';desc=!desc">Status<i class="fa fa-sort pull-right" aria-hidden="true"></i></th>
+                  <th class="tab_info" ng-click="col='current_conns';desc=!desc">CurCon<i class="fa fa-sort pull-right" aria-hidden="true"></i></th>
+                  <th class="tab_info" ng-click="col='daily[0].flow_out';desc=!desc">FlowOut<i class="fa fa-sort pull-right" aria-hidden="true"></i></th>
+                  <th class="tab_info" ng-click="col='daily[0].flow_in';desc=!desc">FlowIn<i class="fa fa-sort pull-right" aria-hidden="true"></i></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr ng-repeat="x in proxies|orderBy:col:desc">
+                  <td>
+                    <button class="btn btn-xs btn-block btn-success center-block" onclick="changeit(this)"><span ng-bind="x.name"></span></button>
+                  </td>
+                  <td><span ng-bind="x.type"></span></td>
+                  <td><span ng-bind="x.bind_addr"></span></td>
+                  <td><span ng-bind="x.listen_port"></span></td>
+                  <td><span ng-bind="x.status"></span></td>
+                  <td><span ng-bind="x.current_conns"></span></td>
+                  <td><span ng-bind="x.daily[0].flow_out"></span></td>
+                  <td><span ng-bind="x.daily[0].flow_in"></span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-5">
+        <div id="view1" style="height: 300pt"> Hello World!</div>
+        <div id="view2" style="height: 300pt"> Hello World!</div>
+      </div>
+    </div>
+  </div>
+  <script src="static/angular.min.js"></script>
+  <script type="text/javascript" src="static/echarts.min.js"></script>
+  <script>
+    var alldata = new Array();
+    var index = null; 
+    <<< range.proxies >>>
+      alldata["<<< .name >>>"] = {
+        name: "<<< .name >>>",
+        type: "<<< .type >>>",
+        bind_addr: "<<< .bind_addr >>>",
+        listen_port: "<<< .listen_port >>>",
+        current_conns: "<<< .current_conns >>>",
+        domains: [ <<< range.custom_domains >>> "<<< . >>>", <<< end >>> ],
+        stat: "<<< .status >>>",
+        use_encryption: "<<< .use_encryption >>>",
+        use_gzip: "<<< .use_gzip >>>",
+        privilege_mode: "<<< .privilege_mode >>>",
+        times: [ <<< range.daily >>> "<<< .time >>>", <<< end >>> ],
+        ins: [ <<< range.daily >>> <<< .flow_in >>> , <<< end >>> ],
+        outs: [ <<< range.daily >>> <<< .flow_out >>> , <<< end >>> ],
+        conns: [ <<< range.daily >>> <<< .total_accept_conns >>> , <<< end >>> ],
+      }; 
+    <<< end >>>
+
+    var dom1 = document.getElementById("view1");
+    var dom2 = document.getElementById("view2");
+    var myChart1 = echarts.init(dom1);
+    var myChart2 = echarts.init(dom2);
+    var option1 = null;
+    var option2 = null;
+    var maxval = 0;
+    var dw = " B";
+    var step = 1;
+
+    function reloadview() {
+      window.maxval = 0;
+      window.dw = " B";
+      window.step = 1;
+      for (var val1 in alldata[index].ins) {
+        if (maxval < alldata[index].ins[val1]) {
+          window.maxval = alldata[index].outs[val1];
+        }
+      }
+
+      for (var val2 in alldata[index].outs) {
+        if (maxval < alldata[index].outs[val2]) {
+          window.maxval = alldata[index].outs[val2]
+        }
+      }
+
+      if (maxval > 1024 * 1024) {
+        window.dw = " MB";
+        window.step = 1024 * 1024;
+      } else if (maxval > 1024) {
+        window.dw = " KB";
+        window.step = 1024;
+      }
+
+      option1 = {
+        title: {
+          text: alldata[index].name
+        },
+        tooltip: {
+          trigger: 'axis'
+        },
+        legend: {
+          data: ['flow_in', 'flow_out']
+        },
+        grid: {
+          left: '3%',
+          right: '6%',
+          bottom: '3%',
+          containLabel: true
+        },
+        toolbox: {
+          feature: {
+            saveAsImage: {}
+          }
+        },
+        xAxis: {
+          type: 'category',
+          boundaryGap: false,
+          data: alldata[index].times
+        },
+        yAxis: {
+          type: 'value',
+          axisLabel: {
+            formatter: function(value) {
+              var data = (value / step).toFixed(2);
+              return data + dw;
+            }
+          }
+        },
+        series: [{
+          name: 'flow_in',
+          type: 'line',
+          stack: '总量',
+          data: alldata[index].ins
+        }, {
+          name: 'flow_out',
+          type: 'line',
+          stack: '总量',
+          data: alldata[index].outs
+        }]
+      };
+
+      option2 = {
+        title: {
+          text: ""
+        },
+        tooltip: {
+          trigger: 'axis'
+        },
+        legend: {
+          data: ['total_accept_conns']
+        },
+        grid: {
+          left: '3%',
+          right: '6%',
+          bottom: '3%',
+          containLabel: true
+        },
+        toolbox: {
+          feature: {
+            saveAsImage: {}
+          }
+        },
+        xAxis: {
+          type: 'category',
+          boundaryGap: false,
+          data: alldata[index].times
+        },
+        yAxis: {
+          type: 'value'
+        },
+        series: [{
+          name: 'total_accept_conns',
+          type: 'line',
+          stack: '总量',
+          data: alldata[index].conns
+        }]
+      };
+
+      myChart1.setOption(option1, true);
+      myChart2.setOption(option2, true);
+    };;
+
+    for (oob in window.alldata) {
+      window.index = oob;
+      break;
+    };
+
+    reloadview();
+
+    var showdetail = false;
+    var newindex = 0;
+
+    function cleandetail() {
+      $(".info_detail").remove();
+      showdetail = false;
+    };
+
+    function changeit(id) {
+      newindex = id.firstElementChild.innerHTML;
+      if (index == newindex) {
+        if (showdetail) {
+          cleandetail();
+          return;
+        }
+      }
+
+      index = newindex;
+      cleandetail();
+      window.showdetail = true;
+
+      var newrow = "<tr class='info_detail'><th colspan='4'>Key</th><th colspan='4'>Val</th><tr>";
+      newrow += "<tr class='info_detail'><td colspan='4'>Domains</td><td colspan='4'>" + alldata[index].domains + "</td><tr>";
+      newrow += "<tr class='info_detail'><td colspan='4'>Status</td><td colspan='4'>" + alldata[index].stat + "</td><tr>";
+      newrow += "<tr class='info_detail'><td colspan='4'>Encryption</td><td colspan='4'>" + alldata[index].use_encryption + "</td><tr>";
+      newrow += "<tr class='info_detail'><td colspan='4'>Gzip</td><td colspan='4'>" + alldata[index].use_gzip + "</td><tr>";
+      newrow += "<tr class='info_detail'><td colspan='4'>Privilege</td><td colspan='4'>" + alldata[index].privilege_mode + "</td><tr>";
+
+      var hehe = $(id.parentNode.parentNode);
+
+      $(hehe).after(newrow);
+      reloadview();
+    };
+
+    var app = angular.module('myTable', []);
+
+    app.controller('myCtrl', function($scope) {
+      $scope.col = 'name';
+      $scope.desc = 0;
+      $scope.proxies = <<< .proxies >>> ;
+    });
+
+    $(".tab_info").hover(
+      function() {
+        $(this).css("color", "orange");
+      },
+      function() {
+        $(this).css("color", "black");
+      });
+  </script>
+</body>
+
+</html>

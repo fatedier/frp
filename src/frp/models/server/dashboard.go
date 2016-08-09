@@ -16,9 +16,22 @@ package server
 
 import (
 	"fmt"
+	"frp/models/metric"
+	"html/template"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
+
+func index(w http.ResponseWriter, r *http.Request) {
+	serinfo := metric.GetAllProxyMetrics()
+	t := template.Must(template.New("index.html").Delims("<<<", ">>>").ParseFiles("index.html"))
+
+	err := t.Execute(w, serinfo)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+}
 
 func RunDashboardServer(addr string, port int64) (err error) {
 	defer func() {
@@ -33,4 +46,25 @@ func RunDashboardServer(addr string, port int64) (err error) {
 	router.GET("/api/proxies", apiProxies)
 	go router.Run(fmt.Sprintf("%s:%d", addr, port))
 	return
+}
+
+func RunDashboardServer2(addr string, port int64) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%v", r)
+		}
+	}()
+
+	http.HandleFunc("/", index)
+
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
+
+	newPort := fmt.Sprintf(":%d", port)
+	err = http.ListenAndServe(newPort, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
