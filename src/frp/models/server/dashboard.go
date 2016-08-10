@@ -16,55 +16,42 @@ package server
 
 import (
 	"fmt"
-	"frp/models/metric"
-	"html/template"
+	"net"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
+	"time"
 )
 
-func index(w http.ResponseWriter, r *http.Request) {
-	serinfo := metric.GetAllProxyMetrics()
-	t := template.Must(template.New("index.html").Delims("<<<", ">>>").ParseFiles("index.html"))
-
-	err := t.Execute(w, serinfo)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-}
+var (
+	httpServerReadTimeout  = 10 * time.Second
+	httpServerWriteTimeout = 10 * time.Second
+)
 
 func RunDashboardServer(addr string, port int64) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("%v", r)
-		}
-	}()
-	gin.SetMode(gin.ReleaseMode)
-	router := gin.New()
-	//router.LoadHTMLGlob("assets/*")
-	router.GET("/api/reload", apiReload)
-	router.GET("/api/proxies", apiProxies)
-	go router.Run(fmt.Sprintf("%s:%d", addr, port))
-	return
-}
+	// url router
+	mux := http.NewServeMux()
+	// api, see dashboard_api.go
+	mux.HandleFunc("/api/reload", apiReload)
+	mux.HandleFunc("/api/proxies", apiProxies)
 
-func RunDashboardServer2(addr string, port int64) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("%v", r)
-		}
-	}()
+	// view see dashboard_view.go
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./assets"))))
+	mux.HandleFunc("/", viewDashboard)
 
-	http.HandleFunc("/", index)
-
-	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
-
-	newPort := fmt.Sprintf(":%d", port)
-	err = http.ListenAndServe(newPort, nil)
+	address := fmt.Sprintf("%s:%d", addr, port)
+	server := &http.Server{
+		Addr:         address,
+		Handler:      mux,
+		ReadTimeout:  httpServerReadTimeout,
+		WriteTimeout: httpServerWriteTimeout,
+	}
+	if address == "" {
+		address = ":http"
+	}
+	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	go server.Serve(ln)
+	return
 }

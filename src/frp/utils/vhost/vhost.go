@@ -131,7 +131,6 @@ func (l *Listener) Accept() (*conn.Conn, error) {
 	// if rewriteFunc is exist and rewriteHost is set
 	// rewrite http requests with a modified host header
 	if l.mux.rewriteFunc != nil && l.rewriteHost != "" {
-		fmt.Printf("host rewrite: %s\n", l.rewriteHost)
 		sConn, err := l.mux.rewriteFunc(conn, l.rewriteHost)
 		if err != nil {
 			return nil, fmt.Errorf("http host header rewrite failed")

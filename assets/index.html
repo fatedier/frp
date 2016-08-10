@@ -3,19 +3,14 @@
 
 <head>
   <title>frp</title>
-  <link href="static/bootstrap.min.css" rel="stylesheet">
-  <script src="static/jquery.min.js"></script>
-  <script src="static/bootstrap.min.js"></script>
-  <link href="static/iconfont.css" rel="stylesheet">
+  <link href="static/css/bootstrap.min.css" rel="stylesheet">
+  <link href="static/css/iconfont.css" rel="stylesheet">
+  <script src="static/js/jquery.min.js"></script>
+  <script src="static/js/bootstrap.min.js"></script>
 </head>
 
 <body>
-  <div class="container-fluid">
-    <!--div class="row">
-      <div class="col-sm-12 text-center">
-        <h1 class="logo">frp</h1>
-      </div>
-    </div-->
+  <div class="container-fluid" style="margin-top: 80px">
     <div class="row">
       <div class="col-md-5 col-sm-offset-1">
         <div class="panel panel-default">
@@ -57,23 +52,23 @@
       </div>
     </div>
   </div>
-  <script src="static/angular.min.js"></script>
-  <script type="text/javascript" src="static/echarts.min.js"></script>
+  <script src="static/js/angular.min.js"></script>
+  <script type="text/javascript" src="static/js/echarts.min.js"></script>
   <script>
     var alldata = new Array();
     var index = null; 
-    <<< range .proxies >>>
-      alldata["<<< .name >>>"] = {
-        name: "<<< .name >>>",
-        type: "<<< .type >>>",
-        bind_addr: "<<< .bind_addr >>>",
-        listen_port: "<<< .listen_port >>>",
-        current_conns: <<< .current_conns >>> ,
-        domains: [ <<< range.custom_domains >>> "<<< . >>>", <<< end >>> ],
-        stat: "<<< .status >>>",
-        use_encryption: "<<< .use_encryption >>>",
-        use_gzip: "<<< .use_gzip >>>",
-        privilege_mode: "<<< .privilege_mode >>>",
+    <<< range .>>>
+      alldata["<<< .Name >>>"] = {
+        name: "<<< .Name >>>",
+        type: "<<< .Type >>>",
+        bind_addr: "<<< .BindAddr >>>",
+        listen_port: "<<< .ListenPort >>>",
+        current_conns: <<< .CurrentConns >>> ,
+        domains: [ <<< range.CustomDomains >>> "<<< . >>>", <<< end >>> ],
+        stat: "<<< .Status >>>",
+        use_encryption: "<<< .UseEncryption >>>",
+        use_gzip: "<<< .UseGzip >>>",
+        privilege_mode: "<<< .PrivilegeMode >>>",
         times: [],
         ins: [],
         outs: [],
@@ -93,7 +88,6 @@
     var step = 1;
 
     function reloadview() {
-      console.log("in reloadview index:", index);
       window.maxval = 0;
       window.dw = " B";
       window.step = 1;
@@ -154,12 +148,12 @@
         },
         series: [{
           name: 'flow_in',
-          type: 'line',
+          type: 'bar',
           stack: '总量',
           data: alldata[index].ins
         }, {
           name: 'flow_out',
-          type: 'line',
+          type: 'bar',
           stack: '总量',
           data: alldata[index].outs
         }]
@@ -196,7 +190,7 @@
         },
         series: [{
           name: 'total_accept_conns',
-          type: 'line',
+          type: 'bar',
           stack: '总量',
           data: alldata[index].conns
         }]
@@ -244,34 +238,33 @@
     {
       var ttdy = new Date();
       var today = ttdy.getFullYear() * 10000 + (1 + ttdy.getMonth()) * 100 + ttdy.getDate();
-			for (var inx in newproxies.proxies) {
-        console.log("now inx is ", inx);
-        if (newproxies.proxies[inx].current_conns == undefined) {
-          newproxies.proxies[inx].current_conns = 0;
-          alldata[newproxies.proxies[inx].name].current_conns = 0;
+			for (var inx in newproxies) {
+        if (newproxies[inx].current_conns == undefined) {
+          newproxies[inx].current_conns = 0;
+          alldata[newproxies[inx].name].current_conns = 0;
         }
 
-        if (newproxies.proxies[inx].daily == undefined ) {
-          newproxies.proxies[inx].daily = [];
+        if (newproxies[inx].daily == undefined ) {
+          newproxies[inx].daily = [];
         } 
 
-        newproxies.proxies[inx].daily.sort(function (a, b) {
+        newproxies[inx].daily.sort(function (a, b) {
             return a.time > b.time;
         });
 
-        for (var iinnx in newproxies.proxies[inx].daily) {
-          alldata[newproxies.proxies[inx].name].times.push(newproxies.proxies[inx].daily[iinnx].time);
-          alldata[newproxies.proxies[inx].name].ins.push(newproxies.proxies[inx].daily[iinnx].flow_in);
-          alldata[newproxies.proxies[inx].name].outs.push(newproxies.proxies[inx].daily[iinnx].flow_out);
-          alldata[newproxies.proxies[inx].name].conns.push(newproxies.proxies[inx].daily[iinnx].total_accept_conns);
+        for (var iinnx in newproxies[inx].daily) {
+          alldata[newproxies[inx].name].times.push(newproxies[inx].daily[iinnx].time);
+          alldata[newproxies[inx].name].ins.push(newproxies[inx].daily[iinnx].flow_in);
+          alldata[newproxies[inx].name].outs.push(newproxies[inx].daily[iinnx].flow_out);
+          alldata[newproxies[inx].name].conns.push(newproxies[inx].daily[iinnx].total_accept_conns);
         }
         
-        if (newproxies.proxies[inx].daily.length == 0 || newproxies.proxies[inx].daily[0].time != today) {
-          alldata[newproxies.proxies[inx].name].times.push(today);
-          alldata[newproxies.proxies[inx].name].ins.push(0);
-          alldata[newproxies.proxies[inx].name].outs.push(0);
-          alldata[newproxies.proxies[inx].name].conns.push(0);
-          newproxies.proxies[inx].daily.push({
+        if (newproxies[inx].daily.length == 0 || newproxies[inx].daily[0].time != today) {
+          alldata[newproxies[inx].name].times.push(today);
+          alldata[newproxies[inx].name].ins.push(0);
+          alldata[newproxies[inx].name].outs.push(0);
+          alldata[newproxies[inx].name].conns.push(0);
+          newproxies[inx].daily.push({
             time: today,
             flow_in: 0,
             flow_out: 0,
@@ -286,7 +279,7 @@
     app.controller('myCtrl', function($scope) {
       $scope.col = 'name';
       $scope.desc = 0;
-      $scope.proxies = newproxies.proxies;
+      $scope.proxies = newproxies;
     });
 
     $(".tab_info").hover(

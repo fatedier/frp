@@ -63,7 +63,13 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 	p.PrivilegeMode = req.PrivilegeMode
 	p.PrivilegeToken = PrivilegeToken
 	p.BindAddr = BindAddr
-	p.ListenPort = req.RemotePort
+	if p.Type == "tcp" {
+		p.ListenPort = req.RemotePort
+	} else if p.Type == "http" {
+		p.ListenPort = VhostHttpPort
+	} else if p.Type == "https" {
+		p.ListenPort = VhostHttpsPort
+	}
 	p.CustomDomains = req.CustomDomains
 	p.HostHeaderRewrite = req.HostHeaderRewrite
 	return
