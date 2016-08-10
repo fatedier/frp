@@ -10,9 +10,9 @@
 </head>
 
 <body>
-  <div class="container-fluid" style="margin-top: 80px">
+  <div class="container" style="margin-top: 80px">
     <div class="row">
-      <div class="col-md-5 col-sm-offset-1">
+      <div class="col-md-7">
         <div class="panel panel-default">
           <div ng-app="myTable" class="panel-body">
             <table class="table table-bordered" ng-app="myTable" ng-controller="myCtrl">
@@ -20,7 +20,6 @@
                 <tr>
                   <th class="tab_info" ng-click="col='name';desc=!desc">Server<i class="iconfont pull-right">&#xe66d;</i></th>
                   <th class="tab_info" ng-click="col='type';desc=!desc">Type<i class="iconfont pull-right">&#xe66d;</i></th>
-                  <th class="tab_info" ng-click="col='bind_addr';desc=!desc">Ip<i class="iconfont pull-right">&#xe66d;</i></th>
                   <th class="tab_info" ng-click="col='listen_port';desc=!desc">Port<i class="iconfont pull-right">&#xe66d;</i></th>
                   <th class="tab_info" ng-click="col='status';desc=!desc">Status<i class="iconfont pull-right">&#xe66d;</i></th>
                   <th class="tab_info" ng-click="col='current_conns';desc=!desc">CurCon<i class="iconfont pull-right">&#xe66d;</i></th>
@@ -34,7 +33,6 @@
                     <button class="btn btn-xs btn-block btn-success center-block" onclick="changeit(this)"><span ng-bind="x.name"></span></button>
                   </td>
                   <td><span ng-bind="x.type"></span></td>
-                  <td><span ng-bind="x.bind_addr"></span></td>
                   <td><span ng-bind="x.listen_port"></span></td>
                   <td><span ng-bind="x.status"></span></td>
                   <td><span ng-bind="x.current_conns"></span></td>
@@ -134,7 +132,6 @@
         },
         xAxis: {
           type: 'category',
-          boundaryGap: false,
           data: alldata[index].times
         },
         yAxis: {
@@ -182,7 +179,6 @@
         },
         xAxis: {
           type: 'category',
-          boundaryGap: false,
           data: alldata[index].times
         },
         yAxis: {
@@ -223,6 +219,7 @@
 
       var newrow = "<tr class='info_detail'><th colspan='4'>Key</th><th colspan='4'>Val</th><tr>";
       newrow += "<tr class='info_detail'><td colspan='4'>Domains</td><td colspan='4'>" + alldata[index].domains + "</td><tr>";
+      newrow += "<tr class='info_detail'><td colspan='4'>Ip</td><td colspan='4'>" + alldata[index].bind_addr + "</td><tr>";
       newrow += "<tr class='info_detail'><td colspan='4'>Status</td><td colspan='4'>" + alldata[index].stat + "</td><tr>";
       newrow += "<tr class='info_detail'><td colspan='4'>Encryption</td><td colspan='4'>" + alldata[index].use_encryption + "</td><tr>";
       newrow += "<tr class='info_detail'><td colspan='4'>Gzip</td><td colspan='4'>" + alldata[index].use_gzip + "</td><tr>";
