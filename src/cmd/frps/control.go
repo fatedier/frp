@@ -251,11 +251,13 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 			// we check listen_port if privilege_allow_ports are set
 			// and PrivilegeMode is enabled
 			if s.Type == "tcp" {
-				_, ok := server.PrivilegeAllowPorts[s.ListenPort]
-				if !ok {
-					info = fmt.Sprintf("ProxyName [%s], remote_port [%d] isn't allowed", req.ProxyName, s.ListenPort)
-					log.Warn(info)
-					return
+				if len(server.PrivilegeAllowPorts) != 0 {
+					_, ok := server.PrivilegeAllowPorts[s.ListenPort]
+					if !ok {
+						info = fmt.Sprintf("ProxyName [%s], remote_port [%d] isn't allowed", req.ProxyName, s.ListenPort)
+						log.Warn(info)
+						return
+					}
 				}
 			}
 			err := server.CreateProxy(s)
