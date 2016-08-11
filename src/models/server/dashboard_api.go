@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"frp/models/metric"
-	"frp/utils/log"
+	"github.com/fatedier/frp/src/models/metric"
+	"github.com/fatedier/frp/src/utils/log"
 )
 
 type GeneralResponse struct {

@@ -1,5 +1,5 @@
 export PATH := $(GOPATH)/bin:$(PATH)
-export GOPATH := $(shell pwd)/Godeps/_workspace:$(shell pwd):$(GOPATH)
+export GOPATH := $(shell pwd)/Godeps/_workspace:$(GOPATH)
 
 all: build
 
@@ -14,11 +14,11 @@ fmt:
 	@go fmt ./test/func_test.go
 
 frps:
-	go build -o bin/frps ./src/frp/cmd/frps
+	go build -o bin/frps ./src/cmd/frps
 	cp -rf ./assets ./bin
 
 frpc:
-	go build -o bin/frpc ./src/frp/cmd/frpc
+	go build -o bin/frpc ./src/cmd/frpc
 
 echo_server:
 	go build -o test/bin/echo_server ./test/echo_server.go

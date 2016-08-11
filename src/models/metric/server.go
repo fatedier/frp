@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"frp/models/consts"
+	"github.com/fatedier/frp/src/models/consts"
 )
 
 var (

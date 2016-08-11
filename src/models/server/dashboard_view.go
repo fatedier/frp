@@ -19,8 +19,8 @@ import (
 	"net/http"
 	"path"
 
-	"frp/models/metric"
-	"frp/utils/log"
+	"github.com/fatedier/frp/src/models/metric"
+	"github.com/fatedier/frp/src/utils/log"
 )
 
 func viewDashboard(w http.ResponseWriter, r *http.Request) {

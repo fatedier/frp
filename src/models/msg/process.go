@@ -21,12 +21,12 @@ import (
 	"io"
 	"sync"
 
-	"frp/models/config"
-	"frp/models/metric"
-	"frp/utils/conn"
-	"frp/utils/log"
-	"frp/utils/pcrypto"
-	"frp/utils/pool"
+	"github.com/fatedier/frp/src/models/config"
+	"github.com/fatedier/frp/src/models/metric"
+	"github.com/fatedier/frp/src/utils/conn"
+	"github.com/fatedier/frp/src/utils/log"
+	"github.com/fatedier/frp/src/utils/pcrypto"
+	"github.com/fatedier/frp/src/utils/pool"
 )
 
 // will block until connection close

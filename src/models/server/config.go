@@ -22,10 +22,10 @@ import (
 
 	ini "github.com/vaughan0/go-ini"
 
-	"frp/models/consts"
-	"frp/models/metric"
-	"frp/utils/log"
-	"frp/utils/vhost"
+	"github.com/fatedier/frp/src/models/consts"
+	"github.com/fatedier/frp/src/models/metric"
+	"github.com/fatedier/frp/src/utils/log"
+	"github.com/fatedier/frp/src/utils/vhost"
 )
 
 // common config

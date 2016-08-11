@@ -26,11 +26,11 @@ import (
 
 	docopt "github.com/docopt/docopt-go"
 
-	"frp/models/server"
-	"frp/utils/conn"
-	"frp/utils/log"
-	"frp/utils/version"
-	"frp/utils/vhost"
+	"github.com/fatedier/frp/src/models/server"
+	"github.com/fatedier/frp/src/utils/conn"
+	"github.com/fatedier/frp/src/utils/log"
+	"github.com/fatedier/frp/src/utils/version"
+	"github.com/fatedier/frp/src/utils/vhost"
 )
 
 var usage string = `frps is the server of frp

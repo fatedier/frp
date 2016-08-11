@@ -20,12 +20,12 @@ import (
 	"io"
 	"time"
 
-	"frp/models/consts"
-	"frp/models/msg"
-	"frp/models/server"
-	"frp/utils/conn"
-	"frp/utils/log"
-	"frp/utils/pcrypto"
+	"github.com/fatedier/frp/src/models/consts"
+	"github.com/fatedier/frp/src/models/msg"
+	"github.com/fatedier/frp/src/models/server"
+	"github.com/fatedier/frp/src/utils/conn"
+	"github.com/fatedier/frp/src/utils/log"
+	"github.com/fatedier/frp/src/utils/pcrypto"
 )
 
 func ProcessControlConn(l *conn.Listener) {

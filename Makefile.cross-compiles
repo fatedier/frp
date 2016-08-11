@@ -1,6 +1,6 @@
 export PATH := $(GOPATH)/bin:$(PATH)
 export OLDGOPATH := $(GOPATH)
-export GOPATH := $(shell pwd)/Godeps/_workspace:$(shell pwd):$(GOPATH)
+export GOPATH := $(shell pwd)/Godeps/_workspace:$(GOPATH)
 
 all: build
 
