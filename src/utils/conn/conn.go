@@ -32,7 +32,10 @@ type Listener struct {
 }
 
 func Listen(bindAddr string, bindPort int64) (l *Listener, err error) {
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", bindAddr, bindPort))
+	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", bindAddr, bindPort))
+	if err != nil {
+		return l, err
+	}
 	listener, err := net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
 		return l, err
@@ -103,7 +106,7 @@ func NewConn(conn net.Conn) (c *Conn) {
 
 func ConnectServer(host string, port int64) (c *Conn, err error) {
 	c = &Conn{}
-	servertAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", host, port))
+	servertAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		return
 	}

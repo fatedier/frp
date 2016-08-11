@@ -1,15 +1,13 @@
 export PATH := $(GOPATH)/bin:$(PATH)
 export GO15VENDOREXPERIMENT := 1
 
-all: fmt dep build
+all: fmt build
 
 build: frps frpc build_test
 
 build_test: echo_server http_server
 
-dep: statik
-
-statik:
+assets:
 	go get -d github.com/rakyll/statik
 	@go install github.com/rakyll/statik
 	@rm -rf ./src/assets/statik
