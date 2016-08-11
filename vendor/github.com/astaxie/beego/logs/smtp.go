@@ -24,31 +24,26 @@ import (
 	"time"
 )
 
-const (
-// no usage
-// subjectPhrase = "Diagnostic message from server"
-)
-
-// smtpWriter implements LoggerInterface and is used to send emails via given SMTP-server.
-type SmtpWriter struct {
-	Username           string   `json:"Username"`
+// SMTPWriter implements LoggerInterface and is used to send emails via given SMTP-server.
+type SMTPWriter struct {
+	Username           string   `json:"username"`
 	Password           string   `json:"password"`
-	Host               string   `json:"Host"`
+	Host               string   `json:"host"`
 	Subject            string   `json:"subject"`
 	FromAddress        string   `json:"fromAddress"`
 	RecipientAddresses []string `json:"sendTos"`
 	Level              int      `json:"level"`
 }
 
-// create smtp writer.
-func NewSmtpWriter() LoggerInterface {
-	return &SmtpWriter{Level: LevelTrace}
+// NewSMTPWriter create smtp writer.
+func newSMTPWriter() Logger {
+	return &SMTPWriter{Level: LevelTrace}
 }
 
-// init smtp writer with json config.
+// Init smtp writer with json config.
 // config like:
 //	{
-//		"Username":"example@gmail.com",
+//		"username":"example@gmail.com",
 //		"password:"password",
 //		"host":"smtp.gmail.com:465",
 //		"subject":"email title",
@@ -56,7 +51,7 @@ func NewSmtpWriter() LoggerInterface {
 //		"sendTos":["email1","email2"],
 //		"level":LevelError
 //	}
-func (s *SmtpWriter) Init(jsonconfig string) error {
+func (s *SMTPWriter) Init(jsonconfig string) error {
 	err := json.Unmarshal([]byte(jsonconfig), s)
 	if err != nil {
 		return err
@@ -64,7 +59,7 @@ func (s *SmtpWriter) Init(jsonconfig string) error {
 	return nil
 }
 
-func (s *SmtpWriter) GetSmtpAuth(host string) smtp.Auth {
+func (s *SMTPWriter) getSMTPAuth(host string) smtp.Auth {
 	if len(strings.Trim(s.Username, " ")) == 0 && len(strings.Trim(s.Password, " ")) == 0 {
 		return nil
 	}
@@ -76,7 +71,7 @@ func (s *SmtpWriter) GetSmtpAuth(host string) smtp.Auth {
 	)
 }
 
-func (s *SmtpWriter) sendMail(hostAddressWithPort string, auth smtp.Auth, fromAddress string, recipients []string, msgContent []byte) error {
+func (s *SMTPWriter) sendMail(hostAddressWithPort string, auth smtp.Auth, fromAddress string, recipients []string, msgContent []byte) error {
 	client, err := smtp.Dial(hostAddressWithPort)
 	if err != nil {
 		return err
@@ -129,9 +124,9 @@ func (s *SmtpWriter) sendMail(hostAddressWithPort string, auth smtp.Auth, fromAd
 	return nil
 }
 
-// write message in smtp writer.
+// WriteMsg write message in smtp writer.
 // it will send an email with subject and only this message.
-func (s *SmtpWriter) WriteMsg(msg string, level int) error {
+func (s *SMTPWriter) WriteMsg(when time.Time, msg string, level int) error {
 	if level > s.Level {
 		return nil
 	}
@@ -139,27 +134,27 @@ func (s *SmtpWriter) WriteMsg(msg string, level int) error {
 	hp := strings.Split(s.Host, ":")
 
 	// Set up authentication information.
-	auth := s.GetSmtpAuth(hp[0])
+	auth := s.getSMTPAuth(hp[0])
 
 	// Connect to the server, authenticate, set the sender and recipient,
 	// and send the email all in one step.
-	content_type := "Content-Type: text/plain" + "; charset=UTF-8"
+	contentType := "Content-Type: text/plain" + "; charset=UTF-8"
 	mailmsg := []byte("To: " + strings.Join(s.RecipientAddresses, ";") + "\r\nFrom: " + s.FromAddress + "<" + s.FromAddress +
-		">\r\nSubject: " + s.Subject + "\r\n" + content_type + "\r\n\r\n" + fmt.Sprintf(".%s", time.Now().Format("2006-01-02 15:04:05")) + msg)
+		">\r\nSubject: " + s.Subject + "\r\n" + contentType + "\r\n\r\n" + fmt.Sprintf(".%s", when.Format("2006-01-02 15:04:05")) + msg)
 
 	return s.sendMail(s.Host, auth, s.FromAddress, s.RecipientAddresses, mailmsg)
 }
 
-// implementing method. empty.
-func (s *SmtpWriter) Flush() {
+// Flush implementing method. empty.
+func (s *SMTPWriter) Flush() {
 	return
 }
 
-// implementing method. empty.
-func (s *SmtpWriter) Destroy() {
+// Destroy implementing method. empty.
+func (s *SMTPWriter) Destroy() {
 	return
 }
 
 func init() {
-	Register("smtp", NewSmtpWriter)
+	Register("smtp", newSMTPWriter)
 }
