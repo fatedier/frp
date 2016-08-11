@@ -1,5 +1,5 @@
 export PATH := $(GOPATH)/bin:$(PATH)
-export GOPATH := $(shell pwd)/Godeps/_workspace:$(GOPATH)
+export GO15VENDOREXPERIMENT := 1
 
 all: build
 
