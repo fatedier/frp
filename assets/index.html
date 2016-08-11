@@ -23,8 +23,8 @@
                   <th class="tab_info" ng-click="col='listen_port';desc=!desc">Port<i class="iconfont pull-right">&#xe66d;</i></th>
                   <th class="tab_info" ng-click="col='status';desc=!desc">Status<i class="iconfont pull-right">&#xe66d;</i></th>
                   <th class="tab_info" ng-click="col='current_conns';desc=!desc">CurCon<i class="iconfont pull-right">&#xe66d;</i></th>
-                  <th class="tab_info" ng-click="col='daily[0].flow_out';desc=!desc">FlowOut<i class="iconfont pull-right">&#xe66d;</i></th>
-                  <th class="tab_info" ng-click="col='daily[0].flow_in';desc=!desc">FlowIn<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='daily[daily.length-1].flow_out';desc=!desc">FlowOut<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='daily[daily.length-1].flow_in';desc=!desc">FlowIn<i class="iconfont pull-right">&#xe66d;</i></th>
                 </tr>
               </thead>
               <tbody id="tab_body">
@@ -36,8 +36,8 @@
                   <td><span ng-bind="x.listen_port"></span></td>
                   <td><span ng-bind="x.status"></span></td>
                   <td><span ng-bind="x.current_conns"></span></td>
-                  <td><span ng-bind="x.daily[0].flow_out"></span></td>
-                  <td><span ng-bind="x.daily[0].flow_in"></span></td>
+                  <td><span ng-bind="x.daily[x.daily.length-1].flow_out"></span></td>
+                  <td><span ng-bind="x.daily[x.daily.length-1].flow_in"></span></td>
                 </tr>
               </tbody>
             </table>
