@@ -36,6 +36,7 @@ var (
 	VhostHttpPort  int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http protocol
 	VhostHttpsPort int64  = 0 // if VhostHttpsPort equals 0, don't listen a public port for https protocol
 	DashboardPort  int64  = 0 // if DashboardPort equals 0, dashboard is not available
+	AssetsDir      string = ""
 	LogFile        string = "console"
 	LogWay         string = "console" // console or file
 	LogLevel       string = "info"
@@ -116,6 +117,11 @@ func loadCommonConf(confFile string) error {
 		DashboardPort, _ = strconv.ParseInt(tmpStr, 10, 64)
 	} else {
 		DashboardPort = 0
+	}
+
+	tmpStr, ok = conf.Get("common", "assets_dir")
+	if ok {
+		AssetsDir = tmpStr
 	}
 
 	tmpStr, ok = conf.Get("common", "log_file")
@@ -252,6 +258,8 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				}
 			} else if proxyServer.Type == "http" {
 				// for http
+				proxyServer.ListenPort = VhostHttpPort
+
 				domainStr, ok := section["custom_domains"]
 				if ok {
 					proxyServer.CustomDomains = strings.Split(domainStr, ",")
@@ -266,6 +274,8 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				}
 			} else if proxyServer.Type == "https" {
 				// for https
+				proxyServer.ListenPort = VhostHttpsPort
+
 				domainStr, ok := section["custom_domains"]
 				if ok {
 					proxyServer.CustomDomains = strings.Split(domainStr, ",")
