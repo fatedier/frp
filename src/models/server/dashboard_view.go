@@ -17,17 +17,22 @@ package server
 import (
 	"html/template"
 	"net/http"
-	"path"
 
+	"github.com/fatedier/frp/src/assets"
 	"github.com/fatedier/frp/src/models/metric"
 	"github.com/fatedier/frp/src/utils/log"
 )
 
 func viewDashboard(w http.ResponseWriter, r *http.Request) {
 	metrics := metric.GetAllProxyMetrics()
-	t := template.Must(template.New("index.html").Delims("<<<", ">>>").ParseFiles(path.Join(AssetsDir, "index.html")))
+	dashboardTpl, err := assets.ReadFile("index.html")
+	if err != nil {
+		http.Error(w, "get dashboard template file error", http.StatusInternalServerError)
+		return
+	}
+	t := template.Must(template.New("index.html").Delims("<<<", ">>>").Parse(dashboardTpl))
 
-	err := t.Execute(w, metrics)
+	err = t.Execute(w, metrics)
 	if err != nil {
 		log.Warn("parse template file [index.html] error: %v", err)
 		http.Error(w, "parse template file error", http.StatusInternalServerError)

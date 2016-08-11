@@ -17,6 +17,11 @@
 			"Rev": "784ddc588536785e7299f7272f39101f7faccc3f"
 		},
 		{
+			"ImportPath": "github.com/rakyll/statik/fs",
+			"Comment": "v0.1.0",
+			"Rev": "274df120e9065bdd08eb1120e0375e3dc1ae8465"
+		},
+		{
 			"ImportPath": "github.com/vaughan0/go-ini",
 			"Rev": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
 		}

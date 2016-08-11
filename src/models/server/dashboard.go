@@ -19,6 +19,8 @@ import (
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/fatedier/frp/src/assets"
 )
 
 var (
@@ -33,8 +35,9 @@ func RunDashboardServer(addr string, port int64) (err error) {
 	mux.HandleFunc("/api/reload", apiReload)
 	mux.HandleFunc("/api/proxies", apiProxies)
 
-	// view see dashboard_view.go
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./assets"))))
+	// view, see dashboard_view.go
+	mux.Handle("/favicon.ico", http.FileServer(assets.FileSystem))
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))
 	mux.HandleFunc("/", viewDashboard)
 
 	address := fmt.Sprintf("%s:%d", addr, port)
