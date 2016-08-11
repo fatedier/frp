@@ -1,7 +1,7 @@
 {
-	"ImportPath": "frp",
-	"GoVersion": "go1.4",
-	"GodepVersion": "v62",
+	"ImportPath": "github.com/fatedier/frp",
+	"GoVersion": "go1.6",
+	"GodepVersion": "v74",
 	"Packages": [
 		"./..."
 	],
@@ -17,44 +17,8 @@
 			"Rev": "784ddc588536785e7299f7272f39101f7faccc3f"
 		},
 		{
-			"ImportPath": "github.com/gin-gonic/gin",
-			"Comment": "v1.0rc1-262-g5caaac4",
-			"Rev": "5caaac4c5c712a9e7a7de29e6c24ef46c753017f"
-		},
-		{
-			"ImportPath": "github.com/gin-gonic/gin/binding",
-			"Comment": "v1.0rc1-262-g5caaac4",
-			"Rev": "5caaac4c5c712a9e7a7de29e6c24ef46c753017f"
-		},
-		{
-			"ImportPath": "github.com/gin-gonic/gin/render",
-			"Comment": "v1.0rc1-262-g5caaac4",
-			"Rev": "5caaac4c5c712a9e7a7de29e6c24ef46c753017f"
-		},
-		{
-			"ImportPath": "github.com/golang/protobuf/proto",
-			"Rev": "7cc19b78d562895b13596ddce7aafb59dd789318"
-		},
-		{
-			"ImportPath": "github.com/manucorporat/sse",
-			"Rev": "ee05b128a739a0fb76c7ebd3ae4810c1de808d6d"
-		},
-		{
 			"ImportPath": "github.com/vaughan0/go-ini",
 			"Rev": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
-		},
-		{
-			"ImportPath": "golang.org/x/net/context",
-			"Rev": "3b993948b6f0e651ffb58ba135d8538a68b1cddf"
-		},
-		{
-			"ImportPath": "gopkg.in/go-playground/validator.v8",
-			"Comment": "v8.17.1",
-			"Rev": "014792cf3e266caff1e916876be12282b33059e0"
-		},
-		{
-			"ImportPath": "gopkg.in/yaml.v2",
-			"Rev": "a83829b6f1293c91addabc89d0571c246397bbf4"
 		}
 	]
 }
