@@ -194,6 +194,7 @@ func msgSender(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}
 // if success, ret equals 0, otherwise greater than 0
 func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 	ret = 1
+	// check if PrivilegeMode is enabled
 	if req.PrivilegeMode && !server.PrivilegeMode {
 		info = fmt.Sprintf("ProxyName [%s], PrivilegeMode is disabled in frps", req.ProxyName)
 		log.Warn("info")
@@ -247,18 +248,22 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 	if req.Type == consts.NewCtlConn {
 		if req.PrivilegeMode {
 			s = server.NewProxyServerFromCtlMsg(req)
+			// we check listen_port if privilege_allow_ports are set
+			// and PrivilegeMode is enabled
+			if s.Type == "tcp" {
+				_, ok := server.PrivilegeAllowPorts[s.ListenPort]
+				if !ok {
+					info = fmt.Sprintf("ProxyName [%s], remote_port [%d] isn't allowed", req.ProxyName, s.ListenPort)
+					log.Warn(info)
+					return
+				}
+			}
 			err := server.CreateProxy(s)
 			if err != nil {
 				info = fmt.Sprintf("ProxyName [%s], %v", req.ProxyName, err)
 				log.Warn(info)
 				return
 			}
-		}
-
-		if s.Status == consts.Working {
-			info = fmt.Sprintf("ProxyName [%s], already in use", req.ProxyName)
-			log.Warn(info)
-			return
 		}
 
 		// check if vhost_port is set
@@ -276,6 +281,20 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		// set infomations from frpc
 		s.UseEncryption = req.UseEncryption
 		s.UseGzip = req.UseGzip
+		s.HostHeaderRewrite = req.HostHeaderRewrite
+		if req.PoolCount > server.MaxPoolCount {
+			s.PoolCount = server.MaxPoolCount
+		} else if req.PoolCount < 0 {
+			s.PoolCount = 0
+		} else {
+			s.PoolCount = req.PoolCount
+		}
+
+		if s.Status == consts.Working {
+			info = fmt.Sprintf("ProxyName [%s], already in use", req.ProxyName)
+			log.Warn(info)
+			return
+		}
 
 		// start proxy and listen for user connections, no block
 		err := s.Start(c)

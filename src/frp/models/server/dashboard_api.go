@@ -17,9 +17,9 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 
-	"github.com/gin-gonic/gin"
-
+	"frp/models/metric"
 	"frp/utils/log"
 )
 
@@ -28,10 +28,10 @@ type GeneralResponse struct {
 	Msg  string `json:"msg"`
 }
 
-func apiReload(c *gin.Context) {
+func apiReload(w http.ResponseWriter, r *http.Request) {
+	var buf []byte
 	res := &GeneralResponse{}
 	defer func() {
-		buf, _ := json.Marshal(res)
 		log.Info("Http response [/api/reload]: %s", string(buf))
 	}()
 
@@ -42,5 +42,26 @@ func apiReload(c *gin.Context) {
 		res.Msg = fmt.Sprintf("%v", err)
 		log.Error("frps reload error: %v", err)
 	}
-	c.JSON(200, res)
+
+	buf, _ = json.Marshal(res)
+	w.Write(buf)
+}
+
+type ProxiesResponse struct {
+	Code    int64                  `json:"code"`
+	Msg     string                 `json:"msg"`
+	Proxies []*metric.ServerMetric `json:"proxies"`
+}
+
+func apiProxies(w http.ResponseWriter, r *http.Request) {
+	var buf []byte
+	res := &ProxiesResponse{}
+	defer func() {
+		log.Info("Http response [/api/proxies]: code [%d]", res.Code)
+	}()
+
+	log.Info("Http request: [/api/proxies]")
+	res.Proxies = metric.GetAllProxyMetrics()
+	buf, _ = json.Marshal(res)
+	w.Write(buf)
 }

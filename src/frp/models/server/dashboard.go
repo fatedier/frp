@@ -16,20 +16,42 @@ package server
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	"time"
+)
 
-	"github.com/gin-gonic/gin"
+var (
+	httpServerReadTimeout  = 10 * time.Second
+	httpServerWriteTimeout = 10 * time.Second
 )
 
 func RunDashboardServer(addr string, port int64) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("%v", r)
-		}
-	}()
-	gin.SetMode(gin.ReleaseMode)
-	router := gin.New()
-	//router.LoadHTMLGlob("assets/*")
-	router.GET("/api/reload", apiReload)
-	go router.Run(fmt.Sprintf("%s:%d", addr, port))
+	// url router
+	mux := http.NewServeMux()
+	// api, see dashboard_api.go
+	mux.HandleFunc("/api/reload", apiReload)
+	mux.HandleFunc("/api/proxies", apiProxies)
+
+	// view see dashboard_view.go
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./assets"))))
+	mux.HandleFunc("/", viewDashboard)
+
+	address := fmt.Sprintf("%s:%d", addr, port)
+	server := &http.Server{
+		Addr:         address,
+		Handler:      mux,
+		ReadTimeout:  httpServerReadTimeout,
+		WriteTimeout: httpServerWriteTimeout,
+	}
+	if address == "" {
+		address = ":http"
+	}
+	ln, err := net.Listen("tcp", address)
+	if err != nil {
+		return err
+	}
+
+	go server.Serve(ln)
 	return
 }

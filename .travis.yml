@@ -4,6 +4,7 @@ language: go
 go:
     - 1.4.2
     - 1.5.3
+    - 1.6.2
 
 install:
     - make

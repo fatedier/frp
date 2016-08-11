@@ -15,6 +15,7 @@ fmt:
 
 frps:
 	go build -o bin/frps ./src/frp/cmd/frps
+	cp -rf ./assets ./bin
 
 frpc:
 	go build -o bin/frpc ./src/frp/cmd/frpc

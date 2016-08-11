@@ -15,18 +15,18 @@
 package msg
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
-	"net"
 	"sync"
 
 	"frp/models/config"
+	"frp/models/metric"
 	"frp/utils/conn"
 	"frp/utils/log"
 	"frp/utils/pcrypto"
+	"frp/utils/pool"
 )
 
 // will block until connection close
@@ -52,7 +52,7 @@ func Join(c1 *conn.Conn, c2 *conn.Conn) {
 }
 
 // join two connections and do some operations
-func JoinMore(c1 *conn.Conn, c2 *conn.Conn, conf config.BaseConf) {
+func JoinMore(c1 *conn.Conn, c2 *conn.Conn, conf config.BaseConf, needRecord bool) {
 	var wait sync.WaitGroup
 	encryptPipe := func(from *conn.Conn, to *conn.Conn) {
 		defer from.Close()
@@ -60,7 +60,7 @@ func JoinMore(c1 *conn.Conn, c2 *conn.Conn, conf config.BaseConf) {
 		defer wait.Done()
 
 		// we don't care about errors here
-		pipeEncrypt(from.TcpConn, to.TcpConn, conf)
+		pipeEncrypt(from, to, conf, needRecord)
 	}
 
 	decryptPipe := func(to *conn.Conn, from *conn.Conn) {
@@ -69,13 +69,16 @@ func JoinMore(c1 *conn.Conn, c2 *conn.Conn, conf config.BaseConf) {
 		defer wait.Done()
 
 		// we don't care about errors here
-		pipeDecrypt(to.TcpConn, from.TcpConn, conf)
+		pipeDecrypt(to, from, conf, needRecord)
 	}
 
 	wait.Add(2)
 	go encryptPipe(c1, c2)
 	go decryptPipe(c2, c1)
 	wait.Wait()
+	if needRecord {
+		metric.CloseConnection(conf.Name)
+	}
 	log.Debug("ProxyName [%s], One tunnel stopped", conf.Name)
 	return
 }
@@ -102,7 +105,7 @@ func unpkgMsg(data []byte) (int, []byte, []byte) {
 }
 
 // decrypt msg from reader, then write into writer
-func pipeDecrypt(r net.Conn, w net.Conn, conf config.BaseConf) (err error) {
+func pipeDecrypt(r *conn.Conn, w *conn.Conn, conf config.BaseConf, needRecord bool) (err error) {
 	laes := new(pcrypto.Pcrypto)
 	key := conf.AuthToken
 	if conf.PrivilegeMode {
@@ -113,16 +116,27 @@ func pipeDecrypt(r net.Conn, w net.Conn, conf config.BaseConf) (err error) {
 		return fmt.Errorf("Pcrypto Init error: %v", err)
 	}
 
-	buf := make([]byte, 5*1024+4)
+	// get []byte from buffer pool
+	buf := pool.GetBuf(5*1024 + 4)
+	defer pool.PutBuf(buf)
+
 	var left, res []byte
-	var cnt int
-	nreader := bufio.NewReader(r)
+	var cnt int = -1
+
+	// record
+	var flowBytes int64 = 0
+	if needRecord {
+		defer func() {
+			metric.AddFlowOut(conf.Name, flowBytes)
+		}()
+	}
+
 	for {
 		// there may be more than 1 package in variable
 		// and we read more bytes if unpkgMsg returns an error
 		var newBuf []byte
 		if cnt < 0 {
-			n, err := nreader.Read(buf)
+			n, err := r.Read(buf)
 			if err != nil {
 				return err
 			}
@@ -132,6 +146,11 @@ func pipeDecrypt(r net.Conn, w net.Conn, conf config.BaseConf) (err error) {
 		}
 		cnt, res, left = unpkgMsg(newBuf)
 		if cnt < 0 {
+			// limit one package length, maximum is 1MB
+			if len(res) > 1024*1024 {
+				log.Warn("ProxyName [%s], package length exceeds the limit")
+				return fmt.Errorf("package length error")
+			}
 			continue
 		}
 
@@ -152,16 +171,24 @@ func pipeDecrypt(r net.Conn, w net.Conn, conf config.BaseConf) (err error) {
 			}
 		}
 
-		_, err = w.Write(res)
+		_, err = w.WriteBytes(res)
 		if err != nil {
 			return err
+		}
+
+		if needRecord {
+			flowBytes += int64(len(res))
+			if flowBytes >= 1024*1024 {
+				metric.AddFlowOut(conf.Name, flowBytes)
+				flowBytes = 0
+			}
 		}
 	}
 	return nil
 }
 
 // recvive msg from reader, then encrypt msg into writer
-func pipeEncrypt(r net.Conn, w net.Conn, conf config.BaseConf) (err error) {
+func pipeEncrypt(r *conn.Conn, w *conn.Conn, conf config.BaseConf, needRecord bool) (err error) {
 	laes := new(pcrypto.Pcrypto)
 	key := conf.AuthToken
 	if conf.PrivilegeMode {
@@ -172,12 +199,29 @@ func pipeEncrypt(r net.Conn, w net.Conn, conf config.BaseConf) (err error) {
 		return fmt.Errorf("Pcrypto Init error: %v", err)
 	}
 
-	nreader := bufio.NewReader(r)
-	buf := make([]byte, 5*1024)
+	// record
+	var flowBytes int64 = 0
+	if needRecord {
+		defer func() {
+			metric.AddFlowIn(conf.Name, flowBytes)
+		}()
+	}
+
+	// get []byte from buffer pool
+	buf := pool.GetBuf(5*1024 + 4)
+	defer pool.PutBuf(buf)
+
 	for {
-		n, err := nreader.Read(buf)
+		n, err := r.Read(buf)
 		if err != nil {
 			return err
+		}
+		if needRecord {
+			flowBytes += int64(n)
+			if flowBytes >= 1024*1024 {
+				metric.AddFlowIn(conf.Name, flowBytes)
+				flowBytes = 0
+			}
 		}
 
 		res := buf[0:n]
@@ -199,7 +243,7 @@ func pipeEncrypt(r net.Conn, w net.Conn, conf config.BaseConf) (err error) {
 		}
 
 		res = pkgMsg(res)
-		_, err = w.Write(res)
+		_, err = w.WriteBytes(res)
 		if err != nil {
 			return err
 		}

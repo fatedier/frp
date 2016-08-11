@@ -21,6 +21,14 @@ const (
 	Closed
 )
 
+var (
+	StatusStr = []string{
+		"idle",
+		"working",
+		"closed",
+	}
+)
+
 // msg type
 const (
 	NewCtlConn = iota

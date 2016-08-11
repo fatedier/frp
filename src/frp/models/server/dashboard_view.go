@@ -12,16 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package server
 
-type BaseConf struct {
-	Name              string
-	AuthToken         string
-	Type              string
-	UseEncryption     bool
-	UseGzip           bool
-	PrivilegeMode     bool
-	PrivilegeToken    string
-	PoolCount         int64
-	HostHeaderRewrite string
+import (
+	"html/template"
+	"net/http"
+	"path"
+
+	"frp/models/metric"
+	"frp/utils/log"
+)
+
+func viewDashboard(w http.ResponseWriter, r *http.Request) {
+	metrics := metric.GetAllProxyMetrics()
+	t := template.Must(template.New("index.html").Delims("<<<", ">>>").ParseFiles(path.Join(AssetsDir, "index.html")))
+
+	err := t.Execute(w, metrics)
+	if err != nil {
+		log.Warn("parse template file [index.html] error: %v", err)
+		http.Error(w, "parse template file error", http.StatusInternalServerError)
+	}
 }

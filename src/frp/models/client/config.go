@@ -140,6 +140,14 @@ func LoadConf(confFile string) (err error) {
 				proxyClient.UseGzip = true
 			}
 
+			if proxyClient.Type == "http" {
+				// host_header_rewrite
+				tmpStr, ok = section["host_header_rewrite"]
+				if ok {
+					proxyClient.HostHeaderRewrite = tmpStr
+				}
+			}
+
 			// privilege_mode
 			proxyClient.PrivilegeMode = false
 			tmpStr, ok = section["privilege_mode"]
@@ -147,10 +155,21 @@ func LoadConf(confFile string) (err error) {
 				proxyClient.PrivilegeMode = true
 			}
 
+			// pool_count
+			proxyClient.PoolCount = 0
+			tmpStr, ok = section["pool_count"]
+			if ok {
+				tmpInt, err := strconv.ParseInt(tmpStr, 10, 64)
+				if err != nil || tmpInt < 0 {
+					return fmt.Errorf("Parse conf error: proxy [%s] pool_count error", proxyClient.Name)
+				}
+				proxyClient.PoolCount = tmpInt
+			}
+
 			// configures used in privilege mode
 			if proxyClient.PrivilegeMode == true {
 				if PrivilegeToken == "" {
-					return fmt.Errorf("Parse conf error: proxy [%s] privilege_key must be set when privilege_mode = true", proxyClient.Name)
+					return fmt.Errorf("Parse conf error: proxy [%s] privilege_token must be set when privilege_mode = true", proxyClient.Name)
 				} else {
 					proxyClient.PrivilegeToken = PrivilegeToken
 				}
@@ -167,6 +186,7 @@ func LoadConf(confFile string) (err error) {
 						return fmt.Errorf("Parse conf error: proxy [%s] remote_port not found", proxyClient.Name)
 					}
 				} else if proxyClient.Type == "http" {
+					// custom_domains
 					domainStr, ok := section["custom_domains"]
 					if ok {
 						proxyClient.CustomDomains = strings.Split(domainStr, ",")
@@ -180,6 +200,7 @@ func LoadConf(confFile string) (err error) {
 						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyClient.Name)
 					}
 				} else if proxyClient.Type == "https" {
+					// custom_domains
 					domainStr, ok := section["custom_domains"]
 					if ok {
 						proxyClient.CustomDomains = strings.Split(domainStr, ",")

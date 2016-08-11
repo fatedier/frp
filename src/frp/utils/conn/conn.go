@@ -117,6 +117,16 @@ func ConnectServer(host string, port int64) (c *Conn, err error) {
 	return c, nil
 }
 
+// if the tcpConn is different with c.TcpConn
+// you should call c.Close() first
+func (c *Conn) SetTcpConn(tcpConn net.Conn) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.TcpConn = tcpConn
+	c.closeFlag = false
+	c.Reader = bufio.NewReader(c.TcpConn)
+}
+
 func (c *Conn) GetRemoteAddr() (addr string) {
 	return c.TcpConn.RemoteAddr().String()
 }
@@ -125,11 +135,16 @@ func (c *Conn) GetLocalAddr() (addr string) {
 	return c.TcpConn.LocalAddr().String()
 }
 
+func (c *Conn) Read(p []byte) (n int, err error) {
+	n, err = c.Reader.Read(p)
+	return
+}
+
 func (c *Conn) ReadLine() (buff string, err error) {
 	buff, err = c.Reader.ReadString('\n')
 	if err != nil {
-		// wsarecv error in windows means connection closed
-		if err == io.EOF || strings.Contains(err.Error(), "wsarecv: An existing connection was forcibly closed") {
+		// wsarecv error in windows means connection closed?
+		if err == io.EOF || strings.Contains(err.Error(), "wsarecv") {
 			c.mutex.Lock()
 			c.closeFlag = true
 			c.mutex.Unlock()
@@ -138,15 +153,22 @@ func (c *Conn) ReadLine() (buff string, err error) {
 	return buff, err
 }
 
+func (c *Conn) WriteBytes(content []byte) (n int, err error) {
+	n, err = c.TcpConn.Write(content)
+	return
+}
+
 func (c *Conn) Write(content string) (err error) {
 	_, err = c.TcpConn.Write([]byte(content))
 	return err
-
 }
 
 func (c *Conn) SetDeadline(t time.Time) error {
-	err := c.TcpConn.SetDeadline(t)
-	return err
+	return c.TcpConn.SetDeadline(t)
+}
+
+func (c *Conn) SetReadDeadline(t time.Time) error {
+	return c.TcpConn.SetReadDeadline(t)
 }
 
 func (c *Conn) Close() {
@@ -160,7 +182,37 @@ func (c *Conn) Close() {
 
 func (c *Conn) IsClosed() (closeFlag bool) {
 	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 	closeFlag = c.closeFlag
-	c.mutex.RUnlock()
 	return
+}
+
+// when you call this function, you should make sure that
+// remote client won't send any bytes to this socket
+func (c *Conn) CheckClosed() bool {
+	c.mutex.RLock()
+	if c.closeFlag {
+		return true
+	}
+	c.mutex.RUnlock()
+
+	// err := c.TcpConn.SetReadDeadline(time.Now().Add(100 * time.Microsecond))
+	err := c.TcpConn.SetReadDeadline(time.Now().Add(time.Millisecond))
+	if err != nil {
+		c.Close()
+		return true
+	}
+
+	var tmp []byte = make([]byte, 1)
+	_, err = c.TcpConn.Read(tmp)
+	if err == io.EOF {
+		return true
+	}
+
+	err = c.TcpConn.SetReadDeadline(time.Time{})
+	if err != nil {
+		c.Close()
+		return true
+	}
+	return false
 }

@@ -23,26 +23,32 @@ import (
 	ini "github.com/vaughan0/go-ini"
 
 	"frp/models/consts"
+	"frp/models/metric"
 	"frp/utils/log"
 	"frp/utils/vhost"
 )
 
 // common config
 var (
-	ConfigFile       string = "./frps.ini"
-	BindAddr         string = "0.0.0.0"
-	BindPort         int64  = 7000
-	VhostHttpPort    int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http protocol
-	VhostHttpsPort   int64  = 0 // if VhostHttpsPort equals 0, don't listen a public port for https protocol
-	DashboardPort    int64  = 0 // if DashboardPort equals 0, dashboard is not available
-	LogFile          string = "console"
-	LogWay           string = "console" // console or file
-	LogLevel         string = "info"
-	LogMaxDays       int64  = 3
-	PrivilegeMode    bool   = false
-	PrivilegeToken   string = ""
-	HeartBeatTimeout int64  = 90
-	UserConnTimeout  int64  = 10
+	ConfigFile     string = "./frps.ini"
+	BindAddr       string = "0.0.0.0"
+	BindPort       int64  = 7000
+	VhostHttpPort  int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http protocol
+	VhostHttpsPort int64  = 0 // if VhostHttpsPort equals 0, don't listen a public port for https protocol
+	DashboardPort  int64  = 0 // if DashboardPort equals 0, dashboard is not available
+	AssetsDir      string = ""
+	LogFile        string = "console"
+	LogWay         string = "console" // console or file
+	LogLevel       string = "info"
+	LogMaxDays     int64  = 3
+	PrivilegeMode  bool   = false
+	PrivilegeToken string = ""
+
+	// if PrivilegeAllowPorts is not nil, tcp proxies which remote port exist in this map can be connected
+	PrivilegeAllowPorts map[int64]struct{}
+	MaxPoolCount        int64 = 100
+	HeartBeatTimeout    int64 = 90
+	UserConnTimeout     int64 = 10
 
 	VhostHttpMuxer    *vhost.HttpMuxer
 	VhostHttpsMuxer   *vhost.HttpsMuxer
@@ -113,6 +119,11 @@ func loadCommonConf(confFile string) error {
 		DashboardPort = 0
 	}
 
+	tmpStr, ok = conf.Get("common", "assets_dir")
+	if ok {
+		AssetsDir = tmpStr
+	}
+
 	tmpStr, ok = conf.Get("common", "log_file")
 	if ok {
 		LogFile = tmpStr
@@ -152,6 +163,51 @@ func loadCommonConf(confFile string) error {
 			PrivilegeToken = tmpStr
 		} else {
 			return fmt.Errorf("Parse conf error: privilege_token must be set if privilege_mode is enabled")
+		}
+
+		PrivilegeAllowPorts = make(map[int64]struct{})
+		tmpStr, ok = conf.Get("common", "privilege_allow_ports")
+		if ok {
+			// for example: 1000-2000,2001,2002,3000-4000
+			portRanges := strings.Split(tmpStr, ",")
+			for _, portRangeStr := range portRanges {
+				// 1000-2000 or 2001
+				portArray := strings.Split(portRangeStr, "-")
+				// lenght: only 1 or 2 is correct
+				rangeType := len(portArray)
+				if rangeType == 1 {
+					singlePort, err := strconv.ParseInt(portArray[0], 10, 64)
+					if err != nil {
+						return fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
+					}
+					PrivilegeAllowPorts[singlePort] = struct{}{}
+				} else if rangeType == 2 {
+					min, err := strconv.ParseInt(portArray[0], 10, 64)
+					if err != nil {
+						return fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
+					}
+					max, err := strconv.ParseInt(portArray[1], 10, 64)
+					if err != nil {
+						return fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
+					}
+					if max < min {
+						return fmt.Errorf("Parse conf error: privilege_allow_ports range incorrect")
+					}
+					for i := min; i <= max; i++ {
+						PrivilegeAllowPorts[i] = struct{}{}
+					}
+				} else {
+					return fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect")
+				}
+			}
+		}
+	}
+
+	tmpStr, ok = conf.Get("common", "max_pool_count")
+	if ok {
+		v, err := strconv.ParseInt(tmpStr, 10, 64)
+		if err == nil && v >= 0 {
+			MaxPoolCount = v
 		}
 	}
 	return nil
@@ -202,6 +258,8 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				}
 			} else if proxyServer.Type == "http" {
 				// for http
+				proxyServer.ListenPort = VhostHttpPort
+
 				domainStr, ok := section["custom_domains"]
 				if ok {
 					proxyServer.CustomDomains = strings.Split(domainStr, ",")
@@ -216,6 +274,8 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				}
 			} else if proxyServer.Type == "https" {
 				// for https
+				proxyServer.ListenPort = VhostHttpsPort
+
 				domainStr, ok := section["custom_domains"]
 				if ok {
 					proxyServer.CustomDomains = strings.Split(domainStr, ",")
@@ -231,6 +291,12 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 			}
 			proxyServers[proxyServer.Name] = proxyServer
 		}
+	}
+
+	// set metric statistics of all proxies
+	for name, p := range proxyServers {
+		metric.SetProxyInfo(name, p.Type, p.BindAddr, p.UseEncryption, p.UseGzip,
+			p.PrivilegeMode, p.CustomDomains, p.ListenPort)
 	}
 	return proxyServers, nil
 }
@@ -290,8 +356,10 @@ func CreateProxy(s *ProxyServer) error {
 			delete(ProxyServers, s.Name)
 		}
 	}
-	s.Init()
 	ProxyServers[s.Name] = s
+	metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip,
+		s.PrivilegeMode, s.CustomDomains, s.ListenPort)
+	s.Init()
 	return nil
 }
 
