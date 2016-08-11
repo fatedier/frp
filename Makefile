@@ -7,6 +7,7 @@ build: frps frpc build_test
 
 build_test: echo_server http_server
 
+# compile assets into binary file
 assets:
 	go get -d github.com/rakyll/statik
 	@go install github.com/rakyll/statik
@@ -21,7 +22,7 @@ fmt:
 
 frps:
 	go build -o bin/frps ./src/cmd/frps
-	cp -rf ./src/assets/static ./bin
+	@cp -rf ./src/assets/static ./bin
 
 frpc:
 	go build -o bin/frpc ./src/cmd/frpc
