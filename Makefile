@@ -1,11 +1,19 @@
 export PATH := $(GOPATH)/bin:$(PATH)
 export GO15VENDOREXPERIMENT := 1
 
-all: build
+all: fmt dep build
 
-build: fmt frps frpc build_test
+build: frps frpc build_test
 
 build_test: echo_server http_server
+
+dep: statik
+
+statik:
+	go get -d github.com/rakyll/statik
+	@go install github.com/rakyll/statik
+	@rm -rf ./src/assets/statik
+	go generate ./src/...
 
 fmt:
 	go fmt ./src/...
@@ -15,7 +23,7 @@ fmt:
 
 frps:
 	go build -o bin/frps ./src/cmd/frps
-	cp -rf ./assets ./bin
+	cp -rf ./src/assets/static ./bin
 
 frpc:
 	go build -o bin/frpc ./src/cmd/frpc
@@ -43,3 +51,6 @@ clean:
 	rm -f ./test/bin/echo_server
 	rm -f ./test/bin/http_server
 	cd ./test && ./clean_test.sh && cd -
+
+save:
+	godep save ./src/...

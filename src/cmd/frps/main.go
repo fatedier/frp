@@ -26,6 +26,7 @@ import (
 
 	docopt "github.com/docopt/docopt-go"
 
+	"github.com/fatedier/frp/src/assets"
 	"github.com/fatedier/frp/src/models/server"
 	"github.com/fatedier/frp/src/utils/conn"
 	"github.com/fatedier/frp/src/utils/log"
@@ -129,6 +130,13 @@ func main() {
 	}
 
 	log.InitLog(server.LogWay, server.LogFile, server.LogLevel, server.LogMaxDays)
+
+	// init assets
+	err = assets.Load(server.AssetsDir)
+	if err != nil {
+		log.Error("Load assets error: %v", err)
+		os.Exit(1)
+	}
 
 	l, err := conn.Listen(server.BindAddr, server.BindPort)
 	if err != nil {
