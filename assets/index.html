@@ -218,7 +218,10 @@
       window.showdetail = true;
 
       var newrow = "<tr class='info_detail'><th colspan='4'>Key</th><th colspan='4'>Val</th><tr>";
-      newrow += "<tr class='info_detail'><td colspan='4'>Domains</td><td colspan='4'>" + alldata[index].domains + "</td><tr>";
+      for (var domainindex in alldata[index].domains) {
+        newrow += "<tr class='info_detail'><td colspan='4'>Domains</td><td colspan='4'>" +
+          alldata[index].domains[domainindex] + "</td><tr>";
+      }
       newrow += "<tr class='info_detail'><td colspan='4'>Ip</td><td colspan='4'>" + alldata[index].bind_addr + "</td><tr>";
       newrow += "<tr class='info_detail'><td colspan='4'>Status</td><td colspan='4'>" + alldata[index].stat + "</td><tr>";
       newrow += "<tr class='info_detail'><td colspan='4'>Encryption</td><td colspan='4'>" + alldata[index].use_encryption + "</td><tr>";
@@ -256,7 +259,7 @@
           alldata[newproxies[inx].name].conns.push(newproxies[inx].daily[iinnx].total_accept_conns);
         }
         
-        if (newproxies[inx].daily.length == 0 || newproxies[inx].daily[0].time != today) {
+        if (newproxies[inx].daily.length == 0 || newproxies[inx].daily[newproxies[inx].daily.length-1].time != today) {
           alldata[newproxies[inx].name].times.push(today);
           alldata[newproxies[inx].name].ins.push(0);
           alldata[newproxies[inx].name].outs.push(0);
