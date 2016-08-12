@@ -178,10 +178,8 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 					log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", workConn.GetLocalAddr(), workConn.GetRemoteAddr(),
 						userConn.GetLocalAddr(), userConn.GetRemoteAddr())
 
-					metric.OpenConnection(p.Name)
 					needRecord := true
 					go msg.JoinMore(userConn, workConn, p.BaseConf, needRecord)
-					metric.OpenConnection(p.Name)
 				}(c)
 			}
 		}(listener)

@@ -29,6 +29,7 @@ import (
 	"github.com/fatedier/frp/src/utils/pool"
 )
 
+// deprecated
 // will block until connection close
 func Join(c1 *conn.Conn, c2 *conn.Conn) {
 	var wait sync.WaitGroup
@@ -72,6 +73,9 @@ func JoinMore(c1 *conn.Conn, c2 *conn.Conn, conf config.BaseConf, needRecord boo
 		pipeDecrypt(to, from, conf, needRecord)
 	}
 
+	if needRecord {
+		metric.OpenConnection(conf.Name)
+	}
 	wait.Add(2)
 	go encryptPipe(c1, c2)
 	go decryptPipe(c2, c1)
