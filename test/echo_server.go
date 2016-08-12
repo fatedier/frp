@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"frp/utils/conn"
+	"github.com/fatedier/frp/src/utils/conn"
 )
 
 var (

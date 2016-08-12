@@ -1,11 +1,18 @@
 export PATH := $(GOPATH)/bin:$(PATH)
-export GOPATH := $(shell pwd)/Godeps/_workspace:$(shell pwd):$(GOPATH)
+export GO15VENDOREXPERIMENT := 1
 
-all: build
+all: fmt build
 
-build: fmt frps frpc build_test
+build: frps frpc build_test
 
 build_test: echo_server http_server
+
+# compile assets into binary file
+assets:
+	go get -d github.com/rakyll/statik
+	@go install github.com/rakyll/statik
+	@rm -rf ./src/assets/statik
+	go generate ./src/...
 
 fmt:
 	go fmt ./src/...
@@ -14,10 +21,11 @@ fmt:
 	@go fmt ./test/func_test.go
 
 frps:
-	go build -o bin/frps ./src/frp/cmd/frps
+	go build -o bin/frps ./src/cmd/frps
+	@cp -rf ./src/assets/static ./bin
 
 frpc:
-	go build -o bin/frpc ./src/frp/cmd/frpc
+	go build -o bin/frpc ./src/cmd/frpc
 
 echo_server:
 	go build -o test/bin/echo_server ./test/echo_server.go
@@ -42,3 +50,6 @@ clean:
 	rm -f ./test/bin/echo_server
 	rm -f ./test/bin/http_server
 	cd ./test && ./clean_test.sh && cd -
+
+save:
+	godep save ./src/...

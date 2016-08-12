@@ -1,13 +1,12 @@
 export PATH := $(GOPATH)/bin:$(PATH)
-export OLDGOPATH := $(GOPATH)
-export GOPATH := $(shell pwd)/Godeps/_workspace:$(shell pwd):$(GOPATH)
+export GO15VENDOREXPERIMENT := 1
 
 all: build
 
 build: gox app 
 
 gox:
-	GOPATH=$(OLDGOPATH) go get github.com/mitchellh/gox
+	go get github.com/mitchellh/gox
 
 app:
 	gox -osarch "darwin/386 darwin/amd64 linux/386 linux/amd64 linux/arm windows/386 windows/amd64" ./src/...

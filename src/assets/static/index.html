@@ -1,0 +1,303 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+  <title>frp</title>
+  <link href="static/css/bootstrap.min.css" rel="stylesheet">
+  <link href="static/css/iconfont.css" rel="stylesheet">
+  <script src="static/js/jquery.min.js"></script>
+  <script src="static/js/bootstrap.min.js"></script>
+</head>
+
+<body>
+  <div class="container" style="margin-top: 80px">
+    <div class="row">
+      <div class="col-md-7">
+        <div class="panel panel-default">
+          <div ng-app="myTable" class="panel-body">
+            <table class="table table-bordered" ng-app="myTable" ng-controller="myCtrl">
+              <thead>
+                <tr>
+                  <th class="tab_info" ng-click="col='name';desc=!desc">Server<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='type';desc=!desc">Type<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='listen_port';desc=!desc">Port<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='status';desc=!desc">Status<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='current_conns';desc=!desc">CurCon<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='daily[daily.length-1].flow_out';desc=!desc">FlowOut<i class="iconfont pull-right">&#xe66d;</i></th>
+                  <th class="tab_info" ng-click="col='daily[daily.length-1].flow_in';desc=!desc">FlowIn<i class="iconfont pull-right">&#xe66d;</i></th>
+                </tr>
+              </thead>
+              <tbody id="tab_body">
+                <tr ng-repeat="x in proxies|orderBy:col:desc">
+                  <td>
+                    <button class="btn btn-xs btn-block btn-success center-block" onclick="changeit(this)"><span ng-bind="x.name"></span></button>
+                  </td>
+                  <td><span ng-bind="x.type"></span></td>
+                  <td><span ng-bind="x.listen_port"></span></td>
+                  <td><span ng-bind="x.status"></span></td>
+                  <td><span ng-bind="x.current_conns"></span></td>
+                  <td><span ng-bind="x.daily[x.daily.length-1].flow_out"></span></td>
+                  <td><span ng-bind="x.daily[x.daily.length-1].flow_in"></span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-5">
+        <div id="view1" style="height: 300pt"></div>
+        <div id="view2" style="height: 300pt"></div>
+      </div>
+    </div>
+  </div>
+  <script src="static/js/angular.min.js"></script>
+  <script type="text/javascript" src="static/js/echarts.min.js"></script>
+  <script>
+    var alldata = new Array();
+    var index = null; 
+    <<< range .>>>
+      alldata["<<< .Name >>>"] = {
+        name: "<<< .Name >>>",
+        type: "<<< .Type >>>",
+        bind_addr: "<<< .BindAddr >>>",
+        listen_port: "<<< .ListenPort >>>",
+        current_conns: <<< .CurrentConns >>> ,
+        domains: [ <<< range.CustomDomains >>> "<<< . >>>", <<< end >>> ],
+        stat: "<<< .Status >>>",
+        use_encryption: "<<< .UseEncryption >>>",
+        use_gzip: "<<< .UseGzip >>>",
+        privilege_mode: "<<< .PrivilegeMode >>>",
+        times: [],
+        ins: [],
+        outs: [],
+        conns: [],
+      }; 
+    <<< end >>>
+
+    var newproxies = <<< . >>>;
+    var dom1 = document.getElementById("view1");
+    var dom2 = document.getElementById("view2");
+    var myChart1 = echarts.init(dom1);
+    var myChart2 = echarts.init(dom2);
+    var option1 = null;
+    var option2 = null;
+    var maxval = 0;
+    var dw = " B";
+    var step = 1;
+
+    function reloadview() {
+      window.maxval = 0;
+      window.dw = " B";
+      window.step = 1;
+      for (var val1 in alldata[index].ins) {
+        if (maxval < alldata[index].ins[val1]) {
+          window.maxval = alldata[index].outs[val1];
+        }
+      }
+
+      for (var val2 in alldata[index].outs) {
+        if (maxval < alldata[index].outs[val2]) {
+          window.maxval = alldata[index].outs[val2]
+        }
+      }
+
+      if (maxval > 1024 * 1024) {
+        window.dw = " MB";
+        window.step = 1024 * 1024;
+      } else if (maxval > 1024) {
+        window.dw = " KB";
+        window.step = 1024;
+      }
+
+      window.option1 = {
+        title: {
+          text: alldata[index].name
+        },
+        tooltip: {
+          trigger: 'axis'
+        },
+        legend: {
+          data: ['flow_in', 'flow_out']
+        },
+        grid: {
+          left: '3%',
+          right: '6%',
+          bottom: '3%',
+          containLabel: true
+        },
+        toolbox: {
+          feature: {
+            saveAsImage: {}
+          }
+        },
+        xAxis: {
+          type: 'category',
+          data: alldata[index].times
+        },
+        yAxis: {
+          type: 'value',
+          axisLabel: {
+            formatter: function(value) {
+              var data = (value / step).toFixed(2);
+              return data + dw;
+            }
+          }
+        },
+        series: [{
+          name: 'flow_in',
+          type: 'bar',
+          stack: '总量',
+          data: alldata[index].ins
+        }, {
+          name: 'flow_out',
+          type: 'bar',
+          stack: '总量',
+          data: alldata[index].outs
+        }]
+      };
+
+      window.option2 = {
+        title: {
+          text: ""
+        },
+        tooltip: {
+          trigger: 'axis'
+        },
+        legend: {
+          data: ['total_accept_conns']
+        },
+        grid: {
+          left: '3%',
+          right: '6%',
+          bottom: '3%',
+          containLabel: true
+        },
+        toolbox: {
+          feature: {
+            saveAsImage: {}
+          }
+        },
+        xAxis: {
+          type: 'category',
+          data: alldata[index].times
+        },
+        yAxis: {
+          type: 'value'
+        },
+        series: [{
+          name: 'total_accept_conns',
+          type: 'bar',
+          stack: '总量',
+          data: alldata[index].conns
+        }]
+      };
+
+      myChart1.setOption(option1, true);
+      myChart2.setOption(option2, true);
+    };;
+
+    var showdetail = false;
+    var newindex = 0;
+
+    function cleandetail() {
+      $(".info_detail").remove();
+      showdetail = false;
+    };
+
+    function changeit(id) {
+      newindex = id.firstElementChild.innerHTML;
+      if (index == newindex) {
+        if (showdetail) {
+          cleandetail();
+          return;
+        }
+      }
+
+      index = newindex;
+      cleandetail();
+      window.showdetail = true;
+
+      var newrow = "<tr class='info_detail'><th colspan='4'>Key</th><th colspan='4'>Val</th><tr>";
+      for (var domainindex in alldata[index].domains) {
+        newrow += "<tr class='info_detail'><td colspan='4'>Domains</td><td colspan='4'>" +
+          alldata[index].domains[domainindex] + "</td><tr>";
+      }
+      newrow += "<tr class='info_detail'><td colspan='4'>Ip</td><td colspan='4'>" + alldata[index].bind_addr + "</td><tr>";
+      newrow += "<tr class='info_detail'><td colspan='4'>Status</td><td colspan='4'>" + alldata[index].stat + "</td><tr>";
+      newrow += "<tr class='info_detail'><td colspan='4'>Encryption</td><td colspan='4'>" + alldata[index].use_encryption + "</td><tr>";
+      newrow += "<tr class='info_detail'><td colspan='4'>Gzip</td><td colspan='4'>" + alldata[index].use_gzip + "</td><tr>";
+      newrow += "<tr class='info_detail'><td colspan='4'>Privilege</td><td colspan='4'>" + alldata[index].privilege_mode + "</td><tr>";
+
+      var hehe = $(id.parentNode.parentNode);
+
+      $(hehe).after(newrow);
+      reloadview();
+    };
+
+    // add somedata
+    {
+      var ttdy = new Date();
+      var today = ttdy.getFullYear() * 10000 + (1 + ttdy.getMonth()) * 100 + ttdy.getDate();
+			for (var inx in newproxies) {
+        if (newproxies[inx].current_conns == undefined) {
+          newproxies[inx].current_conns = 0;
+          alldata[newproxies[inx].name].current_conns = 0;
+        }
+
+        if (newproxies[inx].daily == undefined ) {
+          newproxies[inx].daily = [];
+        } 
+
+        newproxies[inx].daily.sort(function (a, b) {
+            return a.time > b.time;
+        });
+
+        for (var iinnx in newproxies[inx].daily) {
+          alldata[newproxies[inx].name].times.push(newproxies[inx].daily[iinnx].time);
+          alldata[newproxies[inx].name].ins.push(newproxies[inx].daily[iinnx].flow_in);
+          alldata[newproxies[inx].name].outs.push(newproxies[inx].daily[iinnx].flow_out);
+          alldata[newproxies[inx].name].conns.push(newproxies[inx].daily[iinnx].total_accept_conns);
+        }
+        
+        if (newproxies[inx].daily.length == 0 || newproxies[inx].daily[newproxies[inx].daily.length-1].time != today) {
+          alldata[newproxies[inx].name].times.push(today);
+          alldata[newproxies[inx].name].ins.push(0);
+          alldata[newproxies[inx].name].outs.push(0);
+          alldata[newproxies[inx].name].conns.push(0);
+          newproxies[inx].daily.push({
+            time: today,
+            flow_in: 0,
+            flow_out: 0,
+            total_accept_conns: 0
+          });
+        }
+      }
+    }
+
+    var app = angular.module('myTable', []);
+
+    app.controller('myCtrl', function($scope) {
+      $scope.col = 'name';
+      $scope.desc = 0;
+      $scope.proxies = newproxies;
+    });
+
+    $(".tab_info").hover(
+        function() {
+          $(this).css("color", "orange");
+        },
+        function() {
+          $(this).css("color", "black");
+        });
+    // set default index
+    for (var inx in alldata) {
+      if (window.index == null || window.index > inx) {
+        window.index = inx;
+      }
+    }
+
+    reloadview();
+  </script>
+</body>
+
+</html>
