@@ -15,7 +15,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
 * [Architecture](#architecture)
 * [Example Usage](#example-usage) 
   * [Communicate with your computer in LAN by SSH](#communicate-with-your-computer-in-lan-by-ssh)
-  * [Visit your web service in LAN by specific domain](#visit-your-web-service-in-lan-by-specific-domain)
+  * [Visit your web service in LAN by custom domains](#visit-your-web-service-in-lan-by-custom-domains)
 * [Features](#features)
   * [Dashboard](#dashboard)
   * [Authentication](#authentication)
@@ -39,7 +39,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
 
 frp is under development and you can try it with latest release version.Master branch for releasing stable version when dev branch for developing.
 
-**We may change any protocol and can't promise backward compatible.Please note the release log when upgrading.**
+**We may change any protocol and can't promise backward compatible.Please check the release log when upgrading.**
 
 ## Architecture
 
@@ -47,7 +47,7 @@ frp is under development and you can try it with latest release version.Master b
 
 ## Example Usage
 
-First, download the latest version programs from [Release](https://github.com/fatedier/frp/releases) page according to your os and arch.
+Firstly, download the latest programs from [Release](https://github.com/fatedier/frp/releases) page according to your os and arch.
 
 Put **frps** and **frps.ini** to your server with public IP.
 
@@ -92,13 +92,13 @@ Put **frpc** and **frpc.ini** to your server in LAN.
 
   `ssh -oPort=6000 test@x.x.x.x`
 
-### Visit your web service in LAN by specific domain
+### Visit your web service in LAN by custom domains
 
-Sometimes we need to expose a local web service behind a NAT network to others for testing with your own domain and unfortunately we can't resolve a domain to a local ip.
+Sometimes we want to expose a local web service behind a NAT network to others for testing with your own domain name and unfortunately we can't resolve a domain name to a local ip.
 
 Howerver, we can expose a http or https service using frp.
 
-1. Modify frps.ini, configure a http reverse proxy named [web] and set http port as 8080, custom domain as www.yourdomain.com:
+1. Modify frps.ini, configure a http reverse proxy named [web] and set http port as 8080, custom domain as `www.yourdomain.com`:
 
   ```ini
   # frps.ini
@@ -116,7 +116,7 @@ Howerver, we can expose a http or https service using frp.
 
   `./frps -c ./frps.ini`
 
-3. Modify frpc.ini and set remote frps server's IP as x.x.x.x. The local_port is the port of your web service:
+3. Modify frpc.ini and set remote frps server's IP as x.x.x.x. The `local_port` is the port of your web service:
 
   ```ini
   # frpc.ini
@@ -134,9 +134,9 @@ Howerver, we can expose a http or https service using frp.
 
   `./frpc -c ./frpc.ini`
 
-5. Resolve A record of www.yourdomain.com to x.x.x.x or CNAME record to your origin domain.
+5. Resolve A record of `www.yourdomain.com` to IP `x.x.x.x` or CNAME record to your origin domain.
 
-6. Now your can visit your local web service from url `http://www.yourdomain.com:8080`.
+6. Now visit your local web service using url `http://www.yourdomain.com:8080`.
 
 ## Features
 
@@ -157,15 +157,15 @@ Then visit `http://[server_addr]:7500` to see dashboard.
 
 ### Authentication
 
-`auth_token` is used in frps.ini for authentication when frpc login in and you should configure it for each proxy.
+`auth_token` in frps.ini is configured for each proxy and check for authentication when frpc login in.
 
-Client should set a global `auth_token` equals to frps.ini.
+Client that want's to register must set a global `auth_token` equals to frps.ini.
 
-Note that time duration bewtween frpc and frps shouldn't exceed 15 minutes because timestamp is used for authentication.
+Note that time duration bewtween frpc and frps mustn't exceed 15 minutes because timestamp is used for authentication.
 
 ### Encryption and Compression
 
-Defalut value is false, you could decide if the proxy should use encryption or compression whether the type is:
+Defalut value is false, you could decide if the proxy will use encryption or compression whether the type is:
 
 ```ini
 # frpc.ini
@@ -179,7 +179,7 @@ use_gzip = true
 
 ### Reload configures without frps stopped
 
-If your want to add a new reverse proxy and avoid restarting frps, you can use this feature.
+If your want to add a new reverse proxy and avoid restarting frps, you can use this function:
 
 1. `dashboard_port` should be set in frps.ini:
 
@@ -217,7 +217,7 @@ If your want to add a new reverse proxy and avoid restarting frps, you can use t
 
 Privilege mode is used for who don't want to do operations in frps everytime adding a new proxy.
 
-All proxies's configures are set in frpc.ini when privilege mode is enabled.
+All proxies's configurations are set in frpc.ini when privilege mode is enabled.
 
 1. Enable privilege mode and set `privilege_token`.Client with the same `privilege_token` can create proxy automaticly:
 
@@ -252,7 +252,7 @@ All proxies's configures are set in frpc.ini when privilege mode is enabled.
 
   `./frpc -c ./frpc.ini`
 
-5. Connect to server in LAN by ssh assuming that username is test:
+5. Connect to server in LAN by ssh assuming username is test:
 
   `ssh -oPort=6000 test@x.x.x.x`
 
@@ -268,7 +268,7 @@ privilege_token = 1234
 privilege_allow_ports = 2000-3000,3001,3003,4000-50000
 ```
 
-`privilege_allow_ports` consists of a specific port or a range of ports divided by ','.
+`privilege_allow_ports` consists of a specific port or a range of ports divided by `,`.
 
 ### Connection Pool
 

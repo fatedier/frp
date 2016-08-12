@@ -13,7 +13,7 @@ frp 是一个高性能的反向代理应用，可以帮助您轻松地进行内�
 * [架构](#架构)
 * [使用示例](#使用示例)
   * [通过 ssh 访问公司内网机器](#通过-ssh-访问公司内网机器)
-  * [通过指定域名访问部署于内网的 web 服务](#通过指定域名访问部署于内网的-web-服务) 
+  * [通过自定义域名访问部署于内网的 web 服务](#通过自定义域名访问部署于内网的-web-服务) 
 * [功能说明](#功能说明)
   * [Dashboard](#dashboard)
   * [身份验证](#身份验证)
@@ -91,11 +91,11 @@ frp 目前正在前期开发阶段，master 分支用于发布稳定版本，dev
 
   `ssh -oPort=6000 test@x.x.x.x`
 
-### 通过指定域名访问部署于内网的 web 服务
+### 通过自定义域名访问部署于内网的 web 服务
 
 有时想要让其他人通过域名访问或者测试我们在本地搭建的 web 服务，但是由于本地机器没有公网 IP，无法将域名解析到本地的机器，通过 frp 就可以实现这一功能，以下示例为 http 服务，https 服务配置方法相同， vhost_http_port 替换为 vhost_https_port， type 设置为 https 即可。
 
-1. 修改 frps.ini 文件，配置一个名为 web 的 http 反向代理，设置 http 访问端口为 8080，绑定自定义域名 www.yourdomain.com：
+1. 修改 frps.ini 文件，配置一个名为 web 的 http 反向代理，设置 http 访问端口为 8080，绑定自定义域名 `www.yourdomain.com`：
 
   ```ini
   # frps.ini
@@ -131,7 +131,7 @@ frp 目前正在前期开发阶段，master 分支用于发布稳定版本，dev
 
   `./frpc -c ./frpc.ini`
 
-5. 将 www.yourdomain.com 的域名 A 记录解析到 x.x.x.x，如果服务器已经有对应的域名，也可以将 CNAME 记录解析到服务器原先的域名。
+5. 将 `www.yourdomain.com` 的域名 A 记录解析到 IP `x.x.x.x`，如果服务器已经有对应的域名，也可以将 CNAME 记录解析到服务器原先的域名。
 
 6. 通过浏览器访问 `http://www.yourdomain.com:8080` 即可访问到处于内网机器上的 web 服务。
 
