@@ -17,10 +17,14 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
   * [Communicate with your computer in LAN by SSH](#communicate-with-your-computer-in-lan-by-ssh)
   * [Visit your web service in LAN by specific domain](#visit-your-web-service-in-lan-by-specific-domain)
 * [Features](#features)
+  * [Dashboard](#dashboard)
   * [Authentication](#authentication)
   * [Encryption and Compression](#encryption-and-compression)
   * [Reload configures without frps stopped](#reload-configures-without-frps-stopped)
   * [Privilege Mode](#privilege-mode)
+    * [Port White List](#port-white-list)
+  * [Connection Pool](#connection-pool)
+  * [Rewriting the Host Header](#rewriting-the-host-header)
 * [Development Plan](#development-plan)
 * [Contributing](#contributing)
 * [Contributors](#contributors)
@@ -136,6 +140,21 @@ Howerver, we can expose a http or https service using frp.
 
 ## Features
 
+### Dashboard
+
+Check frp's status and proxies's statistics information by Dashboard.
+
+Configure a port for dashboard to enable this feature:
+
+```ini
+[common]
+dashboard_port = 7500
+```
+
+Then visit `http://[server_addr]:7500` to see dashboard.
+
+![dashboard](/doc/pic/dashboard.png)
+
 ### Authentication
 
 `auth_token` is used in frps.ini for authentication when frpc login in and you should configure it for each proxy.
@@ -237,18 +256,70 @@ All proxies's configures are set in frpc.ini when privilege mode is enabled.
 
   `ssh -oPort=6000 test@x.x.x.x`
 
+#### Port White List
+
+`privilege_allow_ports` in frps.ini is used for preventing abuse of ports in privilege mode:
+
+```ini
+# frps.ini
+[common]
+privilege_mode = true
+privilege_token = 1234
+privilege_allow_ports = 2000-3000,3001,3003,4000-50000
+```
+
+`privilege_allow_ports` consists of a specific port or a range of ports divided by ','.
+
+### Connection Pool
+
+By default, frps send message to frpc for create a new connection to backward service when getting an user request.If a proxy's connection pool is enabled, there will be a specified number of connections pre-established.
+
+This feature is fit for a large number of short connections.
+
+1. Configure the limit of pool count each proxy can use in frps.ini:
+
+  ```ini         
+  # frps.ini
+  [common]
+  max_pool_count = 50
+  ```
+
+2. Enable and specify the number of connection pool:
+
+  ```ini 
+  # frpc.ini
+  [ssh] 
+  type = tcp
+  local_port = 22
+  pool_count = 10
+  ```
+
+### Rewriting the Host Header
+
+When forwarding to a local port, frp does not modify the tunneled HTTP requests at all, they are copied to your server byte-for-byte as they are received. Some application servers use the Host header for determining which development site to display. For this reason, frp can rewrite your requests with a modified Host header. Use the `host_header_rewrite` switch to rewrite incoming HTTP requests.
+
+```ini                                                             
+# frpc.ini                                                         
+[web] 
+privilege_mode = true
+type = http
+local_port = 80
+custom_domains = test.yourdomain.com
+host_header_rewrite = dev.yourdomain.com
+```
+
+If `host_header_rewrite` is specified, the Host header will be rewritten to match the hostname portion of the forwarding address.
+
 ## Development Plan
 
-* Dashboard page.
-* Statistics and prestentation of traffic and connection info, etc.
 * Support udp protocol.
-* Connection pool.
-* White list for opening specific ports in privilege mode.
 * Support wildcard domain name.
 * Url router.
 * Load balance to different service in frpc.
 * Debug mode for frpc, prestent proxy status in terminal.
 * Inspect all http requests/responses that are transmitted over the tunnel.
+* Frpc can directly be a webserver for static files.
+* Full control mode, dynamically modify frpc's configure with dashboard in frps.
 * P2p communicate by make udp hole to penetrate NAT.
 
 ## Contributing

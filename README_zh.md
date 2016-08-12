@@ -15,10 +15,14 @@ frp 是一个高性能的反向代理应用，可以帮助您轻松地进行内�
   * [通过 ssh 访问公司内网机器](#通过-ssh-访问公司内网机器)
   * [通过指定域名访问部署于内网的 web 服务](#通过指定域名访问部署于内网的-web-服务) 
 * [功能说明](#功能说明)
+  * [Dashboard](#dashboard)
   * [身份验证](#身份验证)
   * [加密与压缩](#加密与压缩)
   * [服务器端热加载配置文件](#服务器端热加载配置文件)
   * [特权模式](#特权模式)
+    * [端口白名单](#端口白名单)
+  * [连接池](#连接池)
+  * [修改 Host Header](#修改-host-header)
 * [开发计划](#开发计划)
 * [贡献代码](#贡献代码)
 * [贡献者](#贡献者)
@@ -133,6 +137,21 @@ frp 目前正在前期开发阶段，master 分支用于发布稳定版本，dev
 
 ## 功能说明
 
+### Dashboard
+
+通过浏览器查看 frp 的状态以及代理统计信息展示。
+
+需要在 frps.ini 中指定 dashboard 服务使用的端口，即可开启此功能：
+
+```ini
+[common]
+dashboard_port = 7500
+```
+
+打开浏览器通过 `http://[server_addr]:7500` 访问 dashboard 界面。
+
+![dashboard](/doc/pic/dashboard.png)
+
 ### 身份验证
 
 出于安全性的考虑，服务器端可以在 frps.ini 中为每一个代理设置一个 auth_token 用于对客户端连接进行身份验证，例如上文中的 [ssh] 和 [web] 两个代理的 auth_token 都为 123。
@@ -242,20 +261,72 @@ reload 命令仅能用于修改代理的配置内容，[common] 内的公共配�
 
   `ssh -oPort=6000 test@x.x.x.x`
 
+#### 端口白名单
+
+启用特权模式后为了防止端口被滥用，可以手动指定允许哪些端口被使用，在 frps.ini 中通过 privilege_allow_ports 来指定：
+
+```ini
+# frps.ini
+[common]
+privilege_mode = true
+privilege_token = 1234
+privilege_allow_ports = 2000-3000,3001,3003,4000-50000
+```
+
+privilege_allow_ports 可以配置允许使用的某个指定端口或者是一个范围内的所有端口，以 `,` 分隔，指定的范围以 `-` 分隔。
+
+### 连接池
+
+默认情况下，当用户请求建立连接后，frps 才会请求 frpc 主动与后端服务建立一个连接。当为指定的代理启用连接池后，frp 会预先和后端服务建立起指定数量的连接，每次接收到用户请求后，会从连接池中取出一个连接和用户连接关联起来，避免了等待与后端服务建立连接以及 frpc 和 frps 之间传递控制信息的时间。
+
+这一功能比较适合有大量短连接请求时开启。
+
+1. 首先可以在 frps.ini 中设置每个代理可以创建的连接池上限，避免大量资源占用，默认为 100，客户端设置超过此配置后会被调整到当前值：
+
+  ```ini
+  # frps.ini
+  [common]
+  max_pool_count = 50
+  ```
+
+2. 在 frpc.ini 中为指定代理启用连接池，指定预创建连接的数量：
+
+  ```ini
+  # frpc.ini
+  [ssh]
+  type = tcp
+  local_port = 22
+  pool_count = 10
+  ```
+
+### 修改 Host Header
+
+通常情况下 frp 不会修改转发的任何数据。但有一些后端服务会根据 http 请求 header 中的 host 字段来展现不同的网站，例如 nginx 的虚拟主机服务，启用 host-header 的修改功能可以动态修改 http 请求中的 host 字段。该功能仅限于 http 类型的代理。
+
+```ini
+# frpc.ini
+[web]
+privilege_mode = true
+type = http
+local_port = 80
+custom_domains = test.yourdomain.com
+host_header_rewrite = dev.yourdomain.com
+```
+
+原来 http 请求中的 host 字段 `test.yourdomain.com` 转发到后端服务时会被替换为 `dev.yourdomain.com`。
+
 ## 开发计划
 
 计划在后续版本中加入的功能与优化，排名不分先后，如果有其他功能建议欢迎在 [issues](https://github.com/fatedier/frp/issues) 中反馈。
 
-* Dashboard 界面。
-* 流量，连接数等代理信息统计与展示。
-* udp 协议支持。
-* 针对短连接的连接池优化。
-* 特权模式支持端口白名单。
+* 支持 udp 协议。
 * 支持泛域名。
 * 支持 url 路由转发。
 * frpc 支持负载均衡到后端不同服务。
 * frpc debug 模式，控制台显示代理状态，类似 ngrok 启动后的界面。
 * frpc http 请求及响应信息展示。
+* frpc 支持直接作为 webserver 访问指定静态页面。
+* frpc 完全控制模式，通过 dashboard 对 frpc 进行在线操作。
 * 支持 udp 打洞的方式，提供两边内网机器直接通信，流量不经过服务器转发。
 
 ## 贡献代码
