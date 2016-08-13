@@ -30,19 +30,21 @@ import (
 
 // common config
 var (
-	ConfigFile     string = "./frps.ini"
-	BindAddr       string = "0.0.0.0"
-	BindPort       int64  = 7000
-	VhostHttpPort  int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http protocol
-	VhostHttpsPort int64  = 0 // if VhostHttpsPort equals 0, don't listen a public port for https protocol
-	DashboardPort  int64  = 0 // if DashboardPort equals 0, dashboard is not available
-	AssetsDir      string = ""
-	LogFile        string = "console"
-	LogWay         string = "console" // console or file
-	LogLevel       string = "info"
-	LogMaxDays     int64  = 3
-	PrivilegeMode  bool   = false
-	PrivilegeToken string = ""
+	ConfigFile        string = "./frps.ini"
+	BindAddr          string = "0.0.0.0"
+	BindPort          int64  = 7000
+	VhostHttpPort     int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http protocol
+	VhostHttpsPort    int64  = 0 // if VhostHttpsPort equals 0, don't listen a public port for https protocol
+	DashboardPort     int64  = 0 // if DashboardPort equals 0, dashboard is not available
+	DashboardUsername string = "admin"
+	DashboardPassword string = "admin"
+	AssetsDir         string = ""
+	LogFile           string = "console"
+	LogWay            string = "console" // console or file
+	LogLevel          string = "info"
+	LogMaxDays        int64  = 3
+	PrivilegeMode     bool   = false
+	PrivilegeToken    string = ""
 
 	// if PrivilegeAllowPorts is not nil, tcp proxies which remote port exist in this map can be connected
 	PrivilegeAllowPorts map[int64]struct{}
@@ -117,6 +119,16 @@ func loadCommonConf(confFile string) error {
 		DashboardPort, _ = strconv.ParseInt(tmpStr, 10, 64)
 	} else {
 		DashboardPort = 0
+	}
+
+	tmpStr, ok = conf.Get("common", "dashboard_username")
+	if ok {
+		DashboardUsername = tmpStr
+	}
+
+	tmpStr, ok = conf.Get("common", "dashboard_password")
+	if ok {
+		DashboardPassword = tmpStr
 	}
 
 	tmpStr, ok = conf.Get("common", "assets_dir")
