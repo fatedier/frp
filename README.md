@@ -6,14 +6,14 @@
 
 ## What is frp?
 
-frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet.Now, it supports tcp, http and https protocol when requests can be forwarded by domains to backward web services.
+frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet. Now, it supports tcp, http and https protocol when requests can be forwarded by domains to backward web services.
 
 ## Catalog
 
 * [What can I do with frp?](#what-can-i-do-with-frp)
 * [Status](#status)
 * [Architecture](#architecture)
-* [Example Usage](#example-usage) 
+* [Example Usage](#example-usage)
   * [Communicate with your computer in LAN by SSH](#communicate-with-your-computer-in-lan-by-ssh)
   * [Visit your web service in LAN by custom domains](#visit-your-web-service-in-lan-by-custom-domains)
 * [Features](#features)
@@ -37,9 +37,9 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
 
 ## Status
 
-frp is under development and you can try it with latest release version.Master branch for releasing stable version when dev branch for developing.
+frp is under development and you can try it with latest release version. Master branch for releasing stable version when dev branch for developing.
 
-**We may change any protocol and can't promise backward compatible.Please check the release log when upgrading.**
+**We may change any protocol and can't promise backward compatible. Please check the release log when upgrading.**
 
 ## Architecture
 
@@ -286,9 +286,9 @@ This feature is fit for a large number of short connections.
 
 2. Enable and specify the number of connection pool:
 
-  ```ini 
+  ```ini
   # frpc.ini
-  [ssh] 
+  [ssh]
   type = tcp
   local_port = 22
   pool_count = 10
@@ -300,7 +300,7 @@ When forwarding to a local port, frp does not modify the tunneled HTTP requests 
 
 ```ini                                                             
 # frpc.ini                                                         
-[web] 
+[web]
 privilege_mode = true
 type = http
 local_port = 80
