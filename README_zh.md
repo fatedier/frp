@@ -146,9 +146,12 @@ frp 目前正在前期开发阶段，master 分支用于发布稳定版本，dev
 ```ini
 [common]
 dashboard_port = 7500
+# dashboard 用户名密码可选，默认都为 admin
+dashboard_username = abc
+dashboard_password = abc
 ```
 
-打开浏览器通过 `http://[server_addr]:7500` 访问 dashboard 界面。
+打开浏览器通过 `http://[server_addr]:7500` 访问 dashboard 界面，用户名密码默认为 `admin`。
 
 ![dashboard](/doc/pic/dashboard.png)
 

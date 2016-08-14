@@ -149,9 +149,12 @@ Configure a port for dashboard to enable this feature:
 ```ini
 [common]
 dashboard_port = 7500
+# dashboard's username and password are both optional，if not set, default is admin.
+dashboard_username = abc
+dashboard_password = abc
 ```
 
-Then visit `http://[server_addr]:7500` to see dashboard.
+Then visit `http://[server_addr]:7500` to see dashboard, default username and password are both `admin`.
 
 ![dashboard](/doc/pic/dashboard.png)
 
