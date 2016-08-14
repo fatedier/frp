@@ -19,7 +19,7 @@ var (
 )
 
 func TestEchoServer(t *testing.T) {
-	c, err := conn.ConnectServer("0.0.0.0", ECHO_PORT)
+	c, err := conn.ConnectServer(fmt.Sprintf("0.0.0.0:%d", ECHO_PORT))
 	if err != nil {
 		t.Fatalf("connect to echo server error: %v", err)
 	}
