@@ -329,7 +329,7 @@ If `host_header_rewrite` is specified, the Host header will be rewritten to matc
 
 Interested in getting involved? We would like to help you!
 
-* Take a look at our [issues list](https://github.com/fatedier/frp/issues) and consider submitting a patch
+* Take a look at our [issues list](https://github.com/fatedier/frp/issues) and consider submitting a patch to **dev branch**.
 * If you have some wanderful ideas, send email to fatedier@gmail.com.
 
 **Note: We prefer you to give your advise in [issues](https://github.com/fatedier/frp/issues), so others with a same question can search it quickly and we don't need to answer them repeatly.**

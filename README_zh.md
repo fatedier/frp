@@ -336,7 +336,8 @@ host_header_rewrite = dev.yourdomain.com
 
 如果您对这个项目感兴趣，我们非常欢迎您参与其中！
 
-* 如果您需要提交问题，可以通过 [issues](https://github.com/fatedier/frp/issues) 来完成。
+* 如果您需要提交问题，可以通过 [issues](https://github.com/fatedier/frp/issues) 来反馈。
+* 贡献代码请提交 PR 至 dev 分支，master 分支仅用于发布稳定可用版本。
 * 如果您有新的功能需求，可以反馈至 fatedier@gmail.com 共同讨论。
 
 **提醒：和项目相关的问题最好在 [issues](https://github.com/fatedier/frp/issues) 中反馈，这样方便其他有类似问题的人可以快速查找解决方法，并且也避免了我们重复回答一些问题。**
