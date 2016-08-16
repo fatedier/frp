@@ -1,11 +1,17 @@
 FROM golang:1.6
 
-RUN go get github.com/tools/godep
 COPY . /go/src/github.com/fatedier/frp
-RUN cd /go/src/github.com/fatedier/frp   \
- && make                                 \
- && mv bin/frpc bin/frps /usr/local/bin  \
- && mv conf/*.ini /
+
+RUN cd /go/src/github.com/fatedier/frp \
+ && make \
+ && mv bin/frpc /frpc \
+ && mv bin/frps /frps \
+ && mv conf/frpc_min.ini /frpc.ini \
+ && mv conf/frps_min.ini /frps.ini \
+ && make clean
+
 WORKDIR /
-ENTRYPOINT ["frps"]
-EXPOSE 6000 7000 7500
+
+EXPOSE 80 443 6000 7000 7500
+
+ENTRYPOINT ["/frps"]
