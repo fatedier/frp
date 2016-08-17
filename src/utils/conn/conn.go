@@ -143,7 +143,7 @@ func ConnectServerByHttpProxy(httpProxy string, serverAddr string) (c *Conn, err
 		return
 	}
 
-	req, err := http.NewRequest("CONNECT", "https://"+serverAddr, nil)
+	req, err := http.NewRequest("CONNECT", "http://"+serverAddr, nil)
 	if err != nil {
 		return
 	}
