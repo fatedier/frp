@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/src/models/consts"
+	"github.com/fatedier/frp/src/models/metric"
 	"github.com/fatedier/frp/src/models/msg"
 	"github.com/fatedier/frp/src/models/server"
 	"github.com/fatedier/frp/src/utils/conn"
@@ -297,6 +298,9 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 			log.Warn(info)
 			return
 		}
+
+		// update metric's proxy status
+		metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip, s.PrivilegeMode, s.CustomDomains, s.ListenPort)
 
 		// start proxy and listen for user connections, no block
 		err := s.Start(c)
