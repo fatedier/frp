@@ -15,7 +15,7 @@ rm -rf ./packages
 mkdir ./packages
 
 os_all='linux windows darwin'
-arch_all='386 amd64 arm'
+arch_all='386 amd64 arm mips64 mips64le'
 
 for os in $os_all; do
     for arch in $arch_all; do
