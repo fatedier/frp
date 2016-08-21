@@ -8,8 +8,8 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/astaxie/beego/logs",
-			"Comment": "v1.6.1-5-g88c5dfa",
-			"Rev": "88c5dfa6ead42e624c2e7d9e04eab6cb2d07412a"
+			"Comment": "v1.7.0-7-gefbde1e",
+			"Rev": "efbde1ee77517486eac03e814e01d724ddad18e6"
 		},
 		{
 			"ImportPath": "github.com/docopt/docopt-go",
