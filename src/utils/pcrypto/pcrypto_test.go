@@ -24,7 +24,7 @@ var (
 
 func init() {
 	pp = &Pcrypto{}
-	pp.Init([]byte("Hana"))
+	pp.Init([]byte("12234567890123451223456789012345321:wq"))
 }
 
 func TestEncrypt(t *testing.T) {
@@ -58,5 +58,20 @@ func TestCompression(t *testing.T) {
 
 	if string(res) != testStr {
 		t.Fatalf("test compression error, from [%s] to [%s]", testStr, string(res))
+	}
+}
+
+func BenchmarkEncrypt(b *testing.B) {
+	testStr := "Test Encrypt!"
+	for i := 0; i < b.N; i++ {
+		pp.Encrypt([]byte(testStr))
+	}
+}
+
+func BenchmarkDecrypt(b *testing.B) {
+	testStr := "Test Encrypt!"
+	res, _ := pp.Encrypt([]byte(testStr))
+	for i := 0; i < b.N; i++ {
+		pp.Decrypt([]byte(res))
 	}
 }

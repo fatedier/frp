@@ -229,6 +229,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		} else if req.PrivilegeKey != privilegeKey {
 			info = fmt.Sprintf("ProxyName [%s], privilege mode authorization failed", req.ProxyName)
 			log.Warn(info)
+			log.Debug("PrivilegeKey [%s] and get [%s]", privilegeKey, req.PrivilegeKey)
 			return
 		}
 	} else {
@@ -241,6 +242,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		} else if req.AuthKey != authKey {
 			info = fmt.Sprintf("ProxyName [%s], authorization failed", req.ProxyName)
 			log.Warn(info)
+			log.Debug("AuthKey [%s] and get [%s]", authKey, req.AuthKey)
 			return
 		}
 	}
