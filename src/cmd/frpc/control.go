@@ -148,6 +148,7 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 		UseGzip:           cli.UseGzip,
 		PrivilegeMode:     cli.PrivilegeMode,
 		ProxyType:         cli.Type,
+		PoolCount:         cli.PoolCount,
 		HostHeaderRewrite: cli.HostHeaderRewrite,
 		Timestamp:         nowTime,
 	}
