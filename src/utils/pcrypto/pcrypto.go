@@ -20,9 +20,10 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 )
 
@@ -33,35 +34,47 @@ type Pcrypto struct {
 
 func (pc *Pcrypto) Init(key []byte) error {
 	var err error
-	pc.pkey = pKCS7Padding(key, aes.BlockSize)
+	pc.pkey = pkKeyPadding(key)
 	pc.paes, err = aes.NewCipher(pc.pkey)
 	return err
 }
 
 func (pc *Pcrypto) Encrypt(src []byte) ([]byte, error) {
 	// aes
-	src = pKCS7Padding(src, aes.BlockSize)
-	blockMode := cipher.NewCBCEncrypter(pc.paes, pc.pkey)
-	crypted := make([]byte, len(src))
-	blockMode.CryptBlocks(crypted, src)
-	return crypted, nil
+	src = pKCS5Padding(src, aes.BlockSize)
+	ciphertext := make([]byte, aes.BlockSize+len(src))
+
+	// The IV needs to be unique, but not secure. Therefore it's common to
+	// include it at the beginning of the ciphertext.
+	iv := ciphertext[:aes.BlockSize]
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		return nil, err
+	}
+	blockMode := cipher.NewCBCEncrypter(pc.paes, iv)
+	blockMode.CryptBlocks(ciphertext[aes.BlockSize:], src)
+	return ciphertext, nil
 }
 
 func (pc *Pcrypto) Decrypt(str []byte) ([]byte, error) {
 	// aes
-	decryptText, err := hex.DecodeString(fmt.Sprintf("%x", str))
+	ciphertext, err := hex.DecodeString(fmt.Sprintf("%x", str))
 	if err != nil {
 		return nil, err
 	}
 
-	if len(decryptText)%aes.BlockSize != 0 {
-		return nil, errors.New("crypto/cipher: ciphertext is not a multiple of the block size")
+	if len(ciphertext) < aes.BlockSize {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+	iv := ciphertext[:aes.BlockSize]
+	ciphertext = ciphertext[aes.BlockSize:]
+
+	if len(ciphertext)%aes.BlockSize != 0 {
+		return nil, fmt.Errorf("crypto/cipher: ciphertext is not a multiple of the block size")
 	}
 
-	blockMode := cipher.NewCBCDecrypter(pc.paes, pc.pkey)
-
-	blockMode.CryptBlocks(decryptText, decryptText)
-	return pKCS7UnPadding(decryptText), nil
+	blockMode := cipher.NewCBCDecrypter(pc.paes, iv)
+	blockMode.CryptBlocks(ciphertext, ciphertext)
+	return pKCS5UnPadding(ciphertext), nil
 }
 
 func (pc *Pcrypto) Compression(src []byte) ([]byte, error) {
@@ -87,13 +100,32 @@ func (pc *Pcrypto) Decompression(src []byte) ([]byte, error) {
 	return str, nil
 }
 
-func pKCS7Padding(ciphertext []byte, blockSize int) []byte {
+func pkKeyPadding(key []byte) []byte {
+	l := len(key)
+	if l == 16 || l == 24 || l == 32 {
+		return key
+	}
+	if l < 16 {
+		return append(key, bytes.Repeat([]byte{byte(0)}, 16-l)...)
+	} else if l < 24 {
+		return append(key, bytes.Repeat([]byte{byte(0)}, 24-l)...)
+	} else if l < 32 {
+		return append(key, bytes.Repeat([]byte{byte(0)}, 32-l)...)
+	} else {
+		md5Ctx := md5.New()
+		md5Ctx.Write(key)
+		md5Str := md5Ctx.Sum(nil)
+		return []byte(hex.EncodeToString(md5Str))
+	}
+}
+
+func pKCS5Padding(ciphertext []byte, blockSize int) []byte {
 	padding := blockSize - len(ciphertext)%blockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(ciphertext, padtext...)
 }
 
-func pKCS7UnPadding(origData []byte) []byte {
+func pKCS5UnPadding(origData []byte) []byte {
 	length := len(origData)
 	unpadding := int(origData[length-1])
 	return origData[:(length - unpadding)]

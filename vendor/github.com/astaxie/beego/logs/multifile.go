@@ -112,5 +112,5 @@ func newFilesWriter() Logger {
 }
 
 func init() {
-	Register("multifile", newFilesWriter)
+	Register(AdapterMultiFile, newFilesWriter)
 }

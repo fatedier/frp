@@ -113,5 +113,5 @@ func (c *connWriter) needToConnectOnMsg() bool {
 }
 
 func init() {
-	Register("conn", NewConn)
+	Register(AdapterConn, NewConn)
 }
