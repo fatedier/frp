@@ -37,7 +37,7 @@ type ProxyClient struct {
 }
 
 func (p *ProxyClient) GetLocalConn() (c *conn.Conn, err error) {
-	c, err = conn.ConnectServer(p.LocalIp, p.LocalPort)
+	c, err = conn.ConnectServer(fmt.Sprintf("%s:%d", p.LocalIp, p.LocalPort))
 	if err != nil {
 		log.Error("ProxyName [%s], connect to local port error, %v", p.Name, err)
 	}
@@ -51,7 +51,11 @@ func (p *ProxyClient) GetRemoteConn(addr string, port int64) (c *conn.Conn, err 
 		}
 	}()
 
-	c, err = conn.ConnectServer(addr, port)
+	if HttpProxy == "" {
+		c, err = conn.ConnectServer(fmt.Sprintf("%s:%d", addr, port))
+	} else {
+		c, err = conn.ConnectServerByHttpProxy(HttpProxy, fmt.Sprintf("%s:%d", addr, port))
+	}
 	if err != nil {
 		log.Error("ProxyName [%s], connect to server [%s:%d] error, %v", p.Name, addr, port, err)
 		return

@@ -150,9 +150,12 @@ Configure a port for dashboard to enable this feature:
 ```ini
 [common]
 dashboard_port = 7500
+# dashboard's username and password are both optional，if not set, default is admin.
+dashboard_username = abc
+dashboard_password = abc
 ```
 
-Then visit `http://[server_addr]:7500` to see dashboard.
+Then visit `http://[server_addr]:7500` to see dashboard, default username and password are both `admin`.
 
 ![dashboard](/doc/pic/dashboard.png)
 
@@ -327,7 +330,9 @@ If `host_header_rewrite` is specified, the Host header will be rewritten to matc
 
 Interested in getting involved? We would like to help you!
 
-* Take a look at our [issues list](https://github.com/fatedier/frp/issues) and consider submitting a patch
+* Take a look at our [issues list](https://github.com/fatedier/frp/issues) and consider sending a Pull Request to **dev branch**.
+* If you want to add a new feature, please create an issue first to describe the new feature, as well as the implementation approach. Once a proposal is accepted, create an implementation of the new features and submit it as a pull request.
+* Sorry for my poor english and improvement for this document is welcome even some typo fix.
 * If you have some wanderful ideas, send email to fatedier@gmail.com.
 
 **Note: We prefer you to give your advise in [issues](https://github.com/fatedier/frp/issues), so others with a same question can search it quickly and we don't need to answer them repeatly.**
@@ -348,5 +353,8 @@ Donate money by [paypal](https://www.paypal.me/fatedier) to my account **fatedie
 
 * [fatedier](https://github.com/fatedier)
 * [Hurricanezwf](https://github.com/Hurricanezwf)
-* [vashstorm](https://github.com/vashstorm)
-* [maodanp](https://github.com/maodanp)
+* [Pan Hao](https://github.com/vashstorm)
+* [Danping Mao](https://github.com/maodanp)
+* [Eric Larssen](https://github.com/ericlarssen)
+* [Damon Zhao](https://github.com/se77en)
+* [Manfred Touron](https://github.com/moul)

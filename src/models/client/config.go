@@ -16,6 +16,7 @@ package client
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -26,6 +27,7 @@ import (
 var (
 	ServerAddr        string = "0.0.0.0"
 	ServerPort        int64  = 7000
+	HttpProxy         string = ""
 	LogFile           string = "console"
 	LogWay            string = "console"
 	LogLevel          string = "info"
@@ -55,6 +57,14 @@ func LoadConf(confFile string) (err error) {
 	tmpStr, ok = conf.Get("common", "server_port")
 	if ok {
 		ServerPort, _ = strconv.ParseInt(tmpStr, 10, 64)
+	}
+
+	tmpStr, ok = conf.Get("common", "http_proxy")
+	if ok {
+		HttpProxy = tmpStr
+	} else {
+		// get http_proxy from env
+		HttpProxy = os.Getenv("http_proxy")
 	}
 
 	tmpStr, ok = conf.Get("common", "log_file")

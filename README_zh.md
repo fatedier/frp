@@ -24,7 +24,7 @@ frp 是一个高性能的反向代理应用，可以帮助您轻松地进行内�
   * [连接池](#连接池)
   * [修改 Host Header](#修改-host-header)
 * [开发计划](#开发计划)
-* [贡献代码](#贡献代码)
+* [为 frp 做贡献](#为-frp-做贡献)
 * [捐助](#捐助)
 * [贡献者](#贡献者)
 
@@ -147,9 +147,12 @@ frp 目前正在前期开发阶段，master 分支用于发布稳定版本，dev
 ```ini
 [common]
 dashboard_port = 7500
+# dashboard 用户名密码可选，默认都为 admin
+dashboard_username = abc
+dashboard_password = abc
 ```
 
-打开浏览器通过 `http://[server_addr]:7500` 访问 dashboard 界面。
+打开浏览器通过 `http://[server_addr]:7500` 访问 dashboard 界面，用户名密码默认为 `admin`。
 
 ![dashboard](/doc/pic/dashboard.png)
 
@@ -330,12 +333,16 @@ host_header_rewrite = dev.yourdomain.com
 * frpc 完全控制模式，通过 dashboard 对 frpc 进行在线操作。
 * 支持 udp 打洞的方式，提供两边内网机器直接通信，流量不经过服务器转发。
 
-## 贡献代码
+## 为 frp 做贡献
 
-如果您对这个项目感兴趣，我们非常欢迎您参与其中！
+frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进步贡献力量。
 
-* 如果您需要提交问题，可以通过 [issues](https://github.com/fatedier/frp/issues) 来完成。
-* 如果您有新的功能需求，可以反馈至 fatedier@gmail.com 共同讨论。
+* 在使用过程中出现任何问题，可以通过 [issues](https://github.com/fatedier/frp/issues) 来反馈。
+* Bug 的修复可以直接提交 Pull Request 到 dev 分支。
+* 如果是增加新的功能特性，请先创建一个 issue 并做简单描述以及大致的实现方法，提议被采纳后，就可以创建一个实现新特性的 Pull Request。
+* 欢迎对说明文档做出改善，帮助更多的人使用 frp，特别是英文文档。
+* 贡献代码请提交 PR 至 dev 分支，master 分支仅用于发布稳定可用版本。
+* 如果你有任何其他方面的问题，欢迎反馈至 fatedier@gmail.com 共同交流。
 
 **提醒：和项目相关的问题最好在 [issues](https://github.com/fatedier/frp/issues) 中反馈，这样方便其他有类似问题的人可以快速查找解决方法，并且也避免了我们重复回答一些问题。**
 
@@ -355,5 +362,8 @@ host_header_rewrite = dev.yourdomain.com
 
 * [fatedier](https://github.com/fatedier)
 * [Hurricanezwf](https://github.com/Hurricanezwf)
-* [vashstorm](https://github.com/vashstorm)
-* [maodanp](https://github.com/maodanp)
+* [Pan Hao](https://github.com/vashstorm)
+* [Danping Mao](https://github.com/maodanp)
+* [Eric Larssen](https://github.com/ericlarssen)
+* [Damon Zhao](https://github.com/se77en)
+* [Manfred Touron](https://github.com/moul)

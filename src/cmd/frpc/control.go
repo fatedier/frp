@@ -130,7 +130,11 @@ func msgSender(cli *client.ProxyClient, c *conn.Conn, msgSendChan chan interface
 }
 
 func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
-	c, err = conn.ConnectServer(client.ServerAddr, client.ServerPort)
+	if client.HttpProxy == "" {
+		c, err = conn.ConnectServer(fmt.Sprintf("%s:%d", client.ServerAddr, client.ServerPort))
+	} else {
+		c, err = conn.ConnectServerByHttpProxy(client.HttpProxy, fmt.Sprintf("%s:%d", client.ServerAddr, client.ServerPort))
+	}
 	if err != nil {
 		log.Error("ProxyName [%s], connect to server [%s:%d] error, %v", cli.Name, client.ServerAddr, client.ServerPort, err)
 		return
@@ -144,6 +148,7 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 		UseGzip:           cli.UseGzip,
 		PrivilegeMode:     cli.PrivilegeMode,
 		ProxyType:         cli.Type,
+		PoolCount:         cli.PoolCount,
 		HostHeaderRewrite: cli.HostHeaderRewrite,
 		Timestamp:         nowTime,
 	}
