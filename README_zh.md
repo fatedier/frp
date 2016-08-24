@@ -25,6 +25,7 @@ frp 是一个高性能的反向代理应用，可以帮助您轻松地进行内�
   * [修改 Host Header](#修改-host-header)
 * [开发计划](#开发计划)
 * [贡献代码](#贡献代码)
+* [捐助](#捐助)
 * [贡献者](#贡献者)
 
 ## frp 的作用
@@ -337,6 +338,18 @@ host_header_rewrite = dev.yourdomain.com
 * 如果您有新的功能需求，可以反馈至 fatedier@gmail.com 共同讨论。
 
 **提醒：和项目相关的问题最好在 [issues](https://github.com/fatedier/frp/issues) 中反馈，这样方便其他有类似问题的人可以快速查找解决方法，并且也避免了我们重复回答一些问题。**
+
+## 捐助
+
+如果您觉得 frp 对你有帮助，欢迎给予我们一定的捐助来维持项目的长期发展。
+
+### 支付宝扫码捐赠
+
+![donate-alipay](/doc/pic/donate-alipay.png)
+
+### Paypal 捐赠
+
+海外用户推荐通过 [Paypal](https://www.paypal.me/fatedier) 向我的账户 **fatedier@gmail.com** 进行捐赠。
 
 ## 贡献者
 
