@@ -38,7 +38,7 @@ var usage string = `frps is the server of frp
 
 Usage: 
     frps [-c config_file] [-L log_file] [--log-level=<log_level>] [--addr=<bind_addr>]
-    frps --reload
+    frps [-c config_file] --reload
     frps -h | --help
     frps -v | --version
 
