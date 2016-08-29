@@ -128,7 +128,6 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 
 	// if authFunc is exist and userName/password is set
 	// verify user access
-	fmt.Printf("reqInfo: %+v\n", reqInfoMap)
 	if l.mux.authFunc != nil &&
 		l.userName != "" && l.passWord != "" {
 		bAccess, err := l.mux.authFunc(c, l.userName, l.passWord, reqInfoMap["Authorization"])
