@@ -24,4 +24,6 @@ type BaseConf struct {
 	PrivilegeToken    string
 	PoolCount         int64
 	HostHeaderRewrite string
+	HttpUserName      string
+	HttpPassWord      string
 }

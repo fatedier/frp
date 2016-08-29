@@ -1,5 +1,3 @@
-// Copyright 2016 fatedier, fatedier@gmail.com
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -26,23 +24,26 @@ import (
 	"github.com/fatedier/frp/src/utils/conn"
 )
 
-type muxFunc func(*conn.Conn) (net.Conn, string, error)
+type muxFunc func(*conn.Conn) (net.Conn, map[string]string, error)
+type httpAuthFunc func(*conn.Conn, string, string, string) (bool, error)
 type hostRewriteFunc func(*conn.Conn, string) (net.Conn, error)
 
 type VhostMuxer struct {
 	listener    *conn.Listener
 	timeout     time.Duration
 	vhostFunc   muxFunc
+	authFunc    httpAuthFunc
 	rewriteFunc hostRewriteFunc
 	registryMap map[string]*Listener
 	mutex       sync.RWMutex
 }
 
-func NewVhostMuxer(listener *conn.Listener, vhostFunc muxFunc, rewriteFunc hostRewriteFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
+func NewVhostMuxer(listener *conn.Listener, vhostFunc muxFunc, authFunc httpAuthFunc, rewriteFunc hostRewriteFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
 	mux = &VhostMuxer{
 		listener:    listener,
 		timeout:     timeout,
 		vhostFunc:   vhostFunc,
+		authFunc:    authFunc,
 		rewriteFunc: rewriteFunc,
 		registryMap: make(map[string]*Listener),
 	}
@@ -51,7 +52,7 @@ func NewVhostMuxer(listener *conn.Listener, vhostFunc muxFunc, rewriteFunc hostR
 }
 
 // listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil, then rewrite the host header to rewriteHost
-func (v *VhostMuxer) Listen(name string, rewriteHost string) (l *Listener, err error) {
+func (v *VhostMuxer) Listen(name string, rewriteHost, userName, passWord string) (l *Listener, err error) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 	if _, exist := v.registryMap[name]; exist {
@@ -61,6 +62,8 @@ func (v *VhostMuxer) Listen(name string, rewriteHost string) (l *Listener, err e
 	l = &Listener{
 		name:        name,
 		rewriteHost: rewriteHost,
+		userName:    userName,
+		passWord:    passWord,
 		mux:         v,
 		accept:      make(chan *conn.Conn),
 	}
@@ -109,18 +112,32 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 		return
 	}
 
-	sConn, name, err := v.vhostFunc(c)
+	sConn, reqInfoMap, err := v.vhostFunc(c)
 	if err != nil {
 		c.Close()
 		return
 	}
 
-	name = strings.ToLower(name)
+	name := strings.ToLower(reqInfoMap["Host"])
 	// get listener by hostname
 	l, ok := v.getListener(name)
 	if !ok {
 		c.Close()
 		return
+	}
+
+	// if authFunc is exist and userName/password is set
+	// verify user access
+	fmt.Printf("reqInfo: %+v\n", reqInfoMap)
+	if l.mux.authFunc != nil &&
+		l.userName != "" && l.passWord != "" {
+		bAccess, err := l.mux.authFunc(c, l.userName, l.passWord, reqInfoMap["Authorization"])
+		if bAccess == false || err != nil {
+			res := noAuthResponse()
+			res.Write(c.TcpConn)
+			c.Close()
+			return
+		}
 	}
 
 	if err = sConn.SetDeadline(time.Time{}); err != nil {
@@ -135,6 +152,8 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 type Listener struct {
 	name        string
 	rewriteHost string
+	userName    string
+	passWord    string
 	mux         *VhostMuxer // for closing VhostMuxer
 	accept      chan *conn.Conn
 }
@@ -154,6 +173,7 @@ func (l *Listener) Accept() (*conn.Conn, error) {
 		}
 		conn.SetTcpConn(sConn)
 	}
+
 	return conn, nil
 }
 

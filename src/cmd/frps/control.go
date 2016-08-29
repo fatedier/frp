@@ -287,6 +287,8 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		s.UseEncryption = req.UseEncryption
 		s.UseGzip = req.UseGzip
 		s.HostHeaderRewrite = req.HostHeaderRewrite
+		s.HttpUserName = req.HttpUserName
+		s.HttpPassWord = req.HttpPassWord
 		if req.PoolCount > server.MaxPoolCount {
 			s.PoolCount = server.MaxPoolCount
 		} else if req.PoolCount < 0 {

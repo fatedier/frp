@@ -156,6 +156,16 @@ func LoadConf(confFile string) (err error) {
 				if ok {
 					proxyClient.HostHeaderRewrite = tmpStr
 				}
+				//http_username
+				tmpStr, ok = section["http_username"]
+				if ok {
+					proxyClient.HttpUserName = tmpStr
+				}
+				//http_password
+				tmpStr, ok = section["http_password"]
+				if ok {
+					proxyClient.HttpPassWord = tmpStr
+				}
 			}
 
 			// privilege_mode
