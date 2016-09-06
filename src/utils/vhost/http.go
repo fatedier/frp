@@ -17,6 +17,7 @@ package vhost
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -33,21 +34,29 @@ type HttpMuxer struct {
 	*VhostMuxer
 }
 
-func GetHttpHostname(c *conn.Conn) (_ net.Conn, routerName string, err error) {
+func GetHttpRequestInfo(c *conn.Conn) (_ net.Conn, _ map[string]string, err error) {
+	reqInfoMap := make(map[string]string, 0)
 	sc, rd := newShareConn(c.TcpConn)
 
 	request, err := http.ReadRequest(bufio.NewReader(rd))
 	if err != nil {
-		return sc, "", err
+		return sc, reqInfoMap, err
 	}
+	// hostName
 	tmpArr := strings.Split(request.Host, ":")
-	routerName = tmpArr[0]
+	reqInfoMap["Host"] = tmpArr[0]
+
+	// Authorization
+	authStr := request.Header.Get("Authorization")
+	if authStr != "" {
+		reqInfoMap["Authorization"] = authStr
+	}
 	request.Body.Close()
-	return sc, routerName, nil
+	return sc, reqInfoMap, nil
 }
 
 func NewHttpMuxer(listener *conn.Listener, timeout time.Duration) (*HttpMuxer, error) {
-	mux, err := NewVhostMuxer(listener, GetHttpHostname, HttpHostNameRewrite, timeout)
+	mux, err := NewVhostMuxer(listener, GetHttpRequestInfo, HttpAuthFunc, HttpHostNameRewrite, timeout)
 	return &HttpMuxer{mux}, err
 }
 
@@ -168,4 +177,39 @@ func changeHostName(buff *bytes.Buffer, rewriteHost string) (_ []byte, err error
 	}
 	retBuf.Write(peek)
 	return retBuf.Bytes(), err
+}
+
+func HttpAuthFunc(c *conn.Conn, userName, passWord, authorization string) (bAccess bool, err error) {
+	s := strings.SplitN(authorization, " ", 2)
+	if len(s) != 2 {
+		res := noAuthResponse()
+		res.Write(c.TcpConn)
+		return
+	}
+	b, err := base64.StdEncoding.DecodeString(s[1])
+	if err != nil {
+		return
+	}
+	pair := strings.SplitN(string(b), ":", 2)
+	if len(pair) != 2 {
+		return
+	}
+	if pair[0] != userName || pair[1] != passWord {
+		return
+	}
+	return true, nil
+}
+
+func noAuthResponse() *http.Response {
+	header := make(map[string][]string)
+	header["WWW-Authenticate"] = []string{`Basic realm="Restricted"`}
+	res := &http.Response{
+		Status:     "401 Not authorized",
+		StatusCode: 401,
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Header:     header,
+	}
+	return res
 }

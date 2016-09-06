@@ -35,6 +35,8 @@ type ControlReq struct {
 	RemotePort        int64    `json:"remote_port"`
 	CustomDomains     []string `json:"custom_domains, omitempty"`
 	HostHeaderRewrite string   `json:"host_header_rewrite"`
+	HttpUserName      string   `json:"http_username"`
+	HttpPassWord      string   `json:"http_password"`
 	Timestamp         int64    `json:"timestamp"`
 }
 
