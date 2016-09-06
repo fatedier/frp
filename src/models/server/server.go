@@ -90,8 +90,7 @@ func (p *ProxyServer) Init() {
 
 func (p *ProxyServer) Compare(p2 *ProxyServer) bool {
 	if p.Name != p2.Name || p.AuthToken != p2.AuthToken || p.Type != p2.Type ||
-		p.BindAddr != p2.BindAddr || p.ListenPort != p2.ListenPort || p.HostHeaderRewrite != p2.HostHeaderRewrite ||
-		p.HttpUserName != p2.HttpUserName || p.HttpPassWord != p2.HttpPassWord {
+		p.BindAddr != p2.BindAddr || p.ListenPort != p2.ListenPort || p.HostHeaderRewrite != p2.HostHeaderRewrite {
 		return false
 	}
 	if len(p.CustomDomains) != len(p2.CustomDomains) {
