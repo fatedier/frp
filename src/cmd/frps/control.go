@@ -95,7 +95,7 @@ func controlWorker(c *conn.Conn) {
 
 	s, ok := server.ProxyServers[cliReq.ProxyName]
 	if !ok {
-		log.Warn("ProxyName [%s], is not exist now", cliReq.ProxyName)
+		log.Warn("ProxyName [%s] does not exist now", cliReq.ProxyName)
 		return
 	}
 
