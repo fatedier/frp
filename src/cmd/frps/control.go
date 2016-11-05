@@ -221,8 +221,8 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 	nowTime := time.Now().Unix()
 	if req.PrivilegeMode {
 		privilegeKey := pcrypto.GetAuthKey(req.ProxyName + server.PrivilegeToken + fmt.Sprintf("%d", req.Timestamp))
-		// privilegeKey avaiable in 15 minutes
-		if nowTime-req.Timestamp > 15*60 {
+		// privilegeKey unavaiable after server.CtrlConnTimeout seconds
+		if server.CtrlConnTimeout != 0 && nowTime-req.Timestamp > server.CtrlConnTimeout {
 			info = fmt.Sprintf("ProxyName [%s], privilege mode authorization timeout", req.ProxyName)
 			log.Warn(info)
 			return
@@ -234,8 +234,8 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		}
 	} else {
 		authKey := pcrypto.GetAuthKey(req.ProxyName + s.AuthToken + fmt.Sprintf("%d", req.Timestamp))
-		// authKey avaiable in 15 minutes
-		if nowTime-req.Timestamp > 15*60 {
+		// privilegeKey unavaiable after server.CtrlConnTimeout seconds
+		if server.CtrlConnTimeout != 0 && nowTime-req.Timestamp > server.CtrlConnTimeout {
 			info = fmt.Sprintf("ProxyName [%s], authorization timeout", req.ProxyName)
 			log.Warn(info)
 			return
@@ -289,6 +289,10 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		s.HostHeaderRewrite = req.HostHeaderRewrite
 		s.HttpUserName = req.HttpUserName
 		s.HttpPassWord = req.HttpPassWord
+		// package URL
+		if req.SubDomain != "" {
+			s.SubDomain = req.SubDomain + "." + server.Domain
+		}
 		if req.PoolCount > server.MaxPoolCount {
 			s.PoolCount = server.MaxPoolCount
 		} else if req.PoolCount < 0 {
@@ -302,6 +306,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 			log.Warn(info)
 			return
 		}
+		log.Info("serverProxy: %+v", s)
 
 		// update metric's proxy status
 		metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip, s.PrivilegeMode, s.CustomDomains, s.ListenPort)

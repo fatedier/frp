@@ -45,6 +45,8 @@ var (
 	LogMaxDays        int64  = 3
 	PrivilegeMode     bool   = false
 	PrivilegeToken    string = ""
+	CtrlConnTimeout   int64  = 10
+	Domain            string = ""
 
 	// if PrivilegeAllowPorts is not nil, tcp proxies which remote port exist in this map can be connected
 	PrivilegeAllowPorts map[int64]struct{}
@@ -222,6 +224,16 @@ func loadCommonConf(confFile string) error {
 			MaxPoolCount = v
 		}
 	}
+	tmpStr, ok = conf.Get("common", "conn_timeout")
+	if ok {
+		v, err := strconv.ParseInt(tmpStr, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Parse conf error: conn_timeout is incorrect")
+		} else {
+			CtrlConnTimeout = v
+		}
+	}
+	Domain, ok = conf.Get("common", "domain")
 	return nil
 }
 
