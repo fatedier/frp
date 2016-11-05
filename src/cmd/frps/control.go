@@ -306,7 +306,6 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 			log.Warn(info)
 			return
 		}
-		log.Info("serverProxy: %+v", s)
 
 		// update metric's proxy status
 		metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip, s.PrivilegeMode, s.CustomDomains, s.ListenPort)
