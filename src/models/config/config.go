@@ -26,4 +26,5 @@ type BaseConf struct {
 	HostHeaderRewrite string
 	HttpUserName      string
 	HttpPassWord      string
+	SubDomain         string
 }

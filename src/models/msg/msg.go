@@ -37,6 +37,7 @@ type ControlReq struct {
 	HostHeaderRewrite string   `json:"host_header_rewrite"`
 	HttpUserName      string   `json:"http_username"`
 	HttpPassWord      string   `json:"http_password"`
+	SubDomain         string   `json:"subdomain"`
 	Timestamp         int64    `json:"timestamp"`
 }
 

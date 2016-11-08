@@ -152,6 +152,7 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 		HostHeaderRewrite: cli.HostHeaderRewrite,
 		HttpUserName:      cli.HttpUserName,
 		HttpPassWord:      cli.HttpPassWord,
+		SubDomain:         cli.SubDomain,
 		Timestamp:         nowTime,
 	}
 	if cli.PrivilegeMode {

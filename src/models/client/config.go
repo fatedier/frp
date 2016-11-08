@@ -166,6 +166,11 @@ func LoadConf(confFile string) (err error) {
 				if ok {
 					proxyClient.HttpPassWord = tmpStr
 				}
+				// subdomain
+				tmpStr, ok = section["subdomain"]
+				if ok {
+					proxyClient.SubDomain = tmpStr
+				}
 			}
 
 			// privilege_mode
@@ -219,6 +224,9 @@ func LoadConf(confFile string) (err error) {
 					} else {
 						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyClient.Name)
 					}
+
+					// subdomain
+					proxyClient.SubDomain, ok = section["subdomain"]
 				} else if proxyClient.Type == "https" {
 					// custom_domains
 					domainStr, ok := section["custom_domains"]
