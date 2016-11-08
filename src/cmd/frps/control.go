@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/fatedier/frp/src/models/consts"
@@ -221,8 +222,8 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 	nowTime := time.Now().Unix()
 	if req.PrivilegeMode {
 		privilegeKey := pcrypto.GetAuthKey(req.ProxyName + server.PrivilegeToken + fmt.Sprintf("%d", req.Timestamp))
-		// privilegeKey unavaiable after server.CtrlConnTimeout seconds
-		if server.CtrlConnTimeout != 0 && nowTime-req.Timestamp > server.CtrlConnTimeout {
+		// privilegeKey unavaiable after server.AuthTimeout minutes
+		if server.AuthTimeout != 0 && nowTime-req.Timestamp > server.AuthTimeout {
 			info = fmt.Sprintf("ProxyName [%s], privilege mode authorization timeout", req.ProxyName)
 			log.Warn(info)
 			return
@@ -234,8 +235,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		}
 	} else {
 		authKey := pcrypto.GetAuthKey(req.ProxyName + s.AuthToken + fmt.Sprintf("%d", req.Timestamp))
-		// privilegeKey unavaiable after server.CtrlConnTimeout seconds
-		if server.CtrlConnTimeout != 0 && nowTime-req.Timestamp > server.CtrlConnTimeout {
+		if server.AuthTimeout != 0 && nowTime-req.Timestamp > server.AuthTimeout {
 			info = fmt.Sprintf("ProxyName [%s], authorization timeout", req.ProxyName)
 			log.Warn(info)
 			return
@@ -291,6 +291,11 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		s.HttpPassWord = req.HttpPassWord
 		// package URL
 		if req.SubDomain != "" {
+			if strings.Contains(req.SubDomain, ".") || strings.Contains(req.SubDomain, "*") {
+				info = fmt.Sprintf("ProxyName [%s], type [%s] not support when subdomain is not set", req.ProxyName, req.Type)
+				log.Warn(info)
+				return
+			}
 			s.SubDomain = req.SubDomain + "." + server.Domain
 		}
 		if req.PoolCount > server.MaxPoolCount {
