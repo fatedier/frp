@@ -41,13 +41,20 @@ func GetHttpHostname(c *conn.Conn) (_ net.Conn, routerName string, err error) {
 		return sc, "", err
 	}
 	tmpArr := strings.Split(request.Host, ":")
-	routerName = tmpArr[0]
+	//routerName = tmpArr[0]
+	routerName = tmpArr[0] + ":" + request.URL.Path
 	request.Body.Close()
 	return sc, routerName, nil
 }
 
 func NewHttpMuxer(listener *conn.Listener, timeout time.Duration) (*HttpMuxer, error) {
 	mux, err := NewVhostMuxer(listener, GetHttpHostname, HttpHostNameRewrite, timeout)
+	return &HttpMuxer{mux}, err
+}
+
+func NewHttpMuxerWithRouter(listener *conn.Listener, timeout time.Duration, r *VhostRouters) (*HttpMuxer, error) {
+	mux, err := NewVhostMuxer(listener, GetHttpHostname, HttpHostNameRewrite, timeout)
+	mux.routers = r
 	return &HttpMuxer{mux}, err
 }
 

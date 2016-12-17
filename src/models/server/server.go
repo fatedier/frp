@@ -37,6 +37,7 @@ type ProxyServer struct {
 	BindAddr      string
 	ListenPort    int64
 	CustomDomains []string
+	Locations     []string
 
 	Status       int64
 	CtlConn      *conn.Conn      // control connection with frpc
@@ -96,6 +97,14 @@ func (p *ProxyServer) Compare(p2 *ProxyServer) bool {
 	}
 	for i, _ := range p.CustomDomains {
 		if p.CustomDomains[i] != p2.CustomDomains[i] {
+			return false
+		}
+	}
+	if len(p.Locations) != len(p2.Locations) {
+		return false
+	}
+	for i, _ := range p.Locations {
+		if p.Locations[i] != p2.Locations[i] {
 			return false
 		}
 	}

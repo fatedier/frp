@@ -54,6 +54,8 @@ var (
 	VhostHttpsMuxer   *vhost.HttpsMuxer
 	ProxyServers      map[string]*ProxyServer = make(map[string]*ProxyServer) // all proxy servers info and resources
 	ProxyServersMutex sync.RWMutex
+
+	VhostHttpRouters *vhost.VhostRouters
 )
 
 func LoadConf(confFile string) (err error) {
@@ -271,6 +273,16 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 					}
 				} else {
 					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyServer.Name)
+				}
+
+				//location
+				locStr, loc_ok := section["custom_location"]
+				if loc_ok {
+					if VhostHttpRouters == nil {
+						VhostHttpRouters = vhost.NewVhostRouters()
+					}
+					proxyServer.Locations = strings.Split(locStr, ",")
+					VhostHttpRouters.Add(proxyServer.Name, proxyServer.CustomDomains, proxyServer.Locations)
 				}
 			} else if proxyServer.Type == "https" {
 				// for https

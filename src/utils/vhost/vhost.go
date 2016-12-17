@@ -35,6 +35,7 @@ type VhostMuxer struct {
 	vhostFunc   muxFunc
 	rewriteFunc hostRewriteFunc
 	registryMap map[string]*Listener
+	routers     *VhostRouters
 	mutex       sync.RWMutex
 }
 
@@ -71,6 +72,16 @@ func (v *VhostMuxer) Listen(name string, rewriteHost string) (l *Listener, err e
 func (v *VhostMuxer) getListener(name string) (l *Listener, exist bool) {
 	v.mutex.RLock()
 	defer v.mutex.RUnlock()
+
+	if v.routers != nil {
+		tmparray := strings.SplitN(name, ":", 2)
+		if len(tmparray) == 2 {
+			newname, found := v.routers.getName(tmparray[0], tmparray[1])
+			if found {
+				name = newname
+			}
+		}
+	}
 	l, exist = v.registryMap[name]
 	return l, exist
 }
