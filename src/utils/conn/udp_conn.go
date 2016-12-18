@@ -12,30 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package consts
+package conn
 
-// server status
-const (
-	Idle = iota
-	Working
-	Closed
+import (
+	"fmt"
+	"net"
 )
 
-var (
-	StatusStr = []string{
-		"idle",
-		"working",
-		"closed",
+func ListenUDP(bindAddr string, bindPort int64) (conn *net.UDPConn, err error) {
+	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", bindAddr, bindPort))
+	if err != nil {
+		return conn, err
 	}
-)
-
-// msg type
-const (
-	NewCtlConn = iota
-	NewWorkConn
-	NoticeUserConn
-	NewCtlConnRes
-	HeartbeatReq
-	HeartbeatRes
-	NewWorkConnUdp
-)
+	conn, err = net.ListenUDP("udp", udpAddr)
+	return
+}

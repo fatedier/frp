@@ -53,9 +53,9 @@ func Join(c1 *conn.Conn, c2 *conn.Conn) {
 }
 
 // join two connections and do some operations
-func JoinMore(c1 *conn.Conn, c2 *conn.Conn, conf config.BaseConf, needRecord bool) {
+func JoinMore(c1 io.ReadWriteCloser, c2 io.ReadWriteCloser, conf config.BaseConf, needRecord bool) {
 	var wait sync.WaitGroup
-	encryptPipe := func(from *conn.Conn, to *conn.Conn) {
+	encryptPipe := func(from io.ReadCloser, to io.WriteCloser) {
 		defer from.Close()
 		defer to.Close()
 		defer wait.Done()
@@ -64,7 +64,7 @@ func JoinMore(c1 *conn.Conn, c2 *conn.Conn, conf config.BaseConf, needRecord boo
 		pipeEncrypt(from, to, conf, needRecord)
 	}
 
-	decryptPipe := func(to *conn.Conn, from *conn.Conn) {
+	decryptPipe := func(to io.ReadCloser, from io.WriteCloser) {
 		defer from.Close()
 		defer to.Close()
 		defer wait.Done()
@@ -109,7 +109,7 @@ func unpkgMsg(data []byte) (int, []byte, []byte) {
 }
 
 // decrypt msg from reader, then write into writer
-func pipeDecrypt(r *conn.Conn, w *conn.Conn, conf config.BaseConf, needRecord bool) (err error) {
+func pipeDecrypt(r io.Reader, w io.Writer, conf config.BaseConf, needRecord bool) (err error) {
 	laes := new(pcrypto.Pcrypto)
 	key := conf.AuthToken
 	if conf.PrivilegeMode {
@@ -175,7 +175,7 @@ func pipeDecrypt(r *conn.Conn, w *conn.Conn, conf config.BaseConf, needRecord bo
 			}
 		}
 
-		_, err = w.WriteBytes(res)
+		_, err = w.Write(res)
 		if err != nil {
 			return err
 		}
@@ -192,7 +192,7 @@ func pipeDecrypt(r *conn.Conn, w *conn.Conn, conf config.BaseConf, needRecord bo
 }
 
 // recvive msg from reader, then encrypt msg into writer
-func pipeEncrypt(r *conn.Conn, w *conn.Conn, conf config.BaseConf, needRecord bool) (err error) {
+func pipeEncrypt(r io.Reader, w io.Writer, conf config.BaseConf, needRecord bool) (err error) {
 	laes := new(pcrypto.Pcrypto)
 	key := conf.AuthToken
 	if conf.PrivilegeMode {
@@ -247,7 +247,7 @@ func pipeEncrypt(r *conn.Conn, w *conn.Conn, conf config.BaseConf, needRecord bo
 		}
 
 		res = pkgMsg(res)
-		_, err = w.WriteBytes(res)
+		_, err = w.Write(res)
 		if err != nil {
 			return err
 		}

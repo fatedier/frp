@@ -26,7 +26,7 @@ func TestEchoServer(t *testing.T) {
 	timer := time.Now().Add(time.Duration(5) * time.Second)
 	c.SetDeadline(timer)
 
-	c.Write(ECHO_TEST_STR)
+	c.WriteString(ECHO_TEST_STR)
 
 	buff, err := c.ReadLine()
 	if err != nil {
