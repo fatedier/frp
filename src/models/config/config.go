@@ -32,7 +32,7 @@ type BaseConf struct {
 type ProxyServerConf struct {
 	BaseConf
 	BindAddr      string   `json:"bind_addr"`
-	ListenPort    int64    `json:"bind_port"`
+	ListenPort    int64    `json:"listen_port"`
 	CustomDomains []string `json:"custom_domains"`
 	Locations     []string `json:"custom_locations"`
 
