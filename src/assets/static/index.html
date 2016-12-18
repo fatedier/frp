@@ -223,6 +223,10 @@
         newrow += "<tr class='info_detail'><td colspan='4'>Domains</td><td colspan='4'>" +
           alldata[index].domains[domainindex] + "</td><tr>";
       }
+      for (var locindex in alldata[index].locations) {
+        newrow += "<tr class='info_detail'><td colspan='4'>Locations</td><td colspan='4'>" +
+          alldata[index].locations[locindex] + "</td><tr>";
+      }
       newrow += "<tr class='info_detail'><td colspan='4'>Ip</td><td colspan='4'>" + alldata[index].bind_addr + "</td><tr>";
       newrow += "<tr class='info_detail'><td colspan='4'>Status</td><td colspan='4'>" + alldata[index].stat + "</td><tr>";
       newrow += "<tr class='info_detail'><td colspan='4'>Encryption</td><td colspan='4'>" + alldata[index].use_encryption + "</td><tr>";
