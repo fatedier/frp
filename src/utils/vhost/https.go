@@ -186,5 +186,6 @@ func GetHttpsHostname(c *conn.Conn) (sc net.Conn, _ map[string]string, err error
 		return sc, reqInfoMap, err
 	}
 	reqInfoMap["Host"] = host
+	reqInfoMap["Scheme"] = "https"
 	return sc, reqInfoMap, nil
 }

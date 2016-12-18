@@ -21,7 +21,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatedier/frp/src/models/config"
 	"github.com/fatedier/frp/src/utils/conn"
+	"github.com/fatedier/frp/src/utils/log"
 )
 
 type muxFunc func(*conn.Conn) (net.Conn, map[string]string, error)
@@ -29,71 +31,77 @@ type httpAuthFunc func(*conn.Conn, string, string, string) (bool, error)
 type hostRewriteFunc func(*conn.Conn, string) (net.Conn, error)
 
 type VhostMuxer struct {
-	listener    *conn.Listener
-	timeout     time.Duration
-	vhostFunc   muxFunc
-	authFunc    httpAuthFunc
-	rewriteFunc hostRewriteFunc
-	registryMap map[string]*Listener
-	mutex       sync.RWMutex
+	listener       *conn.Listener
+	timeout        time.Duration
+	vhostFunc      muxFunc
+	authFunc       httpAuthFunc
+	rewriteFunc    hostRewriteFunc
+	registryRouter *VhostRouters
+	mutex          sync.RWMutex
 }
 
 func NewVhostMuxer(listener *conn.Listener, vhostFunc muxFunc, authFunc httpAuthFunc, rewriteFunc hostRewriteFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
 	mux = &VhostMuxer{
-		listener:    listener,
-		timeout:     timeout,
-		vhostFunc:   vhostFunc,
-		authFunc:    authFunc,
-		rewriteFunc: rewriteFunc,
-		registryMap: make(map[string]*Listener),
+		listener:       listener,
+		timeout:        timeout,
+		vhostFunc:      vhostFunc,
+		authFunc:       authFunc,
+		rewriteFunc:    rewriteFunc,
+		registryRouter: NewVhostRouters(),
 	}
 	go mux.run()
 	return mux, nil
 }
 
 // listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil, then rewrite the host header to rewriteHost
-func (v *VhostMuxer) Listen(name string, rewriteHost, userName, passWord string) (l *Listener, err error) {
+func (v *VhostMuxer) Listen(p *config.ProxyServerConf) (ls []*Listener) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
-	if _, exist := v.registryMap[name]; exist {
-		return nil, fmt.Errorf("domain name %s is already bound", name)
-	}
 
-	l = &Listener{
-		name:        name,
-		rewriteHost: rewriteHost,
-		userName:    userName,
-		passWord:    passWord,
-		mux:         v,
-		accept:      make(chan *conn.Conn),
+	ls = make([]*Listener, 0)
+	for _, domain := range p.CustomDomains {
+		l := &Listener{
+			name:        p.Name,
+			domain:      domain,
+			locations:   p.Locations,
+			rewriteHost: p.HostHeaderRewrite,
+			userName:    p.HttpUserName,
+			passWord:    p.HttpPassWord,
+			mux:         v,
+			accept:      make(chan *conn.Conn),
+		}
+		v.registryRouter.add(p.Name, domain, p.Locations, l)
+		ls = append(ls, l)
 	}
-	v.registryMap[name] = l
-	return l, nil
+	return ls
 }
 
 func (v *VhostMuxer) getListener(name string) (l *Listener, exist bool) {
 	v.mutex.RLock()
 	defer v.mutex.RUnlock()
-	// first we check the full hostname
-	// if not exist, then check the wildcard_domain such as *.example.com
-	l, exist = v.registryMap[name]
-	if exist {
-		return l, exist
+
+	// // first we check the full hostname
+	vr, found := v.registryRouter.get(name)
+	if found {
+		return vr.listener, true
 	}
+
+	//if not exist, then check the wildcard_domain such as *.example.com
 	domainSplit := strings.Split(name, ".")
 	if len(domainSplit) < 3 {
+		log.Warn("can't found the router for %s", name)
 		return l, false
 	}
 	domainSplit[0] = "*"
 	name = strings.Join(domainSplit, ".")
-	l, exist = v.registryMap[name]
-	return l, exist
-}
 
-func (v *VhostMuxer) unRegister(name string) {
-	v.mutex.Lock()
-	defer v.mutex.Unlock()
-	delete(v.registryMap, name)
+	vr, found = v.registryRouter.get(name)
+	if !found {
+		log.Warn("can't found the router for %s", name)
+		return
+	}
+
+	return vr.listener, true
 }
 
 func (v *VhostMuxer) run() {
@@ -120,6 +128,9 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 
 	name := strings.ToLower(reqInfoMap["Host"])
 	// get listener by hostname
+	if reqInfoMap["Scheme"] == "http" {
+		name = name + ":" + reqInfoMap["Path"]
+	}
 	l, ok := v.getListener(name)
 	if !ok {
 		c.Close()
@@ -150,6 +161,8 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 
 type Listener struct {
 	name        string
+	domain      string
+	locations   []string
 	rewriteHost string
 	userName    string
 	passWord    string
@@ -177,7 +190,7 @@ func (l *Listener) Accept() (*conn.Conn, error) {
 }
 
 func (l *Listener) Close() error {
-	l.mux.unRegister(l.name)
+	l.mux.registryRouter.del(l)
 	close(l.accept)
 	return nil
 }

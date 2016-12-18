@@ -15,16 +15,26 @@
 package config
 
 type BaseConf struct {
-	Name              string
-	AuthToken         string
-	Type              string
-	UseEncryption     bool
-	UseGzip           bool
-	PrivilegeMode     bool
-	PrivilegeToken    string
-	PoolCount         int64
-	HostHeaderRewrite string
-	HttpUserName      string
-	HttpPassWord      string
-	SubDomain         string
+	Name              string `json:"name"`
+	AuthToken         string `json:"-"`
+	Type              string `json:"type"`
+	UseEncryption     bool   `json:"use_encryption"`
+	UseGzip           bool   `json:"use_gzip"`
+	PrivilegeMode     bool   `json:"privilege_mode"`
+	PrivilegeToken    string `json:"-"`
+	PoolCount         int64  `json:"pool_count"`
+	HostHeaderRewrite string `json:"host_header_rewrite"`
+	HttpUserName      string `json:"http_username"`
+	HttpPassWord      string `json:"-"`
+	SubDomain         string `json:"subdomain"`
+}
+
+type ProxyServerConf struct {
+	BaseConf
+	BindAddr      string   `json:"bind_addr"`
+	ListenPort    int64    `json:"bind_port"`
+	CustomDomains []string `json:"custom_domains"`
+	Locations     []string `json:"custom_locations"`
+
+	Status int64 `json:"status"`
 }
