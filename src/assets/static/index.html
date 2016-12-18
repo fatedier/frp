@@ -63,7 +63,8 @@
         listen_port: "<<< .ListenPort >>>",
         current_conns: <<< .CurrentConns >>> ,
         domains: [ <<< range.CustomDomains >>> "<<< . >>>", <<< end >>> ],
-        stat: "<<< .Status >>>",
+        locations: [ <<< range.Locations >>> "<<< . >>>", <<< end >>> ],
+        stat: "<<< .StatusDesc >>>",
         use_encryption: "<<< .UseEncryption >>>",
         use_gzip: "<<< .UseGzip >>>",
         privilege_mode: "<<< .PrivilegeMode >>>",
@@ -221,6 +222,10 @@
       for (var domainindex in alldata[index].domains) {
         newrow += "<tr class='info_detail'><td colspan='4'>Domains</td><td colspan='4'>" +
           alldata[index].domains[domainindex] + "</td><tr>";
+      }
+      for (var locindex in alldata[index].locations) {
+        newrow += "<tr class='info_detail'><td colspan='4'>Locations</td><td colspan='4'>" +
+          alldata[index].locations[locindex] + "</td><tr>";
       }
       newrow += "<tr class='info_detail'><td colspan='4'>Ip</td><td colspan='4'>" + alldata[index].bind_addr + "</td><tr>";
       newrow += "<tr class='info_detail'><td colspan='4'>Status</td><td colspan='4'>" + alldata[index].stat + "</td><tr>";

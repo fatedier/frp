@@ -33,13 +33,9 @@ type Listener interface {
 }
 
 type ProxyServer struct {
-	config.BaseConf
-	BindAddr      string
-	ListenPort    int64
-	CustomDomains []string
+	*config.ProxyServerConf
 
-	Status       int64
-	CtlConn      *conn.Conn      // control connection with frpc
+	CtlConn      *conn.Conn      `json:"-"` // control connection with frpc
 	listeners    []Listener      // accept new connection from remote users
 	ctlMsgChan   chan int64      // every time accept a new user conn, put "1" to the channel
 	workConnChan chan *conn.Conn // get new work conns from control goroutine
@@ -48,8 +44,9 @@ type ProxyServer struct {
 }
 
 func NewProxyServer() (p *ProxyServer) {
+	psc := &config.ProxyServerConf{CustomDomains: make([]string, 0)}
 	p = &ProxyServer{
-		CustomDomains: make([]string, 0),
+		ProxyServerConf: psc,
 	}
 	return p
 }
@@ -99,6 +96,14 @@ func (p *ProxyServer) Compare(p2 *ProxyServer) bool {
 			return false
 		}
 	}
+	if len(p.Locations) != len(p2.Locations) {
+		return false
+	}
+	for i, _ := range p.Locations {
+		if p.Locations[i] != p2.Locations[i] {
+			return false
+		}
+	}
 	return true
 }
 
@@ -121,19 +126,13 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 		}
 		p.listeners = append(p.listeners, l)
 	} else if p.Type == "http" {
-		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpMuxer.Listen(domain, p.HostHeaderRewrite)
-			if err != nil {
-				return err
-			}
+		ls := VhostHttpMuxer.ListenByRouter(p.Name, p.CustomDomains, p.Locations, p.HostHeaderRewrite)
+		for _, l := range ls {
 			p.listeners = append(p.listeners, l)
 		}
 	} else if p.Type == "https" {
 		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpsMuxer.Listen(domain, p.HostHeaderRewrite)
-			if err != nil {
-				return err
-			}
+			l := VhostHttpsMuxer.Listen(p.Name, domain, p.HostHeaderRewrite)
 			p.listeners = append(p.listeners, l)
 		}
 	}

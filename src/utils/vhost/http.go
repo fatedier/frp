@@ -41,7 +41,8 @@ func GetHttpHostname(c *conn.Conn) (_ net.Conn, routerName string, err error) {
 		return sc, "", err
 	}
 	tmpArr := strings.Split(request.Host, ":")
-	routerName = tmpArr[0]
+	//routerName = tmpArr[0]
+	routerName = tmpArr[0] + ":" + request.URL.Path
 	request.Body.Close()
 	return sc, routerName, nil
 }
