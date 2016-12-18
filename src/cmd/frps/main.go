@@ -152,11 +152,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if server.VhostHttpRouters == nil {
-			server.VhostHttpMuxer, err = vhost.NewHttpMuxer(vhostListener, 30*time.Second)
-		} else {
-			server.VhostHttpMuxer, err = vhost.NewHttpMuxerWithRouter(vhostListener, 30*time.Second, server.VhostHttpRouters)
-		}
+		server.VhostHttpMuxer, err = vhost.NewHttpMuxer(vhostListener, 30*time.Second)
 		if err != nil {
 			log.Error("Create vhost httpMuxer error, %v", err)
 		}

@@ -17,14 +17,6 @@ mkdir ./packages
 os_all='linux windows darwin'
 arch_all='386 amd64 arm'
 
-if [ $1 ];then
-    os_all=$1
-fi
-
-if [ $2 ];then
-    arch_all=$2
-fi
-
 for os in $os_all; do
     for arch in $arch_all; do
         frp_dir_name="frp_${frp_version}_${os}_${arch}"

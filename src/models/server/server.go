@@ -130,19 +130,13 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 		}
 		p.listeners = append(p.listeners, l)
 	} else if p.Type == "http" {
-		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpMuxer.Listen(domain, p.HostHeaderRewrite)
-			if err != nil {
-				return err
-			}
+		ls := VhostHttpMuxer.ListenByRouter(p.Name, p.CustomDomains, p.Locations, p.HostHeaderRewrite)
+		for _, l := range ls {
 			p.listeners = append(p.listeners, l)
 		}
 	} else if p.Type == "https" {
 		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpsMuxer.Listen(domain, p.HostHeaderRewrite)
-			if err != nil {
-				return err
-			}
+			l := VhostHttpsMuxer.Listen(p.Name, domain, p.HostHeaderRewrite)
 			p.listeners = append(p.listeners, l)
 		}
 	}

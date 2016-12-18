@@ -24,72 +24,89 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/src/utils/conn"
+	"github.com/fatedier/frp/src/utils/log"
 )
 
 type muxFunc func(*conn.Conn) (net.Conn, string, error)
 type hostRewriteFunc func(*conn.Conn, string) (net.Conn, error)
 
 type VhostMuxer struct {
-	listener    *conn.Listener
-	timeout     time.Duration
-	vhostFunc   muxFunc
-	rewriteFunc hostRewriteFunc
-	registryMap map[string]*Listener
-	routers     *VhostRouters
-	mutex       sync.RWMutex
+	listener       *conn.Listener
+	timeout        time.Duration
+	vhostFunc      muxFunc
+	rewriteFunc    hostRewriteFunc
+	registryRouter *VhostRouters
+	mutex          sync.RWMutex
 }
 
 func NewVhostMuxer(listener *conn.Listener, vhostFunc muxFunc, rewriteFunc hostRewriteFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
 	mux = &VhostMuxer{
-		listener:    listener,
-		timeout:     timeout,
-		vhostFunc:   vhostFunc,
-		rewriteFunc: rewriteFunc,
-		registryMap: make(map[string]*Listener),
+		listener:       listener,
+		timeout:        timeout,
+		vhostFunc:      vhostFunc,
+		rewriteFunc:    rewriteFunc,
+		registryRouter: NewVhostRouters(),
 	}
 	go mux.run()
 	return mux, nil
 }
 
 // listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil, then rewrite the host header to rewriteHost
-func (v *VhostMuxer) Listen(name string, rewriteHost string) (l *Listener, err error) {
+func (v *VhostMuxer) Listen(name, domain string, rewriteHost string) (l *Listener) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
-	if _, exist := v.registryMap[name]; exist {
-		return nil, fmt.Errorf("domain name %s is already bound", name)
-	}
+
+	locations := []string{""}
 
 	l = &Listener{
 		name:        name,
+		domain:      domain,
+		locations:   locations,
 		rewriteHost: rewriteHost,
 		mux:         v,
 		accept:      make(chan *conn.Conn),
 	}
-	v.registryMap[name] = l
-	return l, nil
+
+	v.registryRouter.add(name, domain, locations, l)
+	return l
 }
 
-func (v *VhostMuxer) getListener(name string) (l *Listener, exist bool) {
+func (v *VhostMuxer) ListenByRouter(name string, domains []string, locations []string, rewriteHost string) (ls []*Listener) {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
+
+	ls = make([]*Listener, 0)
+	for _, domain := range domains {
+		l := &Listener{
+			name:        name,
+			domain:      domain,
+			locations:   locations,
+			rewriteHost: rewriteHost,
+			mux:         v,
+			accept:      make(chan *conn.Conn),
+		}
+		v.registryRouter.add(name, domain, locations, l)
+		ls = append(ls)
+	}
+
+	return ls
+}
+
+func (v *VhostMuxer) getListener(rname string) (l *Listener, exist bool) {
 	v.mutex.RLock()
 	defer v.mutex.RUnlock()
 
-	if v.routers != nil {
-		tmparray := strings.SplitN(name, ":", 2)
-		if len(tmparray) == 2 {
-			newname, found := v.routers.getName(tmparray[0], tmparray[1])
-			if found {
-				name = newname
-			}
-		}
+	var frcname string
+	vr, found := v.registryRouter.get(rname)
+	if found {
+		frcname = vr.name
+	} else {
+		log.Warn("can't found the router for %s", rname)
+		return
 	}
-	l, exist = v.registryMap[name]
-	return l, exist
-}
 
-func (v *VhostMuxer) unRegister(name string) {
-	v.mutex.Lock()
-	defer v.mutex.Unlock()
-	delete(v.registryMap, name)
+	log.Debug("get frcname %s for %s", frcname, rname)
+	return vr.listener, true
 }
 
 func (v *VhostMuxer) run() {
@@ -128,6 +145,8 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 
 type Listener struct {
 	name        string
+	domain      string
+	locations   []string
 	rewriteHost string
 	mux         *VhostMuxer // for closing VhostMuxer
 	accept      chan *conn.Conn
@@ -152,7 +171,7 @@ func (l *Listener) Accept() (*conn.Conn, error) {
 }
 
 func (l *Listener) Close() error {
-	l.mux.unRegister(l.name)
+	l.mux.registryRouter.del(l)
 	close(l.accept)
 	return nil
 }

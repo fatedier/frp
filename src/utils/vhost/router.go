@@ -12,9 +12,10 @@ type VhostRouters struct {
 }
 
 type VhostRouter struct {
-	Name     string
-	Domain   string
-	Location string
+	name     string
+	domain   string
+	location string
+	listener *Listener
 }
 
 func NewVhostRouters() *VhostRouters {
@@ -33,45 +34,72 @@ func (a ByLocation) Swap(i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 func (a ByLocation) Less(i, j int) bool {
-	return strings.Compare(a[i].Location, a[j].Location) < 0
+	return strings.Compare(a[i].location, a[j].location) < 0
 }
 
-func (r *VhostRouters) Add(name string, domains, locations []string) {
+func (r *VhostRouters) add(name, domain string, locations []string, l *Listener) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	for _, domain := range domains {
-		vrs, found := r.RouterByDomain[name]
-		if !found {
-			vrs = make([]*VhostRouter, 0)
-		}
+	vrs, found := r.RouterByDomain[domain]
+	if !found {
+		vrs = make([]*VhostRouter, 0)
+	}
 
-		for _, loc := range locations {
-			vr := &VhostRouter{
-				Name:     name,
-				Domain:   domain,
-				Location: loc,
+	for _, loc := range locations {
+		vr := &VhostRouter{
+			name:     name,
+			domain:   domain,
+			location: loc,
+			listener: l,
+		}
+		vrs = append(vrs, vr)
+	}
+
+	sort.Reverse(ByLocation(vrs))
+	r.RouterByDomain[domain] = vrs
+}
+
+func (r *VhostRouters) del(l *Listener) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	vrs, found := r.RouterByDomain[l.domain]
+	if !found {
+		return
+	}
+
+	for i, vr := range vrs {
+		if vr.listener == l {
+			if len(vrs) > i+1 {
+				r.RouterByDomain[l.domain] = append(vrs[:i], vrs[i+1:]...)
+			} else {
+				r.RouterByDomain[l.domain] = vrs[:i]
 			}
-			vrs = append(vrs, vr)
 		}
-
-		sort_vrs := sort.Reverse(ByLocation(vrs))
-		r.RouterByDomain[name] = sort_vrs.(ByLocation)
 	}
 }
 
-func (r *VhostRouters) getName(domain, url string) (name string, exist bool) {
+func (r *VhostRouters) get(rname string) (vr *VhostRouter, exist bool) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
+
+	var domain, url string
+	tmparray := strings.SplitN(rname, ":", 2)
+	if len(tmparray) == 2 {
+		domain = tmparray[0]
+		url = tmparray[1]
+	}
 
 	vrs, exist := r.RouterByDomain[domain]
 	if !exist {
 		return
 	}
 
-	for _, vr := range vrs {
-		if strings.HasPrefix(url, vr.Location+"/") {
-			return vr.Name, true
+	//can't support load balance,will to do
+	for _, vr = range vrs {
+		if strings.HasPrefix(url, vr.location) {
+			return vr, true
 		}
 	}
 

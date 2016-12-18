@@ -52,12 +52,6 @@ func NewHttpMuxer(listener *conn.Listener, timeout time.Duration) (*HttpMuxer, e
 	return &HttpMuxer{mux}, err
 }
 
-func NewHttpMuxerWithRouter(listener *conn.Listener, timeout time.Duration, r *VhostRouters) (*HttpMuxer, error) {
-	mux, err := NewVhostMuxer(listener, GetHttpHostname, HttpHostNameRewrite, timeout)
-	mux.routers = r
-	return &HttpMuxer{mux}, err
-}
-
 func HttpHostNameRewrite(c *conn.Conn, rewriteHost string) (_ net.Conn, err error) {
 	sc, rd := newShareConn(c.TcpConn)
 	var buff []byte
