@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Dave Collins <dave@davec.name>
+ * Copyright (c) 2013-2016 Dave Collins <dave@davec.name>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,120 +17,13 @@
 package spew
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"reflect"
 	"sort"
 	"strconv"
-	"unsafe"
 )
-
-const (
-	// ptrSize is the size of a pointer on the current arch.
-	ptrSize = unsafe.Sizeof((*byte)(nil))
-)
-
-var (
-	// offsetPtr, offsetScalar, and offsetFlag are the offsets for the
-	// internal reflect.Value fields.  These values are valid before golang
-	// commit ecccf07e7f9d which changed the format.  The are also valid
-	// after commit 82f48826c6c7 which changed the format again to mirror
-	// the original format.  Code in the init function updates these offsets
-	// as necessary.
-	offsetPtr    = uintptr(ptrSize)
-	offsetScalar = uintptr(0)
-	offsetFlag   = uintptr(ptrSize * 2)
-
-	// flagKindWidth and flagKindShift indicate various bits that the
-	// reflect package uses internally to track kind information.
-	//
-	// flagRO indicates whether or not the value field of a reflect.Value is
-	// read-only.
-	//
-	// flagIndir indicates whether the value field of a reflect.Value is
-	// the actual data or a pointer to the data.
-	//
-	// These values are valid before golang commit 90a7c3c86944 which
-	// changed their positions.  Code in the init function updates these
-	// flags as necessary.
-	flagKindWidth = uintptr(5)
-	flagKindShift = uintptr(flagKindWidth - 1)
-	flagRO        = uintptr(1 << 0)
-	flagIndir     = uintptr(1 << 1)
-)
-
-func init() {
-	// Older versions of reflect.Value stored small integers directly in the
-	// ptr field (which is named val in the older versions).  Versions
-	// between commits ecccf07e7f9d and 82f48826c6c7 added a new field named
-	// scalar for this purpose which unfortunately came before the flag
-	// field, so the offset of the flag field is different for those
-	// versions.
-	//
-	// This code constructs a new reflect.Value from a known small integer
-	// and checks if the size of the reflect.Value struct indicates it has
-	// the scalar field. When it does, the offsets are updated accordingly.
-	vv := reflect.ValueOf(0xf00)
-	if unsafe.Sizeof(vv) == (ptrSize * 4) {
-		offsetScalar = ptrSize * 2
-		offsetFlag = ptrSize * 3
-	}
-
-	// Commit 90a7c3c86944 changed the flag positions such that the low
-	// order bits are the kind.  This code extracts the kind from the flags
-	// field and ensures it's the correct type.  When it's not, the flag
-	// order has been changed to the newer format, so the flags are updated
-	// accordingly.
-	upf := unsafe.Pointer(uintptr(unsafe.Pointer(&vv)) + offsetFlag)
-	upfv := *(*uintptr)(upf)
-	flagKindMask := uintptr((1<<flagKindWidth - 1) << flagKindShift)
-	if (upfv&flagKindMask)>>flagKindShift != uintptr(reflect.Int) {
-		flagKindShift = 0
-		flagRO = 1 << 5
-		flagIndir = 1 << 6
-	}
-}
-
-// unsafeReflectValue converts the passed reflect.Value into a one that bypasses
-// the typical safety restrictions preventing access to unaddressable and
-// unexported data.  It works by digging the raw pointer to the underlying
-// value out of the protected value and generating a new unprotected (unsafe)
-// reflect.Value to it.
-//
-// This allows us to check for implementations of the Stringer and error
-// interfaces to be used for pretty printing ordinarily unaddressable and
-// inaccessible values such as unexported struct fields.
-func unsafeReflectValue(v reflect.Value) (rv reflect.Value) {
-	indirects := 1
-	vt := v.Type()
-	upv := unsafe.Pointer(uintptr(unsafe.Pointer(&v)) + offsetPtr)
-	rvf := *(*uintptr)(unsafe.Pointer(uintptr(unsafe.Pointer(&v)) + offsetFlag))
-	if rvf&flagIndir != 0 {
-		vt = reflect.PtrTo(v.Type())
-		indirects++
-	} else if offsetScalar != 0 {
-		// The value is in the scalar field when it's not one of the
-		// reference types.
-		switch vt.Kind() {
-		case reflect.Uintptr:
-		case reflect.Chan:
-		case reflect.Func:
-		case reflect.Map:
-		case reflect.Ptr:
-		case reflect.UnsafePointer:
-		default:
-			upv = unsafe.Pointer(uintptr(unsafe.Pointer(&v)) +
-				offsetScalar)
-		}
-	}
-
-	pv := reflect.NewAt(vt, upv)
-	rv = pv
-	for i := 0; i < indirects; i++ {
-		rv = rv.Elem()
-	}
-	return rv
-}
 
 // Some constants in the form of bytes to avoid string overhead.  This mirrors
 // the technique used in the fmt package.
@@ -193,9 +86,14 @@ func handleMethods(cs *ConfigState, w io.Writer, v reflect.Value) (handled bool)
 	// We need an interface to check if the type implements the error or
 	// Stringer interface.  However, the reflect package won't give us an
 	// interface on certain things like unexported struct fields in order
-	// to enforce visibility rules.  We use unsafe to bypass these restrictions
-	// since this package does not mutate the values.
+	// to enforce visibility rules.  We use unsafe, when it's available,
+	// to bypass these restrictions since this package does not mutate the
+	// values.
 	if !v.CanInterface() {
+		if UnsafeDisabled {
+			return false
+		}
+
 		v = unsafeReflectValue(v)
 	}
 
@@ -205,21 +103,15 @@ func handleMethods(cs *ConfigState, w io.Writer, v reflect.Value) (handled bool)
 	// mutate the value, however, types which choose to satisify an error or
 	// Stringer interface with a pointer receiver should not be mutating their
 	// state inside these interface methods.
-	var viface interface{}
-	if !cs.DisablePointerMethods {
-		if !v.CanAddr() {
-			v = unsafeReflectValue(v)
-		}
-		viface = v.Addr().Interface()
-	} else {
-		if v.CanAddr() {
-			v = v.Addr()
-		}
-		viface = v.Interface()
+	if !cs.DisablePointerMethods && !UnsafeDisabled && !v.CanAddr() {
+		v = unsafeReflectValue(v)
+	}
+	if v.CanAddr() {
+		v = v.Addr()
 	}
 
 	// Is it an error or Stringer?
-	switch iface := viface.(type) {
+	switch iface := v.Interface().(type) {
 	case error:
 		defer catchPanic(w, v)
 		if cs.ContinueOnMethod {
@@ -325,7 +217,61 @@ func printHexPtr(w io.Writer, p uintptr) {
 // valuesSorter implements sort.Interface to allow a slice of reflect.Value
 // elements to be sorted.
 type valuesSorter struct {
-	values []reflect.Value
+	values  []reflect.Value
+	strings []string // either nil or same len and values
+	cs      *ConfigState
+}
+
+// newValuesSorter initializes a valuesSorter instance, which holds a set of
+// surrogate keys on which the data should be sorted.  It uses flags in
+// ConfigState to decide if and how to populate those surrogate keys.
+func newValuesSorter(values []reflect.Value, cs *ConfigState) sort.Interface {
+	vs := &valuesSorter{values: values, cs: cs}
+	if canSortSimply(vs.values[0].Kind()) {
+		return vs
+	}
+	if !cs.DisableMethods {
+		vs.strings = make([]string, len(values))
+		for i := range vs.values {
+			b := bytes.Buffer{}
+			if !handleMethods(cs, &b, vs.values[i]) {
+				vs.strings = nil
+				break
+			}
+			vs.strings[i] = b.String()
+		}
+	}
+	if vs.strings == nil && cs.SpewKeys {
+		vs.strings = make([]string, len(values))
+		for i := range vs.values {
+			vs.strings[i] = Sprintf("%#v", vs.values[i].Interface())
+		}
+	}
+	return vs
+}
+
+// canSortSimply tests whether a reflect.Kind is a primitive that can be sorted
+// directly, or whether it should be considered for sorting by surrogate keys
+// (if the ConfigState allows it).
+func canSortSimply(kind reflect.Kind) bool {
+	// This switch parallels valueSortLess, except for the default case.
+	switch kind {
+	case reflect.Bool:
+		return true
+	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
+		return true
+	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
+		return true
+	case reflect.Float32, reflect.Float64:
+		return true
+	case reflect.String:
+		return true
+	case reflect.Uintptr:
+		return true
+	case reflect.Array:
+		return true
+	}
+	return false
 }
 
 // Len returns the number of values in the slice.  It is part of the
@@ -338,6 +284,9 @@ func (s *valuesSorter) Len() int {
 // sort.Interface implementation.
 func (s *valuesSorter) Swap(i, j int) {
 	s.values[i], s.values[j] = s.values[j], s.values[i]
+	if s.strings != nil {
+		s.strings[i], s.strings[j] = s.strings[j], s.strings[i]
+	}
 }
 
 // valueSortLess returns whether the first value should sort before the second
@@ -375,15 +324,18 @@ func valueSortLess(a, b reflect.Value) bool {
 // Less returns whether the value at index i should sort before the
 // value at index j.  It is part of the sort.Interface implementation.
 func (s *valuesSorter) Less(i, j int) bool {
-	return valueSortLess(s.values[i], s.values[j])
+	if s.strings == nil {
+		return valueSortLess(s.values[i], s.values[j])
+	}
+	return s.strings[i] < s.strings[j]
 }
 
-// sortValues is a generic sort function for native types: int, uint, bool,
-// string and uintptr.  Other inputs are sorted according to their
-// Value.String() value to ensure display stability.
-func sortValues(values []reflect.Value) {
+// sortValues is a sort function that handles both native types and any type that
+// can be converted to error or Stringer.  Other inputs are sorted according to
+// their Value.String() value to ensure display stability.
+func sortValues(values []reflect.Value, cs *ConfigState) {
 	if len(values) == 0 {
 		return
 	}
-	sort.Sort(&valuesSorter{values})
+	sort.Sort(newValuesSorter(values, cs))
 }

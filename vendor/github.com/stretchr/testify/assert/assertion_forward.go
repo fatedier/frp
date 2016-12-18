@@ -43,6 +43,9 @@ func (a *Assertions) Empty(object interface{}, msgAndArgs ...interface{}) bool {
 //    a.Equal(123, 123, "123 and 123 should be equal")
 //
 // Returns whether the assertion was successful (true) or not (false).
+//
+// Pointer variable equality is determined based on the equality of the
+// referenced values (as opposed to the memory addresses).
 func (a *Assertions) Equal(expected interface{}, actual interface{}, msgAndArgs ...interface{}) bool {
 	return Equal(a.t, expected, actual, msgAndArgs...)
 }
@@ -262,6 +265,9 @@ func (a *Assertions) NotEmpty(object interface{}, msgAndArgs ...interface{}) boo
 //    a.NotEqual(obj1, obj2, "two objects shouldn't be equal")
 //
 // Returns whether the assertion was successful (true) or not (false).
+//
+// Pointer variable equality is determined based on the equality of the
+// referenced values (as opposed to the memory addresses).
 func (a *Assertions) NotEqual(expected interface{}, actual interface{}, msgAndArgs ...interface{}) bool {
 	return NotEqual(a.t, expected, actual, msgAndArgs...)
 }

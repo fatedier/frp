@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Dave Collins <dave@davec.name>
+ * Copyright (c) 2013-2016 Dave Collins <dave@davec.name>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -91,6 +91,15 @@ The following configuration options are available:
 		which only accept pointer receivers from non-pointer variables.
 		Pointer method invocation is enabled by default.
 
+	* DisablePointerAddresses
+		DisablePointerAddresses specifies whether to disable the printing of
+		pointer addresses. This is useful when diffing data structures in tests.
+
+	* DisableCapacities
+		DisableCapacities specifies whether to disable the printing of
+		capacities for arrays, slices, maps and channels. This is useful when
+		diffing data structures in tests.
+
 	* ContinueOnMethod
 		Enables recursion into types after invoking error and Stringer interface
 		methods. Recursion after method invocation is disabled by default.
@@ -99,9 +108,15 @@ The following configuration options are available:
 		Specifies map keys should be sorted before being printed. Use
 		this to have a more deterministic, diffable output.  Note that
 		only native types (bool, int, uint, floats, uintptr and string)
-		are supported with other types sorted according to the
-		reflect.Value.String() output which guarantees display stability.
-		Natural map order is used by default.
+		and types which implement error or Stringer interfaces are
+		supported with other types sorted according to the
+		reflect.Value.String() output which guarantees display
+		stability.  Natural map order is used by default.
+
+	* SpewKeys
+		Specifies that, as a last resort attempt, map keys should be
+		spewed to strings and sorted by those strings.  This is only
+		considered if SortKeys is true.
 
 Dump Usage
 

@@ -153,7 +153,7 @@ func getWhitespaceString() string {
 	parts := strings.Split(file, "/")
 	file = parts[len(parts)-1]
 
-	return strings.Repeat(" ", len(fmt.Sprintf("%s:%d:      ", file, line)))
+	return strings.Repeat(" ", len(fmt.Sprintf("%s:%d:        ", file, line)))
 
 }
 
@@ -170,22 +170,18 @@ func messageFromMsgAndArgs(msgAndArgs ...interface{}) string {
 	return ""
 }
 
-// Indents all lines of the message by appending a number of tabs to each line, in an output format compatible with Go's
-// test printing (see inner comment for specifics)
-func indentMessageLines(message string, tabs int) string {
+// Aligns the provided message so that all lines after the first line start at the same location as the first line.
+// Assumes that the first line starts at the correct location (after carriage return, tab, label, spacer and tab).
+// The longestLabelLen parameter specifies the length of the longest label in the output (required becaues this is the
+// basis on which the alignment occurs).
+func indentMessageLines(message string, longestLabelLen int) string {
 	outBuf := new(bytes.Buffer)
 
 	for i, scanner := 0, bufio.NewScanner(strings.NewReader(message)); scanner.Scan(); i++ {
+		// no need to align first line because it starts at the correct location (after the label)
 		if i != 0 {
-			outBuf.WriteRune('\n')
-		}
-		for ii := 0; ii < tabs; ii++ {
-			outBuf.WriteRune('\t')
-			// Bizarrely, all lines except the first need one fewer tabs prepended, so deliberately advance the counter
-			// by 1 prematurely.
-			if ii == 0 && i > 0 {
-				ii++
-			}
+			// append alignLen+1 spaces to align with "{{longestLabel}}:" before adding tab
+			outBuf.WriteString("\n\r\t" + strings.Repeat(" ", longestLabelLen +1) + "\t")
 		}
 		outBuf.WriteString(scanner.Text())
 	}
@@ -217,27 +213,47 @@ func FailNow(t TestingT, failureMessage string, msgAndArgs ...interface{}) bool 
 
 // Fail reports a failure through
 func Fail(t TestingT, failureMessage string, msgAndArgs ...interface{}) bool {
-
-	message := messageFromMsgAndArgs(msgAndArgs...)
-
-	errorTrace := strings.Join(CallerInfo(), "\n\r\t\t\t")
-	if len(message) > 0 {
-		t.Errorf("\r%s\r\tError Trace:\t%s\n"+
-			"\r\tError:%s\n"+
-			"\r\tMessages:\t%s\n\r",
-			getWhitespaceString(),
-			errorTrace,
-			indentMessageLines(failureMessage, 2),
-			message)
-	} else {
-		t.Errorf("\r%s\r\tError Trace:\t%s\n"+
-			"\r\tError:%s\n\r",
-			getWhitespaceString(),
-			errorTrace,
-			indentMessageLines(failureMessage, 2))
+	content := []labeledContent{
+		{"Error Trace", strings.Join(CallerInfo(), "\n\r\t\t\t")},
+		{"Error", failureMessage},
 	}
 
+	message := messageFromMsgAndArgs(msgAndArgs...)
+	if len(message) > 0 {
+		content = append(content, labeledContent{"Messages", message})
+	}
+
+	t.Errorf("\r" + getWhitespaceString() + labeledOutput(content...))
+
 	return false
+}
+
+type labeledContent struct {
+	label string
+	content string
+}
+
+// labeledOutput returns a string consisting of the provided labeledContent. Each labeled output is appended in the following manner:
+//
+//   \r\t{{label}}:{{align_spaces}}\t{{content}}\n
+//
+// The initial carriage return is required to undo/erase any padding added by testing.T.Errorf. The "\t{{label}}:" is for the label.
+// If a label is shorter than the longest label provided, padding spaces are added to make all the labels match in length. Once this
+// alignment is achieved, "\t{{content}}\n" is added for the output.
+//
+// If the content of the labeledOutput contains line breaks, the subsequent lines are aligned so that they start at the same location as the first line.
+func labeledOutput(content ...labeledContent) string {
+	longestLabel := 0
+	for _, v := range content {
+		if len(v.label) > longestLabel {
+			longestLabel = len(v.label)
+		}
+	}
+	var output string
+	for _, v := range content {
+		output += "\r\t" + v.label + ":" + strings.Repeat(" ", longestLabel-len(v.label)) + "\t" + indentMessageLines(v.content, longestLabel) + "\n"
+	}
+	return output
 }
 
 // Implements asserts that an object is implemented by the specified interface.
@@ -270,6 +286,9 @@ func IsType(t TestingT, expectedType interface{}, object interface{}, msgAndArgs
 //    assert.Equal(t, 123, 123, "123 and 123 should be equal")
 //
 // Returns whether the assertion was successful (true) or not (false).
+//
+// Pointer variable equality is determined based on the equality of the
+// referenced values (as opposed to the memory addresses).
 func Equal(t TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool {
 
 	if !ObjectsAreEqual(expected, actual) {
@@ -291,29 +310,13 @@ func Equal(t TestingT, expected, actual interface{}, msgAndArgs ...interface{}) 
 // with the type name, and the value will be enclosed in parenthesis similar
 // to a type conversion in the Go grammar.
 func formatUnequalValues(expected, actual interface{}) (e string, a string) {
-	aType := reflect.TypeOf(expected)
-	bType := reflect.TypeOf(actual)
-
-	if aType != bType && isNumericType(aType) && isNumericType(bType) {
-		return fmt.Sprintf("%v(%#v)", aType, expected),
-			fmt.Sprintf("%v(%#v)", bType, actual)
+	if reflect.TypeOf(expected) != reflect.TypeOf(actual) {
+		return fmt.Sprintf("%T(%#v)", expected, expected),
+			fmt.Sprintf("%T(%#v)", actual, actual)
 	}
 
 	return fmt.Sprintf("%#v", expected),
 		fmt.Sprintf("%#v", actual)
-}
-
-func isNumericType(t reflect.Type) bool {
-	switch t.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return true
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return true
-	case reflect.Float32, reflect.Float64:
-		return true
-	}
-
-	return false
 }
 
 // EqualValues asserts that two objects are equal or convertable to the same types
@@ -556,6 +559,9 @@ func False(t TestingT, value bool, msgAndArgs ...interface{}) bool {
 //    assert.NotEqual(t, obj1, obj2, "two objects shouldn't be equal")
 //
 // Returns whether the assertion was successful (true) or not (false).
+//
+// Pointer variable equality is determined based on the equality of the
+// referenced values (as opposed to the memory addresses).
 func NotEqual(t TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool {
 
 	if ObjectsAreEqual(expected, actual) {
