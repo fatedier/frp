@@ -76,9 +76,18 @@ func (v *VhostMuxer) Listen(p *config.ProxyServerConf) (ls []*Listener) {
 	return ls
 }
 
-func (v *VhostMuxer) getListener(name string) (l *Listener, exist bool) {
+func (v *VhostMuxer) getListener(reqInfoMap map[string]string) (l *Listener, exist bool) {
 	v.mutex.RLock()
 	defer v.mutex.RUnlock()
+
+	//host
+	name := strings.ToLower(reqInfoMap["Host"])
+
+	// http
+	scheme := strings.ToLower(reqInfoMap["Scheme"])
+	if scheme == "http" || scheme == "" {
+		name = name + ":" + reqInfoMap["Path"]
+	}
 
 	// // first we check the full hostname
 	vr, found := v.registryRouter.get(name)
@@ -126,12 +135,7 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 		return
 	}
 
-	name := strings.ToLower(reqInfoMap["Host"])
-	// get listener by hostname
-	if reqInfoMap["Scheme"] == "http" {
-		name = name + ":" + reqInfoMap["Path"]
-	}
-	l, ok := v.getListener(name)
+	l, ok := v.getListener(reqInfoMap)
 	if !ok {
 		c.Close()
 		return
