@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strings"
+	//"strings"
 	"sync"
 	"time"
 
@@ -86,7 +86,7 @@ func (v *VhostMuxer) ListenByRouter(name string, domains []string, locations []s
 			accept:      make(chan *conn.Conn),
 		}
 		v.registryRouter.add(name, domain, locations, l)
-		ls = append(ls)
+		ls = append(ls, l)
 	}
 
 	return ls
@@ -129,17 +129,19 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 		return
 	}
 
-	name = strings.ToLower(name)
+	//name = strings.ToLower(name)
 	l, ok := v.getListener(name)
 	if !ok {
 		return
 	}
 
 	if err = sConn.SetDeadline(time.Time{}); err != nil {
+		log.Error("set dead line err: %v", err)
 		return
 	}
 	c.SetTcpConn(sConn)
 
+	log.Debug("handle request: %s", c.GetRemoteAddr())
 	l.accept <- c
 }
 
@@ -153,10 +155,12 @@ type Listener struct {
 }
 
 func (l *Listener) Accept() (*conn.Conn, error) {
+	log.Debug("[%s][%s] now to accept ...", l.name, l.domain)
 	conn, ok := <-l.accept
 	if !ok {
 		return nil, fmt.Errorf("Listener closed")
 	}
+	log.Debug("[%s][%s] accept something ...", l.name, l.domain)
 
 	// if rewriteFunc is exist and rewriteHost is set
 	// rewrite http requests with a modified host header

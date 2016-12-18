@@ -33,14 +33,9 @@ type Listener interface {
 }
 
 type ProxyServer struct {
-	config.BaseConf
-	BindAddr      string
-	ListenPort    int64
-	CustomDomains []string
-	Locations     []string
+	*config.ProxyServerConf
 
-	Status       int64
-	CtlConn      *conn.Conn      // control connection with frpc
+	CtlConn      *conn.Conn      `json:"-"` // control connection with frpc
 	listeners    []Listener      // accept new connection from remote users
 	ctlMsgChan   chan int64      // every time accept a new user conn, put "1" to the channel
 	workConnChan chan *conn.Conn // get new work conns from control goroutine
@@ -49,8 +44,9 @@ type ProxyServer struct {
 }
 
 func NewProxyServer() (p *ProxyServer) {
+	psc := &config.ProxyServerConf{CustomDomains: make([]string, 0)}
 	p = &ProxyServer{
-		CustomDomains: make([]string, 0),
+		ProxyServerConf: psc,
 	}
 	return p
 }

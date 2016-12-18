@@ -300,9 +300,8 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 	}
 
 	// set metric statistics of all proxies
-	for name, p := range proxyServers {
-		metric.SetProxyInfo(name, p.Type, p.BindAddr, p.UseEncryption, p.UseGzip,
-			p.PrivilegeMode, p.CustomDomains, p.ListenPort)
+	for _, p := range proxyServers {
+		metric.SetProxyInfo(*p.ProxyServerConf)
 	}
 	return proxyServers, nil
 }
@@ -363,8 +362,7 @@ func CreateProxy(s *ProxyServer) error {
 		}
 	}
 	ProxyServers[s.Name] = s
-	metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip,
-		s.PrivilegeMode, s.CustomDomains, s.ListenPort)
+	metric.SetProxyInfo(*s.ProxyServerConf)
 	s.Init()
 	return nil
 }
