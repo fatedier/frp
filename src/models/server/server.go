@@ -69,7 +69,7 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 	p.PrivilegeMode = req.PrivilegeMode
 	p.PrivilegeToken = PrivilegeToken
 	p.BindAddr = BindAddr
-	if p.Type == "tcp" {
+	if p.Type == "tcp" || p.Type == "udp" {
 		p.ListenPort = req.RemotePort
 	} else if p.Type == "http" {
 		p.ListenPort = VhostHttpPort
@@ -160,11 +160,6 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 	p.Unlock()
 	metric.SetStatus(p.Name, p.Status)
 
-	// create connection pool if needed
-	if p.PoolCount > 0 {
-		go p.connectionPoolManager(p.closeChan)
-	}
-
 	if p.Type == "udp" {
 		// udp is special
 		p.udpConn, err = conn.ListenUDP(p.BindAddr, p.ListenPort)
@@ -191,6 +186,11 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 			}
 		}()
 	} else {
+		// create connection pool if needed
+		if p.PoolCount > 0 {
+			go p.connectionPoolManager(p.closeChan)
+		}
+
 		// start a goroutine for every listener to accept user connection
 		for _, listener := range p.listeners {
 			go func(l Listener) {
