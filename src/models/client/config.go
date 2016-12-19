@@ -194,7 +194,7 @@ func LoadConf(confFile string) (err error) {
 					proxyClient.PrivilegeToken = PrivilegeToken
 				}
 
-				if proxyClient.Type == "tcp" {
+				if proxyClient.Type == "tcp" || proxyClient.Type == "udp" {
 					// remote_port
 					tmpStr, ok = section["remote_port"]
 					if ok {
