@@ -130,7 +130,7 @@ func LoadConf(confFile string) (err error) {
 			proxyClient.Type = "tcp"
 			tmpStr, ok = section["type"]
 			if ok {
-				if tmpStr != "tcp" && tmpStr != "http" && tmpStr != "https" {
+				if tmpStr != "tcp" && tmpStr != "http" && tmpStr != "https" && tmpStr != "udp" {
 					return fmt.Errorf("Parse conf error: proxy [%s] type error", proxyClient.Name)
 				}
 				proxyClient.Type = tmpStr

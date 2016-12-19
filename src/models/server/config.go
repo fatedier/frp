@@ -252,7 +252,7 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 
 			proxyServer.Type, ok = section["type"]
 			if ok {
-				if proxyServer.Type != "tcp" && proxyServer.Type != "http" && proxyServer.Type != "https" {
+				if proxyServer.Type != "tcp" && proxyServer.Type != "http" && proxyServer.Type != "https" && proxyServer.Type != "udp" {
 					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] type error", proxyServer.Name)
 				}
 			} else {
@@ -264,8 +264,8 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] no auth_token found", proxyServer.Name)
 			}
 
-			// for tcp
-			if proxyServer.Type == "tcp" {
+			// for tcp and udp
+			if proxyServer.Type == "tcp" || proxyServer.Type == "udp" {
 				proxyServer.BindAddr, ok = section["bind_addr"]
 				if !ok {
 					proxyServer.BindAddr = "0.0.0.0"

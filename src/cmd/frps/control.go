@@ -72,14 +72,14 @@ func controlWorker(c *conn.Conn) {
 	// login when type is NewCtlConn or NewWorkConn
 	ret, info := doLogin(cliReq, c)
 	// if login type is NewWorkConn, nothing will be send to frpc
-	if cliReq.Type != consts.NewWorkConn {
+	if cliReq.Type == consts.NewCtlConn {
 		cliRes := &msg.ControlRes{
 			Type: consts.NewCtlConnRes,
 			Code: ret,
 			Msg:  info,
 		}
 		byteBuf, _ := json.Marshal(cliRes)
-		err = c.Write(string(byteBuf) + "\n")
+		err = c.WriteString(string(byteBuf) + "\n")
 		if err != nil {
 			log.Warn("ProxyName [%s], write to client error, proxy exit", cliReq.ProxyName)
 			return
@@ -145,9 +145,11 @@ func msgReader(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}
 		if err != nil {
 			if err == io.EOF {
 				log.Warn("ProxyName [%s], client is dead!", s.Name)
+				s.Close()
 				return err
 			} else if c == nil || c.IsClosed() {
 				log.Warn("ProxyName [%s], client connection is closed", s.Name)
+				s.Close()
 				return err
 			}
 			log.Warn("ProxyName [%s], read error: %v", s.Name, err)
@@ -184,7 +186,7 @@ func msgSender(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}
 		}
 
 		buf, _ := json.Marshal(msg)
-		err := c.Write(string(buf) + "\n")
+		err := c.WriteString(string(buf) + "\n")
 		if err != nil {
 			log.Warn("ProxyName [%s], write to client error, proxy exit", s.Name)
 			s.Close()
@@ -194,6 +196,9 @@ func msgSender(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}
 }
 
 // if success, ret equals 0, otherwise greater than 0
+// NewCtlConn
+// NewWorkConn
+// NewWorkConnUdp
 func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 	ret = 1
 	// check if PrivilegeMode is enabled
@@ -334,6 +339,13 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		}
 		// the connection will close after join over
 		s.RegisterNewWorkConn(c)
+	} else if req.Type == consts.NewWorkConnUdp {
+		// work conn for udp
+		if s.Status != consts.Working {
+			log.Warn("ProxyName [%s], is not working when it gets one new work connnection for udp", req.ProxyName)
+			return
+		}
+		s.RegisterNewWorkConnUdp(c)
 	} else {
 		info = fmt.Sprintf("Unsupport login message type [%d]", req.Type)
 		log.Warn("Unsupport login message type [%d]", req.Type)

@@ -40,6 +40,6 @@ func echoWorker(c *conn.Conn) {
 			return
 		}
 
-		c.Write(buff)
+		c.WriteString(buff)
 	}
 }

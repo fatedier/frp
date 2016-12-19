@@ -1,9 +1,9 @@
 {
 	"ImportPath": "github.com/fatedier/frp",
-	"GoVersion": "go1.6",
-	"GodepVersion": "v74",
+	"GoVersion": "go1.7",
+	"GodepVersion": "v75",
 	"Packages": [
-		"./src/..."
+		"./..."
 	],
 	"Deps": [
 		{
@@ -12,14 +12,29 @@
 			"Rev": "efbde1ee77517486eac03e814e01d724ddad18e6"
 		},
 		{
+			"ImportPath": "github.com/davecgh/go-spew/spew",
+			"Comment": "v1.1.0",
+			"Rev": "346938d642f2ec3594ed81d874461961cd0faa76"
+		},
+		{
 			"ImportPath": "github.com/docopt/docopt-go",
 			"Comment": "0.6.2",
 			"Rev": "784ddc588536785e7299f7272f39101f7faccc3f"
 		},
 		{
+			"ImportPath": "github.com/pmezard/go-difflib/difflib",
+			"Comment": "v1.0.0",
+			"Rev": "792786c7400a136282c1664665ae0a8db921c6c2"
+		},
+		{
 			"ImportPath": "github.com/rakyll/statik/fs",
 			"Comment": "v0.1.0",
 			"Rev": "274df120e9065bdd08eb1120e0375e3dc1ae8465"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/assert",
+			"Comment": "v1.1.4-25-g2402e8e",
+			"Rev": "2402e8e7a02fc811447d11f881aa9746cdc57983"
 		},
 		{
 			"ImportPath": "github.com/vaughan0/go-ini",
