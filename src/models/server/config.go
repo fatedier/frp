@@ -392,3 +392,10 @@ func DeleteProxy(proxyName string) {
 	defer ProxyServersMutex.Unlock()
 	delete(ProxyServers, proxyName)
 }
+
+func GetProxyServer(proxyName string) (p *ProxyServer, ok bool) {
+	ProxyServersMutex.RLock()
+	defer ProxyServersMutex.RUnlock()
+	p, ok = ProxyServers[proxyName]
+	return
+}

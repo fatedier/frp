@@ -94,7 +94,7 @@ func controlWorker(c *conn.Conn) {
 		return
 	}
 
-	s, ok := server.ProxyServers[cliReq.ProxyName]
+	s, ok := server.GetProxyServer(cliReq.ProxyName)
 	if !ok {
 		log.Warn("ProxyName [%s] does not exist now", cliReq.ProxyName)
 		return
@@ -212,7 +212,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		s  *server.ProxyServer
 		ok bool
 	)
-	s, ok = server.ProxyServers[req.ProxyName]
+	s, ok = server.GetProxyServer(req.ProxyName)
 	if req.PrivilegeMode && req.Type == consts.NewCtlConn {
 		log.Debug("ProxyName [%s], doLogin and privilege mode is enabled", req.ProxyName)
 	} else {
