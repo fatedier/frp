@@ -91,8 +91,8 @@ func (r *VhostRouters) get(rname string) (vr *VhostRouter, exist bool) {
 		url = tmparray[1]
 	}
 
-	vrs, exist := r.RouterByDomain[domain]
-	if !exist {
+	vrs, found := r.RouterByDomain[domain]
+	if !found {
 		return
 	}
 

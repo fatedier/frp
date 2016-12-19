@@ -301,6 +301,8 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				locStr, loc_ok := section["custom_location"]
 				if loc_ok {
 					proxyServer.Locations = strings.Split(locStr, ",")
+				} else {
+					proxyServer.Locations = []string{""}
 				}
 			} else if proxyServer.Type == "https" {
 				// for https
