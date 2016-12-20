@@ -45,8 +45,8 @@ var (
 	LogMaxDays        int64  = 3
 	PrivilegeMode     bool   = false
 	PrivilegeToken    string = ""
-	AuthTimeout       int64  = 15
-	Domain            string = ""
+	AuthTimeout       int64  = 900
+	SubDomainHost     string = ""
 
 	// if PrivilegeAllowPorts is not nil, tcp proxies which remote port exist in this map can be connected
 	PrivilegeAllowPorts map[int64]struct{}
@@ -123,12 +123,12 @@ func loadCommonConf(confFile string) error {
 		DashboardPort = 0
 	}
 
-	tmpStr, ok = conf.Get("common", "dashboard_username")
+	tmpStr, ok = conf.Get("common", "dashboard_user")
 	if ok {
 		DashboardUsername = tmpStr
 	}
 
-	tmpStr, ok = conf.Get("common", "dashboard_password")
+	tmpStr, ok = conf.Get("common", "dashboard_pwd")
 	if ok {
 		DashboardPassword = tmpStr
 	}
@@ -233,7 +233,10 @@ func loadCommonConf(confFile string) error {
 			AuthTimeout = v
 		}
 	}
-	Domain, ok = conf.Get("common", "domain")
+	SubDomainHost, ok = conf.Get("common", "subdomain_host")
+	if ok {
+		SubDomainHost = strings.ToLower(strings.TrimSpace(SubDomainHost))
+	}
 	return nil
 }
 
@@ -288,13 +291,18 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				if ok {
 					proxyServer.CustomDomains = strings.Split(domainStr, ",")
 					if len(proxyServer.CustomDomains) == 0 {
-						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyServer.Name)
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type is http", proxyServer.Name)
 					}
 					for i, domain := range proxyServer.CustomDomains {
-						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
+						domain = strings.ToLower(strings.TrimSpace(domain))
+						// custom domain should not belong to subdomain_host
+						if SubDomainHost != "" && strings.Contains(domain, SubDomainHost) {
+							return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom domain should not belong to subdomain_host", proxyServer.Name)
+						}
+						proxyServer.CustomDomains[i] = domain
 					}
 				} else {
-					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyServer.Name)
+					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type is http", proxyServer.Name)
 				}
 			} else if proxyServer.Type == "https" {
 				// for https
@@ -304,13 +312,17 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				if ok {
 					proxyServer.CustomDomains = strings.Split(domainStr, ",")
 					if len(proxyServer.CustomDomains) == 0 {
-						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals https", proxyServer.Name)
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type is https", proxyServer.Name)
 					}
 					for i, domain := range proxyServer.CustomDomains {
-						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
+						domain = strings.ToLower(strings.TrimSpace(domain))
+						if SubDomainHost != "" && strings.Contains(domain, SubDomainHost) {
+							return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom domain should not belong to subdomain_host", proxyServer.Name)
+						}
+						proxyServer.CustomDomains[i] = domain
 					}
 				} else {
-					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals https", proxyServer.Name)
+					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type is https", proxyServer.Name)
 				}
 			}
 			proxyServers[proxyServer.Name] = proxyServer

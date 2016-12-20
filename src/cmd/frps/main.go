@@ -94,7 +94,7 @@ func main() {
 				res := &server.GeneralResponse{}
 				err = json.Unmarshal(body, &res)
 				if err != nil {
-					fmt.Printf("http response error: %v\n", err)
+					fmt.Printf("http response error: %s\n", strings.TrimSpace(string(body)))
 					os.Exit(1)
 				} else if res.Code != 0 {
 					fmt.Printf("reload error: %s\n", res.Msg)
