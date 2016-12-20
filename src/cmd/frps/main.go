@@ -15,6 +15,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -38,7 +39,7 @@ var usage string = `frps is the server of frp
 
 Usage: 
     frps [-c config_file] [-L log_file] [--log-level=<log_level>] [--addr=<bind_addr>]
-    frps --reload
+    frps [-c config_file] --reload
     frps -h | --help
     frps -v | --version
 
@@ -68,7 +69,18 @@ func main() {
 	// reload check
 	if args["--reload"] != nil {
 		if args["--reload"].(bool) {
-			resp, err := http.Get("http://" + server.BindAddr + ":" + fmt.Sprintf("%d", server.DashboardPort) + "/api/reload")
+			req, err := http.NewRequest("GET", "http://"+server.BindAddr+":"+fmt.Sprintf("%d", server.DashboardPort)+"/api/reload", nil)
+			if err != nil {
+				fmt.Printf("frps reload error: %v\n", err)
+				os.Exit(1)
+			}
+
+			authStr := "Basic " + base64.StdEncoding.EncodeToString([]byte(server.DashboardUsername+":"+server.DashboardPassword))
+
+			req.Header.Add("Authorization", authStr)
+			defaultClient := &http.Client{}
+			resp, err := defaultClient.Do(req)
+
 			if err != nil {
 				fmt.Printf("frps reload error: %v\n", err)
 				os.Exit(1)
