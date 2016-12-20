@@ -34,7 +34,8 @@ func RunDashboardServer(addr string, port int64) (err error) {
 	// url router
 	mux := http.NewServeMux()
 	// api, see dashboard_api.go
-	mux.HandleFunc("/api/reload", apiReload)
+	// mux.HandleFunc("/api/reload", apiReload)
+	mux.HandleFunc("/api/reload", use(apiReload, basicAuth))
 	mux.HandleFunc("/api/proxies", apiProxies)
 
 	// view, see dashboard_view.go
