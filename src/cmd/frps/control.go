@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/fatedier/frp/src/models/consts"
@@ -71,14 +72,14 @@ func controlWorker(c *conn.Conn) {
 	// login when type is NewCtlConn or NewWorkConn
 	ret, info := doLogin(cliReq, c)
 	// if login type is NewWorkConn, nothing will be send to frpc
-	if cliReq.Type != consts.NewWorkConn {
+	if cliReq.Type == consts.NewCtlConn {
 		cliRes := &msg.ControlRes{
 			Type: consts.NewCtlConnRes,
 			Code: ret,
 			Msg:  info,
 		}
 		byteBuf, _ := json.Marshal(cliRes)
-		err = c.Write(string(byteBuf) + "\n")
+		err = c.WriteString(string(byteBuf) + "\n")
 		if err != nil {
 			log.Warn("ProxyName [%s], write to client error, proxy exit", cliReq.ProxyName)
 			return
@@ -93,9 +94,9 @@ func controlWorker(c *conn.Conn) {
 		return
 	}
 
-	s, ok := server.ProxyServers[cliReq.ProxyName]
+	s, ok := server.GetProxyServer(cliReq.ProxyName)
 	if !ok {
-		log.Warn("ProxyName [%s], is not exist now", cliReq.ProxyName)
+		log.Warn("ProxyName [%s] does not exist now", cliReq.ProxyName)
 		return
 	}
 
@@ -144,9 +145,11 @@ func msgReader(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}
 		if err != nil {
 			if err == io.EOF {
 				log.Warn("ProxyName [%s], client is dead!", s.Name)
+				s.Close()
 				return err
 			} else if c == nil || c.IsClosed() {
 				log.Warn("ProxyName [%s], client connection is closed", s.Name)
+				s.Close()
 				return err
 			}
 			log.Warn("ProxyName [%s], read error: %v", s.Name, err)
@@ -183,7 +186,7 @@ func msgSender(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}
 		}
 
 		buf, _ := json.Marshal(msg)
-		err := c.Write(string(buf) + "\n")
+		err := c.WriteString(string(buf) + "\n")
 		if err != nil {
 			log.Warn("ProxyName [%s], write to client error, proxy exit", s.Name)
 			s.Close()
@@ -193,6 +196,9 @@ func msgSender(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}
 }
 
 // if success, ret equals 0, otherwise greater than 0
+// NewCtlConn
+// NewWorkConn
+// NewWorkConnUdp
 func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 	ret = 1
 	// check if PrivilegeMode is enabled
@@ -206,7 +212,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		s  *server.ProxyServer
 		ok bool
 	)
-	s, ok = server.ProxyServers[req.ProxyName]
+	s, ok = server.GetProxyServer(req.ProxyName)
 	if req.PrivilegeMode && req.Type == consts.NewCtlConn {
 		log.Debug("ProxyName [%s], doLogin and privilege mode is enabled", req.ProxyName)
 	} else {
@@ -221,8 +227,8 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 	nowTime := time.Now().Unix()
 	if req.PrivilegeMode {
 		privilegeKey := pcrypto.GetAuthKey(req.ProxyName + server.PrivilegeToken + fmt.Sprintf("%d", req.Timestamp))
-		// privilegeKey avaiable in 15 minutes
-		if nowTime-req.Timestamp > 15*60 {
+		// privilegeKey unavaiable after server.AuthTimeout minutes
+		if server.AuthTimeout != 0 && nowTime-req.Timestamp > server.AuthTimeout {
 			info = fmt.Sprintf("ProxyName [%s], privilege mode authorization timeout", req.ProxyName)
 			log.Warn(info)
 			return
@@ -234,8 +240,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		}
 	} else {
 		authKey := pcrypto.GetAuthKey(req.ProxyName + s.AuthToken + fmt.Sprintf("%d", req.Timestamp))
-		// authKey avaiable in 15 minutes
-		if nowTime-req.Timestamp > 15*60 {
+		if server.AuthTimeout != 0 && nowTime-req.Timestamp > server.AuthTimeout {
 			info = fmt.Sprintf("ProxyName [%s], authorization timeout", req.ProxyName)
 			log.Warn(info)
 			return
@@ -258,6 +263,14 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 					_, ok := server.PrivilegeAllowPorts[s.ListenPort]
 					if !ok {
 						info = fmt.Sprintf("ProxyName [%s], remote_port [%d] isn't allowed", req.ProxyName, s.ListenPort)
+						log.Warn(info)
+						return
+					}
+				}
+			} else if s.Type == "http" || s.Type == "https" {
+				for _, domain := range s.CustomDomains {
+					if server.SubDomainHost != "" && strings.Contains(domain, server.SubDomainHost) {
+						info = fmt.Sprintf("ProxyName [%s], custom domain [%s] should not belong to subdomain_host [%s]", req.ProxyName, domain, server.SubDomainHost)
 						log.Warn(info)
 						return
 					}
@@ -287,6 +300,23 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		s.UseEncryption = req.UseEncryption
 		s.UseGzip = req.UseGzip
 		s.HostHeaderRewrite = req.HostHeaderRewrite
+		s.HttpUserName = req.HttpUserName
+		s.HttpPassWord = req.HttpPassWord
+
+		// package URL
+		if req.SubDomain != "" {
+			if strings.Contains(req.SubDomain, ".") || strings.Contains(req.SubDomain, "*") {
+				info = fmt.Sprintf("ProxyName [%s], '.' or '*' is not supported in subdomain", req.ProxyName)
+				log.Warn(info)
+				return
+			}
+			if server.SubDomainHost == "" {
+				info = fmt.Sprintf("ProxyName [%s], subdomain in not supported because this feature is not enabled by remote server", req.ProxyName)
+				log.Warn(info)
+				return
+			}
+			s.SubDomain = req.SubDomain + "." + server.SubDomainHost
+		}
 		if req.PoolCount > server.MaxPoolCount {
 			s.PoolCount = server.MaxPoolCount
 		} else if req.PoolCount < 0 {
@@ -323,6 +353,13 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		}
 		// the connection will close after join over
 		s.RegisterNewWorkConn(c)
+	} else if req.Type == consts.NewWorkConnUdp {
+		// work conn for udp
+		if s.Status != consts.Working {
+			log.Warn("ProxyName [%s], is not working when it gets one new work connnection for udp", req.ProxyName)
+			return
+		}
+		s.RegisterNewWorkConnUdp(c)
 	} else {
 		info = fmt.Sprintf("Unsupport login message type [%d]", req.Type)
 		log.Warn("Unsupport login message type [%d]", req.Type)

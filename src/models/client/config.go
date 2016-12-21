@@ -16,6 +16,7 @@ package client
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -26,6 +27,7 @@ import (
 var (
 	ServerAddr        string = "0.0.0.0"
 	ServerPort        int64  = 7000
+	HttpProxy         string = ""
 	LogFile           string = "console"
 	LogWay            string = "console"
 	LogLevel          string = "info"
@@ -55,6 +57,14 @@ func LoadConf(confFile string) (err error) {
 	tmpStr, ok = conf.Get("common", "server_port")
 	if ok {
 		ServerPort, _ = strconv.ParseInt(tmpStr, 10, 64)
+	}
+
+	tmpStr, ok = conf.Get("common", "http_proxy")
+	if ok {
+		HttpProxy = tmpStr
+	} else {
+		// get http_proxy from env
+		HttpProxy = os.Getenv("http_proxy")
 	}
 
 	tmpStr, ok = conf.Get("common", "log_file")
@@ -120,7 +130,7 @@ func LoadConf(confFile string) (err error) {
 			proxyClient.Type = "tcp"
 			tmpStr, ok = section["type"]
 			if ok {
-				if tmpStr != "tcp" && tmpStr != "http" && tmpStr != "https" {
+				if tmpStr != "tcp" && tmpStr != "http" && tmpStr != "https" && tmpStr != "udp" {
 					return fmt.Errorf("Parse conf error: proxy [%s] type error", proxyClient.Name)
 				}
 				proxyClient.Type = tmpStr
@@ -145,6 +155,21 @@ func LoadConf(confFile string) (err error) {
 				tmpStr, ok = section["host_header_rewrite"]
 				if ok {
 					proxyClient.HostHeaderRewrite = tmpStr
+				}
+				// http_user
+				tmpStr, ok = section["http_user"]
+				if ok {
+					proxyClient.HttpUserName = tmpStr
+				}
+				// http_pwd
+				tmpStr, ok = section["http_pwd"]
+				if ok {
+					proxyClient.HttpPassWord = tmpStr
+				}
+				// subdomain
+				tmpStr, ok = section["subdomain"]
+				if ok {
+					proxyClient.SubDomain = tmpStr
 				}
 			}
 
@@ -174,7 +199,7 @@ func LoadConf(confFile string) (err error) {
 					proxyClient.PrivilegeToken = PrivilegeToken
 				}
 
-				if proxyClient.Type == "tcp" {
+				if proxyClient.Type == "tcp" || proxyClient.Type == "udp" {
 					// remote_port
 					tmpStr, ok = section["remote_port"]
 					if ok {
@@ -191,13 +216,16 @@ func LoadConf(confFile string) (err error) {
 					if ok {
 						proxyClient.CustomDomains = strings.Split(domainStr, ",")
 						if len(proxyClient.CustomDomains) == 0 {
-							return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyClient.Name)
+							ok = false
+						} else {
+							for i, domain := range proxyClient.CustomDomains {
+								proxyClient.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
+							}
 						}
-						for i, domain := range proxyClient.CustomDomains {
-							proxyClient.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
-						}
-					} else {
-						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyClient.Name)
+					}
+
+					if !ok && proxyClient.SubDomain == "" {
+						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains and subdomain should set at least one of them when type is http", proxyClient.Name)
 					}
 				} else if proxyClient.Type == "https" {
 					// custom_domains
@@ -205,13 +233,16 @@ func LoadConf(confFile string) (err error) {
 					if ok {
 						proxyClient.CustomDomains = strings.Split(domainStr, ",")
 						if len(proxyClient.CustomDomains) == 0 {
-							return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals https", proxyClient.Name)
+							ok = false
+						} else {
+							for i, domain := range proxyClient.CustomDomains {
+								proxyClient.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
+							}
 						}
-						for i, domain := range proxyClient.CustomDomains {
-							proxyClient.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
-						}
-					} else {
-						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyClient.Name)
+					}
+
+					if !ok && proxyClient.SubDomain == "" {
+						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains and subdomain should set at least one of them when type is https", proxyClient.Name)
 					}
 				}
 			}

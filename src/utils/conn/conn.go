@@ -16,9 +16,12 @@ package conn
 
 import (
 	"bufio"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -104,9 +107,9 @@ func NewConn(conn net.Conn) (c *Conn) {
 	return c
 }
 
-func ConnectServer(host string, port int64) (c *Conn, err error) {
+func ConnectServer(addr string) (c *Conn, err error) {
 	c = &Conn{}
-	servertAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", host, port))
+	servertAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return
 	}
@@ -118,6 +121,49 @@ func ConnectServer(host string, port int64) (c *Conn, err error) {
 	c.Reader = bufio.NewReader(c.TcpConn)
 	c.closeFlag = false
 	return c, nil
+}
+
+func ConnectServerByHttpProxy(httpProxy string, serverAddr string) (c *Conn, err error) {
+	var proxyUrl *url.URL
+	if proxyUrl, err = url.Parse(httpProxy); err != nil {
+		return
+	}
+
+	var proxyAuth string
+	if proxyUrl.User != nil {
+		proxyAuth = "Basic " + base64.StdEncoding.EncodeToString([]byte(proxyUrl.User.String()))
+	}
+
+	if proxyUrl.Scheme != "http" {
+		err = fmt.Errorf("Proxy URL scheme must be http, not [%s]", proxyUrl.Scheme)
+		return
+	}
+
+	if c, err = ConnectServer(proxyUrl.Host); err != nil {
+		return
+	}
+
+	req, err := http.NewRequest("CONNECT", "http://"+serverAddr, nil)
+	if err != nil {
+		return
+	}
+	if proxyAuth != "" {
+		req.Header.Set("Proxy-Authorization", proxyAuth)
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	req.Write(c.TcpConn)
+
+	resp, err := http.ReadResponse(bufio.NewReader(c), req)
+	if err != nil {
+		return
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		err = fmt.Errorf("ConnectServer using proxy error, StatusCode [%d]", resp.StatusCode)
+		return
+	}
+
+	return
 }
 
 // if the tcpConn is different with c.TcpConn
@@ -156,12 +202,12 @@ func (c *Conn) ReadLine() (buff string, err error) {
 	return buff, err
 }
 
-func (c *Conn) WriteBytes(content []byte) (n int, err error) {
+func (c *Conn) Write(content []byte) (n int, err error) {
 	n, err = c.TcpConn.Write(content)
 	return
 }
 
-func (c *Conn) Write(content string) (err error) {
+func (c *Conn) WriteString(content string) (err error) {
 	_, err = c.TcpConn.Write([]byte(content))
 	return err
 }
@@ -174,13 +220,14 @@ func (c *Conn) SetReadDeadline(t time.Time) error {
 	return c.TcpConn.SetReadDeadline(t)
 }
 
-func (c *Conn) Close() {
+func (c *Conn) Close() error {
 	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	if c.TcpConn != nil && c.closeFlag == false {
 		c.closeFlag = true
 		c.TcpConn.Close()
 	}
-	c.mutex.Unlock()
+	return nil
 }
 
 func (c *Conn) IsClosed() (closeFlag bool) {
@@ -199,7 +246,6 @@ func (c *Conn) CheckClosed() bool {
 	}
 	c.mutex.RUnlock()
 
-	// err := c.TcpConn.SetReadDeadline(time.Now().Add(100 * time.Microsecond))
 	err := c.TcpConn.SetReadDeadline(time.Now().Add(time.Millisecond))
 	if err != nil {
 		c.Close()

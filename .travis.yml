@@ -3,8 +3,8 @@ language: go
 
 go:
     - 1.5.4
-    - 1.6.3
-    - 1.7rc6
+    - 1.6.4
+    - 1.7.4
 
 install:
     - make
