@@ -6,7 +6,7 @@
 
 ## What is frp?
 
-frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet. Now, it supports tcp, http and https protocol when requests can be forwarded by domains to backward web services.
+frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet. Now, it supports tcp, udp, http and https protocol when requests can be forwarded by domains to backward web services.
 
 ## Catalog
 
@@ -108,7 +108,7 @@ Put **frpc** and **frpc.ini** to your server in LAN.
 
 Sometimes we want to expose a local web service behind a NAT network to others for testing with your own domain name and unfortunately we can't resolve a domain name to a local ip.
 
-Howerver, we can expose a http or https service using frp.
+However, we can expose a http or https service using frp.
 
 1. Modify frps.ini, configure a http reverse proxy named [web] and set http port as 8080, custom domain as `www.yourdomain.com`:
 
@@ -238,7 +238,7 @@ use_gzip = true
 
 ### Reload configures without frps stopped
 
-If your want to add a new reverse proxy and avoid restarting frps, you can use this function:
+If you want to add a new reverse proxy and avoid restarting frps, you can use this function:
 
 1. `dashboard_port` should be set in frps.ini:
 
