@@ -35,6 +35,7 @@ type ProxyClient struct {
 
 	RemotePort    int64
 	CustomDomains []string
+	Locations     []string
 
 	udpTunnel *conn.Conn
 	once      sync.Once

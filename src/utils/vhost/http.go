@@ -45,6 +45,8 @@ func GetHttpRequestInfo(c *conn.Conn) (_ net.Conn, _ map[string]string, err erro
 	// hostName
 	tmpArr := strings.Split(request.Host, ":")
 	reqInfoMap["Host"] = tmpArr[0]
+	reqInfoMap["Path"] = request.URL.Path
+	reqInfoMap["Scheme"] = request.URL.Scheme
 
 	// Authorization
 	authStr := request.Header.Get("Authorization")

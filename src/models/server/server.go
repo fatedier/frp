@@ -39,6 +39,7 @@ type ProxyServer struct {
 	BindAddr      string
 	ListenPort    int64
 	CustomDomains []string
+	Locations     []string
 
 	Status      int64
 	CtlConn     *conn.Conn // control connection with frpc
@@ -56,6 +57,7 @@ type ProxyServer struct {
 func NewProxyServer() (p *ProxyServer) {
 	p = &ProxyServer{
 		CustomDomains: make([]string, 0),
+		Locations:     make([]string, 0),
 	}
 	return p
 }
@@ -77,6 +79,7 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 		p.ListenPort = VhostHttpsPort
 	}
 	p.CustomDomains = req.CustomDomains
+	p.Locations = req.Locations
 	p.HostHeaderRewrite = req.HostHeaderRewrite
 	p.HttpUserName = req.HttpUserName
 	p.HttpPassWord = req.HttpPassWord
@@ -108,6 +111,15 @@ func (p *ProxyServer) Compare(p2 *ProxyServer) bool {
 			return false
 		}
 	}
+
+	if len(p.Locations) != len(p2.Locations) {
+		return false
+	}
+	for i, _ := range p.Locations {
+		if p.Locations[i] != p2.Locations[i] {
+			return false
+		}
+	}
 	return true
 }
 
@@ -131,23 +143,42 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 		p.listeners = append(p.listeners, l)
 	} else if p.Type == "http" {
 		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpMuxer.Listen(domain, p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
-			if err != nil {
-				return err
+			if len(p.Locations) == 0 {
+				l, err := VhostHttpMuxer.Listen(domain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+				if err != nil {
+					return err
+				}
+				p.listeners = append(p.listeners, l)
+			} else {
+				for _, location := range p.Locations {
+					l, err := VhostHttpMuxer.Listen(domain, location, p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+					if err != nil {
+						return err
+					}
+					p.listeners = append(p.listeners, l)
+				}
 			}
-			p.listeners = append(p.listeners, l)
 		}
 		if p.SubDomain != "" {
-			l, err := VhostHttpMuxer.Listen(p.SubDomain, p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
-			if err != nil {
-				return err
+			if len(p.Locations) == 0 {
+				l, err := VhostHttpMuxer.Listen(p.SubDomain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+				if err != nil {
+					return err
+				}
+				p.listeners = append(p.listeners, l)
+			} else {
+				for _, location := range p.Locations {
+					l, err := VhostHttpMuxer.Listen(p.SubDomain, location, p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+					if err != nil {
+						return err
+					}
+					p.listeners = append(p.listeners, l)
+				}
 			}
-			p.listeners = append(p.listeners, l)
 		}
-
 	} else if p.Type == "https" {
 		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpsMuxer.Listen(domain, p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+			l, err := VhostHttpsMuxer.Listen(domain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
 			if err != nil {
 				return err
 			}

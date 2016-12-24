@@ -297,6 +297,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		}
 
 		// set infomations from frpc
+		s.BindAddr = server.BindAddr
 		s.UseEncryption = req.UseEncryption
 		s.UseGzip = req.UseGzip
 		s.HostHeaderRewrite = req.HostHeaderRewrite
@@ -332,7 +333,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		}
 
 		// update metric's proxy status
-		metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip, s.PrivilegeMode, s.CustomDomains, s.ListenPort)
+		metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip, s.PrivilegeMode, s.CustomDomains, s.Locations, s.ListenPort)
 
 		// start proxy and listen for user connections, no block
 		err := s.Start(c)
