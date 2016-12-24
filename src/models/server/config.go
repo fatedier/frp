@@ -305,10 +305,10 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type is http", proxyServer.Name)
 				}
 
-				//location
-				locStr, loc_ok := section["custom_location"]
-				if loc_ok {
-					proxyServer.Locations = strings.Split(locStr, ",")
+				// locations
+				locations, ok := section["locations"]
+				if ok {
+					proxyServer.Locations = strings.Split(locations, ",")
 				} else {
 					proxyServer.Locations = []string{""}
 				}
@@ -338,8 +338,9 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 	}
 
 	// set metric statistics of all proxies
-	for _, p := range proxyServers {
-		metric.SetProxyInfo(*p.ProxyServerConf)
+	for name, p := range proxyServers {
+		metric.SetProxyInfo(name, p.Type, p.BindAddr, p.UseEncryption, p.UseGzip,
+			p.PrivilegeMode, p.CustomDomains, p.ListenPort)
 	}
 	return proxyServers, nil
 }
@@ -400,7 +401,8 @@ func CreateProxy(s *ProxyServer) error {
 		}
 	}
 	ProxyServers[s.Name] = s
-	metric.SetProxyInfo(*s.ProxyServerConf)
+	metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip,
+		s.PrivilegeMode, s.CustomDomains, s.ListenPort)
 	s.Init()
 	return nil
 }

@@ -35,7 +35,11 @@ type Listener interface {
 }
 
 type ProxyServer struct {
-	*config.ProxyServerConf
+	config.BaseConf
+	BindAddr      string
+	ListenPort    int64
+	CustomDomains []string
+	Locations     []string
 
 	Status      int64
 	CtlConn     *conn.Conn // control connection with frpc
@@ -51,9 +55,9 @@ type ProxyServer struct {
 }
 
 func NewProxyServer() (p *ProxyServer) {
-	psc := &config.ProxyServerConf{CustomDomains: make([]string, 0)}
 	p = &ProxyServer{
-		ProxyServerConf: psc,
+		CustomDomains: make([]string, 0),
+		Locations:     make([]string, 0),
 	}
 	return p
 }
@@ -75,6 +79,7 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 		p.ListenPort = VhostHttpsPort
 	}
 	p.CustomDomains = req.CustomDomains
+	p.Locations = req.Locations
 	p.HostHeaderRewrite = req.HostHeaderRewrite
 	p.HttpUserName = req.HttpUserName
 	p.HttpPassWord = req.HttpPassWord
@@ -137,13 +142,46 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 		}
 		p.listeners = append(p.listeners, l)
 	} else if p.Type == "http" {
-		ls := VhostHttpMuxer.Listen(p.ProxyServerConf)
-		for _, l := range ls {
-			p.listeners = append(p.listeners, l)
+		for _, domain := range p.CustomDomains {
+			if len(p.Locations) == 0 {
+				l, err := VhostHttpMuxer.Listen(domain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+				if err != nil {
+					return err
+				}
+				p.listeners = append(p.listeners, l)
+			} else {
+				for _, location := range p.Locations {
+					l, err := VhostHttpMuxer.Listen(domain, location, p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+					if err != nil {
+						return err
+					}
+					p.listeners = append(p.listeners, l)
+				}
+			}
+		}
+		if p.SubDomain != "" {
+			if len(p.Locations) == 0 {
+				l, err := VhostHttpMuxer.Listen(p.SubDomain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+				if err != nil {
+					return err
+				}
+				p.listeners = append(p.listeners, l)
+			} else {
+				for _, location := range p.Locations {
+					l, err := VhostHttpMuxer.Listen(p.SubDomain, location, p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+					if err != nil {
+						return err
+					}
+					p.listeners = append(p.listeners, l)
+				}
+			}
 		}
 	} else if p.Type == "https" {
-		ls := VhostHttpsMuxer.Listen(p.ProxyServerConf)
-		for _, l := range ls {
+		for _, domain := range p.CustomDomains {
+			l, err := VhostHttpsMuxer.Listen(domain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+			if err != nil {
+				return err
+			}
 			p.listeners = append(p.listeners, l)
 		}
 	}

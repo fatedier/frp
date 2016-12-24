@@ -19,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/src/models/config"
 	"github.com/fatedier/frp/src/models/consts"
 )
 
@@ -30,8 +29,15 @@ var (
 )
 
 type ServerMetric struct {
-	config.ProxyServerConf
-	StatusDesc string `json:"status_desc"`
+	Name          string   `json:"name"`
+	Type          string   `json:"type"`
+	BindAddr      string   `json:"bind_addr"`
+	ListenPort    int64    `json:"listen_port"`
+	CustomDomains []string `json:"custom_domains"`
+	Status        string   `json:"status"`
+	UseEncryption bool     `json:"use_encryption"`
+	UseGzip       bool     `json:"use_gzip"`
+	PrivilegeMode bool     `json:"privilege_mode"`
 
 	// statistics
 	CurrentConns int64               `json:"current_conns"`
@@ -104,16 +110,24 @@ func GetProxyMetrics(proxyName string) *ServerMetric {
 	}
 }
 
-func SetProxyInfo(p config.ProxyServerConf) {
+func SetProxyInfo(proxyName string, proxyType, bindAddr string,
+	useEncryption, useGzip, privilegeMode bool, customDomains []string,
+	listenPort int64) {
 	smMutex.Lock()
-	info, ok := ServerMetricInfoMap[p.Name]
+	info, ok := ServerMetricInfoMap[proxyName]
 	if !ok {
 		info = &ServerMetric{}
 		info.Daily = make([]*DailyServerStats, 0)
 	}
-
-	info.ProxyServerConf = p
-	ServerMetricInfoMap[p.Name] = info
+	info.Name = proxyName
+	info.Type = proxyType
+	info.UseEncryption = useEncryption
+	info.UseGzip = useGzip
+	info.PrivilegeMode = privilegeMode
+	info.BindAddr = bindAddr
+	info.ListenPort = listenPort
+	info.CustomDomains = customDomains
+	ServerMetricInfoMap[proxyName] = info
 	smMutex.Unlock()
 }
 
@@ -123,7 +137,7 @@ func SetStatus(proxyName string, status int64) {
 	smMutex.RUnlock()
 	if ok {
 		metric.mutex.Lock()
-		metric.StatusDesc = consts.StatusStr[status]
+		metric.Status = consts.StatusStr[status]
 		metric.mutex.Unlock()
 	}
 }

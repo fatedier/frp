@@ -332,8 +332,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		}
 
 		// update metric's proxy status
-		//metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip, s.PrivilegeMode, s.CustomDomains, s.ListenPort)
-		metric.SetProxyInfo(*s.ProxyServerConf)
+		metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip, s.PrivilegeMode, s.CustomDomains, s.ListenPort)
 
 		// start proxy and listen for user connections, no block
 		err := s.Start(c)

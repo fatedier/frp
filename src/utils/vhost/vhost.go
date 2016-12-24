@@ -21,9 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/src/models/config"
 	"github.com/fatedier/frp/src/utils/conn"
-	"github.com/fatedier/frp/src/utils/log"
 )
 
 type muxFunc func(*conn.Conn) (net.Conn, map[string]string, error)
@@ -54,59 +52,42 @@ func NewVhostMuxer(listener *conn.Listener, vhostFunc muxFunc, authFunc httpAuth
 }
 
 // listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil, then rewrite the host header to rewriteHost
-func (v *VhostMuxer) Listen(p *config.ProxyServerConf) (ls []*Listener) {
+func (v *VhostMuxer) Listen(name, location, rewriteHost, userName, passWord string) (l *Listener, err error) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	ls = make([]*Listener, 0)
-	for _, domain := range p.CustomDomains {
-		l := &Listener{
-			name:        p.Name,
-			domain:      domain,
-			locations:   p.Locations,
-			rewriteHost: p.HostHeaderRewrite,
-			userName:    p.HttpUserName,
-			passWord:    p.HttpPassWord,
-			mux:         v,
-			accept:      make(chan *conn.Conn),
-		}
-		v.registryRouter.add(p.Name, domain, p.Locations, l)
-		ls = append(ls, l)
+	l = &Listener{
+		name:        name,
+		rewriteHost: rewriteHost,
+		userName:    userName,
+		passWord:    passWord,
+		mux:         v,
+		accept:      make(chan *conn.Conn),
 	}
-	return ls
+	v.registryRouter.Add(name, location, l)
+	return l, nil
 }
 
-func (v *VhostMuxer) getListener(reqInfoMap map[string]string) (l *Listener, exist bool) {
+func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
 	v.mutex.RLock()
 	defer v.mutex.RUnlock()
 
-	//host
-	name := strings.ToLower(reqInfoMap["Host"])
-
-	// http
-	scheme := strings.ToLower(reqInfoMap["Scheme"])
-	if scheme == "http" || scheme == "" {
-		name = name + ":" + reqInfoMap["Path"]
-	}
-
-	// // first we check the full hostname
-	vr, found := v.registryRouter.get(name)
+	// first we check the full hostname
+	// if not exist, then check the wildcard_domain such as *.example.com
+	vr, found := v.registryRouter.Get(name, path)
 	if found {
 		return vr.listener, true
 	}
 
-	//if not exist, then check the wildcard_domain such as *.example.com
 	domainSplit := strings.Split(name, ".")
 	if len(domainSplit) < 3 {
-		log.Warn("can't found the router for %s", name)
 		return l, false
 	}
 	domainSplit[0] = "*"
 	name = strings.Join(domainSplit, ".")
 
-	vr, found = v.registryRouter.get(name)
+	vr, found = v.registryRouter.Get(name, path)
 	if !found {
-		log.Warn("can't found the router for %s", name)
 		return
 	}
 
@@ -135,7 +116,9 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 		return
 	}
 
-	l, ok := v.getListener(reqInfoMap)
+	name := strings.ToLower(reqInfoMap["Host"])
+	path := strings.ToLower(reqInfoMap["Path"])
+	l, ok := v.getListener(name, path)
 	if !ok {
 		c.Close()
 		return
@@ -165,8 +148,6 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 
 type Listener struct {
 	name        string
-	domain      string
-	locations   []string
 	rewriteHost string
 	userName    string
 	passWord    string
@@ -194,7 +175,7 @@ func (l *Listener) Accept() (*conn.Conn, error) {
 }
 
 func (l *Listener) Close() error {
-	l.mux.registryRouter.del(l)
+	l.mux.registryRouter.Del(l)
 	close(l.accept)
 	return nil
 }
