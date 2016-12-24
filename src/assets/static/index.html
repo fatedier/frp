@@ -35,7 +35,7 @@
                   </td>
                   <td><span ng-bind="x.type"></span></td>
                   <td><span ng-bind="x.listen_port"></span></td>
-                  <td><span ng-bind="x.status_desc"></span></td>
+                  <td><span ng-bind="x.status"></span></td>
                   <td><span ng-bind="x.current_conns"></span></td>
                   <td><span ng-bind="x.daily[x.daily.length-1].flow_out"></span></td>
                   <td><span ng-bind="x.daily[x.daily.length-1].flow_in"></span></td>
@@ -66,7 +66,7 @@
         current_conns: <<< .CurrentConns >>> ,
         domains: [ <<< range.CustomDomains >>> "<<< . >>>", <<< end >>> ],
         locations: [ <<< range.Locations >>> "<<< . >>>", <<< end >>> ],
-        stat: "<<< .StatusDesc >>>",
+        stat: "<<< .Status>>>",
         use_encryption: "<<< .UseEncryption >>>",
         use_gzip: "<<< .UseGzip >>>",
         privilege_mode: "<<< .PrivilegeMode >>>",

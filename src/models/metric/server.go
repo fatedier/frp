@@ -34,6 +34,7 @@ type ServerMetric struct {
 	BindAddr      string   `json:"bind_addr"`
 	ListenPort    int64    `json:"listen_port"`
 	CustomDomains []string `json:"custom_domains"`
+	Locations     []string `json:"locations"`
 	Status        string   `json:"status"`
 	UseEncryption bool     `json:"use_encryption"`
 	UseGzip       bool     `json:"use_gzip"`
@@ -112,7 +113,7 @@ func GetProxyMetrics(proxyName string) *ServerMetric {
 
 func SetProxyInfo(proxyName string, proxyType, bindAddr string,
 	useEncryption, useGzip, privilegeMode bool, customDomains []string,
-	listenPort int64) {
+	locations []string, listenPort int64) {
 	smMutex.Lock()
 	info, ok := ServerMetricInfoMap[proxyName]
 	if !ok {
@@ -127,6 +128,7 @@ func SetProxyInfo(proxyName string, proxyType, bindAddr string,
 	info.BindAddr = bindAddr
 	info.ListenPort = listenPort
 	info.CustomDomains = customDomains
+	info.Locations = locations
 	ServerMetricInfoMap[proxyName] = info
 	smMutex.Unlock()
 }
