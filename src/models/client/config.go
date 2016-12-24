@@ -130,7 +130,7 @@ func LoadConf(confFile string) (err error) {
 			proxyClient.Type = "tcp"
 			tmpStr, ok = section["type"]
 			if ok {
-				if tmpStr != "tcp" && tmpStr != "http" && tmpStr != "https" {
+				if tmpStr != "tcp" && tmpStr != "http" && tmpStr != "https" && tmpStr != "udp" {
 					return fmt.Errorf("Parse conf error: proxy [%s] type error", proxyClient.Name)
 				}
 				proxyClient.Type = tmpStr
@@ -156,13 +156,13 @@ func LoadConf(confFile string) (err error) {
 				if ok {
 					proxyClient.HostHeaderRewrite = tmpStr
 				}
-				// http_username
-				tmpStr, ok = section["http_username"]
+				// http_user
+				tmpStr, ok = section["http_user"]
 				if ok {
 					proxyClient.HttpUserName = tmpStr
 				}
-				// http_password
-				tmpStr, ok = section["http_password"]
+				// http_pwd
+				tmpStr, ok = section["http_pwd"]
 				if ok {
 					proxyClient.HttpPassWord = tmpStr
 				}
@@ -199,7 +199,7 @@ func LoadConf(confFile string) (err error) {
 					proxyClient.PrivilegeToken = PrivilegeToken
 				}
 
-				if proxyClient.Type == "tcp" {
+				if proxyClient.Type == "tcp" || proxyClient.Type == "udp" {
 					// remote_port
 					tmpStr, ok = section["remote_port"]
 					if ok {
@@ -216,30 +216,33 @@ func LoadConf(confFile string) (err error) {
 					if ok {
 						proxyClient.CustomDomains = strings.Split(domainStr, ",")
 						if len(proxyClient.CustomDomains) == 0 {
-							return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyClient.Name)
+							ok = false
+						} else {
+							for i, domain := range proxyClient.CustomDomains {
+								proxyClient.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
+							}
 						}
-						for i, domain := range proxyClient.CustomDomains {
-							proxyClient.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
-						}
-					} else {
-						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyClient.Name)
 					}
 
-					// subdomain
-					proxyClient.SubDomain, ok = section["subdomain"]
+					if !ok && proxyClient.SubDomain == "" {
+						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains and subdomain should set at least one of them when type is http", proxyClient.Name)
+					}
 				} else if proxyClient.Type == "https" {
 					// custom_domains
 					domainStr, ok := section["custom_domains"]
 					if ok {
 						proxyClient.CustomDomains = strings.Split(domainStr, ",")
 						if len(proxyClient.CustomDomains) == 0 {
-							return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals https", proxyClient.Name)
+							ok = false
+						} else {
+							for i, domain := range proxyClient.CustomDomains {
+								proxyClient.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
+							}
 						}
-						for i, domain := range proxyClient.CustomDomains {
-							proxyClient.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
-						}
-					} else {
-						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyClient.Name)
+					}
+
+					if !ok && proxyClient.SubDomain == "" {
+						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains and subdomain should set at least one of them when type is https", proxyClient.Name)
 					}
 				}
 			}

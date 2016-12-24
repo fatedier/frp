@@ -202,12 +202,12 @@ func (c *Conn) ReadLine() (buff string, err error) {
 	return buff, err
 }
 
-func (c *Conn) WriteBytes(content []byte) (n int, err error) {
+func (c *Conn) Write(content []byte) (n int, err error) {
 	n, err = c.TcpConn.Write(content)
 	return
 }
 
-func (c *Conn) Write(content string) (err error) {
+func (c *Conn) WriteString(content string) (err error) {
 	_, err = c.TcpConn.Write([]byte(content))
 	return err
 }
@@ -220,13 +220,14 @@ func (c *Conn) SetReadDeadline(t time.Time) error {
 	return c.TcpConn.SetReadDeadline(t)
 }
 
-func (c *Conn) Close() {
+func (c *Conn) Close() error {
 	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	if c.TcpConn != nil && c.closeFlag == false {
 		c.closeFlag = true
 		c.TcpConn.Close()
 	}
-	c.mutex.Unlock()
+	return nil
 }
 
 func (c *Conn) IsClosed() (closeFlag bool) {
@@ -245,7 +246,6 @@ func (c *Conn) CheckClosed() bool {
 	}
 	c.mutex.RUnlock()
 
-	// err := c.TcpConn.SetReadDeadline(time.Now().Add(100 * time.Microsecond))
 	err := c.TcpConn.SetReadDeadline(time.Now().Add(time.Millisecond))
 	if err != nil {
 		c.Close()

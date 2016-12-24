@@ -17,6 +17,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/fatedier/frp/src/models/config"
@@ -34,19 +35,72 @@ type ProxyClient struct {
 
 	RemotePort    int64
 	CustomDomains []string
+
+	udpTunnel *conn.Conn
+	once      sync.Once
 }
 
-func (p *ProxyClient) GetLocalConn() (c *conn.Conn, err error) {
-	c, err = conn.ConnectServer(fmt.Sprintf("%s:%d", p.LocalIp, p.LocalPort))
+// if proxy type is udp, keep a tcp connection for transferring udp packages
+func (pc *ProxyClient) StartUdpTunnelOnce(addr string, port int64) {
+	pc.once.Do(func() {
+		var err error
+		var c *conn.Conn
+		udpProcessor := NewUdpProcesser(nil, pc.LocalIp, pc.LocalPort)
+		for {
+			if pc.udpTunnel == nil || pc.udpTunnel.IsClosed() {
+				if HttpProxy == "" {
+					c, err = conn.ConnectServer(fmt.Sprintf("%s:%d", addr, port))
+				} else {
+					c, err = conn.ConnectServerByHttpProxy(HttpProxy, fmt.Sprintf("%s:%d", addr, port))
+				}
+				if err != nil {
+					log.Error("ProxyName [%s], udp tunnel connect to server [%s:%d] error, %v", pc.Name, addr, port, err)
+					time.Sleep(10 * time.Second)
+					continue
+				}
+				log.Info("ProxyName [%s], udp tunnel reconnect to server [%s:%d] success", pc.Name, addr, port)
+
+				nowTime := time.Now().Unix()
+				req := &msg.ControlReq{
+					Type:          consts.NewWorkConnUdp,
+					ProxyName:     pc.Name,
+					PrivilegeMode: pc.PrivilegeMode,
+					Timestamp:     nowTime,
+				}
+				if pc.PrivilegeMode == true {
+					req.PrivilegeKey = pcrypto.GetAuthKey(pc.Name + PrivilegeToken + fmt.Sprintf("%d", nowTime))
+				} else {
+					req.AuthKey = pcrypto.GetAuthKey(pc.Name + pc.AuthToken + fmt.Sprintf("%d", nowTime))
+				}
+
+				buf, _ := json.Marshal(req)
+				err = c.WriteString(string(buf) + "\n")
+				if err != nil {
+					log.Error("ProxyName [%s], udp tunnel write to server error, %v", pc.Name, err)
+					c.Close()
+					time.Sleep(1 * time.Second)
+					continue
+				}
+				pc.udpTunnel = c
+				udpProcessor.UpdateTcpConn(pc.udpTunnel)
+				udpProcessor.Run()
+			}
+			time.Sleep(1 * time.Second)
+		}
+	})
+}
+
+func (pc *ProxyClient) GetLocalConn() (c *conn.Conn, err error) {
+	c, err = conn.ConnectServer(fmt.Sprintf("%s:%d", pc.LocalIp, pc.LocalPort))
 	if err != nil {
-		log.Error("ProxyName [%s], connect to local port error, %v", p.Name, err)
+		log.Error("ProxyName [%s], connect to local port error, %v", pc.Name, err)
 	}
 	return
 }
 
-func (p *ProxyClient) GetRemoteConn(addr string, port int64) (c *conn.Conn, err error) {
+func (pc *ProxyClient) GetRemoteConn(addr string, port int64) (c *conn.Conn, err error) {
 	defer func() {
-		if err != nil {
+		if err != nil && c != nil {
 			c.Close()
 		}
 	}()
@@ -57,29 +111,27 @@ func (p *ProxyClient) GetRemoteConn(addr string, port int64) (c *conn.Conn, err 
 		c, err = conn.ConnectServerByHttpProxy(HttpProxy, fmt.Sprintf("%s:%d", addr, port))
 	}
 	if err != nil {
-		log.Error("ProxyName [%s], connect to server [%s:%d] error, %v", p.Name, addr, port, err)
+		log.Error("ProxyName [%s], connect to server [%s:%d] error, %v", pc.Name, addr, port, err)
 		return
 	}
 
 	nowTime := time.Now().Unix()
 	req := &msg.ControlReq{
 		Type:          consts.NewWorkConn,
-		ProxyName:     p.Name,
-		PrivilegeMode: p.PrivilegeMode,
+		ProxyName:     pc.Name,
+		PrivilegeMode: pc.PrivilegeMode,
 		Timestamp:     nowTime,
 	}
-	if p.PrivilegeMode == true {
-		privilegeKey := pcrypto.GetAuthKey(p.Name + PrivilegeToken + fmt.Sprintf("%d", nowTime))
-		req.PrivilegeKey = privilegeKey
+	if pc.PrivilegeMode == true {
+		req.PrivilegeKey = pcrypto.GetAuthKey(pc.Name + PrivilegeToken + fmt.Sprintf("%d", nowTime))
 	} else {
-		authKey := pcrypto.GetAuthKey(p.Name + p.AuthToken + fmt.Sprintf("%d", nowTime))
-		req.AuthKey = authKey
+		req.AuthKey = pcrypto.GetAuthKey(pc.Name + pc.AuthToken + fmt.Sprintf("%d", nowTime))
 	}
 
 	buf, _ := json.Marshal(req)
-	err = c.Write(string(buf) + "\n")
+	err = c.WriteString(string(buf) + "\n")
 	if err != nil {
-		log.Error("ProxyName [%s], write to server error, %v", p.Name, err)
+		log.Error("ProxyName [%s], write to server error, %v", pc.Name, err)
 		return
 	}
 
@@ -87,12 +139,12 @@ func (p *ProxyClient) GetRemoteConn(addr string, port int64) (c *conn.Conn, err 
 	return
 }
 
-func (p *ProxyClient) StartTunnel(serverAddr string, serverPort int64) (err error) {
-	localConn, err := p.GetLocalConn()
+func (pc *ProxyClient) StartTunnel(serverAddr string, serverPort int64) (err error) {
+	localConn, err := pc.GetLocalConn()
 	if err != nil {
 		return
 	}
-	remoteConn, err := p.GetRemoteConn(serverAddr, serverPort)
+	remoteConn, err := pc.GetRemoteConn(serverAddr, serverPort)
 	if err != nil {
 		return
 	}
@@ -101,7 +153,7 @@ func (p *ProxyClient) StartTunnel(serverAddr string, serverPort int64) (err erro
 	log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", localConn.GetLocalAddr(), localConn.GetRemoteAddr(),
 		remoteConn.GetLocalAddr(), remoteConn.GetRemoteAddr())
 	needRecord := false
-	go msg.JoinMore(localConn, remoteConn, p.BaseConf, needRecord)
+	go msg.JoinMore(localConn, remoteConn, pc.BaseConf, needRecord)
 
 	return nil
 }

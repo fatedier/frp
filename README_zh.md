@@ -4,29 +4,38 @@
 
 [README](README.md) | [中文文档](README_zh.md)
 
-frp 是一个高性能的反向代理应用，可以帮助您轻松地进行内网穿透，对外网提供服务，支持 tcp, http, https 等协议类型，并且 web 服务支持根据域名进行路由转发。
+frp 是一个高性能的反向代理应用，可以帮助您轻松地进行内网穿透，对外网提供服务，支持 tcp, udp, http, https 等协议类型，并且 web 服务支持根据域名进行路由转发。
 
 ## 目录
 
+<!-- vim-markdown-toc GFM -->
 * [frp 的作用](#frp-的作用)
 * [开发状态](#开发状态)
 * [架构](#架构)
 * [使用示例](#使用示例)
-  * [通过 ssh 访问公司内网机器](#通过-ssh-访问公司内网机器)
-  * [通过自定义域名访问部署于内网的 web 服务](#通过自定义域名访问部署于内网的-web-服务) 
+    * [通过 ssh 访问公司内网机器](#通过-ssh-访问公司内网机器)
+    * [通过自定义域名访问部署于内网的 web 服务](#通过自定义域名访问部署于内网的-web-服务)
+    * [转发 DNS 查询请求](#转发-dns-查询请求)
 * [功能说明](#功能说明)
-  * [Dashboard](#dashboard)
-  * [身份验证](#身份验证)
-  * [加密与压缩](#加密与压缩)
-  * [服务器端热加载配置文件](#服务器端热加载配置文件)
-  * [特权模式](#特权模式)
-    * [端口白名单](#端口白名单)
-  * [连接池](#连接池)
-  * [修改 Host Header](#修改-host-header)
+    * [Dashboard](#dashboard)
+    * [身份验证](#身份验证)
+    * [加密与压缩](#加密与压缩)
+    * [服务器端热加载配置文件](#服务器端热加载配置文件)
+    * [特权模式](#特权模式)
+        * [端口白名单](#端口白名单)
+    * [连接池](#连接池)
+    * [修改 Host Header](#修改-host-header)
+    * [通过密码保护你的 web 服务](#通过密码保护你的-web-服务)
+    * [自定义二级域名](#自定义二级域名)
+    * [通过 HTTP PROXY 连接 frps](#通过-http-proxy-连接-frps)
 * [开发计划](#开发计划)
 * [为 frp 做贡献](#为-frp-做贡献)
 * [捐助](#捐助)
+    * [支付宝扫码捐赠](#支付宝扫码捐赠)
+    * [Paypal 捐赠](#paypal-捐赠)
 * [贡献者](#贡献者)
+
+<!-- vim-markdown-toc -->
 
 ## frp 的作用
 
@@ -81,6 +90,7 @@ frp 目前正在前期开发阶段，master 分支用于发布稳定版本，dev
   auth_token = 123
   
   [ssh]
+  local_ip = 127.0.0.1
   local_port = 22
   ```
 
@@ -136,6 +146,50 @@ frp 目前正在前期开发阶段，master 分支用于发布稳定版本，dev
 
 6. 通过浏览器访问 `http://www.yourdomain.com:8080` 即可访问到处于内网机器上的 web 服务。
 
+### 转发 DNS 查询请求
+
+DNS 查询请求通常使用 UDP 协议，frp 支持对内网 UDP 服务的穿透，配置方式和 TCP 基本一致。
+
+1. 修改 frps.ini 文件，配置一个名为 dns 的反向代理：
+
+  ```ini
+  # frps.ini
+  [common]
+  bind_port = 7000
+  
+  [dns]
+  type = udp
+  listen_port = 6000
+  auth_token = 123
+  ```
+
+2. 启动 frps：
+
+  `./frps -c ./frps.ini`
+
+3. 修改 frpc.ini 文件，设置 frps 所在服务器的 IP 为 x.x.x.x，转发到 Google 的 DNS 查询服务器 `8.8.8.8` 的 udp 53 端口：
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+  auth_token = 123
+  
+  [dns]
+  type = udp
+  local_ip = 8.8.8.8
+  local_port = 53
+  ```
+
+4. 启动 frpc：
+
+  `./frpc -c ./frpc.ini`
+
+5. 通过 dig 测试 UDP 包转发是否成功，预期会返回 `www.google.com` 域名的解析结果：
+
+  `dig @x.x.x.x -p 6000 www.goolge.com`
+
 ## 功能说明
 
 ### Dashboard
@@ -148,8 +202,8 @@ frp 目前正在前期开发阶段，master 分支用于发布稳定版本，dev
 [common]
 dashboard_port = 7500
 # dashboard 用户名密码可选，默认都为 admin
-dashboard_username = abc
-dashboard_password = abc
+dashboard_user = admin
+dashboard_pwd = admin
 ```
 
 打开浏览器通过 `http://[server_addr]:7500` 访问 dashboard 界面，用户名密码默认为 `admin`。
@@ -163,6 +217,8 @@ dashboard_password = abc
 客户端需要在 frpc.ini 中配置自己的 auth_token，与服务器中的配置一致才能正常运行。
 
 需要注意的是 frpc 所在机器和 frps 所在机器的时间相差不能超过 15 分钟，因为时间戳会被用于加密验证中，防止报文被劫持后被其他人利用。
+
+这个超时时间可以在配置文件中通过 `authentication_timeout` 这个参数来修改，单位为秒，默认值为 900，即 15 分钟。如果修改为 0，则 frps 将不对身份验证报文的时间戳进行超时校验。
 
 ### 加密与压缩
 
@@ -319,13 +375,77 @@ host_header_rewrite = dev.yourdomain.com
 
 原来 http 请求中的 host 字段 `test.yourdomain.com` 转发到后端服务时会被替换为 `dev.yourdomain.com`。
 
+### 通过密码保护你的 web 服务
+
+由于所有客户端共用一个 frps 的 http 服务端口，任何知道你的域名和 url 的人都能访问到你部署在内网的 web 服务，但是在某些场景下需要确保只有限定的用户才能访问。
+
+frp 支持通过 HTTP Basic Auth 来保护你的 web 服务，使用户需要通过用户名和密码才能访问到你的服务。
+
+该功能目前仅限于 http 类型的代理，需要在 frpc 的代理配置中添加用户名和密码的设置。
+
+```ini
+# frpc.ini
+[web]
+privilege_mode = true
+type = http
+local_port = 80
+custom_domains = test.yourdomain.com
+http_user = abc
+http_pwd = abc
+```
+
+通过浏览器访问 `test.yourdomain.com`，需要输入配置的用户名和密码才能访问。
+
+### 自定义二级域名
+
+在多人同时使用一个 frps 时，通过自定义二级域名的方式来使用会更加方便。
+
+通过在 frps 的配置文件中配置 `subdomain_host`，就可以启用该特性。之后在 frpc 的 http、https 类型的代理中可以不配置 `custom_domains`，而是配置一个 `subdomain` 参数。
+
+只需要将 `*.subdomain_host` 解析到 frps 所在服务器。之后用户可以通过 `subdomain` 自行指定自己的 web 服务所需要使用的二级域名，通过 `{subdomain}.{subdomain_host}` 来访问自己的 web 服务。
+
+```ini
+# frps.ini
+subdomain_host = frps.com
+```
+
+将泛域名 `*.frps.com` 解析到 frps 所在服务器的 IP 地址。
+
+```ini
+# frpc.ini
+[web]
+privilege_mode = true
+type = http
+local_port = 80
+subdomain = test
+```
+
+frps 和 fprc 都启动成功后，通过 `test.frps.com` 就可以访问到内网的 web 服务。
+
+需要注意的是如果 frps 配置了 `subdomain_host`，则 `custom_domains` 中不能是属于 `subdomain_host` 的子域名或者泛域名。
+
+同一个 http 或 https 类型的代理中 `custom_domains`  和 `subdomain` 可以同时配置。
+
+### 通过 HTTP PROXY 连接 frps
+
+在只能通过代理访问外网的环境内，frpc 支持通过 HTTP PROXY 和 frps 进行通信。
+
+可以通过设置 `HTTP_PROXY` 系统环境变量或者通过在 frpc 的配置文件中设置 `http_proxy` 参数来使用此功能。
+
+```ini
+# frpc.ini
+server_addr = x.x.x.x
+server_port = 7000
+http_proxy = http://user:pwd@192.168.1.128:8080
+```
+
 ## 开发计划
 
 计划在后续版本中加入的功能与优化，排名不分先后，如果有其他功能建议欢迎在 [issues](https://github.com/fatedier/frp/issues) 中反馈。
 
-* 支持 udp 协议。
-* 支持泛域名。
 * 支持 url 路由转发。
+* frps 记录 http 请求日志。
+* frps 支持直接反向代理，类似 haproxy。
 * frpc 支持负载均衡到后端不同服务。
 * frpc debug 模式，控制台显示代理状态，类似 ngrok 启动后的界面。
 * frpc http 请求及响应信息展示。

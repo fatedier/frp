@@ -120,7 +120,7 @@ func msgSender(cli *client.ProxyClient, c *conn.Conn, msgSendChan chan interface
 		}
 
 		buf, _ := json.Marshal(msg)
-		err := c.Write(string(buf) + "\n")
+		err := c.WriteString(string(buf) + "\n")
 		if err != nil {
 			log.Warn("ProxyName [%s], write to server error, proxy exit", cli.Name)
 			c.Close()
@@ -166,7 +166,7 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 	}
 
 	buf, _ := json.Marshal(req)
-	err = c.Write(string(buf) + "\n")
+	err = c.WriteString(string(buf) + "\n")
 	if err != nil {
 		log.Error("ProxyName [%s], write to server error, %v", cli.Name, err)
 		return
@@ -191,6 +191,12 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 	}
 
 	log.Info("ProxyName [%s], connect to server [%s:%d] success!", cli.Name, client.ServerAddr, client.ServerPort)
+
+	if cli.Type == "udp" {
+		// we only need one udp work connection
+		// all udp messages will be forwarded throngh this connection
+		go cli.StartUdpTunnelOnce(client.ServerAddr, client.ServerPort)
+	}
 	return
 }
 
