@@ -205,16 +205,18 @@ func (sc *sharedConn) Read(p []byte) (n int, err error) {
 		sc.Unlock()
 		return sc.Conn.Read(p)
 	}
+	sc.Unlock()
 	n, err = sc.buff.Read(p)
 
 	if err == io.EOF {
+		sc.Lock()
 		sc.buff = nil
+		sc.Unlock()
 		var n2 int
 		n2, err = sc.Conn.Read(p[n:])
 
 		n += n2
 	}
-	sc.Unlock()
 	return
 }
 

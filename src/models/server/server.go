@@ -384,6 +384,7 @@ func (p *ProxyServer) getWorkConn() (workConn *conn.Conn, err error) {
 				err = fmt.Errorf("ProxyName [%s], no work connections available, control is closing", p.Name)
 				return
 			}
+			log.Debug("ProxyName [%s], get work connection from pool", p.Name)
 		default:
 			// no work connections available in the poll, send message to frpc to get more
 			p.ctlMsgChan <- 1
