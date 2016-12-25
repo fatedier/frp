@@ -487,3 +487,4 @@ frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进�
 * [Eric Larssen](https://github.com/ericlarssen)
 * [Damon Zhao](https://github.com/se77en)
 * [Manfred Touron](https://github.com/moul)
+* [xuebing1110](https://github.com/xuebing1110)
