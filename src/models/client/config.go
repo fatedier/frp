@@ -166,6 +166,9 @@ func LoadConf(confFile string) (err error) {
 				if ok {
 					proxyClient.HttpPassWord = tmpStr
 				}
+
+			}
+			if proxyClient.Type == "http" || proxyClient.Type == "https" {
 				// subdomain
 				tmpStr, ok = section["subdomain"]
 				if ok {

@@ -184,6 +184,13 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 			}
 			p.listeners = append(p.listeners, l)
 		}
+		if p.SubDomain != "" {
+			l, err := VhostHttpsMuxer.Listen(p.SubDomain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+			if err != nil {
+				return err
+			}
+			p.listeners = append(p.listeners, l)
+		}
 	}
 
 	p.Lock()
