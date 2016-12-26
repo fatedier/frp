@@ -452,6 +452,8 @@ Interested in getting involved? We would like to help you!
 
 If frp help you a lot, you can support us by:
 
+frp QQ group: 606194980
+
 ### AliPay
 
 ![donation-alipay](/doc/pic/donate-alipay.png)
