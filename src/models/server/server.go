@@ -271,6 +271,8 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 
 func (p *ProxyServer) Close() {
 	p.Lock()
+	defer p.Unlock()
+
 	if p.Status != consts.Closed {
 		p.Status = consts.Closed
 		for _, l := range p.listeners {
@@ -298,7 +300,6 @@ func (p *ProxyServer) Close() {
 	if p.PrivilegeMode {
 		DeleteProxy(p.Name)
 	}
-	p.Unlock()
 }
 
 func (p *ProxyServer) WaitUserConn() (closeFlag bool) {

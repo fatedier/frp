@@ -72,7 +72,7 @@ func (r *VhostRouters) Get(host, path string) (vr *VhostRouter, exist bool) {
 		return
 	}
 
-	//can't support load balance,will to do
+	// can't support load balance, will to do
 	for _, vr = range vrs {
 		if strings.HasPrefix(path, vr.location) {
 			return vr, true
@@ -82,7 +82,25 @@ func (r *VhostRouters) Get(host, path string) (vr *VhostRouter, exist bool) {
 	return
 }
 
-//sort by location
+func (r *VhostRouters) Exist(host, path string) (vr *VhostRouter, exist bool) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	vrs, found := r.RouterByDomain[host]
+	if !found {
+		return
+	}
+
+	for _, vr = range vrs {
+		if path == vr.location {
+			return vr, true
+		}
+	}
+
+	return
+}
+
+// sort by location
 type ByLocation []*VhostRouter
 
 func (a ByLocation) Len() int {

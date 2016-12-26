@@ -56,6 +56,11 @@ func (v *VhostMuxer) Listen(name, location, rewriteHost, userName, passWord stri
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
+	_, ok := v.registryRouter.Exist(name, location)
+	if ok {
+		return nil, fmt.Errorf("hostname [%s] location [%s] is already registered", name, location)
+	}
+
 	l = &Listener{
 		name:        name,
 		rewriteHost: rewriteHost,
