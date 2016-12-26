@@ -148,6 +148,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 				if err != nil {
 					return err
 				}
+				log.Info("ProxyName [%s], type http listen for host [%s] location [%s]", p.Name, domain, "")
 				p.listeners = append(p.listeners, l)
 			} else {
 				for _, location := range p.Locations {
@@ -155,6 +156,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 					if err != nil {
 						return err
 					}
+					log.Info("ProxyName [%s], type http listen for host [%s] location [%s]", p.Name, domain, location)
 					p.listeners = append(p.listeners, l)
 				}
 			}
@@ -165,6 +167,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 				if err != nil {
 					return err
 				}
+				log.Info("ProxyName [%s], type http listen for host [%s] location [%s]", p.Name, p.SubDomain, "")
 				p.listeners = append(p.listeners, l)
 			} else {
 				for _, location := range p.Locations {
@@ -172,6 +175,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 					if err != nil {
 						return err
 					}
+					log.Info("ProxyName [%s], type http listen for host [%s] location [%s]", p.Name, p.SubDomain, location)
 					p.listeners = append(p.listeners, l)
 				}
 			}
@@ -182,6 +186,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 			if err != nil {
 				return err
 			}
+			log.Info("ProxyName [%s], type https listen for host [%s]", p.Name, domain)
 			p.listeners = append(p.listeners, l)
 		}
 		if p.SubDomain != "" {
@@ -189,6 +194,7 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 			if err != nil {
 				return err
 			}
+			log.Info("ProxyName [%s], type https listen for host [%s]", p.Name, p.SubDomain)
 			p.listeners = append(p.listeners, l)
 		}
 	}

@@ -29,7 +29,7 @@ func (r *VhostRouters) Add(domain, location string, l *Listener) {
 
 	vrs, found := r.RouterByDomain[domain]
 	if !found {
-		vrs = make([]*VhostRouter, 0)
+		vrs = make([]*VhostRouter, 0, 1)
 	}
 
 	vr := &VhostRouter{
@@ -39,25 +39,25 @@ func (r *VhostRouters) Add(domain, location string, l *Listener) {
 	}
 	vrs = append(vrs, vr)
 
-	sort.Reverse(ByLocation(vrs))
+	sort.Sort(sort.Reverse(ByLocation(vrs)))
 	r.RouterByDomain[domain] = vrs
 }
 
-func (r *VhostRouters) Del(l *Listener) {
+func (r *VhostRouters) Del(domain, location string) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	vrs, found := r.RouterByDomain[l.name]
+	vrs, found := r.RouterByDomain[domain]
 	if !found {
 		return
 	}
 
 	for i, vr := range vrs {
-		if vr.listener == l {
+		if vr.location == location {
 			if len(vrs) > i+1 {
-				r.RouterByDomain[l.name] = append(vrs[:i], vrs[i+1:]...)
+				r.RouterByDomain[domain] = append(vrs[:i], vrs[i+1:]...)
 			} else {
-				r.RouterByDomain[l.name] = vrs[:i]
+				r.RouterByDomain[domain] = vrs[:i]
 			}
 		}
 	}

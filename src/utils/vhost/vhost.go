@@ -63,6 +63,7 @@ func (v *VhostMuxer) Listen(name, location, rewriteHost, userName, passWord stri
 
 	l = &Listener{
 		name:        name,
+		location:    location,
 		rewriteHost: rewriteHost,
 		userName:    userName,
 		passWord:    passWord,
@@ -153,6 +154,7 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 
 type Listener struct {
 	name        string
+	location    string
 	rewriteHost string
 	userName    string
 	passWord    string
@@ -180,7 +182,7 @@ func (l *Listener) Accept() (*conn.Conn, error) {
 }
 
 func (l *Listener) Close() error {
-	l.mux.registryRouter.Del(l)
+	l.mux.registryRouter.Del(l.name, l.location)
 	close(l.accept)
 	return nil
 }
