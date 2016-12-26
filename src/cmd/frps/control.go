@@ -340,6 +340,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		if err != nil {
 			info = fmt.Sprintf("ProxyName [%s], start proxy error: %v", req.ProxyName, err)
 			log.Warn(info)
+			s.Close()
 			return
 		}
 		log.Info("ProxyName [%s], start proxy success", req.ProxyName)
