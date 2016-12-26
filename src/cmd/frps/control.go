@@ -70,7 +70,7 @@ func controlWorker(c *conn.Conn) {
 	}
 
 	// login when type is NewCtlConn or NewWorkConn
-	ret, info := doLogin(cliReq, c)
+	ret, info, s := doLogin(cliReq, c)
 	// if login type is NewWorkConn, nothing will be send to frpc
 	if cliReq.Type == consts.NewCtlConn {
 		cliRes := &msg.ControlRes{
@@ -91,12 +91,6 @@ func controlWorker(c *conn.Conn) {
 
 	// if login failed, just return
 	if ret > 0 {
-		return
-	}
-
-	s, ok := server.GetProxyServer(cliReq.ProxyName)
-	if !ok {
-		log.Warn("ProxyName [%s] does not exist now", cliReq.ProxyName)
 		return
 	}
 
@@ -199,7 +193,7 @@ func msgSender(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}
 // NewCtlConn
 // NewWorkConn
 // NewWorkConnUdp
-func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
+func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string, s *server.ProxyServer) {
 	ret = 1
 	// check if PrivilegeMode is enabled
 	if req.PrivilegeMode && !server.PrivilegeMode {
@@ -208,10 +202,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		return
 	}
 
-	var (
-		s  *server.ProxyServer
-		ok bool
-	)
+	var ok bool
 	s, ok = server.GetProxyServer(req.ProxyName)
 	if req.PrivilegeMode && req.Type == consts.NewCtlConn {
 		log.Debug("ProxyName [%s], doLogin and privilege mode is enabled", req.ProxyName)
@@ -340,7 +331,6 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		if err != nil {
 			info = fmt.Sprintf("ProxyName [%s], start proxy error: %v", req.ProxyName, err)
 			log.Warn(info)
-			s.Close()
 			return
 		}
 		log.Info("ProxyName [%s], start proxy success", req.ProxyName)
