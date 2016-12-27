@@ -452,7 +452,6 @@ http_proxy = http://user:pwd@192.168.1.128:8080
 
 ## Development Plan
 
-* Url router.
 * Log http request information in frps.
 * Direct reverse proxy, like haproxy.
 * Load balance to different service in frpc.
