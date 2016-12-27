@@ -29,6 +29,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Rewriting the Host Header](#rewriting-the-host-header)
     * [Password protecting your web service](#password-protecting-your-web-service)
     * [Custom subdomain names](#custom-subdomain-names)
+    * [URL routing](#url-routing)
     * [Connect frps by HTTP PROXY](#connect-frps-by-http-proxy)
 * [Development Plan](#development-plan)
 * [Contributing](#contributing)
@@ -413,6 +414,30 @@ subdomain = test
 Now you can visit your web service by host `test.frps.com`.
 
 Note that if `subdomain_host` is not empty, `custom_domains` should not be the subdomain of `subdomain_host`.
+
+### URL routing
+
+frp support forward http requests to different backward web services by url routing.
+
+`locations` specify the prefix of URL used for routing. frps first searches for the most specific prefix location given by literal strings regardless of the listed order.
+
+```ini
+# frpc.ini
+[web01]
+privilege_mode = true
+type = http
+local_port = 80
+custom_domains = web.yourdomain.com
+locations = /
+
+[web02]
+privilege_mode = true
+type = http
+local_port = 81
+custom_domains = web.yourdomain.com
+locations = /news,/about
+```
+Http requests with url prefix `/news` and `/about` will be forwarded to **web02** and others to **web01**.
 
 ### Connect frps by HTTP PROXY
 
