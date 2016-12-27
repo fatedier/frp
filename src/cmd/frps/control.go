@@ -70,7 +70,7 @@ func controlWorker(c *conn.Conn) {
 	}
 
 	// login when type is NewCtlConn or NewWorkConn
-	ret, info := doLogin(cliReq, c)
+	ret, info, s := doLogin(cliReq, c)
 	// if login type is NewWorkConn, nothing will be send to frpc
 	if cliReq.Type == consts.NewCtlConn {
 		cliRes := &msg.ControlRes{
@@ -91,12 +91,6 @@ func controlWorker(c *conn.Conn) {
 
 	// if login failed, just return
 	if ret > 0 {
-		return
-	}
-
-	s, ok := server.GetProxyServer(cliReq.ProxyName)
-	if !ok {
-		log.Warn("ProxyName [%s] does not exist now", cliReq.ProxyName)
 		return
 	}
 
@@ -199,7 +193,7 @@ func msgSender(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}
 // NewCtlConn
 // NewWorkConn
 // NewWorkConnUdp
-func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
+func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string, s *server.ProxyServer) {
 	ret = 1
 	// check if PrivilegeMode is enabled
 	if req.PrivilegeMode && !server.PrivilegeMode {
@@ -208,10 +202,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		return
 	}
 
-	var (
-		s  *server.ProxyServer
-		ok bool
-	)
+	var ok bool
 	s, ok = server.GetProxyServer(req.ProxyName)
 	if req.PrivilegeMode && req.Type == consts.NewCtlConn {
 		log.Debug("ProxyName [%s], doLogin and privilege mode is enabled", req.ProxyName)
@@ -297,6 +288,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		}
 
 		// set infomations from frpc
+		s.BindAddr = server.BindAddr
 		s.UseEncryption = req.UseEncryption
 		s.UseGzip = req.UseGzip
 		s.HostHeaderRewrite = req.HostHeaderRewrite
@@ -332,7 +324,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		}
 
 		// update metric's proxy status
-		metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip, s.PrivilegeMode, s.CustomDomains, s.ListenPort)
+		metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip, s.PrivilegeMode, s.CustomDomains, s.Locations, s.ListenPort)
 
 		// start proxy and listen for user connections, no block
 		err := s.Start(c)

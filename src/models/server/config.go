@@ -304,6 +304,14 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				} else {
 					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type is http", proxyServer.Name)
 				}
+
+				// locations
+				locations, ok := section["locations"]
+				if ok {
+					proxyServer.Locations = strings.Split(locations, ",")
+				} else {
+					proxyServer.Locations = []string{""}
+				}
 			} else if proxyServer.Type == "https" {
 				// for https
 				proxyServer.ListenPort = VhostHttpsPort
@@ -332,7 +340,7 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 	// set metric statistics of all proxies
 	for name, p := range proxyServers {
 		metric.SetProxyInfo(name, p.Type, p.BindAddr, p.UseEncryption, p.UseGzip,
-			p.PrivilegeMode, p.CustomDomains, p.ListenPort)
+			p.PrivilegeMode, p.CustomDomains, p.Locations, p.ListenPort)
 	}
 	return proxyServers, nil
 }
@@ -387,14 +395,14 @@ func CreateProxy(s *ProxyServer) error {
 		if oldServer.Status == consts.Working {
 			return fmt.Errorf("this proxy is already working now")
 		}
-		oldServer.Close()
+		oldServer.Release()
 		if oldServer.PrivilegeMode {
 			delete(ProxyServers, s.Name)
 		}
 	}
 	ProxyServers[s.Name] = s
 	metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip,
-		s.PrivilegeMode, s.CustomDomains, s.ListenPort)
+		s.PrivilegeMode, s.CustomDomains, s.Locations, s.ListenPort)
 	s.Init()
 	return nil
 }

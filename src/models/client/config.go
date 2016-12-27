@@ -166,6 +166,9 @@ func LoadConf(confFile string) (err error) {
 				if ok {
 					proxyClient.HttpPassWord = tmpStr
 				}
+
+			}
+			if proxyClient.Type == "http" || proxyClient.Type == "https" {
 				// subdomain
 				tmpStr, ok = section["subdomain"]
 				if ok {
@@ -226,6 +229,14 @@ func LoadConf(confFile string) (err error) {
 
 					if !ok && proxyClient.SubDomain == "" {
 						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains and subdomain should set at least one of them when type is http", proxyClient.Name)
+					}
+
+					// locations
+					locations, ok := section["locations"]
+					if ok {
+						proxyClient.Locations = strings.Split(locations, ",")
+					} else {
+						proxyClient.Locations = []string{""}
 					}
 				} else if proxyClient.Type == "https" {
 					// custom_domains

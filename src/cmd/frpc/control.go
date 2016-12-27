@@ -159,6 +159,7 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 		privilegeKey := pcrypto.GetAuthKey(cli.Name + client.PrivilegeToken + fmt.Sprintf("%d", nowTime))
 		req.RemotePort = cli.RemotePort
 		req.CustomDomains = cli.CustomDomains
+		req.Locations = cli.Locations
 		req.PrivilegeKey = privilegeKey
 	} else {
 		authKey := pcrypto.GetAuthKey(cli.Name + cli.AuthToken + fmt.Sprintf("%d", nowTime))

@@ -6,9 +6,9 @@
 
 ## What is frp?
 
-frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet. Now, it supports tcp, http and https protocol when requests can be forwarded by domains to backward web services.
+frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet. Now, it supports tcp, udp, http and https protocol when requests can be forwarded by domains to backward web services.
 
-## Catalog
+## Table of Contents
 
 <!-- vim-markdown-toc GFM -->
 * [What can I do with frp?](#what-can-i-do-with-frp)
@@ -29,6 +29,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Rewriting the Host Header](#rewriting-the-host-header)
     * [Password protecting your web service](#password-protecting-your-web-service)
     * [Custom subdomain names](#custom-subdomain-names)
+    * [URL routing](#url-routing)
     * [Connect frps by HTTP PROXY](#connect-frps-by-http-proxy)
 * [Development Plan](#development-plan)
 * [Contributing](#contributing)
@@ -108,7 +109,7 @@ Put **frpc** and **frpc.ini** to your server in LAN.
 
 Sometimes we want to expose a local web service behind a NAT network to others for testing with your own domain name and unfortunately we can't resolve a domain name to a local ip.
 
-Howerver, we can expose a http or https service using frp.
+However, we can expose a http or https service using frp.
 
 1. Modify frps.ini, configure a http reverse proxy named [web] and set http port as 8080, custom domain as `www.yourdomain.com`:
 
@@ -238,7 +239,7 @@ use_gzip = true
 
 ### Reload configures without frps stopped
 
-If your want to add a new reverse proxy and avoid restarting frps, you can use this function:
+If you want to add a new reverse proxy and avoid restarting frps, you can use this function:
 
 1. `dashboard_port` should be set in frps.ini:
 
@@ -414,6 +415,30 @@ Now you can visit your web service by host `test.frps.com`.
 
 Note that if `subdomain_host` is not empty, `custom_domains` should not be the subdomain of `subdomain_host`.
 
+### URL routing
+
+frp support forward http requests to different backward web services by url routing.
+
+`locations` specify the prefix of URL used for routing. frps first searches for the most specific prefix location given by literal strings regardless of the listed order.
+
+```ini
+# frpc.ini
+[web01]
+privilege_mode = true
+type = http
+local_port = 80
+custom_domains = web.yourdomain.com
+locations = /
+
+[web02]
+privilege_mode = true
+type = http
+local_port = 81
+custom_domains = web.yourdomain.com
+locations = /news,/about
+```
+Http requests with url prefix `/news` and `/about` will be forwarded to **web02** and others to **web01**.
+
 ### Connect frps by HTTP PROXY
 
 frpc can connect frps using HTTP PROXY if you set os environment `HTTP_PROXY` or configure `http_proxy` param in frpc.ini file.
@@ -452,6 +477,8 @@ Interested in getting involved? We would like to help you!
 
 If frp help you a lot, you can support us by:
 
+frp QQ group: 606194980
+
 ### AliPay
 
 ![donation-alipay](/doc/pic/donate-alipay.png)
@@ -469,3 +496,4 @@ Donate money by [paypal](https://www.paypal.me/fatedier) to my account **fatedie
 * [Eric Larssen](https://github.com/ericlarssen)
 * [Damon Zhao](https://github.com/se77en)
 * [Manfred Touron](https://github.com/moul)
+* [xuebing1110](https://github.com/xuebing1110)

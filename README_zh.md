@@ -4,7 +4,7 @@
 
 [README](README.md) | [中文文档](README_zh.md)
 
-frp 是一个高性能的反向代理应用，可以帮助您轻松地进行内网穿透，对外网提供服务，支持 tcp, http, https 等协议类型，并且 web 服务支持根据域名进行路由转发。
+frp 是一个高性能的反向代理应用，可以帮助您轻松地进行内网穿透，对外网提供服务，支持 tcp, udp, http, https 等协议类型，并且 web 服务支持根据域名进行路由转发。
 
 ## 目录
 
@@ -27,6 +27,7 @@ frp 是一个高性能的反向代理应用，可以帮助您轻松地进行内�
     * [修改 Host Header](#修改-host-header)
     * [通过密码保护你的 web 服务](#通过密码保护你的-web-服务)
     * [自定义二级域名](#自定义二级域名)
+    * [URL 路由](#url-路由)
     * [通过 HTTP PROXY 连接 frps](#通过-http-proxy-连接-frps)
 * [开发计划](#开发计划)
 * [为 frp 做贡献](#为-frp-做贡献)
@@ -426,6 +427,31 @@ frps 和 fprc 都启动成功后，通过 `test.frps.com` 就可以访问到内�
 
 同一个 http 或 https 类型的代理中 `custom_domains`  和 `subdomain` 可以同时配置。
 
+### URL 路由
+
+frp 支持根据请求的 URL 路径路由转发到不同的后端服务。
+
+通过配置文件中的 `locations` 字段指定一个或多个 proxy 能够匹配的 URL 前缀(目前仅支持最大前缀匹配，之后会考虑正则匹配)。例如指定 `locations = /news`，则所有 URL 以 `/news` 开头的请求都会被转发到这个服务。
+
+```ini
+# frpc.ini
+[web01]
+privilege_mode = true
+type = http
+local_port = 80
+custom_domains = web.yourdomain.com
+locations = /
+
+[web02]
+privilege_mode = true
+type = http
+local_port = 81
+custom_domains = web.yourdomain.com
+locations = /news,/about
+```
+
+按照上述的示例配置后，`web.yourdomain.com` 这个域名下所有以 `/news` 以及 `/about` 作为前缀的 URL 请求都会被转发到 web02，其余的请求会被转发到 web01。
+
 ### 通过 HTTP PROXY 连接 frps
 
 在只能通过代理访问外网的环境内，frpc 支持通过 HTTP PROXY 和 frps 进行通信。
@@ -470,6 +496,8 @@ frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进�
 
 如果您觉得 frp 对你有帮助，欢迎给予我们一定的捐助来维持项目的长期发展。
 
+frp 交流群：606194980 (QQ 群号)
+
 ### 支付宝扫码捐赠
 
 ![donate-alipay](/doc/pic/donate-alipay.png)
@@ -487,3 +515,4 @@ frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进�
 * [Eric Larssen](https://github.com/ericlarssen)
 * [Damon Zhao](https://github.com/se77en)
 * [Manfred Touron](https://github.com/moul)
+* [xuebing1110](https://github.com/xuebing1110)

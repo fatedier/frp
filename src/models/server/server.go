@@ -39,6 +39,7 @@ type ProxyServer struct {
 	BindAddr      string
 	ListenPort    int64
 	CustomDomains []string
+	Locations     []string
 
 	Status      int64
 	CtlConn     *conn.Conn // control connection with frpc
@@ -56,6 +57,7 @@ type ProxyServer struct {
 func NewProxyServer() (p *ProxyServer) {
 	p = &ProxyServer{
 		CustomDomains: make([]string, 0),
+		Locations:     make([]string, 0),
 	}
 	return p
 }
@@ -77,6 +79,7 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 		p.ListenPort = VhostHttpsPort
 	}
 	p.CustomDomains = req.CustomDomains
+	p.Locations = req.Locations
 	p.HostHeaderRewrite = req.HostHeaderRewrite
 	p.HttpUserName = req.HttpUserName
 	p.HttpPassWord = req.HttpPassWord
@@ -108,6 +111,15 @@ func (p *ProxyServer) Compare(p2 *ProxyServer) bool {
 			return false
 		}
 	}
+
+	if len(p.Locations) != len(p2.Locations) {
+		return false
+	}
+	for i, _ := range p.Locations {
+		if p.Locations[i] != p2.Locations[i] {
+			return false
+		}
+	}
 	return true
 }
 
@@ -131,26 +143,58 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 		p.listeners = append(p.listeners, l)
 	} else if p.Type == "http" {
 		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpMuxer.Listen(domain, p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+			if len(p.Locations) == 0 {
+				l, err := VhostHttpMuxer.Listen(domain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+				if err != nil {
+					return err
+				}
+				log.Info("ProxyName [%s], type http listen for host [%s] location [%s]", p.Name, domain, "")
+				p.listeners = append(p.listeners, l)
+			} else {
+				for _, location := range p.Locations {
+					l, err := VhostHttpMuxer.Listen(domain, location, p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+					if err != nil {
+						return err
+					}
+					log.Info("ProxyName [%s], type http listen for host [%s] location [%s]", p.Name, domain, location)
+					p.listeners = append(p.listeners, l)
+				}
+			}
+		}
+		if p.SubDomain != "" {
+			if len(p.Locations) == 0 {
+				l, err := VhostHttpMuxer.Listen(p.SubDomain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+				if err != nil {
+					return err
+				}
+				log.Info("ProxyName [%s], type http listen for host [%s] location [%s]", p.Name, p.SubDomain, "")
+				p.listeners = append(p.listeners, l)
+			} else {
+				for _, location := range p.Locations {
+					l, err := VhostHttpMuxer.Listen(p.SubDomain, location, p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+					if err != nil {
+						return err
+					}
+					log.Info("ProxyName [%s], type http listen for host [%s] location [%s]", p.Name, p.SubDomain, location)
+					p.listeners = append(p.listeners, l)
+				}
+			}
+		}
+	} else if p.Type == "https" {
+		for _, domain := range p.CustomDomains {
+			l, err := VhostHttpsMuxer.Listen(domain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
 			if err != nil {
 				return err
 			}
+			log.Info("ProxyName [%s], type https listen for host [%s]", p.Name, domain)
 			p.listeners = append(p.listeners, l)
 		}
 		if p.SubDomain != "" {
-			l, err := VhostHttpMuxer.Listen(p.SubDomain, p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+			l, err := VhostHttpsMuxer.Listen(p.SubDomain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
 			if err != nil {
 				return err
 			}
-			p.listeners = append(p.listeners, l)
-		}
-
-	} else if p.Type == "https" {
-		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpsMuxer.Listen(domain, p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
-			if err != nil {
-				return err
-			}
+			log.Info("ProxyName [%s], type https listen for host [%s]", p.Name, p.SubDomain)
 			p.listeners = append(p.listeners, l)
 		}
 	}
@@ -232,7 +276,20 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 }
 
 func (p *ProxyServer) Close() {
+	p.Release()
+
+	// if the proxy created by PrivilegeMode, delete it when closed
+	if p.PrivilegeMode {
+		// NOTE: this will take the global ProxyServerMap's lock
+		// if we only want to release resources, use Release() instead
+		DeleteProxy(p.Name)
+	}
+}
+
+func (p *ProxyServer) Release() {
 	p.Lock()
+	defer p.Unlock()
+
 	if p.Status != consts.Closed {
 		p.Status = consts.Closed
 		for _, l := range p.listeners {
@@ -256,11 +313,6 @@ func (p *ProxyServer) Close() {
 		}
 	}
 	metric.SetStatus(p.Name, p.Status)
-	// if the proxy created by PrivilegeMode, delete it when closed
-	if p.PrivilegeMode {
-		DeleteProxy(p.Name)
-	}
-	p.Unlock()
 }
 
 func (p *ProxyServer) WaitUserConn() (closeFlag bool) {
@@ -346,6 +398,7 @@ func (p *ProxyServer) getWorkConn() (workConn *conn.Conn, err error) {
 				err = fmt.Errorf("ProxyName [%s], no work connections available, control is closing", p.Name)
 				return
 			}
+			log.Debug("ProxyName [%s], get work connection from pool", p.Name)
 		default:
 			// no work connections available in the poll, send message to frpc to get more
 			p.ctlMsgChan <- 1
