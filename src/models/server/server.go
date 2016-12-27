@@ -276,10 +276,14 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 }
 
 func (p *ProxyServer) Close() {
+	p.Lock()
+	defer p.Unlock()
+
+	oldStatus := p.Status
 	p.Release()
 
 	// if the proxy created by PrivilegeMode, delete it when closed
-	if p.PrivilegeMode {
+	if p.PrivilegeMode && oldStatus != consts.Closed {
 		// NOTE: this will take the global ProxyServerMap's lock
 		// if we only want to release resources, use Release() instead
 		DeleteProxy(p.Name)
@@ -287,9 +291,6 @@ func (p *ProxyServer) Close() {
 }
 
 func (p *ProxyServer) Release() {
-	p.Lock()
-	defer p.Unlock()
-
 	if p.Status != consts.Closed {
 		p.Status = consts.Closed
 		for _, l := range p.listeners {

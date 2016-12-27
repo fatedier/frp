@@ -395,7 +395,9 @@ func CreateProxy(s *ProxyServer) error {
 		if oldServer.Status == consts.Working {
 			return fmt.Errorf("this proxy is already working now")
 		}
+		oldServer.Lock()
 		oldServer.Release()
+		oldServer.Unlock()
 		if oldServer.PrivilegeMode {
 			delete(ProxyServers, s.Name)
 		}
