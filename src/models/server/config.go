@@ -405,7 +405,6 @@ func CreateProxy(s *ProxyServer) error {
 	ProxyServers[s.Name] = s
 	metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip,
 		s.PrivilegeMode, s.CustomDomains, s.Locations, s.ListenPort)
-	s.Init()
 	return nil
 }
 

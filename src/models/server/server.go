@@ -83,6 +83,8 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 	p.HostHeaderRewrite = req.HostHeaderRewrite
 	p.HttpUserName = req.HttpUserName
 	p.HttpPassWord = req.HttpPassWord
+
+	p.Init()
 	return
 }
 
@@ -298,10 +300,22 @@ func (p *ProxyServer) Release() {
 				l.Close()
 			}
 		}
-		close(p.ctlMsgChan)
-		close(p.workConnChan)
-		close(p.udpSenderChan)
-		close(p.closeChan)
+		if p.ctlMsgChan != nil {
+			close(p.ctlMsgChan)
+			p.ctlMsgChan = nil
+		}
+		if p.workConnChan != nil {
+			close(p.workConnChan)
+			p.workConnChan = nil
+		}
+		if p.udpSenderChan != nil {
+			close(p.udpSenderChan)
+			p.udpSenderChan = nil
+		}
+		if p.closeChan != nil {
+			close(p.closeChan)
+			p.closeChan = nil
+		}
 		if p.CtlConn != nil {
 			p.CtlConn.Close()
 		}
