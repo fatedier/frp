@@ -237,6 +237,16 @@ func loadCommonConf(confFile string) error {
 	if ok {
 		SubDomainHost = strings.ToLower(strings.TrimSpace(SubDomainHost))
 	}
+
+	tmpStr, ok = conf.Get("common", "heartbeat_timeout")
+	if ok {
+		v, err := strconv.ParseInt(tmpStr, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Parse conf error: heartbeat_timeout is incorrect")
+		} else {
+			HeartBeatTimeout = v
+		}
+	}
 	return nil
 }
 
