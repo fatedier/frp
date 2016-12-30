@@ -98,6 +98,34 @@ func LoadConf(confFile string) (err error) {
 		authToken = tmpStr
 	}
 
+	tmpStr, ok = conf.Get("common", "heartbeat_timeout")
+	if ok {
+		v, err := strconv.ParseInt(tmpStr, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Parse conf error: heartbeat_timeout is incorrect")
+		} else {
+			HeartBeatTimeout = v
+		}
+	}
+
+	tmpStr, ok = conf.Get("common", "heartbeat_interval")
+	if ok {
+		v, err := strconv.ParseInt(tmpStr, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Parse conf error: heartbeat_interval is incorrect")
+		} else {
+			HeartBeatInterval = v
+		}
+	}
+
+	if HeartBeatInterval <= 0 {
+		return fmt.Errorf("Parse conf error: heartbeat_interval is incorrect")
+	}
+
+	if HeartBeatTimeout < HeartBeatInterval {
+		return fmt.Errorf("Parse conf error: heartbeat_timeout is incorrect, heartbeat_timeout is less than heartbeat_interval")
+	}
+
 	// proxies
 	for name, section := range conf {
 		if name != "common" {
