@@ -51,7 +51,7 @@ var (
 	// if PrivilegeAllowPorts is not nil, tcp proxies which remote port exist in this map can be connected
 	PrivilegeAllowPorts map[int64]struct{}
 	MaxPoolCount        int64 = 100
-	HeartBeatTimeout    int64 = 90
+	HeartBeatTimeout    int64 = 30
 	UserConnTimeout     int64 = 10
 
 	VhostHttpMuxer    *vhost.HttpMuxer

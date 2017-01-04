@@ -33,8 +33,8 @@ var (
 	LogLevel          string = "info"
 	LogMaxDays        int64  = 3
 	PrivilegeToken    string = ""
-	HeartBeatInterval int64  = 20
-	HeartBeatTimeout  int64  = 90
+	HeartBeatInterval int64  = 10
+	HeartBeatTimeout  int64  = 30
 )
 
 var ProxyClients map[string]*ProxyClient = make(map[string]*ProxyClient)
