@@ -59,7 +59,7 @@ func (pc *ProxyClient) StartUdpTunnelOnce(addr string, port int64) {
 					time.Sleep(10 * time.Second)
 					continue
 				}
-				log.Info("ProxyName [%s], udp tunnel reconnect to server [%s:%d] success", pc.Name, addr, port)
+				log.Info("ProxyName [%s], udp tunnel connect to server [%s:%d] success", pc.Name, addr, port)
 
 				nowTime := time.Now().Unix()
 				req := &msg.ControlReq{
