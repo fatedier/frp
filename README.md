@@ -219,7 +219,7 @@ Then visit `http://[server_addr]:7500` to see dashboard, default username and pa
 
 Client that want's to register must set a global `auth_token` equals to frps.ini.
 
-Note that time duration bewtween frpc and frps mustn't exceed 15 minutes because timestamp is used for authentication.
+Note that time duration between frpc and frps mustn't exceed 15 minutes because timestamp is used for authentication.
 
 Howerver, this timeout duration can be modified by setting `authentication_timeout` in frps's configure file. It's defalut value is 900, means 15 minutes. If it is equals 0, then frps will not check authentication timeout.
 
