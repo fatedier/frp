@@ -85,7 +85,9 @@ func controlWorker(c *conn.Conn) {
 			return
 		}
 	} else {
-		closeFlag = false
+		if ret == 0 {
+			closeFlag = false
+		}
 		return
 	}
 

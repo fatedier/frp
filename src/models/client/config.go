@@ -33,8 +33,8 @@ var (
 	LogLevel          string = "info"
 	LogMaxDays        int64  = 3
 	PrivilegeToken    string = ""
-	HeartBeatInterval int64  = 20
-	HeartBeatTimeout  int64  = 90
+	HeartBeatInterval int64  = 10
+	HeartBeatTimeout  int64  = 30
 )
 
 var ProxyClients map[string]*ProxyClient = make(map[string]*ProxyClient)
@@ -96,6 +96,34 @@ func LoadConf(confFile string) (err error) {
 	tmpStr, ok = conf.Get("common", "auth_token")
 	if ok {
 		authToken = tmpStr
+	}
+
+	tmpStr, ok = conf.Get("common", "heartbeat_timeout")
+	if ok {
+		v, err := strconv.ParseInt(tmpStr, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Parse conf error: heartbeat_timeout is incorrect")
+		} else {
+			HeartBeatTimeout = v
+		}
+	}
+
+	tmpStr, ok = conf.Get("common", "heartbeat_interval")
+	if ok {
+		v, err := strconv.ParseInt(tmpStr, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Parse conf error: heartbeat_interval is incorrect")
+		} else {
+			HeartBeatInterval = v
+		}
+	}
+
+	if HeartBeatInterval <= 0 {
+		return fmt.Errorf("Parse conf error: heartbeat_interval is incorrect")
+	}
+
+	if HeartBeatTimeout < HeartBeatInterval {
+		return fmt.Errorf("Parse conf error: heartbeat_timeout is incorrect, heartbeat_timeout is less than heartbeat_interval")
 	}
 
 	// proxies

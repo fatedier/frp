@@ -469,7 +469,6 @@ http_proxy = http://user:pwd@192.168.1.128:8080
 
 计划在后续版本中加入的功能与优化，排名不分先后，如果有其他功能建议欢迎在 [issues](https://github.com/fatedier/frp/issues) 中反馈。
 
-* 支持 url 路由转发。
 * frps 记录 http 请求日志。
 * frps 支持直接反向代理，类似 haproxy。
 * frpc 支持负载均衡到后端不同服务。
@@ -516,3 +515,4 @@ frp 交流群：606194980 (QQ 群号)
 * [Damon Zhao](https://github.com/se77en)
 * [Manfred Touron](https://github.com/moul)
 * [xuebing1110](https://github.com/xuebing1110)
+* [Anbitioner](https://github.com/bingtianbaihua)

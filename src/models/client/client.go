@@ -39,6 +39,9 @@ type ProxyClient struct {
 
 	udpTunnel *conn.Conn
 	once      sync.Once
+	closeFlag bool
+
+	mutex sync.RWMutex
 }
 
 // if proxy type is udp, keep a tcp connection for transferring udp packages
@@ -48,7 +51,7 @@ func (pc *ProxyClient) StartUdpTunnelOnce(addr string, port int64) {
 		var c *conn.Conn
 		udpProcessor := NewUdpProcesser(nil, pc.LocalIp, pc.LocalPort)
 		for {
-			if pc.udpTunnel == nil || pc.udpTunnel.IsClosed() {
+			if !pc.IsClosed() && (pc.udpTunnel == nil || pc.udpTunnel.IsClosed()) {
 				if HttpProxy == "" {
 					c, err = conn.ConnectServer(fmt.Sprintf("%s:%d", addr, port))
 				} else {
@@ -59,7 +62,7 @@ func (pc *ProxyClient) StartUdpTunnelOnce(addr string, port int64) {
 					time.Sleep(10 * time.Second)
 					continue
 				}
-				log.Info("ProxyName [%s], udp tunnel reconnect to server [%s:%d] success", pc.Name, addr, port)
+				log.Info("ProxyName [%s], udp tunnel connect to server [%s:%d] success", pc.Name, addr, port)
 
 				nowTime := time.Now().Unix()
 				req := &msg.ControlReq{
@@ -82,13 +85,24 @@ func (pc *ProxyClient) StartUdpTunnelOnce(addr string, port int64) {
 					time.Sleep(1 * time.Second)
 					continue
 				}
+				pc.mutex.Lock()
 				pc.udpTunnel = c
 				udpProcessor.UpdateTcpConn(pc.udpTunnel)
+				pc.mutex.Unlock()
+
 				udpProcessor.Run()
 			}
 			time.Sleep(1 * time.Second)
 		}
 	})
+}
+
+func (pc *ProxyClient) CloseUdpTunnel() {
+	pc.mutex.RLock()
+	defer pc.mutex.RUnlock()
+	if pc.udpTunnel != nil {
+		pc.udpTunnel.Close()
+	}
 }
 
 func (pc *ProxyClient) GetLocalConn() (c *conn.Conn, err error) {
@@ -157,4 +171,16 @@ func (pc *ProxyClient) StartTunnel(serverAddr string, serverPort int64) (err err
 	go msg.JoinMore(localConn, remoteConn, pc.BaseConf, needRecord)
 
 	return nil
+}
+
+func (pc *ProxyClient) SetCloseFlag(closeFlag bool) {
+	pc.mutex.Lock()
+	defer pc.mutex.Unlock()
+	pc.closeFlag = closeFlag
+}
+
+func (pc *ProxyClient) IsClosed() bool {
+	pc.mutex.RLock()
+	defer pc.mutex.RUnlock()
+	return pc.closeFlag
 }

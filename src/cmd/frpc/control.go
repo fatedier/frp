@@ -55,15 +55,24 @@ func msgReader(cli *client.ProxyClient, c *conn.Conn, msgSendChan chan interface
 	var heartbeatTimeout bool = false
 	timer := time.AfterFunc(time.Duration(client.HeartBeatTimeout)*time.Second, func() {
 		heartbeatTimeout = true
-		c.Close()
+		if c != nil {
+			c.Close()
+		}
+		if cli != nil {
+			// if it's not udp type, nothing will happen
+			cli.CloseUdpTunnel()
+			cli.SetCloseFlag(true)
+		}
 		log.Error("ProxyName [%s], heartbeatRes from frps timeout", cli.Name)
 	})
 	defer timer.Stop()
 
 	for {
 		buf, err := c.ReadLine()
-		if err == io.EOF || c == nil || c.IsClosed() {
+		if err == io.EOF || c.IsClosed() {
+			timer.Stop()
 			c.Close()
+			cli.SetCloseFlag(true)
 			log.Warn("ProxyName [%s], frps close this control conn!", cli.Name)
 			var delayTime time.Duration = 1
 
@@ -76,11 +85,14 @@ func msgReader(cli *client.ProxyClient, c *conn.Conn, msgSendChan chan interface
 					msgSendChan = make(chan interface{}, 1024)
 					go heartbeatSender(c, msgSendChan)
 					go msgSender(cli, c, msgSendChan)
+					cli.SetCloseFlag(false)
 					break
 				}
 
-				if delayTime < 60 {
+				if delayTime < 30 {
 					delayTime = delayTime * 2
+				} else {
+					delayTime = 30
 				}
 				time.Sleep(delayTime * time.Second)
 			}

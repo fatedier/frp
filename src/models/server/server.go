@@ -83,6 +83,8 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 	p.HostHeaderRewrite = req.HostHeaderRewrite
 	p.HttpUserName = req.HttpUserName
 	p.HttpPassWord = req.HttpPassWord
+
+	p.Init()
 	return
 }
 
@@ -276,10 +278,14 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 }
 
 func (p *ProxyServer) Close() {
+	p.Lock()
+	defer p.Unlock()
+
+	oldStatus := p.Status
 	p.Release()
 
 	// if the proxy created by PrivilegeMode, delete it when closed
-	if p.PrivilegeMode {
+	if p.PrivilegeMode && oldStatus != consts.Closed {
 		// NOTE: this will take the global ProxyServerMap's lock
 		// if we only want to release resources, use Release() instead
 		DeleteProxy(p.Name)
@@ -287,9 +293,6 @@ func (p *ProxyServer) Close() {
 }
 
 func (p *ProxyServer) Release() {
-	p.Lock()
-	defer p.Unlock()
-
 	if p.Status != consts.Closed {
 		p.Status = consts.Closed
 		for _, l := range p.listeners {
@@ -297,10 +300,22 @@ func (p *ProxyServer) Release() {
 				l.Close()
 			}
 		}
-		close(p.ctlMsgChan)
-		close(p.workConnChan)
-		close(p.udpSenderChan)
-		close(p.closeChan)
+		if p.ctlMsgChan != nil {
+			close(p.ctlMsgChan)
+			p.ctlMsgChan = nil
+		}
+		if p.workConnChan != nil {
+			close(p.workConnChan)
+			p.workConnChan = nil
+		}
+		if p.udpSenderChan != nil {
+			close(p.udpSenderChan)
+			p.udpSenderChan = nil
+		}
+		if p.closeChan != nil {
+			close(p.closeChan)
+			p.closeChan = nil
+		}
 		if p.CtlConn != nil {
 			p.CtlConn.Close()
 		}
