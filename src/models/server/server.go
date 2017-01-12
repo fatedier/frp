@@ -79,6 +79,7 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 		p.ListenPort = VhostHttpsPort
 	}
 	p.CustomDomains = req.CustomDomains
+	p.SubDomain = req.SubDomain
 	p.Locations = req.Locations
 	p.HostHeaderRewrite = req.HostHeaderRewrite
 	p.HttpUserName = req.HttpUserName
