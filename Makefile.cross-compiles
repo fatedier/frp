@@ -1,4 +1,4 @@
-export PATH := $(GOPATH)/bin:$(PATH)
+export PATH := $PATH
 export GO15VENDOREXPERIMENT := 1
 
 all: build
