@@ -285,7 +285,7 @@ func (p *ProxyServer) Close() {
 	p.Release()
 
 	// if the proxy created by PrivilegeMode, delete it when closed
-	if p.PrivilegeMode && oldStatus != consts.Closed {
+	if p.PrivilegeMode && oldStatus == consts.Working {
 		// NOTE: this will take the global ProxyServerMap's lock
 		// if we only want to release resources, use Release() instead
 		DeleteProxy(p.Name)
