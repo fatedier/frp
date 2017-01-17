@@ -243,44 +243,48 @@ func LoadConf(confFile string) (err error) {
 					}
 				} else if proxyClient.Type == "http" {
 					// custom_domains
-					domainStr, ok := section["custom_domains"]
+					tmpStr, ok = section["custom_domains"]
 					if ok {
-						proxyClient.CustomDomains = strings.Split(domainStr, ",")
-						if len(proxyClient.CustomDomains) == 0 {
-							ok = false
-						} else {
-							for i, domain := range proxyClient.CustomDomains {
-								proxyClient.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
-							}
+						proxyClient.CustomDomains = strings.Split(tmpStr, ",")
+						for i, domain := range proxyClient.CustomDomains {
+							proxyClient.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
 						}
 					}
 
-					if !ok && proxyClient.SubDomain == "" {
+					// subdomain
+					tmpStr, ok = section["subdomain"]
+					if ok {
+						proxyClient.SubDomain = tmpStr
+					}
+
+					if len(proxyClient.CustomDomains) == 0 && proxyClient.SubDomain == "" {
 						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains and subdomain should set at least one of them when type is http", proxyClient.Name)
 					}
 
 					// locations
-					locations, ok := section["locations"]
+					tmpStr, ok = section["locations"]
 					if ok {
-						proxyClient.Locations = strings.Split(locations, ",")
+						proxyClient.Locations = strings.Split(tmpStr, ",")
 					} else {
 						proxyClient.Locations = []string{""}
 					}
 				} else if proxyClient.Type == "https" {
 					// custom_domains
-					domainStr, ok := section["custom_domains"]
+					tmpStr, ok = section["custom_domains"]
 					if ok {
-						proxyClient.CustomDomains = strings.Split(domainStr, ",")
-						if len(proxyClient.CustomDomains) == 0 {
-							ok = false
-						} else {
-							for i, domain := range proxyClient.CustomDomains {
-								proxyClient.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
-							}
+						proxyClient.CustomDomains = strings.Split(tmpStr, ",")
+						for i, domain := range proxyClient.CustomDomains {
+							proxyClient.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
 						}
 					}
 
-					if !ok && proxyClient.SubDomain == "" {
+					// subdomain
+					tmpStr, ok = section["subdomain"]
+					if ok {
+						proxyClient.SubDomain = tmpStr
+					}
+
+					if len(proxyClient.CustomDomains) == 0 && proxyClient.SubDomain == "" {
 						return fmt.Errorf("Parse conf error: proxy [%s] custom_domains and subdomain should set at least one of them when type is https", proxyClient.Name)
 					}
 				}

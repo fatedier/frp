@@ -79,6 +79,7 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 		p.ListenPort = VhostHttpsPort
 	}
 	p.CustomDomains = req.CustomDomains
+	p.SubDomain = req.SubDomain
 	p.Locations = req.Locations
 	p.HostHeaderRewrite = req.HostHeaderRewrite
 	p.HttpUserName = req.HttpUserName
@@ -285,7 +286,7 @@ func (p *ProxyServer) Close() {
 	p.Release()
 
 	// if the proxy created by PrivilegeMode, delete it when closed
-	if p.PrivilegeMode && oldStatus != consts.Closed {
+	if p.PrivilegeMode && oldStatus == consts.Working {
 		// NOTE: this will take the global ProxyServerMap's lock
 		// if we only want to release resources, use Release() instead
 		DeleteProxy(p.Name)
@@ -444,6 +445,12 @@ func (p *ProxyServer) getWorkConn() (workConn *conn.Conn, err error) {
 }
 
 func (p *ProxyServer) connectionPoolManager(closeCh <-chan struct{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Warn("ProxyName [%s], connectionPoolManager panic %v", p.Name, r)
+		}
+	}()
+
 	for {
 		// check if we need more work connections and send messages to frpc to get more
 		time.Sleep(time.Duration(2) * time.Second)

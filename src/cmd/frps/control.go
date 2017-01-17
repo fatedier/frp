@@ -268,6 +268,20 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string, s *serv
 						return
 					}
 				}
+
+				if s.SubDomain != "" {
+					if strings.Contains(s.SubDomain, ".") || strings.Contains(s.SubDomain, "*") {
+						info = fmt.Sprintf("ProxyName [%s], '.' and '*' is not supported in subdomain", req.ProxyName)
+						log.Warn(info)
+						return
+					}
+					if server.SubDomainHost == "" {
+						info = fmt.Sprintf("ProxyName [%s], subdomain is not supported because this feature is not enabled by remote server", req.ProxyName)
+						log.Warn(info)
+						return
+					}
+					s.SubDomain = s.SubDomain + "." + server.SubDomainHost
+				}
 			}
 			err := server.CreateProxy(s)
 			if err != nil {
@@ -297,20 +311,6 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string, s *serv
 		s.HttpUserName = req.HttpUserName
 		s.HttpPassWord = req.HttpPassWord
 
-		// package URL
-		if req.SubDomain != "" {
-			if strings.Contains(req.SubDomain, ".") || strings.Contains(req.SubDomain, "*") {
-				info = fmt.Sprintf("ProxyName [%s], '.' or '*' is not supported in subdomain", req.ProxyName)
-				log.Warn(info)
-				return
-			}
-			if server.SubDomainHost == "" {
-				info = fmt.Sprintf("ProxyName [%s], subdomain in not supported because this feature is not enabled by remote server", req.ProxyName)
-				log.Warn(info)
-				return
-			}
-			s.SubDomain = req.SubDomain + "." + server.SubDomainHost
-		}
 		if req.PoolCount > server.MaxPoolCount {
 			s.PoolCount = server.MaxPoolCount
 		} else if req.PoolCount < 0 {

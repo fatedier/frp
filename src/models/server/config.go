@@ -300,9 +300,6 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				domainStr, ok := section["custom_domains"]
 				if ok {
 					proxyServer.CustomDomains = strings.Split(domainStr, ",")
-					if len(proxyServer.CustomDomains) == 0 {
-						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type is http", proxyServer.Name)
-					}
 					for i, domain := range proxyServer.CustomDomains {
 						domain = strings.ToLower(strings.TrimSpace(domain))
 						// custom domain should not belong to subdomain_host
@@ -311,8 +308,23 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 						}
 						proxyServer.CustomDomains[i] = domain
 					}
-				} else {
-					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type is http", proxyServer.Name)
+				}
+
+				// subdomain
+				subdomainStr, ok := section["subdomain"]
+				if ok {
+					if strings.Contains(subdomainStr, ".") || strings.Contains(subdomainStr, "*") {
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] '.' and '*' is not supported in subdomain", proxyServer.Name)
+					}
+
+					if SubDomainHost == "" {
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] subdomain is not supported because subdomain_host is empty", proxyServer.Name)
+					}
+					proxyServer.SubDomain = subdomainStr + "." + SubDomainHost
+				}
+
+				if len(proxyServer.CustomDomains) == 0 && proxyServer.SubDomain == "" {
+					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains and subdomain should set at least one of them when type is http", proxyServer.Name)
 				}
 
 				// locations
@@ -329,9 +341,6 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				domainStr, ok := section["custom_domains"]
 				if ok {
 					proxyServer.CustomDomains = strings.Split(domainStr, ",")
-					if len(proxyServer.CustomDomains) == 0 {
-						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type is https", proxyServer.Name)
-					}
 					for i, domain := range proxyServer.CustomDomains {
 						domain = strings.ToLower(strings.TrimSpace(domain))
 						if SubDomainHost != "" && strings.Contains(domain, SubDomainHost) {
@@ -339,8 +348,23 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 						}
 						proxyServer.CustomDomains[i] = domain
 					}
-				} else {
-					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type is https", proxyServer.Name)
+				}
+
+				// subdomain
+				subdomainStr, ok := section["subdomain"]
+				if ok {
+					if strings.Contains(subdomainStr, ".") || strings.Contains(subdomainStr, "*") {
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] '.' and '*' is not supported in subdomain", proxyServer.Name)
+					}
+
+					if SubDomainHost == "" {
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] subdomain is not supported because subdomain_host is empty", proxyServer.Name)
+					}
+					proxyServer.SubDomain = subdomainStr + "." + SubDomainHost
+				}
+
+				if len(proxyServer.CustomDomains) == 0 && proxyServer.SubDomain == "" {
+					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains and subdomain should set at least one of them when type is https", proxyServer.Name)
 				}
 			}
 			proxyServers[proxyServer.Name] = proxyServer
