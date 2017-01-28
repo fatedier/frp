@@ -91,6 +91,9 @@ func controlWorker(c *conn.Conn) {
 		return
 	}
 
+	if ret == 999 {
+		closeFlag = false
+	}
 	// if login failed, just return
 	if ret > 0 {
 		return
@@ -287,6 +290,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string, s *serv
 			if err != nil {
 				info = fmt.Sprintf("ProxyName [%s], %v", req.ProxyName, err)
 				log.Warn(info)
+				ret = 999
 				return
 			}
 		}
