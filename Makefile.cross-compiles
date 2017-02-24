@@ -6,21 +6,21 @@ all: build
 build: app
 
 app:
-	env GOOS=darwin GOARCH=386 go build -o ./frpc_darwin_386 ./src/cmd/frpc
-	env GOOS=darwin GOARCH=386 go build -o ./frps_darwin_386 ./src/cmd/frps
-	env GOOS=darwin GOARCH=amd64 go build -o ./frpc_darwin_amd64 ./src/cmd/frpc
-	env GOOS=darwin GOARCH=amd64 go build -o ./frps_darwin_amd64 ./src/cmd/frps
-	env GOOS=linux GOARCH=386 go build -o ./frpc_linux_386 ./src/cmd/frpc
-	env GOOS=linux GOARCH=386 go build -o ./frps_linux_386 ./src/cmd/frps
-	env GOOS=linux GOARCH=amd64 go build -o ./frpc_linux_amd64 ./src/cmd/frpc
-	env GOOS=linux GOARCH=amd64 go build -o ./frps_linux_amd64 ./src/cmd/frps
-	env GOOS=linux GOARCH=arm go build -o ./frpc_linux_arm ./src/cmd/frpc
-	env GOOS=linux GOARCH=arm go build -o ./frps_linux_arm ./src/cmd/frps
-	env GOOS=windows GOARCH=386 go build -o ./frpc_windows_386.exe ./src/cmd/frpc
-	env GOOS=windows GOARCH=386 go build -o ./frps_windows_386.exe ./src/cmd/frps
-	env GOOS=windows GOARCH=amd64 go build -o ./frpc_windows_amd64.exe ./src/cmd/frpc
-	env GOOS=windows GOARCH=amd64 go build -o ./frps_windows_amd64.exe ./src/cmd/frps
-	env GOOS=linux GOARCH=mips64 go build -o ./frpc_linux_mips64 ./src/cmd/frpc
-	env GOOS=linux GOARCH=mips64 go build -o ./frps_linux_mips64 ./src/cmd/frps
-	env GOOS=linux GOARCH=mips64le go build -o ./frpc_linux_mips64le ./src/cmd/frpc
-	env GOOS=linux GOARCH=mips64le go build -o ./frps_linux_mips64le ./src/cmd/frps
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=386 go build -o ./frpc_darwin_386 ./src/cmd/frpc
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=386 go build -o ./frps_darwin_386 ./src/cmd/frps
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o ./frpc_darwin_amd64 ./src/cmd/frpc
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o ./frps_darwin_amd64 ./src/cmd/frps
+	env CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -o ./frpc_linux_386 ./src/cmd/frpc
+	env CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -o ./frps_linux_386 ./src/cmd/frps
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./frpc_linux_amd64 ./src/cmd/frpc
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./frps_linux_amd64 ./src/cmd/frps
+	env CGO_ENABLED=0 GOOS=linux GOARCH=arm go build -o ./frpc_linux_arm ./src/cmd/frpc
+	env CGO_ENABLED=0 GOOS=linux GOARCH=arm go build -o ./frps_linux_arm ./src/cmd/frps
+	env CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -o ./frpc_windows_386.exe ./src/cmd/frpc
+	env CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -o ./frps_windows_386.exe ./src/cmd/frps
+	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o ./frpc_windows_amd64.exe ./src/cmd/frpc
+	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o ./frps_windows_amd64.exe ./src/cmd/frps
+	env CGO_ENABLED=0 GOOS=linux GOARCH=mips64 go build -o ./frpc_linux_mips64 ./src/cmd/frpc
+	env CGO_ENABLED=0 GOOS=linux GOARCH=mips64 go build -o ./frps_linux_mips64 ./src/cmd/frps
+	env CGO_ENABLED=0 GOOS=linux GOARCH=mips64le go build -o ./frpc_linux_mips64le ./src/cmd/frpc
+	env CGO_ENABLED=0 GOOS=linux GOARCH=mips64le go build -o ./frps_linux_mips64le ./src/cmd/frps
