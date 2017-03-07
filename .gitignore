@@ -29,5 +29,6 @@ packages/
 test/bin/
 src/cmd/.DS_Store
 src/cmd/frps/frps
+src/cmd/frps/frps.log
 # Cache
 *.swp
