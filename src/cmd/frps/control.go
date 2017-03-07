@@ -78,7 +78,7 @@ func controlWorker(c *conn.Conn) {
 			Msg:  info,
 		}
 		byteBuf, _ := json.Marshal(cliRes)
-		err = c.Write(string(byteBuf) + "\n")
+		err = c.WriteString(string(byteBuf) + "\n")
 		if err != nil {
 			log.Warn("ProxyName [%s], write to client error, proxy exit", cliReq.ProxyName)
 			return
@@ -183,7 +183,7 @@ func msgSender(s *server.ProxyServer, c *conn.Conn, msgSendChan chan interface{}
 		}
 
 		buf, _ := json.Marshal(msg)
-		err := c.Write(string(buf) + "\n")
+		err := c.WriteString(string(buf) + "\n")
 		if err != nil {
 			log.Warn("ProxyName [%s], write to client error, proxy exit", s.Name)
 			s.Close()
@@ -302,7 +302,7 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string) {
 		}
 
 		// update metric's proxy status
-		metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip, s.PrivilegeMode, s.CustomDomains, s.ListenPort)
+		metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip, s.PrivilegeMode, s.CustomDomains, s.Locations, s.ListenPort)
 
 		// start proxy and listen for user connections, no block
 		err := s.Start(c)

@@ -27,6 +27,7 @@ _testmain.go
 bin/
 packages/
 test/bin/
-
+src/cmd/.DS_Store
+src/cmd/frps/frps
 # Cache
 *.swp
