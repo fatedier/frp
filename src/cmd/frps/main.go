@@ -60,7 +60,9 @@ func main() {
 	if args["-c"] != nil {
 		server.ConfigFile = args["-c"].(string)
 	}
+
 	err = server.LoadConf(server.ConfigFile)
+
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
