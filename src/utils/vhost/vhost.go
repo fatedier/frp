@@ -1,5 +1,3 @@
-// Copyright 2016 fatedier, fatedier@gmail.com
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -26,59 +24,80 @@ import (
 	"github.com/fatedier/frp/src/utils/conn"
 )
 
-type muxFunc func(*conn.Conn) (net.Conn, string, error)
+type muxFunc func(*conn.Conn) (net.Conn, map[string]string, error)
+type httpAuthFunc func(*conn.Conn, string, string, string) (bool, error)
 type hostRewriteFunc func(*conn.Conn, string) (net.Conn, error)
 
 type VhostMuxer struct {
-	listener    *conn.Listener
-	timeout     time.Duration
-	vhostFunc   muxFunc
-	rewriteFunc hostRewriteFunc
-	registryMap map[string]*Listener
-	mutex       sync.RWMutex
+	listener       *conn.Listener
+	timeout        time.Duration
+	vhostFunc      muxFunc
+	authFunc       httpAuthFunc
+	rewriteFunc    hostRewriteFunc
+	registryRouter *VhostRouters
+	mutex          sync.RWMutex
 }
 
-func NewVhostMuxer(listener *conn.Listener, vhostFunc muxFunc, rewriteFunc hostRewriteFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
+func NewVhostMuxer(listener *conn.Listener, vhostFunc muxFunc, authFunc httpAuthFunc, rewriteFunc hostRewriteFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
 	mux = &VhostMuxer{
-		listener:    listener,
-		timeout:     timeout,
-		vhostFunc:   vhostFunc,
-		rewriteFunc: rewriteFunc,
-		registryMap: make(map[string]*Listener),
+		listener:       listener,
+		timeout:        timeout,
+		vhostFunc:      vhostFunc,
+		authFunc:       authFunc,
+		rewriteFunc:    rewriteFunc,
+		registryRouter: NewVhostRouters(),
 	}
 	go mux.run()
 	return mux, nil
 }
 
 // listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil, then rewrite the host header to rewriteHost
-func (v *VhostMuxer) Listen(name string, rewriteHost string) (l *Listener, err error) {
+func (v *VhostMuxer) Listen(name, location, rewriteHost, userName, passWord string) (l *Listener, err error) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
-	if _, exist := v.registryMap[name]; exist {
-		return nil, fmt.Errorf("domain name %s is already bound", name)
+
+	_, ok := v.registryRouter.Exist(name, location)
+	if ok {
+		return nil, fmt.Errorf("hostname [%s] location [%s] is already registered", name, location)
 	}
 
 	l = &Listener{
 		name:        name,
+		location:    location,
 		rewriteHost: rewriteHost,
+		userName:    userName,
+		passWord:    passWord,
 		mux:         v,
 		accept:      make(chan *conn.Conn),
 	}
-	v.registryMap[name] = l
+	v.registryRouter.Add(name, location, l)
 	return l, nil
 }
 
-func (v *VhostMuxer) getListener(name string) (l *Listener, exist bool) {
+func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
 	v.mutex.RLock()
 	defer v.mutex.RUnlock()
-	l, exist = v.registryMap[name]
-	return l, exist
-}
 
-func (v *VhostMuxer) unRegister(name string) {
-	v.mutex.Lock()
-	defer v.mutex.Unlock()
-	delete(v.registryMap, name)
+	// first we check the full hostname
+	// if not exist, then check the wildcard_domain such as *.example.com
+	vr, found := v.registryRouter.Get(name, path)
+	if found {
+		return vr.listener, true
+	}
+
+	domainSplit := strings.Split(name, ".")
+	if len(domainSplit) < 3 {
+		return l, false
+	}
+	domainSplit[0] = "*"
+	name = strings.Join(domainSplit, ".")
+
+	vr, found = v.registryRouter.Get(name, path)
+	if !found {
+		return
+	}
+
+	return vr.listener, true
 }
 
 func (v *VhostMuxer) run() {
@@ -93,21 +112,39 @@ func (v *VhostMuxer) run() {
 
 func (v *VhostMuxer) handle(c *conn.Conn) {
 	if err := c.SetDeadline(time.Now().Add(v.timeout)); err != nil {
+		c.Close()
 		return
 	}
 
-	sConn, name, err := v.vhostFunc(c)
+	sConn, reqInfoMap, err := v.vhostFunc(c)
 	if err != nil {
+		c.Close()
 		return
 	}
 
-	name = strings.ToLower(name)
-	l, ok := v.getListener(name)
+	name := strings.ToLower(reqInfoMap["Host"])
+	path := strings.ToLower(reqInfoMap["Path"])
+	l, ok := v.getListener(name, path)
 	if !ok {
+		c.Close()
 		return
+	}
+
+	// if authFunc is exist and userName/password is set
+	// verify user access
+	if l.mux.authFunc != nil &&
+		l.userName != "" && l.passWord != "" {
+		bAccess, err := l.mux.authFunc(c, l.userName, l.passWord, reqInfoMap["Authorization"])
+		if bAccess == false || err != nil {
+			res := noAuthResponse()
+			res.Write(c.TcpConn)
+			c.Close()
+			return
+		}
 	}
 
 	if err = sConn.SetDeadline(time.Time{}); err != nil {
+		c.Close()
 		return
 	}
 	c.SetTcpConn(sConn)
@@ -117,7 +154,10 @@ func (v *VhostMuxer) handle(c *conn.Conn) {
 
 type Listener struct {
 	name        string
+	location    string
 	rewriteHost string
+	userName    string
+	passWord    string
 	mux         *VhostMuxer // for closing VhostMuxer
 	accept      chan *conn.Conn
 }
@@ -137,11 +177,12 @@ func (l *Listener) Accept() (*conn.Conn, error) {
 		}
 		conn.SetTcpConn(sConn)
 	}
+
 	return conn, nil
 }
 
 func (l *Listener) Close() error {
-	l.mux.unRegister(l.name)
+	l.mux.registryRouter.Del(l.name, l.location)
 	close(l.accept)
 	return nil
 }
@@ -171,16 +212,18 @@ func (sc *sharedConn) Read(p []byte) (n int, err error) {
 		sc.Unlock()
 		return sc.Conn.Read(p)
 	}
+	sc.Unlock()
 	n, err = sc.buff.Read(p)
 
 	if err == io.EOF {
+		sc.Lock()
 		sc.buff = nil
+		sc.Unlock()
 		var n2 int
 		n2, err = sc.Conn.Read(p[n:])
 
 		n += n2
 	}
-	sc.Unlock()
 	return
 }
 

@@ -16,6 +16,7 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/fatedier/frp/src/models/msg"
 	"github.com/fatedier/frp/src/utils/conn"
 	"github.com/fatedier/frp/src/utils/log"
+	"github.com/fatedier/frp/src/utils/pool"
 )
 
 type Listener interface {
@@ -37,19 +39,25 @@ type ProxyServer struct {
 	BindAddr      string
 	ListenPort    int64
 	CustomDomains []string
+	Locations     []string
 
-	Status       int64
-	CtlConn      *conn.Conn      // control connection with frpc
-	listeners    []Listener      // accept new connection from remote users
-	ctlMsgChan   chan int64      // every time accept a new user conn, put "1" to the channel
-	workConnChan chan *conn.Conn // get new work conns from control goroutine
-	mutex        sync.RWMutex
-	closeChan    chan struct{} // for notify other goroutines that the proxy is closed by close this channel
+	Status      int64
+	CtlConn     *conn.Conn // control connection with frpc
+	WorkConnUdp *conn.Conn // work connection for udp
+
+	udpConn       *net.UDPConn
+	listeners     []Listener      // accept new connection from remote users
+	ctlMsgChan    chan int64      // every time accept a new user conn, put "1" to the channel
+	workConnChan  chan *conn.Conn // get new work conns from control goroutine
+	udpSenderChan chan *msg.UdpPacket
+	mutex         sync.RWMutex
+	closeChan     chan struct{} // close this channel for notifying other goroutines that the proxy is closed
 }
 
 func NewProxyServer() (p *ProxyServer) {
 	p = &ProxyServer{
 		CustomDomains: make([]string, 0),
+		Locations:     make([]string, 0),
 	}
 	return p
 }
@@ -63,7 +71,7 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 	p.PrivilegeMode = req.PrivilegeMode
 	p.PrivilegeToken = PrivilegeToken
 	p.BindAddr = BindAddr
-	if p.Type == "tcp" {
+	if p.Type == "tcp" || p.Type == "udp" {
 		p.ListenPort = req.RemotePort
 	} else if p.Type == "http" {
 		p.ListenPort = VhostHttpPort
@@ -71,7 +79,13 @@ func NewProxyServerFromCtlMsg(req *msg.ControlReq) (p *ProxyServer) {
 		p.ListenPort = VhostHttpsPort
 	}
 	p.CustomDomains = req.CustomDomains
+	p.SubDomain = req.SubDomain
+	p.Locations = req.Locations
 	p.HostHeaderRewrite = req.HostHeaderRewrite
+	p.HttpUserName = req.HttpUserName
+	p.HttpPassWord = req.HttpPassWord
+
+	p.Init()
 	return
 }
 
@@ -81,6 +95,7 @@ func (p *ProxyServer) Init() {
 	metric.SetStatus(p.Name, p.Status)
 	p.workConnChan = make(chan *conn.Conn, p.PoolCount+10)
 	p.ctlMsgChan = make(chan int64, p.PoolCount+10)
+	p.udpSenderChan = make(chan *msg.UdpPacket, 1024)
 	p.listeners = make([]Listener, 0)
 	p.closeChan = make(chan struct{})
 	p.Unlock()
@@ -96,6 +111,15 @@ func (p *ProxyServer) Compare(p2 *ProxyServer) bool {
 	}
 	for i, _ := range p.CustomDomains {
 		if p.CustomDomains[i] != p2.CustomDomains[i] {
+			return false
+		}
+	}
+
+	if len(p.Locations) != len(p2.Locations) {
+		return false
+	}
+	for i, _ := range p.Locations {
+		if p.Locations[i] != p2.Locations[i] {
 			return false
 		}
 	}
@@ -122,18 +146,58 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 		p.listeners = append(p.listeners, l)
 	} else if p.Type == "http" {
 		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpMuxer.Listen(domain, p.HostHeaderRewrite)
-			if err != nil {
-				return err
+			if len(p.Locations) == 0 {
+				l, err := VhostHttpMuxer.Listen(domain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+				if err != nil {
+					return err
+				}
+				log.Info("ProxyName [%s], type http listen for host [%s] location [%s]", p.Name, domain, "")
+				p.listeners = append(p.listeners, l)
+			} else {
+				for _, location := range p.Locations {
+					l, err := VhostHttpMuxer.Listen(domain, location, p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+					if err != nil {
+						return err
+					}
+					log.Info("ProxyName [%s], type http listen for host [%s] location [%s]", p.Name, domain, location)
+					p.listeners = append(p.listeners, l)
+				}
 			}
-			p.listeners = append(p.listeners, l)
+		}
+		if p.SubDomain != "" {
+			if len(p.Locations) == 0 {
+				l, err := VhostHttpMuxer.Listen(p.SubDomain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+				if err != nil {
+					return err
+				}
+				log.Info("ProxyName [%s], type http listen for host [%s] location [%s]", p.Name, p.SubDomain, "")
+				p.listeners = append(p.listeners, l)
+			} else {
+				for _, location := range p.Locations {
+					l, err := VhostHttpMuxer.Listen(p.SubDomain, location, p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+					if err != nil {
+						return err
+					}
+					log.Info("ProxyName [%s], type http listen for host [%s] location [%s]", p.Name, p.SubDomain, location)
+					p.listeners = append(p.listeners, l)
+				}
+			}
 		}
 	} else if p.Type == "https" {
 		for _, domain := range p.CustomDomains {
-			l, err := VhostHttpsMuxer.Listen(domain, p.HostHeaderRewrite)
+			l, err := VhostHttpsMuxer.Listen(domain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
 			if err != nil {
 				return err
 			}
+			log.Info("ProxyName [%s], type https listen for host [%s]", p.Name, domain)
+			p.listeners = append(p.listeners, l)
+		}
+		if p.SubDomain != "" {
+			l, err := VhostHttpsMuxer.Listen(p.SubDomain, "", p.HostHeaderRewrite, p.HttpUserName, p.HttpPassWord)
+			if err != nil {
+				return err
+			}
+			log.Info("ProxyName [%s], type https listen for host [%s]", p.Name, p.SubDomain)
 			p.listeners = append(p.listeners, l)
 		}
 	}
@@ -143,52 +207,93 @@ func (p *ProxyServer) Start(c *conn.Conn) (err error) {
 	p.Unlock()
 	metric.SetStatus(p.Name, p.Status)
 
-	// create connection pool if needed
-	if p.PoolCount > 0 {
-		go p.connectionPoolManager(p.closeChan)
-	}
-
-	// start a goroutine for every listener to accept user connection
-	for _, listener := range p.listeners {
-		go func(l Listener) {
+	if p.Type == "udp" {
+		// udp is special
+		p.udpConn, err = conn.ListenUDP(p.BindAddr, p.ListenPort)
+		if err != nil {
+			log.Warn("ProxyName [%s], listen udp port error: %v", p.Name, err)
+			return err
+		}
+		go func() {
 			for {
-				// block
-				// if listener is closed, err returned
-				c, err := l.Accept()
+				buf := pool.GetBuf(2048)
+				n, remoteAddr, err := p.udpConn.ReadFromUDP(buf)
 				if err != nil {
-					log.Info("ProxyName [%s], listener is closed", p.Name)
+					log.Info("ProxyName [%s], udp listener is closed", p.Name)
 					return
 				}
-				log.Debug("ProxyName [%s], get one new user conn [%s]", p.Name, c.GetRemoteAddr())
-
-				if p.Status != consts.Working {
-					log.Debug("ProxyName [%s] is not working, new user conn close", p.Name)
-					c.Close()
-					return
+				localAddr, _ := net.ResolveUDPAddr("udp", p.udpConn.LocalAddr().String())
+				udpPacket := msg.NewUdpPacket(buf[0:n], remoteAddr, localAddr)
+				select {
+				case p.udpSenderChan <- udpPacket:
+				default:
+					log.Warn("ProxyName [%s], udp sender channel is full", p.Name)
 				}
+				pool.PutBuf(buf)
+			}
+		}()
+	} else {
+		// create connection pool if needed
+		if p.PoolCount > 0 {
+			go p.connectionPoolManager(p.closeChan)
+		}
 
-				go func(userConn *conn.Conn) {
-					workConn, err := p.getWorkConn()
+		// start a goroutine for every listener to accept user connection
+		for _, listener := range p.listeners {
+			go func(l Listener) {
+				for {
+					// block
+					// if listener is closed, err returned
+					c, err := l.Accept()
 					if err != nil {
+						log.Info("ProxyName [%s], listener is closed", p.Name)
+						return
+					}
+					log.Debug("ProxyName [%s], get one new user conn [%s]", p.Name, c.GetRemoteAddr())
+
+					if p.Status != consts.Working {
+						log.Debug("ProxyName [%s] is not working, new user conn close", p.Name)
+						c.Close()
 						return
 					}
 
-					// message will be transferred to another without modifying
-					// l means local, r means remote
-					log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", workConn.GetLocalAddr(), workConn.GetRemoteAddr(),
-						userConn.GetLocalAddr(), userConn.GetRemoteAddr())
+					go func(userConn *conn.Conn) {
+						workConn, err := p.getWorkConn()
+						if err != nil {
+							return
+						}
 
-					needRecord := true
-					go msg.JoinMore(userConn, workConn, p.BaseConf, needRecord)
-				}(c)
-			}
-		}(listener)
+						// message will be transferred to another without modifying
+						// l means local, r means remote
+						log.Debug("Join two connections, (l[%s] r[%s]) (l[%s] r[%s])", workConn.GetLocalAddr(), workConn.GetRemoteAddr(),
+							userConn.GetLocalAddr(), userConn.GetRemoteAddr())
+
+						needRecord := true
+						go msg.JoinMore(userConn, workConn, p.BaseConf, needRecord)
+					}(c)
+				}
+			}(listener)
+		}
 	}
 	return nil
 }
 
 func (p *ProxyServer) Close() {
 	p.Lock()
+	defer p.Unlock()
+
+	oldStatus := p.Status
+	p.Release()
+
+	// if the proxy created by PrivilegeMode, delete it when closed
+	if p.PrivilegeMode && oldStatus == consts.Working {
+		// NOTE: this will take the global ProxyServerMap's lock
+		// if we only want to release resources, use Release() instead
+		DeleteProxy(p.Name)
+	}
+}
+
+func (p *ProxyServer) Release() {
 	if p.Status != consts.Closed {
 		p.Status = consts.Closed
 		for _, l := range p.listeners {
@@ -196,19 +301,34 @@ func (p *ProxyServer) Close() {
 				l.Close()
 			}
 		}
-		close(p.ctlMsgChan)
-		close(p.workConnChan)
-		close(p.closeChan)
+		if p.ctlMsgChan != nil {
+			close(p.ctlMsgChan)
+			p.ctlMsgChan = nil
+		}
+		if p.workConnChan != nil {
+			close(p.workConnChan)
+			p.workConnChan = nil
+		}
+		if p.udpSenderChan != nil {
+			close(p.udpSenderChan)
+			p.udpSenderChan = nil
+		}
+		if p.closeChan != nil {
+			close(p.closeChan)
+			p.closeChan = nil
+		}
 		if p.CtlConn != nil {
 			p.CtlConn.Close()
 		}
+		if p.WorkConnUdp != nil {
+			p.WorkConnUdp.Close()
+		}
+		if p.udpConn != nil {
+			p.udpConn.Close()
+			p.udpConn = nil
+		}
 	}
 	metric.SetStatus(p.Name, p.Status)
-	// if the proxy created by PrivilegeMode, delete it when closed
-	if p.PrivilegeMode {
-		DeleteProxy(p.Name)
-	}
-	p.Unlock()
 }
 
 func (p *ProxyServer) WaitUserConn() (closeFlag bool) {
@@ -226,7 +346,58 @@ func (p *ProxyServer) RegisterNewWorkConn(c *conn.Conn) {
 	case p.workConnChan <- c:
 	default:
 		log.Debug("ProxyName [%s], workConnChan is full, so close this work connection", p.Name)
+		c.Close()
 	}
+}
+
+// create a tcp connection for forwarding udp packages
+func (p *ProxyServer) RegisterNewWorkConnUdp(c *conn.Conn) {
+	if p.WorkConnUdp != nil && !p.WorkConnUdp.IsClosed() {
+		p.WorkConnUdp.Close()
+	}
+	p.WorkConnUdp = c
+
+	// read
+	go func() {
+		var (
+			buf string
+			err error
+		)
+		for {
+			buf, err = c.ReadLine()
+			if err != nil {
+				log.Warn("ProxyName [%s], work connection for udp closed", p.Name)
+				return
+			}
+			udpPacket := &msg.UdpPacket{}
+			err = udpPacket.UnPack([]byte(buf))
+			if err != nil {
+				log.Warn("ProxyName [%s], unpack udp packet error: %v", p.Name, err)
+				continue
+			}
+
+			// send to user
+			_, err = p.udpConn.WriteToUDP(udpPacket.Content, udpPacket.Dst)
+			if err != nil {
+				continue
+			}
+		}
+	}()
+
+	// write
+	go func() {
+		for {
+			udpPacket, ok := <-p.udpSenderChan
+			if !ok {
+				return
+			}
+			err := c.WriteString(string(udpPacket.Pack()) + "\n")
+			if err != nil {
+				log.Debug("ProxyName [%s], write to work connection for udp error: %v", p.Name, err)
+				return
+			}
+		}
+	}()
 }
 
 // When frps get one user connection, we get one work connection from the pool and return it.
@@ -243,6 +414,7 @@ func (p *ProxyServer) getWorkConn() (workConn *conn.Conn, err error) {
 				err = fmt.Errorf("ProxyName [%s], no work connections available, control is closing", p.Name)
 				return
 			}
+			log.Debug("ProxyName [%s], get work connection from pool", p.Name)
 		default:
 			// no work connections available in the poll, send message to frpc to get more
 			p.ctlMsgChan <- 1
@@ -273,6 +445,12 @@ func (p *ProxyServer) getWorkConn() (workConn *conn.Conn, err error) {
 }
 
 func (p *ProxyServer) connectionPoolManager(closeCh <-chan struct{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Warn("ProxyName [%s], connectionPoolManager panic %v", p.Name, r)
+		}
+	}()
+
 	for {
 		// check if we need more work connections and send messages to frpc to get more
 		time.Sleep(time.Duration(2) * time.Second)

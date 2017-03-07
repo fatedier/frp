@@ -37,4 +37,5 @@ const (
 	NewCtlConnRes
 	HeartbeatReq
 	HeartbeatRes
+	NewWorkConnUdp
 )

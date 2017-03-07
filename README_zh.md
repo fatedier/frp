@@ -4,29 +4,39 @@
 
 [README](README.md) | [中文文档](README_zh.md)
 
-frp 是一个高性能的反向代理应用，可以帮助您轻松地进行内网穿透，对外网提供服务，支持 tcp, http, https 等协议类型，并且 web 服务支持根据域名进行路由转发。
+frp 是一个高性能的反向代理应用，可以帮助您轻松地进行内网穿透，对外网提供服务，支持 tcp, udp, http, https 等协议类型，并且 web 服务支持根据域名进行路由转发。
 
 ## 目录
 
+<!-- vim-markdown-toc GFM -->
 * [frp 的作用](#frp-的作用)
 * [开发状态](#开发状态)
 * [架构](#架构)
 * [使用示例](#使用示例)
-  * [通过 ssh 访问公司内网机器](#通过-ssh-访问公司内网机器)
-  * [通过自定义域名访问部署于内网的 web 服务](#通过自定义域名访问部署于内网的-web-服务) 
+    * [通过 ssh 访问公司内网机器](#通过-ssh-访问公司内网机器)
+    * [通过自定义域名访问部署于内网的 web 服务](#通过自定义域名访问部署于内网的-web-服务)
+    * [转发 DNS 查询请求](#转发-dns-查询请求)
 * [功能说明](#功能说明)
-  * [Dashboard](#dashboard)
-  * [身份验证](#身份验证)
-  * [加密与压缩](#加密与压缩)
-  * [服务器端热加载配置文件](#服务器端热加载配置文件)
-  * [特权模式](#特权模式)
-    * [端口白名单](#端口白名单)
-  * [连接池](#连接池)
-  * [修改 Host Header](#修改-host-header)
+    * [Dashboard](#dashboard)
+    * [身份验证](#身份验证)
+    * [加密与压缩](#加密与压缩)
+    * [服务器端热加载配置文件](#服务器端热加载配置文件)
+    * [特权模式](#特权模式)
+        * [端口白名单](#端口白名单)
+    * [连接池](#连接池)
+    * [修改 Host Header](#修改-host-header)
+    * [通过密码保护你的 web 服务](#通过密码保护你的-web-服务)
+    * [自定义二级域名](#自定义二级域名)
+    * [URL 路由](#url-路由)
+    * [通过 HTTP PROXY 连接 frps](#通过-http-proxy-连接-frps)
 * [开发计划](#开发计划)
-* [贡献代码](#贡献代码)
+* [为 frp 做贡献](#为-frp-做贡献)
 * [捐助](#捐助)
+    * [支付宝扫码捐赠](#支付宝扫码捐赠)
+    * [Paypal 捐赠](#paypal-捐赠)
 * [贡献者](#贡献者)
+
+<!-- vim-markdown-toc -->
 
 ## frp 的作用
 
@@ -81,6 +91,7 @@ frp 目前正在前期开发阶段，master 分支用于发布稳定版本，dev
   auth_token = 123
   
   [ssh]
+  local_ip = 127.0.0.1
   local_port = 22
   ```
 
@@ -136,6 +147,50 @@ frp 目前正在前期开发阶段，master 分支用于发布稳定版本，dev
 
 6. 通过浏览器访问 `http://www.yourdomain.com:8080` 即可访问到处于内网机器上的 web 服务。
 
+### 转发 DNS 查询请求
+
+DNS 查询请求通常使用 UDP 协议，frp 支持对内网 UDP 服务的穿透，配置方式和 TCP 基本一致。
+
+1. 修改 frps.ini 文件，配置一个名为 dns 的反向代理：
+
+  ```ini
+  # frps.ini
+  [common]
+  bind_port = 7000
+  
+  [dns]
+  type = udp
+  listen_port = 6000
+  auth_token = 123
+  ```
+
+2. 启动 frps：
+
+  `./frps -c ./frps.ini`
+
+3. 修改 frpc.ini 文件，设置 frps 所在服务器的 IP 为 x.x.x.x，转发到 Google 的 DNS 查询服务器 `8.8.8.8` 的 udp 53 端口：
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+  auth_token = 123
+  
+  [dns]
+  type = udp
+  local_ip = 8.8.8.8
+  local_port = 53
+  ```
+
+4. 启动 frpc：
+
+  `./frpc -c ./frpc.ini`
+
+5. 通过 dig 测试 UDP 包转发是否成功，预期会返回 `www.google.com` 域名的解析结果：
+
+  `dig @x.x.x.x -p 6000 www.goolge.com`
+
 ## 功能说明
 
 ### Dashboard
@@ -147,9 +202,12 @@ frp 目前正在前期开发阶段，master 分支用于发布稳定版本，dev
 ```ini
 [common]
 dashboard_port = 7500
+# dashboard 用户名密码可选，默认都为 admin
+dashboard_user = admin
+dashboard_pwd = admin
 ```
 
-打开浏览器通过 `http://[server_addr]:7500` 访问 dashboard 界面。
+打开浏览器通过 `http://[server_addr]:7500` 访问 dashboard 界面，用户名密码默认为 `admin`。
 
 ![dashboard](/doc/pic/dashboard.png)
 
@@ -160,6 +218,8 @@ dashboard_port = 7500
 客户端需要在 frpc.ini 中配置自己的 auth_token，与服务器中的配置一致才能正常运行。
 
 需要注意的是 frpc 所在机器和 frps 所在机器的时间相差不能超过 15 分钟，因为时间戳会被用于加密验证中，防止报文被劫持后被其他人利用。
+
+这个超时时间可以在配置文件中通过 `authentication_timeout` 这个参数来修改，单位为秒，默认值为 900，即 15 分钟。如果修改为 0，则 frps 将不对身份验证报文的时间戳进行超时校验。
 
 ### 加密与压缩
 
@@ -316,13 +376,101 @@ host_header_rewrite = dev.yourdomain.com
 
 原来 http 请求中的 host 字段 `test.yourdomain.com` 转发到后端服务时会被替换为 `dev.yourdomain.com`。
 
+### 通过密码保护你的 web 服务
+
+由于所有客户端共用一个 frps 的 http 服务端口，任何知道你的域名和 url 的人都能访问到你部署在内网的 web 服务，但是在某些场景下需要确保只有限定的用户才能访问。
+
+frp 支持通过 HTTP Basic Auth 来保护你的 web 服务，使用户需要通过用户名和密码才能访问到你的服务。
+
+该功能目前仅限于 http 类型的代理，需要在 frpc 的代理配置中添加用户名和密码的设置。
+
+```ini
+# frpc.ini
+[web]
+privilege_mode = true
+type = http
+local_port = 80
+custom_domains = test.yourdomain.com
+http_user = abc
+http_pwd = abc
+```
+
+通过浏览器访问 `test.yourdomain.com`，需要输入配置的用户名和密码才能访问。
+
+### 自定义二级域名
+
+在多人同时使用一个 frps 时，通过自定义二级域名的方式来使用会更加方便。
+
+通过在 frps 的配置文件中配置 `subdomain_host`，就可以启用该特性。之后在 frpc 的 http、https 类型的代理中可以不配置 `custom_domains`，而是配置一个 `subdomain` 参数。
+
+只需要将 `*.subdomain_host` 解析到 frps 所在服务器。之后用户可以通过 `subdomain` 自行指定自己的 web 服务所需要使用的二级域名，通过 `{subdomain}.{subdomain_host}` 来访问自己的 web 服务。
+
+```ini
+# frps.ini
+subdomain_host = frps.com
+```
+
+将泛域名 `*.frps.com` 解析到 frps 所在服务器的 IP 地址。
+
+```ini
+# frpc.ini
+[web]
+privilege_mode = true
+type = http
+local_port = 80
+subdomain = test
+```
+
+frps 和 fprc 都启动成功后，通过 `test.frps.com` 就可以访问到内网的 web 服务。
+
+需要注意的是如果 frps 配置了 `subdomain_host`，则 `custom_domains` 中不能是属于 `subdomain_host` 的子域名或者泛域名。
+
+同一个 http 或 https 类型的代理中 `custom_domains`  和 `subdomain` 可以同时配置。
+
+### URL 路由
+
+frp 支持根据请求的 URL 路径路由转发到不同的后端服务。
+
+通过配置文件中的 `locations` 字段指定一个或多个 proxy 能够匹配的 URL 前缀(目前仅支持最大前缀匹配，之后会考虑正则匹配)。例如指定 `locations = /news`，则所有 URL 以 `/news` 开头的请求都会被转发到这个服务。
+
+```ini
+# frpc.ini
+[web01]
+privilege_mode = true
+type = http
+local_port = 80
+custom_domains = web.yourdomain.com
+locations = /
+
+[web02]
+privilege_mode = true
+type = http
+local_port = 81
+custom_domains = web.yourdomain.com
+locations = /news,/about
+```
+
+按照上述的示例配置后，`web.yourdomain.com` 这个域名下所有以 `/news` 以及 `/about` 作为前缀的 URL 请求都会被转发到 web02，其余的请求会被转发到 web01。
+
+### 通过 HTTP PROXY 连接 frps
+
+在只能通过代理访问外网的环境内，frpc 支持通过 HTTP PROXY 和 frps 进行通信。
+
+可以通过设置 `HTTP_PROXY` 系统环境变量或者通过在 frpc 的配置文件中设置 `http_proxy` 参数来使用此功能。
+
+```ini
+# frpc.ini
+server_addr = x.x.x.x
+server_port = 7000
+http_proxy = http://user:pwd@192.168.1.128:8080
+```
+
 ## 开发计划
 
 计划在后续版本中加入的功能与优化，排名不分先后，如果有其他功能建议欢迎在 [issues](https://github.com/fatedier/frp/issues) 中反馈。
 
-* 支持 udp 协议。
-* 支持泛域名。
-* 支持 url 路由转发。
+* frps 记录 http 请求日志。
+* frps 支持直接反向代理，类似 haproxy。
 * frpc 支持负载均衡到后端不同服务。
 * frpc debug 模式，控制台显示代理状态，类似 ngrok 启动后的界面。
 * frpc http 请求及响应信息展示。
@@ -330,18 +478,24 @@ host_header_rewrite = dev.yourdomain.com
 * frpc 完全控制模式，通过 dashboard 对 frpc 进行在线操作。
 * 支持 udp 打洞的方式，提供两边内网机器直接通信，流量不经过服务器转发。
 
-## 贡献代码
+## 为 frp 做贡献
 
-如果您对这个项目感兴趣，我们非常欢迎您参与其中！
+frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进步贡献力量。
 
-* 如果您需要提交问题，可以通过 [issues](https://github.com/fatedier/frp/issues) 来完成。
-* 如果您有新的功能需求，可以反馈至 fatedier@gmail.com 共同讨论。
+* 在使用过程中出现任何问题，可以通过 [issues](https://github.com/fatedier/frp/issues) 来反馈。
+* Bug 的修复可以直接提交 Pull Request 到 dev 分支。
+* 如果是增加新的功能特性，请先创建一个 issue 并做简单描述以及大致的实现方法，提议被采纳后，就可以创建一个实现新特性的 Pull Request。
+* 欢迎对说明文档做出改善，帮助更多的人使用 frp，特别是英文文档。
+* 贡献代码请提交 PR 至 dev 分支，master 分支仅用于发布稳定可用版本。
+* 如果你有任何其他方面的问题，欢迎反馈至 fatedier@gmail.com 共同交流。
 
 **提醒：和项目相关的问题最好在 [issues](https://github.com/fatedier/frp/issues) 中反馈，这样方便其他有类似问题的人可以快速查找解决方法，并且也避免了我们重复回答一些问题。**
 
 ## 捐助
 
 如果您觉得 frp 对你有帮助，欢迎给予我们一定的捐助来维持项目的长期发展。
+
+frp 交流群：606194980 (QQ 群号)
 
 ### 支付宝扫码捐赠
 
@@ -355,5 +509,11 @@ host_header_rewrite = dev.yourdomain.com
 
 * [fatedier](https://github.com/fatedier)
 * [Hurricanezwf](https://github.com/Hurricanezwf)
-* [vashstorm](https://github.com/vashstorm)
-* [maodanp](https://github.com/maodanp)
+* [Pan Hao](https://github.com/vashstorm)
+* [Danping Mao](https://github.com/maodanp)
+* [Eric Larssen](https://github.com/ericlarssen)
+* [Damon Zhao](https://github.com/se77en)
+* [Manfred Touron](https://github.com/moul)
+* [xuebing1110](https://github.com/xuebing1110)
+* [Anbitioner](https://github.com/bingtianbaihua)
+* [LitleCarl](https://github.com/LitleCarl)

@@ -48,7 +48,7 @@ type HttpsMuxer struct {
 }
 
 func NewHttpsMuxer(listener *conn.Listener, timeout time.Duration) (*HttpsMuxer, error) {
-	mux, err := NewVhostMuxer(listener, GetHttpsHostname, nil, timeout)
+	mux, err := NewVhostMuxer(listener, GetHttpsHostname, nil, nil, timeout)
 	return &HttpsMuxer{mux}, err
 }
 
@@ -178,11 +178,14 @@ func readHandshake(rd io.Reader) (host string, err error) {
 	return
 }
 
-func GetHttpsHostname(c *conn.Conn) (sc net.Conn, routerName string, err error) {
+func GetHttpsHostname(c *conn.Conn) (sc net.Conn, _ map[string]string, err error) {
+	reqInfoMap := make(map[string]string, 0)
 	sc, rd := newShareConn(c.TcpConn)
 	host, err := readHandshake(rd)
 	if err != nil {
-		return sc, "", err
+		return sc, reqInfoMap, err
 	}
-	return sc, host, nil
+	reqInfoMap["Host"] = host
+	reqInfoMap["Scheme"] = "https"
+	return sc, reqInfoMap, nil
 }

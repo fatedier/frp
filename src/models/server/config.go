@@ -30,24 +30,28 @@ import (
 
 // common config
 var (
-	ConfigFile     string = "./frps.ini"
-	BindAddr       string = "0.0.0.0"
-	BindPort       int64  = 7000
-	VhostHttpPort  int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http protocol
-	VhostHttpsPort int64  = 0 // if VhostHttpsPort equals 0, don't listen a public port for https protocol
-	DashboardPort  int64  = 0 // if DashboardPort equals 0, dashboard is not available
-	AssetsDir      string = ""
-	LogFile        string = "console"
-	LogWay         string = "console" // console or file
-	LogLevel       string = "info"
-	LogMaxDays     int64  = 3
-	PrivilegeMode  bool   = false
-	PrivilegeToken string = ""
+	ConfigFile        string = "./frps.ini"
+	BindAddr          string = "0.0.0.0"
+	BindPort          int64  = 7000
+	VhostHttpPort     int64  = 0 // if VhostHttpPort equals 0, don't listen a public port for http protocol
+	VhostHttpsPort    int64  = 0 // if VhostHttpsPort equals 0, don't listen a public port for https protocol
+	DashboardPort     int64  = 0 // if DashboardPort equals 0, dashboard is not available
+	DashboardUsername string = "admin"
+	DashboardPassword string = "admin"
+	AssetsDir         string = ""
+	LogFile           string = "console"
+	LogWay            string = "console" // console or file
+	LogLevel          string = "info"
+	LogMaxDays        int64  = 3
+	PrivilegeMode     bool   = false
+	PrivilegeToken    string = ""
+	AuthTimeout       int64  = 900
+	SubDomainHost     string = ""
 
 	// if PrivilegeAllowPorts is not nil, tcp proxies which remote port exist in this map can be connected
 	PrivilegeAllowPorts map[int64]struct{}
 	MaxPoolCount        int64 = 100
-	HeartBeatTimeout    int64 = 90
+	HeartBeatTimeout    int64 = 30
 	UserConnTimeout     int64 = 10
 
 	VhostHttpMuxer    *vhost.HttpMuxer
@@ -117,6 +121,16 @@ func loadCommonConf(confFile string) error {
 		DashboardPort, _ = strconv.ParseInt(tmpStr, 10, 64)
 	} else {
 		DashboardPort = 0
+	}
+
+	tmpStr, ok = conf.Get("common", "dashboard_user")
+	if ok {
+		DashboardUsername = tmpStr
+	}
+
+	tmpStr, ok = conf.Get("common", "dashboard_pwd")
+	if ok {
+		DashboardPassword = tmpStr
 	}
 
 	tmpStr, ok = conf.Get("common", "assets_dir")
@@ -210,6 +224,29 @@ func loadCommonConf(confFile string) error {
 			MaxPoolCount = v
 		}
 	}
+	tmpStr, ok = conf.Get("common", "authentication_timeout")
+	if ok {
+		v, err := strconv.ParseInt(tmpStr, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Parse conf error: authentication_timeout is incorrect")
+		} else {
+			AuthTimeout = v
+		}
+	}
+	SubDomainHost, ok = conf.Get("common", "subdomain_host")
+	if ok {
+		SubDomainHost = strings.ToLower(strings.TrimSpace(SubDomainHost))
+	}
+
+	tmpStr, ok = conf.Get("common", "heartbeat_timeout")
+	if ok {
+		v, err := strconv.ParseInt(tmpStr, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Parse conf error: heartbeat_timeout is incorrect")
+		} else {
+			HeartBeatTimeout = v
+		}
+	}
 	return nil
 }
 
@@ -228,7 +265,7 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 
 			proxyServer.Type, ok = section["type"]
 			if ok {
-				if proxyServer.Type != "tcp" && proxyServer.Type != "http" && proxyServer.Type != "https" {
+				if proxyServer.Type != "tcp" && proxyServer.Type != "http" && proxyServer.Type != "https" && proxyServer.Type != "udp" {
 					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] type error", proxyServer.Name)
 				}
 			} else {
@@ -240,8 +277,8 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] no auth_token found", proxyServer.Name)
 			}
 
-			// for tcp
-			if proxyServer.Type == "tcp" {
+			// for tcp and udp
+			if proxyServer.Type == "tcp" || proxyServer.Type == "udp" {
 				proxyServer.BindAddr, ok = section["bind_addr"]
 				if !ok {
 					proxyServer.BindAddr = "0.0.0.0"
@@ -263,14 +300,39 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				domainStr, ok := section["custom_domains"]
 				if ok {
 					proxyServer.CustomDomains = strings.Split(domainStr, ",")
-					if len(proxyServer.CustomDomains) == 0 {
-						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyServer.Name)
-					}
 					for i, domain := range proxyServer.CustomDomains {
-						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
+						domain = strings.ToLower(strings.TrimSpace(domain))
+						// custom domain should not belong to subdomain_host
+						if SubDomainHost != "" && strings.Contains(domain, SubDomainHost) {
+							return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom domain should not belong to subdomain_host", proxyServer.Name)
+						}
+						proxyServer.CustomDomains[i] = domain
 					}
+				}
+
+				// subdomain
+				subdomainStr, ok := section["subdomain"]
+				if ok {
+					if strings.Contains(subdomainStr, ".") || strings.Contains(subdomainStr, "*") {
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] '.' and '*' is not supported in subdomain", proxyServer.Name)
+					}
+
+					if SubDomainHost == "" {
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] subdomain is not supported because subdomain_host is empty", proxyServer.Name)
+					}
+					proxyServer.SubDomain = subdomainStr + "." + SubDomainHost
+				}
+
+				if len(proxyServer.CustomDomains) == 0 && proxyServer.SubDomain == "" {
+					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains and subdomain should set at least one of them when type is http", proxyServer.Name)
+				}
+
+				// locations
+				locations, ok := section["locations"]
+				if ok {
+					proxyServer.Locations = strings.Split(locations, ",")
 				} else {
-					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals http", proxyServer.Name)
+					proxyServer.Locations = []string{""}
 				}
 			} else if proxyServer.Type == "https" {
 				// for https
@@ -279,14 +341,30 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 				domainStr, ok := section["custom_domains"]
 				if ok {
 					proxyServer.CustomDomains = strings.Split(domainStr, ",")
-					if len(proxyServer.CustomDomains) == 0 {
-						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals https", proxyServer.Name)
-					}
 					for i, domain := range proxyServer.CustomDomains {
-						proxyServer.CustomDomains[i] = strings.ToLower(strings.TrimSpace(domain))
+						domain = strings.ToLower(strings.TrimSpace(domain))
+						if SubDomainHost != "" && strings.Contains(domain, SubDomainHost) {
+							return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom domain should not belong to subdomain_host", proxyServer.Name)
+						}
+						proxyServer.CustomDomains[i] = domain
 					}
-				} else {
-					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains must be set when type equals https", proxyServer.Name)
+				}
+
+				// subdomain
+				subdomainStr, ok := section["subdomain"]
+				if ok {
+					if strings.Contains(subdomainStr, ".") || strings.Contains(subdomainStr, "*") {
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] '.' and '*' is not supported in subdomain", proxyServer.Name)
+					}
+
+					if SubDomainHost == "" {
+						return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] subdomain is not supported because subdomain_host is empty", proxyServer.Name)
+					}
+					proxyServer.SubDomain = subdomainStr + "." + SubDomainHost
+				}
+
+				if len(proxyServer.CustomDomains) == 0 && proxyServer.SubDomain == "" {
+					return proxyServers, fmt.Errorf("Parse conf error: proxy [%s] custom_domains and subdomain should set at least one of them when type is https", proxyServer.Name)
 				}
 			}
 			proxyServers[proxyServer.Name] = proxyServer
@@ -296,7 +374,7 @@ func loadProxyConf(confFile string) (proxyServers map[string]*ProxyServer, err e
 	// set metric statistics of all proxies
 	for name, p := range proxyServers {
 		metric.SetProxyInfo(name, p.Type, p.BindAddr, p.UseEncryption, p.UseGzip,
-			p.PrivilegeMode, p.CustomDomains, p.ListenPort)
+			p.PrivilegeMode, p.CustomDomains, p.Locations, p.ListenPort)
 	}
 	return proxyServers, nil
 }
@@ -351,15 +429,16 @@ func CreateProxy(s *ProxyServer) error {
 		if oldServer.Status == consts.Working {
 			return fmt.Errorf("this proxy is already working now")
 		}
-		oldServer.Close()
+		oldServer.Lock()
+		oldServer.Release()
+		oldServer.Unlock()
 		if oldServer.PrivilegeMode {
 			delete(ProxyServers, s.Name)
 		}
 	}
 	ProxyServers[s.Name] = s
 	metric.SetProxyInfo(s.Name, s.Type, s.BindAddr, s.UseEncryption, s.UseGzip,
-		s.PrivilegeMode, s.CustomDomains, s.ListenPort)
-	s.Init()
+		s.PrivilegeMode, s.CustomDomains, s.Locations, s.ListenPort)
 	return nil
 }
 
@@ -367,4 +446,11 @@ func DeleteProxy(proxyName string) {
 	ProxyServersMutex.Lock()
 	defer ProxyServersMutex.Unlock()
 	delete(ProxyServers, proxyName)
+}
+
+func GetProxyServer(proxyName string) (p *ProxyServer, ok bool) {
+	ProxyServersMutex.RLock()
+	defer ProxyServersMutex.RUnlock()
+	p, ok = ProxyServers[proxyName]
+	return
 }

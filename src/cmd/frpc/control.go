@@ -55,15 +55,24 @@ func msgReader(cli *client.ProxyClient, c *conn.Conn, msgSendChan chan interface
 	var heartbeatTimeout bool = false
 	timer := time.AfterFunc(time.Duration(client.HeartBeatTimeout)*time.Second, func() {
 		heartbeatTimeout = true
-		c.Close()
+		if c != nil {
+			c.Close()
+		}
+		if cli != nil {
+			// if it's not udp type, nothing will happen
+			cli.CloseUdpTunnel()
+			cli.SetCloseFlag(true)
+		}
 		log.Error("ProxyName [%s], heartbeatRes from frps timeout", cli.Name)
 	})
 	defer timer.Stop()
 
 	for {
 		buf, err := c.ReadLine()
-		if err == io.EOF || c == nil || c.IsClosed() {
+		if err == io.EOF || c.IsClosed() {
+			timer.Stop()
 			c.Close()
+			cli.SetCloseFlag(true)
 			log.Warn("ProxyName [%s], frps close this control conn!", cli.Name)
 			var delayTime time.Duration = 1
 
@@ -76,11 +85,14 @@ func msgReader(cli *client.ProxyClient, c *conn.Conn, msgSendChan chan interface
 					msgSendChan = make(chan interface{}, 1024)
 					go heartbeatSender(c, msgSendChan)
 					go msgSender(cli, c, msgSendChan)
+					cli.SetCloseFlag(false)
 					break
 				}
 
-				if delayTime < 60 {
+				if delayTime < 30 {
 					delayTime = delayTime * 2
+				} else {
+					delayTime = 30
 				}
 				time.Sleep(delayTime * time.Second)
 			}
@@ -120,7 +132,7 @@ func msgSender(cli *client.ProxyClient, c *conn.Conn, msgSendChan chan interface
 		}
 
 		buf, _ := json.Marshal(msg)
-		err := c.Write(string(buf) + "\n")
+		err := c.WriteString(string(buf) + "\n")
 		if err != nil {
 			log.Warn("ProxyName [%s], write to server error, proxy exit", cli.Name)
 			c.Close()
@@ -130,7 +142,11 @@ func msgSender(cli *client.ProxyClient, c *conn.Conn, msgSendChan chan interface
 }
 
 func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
-	c, err = conn.ConnectServer(client.ServerAddr, client.ServerPort)
+	if client.HttpProxy == "" {
+		c, err = conn.ConnectServer(fmt.Sprintf("%s:%d", client.ServerAddr, client.ServerPort))
+	} else {
+		c, err = conn.ConnectServerByHttpProxy(client.HttpProxy, fmt.Sprintf("%s:%d", client.ServerAddr, client.ServerPort))
+	}
 	if err != nil {
 		log.Error("ProxyName [%s], connect to server [%s:%d] error, %v", cli.Name, client.ServerAddr, client.ServerPort, err)
 		return
@@ -144,13 +160,18 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 		UseGzip:           cli.UseGzip,
 		PrivilegeMode:     cli.PrivilegeMode,
 		ProxyType:         cli.Type,
+		PoolCount:         cli.PoolCount,
 		HostHeaderRewrite: cli.HostHeaderRewrite,
+		HttpUserName:      cli.HttpUserName,
+		HttpPassWord:      cli.HttpPassWord,
+		SubDomain:         cli.SubDomain,
 		Timestamp:         nowTime,
 	}
 	if cli.PrivilegeMode {
 		privilegeKey := pcrypto.GetAuthKey(cli.Name + client.PrivilegeToken + fmt.Sprintf("%d", nowTime))
 		req.RemotePort = cli.RemotePort
 		req.CustomDomains = cli.CustomDomains
+		req.Locations = cli.Locations
 		req.PrivilegeKey = privilegeKey
 	} else {
 		authKey := pcrypto.GetAuthKey(cli.Name + cli.AuthToken + fmt.Sprintf("%d", nowTime))
@@ -158,7 +179,7 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 	}
 
 	buf, _ := json.Marshal(req)
-	err = c.Write(string(buf) + "\n")
+	err = c.WriteString(string(buf) + "\n")
 	if err != nil {
 		log.Error("ProxyName [%s], write to server error, %v", cli.Name, err)
 		return
@@ -183,6 +204,12 @@ func loginToServer(cli *client.ProxyClient) (c *conn.Conn, err error) {
 	}
 
 	log.Info("ProxyName [%s], connect to server [%s:%d] success!", cli.Name, client.ServerAddr, client.ServerPort)
+
+	if cli.Type == "udp" {
+		// we only need one udp work connection
+		// all udp messages will be forwarded throngh this connection
+		go cli.StartUdpTunnelOnce(client.ServerAddr, client.ServerPort)
+	}
 	return
 }
 

@@ -15,9 +15,11 @@
 package server
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/fatedier/frp/src/assets"
@@ -32,13 +34,13 @@ func RunDashboardServer(addr string, port int64) (err error) {
 	// url router
 	mux := http.NewServeMux()
 	// api, see dashboard_api.go
-	mux.HandleFunc("/api/reload", apiReload)
+	mux.HandleFunc("/api/reload", use(apiReload, basicAuth))
 	mux.HandleFunc("/api/proxies", apiProxies)
 
 	// view, see dashboard_view.go
 	mux.Handle("/favicon.ico", http.FileServer(assets.FileSystem))
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))
-	mux.HandleFunc("/", viewDashboard)
+	mux.HandleFunc("/", use(viewDashboard, basicAuth))
 
 	address := fmt.Sprintf("%s:%d", addr, port)
 	server := &http.Server{
@@ -57,4 +59,44 @@ func RunDashboardServer(addr string, port int64) (err error) {
 
 	go server.Serve(ln)
 	return
+}
+
+func use(h http.HandlerFunc, middleware ...func(http.HandlerFunc) http.HandlerFunc) http.HandlerFunc {
+	for _, m := range middleware {
+		h = m(h)
+	}
+
+	return h
+}
+
+func basicAuth(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+
+		s := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+		if len(s) != 2 {
+			http.Error(w, "Not authorized", 401)
+			return
+		}
+
+		b, err := base64.StdEncoding.DecodeString(s[1])
+		if err != nil {
+			http.Error(w, err.Error(), 401)
+			return
+		}
+
+		pair := strings.SplitN(string(b), ":", 2)
+		if len(pair) != 2 {
+			http.Error(w, "Not authorized", 401)
+			return
+		}
+
+		if pair[0] != DashboardUsername || pair[1] != DashboardPassword {
+			http.Error(w, "Not authorized", 401)
+			return
+		}
+
+		h.ServeHTTP(w, r)
+	}
 }

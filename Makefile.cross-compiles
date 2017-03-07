@@ -3,10 +3,24 @@ export GO15VENDOREXPERIMENT := 1
 
 all: build
 
-build: gox app 
-
-gox:
-	go get github.com/mitchellh/gox
+build: app
 
 app:
-	gox -osarch "darwin/386 darwin/amd64 linux/386 linux/amd64 linux/arm windows/386 windows/amd64" ./src/...
+	env GOOS=darwin GOARCH=386 go build -o ./frpc_darwin_386 ./src/cmd/frpc
+	env GOOS=darwin GOARCH=386 go build -o ./frps_darwin_386 ./src/cmd/frps
+	env GOOS=darwin GOARCH=amd64 go build -o ./frpc_darwin_amd64 ./src/cmd/frpc
+	env GOOS=darwin GOARCH=amd64 go build -o ./frps_darwin_amd64 ./src/cmd/frps
+	env GOOS=linux GOARCH=386 go build -o ./frpc_linux_386 ./src/cmd/frpc
+	env GOOS=linux GOARCH=386 go build -o ./frps_linux_386 ./src/cmd/frps
+	env GOOS=linux GOARCH=amd64 go build -o ./frpc_linux_amd64 ./src/cmd/frpc
+	env GOOS=linux GOARCH=amd64 go build -o ./frps_linux_amd64 ./src/cmd/frps
+	env GOOS=linux GOARCH=arm go build -o ./frpc_linux_arm ./src/cmd/frpc
+	env GOOS=linux GOARCH=arm go build -o ./frps_linux_arm ./src/cmd/frps
+	env GOOS=windows GOARCH=386 go build -o ./frpc_windows_386.exe ./src/cmd/frpc
+	env GOOS=windows GOARCH=386 go build -o ./frps_windows_386.exe ./src/cmd/frps
+	env GOOS=windows GOARCH=amd64 go build -o ./frpc_windows_amd64.exe ./src/cmd/frpc
+	env GOOS=windows GOARCH=amd64 go build -o ./frps_windows_amd64.exe ./src/cmd/frps
+	env GOOS=linux GOARCH=mips64 go build -o ./frpc_linux_mips64 ./src/cmd/frpc
+	env GOOS=linux GOARCH=mips64 go build -o ./frps_linux_mips64 ./src/cmd/frps
+	env GOOS=linux GOARCH=mips64le go build -o ./frpc_linux_mips64le ./src/cmd/frpc
+	env GOOS=linux GOARCH=mips64le go build -o ./frps_linux_mips64le ./src/cmd/frps
