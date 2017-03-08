@@ -1,10 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 
-	"github.com/fatedier/frp/src/utils/conn"
+	"github.com/fatedier/frp/utils/net"
 )
 
 var (
@@ -12,7 +13,7 @@ var (
 )
 
 func main() {
-	l, err := conn.Listen("0.0.0.0", PORT)
+	l, err := net.ListenTcp("127.0.0.1", PORT)
 	if err != nil {
 		fmt.Printf("echo server listen error: %v\n", err)
 		return
@@ -29,9 +30,10 @@ func main() {
 	}
 }
 
-func echoWorker(c *conn.Conn) {
+func echoWorker(c net.Conn) {
+	br := bufio.NewReader(c)
 	for {
-		buff, err := c.ReadLine()
+		buf, err := br.ReadString('\n')
 		if err == io.EOF {
 			break
 		}
@@ -40,6 +42,6 @@ func echoWorker(c *conn.Conn) {
 			return
 		}
 
-		c.WriteString(buff)
+		c.Write([]byte(buf + "\n"))
 	}
 }

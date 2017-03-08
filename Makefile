@@ -11,21 +11,26 @@ build_test: echo_server http_server
 assets:
 	go get -d github.com/rakyll/statik
 	@go install github.com/rakyll/statik
-	@rm -rf ./src/assets/statik
-	go generate ./src/...
+	@rm -rf ./assets/statik
+	go generate ./assets/...
 
 fmt:
-	go fmt ./src/...
+	@go fmt ./assets/...
+	@go fmt ./cmd/...
+	@go fmt ./client/...
+	@go fmt ./server/...
+	@go fmt ./models/...
+	@go fmt ./utils/...
 	@go fmt ./test/echo_server.go
 	@go fmt ./test/http_server.go
 	@go fmt ./test/func_test.go
 
 frps:
-	go build -o bin/frps ./src/cmd/frps
-	@cp -rf ./src/assets/static ./bin
+	go build -o bin/frps ./cmd/frps
+	@cp -rf ./assets/static ./bin
 
 frpc:
-	go build -o bin/frpc ./src/cmd/frpc
+	go build -o bin/frpc ./cmd/frpc
 
 echo_server:
 	go build -o test/bin/echo_server ./test/echo_server.go
@@ -36,7 +41,7 @@ http_server:
 test: gotest
 
 gotest:
-	go test -v ./src/...
+	go test -v ./...
 
 alltest:
 	cd ./test && ./run_test.sh && cd -
