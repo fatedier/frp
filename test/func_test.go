@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -8,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fatedier/frp/src/utils/conn"
+	"github.com/fatedier/frp/utils/net"
 )
 
 var (
@@ -19,22 +20,24 @@ var (
 )
 
 func TestEchoServer(t *testing.T) {
-	c, err := conn.ConnectServer(fmt.Sprintf("0.0.0.0:%d", ECHO_PORT))
+	c, err := net.ConnectTcpServer(fmt.Sprintf("127.0.0.1:%d", ECHO_PORT))
 	if err != nil {
 		t.Fatalf("connect to echo server error: %v", err)
 	}
 	timer := time.Now().Add(time.Duration(5) * time.Second)
 	c.SetDeadline(timer)
 
-	c.WriteString(ECHO_TEST_STR)
+	c.Write([]byte(ECHO_TEST_STR))
+	c.Write('\n')
 
-	buff, err := c.ReadLine()
+	br := bufio.NewReader(c)
+	buf, err := br.ReadString('\n')
 	if err != nil {
 		t.Fatalf("read from echo server error: %v", err)
 	}
 
-	if ECHO_TEST_STR != buff {
-		t.Fatalf("content error, send [%s], get [%s]", strings.Trim(ECHO_TEST_STR, "\n"), strings.Trim(buff, "\n"))
+	if ECHO_TEST_STR != buf {
+		t.Fatalf("content error, send [%s], get [%s]", strings.Trim(ECHO_TEST_STR, "\n"), strings.Trim(buf, "\n"))
 	}
 }
 
