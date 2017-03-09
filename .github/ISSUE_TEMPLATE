@@ -1,3 +1,5 @@
+Issue is only used for submiting bug report and documents typo. If there are same issues or answers can be found in documents, we will close it directly.
+
 Please answer these questions before submitting your issue. Thanks!
 
 1. What did you do?
@@ -13,3 +15,7 @@ If possible, provide a recipe for reproducing the error.
 
 
 4. What version of frp are you using (./frpc -v or ./frps -v)?
+
+
+
+5. Can you point out what caused this issue (optional)?

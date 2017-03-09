@@ -19,8 +19,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/fatedier/frp/utils/crypto"
 )
 
 func TestJoin(t *testing.T) {
@@ -66,64 +64,4 @@ func TestJoin(t *testing.T) {
 	conn2.Close()
 	conn3.Close()
 	conn4.Close()
-}
-
-func TestJoinEncrypt(t *testing.T) {
-	assert := assert.New(t)
-
-	var (
-		n   int
-		err error
-	)
-	text1 := "1234567890"
-	text2 := "abcdefghij"
-	key := "authkey"
-
-	// Forward enrypted bytes.
-	pr, pw := io.Pipe()
-	pr2, pw2 := io.Pipe()
-	pr3, pw3 := io.Pipe()
-	pr4, pw4 := io.Pipe()
-	pr5, pw5 := io.Pipe()
-	pr6, pw6 := io.Pipe()
-
-	conn1 := WrapReadWriteCloser(pr, pw2)
-	conn2 := WrapReadWriteCloser(pr2, pw)
-	conn3 := WrapReadWriteCloser(pr3, pw4)
-	conn4 := WrapReadWriteCloser(pr4, pw3)
-	conn5 := WrapReadWriteCloser(pr5, pw6)
-	conn6 := WrapReadWriteCloser(pr6, pw5)
-
-	r1, err := crypto.NewReader(conn3, []byte(key))
-	assert.NoError(err)
-	w1, err := crypto.NewWriter(conn3, []byte(key))
-	assert.NoError(err)
-
-	r2, err := crypto.NewReader(conn4, []byte(key))
-	assert.NoError(err)
-	w2, err := crypto.NewWriter(conn4, []byte(key))
-	assert.NoError(err)
-
-	go Join(conn2, WrapReadWriteCloser(r1, w1))
-	go Join(WrapReadWriteCloser(r2, w2), conn5)
-
-	buf := make([]byte, 128)
-
-	conn1.Write([]byte(text1))
-	conn6.Write([]byte(text2))
-
-	n, err = conn6.Read(buf)
-	assert.NoError(err)
-	assert.Equal(text1, string(buf[:n]))
-
-	n, err = conn1.Read(buf)
-	assert.NoError(err)
-	assert.Equal(text2, string(buf[:n]))
-
-	conn1.Close()
-	conn2.Close()
-	conn3.Close()
-	conn4.Close()
-	conn5.Close()
-	conn6.Close()
 }

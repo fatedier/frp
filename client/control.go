@@ -208,11 +208,7 @@ func (ctl *Control) reader() {
 	}()
 	defer close(ctl.closedCh)
 
-	encReader, err := crypto.NewReader(ctl.conn, []byte(config.ClientCommonCfg.PrivilegeToken))
-	if err != nil {
-		ctl.conn.Error("crypto new reader error: %v", err)
-		return
-	}
+	encReader := crypto.NewReader(ctl.conn, []byte(config.ClientCommonCfg.PrivilegeToken))
 	for {
 		if m, err := msg.ReadMsg(encReader); err != nil {
 			if err == io.EOF {

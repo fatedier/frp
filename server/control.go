@@ -212,11 +212,7 @@ func (ctl *Control) reader() {
 	defer ctl.allShutdown.Start()
 	defer ctl.readerShutdown.Done()
 
-	encReader, err := crypto.NewReader(ctl.conn, []byte(config.ServerCommonCfg.PrivilegeToken))
-	if err != nil {
-		ctl.conn.Error("crypto new reader error: %v", err)
-		return
-	}
+	encReader := crypto.NewReader(ctl.conn, []byte(config.ServerCommonCfg.PrivilegeToken))
 	for {
 		if m, err := msg.ReadMsg(encReader); err != nil {
 			if err == io.EOF {
@@ -260,7 +256,7 @@ func (ctl *Control) stoper() {
 	}
 
 	ctl.allShutdown.Done()
-	ctl.conn.Info("all shutdown success")
+	ctl.conn.Info("client exit success")
 }
 
 func (ctl *Control) manager() {

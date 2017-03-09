@@ -22,32 +22,16 @@ import (
 	"github.com/fatedier/frp/utils/crypto"
 )
 
-func WithEncryption(rwc io.ReadWriteCloser, key []byte) (res io.ReadWriteCloser, err error) {
-	var (
-		r io.Reader
-		w io.Writer
-	)
-	r, err = crypto.NewReader(rwc, key)
+func WithEncryption(rwc io.ReadWriteCloser, key []byte) (io.ReadWriteCloser, error) {
+	w, err := crypto.NewWriter(rwc, key)
 	if err != nil {
-		return
+		return nil, err
 	}
-	w, err = crypto.NewWriter(rwc, key)
-	if err != nil {
-		return
-	}
-	res = WrapReadWriteCloser(r, w)
-	return
+	return WrapReadWriteCloser(crypto.NewReader(rwc, key), w), nil
 }
 
-func WithCompression(rwc io.ReadWriteCloser) (res io.ReadWriteCloser) {
-	var (
-		r io.Reader
-		w io.Writer
-	)
-	r = snappy.NewReader(rwc)
-	w = snappy.NewWriter(rwc)
-	res = WrapReadWriteCloser(r, w)
-	return
+func WithCompression(rwc io.ReadWriteCloser) io.ReadWriteCloser {
+	return WrapReadWriteCloser(snappy.NewReader(rwc), snappy.NewWriter(rwc))
 }
 
 func WrapReadWriteCloser(r io.Reader, w io.Writer) io.ReadWriteCloser {

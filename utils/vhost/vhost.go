@@ -50,26 +50,35 @@ func NewVhostMuxer(listener frpNet.Listener, vhostFunc muxFunc, authFunc httpAut
 	return mux, nil
 }
 
-// listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil, then rewrite the host header to rewriteHost
-func (v *VhostMuxer) Listen(name, location, rewriteHost, userName, passWord string) (l *Listener, err error) {
+type VhostRouteConfig struct {
+	Domain      string
+	Location    string
+	RewriteHost string
+	Username    string
+	Password    string
+}
+
+// listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil
+// then rewrite the host header to rewriteHost
+func (v *VhostMuxer) Listen(cfg *VhostRouteConfig) (l *Listener, err error) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	_, ok := v.registryRouter.Exist(name, location)
+	_, ok := v.registryRouter.Exist(cfg.Domain, cfg.Location)
 	if ok {
-		return nil, fmt.Errorf("hostname [%s] location [%s] is already registered", name, location)
+		return nil, fmt.Errorf("hostname [%s] location [%s] is already registered", cfg.Domain, cfg.Location)
 	}
 
 	l = &Listener{
-		name:        name,
-		location:    location,
-		rewriteHost: rewriteHost,
-		userName:    userName,
-		passWord:    passWord,
+		name:        cfg.Domain,
+		location:    cfg.Location,
+		rewriteHost: cfg.RewriteHost,
+		userName:    cfg.Username,
+		passWord:    cfg.Password,
 		mux:         v,
 		accept:      make(chan frpNet.Conn),
 	}
-	v.registryRouter.Add(name, location, l)
+	v.registryRouter.Add(cfg.Domain, cfg.Location, l)
 	return l, nil
 }
 

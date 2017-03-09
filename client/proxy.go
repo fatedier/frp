@@ -72,27 +72,41 @@ func (pxy *TcpProxy) Close() {
 
 func (pxy *TcpProxy) InWorkConn(conn net.Conn) {
 	defer conn.Close()
-	localConn, err := net.ConnectTcpServer(fmt.Sprintf("%s:%d", pxy.cfg.LocalIp, pxy.cfg.LocalPort))
-	if err != nil {
-		conn.Error("connect to local service [%s:%d] error: %v", pxy.cfg.LocalIp, pxy.cfg.LocalPort, err)
-		return
-	}
+	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, &pxy.cfg.BaseProxyConf, conn)
+}
 
-	var remote io.ReadWriteCloser
-	remote = conn
-	if pxy.cfg.UseEncryption {
-		remote, err = tcp.WithEncryption(remote, []byte(config.ClientCommonCfg.PrivilegeToken))
-		if err != nil {
-			conn.Error("create encryption stream error: %v", err)
-			return
-		}
-	}
-	if pxy.cfg.UseCompression {
-		remote = tcp.WithCompression(remote)
-	}
-	conn.Debug("join connections")
-	tcp.Join(localConn, remote)
-	conn.Debug("join connections closed")
+// HTTP
+type HttpProxy struct {
+	cfg *config.HttpProxyConf
+	ctl *Control
+}
+
+func (pxy *HttpProxy) Run() {
+}
+
+func (pxy *HttpProxy) Close() {
+}
+
+func (pxy *HttpProxy) InWorkConn(conn net.Conn) {
+	defer conn.Close()
+	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, &pxy.cfg.BaseProxyConf, conn)
+}
+
+// HTTPS
+type HttpsProxy struct {
+	cfg *config.HttpsProxyConf
+	ctl *Control
+}
+
+func (pxy *HttpsProxy) Run() {
+}
+
+func (pxy *HttpsProxy) Close() {
+}
+
+func (pxy *HttpsProxy) InWorkConn(conn net.Conn) {
+	defer conn.Close()
+	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, &pxy.cfg.BaseProxyConf, conn)
 }
 
 // UDP
@@ -111,34 +125,28 @@ func (pxy *UdpProxy) InWorkConn(conn net.Conn) {
 	defer conn.Close()
 }
 
-// HTTP
-type HttpProxy struct {
-	cfg *config.HttpProxyConf
-	ctl *Control
-}
+// Common handler for tcp work connections.
+func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, baseInfo *config.BaseProxyConf, workConn net.Conn) {
+	localConn, err := net.ConnectTcpServer(fmt.Sprintf("%s:%d", localInfo.LocalIp, localInfo.LocalPort))
+	if err != nil {
+		workConn.Error("connect to local service [%s:%d] error: %v", localInfo.LocalIp, localInfo.LocalPort, err)
+		return
+	}
 
-func (pxy *HttpProxy) Run() {
-}
-
-func (pxy *HttpProxy) Close() {
-}
-
-func (pxy *HttpProxy) InWorkConn(conn net.Conn) {
-	defer conn.Close()
-}
-
-// HTTPS
-type HttpsProxy struct {
-	cfg *config.HttpsProxyConf
-	ctl *Control
-}
-
-func (pxy *HttpsProxy) Run() {
-}
-
-func (pxy *HttpsProxy) Close() {
-}
-
-func (pxy *HttpsProxy) InWorkConn(conn net.Conn) {
-	defer conn.Close()
+	var remote io.ReadWriteCloser
+	remote = workConn
+	if baseInfo.UseEncryption {
+		remote, err = tcp.WithEncryption(remote, []byte(config.ClientCommonCfg.PrivilegeToken))
+		if err != nil {
+			workConn.Error("create encryption stream error: %v", err)
+			return
+		}
+	}
+	if baseInfo.UseCompression {
+		remote = tcp.WithCompression(remote)
+	}
+	workConn.Debug("join connections, localConn(l[%s] r[%s]) workConn(l[%s] r[%s])", localConn.LocalAddr().String(),
+		localConn.RemoteAddr().String(), workConn.LocalAddr().String(), workConn.RemoteAddr().String())
+	tcp.Join(localConn, remote)
+	workConn.Debug("join connections closed")
 }

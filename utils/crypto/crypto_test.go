@@ -22,15 +22,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestWriter(t *testing.T) {
-	// Empty key.
-	assert := assert.New(t)
-	key := ""
-	buffer := bytes.NewBuffer(nil)
-	_, err := NewWriter(buffer, []byte(key))
-	assert.NoError(err)
-}
-
 func TestCrypto(t *testing.T) {
 	assert := assert.New(t)
 
@@ -40,11 +31,9 @@ func TestCrypto(t *testing.T) {
 	buffer := bytes.NewBuffer(nil)
 	encWriter, err := NewWriter(buffer, []byte(key))
 	assert.NoError(err)
+	decReader := NewReader(buffer, []byte(key))
 
 	encWriter.Write([]byte(text))
-
-	decReader, err := NewReader(buffer, []byte(key))
-	assert.NoError(err)
 
 	c := bytes.NewBuffer(nil)
 	io.Copy(c, decReader)

@@ -37,23 +37,19 @@ func init() {
 	TypeMap = make(map[byte]reflect.Type)
 	TypeStringMap = make(map[reflect.Type]byte)
 
-	TypeMap[TypeLogin] = getTypeFn((*Login)(nil))
-	TypeMap[TypeLoginResp] = getTypeFn((*LoginResp)(nil))
-	TypeMap[TypeNewProxy] = getTypeFn((*NewProxy)(nil))
-	TypeMap[TypeNewProxyResp] = getTypeFn((*NewProxyResp)(nil))
-	TypeMap[TypeNewWorkConn] = getTypeFn((*NewWorkConn)(nil))
-	TypeMap[TypeReqWorkConn] = getTypeFn((*ReqWorkConn)(nil))
-	TypeMap[TypeStartWorkConn] = getTypeFn((*StartWorkConn)(nil))
-	TypeMap[TypePing] = getTypeFn((*Ping)(nil))
-	TypeMap[TypePong] = getTypeFn((*Pong)(nil))
+	TypeMap[TypeLogin] = reflect.TypeOf(Login{})
+	TypeMap[TypeLoginResp] = reflect.TypeOf(LoginResp{})
+	TypeMap[TypeNewProxy] = reflect.TypeOf(NewProxy{})
+	TypeMap[TypeNewProxyResp] = reflect.TypeOf(NewProxyResp{})
+	TypeMap[TypeNewWorkConn] = reflect.TypeOf(NewWorkConn{})
+	TypeMap[TypeReqWorkConn] = reflect.TypeOf(ReqWorkConn{})
+	TypeMap[TypeStartWorkConn] = reflect.TypeOf(StartWorkConn{})
+	TypeMap[TypePing] = reflect.TypeOf(Ping{})
+	TypeMap[TypePong] = reflect.TypeOf(Pong{})
 
 	for k, v := range TypeMap {
 		TypeStringMap[v] = k
 	}
-}
-
-func getTypeFn(obj interface{}) reflect.Type {
-	return reflect.TypeOf(obj).Elem()
 }
 
 // Message wraps socket packages for communicating between frpc and frps.

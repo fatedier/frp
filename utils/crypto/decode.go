@@ -24,13 +24,13 @@ import (
 )
 
 // NewReader returns a new Reader that decrypts bytes from r
-func NewReader(r io.Reader, key []byte) (*Reader, error) {
+func NewReader(r io.Reader, key []byte) *Reader {
 	key = pbkdf2.Key(key, []byte(salt), 64, aes.BlockSize, sha1.New)
 
 	return &Reader{
 		r:   r,
 		key: key,
-	}, nil
+	}
 }
 
 // Reader is an io.Reader that can read encrypted bytes.

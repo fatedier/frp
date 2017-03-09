@@ -16,6 +16,7 @@ package config
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -24,6 +25,27 @@ import (
 
 	ini "github.com/vaughan0/go-ini"
 )
+
+var proxyConfTypeMap map[string]reflect.Type
+
+func init() {
+	proxyConfTypeMap = make(map[string]reflect.Type)
+	proxyConfTypeMap[consts.TcpProxy] = reflect.TypeOf(TcpProxyConf{})
+	proxyConfTypeMap[consts.UdpProxy] = reflect.TypeOf(UdpProxyConf{})
+	proxyConfTypeMap[consts.HttpProxy] = reflect.TypeOf(HttpProxyConf{})
+	proxyConfTypeMap[consts.HttpsProxy] = reflect.TypeOf(HttpsProxyConf{})
+}
+
+// NewConfByType creates a empty ProxyConf object by proxyType.
+// If proxyType isn't exist, return nil.
+func NewConfByType(proxyType string) ProxyConf {
+	v, ok := proxyConfTypeMap[proxyType]
+	if !ok {
+		return nil
+	}
+	cfg := reflect.New(v).Interface().(ProxyConf)
+	return cfg
+}
 
 type ProxyConf interface {
 	GetName() string
@@ -38,16 +60,9 @@ func NewProxyConf(pMsg *msg.NewProxy) (cfg ProxyConf, err error) {
 	if pMsg.ProxyType == "" {
 		pMsg.ProxyType = consts.TcpProxy
 	}
-	switch pMsg.ProxyType {
-	case consts.TcpProxy:
-		cfg = &TcpProxyConf{}
-	case consts.UdpProxy:
-		cfg = &UdpProxyConf{}
-	case consts.HttpProxy:
-		cfg = &HttpProxyConf{}
-	case consts.HttpsProxy:
-		cfg = &HttpsProxyConf{}
-	default:
+
+	cfg = NewConfByType(pMsg.ProxyType)
+	if cfg == nil {
 		err = fmt.Errorf("proxy [%s] type [%s] error", pMsg.ProxyName, pMsg.ProxyType)
 		return
 	}
@@ -62,16 +77,8 @@ func NewProxyConfFromFile(name string, section ini.Section) (cfg ProxyConf, err 
 		proxyType = consts.TcpProxy
 		section["type"] = consts.TcpProxy
 	}
-	switch proxyType {
-	case consts.TcpProxy:
-		cfg = &TcpProxyConf{}
-	case consts.UdpProxy:
-		cfg = &UdpProxyConf{}
-	case consts.HttpProxy:
-		cfg = &HttpProxyConf{}
-	case consts.HttpsProxy:
-		cfg = &HttpsProxyConf{}
-	default:
+	cfg = NewConfByType(proxyType)
+	if cfg == nil {
 		err = fmt.Errorf("proxy [%s] type [%s] error", name, proxyType)
 		return
 	}
@@ -223,7 +230,6 @@ func (cfg *DomainConf) check() (err error) {
 		if strings.Contains(cfg.SubDomain, ".") || strings.Contains(cfg.SubDomain, "*") {
 			return fmt.Errorf("'.' and '*' is not supported in subdomain")
 		}
-		cfg.SubDomain += "." + ServerCommonCfg.SubDomainHost
 	}
 	return nil
 }

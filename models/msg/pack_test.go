@@ -17,6 +17,7 @@ package msg
 import (
 	"bytes"
 	"encoding/binary"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -66,7 +67,7 @@ func TestUnPack(t *testing.T) {
 	// correct
 	msg, err = UnPack(TypePong, []byte("{}"))
 	assert.NoError(err)
-	assert.Equal(getTypeFn(msg), getTypeFn((*Pong)(nil)))
+	assert.Equal(reflect.TypeOf(msg).Elem(), reflect.TypeOf(Pong{}))
 }
 
 func TestUnPackInto(t *testing.T) {
