@@ -1,4 +1,4 @@
-package main
+package tests
 
 import (
 	"bufio"
@@ -8,12 +8,8 @@ import (
 	"github.com/fatedier/frp/utils/net"
 )
 
-var (
-	PORT int64 = 10701
-)
-
-func main() {
-	l, err := net.ListenTcp("127.0.0.1", PORT)
+func StartEchoServer() {
+	l, err := net.ListenTcp("127.0.0.1", 10701)
 	if err != nil {
 		fmt.Printf("echo server listen error: %v\n", err)
 		return

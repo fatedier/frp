@@ -1,4 +1,4 @@
-package test
+package tests
 
 import (
 	"bufio"
@@ -19,6 +19,12 @@ var (
 	HTTP_RES_STR  string = "Hello World"
 )
 
+func init() {
+	go StartEchoServer()
+	go StartHttpServer()
+	time.Sleep(500 * time.Millisecond)
+}
+
 func TestEchoServer(t *testing.T) {
 	c, err := net.ConnectTcpServer(fmt.Sprintf("127.0.0.1:%d", ECHO_PORT))
 	if err != nil {
@@ -27,8 +33,7 @@ func TestEchoServer(t *testing.T) {
 	timer := time.Now().Add(time.Duration(5) * time.Second)
 	c.SetDeadline(timer)
 
-	c.Write([]byte(ECHO_TEST_STR))
-	c.Write('\n')
+	c.Write([]byte(ECHO_TEST_STR + "\n"))
 
 	br := bufio.NewReader(c)
 	buf, err := br.ReadString('\n')

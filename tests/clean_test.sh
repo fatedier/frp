@@ -1,15 +1,5 @@
 #!/bin/bash
 
-pid=`ps aux|grep './bin/echo_server'|grep -v grep|awk {'print $2'}`
-if [ -n "${pid}" ]; then
-    kill ${pid}
-fi
-
-pid=`ps aux|grep './bin/http_server'|grep -v grep|awk {'print $2'}`
-if [ -n "${pid}" ]; then
-    kill ${pid}
-fi
-
 pid=`ps aux|grep './../bin/frps -c ./conf/auto_test_frps.ini'|grep -v grep|awk {'print $2'}`
 if [ -n "${pid}" ]; then
     kill ${pid}
