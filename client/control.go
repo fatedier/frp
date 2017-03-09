@@ -23,6 +23,7 @@ import (
 
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/utils/crypto"
 	"github.com/fatedier/frp/utils/log"
 	"github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/util"
@@ -135,7 +136,7 @@ func (ctl *Control) NewWorkConn() {
 
 	var startMsg msg.StartWorkConn
 	if err = msg.ReadMsgInto(workConn, &startMsg); err != nil {
-		ctl.Error("work connection closed and no response from server, %v", err)
+		ctl.Error("work connection closed, %v", err)
 		workConn.Close()
 		return
 	}
@@ -205,12 +206,17 @@ func (ctl *Control) reader() {
 			ctl.Error("panic error: %v", err)
 		}
 	}()
+	defer close(ctl.closedCh)
 
+	encReader, err := crypto.NewReader(ctl.conn, []byte(config.ClientCommonCfg.PrivilegeToken))
+	if err != nil {
+		ctl.conn.Error("crypto new reader error: %v", err)
+		return
+	}
 	for {
-		if m, err := msg.ReadMsg(ctl.conn); err != nil {
+		if m, err := msg.ReadMsg(encReader); err != nil {
 			if err == io.EOF {
 				ctl.Debug("read from control connection EOF")
-				close(ctl.closedCh)
 				return
 			} else {
 				ctl.Warn("read error: %v", err)
@@ -223,12 +229,18 @@ func (ctl *Control) reader() {
 }
 
 func (ctl *Control) writer() {
+	encWriter, err := crypto.NewWriter(ctl.conn, []byte(config.ClientCommonCfg.PrivilegeToken))
+	if err != nil {
+		ctl.conn.Error("crypto new writer error: %v", err)
+		ctl.conn.Close()
+		return
+	}
 	for {
 		if m, ok := <-ctl.sendCh; !ok {
 			ctl.Info("control writer is closing")
 			return
 		} else {
-			if err := msg.WriteMsg(ctl.conn, m); err != nil {
+			if err := msg.WriteMsg(encWriter, m); err != nil {
 				ctl.Warn("write message to control connection error: %v", err)
 				return
 			}

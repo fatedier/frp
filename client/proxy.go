@@ -23,8 +23,11 @@ import (
 	"github.com/fatedier/frp/utils/net"
 )
 
+// Proxy defines how to work for different proxy type.
 type Proxy interface {
 	Run()
+
+	// InWorkConn accept work connections registered to server.
 	InWorkConn(conn net.Conn)
 	Close()
 }

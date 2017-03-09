@@ -9,6 +9,7 @@ import (
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/consts"
 	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/utils/crypto"
 	"github.com/fatedier/frp/utils/errors"
 	"github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/shutdown"
@@ -81,14 +82,14 @@ func NewControl(svr *Service, ctlConn net.Conn, loginMsg *msg.Login) *Control {
 
 // Start send a login success message to client and start working.
 func (ctl *Control) Start() {
-	go ctl.writer()
-
-	ctl.sendCh <- &msg.LoginResp{
+	loginRespMsg := &msg.LoginResp{
 		Version: version.Full(),
 		RunId:   ctl.runId,
 		Error:   "",
 	}
+	msg.WriteMsg(ctl.conn, loginRespMsg)
 
+	go ctl.writer()
 	for i := 0; i < ctl.poolCount; i++ {
 		ctl.sendCh <- &msg.ReqWorkConn{}
 	}
@@ -182,12 +183,18 @@ func (ctl *Control) writer() {
 	defer ctl.allShutdown.Start()
 	defer ctl.writerShutdown.Done()
 
+	encWriter, err := crypto.NewWriter(ctl.conn, []byte(config.ServerCommonCfg.PrivilegeToken))
+	if err != nil {
+		ctl.conn.Error("crypto new writer error: %v", err)
+		ctl.allShutdown.Start()
+		return
+	}
 	for {
 		if m, ok := <-ctl.sendCh; !ok {
 			ctl.conn.Info("control writer is closing")
 			return
 		} else {
-			if err := msg.WriteMsg(ctl.conn, m); err != nil {
+			if err := msg.WriteMsg(encWriter, m); err != nil {
 				ctl.conn.Warn("write message to control connection error: %v", err)
 				return
 			}
@@ -205,8 +212,13 @@ func (ctl *Control) reader() {
 	defer ctl.allShutdown.Start()
 	defer ctl.readerShutdown.Done()
 
+	encReader, err := crypto.NewReader(ctl.conn, []byte(config.ServerCommonCfg.PrivilegeToken))
+	if err != nil {
+		ctl.conn.Error("crypto new reader error: %v", err)
+		return
+	}
 	for {
-		if m, err := msg.ReadMsg(ctl.conn); err != nil {
+		if m, err := msg.ReadMsg(encReader); err != nil {
 			if err == io.EOF {
 				ctl.conn.Debug("control connection closed")
 				return

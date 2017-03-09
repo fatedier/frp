@@ -165,6 +165,7 @@ func (pxy *UdpProxy) Close() {
 }
 
 // HandleUserTcpConnection is used for incoming tcp user connections.
+// It can be used for tcp, http, https type.
 func HandleUserTcpConnection(pxy Proxy, userConn net.Conn) {
 	defer userConn.Close()
 	ctl := pxy.GetControl()
