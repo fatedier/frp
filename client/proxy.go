@@ -25,7 +25,7 @@ import (
 
 // Proxy defines how to work for different proxy type.
 type Proxy interface {
-	Run()
+	Run() error
 
 	// InWorkConn accept work connections registered to server.
 	InWorkConn(conn net.Conn)
@@ -64,7 +64,8 @@ type TcpProxy struct {
 	ctl *Control
 }
 
-func (pxy *TcpProxy) Run() {
+func (pxy *TcpProxy) Run() (err error) {
+	return
 }
 
 func (pxy *TcpProxy) Close() {
@@ -81,7 +82,8 @@ type HttpProxy struct {
 	ctl *Control
 }
 
-func (pxy *HttpProxy) Run() {
+func (pxy *HttpProxy) Run() (err error) {
+	return
 }
 
 func (pxy *HttpProxy) Close() {
@@ -98,7 +100,8 @@ type HttpsProxy struct {
 	ctl *Control
 }
 
-func (pxy *HttpsProxy) Run() {
+func (pxy *HttpsProxy) Run() (err error) {
+	return
 }
 
 func (pxy *HttpsProxy) Close() {
@@ -115,7 +118,8 @@ type UdpProxy struct {
 	ctl *Control
 }
 
-func (pxy *UdpProxy) Run() {
+func (pxy *UdpProxy) Run() (err error) {
+	return
 }
 
 func (pxy *UdpProxy) Close() {

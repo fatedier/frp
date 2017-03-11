@@ -30,6 +30,7 @@ type TcpListener struct {
 	listener  net.Listener
 	accept    chan Conn
 	closeFlag bool
+	log.Logger
 }
 
 func ListenTcp(bindAddr string, bindPort int64) (l *TcpListener, err error) {
@@ -47,6 +48,7 @@ func ListenTcp(bindAddr string, bindPort int64) (l *TcpListener, err error) {
 		listener:  listener,
 		accept:    make(chan Conn),
 		closeFlag: false,
+		Logger:    log.NewPrefixLogger(""),
 	}
 
 	go func() {

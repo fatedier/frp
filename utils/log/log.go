@@ -82,6 +82,7 @@ func Debug(format string, v ...interface{}) {
 // Logger
 type Logger interface {
 	AddLogPrefix(string)
+	GetAllPrefix() []string
 	ClearLogPrefix()
 	Error(string, ...interface{})
 	Warn(string, ...interface{})
@@ -90,11 +91,14 @@ type Logger interface {
 }
 
 type PrefixLogger struct {
-	prefix string
+	prefix    string
+	allPrefix []string
 }
 
 func NewPrefixLogger(prefix string) *PrefixLogger {
-	logger := &PrefixLogger{}
+	logger := &PrefixLogger{
+		allPrefix: make([]string, 0),
+	}
 	logger.AddLogPrefix(prefix)
 	return logger
 }
@@ -104,14 +108,17 @@ func (pl *PrefixLogger) AddLogPrefix(prefix string) {
 		return
 	}
 
-	if len(pl.prefix) > 0 {
-		pl.prefix += " "
-	}
 	pl.prefix += "[" + prefix + "] "
+	pl.allPrefix = append(pl.allPrefix, prefix)
+}
+
+func (pl *PrefixLogger) GetAllPrefix() []string {
+	return pl.allPrefix
 }
 
 func (pl *PrefixLogger) ClearLogPrefix() {
 	pl.prefix = ""
+	pl.allPrefix = make([]string, 0)
 }
 
 func (pl *PrefixLogger) Error(format string, v ...interface{}) {

@@ -108,9 +108,9 @@ func (ctl *Control) RegisterWorkConn(conn net.Conn) {
 
 	select {
 	case ctl.workConnCh <- conn:
-		ctl.conn.Debug("new work connection registered.")
+		ctl.conn.Debug("new work connection registered")
 	default:
-		ctl.conn.Debug("work connection pool is full, discarding.")
+		ctl.conn.Debug("work connection pool is full, discarding")
 		conn.Close()
 	}
 }

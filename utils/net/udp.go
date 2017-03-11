@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	flog "github.com/fatedier/frp/utils/log"
+	"github.com/fatedier/frp/utils/log"
 	"github.com/fatedier/frp/utils/pool"
 )
 
@@ -32,7 +32,7 @@ type UdpPacket struct {
 }
 
 type FakeUdpConn struct {
-	flog.Logger
+	log.Logger
 	l *UdpListener
 
 	localAddr  net.Addr
@@ -46,7 +46,7 @@ type FakeUdpConn struct {
 
 func NewFakeUdpConn(l *UdpListener, laddr, raddr net.Addr) *FakeUdpConn {
 	fc := &FakeUdpConn{
-		Logger:     flog.NewPrefixLogger(""),
+		Logger:     log.NewPrefixLogger(""),
 		l:          l,
 		localAddr:  laddr,
 		remoteAddr: raddr,
@@ -163,6 +163,8 @@ type UdpListener struct {
 	closeFlag bool
 
 	fakeConns map[string]*FakeUdpConn
+
+	log.Logger
 }
 
 func ListenUDP(bindAddr string, bindPort int64) (l *UdpListener, err error) {
@@ -177,6 +179,7 @@ func ListenUDP(bindAddr string, bindPort int64) (l *UdpListener, err error) {
 		accept:    make(chan Conn),
 		writeCh:   make(chan *UdpPacket, 1000),
 		fakeConns: make(map[string]*FakeUdpConn),
+		Logger:    log.NewPrefixLogger(""),
 	}
 
 	// for reading

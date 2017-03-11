@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
 )
 
@@ -77,6 +78,7 @@ func (v *VhostMuxer) Listen(cfg *VhostRouteConfig) (l *Listener, err error) {
 		passWord:    cfg.Password,
 		mux:         v,
 		accept:      make(chan frpNet.Conn),
+		Logger:      log.NewPrefixLogger(""),
 	}
 	v.registryRouter.Add(cfg.Domain, cfg.Location, l)
 	return l, nil
@@ -126,6 +128,7 @@ func (v *VhostMuxer) handle(c frpNet.Conn) {
 
 	sConn, reqInfoMap, err := v.vhostFunc(c)
 	if err != nil {
+		log.Error("get hostname from http/https request error: %v", err)
 		c.Close()
 		return
 	}
@@ -134,16 +137,17 @@ func (v *VhostMuxer) handle(c frpNet.Conn) {
 	path := strings.ToLower(reqInfoMap["Path"])
 	l, ok := v.getListener(name, path)
 	if !ok {
+		log.Debug("http request for host [%s] path [%s] not found", name, path)
 		c.Close()
 		return
 	}
 
 	// if authFunc is exist and userName/password is set
 	// verify user access
-	if l.mux.authFunc != nil &&
-		l.userName != "" && l.passWord != "" {
+	if l.mux.authFunc != nil && l.userName != "" && l.passWord != "" {
 		bAccess, err := l.mux.authFunc(c, l.userName, l.passWord, reqInfoMap["Authorization"])
 		if bAccess == false || err != nil {
+			l.Debug("check Authorization failed")
 			res := noAuthResponse()
 			res.Write(c)
 			c.Close()
@@ -157,6 +161,7 @@ func (v *VhostMuxer) handle(c frpNet.Conn) {
 	}
 	c = sConn
 
+	l.Debug("get new http request host [%s] path [%s]", name, path)
 	l.accept <- c
 }
 
@@ -168,6 +173,7 @@ type Listener struct {
 	passWord    string
 	mux         *VhostMuxer // for closing VhostMuxer
 	accept      chan frpNet.Conn
+	log.Logger
 }
 
 func (l *Listener) Accept() (frpNet.Conn, error) {
@@ -181,11 +187,16 @@ func (l *Listener) Accept() (frpNet.Conn, error) {
 	if l.mux.rewriteFunc != nil && l.rewriteHost != "" {
 		sConn, err := l.mux.rewriteFunc(conn, l.rewriteHost)
 		if err != nil {
-			return nil, fmt.Errorf("http host header rewrite failed")
+			l.Warn("host header rewrite failed: %v", err)
+			return nil, fmt.Errorf("host header rewrite failed")
 		}
+		l.Debug("rewrite host to [%s] success", l.rewriteHost)
 		conn = sConn
 	}
 
+	for _, prefix := range l.GetAllPrefix() {
+		conn.AddLogPrefix(prefix)
+	}
 	return conn, nil
 }
 

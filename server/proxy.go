@@ -109,6 +109,7 @@ func (pxy *TcpProxy) Run() error {
 	if err != nil {
 		return err
 	}
+	listener.AddLogPrefix(pxy.name)
 	pxy.listeners = append(pxy.listeners, listener)
 	pxy.Info("tcp proxy listen port [%d]", pxy.cfg.RemotePort)
 
@@ -148,6 +149,7 @@ func (pxy *HttpProxy) Run() (err error) {
 			if err != nil {
 				return err
 			}
+			l.AddLogPrefix(pxy.name)
 			pxy.Info("http proxy listen for host [%s] location [%s]", routeConfig.Domain, routeConfig.Location)
 			pxy.listeners = append(pxy.listeners, l)
 		}
@@ -161,6 +163,7 @@ func (pxy *HttpProxy) Run() (err error) {
 			if err != nil {
 				return err
 			}
+			l.AddLogPrefix(pxy.name)
 			pxy.Info("http proxy listen for host [%s] location [%s]", routeConfig.Domain, routeConfig.Location)
 			pxy.listeners = append(pxy.listeners, l)
 		}
@@ -192,6 +195,7 @@ func (pxy *HttpsProxy) Run() (err error) {
 		if err != nil {
 			return err
 		}
+		l.AddLogPrefix(pxy.name)
 		pxy.Info("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
 	}
@@ -202,6 +206,7 @@ func (pxy *HttpsProxy) Run() (err error) {
 		if err != nil {
 			return err
 		}
+		l.AddLogPrefix(pxy.name)
 		pxy.Info("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
 	}
