@@ -221,12 +221,25 @@ func ListenUDP(bindAddr string, bindPort int64) (l *UdpListener, err error) {
 	return
 }
 
-func (l *UdpListener) writeUdpPacket(packet *UdpPacket) {
+func (l *UdpListener) writeUdpPacket(packet *UdpPacket) (err error) {
 	defer func() {
-		if err := recover(); err != nil {
+		if errRet := recover(); errRet != nil {
+			err = fmt.Errorf("udp write closed listener")
+			l.Info("udp write closed listener")
 		}
 	}()
 	l.writeCh <- packet
+	return
+}
+
+func (l *UdpListener) WriteMsg(buf []byte, remoteAddr *net.UDPAddr) (err error) {
+	// only set remote addr here
+	packet := &UdpPacket{
+		Buf:        buf,
+		RemoteAddr: remoteAddr,
+	}
+	err = l.writeUdpPacket(packet)
+	return
 }
 
 func (l *UdpListener) Accept() (Conn, error) {

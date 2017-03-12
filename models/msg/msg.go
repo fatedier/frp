@@ -14,7 +14,10 @@
 
 package msg
 
-import "reflect"
+import (
+	"net"
+	"reflect"
+)
 
 const (
 	TypeLogin         = 'o'
@@ -26,6 +29,7 @@ const (
 	TypeStartWorkConn = 's'
 	TypePing          = 'h'
 	TypePong          = '4'
+	TypeUdpPacket     = 'u'
 )
 
 var (
@@ -46,6 +50,7 @@ func init() {
 	TypeMap[TypeStartWorkConn] = reflect.TypeOf(StartWorkConn{})
 	TypeMap[TypePing] = reflect.TypeOf(Ping{})
 	TypeMap[TypePong] = reflect.TypeOf(Pong{})
+	TypeMap[TypeUdpPacket] = reflect.TypeOf(UdpPacket{})
 
 	for k, v := range TypeMap {
 		TypeStringMap[v] = k
@@ -115,4 +120,10 @@ type Ping struct {
 }
 
 type Pong struct {
+}
+
+type UdpPacket struct {
+	Content    string       `json:"c"`
+	LocalAddr  *net.UDPAddr `json:"l"`
+	RemoteAddr *net.UDPAddr `json:"r"`
 }

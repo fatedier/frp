@@ -1,14 +1,19 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"net"
+	"time"
 
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/models/proto/tcp"
+	"github.com/fatedier/frp/models/proto/udp"
+	"github.com/fatedier/frp/utils/errors"
 	"github.com/fatedier/frp/utils/log"
-	"github.com/fatedier/frp/utils/net"
+	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/vhost"
 )
 
@@ -17,6 +22,7 @@ type Proxy interface {
 	GetControl() *Control
 	GetName() string
 	GetConf() config.ProxyConf
+	GetWorkConnFromPool() (workConn frpNet.Conn, err error)
 	Close()
 	log.Logger
 }
@@ -24,7 +30,7 @@ type Proxy interface {
 type BaseProxy struct {
 	name      string
 	ctl       *Control
-	listeners []net.Listener
+	listeners []frpNet.Listener
 	log.Logger
 }
 
@@ -43,12 +49,41 @@ func (pxy *BaseProxy) Close() {
 	}
 }
 
+func (pxy *BaseProxy) GetWorkConnFromPool() (workConn frpNet.Conn, err error) {
+	ctl := pxy.GetControl()
+	// try all connections from the pool
+	for i := 0; i < ctl.poolCount+1; i++ {
+		if workConn, err = ctl.GetWorkConn(); err != nil {
+			pxy.Warn("failed to get work connection: %v", err)
+			return
+		}
+		pxy.Info("get a new work connection: [%s]", workConn.RemoteAddr().String())
+		workConn.AddLogPrefix(pxy.GetName())
+
+		err := msg.WriteMsg(workConn, &msg.StartWorkConn{
+			ProxyName: pxy.GetName(),
+		})
+		if err != nil {
+			workConn.Warn("failed to send message to work connection from pool: %v, times: %d", err, i)
+			workConn.Close()
+		} else {
+			break
+		}
+	}
+
+	if err != nil {
+		pxy.Error("try to get work connection failed in the end")
+		return
+	}
+	return
+}
+
 // startListenHandler start a goroutine handler for each listener.
-// p: p will just be passed to handler(Proxy, net.Conn).
+// p: p will just be passed to handler(Proxy, frpNet.Conn).
 // handler: each proxy type can set different handler function to deal with connections accepted from listeners.
-func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn)) {
+func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, frpNet.Conn)) {
 	for _, listener := range pxy.listeners {
-		go func(l net.Listener) {
+		go func(l frpNet.Listener) {
 			for {
 				// block
 				// if listener is closed, err returned
@@ -68,7 +103,7 @@ func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy, err error) {
 	basePxy := BaseProxy{
 		name:      pxyConf.GetName(),
 		ctl:       ctl,
-		listeners: make([]net.Listener, 0),
+		listeners: make([]frpNet.Listener, 0),
 		Logger:    log.NewPrefixLogger(ctl.runId),
 	}
 	switch cfg := pxyConf.(type) {
@@ -105,7 +140,7 @@ type TcpProxy struct {
 }
 
 func (pxy *TcpProxy) Run() error {
-	listener, err := net.ListenTcp(config.ServerCommonCfg.BindAddr, pxy.cfg.RemotePort)
+	listener, err := frpNet.ListenTcp(config.ServerCommonCfg.BindAddr, pxy.cfg.RemotePort)
 	if err != nil {
 		return err
 	}
@@ -226,10 +261,106 @@ func (pxy *HttpsProxy) Close() {
 type UdpProxy struct {
 	BaseProxy
 	cfg *config.UdpProxyConf
+
+	udpConn      *net.UDPConn
+	workConn     net.Conn
+	sendCh       chan *msg.UdpPacket
+	readCh       chan *msg.UdpPacket
+	checkCloseCh chan int
 }
 
 func (pxy *UdpProxy) Run() (err error) {
-	return
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", config.ServerCommonCfg.BindAddr, pxy.cfg.RemotePort))
+	if err != nil {
+		return err
+	}
+	udpConn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		pxy.Warn("listen udp port error: %v", err)
+		return err
+	}
+	pxy.Info("udp proxy listen port [%d]", pxy.cfg.RemotePort)
+
+	pxy.udpConn = udpConn
+	pxy.sendCh = make(chan *msg.UdpPacket, 64)
+	pxy.readCh = make(chan *msg.UdpPacket, 64)
+	pxy.checkCloseCh = make(chan int)
+
+	workConnReaderFn := func(conn net.Conn) {
+		for {
+			var udpMsg msg.UdpPacket
+			if errRet := msg.ReadMsgInto(conn, &udpMsg); errRet != nil {
+				pxy.Warn("read from workConn for udp error: %v", errRet)
+				conn.Close()
+				// notity proxy to start a new work connection
+				errors.PanicToError(func() {
+					pxy.checkCloseCh <- 1
+				})
+				return
+			}
+			if errRet := errors.PanicToError(func() {
+				pxy.readCh <- &udpMsg
+			}); errRet != nil {
+				pxy.Info("reader goroutine for udp work connection closed")
+				return
+			}
+		}
+	}
+	workConnSenderFn := func(conn net.Conn, ctx context.Context) {
+		var errRet error
+		for {
+			select {
+			case udpMsg, ok := <-pxy.sendCh:
+				if !ok {
+					return
+				}
+				if errRet = msg.WriteMsg(conn, udpMsg); errRet != nil {
+					pxy.Info("sender goroutine for udp work connection closed: %v", errRet)
+					return
+				} else {
+					continue
+				}
+			case <-ctx.Done():
+				pxy.Info("sender goroutine for udp work connection closed")
+				return
+			}
+		}
+	}
+
+	go func() {
+		for {
+			// Sleep a while for waiting control send the NewProxyResp to client.
+			time.Sleep(500 * time.Millisecond)
+			workConn, err := pxy.GetWorkConnFromPool()
+			if err != nil {
+				time.Sleep(5 * time.Second)
+				// check if proxy is closed
+				select {
+				case _, ok := <-pxy.checkCloseCh:
+					if !ok {
+						return
+					}
+				default:
+				}
+				continue
+			}
+			pxy.workConn = workConn
+			ctx, cancel := context.WithCancel(context.Background())
+			go workConnReaderFn(workConn)
+			go workConnSenderFn(workConn, ctx)
+			_, ok := <-pxy.checkCloseCh
+			cancel()
+			if !ok {
+				return
+			}
+		}
+	}()
+
+	// Read from user connections and send wrapped udp message to sendCh.
+	// Client will transfor udp message to local udp service and waiting for response for a while.
+	// Response will be wrapped to be transfored in work connection to server.
+	udp.ForwardUserConn(udpConn, pxy.readCh, pxy.sendCh)
+	return nil
 }
 
 func (pxy *UdpProxy) GetConf() config.ProxyConf {
@@ -238,42 +369,24 @@ func (pxy *UdpProxy) GetConf() config.ProxyConf {
 
 func (pxy *UdpProxy) Close() {
 	pxy.BaseProxy.Close()
+	pxy.workConn.Close()
+	pxy.udpConn.Close()
+	close(pxy.checkCloseCh)
+	close(pxy.readCh)
+	close(pxy.sendCh)
 }
 
 // HandleUserTcpConnection is used for incoming tcp user connections.
 // It can be used for tcp, http, https type.
-func HandleUserTcpConnection(pxy Proxy, userConn net.Conn) {
+func HandleUserTcpConnection(pxy Proxy, userConn frpNet.Conn) {
 	defer userConn.Close()
-	ctl := pxy.GetControl()
-	var (
-		workConn net.Conn
-		err      error
-	)
+
 	// try all connections from the pool
-	for i := 0; i < ctl.poolCount+1; i++ {
-		if workConn, err = ctl.GetWorkConn(); err != nil {
-			pxy.Warn("failed to get work connection: %v", err)
-			return
-		}
-		defer workConn.Close()
-		pxy.Info("get a new work connection: [%s]", workConn.RemoteAddr().String())
-		workConn.AddLogPrefix(pxy.GetName())
-
-		err := msg.WriteMsg(workConn, &msg.StartWorkConn{
-			ProxyName: pxy.GetName(),
-		})
-		if err != nil {
-			workConn.Warn("failed to send message to work connection from pool: %v, times: %d", err, i)
-			workConn.Close()
-		} else {
-			break
-		}
-	}
-
+	workConn, err := pxy.GetWorkConnFromPool()
 	if err != nil {
-		pxy.Error("try to get work connection failed in the end")
 		return
 	}
+	defer workConn.Close()
 
 	var local io.ReadWriteCloser = workConn
 	cfg := pxy.GetConf().GetBaseInfo()

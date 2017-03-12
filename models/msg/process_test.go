@@ -17,6 +17,9 @@ package msg
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	"net"
 	"reflect"
 	"testing"
 

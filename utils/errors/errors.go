@@ -20,7 +20,8 @@ import (
 )
 
 var (
-	ErrMsgType = errors.New("message type error")
+	ErrMsgType   = errors.New("message type error")
+	ErrCtlClosed = errors.New("control is closed")
 )
 
 func PanicToError(fn func()) (err error) {

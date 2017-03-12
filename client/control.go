@@ -146,6 +146,8 @@ func (ctl *Control) NewWorkConn() {
 	if pxy, ok := ctl.proxies[startMsg.ProxyName]; ok {
 		go pxy.InWorkConn(workConn)
 		workConn.Info("start a new work connection")
+	} else {
+		workConn.Close()
 	}
 }
 

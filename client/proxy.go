@@ -17,10 +17,15 @@ package client
 import (
 	"fmt"
 	"io"
+	"net"
 
 	"github.com/fatedier/frp/models/config"
+	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/models/proto/tcp"
-	"github.com/fatedier/frp/utils/net"
+	"github.com/fatedier/frp/models/proto/udp"
+	"github.com/fatedier/frp/utils/errors"
+	"github.com/fatedier/frp/utils/log"
+	frpNet "github.com/fatedier/frp/utils/net"
 )
 
 // Proxy defines how to work for different proxy type.
@@ -28,40 +33,51 @@ type Proxy interface {
 	Run() error
 
 	// InWorkConn accept work connections registered to server.
-	InWorkConn(conn net.Conn)
+	InWorkConn(conn frpNet.Conn)
 	Close()
+	log.Logger
 }
 
 func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy) {
+	baseProxy := BaseProxy{
+		ctl:    ctl,
+		Logger: log.NewPrefixLogger(pxyConf.GetName()),
+	}
 	switch cfg := pxyConf.(type) {
 	case *config.TcpProxyConf:
 		pxy = &TcpProxy{
-			cfg: cfg,
-			ctl: ctl,
+			BaseProxy: baseProxy,
+			cfg:       cfg,
 		}
 	case *config.UdpProxyConf:
 		pxy = &UdpProxy{
-			cfg: cfg,
-			ctl: ctl,
+			BaseProxy: baseProxy,
+			cfg:       cfg,
 		}
 	case *config.HttpProxyConf:
 		pxy = &HttpProxy{
-			cfg: cfg,
-			ctl: ctl,
+			BaseProxy: baseProxy,
+			cfg:       cfg,
 		}
 	case *config.HttpsProxyConf:
 		pxy = &HttpsProxy{
-			cfg: cfg,
-			ctl: ctl,
+			BaseProxy: baseProxy,
+			cfg:       cfg,
 		}
 	}
 	return
 }
 
+type BaseProxy struct {
+	ctl *Control
+	log.Logger
+}
+
 // TCP
 type TcpProxy struct {
+	BaseProxy
+
 	cfg *config.TcpProxyConf
-	ctl *Control
 }
 
 func (pxy *TcpProxy) Run() (err error) {
@@ -71,15 +87,16 @@ func (pxy *TcpProxy) Run() (err error) {
 func (pxy *TcpProxy) Close() {
 }
 
-func (pxy *TcpProxy) InWorkConn(conn net.Conn) {
+func (pxy *TcpProxy) InWorkConn(conn frpNet.Conn) {
 	defer conn.Close()
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, &pxy.cfg.BaseProxyConf, conn)
 }
 
 // HTTP
 type HttpProxy struct {
+	BaseProxy
+
 	cfg *config.HttpProxyConf
-	ctl *Control
 }
 
 func (pxy *HttpProxy) Run() (err error) {
@@ -89,15 +106,16 @@ func (pxy *HttpProxy) Run() (err error) {
 func (pxy *HttpProxy) Close() {
 }
 
-func (pxy *HttpProxy) InWorkConn(conn net.Conn) {
+func (pxy *HttpProxy) InWorkConn(conn frpNet.Conn) {
 	defer conn.Close()
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, &pxy.cfg.BaseProxyConf, conn)
 }
 
 // HTTPS
 type HttpsProxy struct {
+	BaseProxy
+
 	cfg *config.HttpsProxyConf
-	ctl *Control
 }
 
 func (pxy *HttpsProxy) Run() (err error) {
@@ -107,31 +125,80 @@ func (pxy *HttpsProxy) Run() (err error) {
 func (pxy *HttpsProxy) Close() {
 }
 
-func (pxy *HttpsProxy) InWorkConn(conn net.Conn) {
+func (pxy *HttpsProxy) InWorkConn(conn frpNet.Conn) {
 	defer conn.Close()
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, &pxy.cfg.BaseProxyConf, conn)
 }
 
 // UDP
 type UdpProxy struct {
+	BaseProxy
+
 	cfg *config.UdpProxyConf
-	ctl *Control
+
+	localAddr *net.UDPAddr
+	readCh    chan *msg.UdpPacket
+	sendCh    chan *msg.UdpPacket
+	workConn  frpNet.Conn
 }
 
 func (pxy *UdpProxy) Run() (err error) {
+	pxy.localAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", pxy.cfg.LocalIp, pxy.cfg.LocalPort))
+	if err != nil {
+		return
+	}
 	return
 }
 
 func (pxy *UdpProxy) Close() {
+	pxy.workConn.Close()
+	close(pxy.readCh)
+	close(pxy.sendCh)
 }
 
-func (pxy *UdpProxy) InWorkConn(conn net.Conn) {
-	defer conn.Close()
+func (pxy *UdpProxy) InWorkConn(conn frpNet.Conn) {
+	if pxy.workConn != nil {
+		pxy.workConn.Close()
+		close(pxy.readCh)
+		close(pxy.sendCh)
+	}
+	pxy.workConn = conn
+	pxy.readCh = make(chan *msg.UdpPacket, 64)
+	pxy.sendCh = make(chan *msg.UdpPacket, 64)
+
+	workConnReaderFn := func(conn net.Conn) {
+		for {
+			var udpMsg msg.UdpPacket
+			if errRet := msg.ReadMsgInto(conn, &udpMsg); errRet != nil {
+				pxy.Warn("read from workConn for udp error: %v", errRet)
+				return
+			}
+			if errRet := errors.PanicToError(func() {
+				pxy.readCh <- &udpMsg
+			}); errRet != nil {
+				pxy.Info("reader goroutine for udp work connection closed")
+				return
+			}
+		}
+	}
+	workConnSenderFn := func(conn net.Conn) {
+		var errRet error
+		for udpMsg := range pxy.sendCh {
+			if errRet = msg.WriteMsg(conn, udpMsg); errRet != nil {
+				pxy.Info("sender goroutine for udp work connection closed")
+				return
+			}
+		}
+	}
+
+	go workConnSenderFn(pxy.workConn)
+	go workConnReaderFn(pxy.workConn)
+	udp.Forwarder(pxy.localAddr, pxy.readCh, pxy.sendCh)
 }
 
 // Common handler for tcp work connections.
-func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, baseInfo *config.BaseProxyConf, workConn net.Conn) {
-	localConn, err := net.ConnectTcpServer(fmt.Sprintf("%s:%d", localInfo.LocalIp, localInfo.LocalPort))
+func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, baseInfo *config.BaseProxyConf, workConn frpNet.Conn) {
+	localConn, err := frpNet.ConnectTcpServer(fmt.Sprintf("%s:%d", localInfo.LocalIp, localInfo.LocalPort))
 	if err != nil {
 		workConn.Error("connect to local service [%s:%d] error: %v", localInfo.LocalIp, localInfo.LocalPort, err)
 		return

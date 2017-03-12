@@ -1,4 +1,4 @@
-// Copyright 2016 fatedier, fatedier@gmail.com
+// Copyright 2017 fatedier, fatedier@gmail.com
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,57 +16,120 @@ package udp
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"net"
+	"sync"
+	"time"
+
+	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/utils/errors"
+	"github.com/fatedier/frp/utils/pool"
 )
 
-type UdpPacket struct {
-	Content []byte       `json:"-"`
-	Src     *net.UDPAddr `json:"-"`
-	Dst     *net.UDPAddr `json:"-"`
-
-	EncodeContent string `json:"content"`
-	SrcStr        string `json:"src"`
-	DstStr        string `json:"dst"`
+func NewUdpPacket(buf []byte, laddr, raddr *net.UDPAddr) *msg.UdpPacket {
+	return &msg.UdpPacket{
+		Content:    base64.StdEncoding.EncodeToString(buf),
+		LocalAddr:  laddr,
+		RemoteAddr: raddr,
+	}
 }
 
-func NewUdpPacket(content []byte, src, dst *net.UDPAddr) *UdpPacket {
-	up := &UdpPacket{
-		Src:           src,
-		Dst:           dst,
-		EncodeContent: base64.StdEncoding.EncodeToString(content),
-		SrcStr:        src.String(),
-		DstStr:        dst.String(),
-	}
-	return up
+func GetContent(m *msg.UdpPacket) (buf []byte, err error) {
+	buf, err = base64.StdEncoding.DecodeString(m.Content)
+	return
 }
 
-// parse one udp packet struct to bytes
-func (up *UdpPacket) Pack() []byte {
-	b, _ := json.Marshal(up)
-	return b
+func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UdpPacket, sendCh chan<- *msg.UdpPacket) {
+	// read
+	go func() {
+		for udpMsg := range readCh {
+			buf, err := GetContent(udpMsg)
+			if err != nil {
+				continue
+			}
+			udpConn.WriteToUDP(buf, udpMsg.RemoteAddr)
+		}
+	}()
+
+	// write
+	go func() {
+		buf := pool.GetBuf(1500)
+		defer pool.PutBuf(buf)
+		for {
+			n, remoteAddr, err := udpConn.ReadFromUDP(buf)
+			if err != nil {
+				udpConn.Close()
+				return
+			}
+			udpMsg := NewUdpPacket(buf[:n], nil, remoteAddr)
+			select {
+			case sendCh <- udpMsg:
+			default:
+			}
+		}
+	}()
 }
 
-// parse from bytes to UdpPacket struct
-func (up *UdpPacket) UnPack(packet []byte) error {
-	err := json.Unmarshal(packet, &up)
-	if err != nil {
-		return err
+func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UdpPacket, sendCh chan<- *msg.UdpPacket) {
+	var (
+		mu sync.RWMutex
+	)
+	udpConnMap := make(map[string]*net.UDPConn)
+
+	// read from dstAddr and write to sendCh
+	writerFn := func(raddr *net.UDPAddr, udpConn *net.UDPConn) {
+		addr := raddr.String()
+		defer func() {
+			mu.Lock()
+			delete(udpConnMap, addr)
+			mu.Unlock()
+		}()
+
+		buf := pool.GetBuf(1500)
+		for {
+			udpConn.SetReadDeadline(time.Now().Add(30 * time.Second))
+			n, _, err := udpConn.ReadFromUDP(buf)
+			if err != nil {
+				return
+			}
+
+			udpMsg := NewUdpPacket(buf[:n], nil, raddr)
+			if err = errors.PanicToError(func() {
+				select {
+				case sendCh <- udpMsg:
+				default:
+				}
+			}); err != nil {
+				return
+			}
+		}
 	}
 
-	up.Content, err = base64.StdEncoding.DecodeString(up.EncodeContent)
-	if err != nil {
-		return err
-	}
+	// read from readCh
+	go func() {
+		for udpMsg := range readCh {
+			buf, err := GetContent(udpMsg)
+			if err != nil {
+				continue
+			}
+			mu.Lock()
+			udpConn, ok := udpConnMap[udpMsg.RemoteAddr.String()]
+			if !ok {
+				udpConn, err = net.DialUDP("udp", nil, dstAddr)
+				if err != nil {
+					continue
+				}
+				udpConnMap[udpMsg.RemoteAddr.String()] = udpConn
+			}
+			mu.Unlock()
 
-	up.Src, err = net.ResolveUDPAddr("udp", up.SrcStr)
-	if err != nil {
-		return err
-	}
+			_, err = udpConn.Write(buf)
+			if err != nil {
+				udpConn.Close()
+			}
 
-	up.Dst, err = net.ResolveUDPAddr("udp", up.DstStr)
-	if err != nil {
-		return err
-	}
-	return nil
+			if !ok {
+				go writerFn(udpMsg.RemoteAddr, udpConn)
+			}
+		}
+	}()
 }

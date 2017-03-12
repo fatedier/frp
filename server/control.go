@@ -131,7 +131,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 	select {
 	case workConn, ok = <-ctl.workConnCh:
 		if !ok {
-			err = fmt.Errorf("no work connections available, control is closing")
+			err = errors.ErrCtlClosed
 			return
 		}
 		ctl.conn.Debug("get work connection from pool")
@@ -148,8 +148,8 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 		select {
 		case workConn, ok = <-ctl.workConnCh:
 			if !ok {
-				err = fmt.Errorf("no work connections available, control is closing")
-				ctl.conn.Warn("%v", err)
+				err = errors.ErrCtlClosed
+				ctl.conn.Warn("no work connections avaiable, %v", err)
 				return
 			}
 
@@ -251,8 +251,8 @@ func (ctl *Control) stoper() {
 	}
 
 	for _, pxy := range ctl.proxies {
-		ctl.svr.DelProxy(pxy.GetName())
 		pxy.Close()
+		ctl.svr.DelProxy(pxy.GetName())
 	}
 
 	ctl.allShutdown.Done()
