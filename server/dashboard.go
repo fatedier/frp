@@ -15,11 +15,9 @@
 package server
 
 import (
-	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/fatedier/frp/assets"
@@ -75,25 +73,13 @@ func basicAuth(h http.HandlerFunc) http.HandlerFunc {
 
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 
-		s := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
-		if len(s) != 2 {
+		username, passwd, ok := r.BasicAuth()
+		if !ok {
 			http.Error(w, "Not authorized", 401)
 			return
 		}
 
-		b, err := base64.StdEncoding.DecodeString(s[1])
-		if err != nil {
-			http.Error(w, err.Error(), 401)
-			return
-		}
-
-		pair := strings.SplitN(string(b), ":", 2)
-		if len(pair) != 2 {
-			http.Error(w, "Not authorized", 401)
-			return
-		}
-
-		if pair[0] != config.ServerCommonCfg.DashboardUser || pair[1] != config.ServerCommonCfg.DashboardPwd {
+		if username != config.ServerCommonCfg.DashboardUser || passwd != config.ServerCommonCfg.DashboardPwd {
 			http.Error(w, "Not authorized", 401)
 			return
 		}
