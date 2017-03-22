@@ -1,4 +1,4 @@
-// Copyright 2016 fatedier, fatedier@gmail.com
+// Copyright 2017 fatedier, fatedier@gmail.com
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import (
 
 	"github.com/fatedier/frp/assets"
 	"github.com/fatedier/frp/models/config"
+
+	"github.com/julienschmidt/httprouter"
 )
 
 var (
@@ -31,20 +33,27 @@ var (
 
 func RunDashboardServer(addr string, port int64) (err error) {
 	// url router
-	mux := http.NewServeMux()
+	router := httprouter.New()
+
 	// api, see dashboard_api.go
 	//mux.HandleFunc("/api/reload", use(apiReload, basicAuth))
-	//mux.HandleFunc("/api/proxies", apiProxies)
+	router.GET("/api/serverinfo", apiServerInfo)
+	router.GET("/api/proxy/tcp", apiProxyTcp)
+	router.GET("/api/proxy/udp", apiProxyUdp)
+	router.GET("/api/proxy/http", apiProxyHttp)
+	router.GET("/api/proxy/https", apiProxyHttps)
+	router.GET("/api/proxy/flow/:name", apiProxyFlow)
 
 	// view, see dashboard_view.go
-	mux.Handle("/favicon.ico", http.FileServer(assets.FileSystem))
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))
-	//mux.HandleFunc("/", use(viewDashboard, basicAuth))
+	//router.GET("/favicon.ico", http.FileServer(assets.FileSystem))
+	router.Handler("GET", "/favicon.ico", http.FileServer(assets.FileSystem))
+	router.Handler("GET", "/static", http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))
+	//router.GET("/", use(viewDashboard, basicAuth))
 
 	address := fmt.Sprintf("%s:%d", addr, port)
 	server := &http.Server{
 		Addr:         address,
-		Handler:      mux,
+		Handler:      router,
 		ReadTimeout:  httpServerReadTimeout,
 		WriteTimeout: httpServerWriteTimeout,
 	}
@@ -64,7 +73,6 @@ func use(h http.HandlerFunc, middleware ...func(http.HandlerFunc) http.HandlerFu
 	for _, m := range middleware {
 		h = m(h)
 	}
-
 	return h
 }
 

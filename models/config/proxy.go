@@ -88,11 +88,11 @@ func NewProxyConfFromFile(name string, section ini.Section) (cfg ProxyConf, err 
 
 // BaseProxy info
 type BaseProxyConf struct {
-	ProxyName string
-	ProxyType string
+	ProxyName string `json:"proxy_name"`
+	ProxyType string `json:"proxy_type"`
 
-	UseEncryption  bool
-	UseCompression bool
+	UseEncryption  bool `json:"use_encryption"`
+	UseCompression bool `json:"use_compression"`
 }
 
 func (cfg *BaseProxyConf) GetName() string {
@@ -139,8 +139,8 @@ func (cfg *BaseProxyConf) UnMarshalToMsg(pMsg *msg.NewProxy) {
 
 // Bind info
 type BindInfoConf struct {
-	BindAddr   string
-	RemotePort int64
+	BindAddr   string `json:"bind_addr"`
+	RemotePort int64  `json:"remote_port"`
 }
 
 func (cfg *BindInfoConf) LoadFromMsg(pMsg *msg.NewProxy) {
@@ -178,8 +178,8 @@ func (cfg *BindInfoConf) check() (err error) {
 
 // Domain info
 type DomainConf struct {
-	CustomDomains []string
-	SubDomain     string
+	CustomDomains []string `json:"custom_domains"`
+	SubDomain     string   `json:"sub_domain"`
 }
 
 func (cfg *DomainConf) LoadFromMsg(pMsg *msg.NewProxy) {
@@ -235,8 +235,8 @@ func (cfg *DomainConf) check() (err error) {
 }
 
 type LocalSvrConf struct {
-	LocalIp   string
-	LocalPort int
+	LocalIp   string `json:"-"`
+	LocalPort int    `json:"-"`
 }
 
 func (cfg *LocalSvrConf) LoadFromFile(name string, section ini.Section) (err error) {
@@ -333,10 +333,10 @@ type HttpProxyConf struct {
 
 	LocalSvrConf
 
-	Locations         []string
-	HostHeaderRewrite string
-	HttpUser          string
-	HttpPwd           string
+	Locations         []string `json:"locations"`
+	HostHeaderRewrite string   `json:"host_header_rewrite"`
+	HttpUser          string   `json:"-"`
+	HttpPwd           string   `json:"-"`
 }
 
 func (cfg *HttpProxyConf) LoadFromMsg(pMsg *msg.NewProxy) {

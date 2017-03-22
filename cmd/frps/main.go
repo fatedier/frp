@@ -113,5 +113,6 @@ func main() {
 	if config.ServerCommonCfg.PrivilegeMode == true {
 		log.Info("PrivilegeMode is enabled, you should pay more attention to security issues")
 	}
+	server.ServerService = svr
 	svr.Run()
 }

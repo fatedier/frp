@@ -15,10 +15,12 @@
 package consts
 
 var (
-	// server status
+	// proxy status
 	Idle    string = "idle"
 	Working string = "working"
 	Closed  string = "closed"
+	Online  string = "online"
+	Offline string = "offline"
 
 	// proxy type
 	TcpProxy   string = "tcp"

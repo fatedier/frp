@@ -1,3 +1,17 @@
+// Copyright 2017 fatedier, fatedier@gmail.com
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package server
 
 import (
@@ -13,6 +27,8 @@ import (
 	"github.com/fatedier/frp/utils/version"
 	"github.com/fatedier/frp/utils/vhost"
 )
+
+var ServerService *Service
 
 // Server service.
 type Service struct {
@@ -172,6 +188,9 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 
 	ctlConn.AddLogPrefix(loginMsg.RunId)
 	ctl.Start()
+
+	// for statistics
+	StatsNewClient()
 	return
 }
 
