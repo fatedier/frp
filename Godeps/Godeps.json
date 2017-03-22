@@ -26,6 +26,11 @@
 			"Rev": "5979233c5d6225d4a8e438cdd0b411888449ddab"
 		},
 		{
+			"ImportPath": "github.com/julienschmidt/httprouter",
+			"Comment": "v1.1-41-g8a45e95",
+			"Rev": "8a45e95fc75cb77048068a62daed98cc22fdac7c"
+		},
+		{
 			"ImportPath": "github.com/pmezard/go-difflib/difflib",
 			"Comment": "v1.0.0",
 			"Rev": "792786c7400a136282c1664665ae0a8db921c6c2"
