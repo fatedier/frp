@@ -115,7 +115,11 @@ func (cfg *BaseProxyConf) LoadFromFile(name string, section ini.Section) error {
 		tmpStr string
 		ok     bool
 	)
-	cfg.ProxyName = ClientCommonCfg.User + "." + name
+	if ClientCommonCfg.User != "" {
+		cfg.ProxyName = ClientCommonCfg.User + "." + name
+	} else {
+		cfg.ProxyName = name
+	}
 	cfg.ProxyType = section["type"]
 
 	tmpStr, ok = section["use_encryption"]
