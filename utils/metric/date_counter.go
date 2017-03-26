@@ -26,7 +26,6 @@ type DateCounter interface {
 	Dec(int64)
 	Snapshot() DateCounter
 	Clear()
-	Close()
 }
 
 func NewDateCounter(reserveDays int64) DateCounter {
@@ -40,24 +39,26 @@ type StandardDateCounter struct {
 	reserveDays int64
 	counts      []int64
 
-	closeCh chan struct{}
-	closed  bool
-	mu      sync.Mutex
+	lastUpdateDate time.Time
+	mu             sync.Mutex
 }
 
 func newStandardDateCounter(reserveDays int64) *StandardDateCounter {
+	now := time.Now()
+	now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	s := &StandardDateCounter{
-		reserveDays: reserveDays,
-		counts:      make([]int64, reserveDays),
-		closeCh:     make(chan struct{}),
+		reserveDays:    reserveDays,
+		counts:         make([]int64, reserveDays),
+		lastUpdateDate: now,
 	}
-	s.startRotateWorker()
 	return s
 }
 
 func (c *StandardDateCounter) TodayCount() int64 {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	c.rotate(time.Now())
 	return c.counts[0]
 }
 
@@ -69,6 +70,7 @@ func (c *StandardDateCounter) GetLastDaysCount(lastdays int64) []int64 {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.rotate(time.Now())
 	for i := 0; i < int(lastdays); i++ {
 		counts[i] = c.counts[i]
 	}
@@ -78,12 +80,14 @@ func (c *StandardDateCounter) GetLastDaysCount(lastdays int64) []int64 {
 func (c *StandardDateCounter) Inc(count int64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.rotate(time.Now())
 	c.counts[0] += count
 }
 
 func (c *StandardDateCounter) Dec(count int64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.rotate(time.Now())
 	c.counts[0] -= count
 }
 
@@ -108,50 +112,26 @@ func (c *StandardDateCounter) Clear() {
 	}
 }
 
-func (c *StandardDateCounter) Close() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if !c.closed {
-		close(c.closeCh)
-		c.closed = true
-	}
-}
+// rotate
+// Must hold the lock before calling this function.
+func (c *StandardDateCounter) rotate(now time.Time) {
+	now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	days := int(now.Sub(c.lastUpdateDate).Hours() / 24)
 
-func (c *StandardDateCounter) rotate() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	defer func() {
+		c.lastUpdateDate = now
+	}()
+
+	if days <= 0 {
+		return
+	} else if days >= 7 {
+		c.counts = make([]int64, c.reserveDays)
+		return
+	}
 	newCounts := make([]int64, c.reserveDays)
 
-	for i := 1; i < int(c.reserveDays-1); i++ {
-		newCounts[i] = c.counts[i+1]
+	for i := days; i < int(c.reserveDays); i++ {
+		newCounts[i] = c.counts[i-days]
 	}
 	c.counts = newCounts
-}
-
-func (c *StandardDateCounter) startRotateWorker() {
-	now := time.Now()
-	nextDayTimeStr := now.Add(24 * time.Hour).Format("20060102")
-	nextDay, _ := time.Parse("20060102", nextDayTimeStr)
-	d := nextDay.Sub(now)
-
-	firstTimer := time.NewTimer(d)
-	rotateTicker := time.NewTicker(24 * time.Hour)
-
-	go func() {
-		for {
-			select {
-			case <-firstTimer.C:
-				firstTimer.Stop()
-				rotateTicker.Stop()
-				rotateTicker = time.NewTicker(24 * time.Hour)
-				c.rotate()
-			case <-rotateTicker.C:
-				c.rotate()
-			case <-c.closeCh:
-				break
-			}
-		}
-		firstTimer.Stop()
-		rotateTicker.Stop()
-	}()
 }
