@@ -306,7 +306,7 @@ func (pxy *UdpProxy) Run() (err error) {
 			if errRet := msg.ReadMsgInto(conn, &udpMsg); errRet != nil {
 				pxy.Warn("read from workConn for udp error: %v", errRet)
 				conn.Close()
-				// notity proxy to start a new work connection
+				// notify proxy to start a new work connection
 				errors.PanicToError(func() {
 					pxy.checkCloseCh <- 1
 				})
@@ -314,6 +314,7 @@ func (pxy *UdpProxy) Run() (err error) {
 			}
 			if errRet := errors.PanicToError(func() {
 				pxy.readCh <- &udpMsg
+				StatsAddTrafficOut(pxy.GetName(), int64(len(udpMsg.Content)))
 			}); errRet != nil {
 				pxy.Info("reader goroutine for udp work connection closed")
 				return
@@ -332,6 +333,7 @@ func (pxy *UdpProxy) Run() (err error) {
 					pxy.Info("sender goroutine for udp work connection closed: %v", errRet)
 					return
 				} else {
+					StatsAddTrafficIn(pxy.GetName(), int64(len(udpMsg.Content)))
 					continue
 				}
 			case <-ctx.Done():
@@ -420,7 +422,7 @@ func HandleUserTcpConnection(pxy Proxy, userConn frpNet.Conn) {
 	StatsOpenConnection(pxy.GetName())
 	inCount, outCount := tcp.Join(local, userConn)
 	StatsCloseConnection(pxy.GetName())
-	StatsAddFlowIn(pxy.GetName(), inCount)
-	StatsAddFlowOut(pxy.GetName(), outCount)
+	StatsAddTrafficIn(pxy.GetName(), inCount)
+	StatsAddTrafficOut(pxy.GetName(), outCount)
 	pxy.Debug("join connections closed")
 }

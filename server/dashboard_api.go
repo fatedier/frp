@@ -41,8 +41,8 @@ type ServerInfoResp struct {
 	MaxPoolCount     int64  `json:"max_pool_count"`
 	HeartBeatTimeout int64  `json:"heart_beat_timeout"`
 
-	TotalFlowIn     int64            `json:"total_flow_in"`
-	TotalFlowOut    int64            `json:"total_flow_out"`
+	TotalTrafficIn  int64            `json:"total_traffic_in"`
+	TotalTrafficOut int64            `json:"total_traffic_out"`
 	CurConns        int64            `json:"cur_conns"`
 	ClientCounts    int64            `json:"client_counts"`
 	ProxyTypeCounts map[string]int64 `json:"proxy_type_count"`
@@ -68,8 +68,8 @@ func apiServerInfo(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 		MaxPoolCount:     cfg.MaxPoolCount,
 		HeartBeatTimeout: cfg.HeartBeatTimeout,
 
-		TotalFlowIn:     serverStats.TotalFlowIn,
-		TotalFlowOut:    serverStats.TotalFlowOut,
+		TotalTrafficIn:  serverStats.TotalTrafficIn,
+		TotalTrafficOut: serverStats.TotalTrafficOut,
 		CurConns:        serverStats.CurConns,
 		ClientCounts:    serverStats.ClientCounts,
 		ProxyTypeCounts: serverStats.ProxyTypeCounts,
@@ -81,11 +81,12 @@ func apiServerInfo(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 
 // Get proxy info.
 type ProxyStatsInfo struct {
-	Conf         config.ProxyConf `json:"conf"`
-	TodayFlowIn  int64            `json:"today_flow_in"`
-	TodayFlowOut int64            `json:"today_flow_out"`
-	CurConns     int64            `json:"cur_conns"`
-	Status       string           `json:"status"`
+	Name            string           `json:"name"`
+	Conf            config.ProxyConf `json:"conf"`
+	TodayTrafficIn  int64            `json:"today_traffic_in"`
+	TodayTrafficOut int64            `json:"today_traffic_out"`
+	CurConns        int64            `json:"cur_conns"`
+	Status          string           `json:"status"`
 }
 
 type GetProxyInfoResp struct {
@@ -172,43 +173,44 @@ func getProxyStatsByType(proxyType string) (proxyInfos []*ProxyStatsInfo) {
 		} else {
 			proxyInfo.Status = consts.Offline
 		}
-		proxyInfo.TodayFlowIn = ps.TodayFlowIn
-		proxyInfo.TodayFlowOut = ps.TodayFlowOut
+		proxyInfo.TodayTrafficIn = ps.TodayTrafficIn
+		proxyInfo.TodayTrafficOut = ps.TodayTrafficOut
 		proxyInfo.CurConns = ps.CurConns
+		proxyInfo.Name = ps.Name
 		proxyInfos = append(proxyInfos, proxyInfo)
 	}
 	return
 }
 
-// api/proxy/:name/flow
-type GetProxyFlowResp struct {
+// api/proxy/traffic/:name
+type GetProxyTrafficResp struct {
 	GeneralResponse
 
-	Name    string  `json:"name"`
-	FlowIn  []int64 `json:"flow_in"`
-	FlowOut []int64 `json:"flow_out"`
+	Name       string  `json:"name"`
+	TrafficIn  []int64 `json:"traffic_in"`
+	TrafficOut []int64 `json:"traffic_out"`
 }
 
-func apiProxyFlow(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func apiProxyTraffic(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var (
 		buf []byte
-		res GetProxyFlowResp
+		res GetProxyTrafficResp
 	)
 	name := params.ByName("name")
 
 	defer func() {
-		log.Info("Http response [/api/proxy/flow/:name]: code [%d]", res.Code)
+		log.Info("Http response [/api/proxy/traffic/:name]: code [%d]", res.Code)
 	}()
-	log.Info("Http request: [/api/proxy/flow/:name]")
+	log.Info("Http request: [/api/proxy/traffic/:name]")
 
 	res.Name = name
-	proxyFlowInfo := StatsGetProxyFlow(name)
-	if proxyFlowInfo == nil {
+	proxyTrafficInfo := StatsGetProxyTraffic(name)
+	if proxyTrafficInfo == nil {
 		res.Code = 1
 		res.Msg = "no proxy info found"
 	} else {
-		res.FlowIn = proxyFlowInfo.FlowIn
-		res.FlowOut = proxyFlowInfo.FlowOut
+		res.TrafficIn = proxyTrafficInfo.TrafficIn
+		res.TrafficOut = proxyTrafficInfo.TrafficOut
 	}
 
 	buf, _ = json.Marshal(&res)

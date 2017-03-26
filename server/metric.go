@@ -28,9 +28,9 @@ const (
 var globalStats *ServerStatistics
 
 type ServerStatistics struct {
-	TotalFlowIn  metric.DateCounter
-	TotalFlowOut metric.DateCounter
-	CurConns     metric.Counter
+	TotalTrafficIn  metric.DateCounter
+	TotalTrafficOut metric.DateCounter
+	CurConns        metric.Counter
 
 	ClientCounts    metric.Counter
 	ProxyTypeCounts map[string]metric.Counter
@@ -41,17 +41,17 @@ type ServerStatistics struct {
 }
 
 type ProxyStatistics struct {
-	ProxyType string
-	FlowIn    metric.DateCounter
-	FlowOut   metric.DateCounter
-	CurConns  metric.Counter
+	ProxyType  string
+	TrafficIn  metric.DateCounter
+	TrafficOut metric.DateCounter
+	CurConns   metric.Counter
 }
 
 func init() {
 	globalStats = &ServerStatistics{
-		TotalFlowIn:  metric.NewDateCounter(ReserveDays),
-		TotalFlowOut: metric.NewDateCounter(ReserveDays),
-		CurConns:     metric.NewCounter(),
+		TotalTrafficIn:  metric.NewDateCounter(ReserveDays),
+		TotalTrafficOut: metric.NewDateCounter(ReserveDays),
+		CurConns:        metric.NewCounter(),
 
 		ClientCounts:    metric.NewCounter(),
 		ProxyTypeCounts: make(map[string]metric.Counter),
@@ -86,10 +86,10 @@ func StatsNewProxy(name string, proxyType string) {
 		proxyStats, ok := globalStats.ProxyStatistics[name]
 		if !ok {
 			proxyStats = &ProxyStatistics{
-				ProxyType: proxyType,
-				CurConns:  metric.NewCounter(),
-				FlowIn:    metric.NewDateCounter(ReserveDays),
-				FlowOut:   metric.NewDateCounter(ReserveDays),
+				ProxyType:  proxyType,
+				CurConns:   metric.NewCounter(),
+				TrafficIn:  metric.NewDateCounter(ReserveDays),
+				TrafficOut: metric.NewDateCounter(ReserveDays),
 			}
 			globalStats.ProxyStatistics[name] = proxyStats
 		}
@@ -134,31 +134,31 @@ func StatsCloseConnection(name string) {
 	}
 }
 
-func StatsAddFlowIn(name string, flowIn int64) {
+func StatsAddTrafficIn(name string, trafficIn int64) {
 	if config.ServerCommonCfg.DashboardPort != 0 {
-		globalStats.TotalFlowIn.Inc(flowIn)
+		globalStats.TotalTrafficIn.Inc(trafficIn)
 
 		globalStats.mu.Lock()
 		defer globalStats.mu.Unlock()
 
 		proxyStats, ok := globalStats.ProxyStatistics[name]
 		if ok {
-			proxyStats.FlowIn.Inc(flowIn)
+			proxyStats.TrafficIn.Inc(trafficIn)
 			globalStats.ProxyStatistics[name] = proxyStats
 		}
 	}
 }
 
-func StatsAddFlowOut(name string, flowOut int64) {
+func StatsAddTrafficOut(name string, trafficOut int64) {
 	if config.ServerCommonCfg.DashboardPort != 0 {
-		globalStats.TotalFlowOut.Inc(flowOut)
+		globalStats.TotalTrafficOut.Inc(trafficOut)
 
 		globalStats.mu.Lock()
 		defer globalStats.mu.Unlock()
 
 		proxyStats, ok := globalStats.ProxyStatistics[name]
 		if ok {
-			proxyStats.FlowOut.Inc(flowOut)
+			proxyStats.TrafficOut.Inc(trafficOut)
 			globalStats.ProxyStatistics[name] = proxyStats
 		}
 	}
@@ -166,8 +166,8 @@ func StatsAddFlowOut(name string, flowOut int64) {
 
 // Functions for getting server stats.
 type ServerStats struct {
-	TotalFlowIn     int64
-	TotalFlowOut    int64
+	TotalTrafficIn  int64
+	TotalTrafficOut int64
 	CurConns        int64
 	ClientCounts    int64
 	ProxyTypeCounts map[string]int64
@@ -177,8 +177,8 @@ func StatsGetServer() *ServerStats {
 	globalStats.mu.Lock()
 	defer globalStats.mu.Unlock()
 	s := &ServerStats{
-		TotalFlowIn:     globalStats.TotalFlowIn.TodayCount(),
-		TotalFlowOut:    globalStats.TotalFlowOut.TodayCount(),
+		TotalTrafficIn:  globalStats.TotalTrafficIn.TodayCount(),
+		TotalTrafficOut: globalStats.TotalTrafficOut.TodayCount(),
 		CurConns:        globalStats.CurConns.Count(),
 		ClientCounts:    globalStats.ClientCounts.Count(),
 		ProxyTypeCounts: make(map[string]int64),
@@ -190,11 +190,11 @@ func StatsGetServer() *ServerStats {
 }
 
 type ProxyStats struct {
-	Name         string
-	Type         string
-	TodayFlowIn  int64
-	TodayFlowOut int64
-	CurConns     int64
+	Name            string
+	Type            string
+	TodayTrafficIn  int64
+	TodayTrafficOut int64
+	CurConns        int64
 }
 
 func StatsGetProxiesByType(proxyType string) []*ProxyStats {
@@ -208,34 +208,34 @@ func StatsGetProxiesByType(proxyType string) []*ProxyStats {
 		}
 
 		ps := &ProxyStats{
-			Name:         name,
-			Type:         proxyStats.ProxyType,
-			TodayFlowIn:  proxyStats.FlowIn.TodayCount(),
-			TodayFlowOut: proxyStats.FlowOut.TodayCount(),
-			CurConns:     proxyStats.CurConns.Count(),
+			Name:            name,
+			Type:            proxyStats.ProxyType,
+			TodayTrafficIn:  proxyStats.TrafficIn.TodayCount(),
+			TodayTrafficOut: proxyStats.TrafficOut.TodayCount(),
+			CurConns:        proxyStats.CurConns.Count(),
 		}
 		res = append(res, ps)
 	}
 	return res
 }
 
-type ProxyFlowInfo struct {
-	Name    string
-	FlowIn  []int64
-	FlowOut []int64
+type ProxyTrafficInfo struct {
+	Name       string
+	TrafficIn  []int64
+	TrafficOut []int64
 }
 
-func StatsGetProxyFlow(name string) (res *ProxyFlowInfo) {
+func StatsGetProxyTraffic(name string) (res *ProxyTrafficInfo) {
 	globalStats.mu.Lock()
 	defer globalStats.mu.Unlock()
 
 	proxyStats, ok := globalStats.ProxyStatistics[name]
 	if ok {
-		res = &ProxyFlowInfo{
+		res = &ProxyTrafficInfo{
 			Name: name,
 		}
-		res.FlowIn = proxyStats.FlowIn.GetLastDaysCount(ReserveDays)
-		res.FlowOut = proxyStats.FlowOut.GetLastDaysCount(ReserveDays)
+		res.TrafficIn = proxyStats.TrafficIn.GetLastDaysCount(ReserveDays)
+		res.TrafficOut = proxyStats.TrafficOut.GetLastDaysCount(ReserveDays)
 	}
 	return
 }

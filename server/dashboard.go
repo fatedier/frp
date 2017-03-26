@@ -42,13 +42,14 @@ func RunDashboardServer(addr string, port int64) (err error) {
 	router.GET("/api/proxy/udp", apiProxyUdp)
 	router.GET("/api/proxy/http", apiProxyHttp)
 	router.GET("/api/proxy/https", apiProxyHttps)
-	router.GET("/api/proxy/flow/:name", apiProxyFlow)
+	router.GET("/api/proxy/traffic/:name", apiProxyTraffic)
 
-	// view, see dashboard_view.go
-	//router.GET("/favicon.ico", http.FileServer(assets.FileSystem))
+	// view
 	router.Handler("GET", "/favicon.ico", http.FileServer(assets.FileSystem))
-	router.Handler("GET", "/static", http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))
-	//router.GET("/", use(viewDashboard, basicAuth))
+	router.Handler("GET", "/static/*filepath", http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))
+	router.HandlerFunc("GET", "/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
+	})
 
 	address := fmt.Sprintf("%s:%d", addr, port)
 	server := &http.Server{
