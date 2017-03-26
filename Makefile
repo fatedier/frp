@@ -6,7 +6,7 @@ all: fmt build
 build: frps frpc
 
 # compile assets into binary file
-assets:
+file:
 	go get -d github.com/rakyll/statik
 	@go install github.com/rakyll/statik
 	@rm -rf ./assets/statik
