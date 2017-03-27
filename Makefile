@@ -33,9 +33,9 @@ gotest:
 	go test -v ./utils/...
 
 alltest: gotest
-	cd ./test && ./run_test.sh && cd -
+	cd ./tests && ./run_test.sh && cd -
 	go test -v ./tests/...
-	cd ./test && ./clean_test.sh && cd -
+	cd ./tests && ./clean_test.sh && cd -
 
 clean:
 	rm -f ./bin/frpc

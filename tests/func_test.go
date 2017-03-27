@@ -2,18 +2,21 @@ package tests
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/fatedier/frp/utils/net"
+	frpNet "github.com/fatedier/frp/utils/net"
 )
 
 var (
 	ECHO_PORT     int64  = 10711
+	UDP_ECHO_PORT int64  = 10712
 	HTTP_PORT     int64  = 10710
 	ECHO_TEST_STR string = "Hello World\n"
 	HTTP_RES_STR  string = "Hello World"
@@ -21,12 +24,13 @@ var (
 
 func init() {
 	go StartEchoServer()
+	go StartUdpEchoServer()
 	go StartHttpServer()
 	time.Sleep(500 * time.Millisecond)
 }
 
 func TestEchoServer(t *testing.T) {
-	c, err := net.ConnectTcpServer(fmt.Sprintf("127.0.0.1:%d", ECHO_PORT))
+	c, err := frpNet.ConnectTcpServer(fmt.Sprintf("127.0.0.1:%d", ECHO_PORT))
 	if err != nil {
 		t.Fatalf("connect to echo server error: %v", err)
 	}
@@ -64,5 +68,30 @@ func TestHttpServer(t *testing.T) {
 		}
 	} else {
 		t.Fatalf("http code from http server error [%d]", res.StatusCode)
+	}
+}
+
+func TestUdpEchoServer(t *testing.T) {
+	addr, err := net.ResolveUDPAddr("udp", "127.0.0.1:10712")
+	if err != nil {
+		t.Fatalf("do udp request error: %v", err)
+	}
+	conn, err := net.DialUDP("udp", nil, addr)
+	if err != nil {
+		t.Fatalf("dial udp server error: %v", err)
+	}
+	defer conn.Close()
+	_, err = conn.Write([]byte("hello frp\n"))
+	if err != nil {
+		t.Fatalf("write to udp server error: %v", err)
+	}
+	data := make([]byte, 20)
+	n, err := conn.Read(data)
+	if err != nil {
+		t.Fatalf("read from udp server error: %v", err)
+	}
+
+	if string(bytes.TrimSpace(data[:n])) != "hello frp" {
+		t.Fatalf("message got from udp server error, get %s", string(data[:n-1]))
 	}
 }
