@@ -43,20 +43,19 @@
 </template>
 
 <script>
-    import {DrawTrafficChart, DrawProxyChart} from "../utils/chart.js"
-    
+    import {DrawTrafficChart, DrawProxyChart} from '../utils/chart.js'
     export default {
         data() {
             return {
-                vhost_http_port: "",
-                vhost_https_port: "",
-                auth_timeout: "",
-                subdomain_host: "",
-                max_pool_count: "",
-                heart_beat_timeout: "",
-                client_counts: "",
-                cur_conns: "",
-                proxy_counts: ""
+                vhost_http_port: '',
+                vhost_https_port: '',
+                auth_timeout: '',
+                subdomain_host: '',
+                max_pool_count: '',
+                heart_beat_timeout: '',
+                client_counts: '',
+                cur_conns: '',
+                proxy_counts: ''
             }
         },
         created() {

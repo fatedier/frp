@@ -5,6 +5,7 @@ import './utils/less/custom.less'
 
 import App from './App.vue'
 import router from './router'
+import 'whatwg-fetch'
 
 Vue.use(ElementUI)
 Vue.config.productionTip = false

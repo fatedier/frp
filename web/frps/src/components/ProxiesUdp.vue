@@ -74,11 +74,11 @@
 </template>
 
 <script>
-  import Humanize from "humanize-plus";
+  import Humanize from 'humanize-plus';
   import Traffic from './Traffic.vue'
   import {
     UdpProxy
-  } from "../utils/proxy.js"
+  } from '../utils/proxy.js'
   export default {
     data() {
       return {

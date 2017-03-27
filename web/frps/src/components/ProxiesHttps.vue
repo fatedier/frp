@@ -78,17 +78,17 @@
 </template>
 
 <script>
-  import Humanize from "humanize-plus";
+  import Humanize from 'humanize-plus';
   import Traffic from './Traffic.vue'
   import {
     HttpsProxy
-  } from "../utils/proxy.js"
+  } from '../utils/proxy.js'
   export default {
     data() {
       return {
         proxies: null,
-        vhost_https_port: "",
-        subdomain_host: ""
+        vhost_https_port: '',
+        subdomain_host: ''
       }
     },
     created() {
