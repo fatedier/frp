@@ -94,10 +94,7 @@ func (c *StandardDateCounter) Dec(count int64) {
 func (c *StandardDateCounter) Snapshot() DateCounter {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	tmp := &StandardDateCounter{
-		reserveDays: c.reserveDays,
-		counts:      make([]int64, c.reserveDays),
-	}
+	tmp := newStandardDateCounter(c.reserveDays)
 	for i := 0; i < int(c.reserveDays); i++ {
 		tmp.counts[i] = c.counts[i]
 	}
@@ -124,7 +121,7 @@ func (c *StandardDateCounter) rotate(now time.Time) {
 
 	if days <= 0 {
 		return
-	} else if days >= 7 {
+	} else if days >= int(c.reserveDays) {
 		c.counts = make([]int64, c.reserveDays)
 		return
 	}
