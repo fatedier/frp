@@ -218,7 +218,7 @@ func (ctl *Control) reader() {
 				return
 			} else {
 				ctl.Warn("read error: %v", err)
-				continue
+				return
 			}
 		} else {
 			ctl.readCh <- m
@@ -262,10 +262,13 @@ func (ctl *Control) manager() {
 		select {
 		case <-hbSend.C:
 			// send heartbeat to server
+			ctl.Debug("send heartbeat to server")
 			ctl.sendCh <- &msg.Ping{}
 		case <-hbCheck.C:
 			if time.Since(ctl.lastPong) > time.Duration(config.ClientCommonCfg.HeartBeatTimeout)*time.Second {
 				ctl.Warn("heartbeat timeout")
+				// let reader() stop
+				ctl.conn.Close()
 				return
 			}
 		case rawMsg, ok := <-ctl.readCh:
@@ -302,6 +305,7 @@ func (ctl *Control) manager() {
 				ctl.Info("[%s] start proxy success", m.ProxyName)
 			case *msg.Pong:
 				ctl.lastPong = time.Now()
+				ctl.Debug("receive heartbeat from server")
 			}
 		}
 	}

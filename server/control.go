@@ -318,6 +318,7 @@ func (ctl *Control) manager() {
 				ctl.sendCh <- resp
 			case *msg.Ping:
 				ctl.lastPing = time.Now()
+				ctl.conn.Debug("receive heartbeat")
 				ctl.sendCh <- &msg.Pong{}
 			}
 		}
