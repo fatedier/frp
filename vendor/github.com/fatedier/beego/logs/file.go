@@ -270,7 +270,7 @@ func (w *fileLogWriter) doRotate(logTime time.Time) error {
 	// Rename the file to its new found name
 	// even if occurs error,we MUST guarantee to  restart new logger
 	err = os.Rename(w.Filename, fName)
-	err = os.Chmod(fName, os.FileMode(440))
+	err = os.Chmod(fName, os.FileMode(0440))
 	// re-start logger
 RESTART_LOGGER:
 
