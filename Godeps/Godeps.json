@@ -18,8 +18,8 @@
 		},
 		{
 			"ImportPath": "github.com/fatedier/beego/logs",
-			"Comment": "v1.7.2-71-gc12472d",
-			"Rev": "c12472d5e4365d2927f5fba8e9260a3e3d51fa52"
+			"Comment": "v1.7.2-72-gf73c369",
+			"Rev": "f73c3692bbd70a83728cb59b2c0423ff95e4ecea"
 		},
 		{
 			"ImportPath": "github.com/golang/snappy",

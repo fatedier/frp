@@ -1,4 +1,4 @@
-// Copyright 2014 beego Author. All Rights Reserved.
+// Copyright 2012 beego Author. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,6 +55,7 @@ const (
 	LevelNotice
 	LevelInformational
 	LevelDebug
+	LevelTrace
 )
 
 // levelLogLogger is defined to implement log.Logger
@@ -76,9 +77,8 @@ const (
 
 // Legacy log level constants to ensure backwards compatibility.
 const (
-	LevelInfo  = LevelInformational
-	LevelTrace = LevelDebug
-	LevelWarn  = LevelWarning
+	LevelInfo = LevelInformational
+	LevelWarn = LevelWarning
 )
 
 type newLoggerFunc func() Logger
@@ -92,7 +92,7 @@ type Logger interface {
 }
 
 var adapters = make(map[string]newLoggerFunc)
-var levelPrefix = [LevelDebug + 1]string{"[M] ", "[A] ", "[C] ", "[E] ", "[W] ", "[N] ", "[I] ", "[D] "}
+var levelPrefix = [LevelTrace + 1]string{"[M] ", "[A] ", "[C] ", "[E] ", "[W] ", "[N] ", "[I] ", "[D] ", "[T] "}
 
 // Register makes a log provide available by the provided name.
 // If Register is called twice with the same name or if driver is nil,
@@ -440,10 +440,10 @@ func (bl *BeeLogger) Info(format string, v ...interface{}) {
 // Trace Log TRACE level message.
 // compatibility alias for Debug()
 func (bl *BeeLogger) Trace(format string, v ...interface{}) {
-	if LevelDebug > bl.level {
+	if LevelTrace > bl.level {
 		return
 	}
-	bl.writeMsg(LevelDebug, format, v...)
+	bl.writeMsg(LevelTrace, format, v...)
 }
 
 // Flush flush all chan data.
