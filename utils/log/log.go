@@ -55,6 +55,8 @@ func SetLogLevel(logLevel string) {
 		level = 6
 	case "debug":
 		level = 7
+	case "trace":
+		level = 8
 	default:
 		level = 4
 	}
@@ -79,6 +81,10 @@ func Debug(format string, v ...interface{}) {
 	Log.Debug(format, v...)
 }
 
+func Trace(format string, v ...interface{}) {
+	Log.Trace(format, v...)
+}
+
 // Logger
 type Logger interface {
 	AddLogPrefix(string)
@@ -88,6 +94,7 @@ type Logger interface {
 	Warn(string, ...interface{})
 	Info(string, ...interface{})
 	Debug(string, ...interface{})
+	Trace(string, ...interface{})
 }
 
 type PrefixLogger struct {
@@ -135,4 +142,8 @@ func (pl *PrefixLogger) Info(format string, v ...interface{}) {
 
 func (pl *PrefixLogger) Debug(format string, v ...interface{}) {
 	Log.Debug(pl.prefix+format, v...)
+}
+
+func (pl *PrefixLogger) Trace(format string, v ...interface{}) {
+	Log.Trace(pl.prefix+format, v...)
 }

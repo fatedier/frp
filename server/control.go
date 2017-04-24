@@ -258,6 +258,7 @@ func (ctl *Control) stoper() {
 	ctl.writerShutdown.WaitDown()
 
 	ctl.conn.Close()
+	ctl.readerShutdown.WaitDown()
 
 	close(ctl.workConnCh)
 	for workConn := range ctl.workConnCh {

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/fatedier/frp/models/config"
@@ -45,6 +46,7 @@ type BaseProxy struct {
 	name      string
 	ctl       *Control
 	listeners []frpNet.Listener
+	mu        sync.RWMutex
 	log.Logger
 }
 
@@ -276,11 +278,23 @@ type UdpProxy struct {
 	BaseProxy
 	cfg *config.UdpProxyConf
 
-	udpConn      *net.UDPConn
-	workConn     net.Conn
-	sendCh       chan *msg.UdpPacket
-	readCh       chan *msg.UdpPacket
+	// udpConn is the listener of udp packages
+	udpConn *net.UDPConn
+
+	// there are always only one workConn at the same time
+	// get another one if it closed
+	workConn net.Conn
+
+	// sendCh is used for sending packages to workConn
+	sendCh chan *msg.UdpPacket
+
+	// readCh is used for reading packages from workConn
+	readCh chan *msg.UdpPacket
+
+	// checkCloseCh is used for watching if workConn is closed
 	checkCloseCh chan int
+
+	isClosed bool
 }
 
 func (pxy *UdpProxy) Run() (err error) {
@@ -300,39 +314,49 @@ func (pxy *UdpProxy) Run() (err error) {
 	pxy.readCh = make(chan *msg.UdpPacket, 64)
 	pxy.checkCloseCh = make(chan int)
 
+	// read message from workConn, if it returns any error, notify proxy to start a new workConn
 	workConnReaderFn := func(conn net.Conn) {
 		for {
 			var udpMsg msg.UdpPacket
+			pxy.Trace("loop waiting message from udp workConn")
 			if errRet := msg.ReadMsgInto(conn, &udpMsg); errRet != nil {
 				pxy.Warn("read from workConn for udp error: %v", errRet)
 				conn.Close()
 				// notify proxy to start a new work connection
+				// ignore error here, it means the proxy is closed
 				errors.PanicToError(func() {
 					pxy.checkCloseCh <- 1
 				})
 				return
 			}
 			if errRet := errors.PanicToError(func() {
+				pxy.Trace("get udp message from workConn: %s", udpMsg.Content)
 				pxy.readCh <- &udpMsg
 				StatsAddTrafficOut(pxy.GetName(), int64(len(udpMsg.Content)))
 			}); errRet != nil {
+				conn.Close()
 				pxy.Info("reader goroutine for udp work connection closed")
 				return
 			}
 		}
 	}
+
+	// send message to workConn
 	workConnSenderFn := func(conn net.Conn, ctx context.Context) {
 		var errRet error
 		for {
 			select {
 			case udpMsg, ok := <-pxy.sendCh:
 				if !ok {
+					pxy.Info("sender goroutine for udp work condition closed")
 					return
 				}
 				if errRet = msg.WriteMsg(conn, udpMsg); errRet != nil {
 					pxy.Info("sender goroutine for udp work connection closed: %v", errRet)
+					conn.Close()
 					return
 				} else {
+					pxy.Trace("send message to udp workConn: %s", udpMsg.Content)
 					StatsAddTrafficIn(pxy.GetName(), int64(len(udpMsg.Content)))
 					continue
 				}
@@ -344,12 +368,12 @@ func (pxy *UdpProxy) Run() (err error) {
 	}
 
 	go func() {
+		// Sleep a while for waiting control send the NewProxyResp to client.
+		time.Sleep(500 * time.Millisecond)
 		for {
-			// Sleep a while for waiting control send the NewProxyResp to client.
-			time.Sleep(500 * time.Millisecond)
 			workConn, err := pxy.GetWorkConnFromPool()
 			if err != nil {
-				time.Sleep(5 * time.Second)
+				time.Sleep(1 * time.Second)
 				// check if proxy is closed
 				select {
 				case _, ok := <-pxy.checkCloseCh:
@@ -359,6 +383,10 @@ func (pxy *UdpProxy) Run() (err error) {
 				default:
 				}
 				continue
+			}
+			// close the old workConn and replac it with a new one
+			if pxy.workConn != nil {
+				pxy.workConn.Close()
 			}
 			pxy.workConn = workConn
 			ctx, cancel := context.WithCancel(context.Background())
@@ -372,10 +400,14 @@ func (pxy *UdpProxy) Run() (err error) {
 		}
 	}()
 
-	// Read from user connections and send wrapped udp message to sendCh.
+	// Read from user connections and send wrapped udp message to sendCh (forwarded by workConn).
 	// Client will transfor udp message to local udp service and waiting for response for a while.
-	// Response will be wrapped to be transfored in work connection to server.
-	udp.ForwardUserConn(udpConn, pxy.readCh, pxy.sendCh)
+	// Response will be wrapped to be forwarded by work connection to server.
+	// Close readCh and sendCh at the end.
+	go func() {
+		udp.ForwardUserConn(udpConn, pxy.readCh, pxy.sendCh)
+		pxy.Close()
+	}()
 	return nil
 }
 
@@ -384,12 +416,20 @@ func (pxy *UdpProxy) GetConf() config.ProxyConf {
 }
 
 func (pxy *UdpProxy) Close() {
-	pxy.BaseProxy.Close()
-	pxy.workConn.Close()
-	pxy.udpConn.Close()
-	close(pxy.checkCloseCh)
-	close(pxy.readCh)
-	close(pxy.sendCh)
+	pxy.mu.Lock()
+	defer pxy.mu.Unlock()
+	if !pxy.isClosed {
+		pxy.isClosed = true
+
+		pxy.BaseProxy.Close()
+		pxy.workConn.Close()
+		pxy.udpConn.Close()
+
+		// all channels only closed here
+		close(pxy.checkCloseCh)
+		close(pxy.readCh)
+		close(pxy.sendCh)
+	}
 }
 
 // HandleUserTcpConnection is used for incoming tcp user connections.

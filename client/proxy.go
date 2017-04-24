@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
@@ -69,7 +70,9 @@ func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy) {
 }
 
 type BaseProxy struct {
-	ctl *Control
+	ctl    *Control
+	closed bool
+	mu     sync.RWMutex
 	log.Logger
 }
 
@@ -151,20 +154,34 @@ func (pxy *UdpProxy) Run() (err error) {
 }
 
 func (pxy *UdpProxy) Close() {
-	pxy.workConn.Close()
-	close(pxy.readCh)
-	close(pxy.sendCh)
+	pxy.mu.Lock()
+	defer pxy.mu.Unlock()
+
+	if !pxy.closed {
+		pxy.closed = true
+		if pxy.workConn != nil {
+			pxy.workConn.Close()
+		}
+		if pxy.readCh != nil {
+			close(pxy.readCh)
+		}
+		if pxy.sendCh != nil {
+			close(pxy.sendCh)
+		}
+	}
 }
 
 func (pxy *UdpProxy) InWorkConn(conn frpNet.Conn) {
-	if pxy.workConn != nil {
-		pxy.workConn.Close()
-		close(pxy.readCh)
-		close(pxy.sendCh)
-	}
+	pxy.Info("incoming a new work connection for udp proxy")
+	// close resources releated with old workConn
+	pxy.Close()
+
+	pxy.mu.Lock()
 	pxy.workConn = conn
 	pxy.readCh = make(chan *msg.UdpPacket, 64)
 	pxy.sendCh = make(chan *msg.UdpPacket, 64)
+	pxy.closed = false
+	pxy.mu.Unlock()
 
 	workConnReaderFn := func(conn net.Conn) {
 		for {
@@ -174,9 +191,10 @@ func (pxy *UdpProxy) InWorkConn(conn frpNet.Conn) {
 				return
 			}
 			if errRet := errors.PanicToError(func() {
+				pxy.Trace("get udp package from workConn: %s", udpMsg.Content)
 				pxy.readCh <- &udpMsg
 			}); errRet != nil {
-				pxy.Info("reader goroutine for udp work connection closed")
+				pxy.Info("reader goroutine for udp work connection closed: %v", errRet)
 				return
 			}
 		}
@@ -184,6 +202,7 @@ func (pxy *UdpProxy) InWorkConn(conn frpNet.Conn) {
 	workConnSenderFn := func(conn net.Conn) {
 		var errRet error
 		for udpMsg := range pxy.sendCh {
+			pxy.Trace("send udp package to workConn: %s", udpMsg.Content)
 			if errRet = msg.WriteMsg(conn, udpMsg); errRet != nil {
 				pxy.Info("sender goroutine for udp work connection closed")
 				return

@@ -51,22 +51,22 @@ func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UdpPacket, sendCh 
 	}()
 
 	// write
-	go func() {
-		buf := pool.GetBuf(1500)
-		defer pool.PutBuf(buf)
-		for {
-			n, remoteAddr, err := udpConn.ReadFromUDP(buf)
-			if err != nil {
-				udpConn.Close()
-				return
-			}
-			udpMsg := NewUdpPacket(buf[:n], nil, remoteAddr)
-			select {
-			case sendCh <- udpMsg:
-			default:
-			}
+	buf := pool.GetBuf(1500)
+	defer pool.PutBuf(buf)
+	for {
+		n, remoteAddr, err := udpConn.ReadFromUDP(buf)
+		if err != nil {
+			udpConn.Close()
+			return
 		}
-	}()
+		// buf[:n] will be encoded to string, so the bytes can be reused
+		udpMsg := NewUdpPacket(buf[:n], nil, remoteAddr)
+		select {
+		case sendCh <- udpMsg:
+		default:
+		}
+	}
+	return
 }
 
 func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UdpPacket, sendCh chan<- *msg.UdpPacket) {

@@ -144,8 +144,8 @@ func (ctl *Control) NewWorkConn() {
 
 	// dispatch this work connection to related proxy
 	if pxy, ok := ctl.proxies[startMsg.ProxyName]; ok {
-		go pxy.InWorkConn(workConn)
 		workConn.Info("start a new work connection")
+		go pxy.InWorkConn(workConn)
 	} else {
 		workConn.Close()
 	}
@@ -288,7 +288,7 @@ func (ctl *Control) manager() {
 				}
 				cfg, ok := ctl.pxyCfgs[m.ProxyName]
 				if !ok {
-					// it will never go to this branch
+					// it will never go to this branch now
 					ctl.Warn("[%s] no proxy conf found", m.ProxyName)
 					continue
 				}
@@ -317,12 +317,12 @@ func (ctl *Control) controler() {
 	maxDelayTime := 30 * time.Second
 	delayTime := time.Second
 
-	checkInterval := 60 * time.Second
+	checkInterval := 30 * time.Second
 	checkProxyTicker := time.NewTicker(checkInterval)
 	for {
 		select {
 		case <-checkProxyTicker.C:
-			// Every 60 seconds, check which proxy registered failed and reregister it to server.
+			// Every 30 seconds, check which proxy registered failed and reregister it to server.
 			for _, cfg := range ctl.pxyCfgs {
 				if _, exist := ctl.proxies[cfg.GetName()]; !exist {
 					ctl.Info("try to reregister proxy [%s]", cfg.GetName())
@@ -337,6 +337,10 @@ func (ctl *Control) controler() {
 				// close related channels
 				close(ctl.readCh)
 				close(ctl.sendCh)
+
+				for _, pxy := range ctl.proxies {
+					pxy.Close()
+				}
 				time.Sleep(time.Second)
 
 				// loop util reconnect to server success
