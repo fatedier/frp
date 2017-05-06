@@ -376,7 +376,7 @@ Anyone who can guess your tunnel URL can access your local web server unless you
 
 This enforces HTTP Basic Auth on all requests with the username and password you specify in frpc's configure file.
 
-It can be only enabled when proxy type is http.
+It can be enabled only when proxy type is http/https.
 
 ```ini
 # frpc.ini
