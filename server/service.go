@@ -28,6 +28,10 @@ import (
 	"github.com/fatedier/frp/utils/vhost"
 )
 
+const (
+	connReadTimeout time.Duration = 10 * time.Second
+)
+
 var ServerService *Service
 
 // Server service.
@@ -121,11 +125,13 @@ func (svr *Service) Run() {
 		// Start a new goroutine for dealing connections.
 		go func(frpConn net.Conn) {
 			var rawMsg msg.Message
+			frpConn.SetReadDeadline(time.Now().Add(connReadTimeout))
 			if rawMsg, err = msg.ReadMsg(frpConn); err != nil {
 				log.Warn("Failed to read message: %v", err)
 				frpConn.Close()
 				return
 			}
+			frpConn.SetReadDeadline(time.Time{})
 
 			switch m := rawMsg.(type) {
 			case *msg.Login:

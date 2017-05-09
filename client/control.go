@@ -30,6 +30,10 @@ import (
 	"github.com/fatedier/frp/utils/version"
 )
 
+const (
+	connReadTimeout time.Duration = 10 * time.Second
+)
+
 type Control struct {
 	// frpc service
 	svr *Service
@@ -144,7 +148,7 @@ func (ctl *Control) NewWorkConn() {
 
 	// dispatch this work connection to related proxy
 	if pxy, ok := ctl.proxies[startMsg.ProxyName]; ok {
-		workConn.Info("start a new work connection")
+		workConn.Info("start a new work connection, localAddr: %s remoteAddr: %s", workConn.LocalAddr().String(), workConn.RemoteAddr().String())
 		go pxy.InWorkConn(workConn)
 	} else {
 		workConn.Close()
@@ -168,6 +172,12 @@ func (ctl *Control) login() (err error) {
 		return err
 	}
 
+	defer func() {
+		if err != nil {
+			conn.Close()
+		}
+	}()
+
 	now := time.Now().Unix()
 	ctl.loginMsg.PrivilegeKey = util.GetAuthKey(config.ClientCommonCfg.PrivilegeToken, now)
 	ctl.loginMsg.Timestamp = now
@@ -178,9 +188,11 @@ func (ctl *Control) login() (err error) {
 	}
 
 	var loginRespMsg msg.LoginResp
+	conn.SetReadDeadline(time.Now().Add(connReadTimeout))
 	if err = msg.ReadMsgInto(conn, &loginRespMsg); err != nil {
 		return err
 	}
+	conn.SetReadDeadline(time.Time{})
 
 	if loginRespMsg.Error != "" {
 		err = fmt.Errorf("%s", loginRespMsg.Error)
