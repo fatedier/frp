@@ -1,16 +1,11 @@
 {
 	"ImportPath": "github.com/fatedier/frp",
-	"GoVersion": "go1.7",
-	"GodepVersion": "v75",
+	"GoVersion": "go1.6",
+	"GodepVersion": "v79",
 	"Packages": [
 		"./..."
 	],
 	"Deps": [
-		{
-			"ImportPath": "github.com/astaxie/beego/logs",
-			"Comment": "v1.7.0-7-gefbde1e",
-			"Rev": "efbde1ee77517486eac03e814e01d724ddad18e6"
-		},
 		{
 			"ImportPath": "github.com/davecgh/go-spew/spew",
 			"Comment": "v1.1.0",
@@ -20,6 +15,20 @@
 			"ImportPath": "github.com/docopt/docopt-go",
 			"Comment": "0.6.2",
 			"Rev": "784ddc588536785e7299f7272f39101f7faccc3f"
+		},
+		{
+			"ImportPath": "github.com/fatedier/beego/logs",
+			"Comment": "v1.7.2-72-gf73c369",
+			"Rev": "f73c3692bbd70a83728cb59b2c0423ff95e4ecea"
+		},
+		{
+			"ImportPath": "github.com/golang/snappy",
+			"Rev": "5979233c5d6225d4a8e438cdd0b411888449ddab"
+		},
+		{
+			"ImportPath": "github.com/julienschmidt/httprouter",
+			"Comment": "v1.1-41-g8a45e95",
+			"Rev": "8a45e95fc75cb77048068a62daed98cc22fdac7c"
 		},
 		{
 			"ImportPath": "github.com/pmezard/go-difflib/difflib",
@@ -39,6 +48,10 @@
 		{
 			"ImportPath": "github.com/vaughan0/go-ini",
 			"Rev": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/pbkdf2",
+			"Rev": "1f22c0103821b9390939b6776727195525381532"
 		}
 	]
 }

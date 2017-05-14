@@ -1,0 +1,47 @@
+{
+  "name": "frps-dashboard",
+  "description": "A dashboard for frp server.",
+  "author": "fatedier",
+  "private": true,
+  "scripts": {
+    "dev": "webpack-dev-server -d --inline --hot --env.dev",
+    "build": "rimraf dist && webpack -p --progress --hide-modules"
+  },
+  "dependencies": {
+    "bootstrap": "^3.3.7",
+    "echarts": "^3.5.0",
+    "element-ui": "^1.2.5",
+    "humanize-plus": "^1.8.2",
+    "vue": "^2.2.4",
+    "vue-resource": "^1.2.1",
+    "vue-router": "^2.3.0",
+    "whatwg-fetch": "^2.0.3"
+  },
+  "engines": {
+    "node": ">=6"
+  },
+  "devDependencies": {
+    "autoprefixer": "^6.6.0",
+    "babel-core": "^6.21.0",
+    "babel-eslint": "^7.1.1",
+    "babel-loader": "^6.4.0",
+    "babel-preset-es2015": "^6.13.2",
+    "css-loader": "^0.27.0",
+    "eslint": "^3.12.2",
+    "eslint-config-enough": "^0.2.2",
+    "eslint-loader": "^1.6.3",
+    "file-loader": "^0.10.1",
+    "html-loader": "^0.4.5",
+    "html-webpack-plugin": "^2.24.1",
+    "less": "^2.7.2",
+    "less-loader": "^3.0.0",
+    "postcss-loader": "^1.3.3",
+    "rimraf": "^2.5.4",
+    "style-loader": "^0.13.2",
+    "url-loader": "^0.5.8",
+    "vue-loader": "^11.1.4",
+    "vue-template-compiler": "^2.1.8",
+    "webpack": "^2.2.0-rc.4",
+    "webpack-dev-server": "beta"
+  }
+}

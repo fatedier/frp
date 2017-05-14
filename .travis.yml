@@ -2,9 +2,8 @@ sudo: false
 language: go
 
 go:
-    - 1.5.4
-    - 1.6.4
-    - 1.7.4
+    - 1.7.5
+    - 1.8
 
 install:
     - make
