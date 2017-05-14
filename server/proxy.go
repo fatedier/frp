@@ -310,16 +310,21 @@ func (pxy *UdpProxy) Run() (err error) {
 	pxy.Info("udp proxy listen port [%d]", pxy.cfg.RemotePort)
 
 	pxy.udpConn = udpConn
-	pxy.sendCh = make(chan *msg.UdpPacket, 64)
-	pxy.readCh = make(chan *msg.UdpPacket, 64)
+	pxy.sendCh = make(chan *msg.UdpPacket, 1024)
+	pxy.readCh = make(chan *msg.UdpPacket, 1024)
 	pxy.checkCloseCh = make(chan int)
 
 	// read message from workConn, if it returns any error, notify proxy to start a new workConn
 	workConnReaderFn := func(conn net.Conn) {
 		for {
-			var udpMsg msg.UdpPacket
+			var (
+				rawMsg msg.Message
+				errRet error
+			)
 			pxy.Trace("loop waiting message from udp workConn")
-			if errRet := msg.ReadMsgInto(conn, &udpMsg); errRet != nil {
+			// client will send heartbeat in workConn for keeping alive
+			conn.SetReadDeadline(time.Now().Add(time.Duration(60) * time.Second))
+			if rawMsg, errRet = msg.ReadMsg(conn); errRet != nil {
 				pxy.Warn("read from workConn for udp error: %v", errRet)
 				conn.Close()
 				// notify proxy to start a new work connection
@@ -329,14 +334,21 @@ func (pxy *UdpProxy) Run() (err error) {
 				})
 				return
 			}
-			if errRet := errors.PanicToError(func() {
-				pxy.Trace("get udp message from workConn: %s", udpMsg.Content)
-				pxy.readCh <- &udpMsg
-				StatsAddTrafficOut(pxy.GetName(), int64(len(udpMsg.Content)))
-			}); errRet != nil {
-				conn.Close()
-				pxy.Info("reader goroutine for udp work connection closed")
-				return
+			conn.SetReadDeadline(time.Time{})
+			switch m := rawMsg.(type) {
+			case *msg.Ping:
+				pxy.Trace("udp work conn get ping message")
+				continue
+			case *msg.UdpPacket:
+				if errRet := errors.PanicToError(func() {
+					pxy.Trace("get udp message from workConn: %s", m.Content)
+					pxy.readCh <- m
+					StatsAddTrafficOut(pxy.GetName(), int64(len(m.Content)))
+				}); errRet != nil {
+					conn.Close()
+					pxy.Info("reader goroutine for udp work connection closed")
+					return
+				}
 			}
 		}
 	}
@@ -348,7 +360,7 @@ func (pxy *UdpProxy) Run() (err error) {
 			select {
 			case udpMsg, ok := <-pxy.sendCh:
 				if !ok {
-					pxy.Info("sender goroutine for udp work condition closed")
+					pxy.Info("sender goroutine for udp work connection closed")
 					return
 				}
 				if errRet = msg.WriteMsg(conn, udpMsg); errRet != nil {

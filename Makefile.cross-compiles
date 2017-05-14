@@ -27,3 +27,6 @@ app:
 	env CGO_ENABLED=0 GOOS=linux GOARCH=mips go build -o -ldflags "$(LDFLAGS)" ./frps_linux_mips ./cmd/frps
 	env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle go build -o -ldflags "$(LDFLAGS)" ./frpc_linux_mipsle ./cmd/frpc
 	env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle go build -o -ldflags "$(LDFLAGS)" ./frps_linux_mipsle ./cmd/frps
+
+temp:
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./frps_linux_amd64 ./cmd/frps

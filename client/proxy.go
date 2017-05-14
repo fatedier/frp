@@ -19,6 +19,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
@@ -141,8 +142,10 @@ type UdpProxy struct {
 
 	localAddr *net.UDPAddr
 	readCh    chan *msg.UdpPacket
-	sendCh    chan *msg.UdpPacket
-	workConn  frpNet.Conn
+
+	// include msg.UdpPacket and msg.Ping
+	sendCh   chan msg.Message
+	workConn frpNet.Conn
 }
 
 func (pxy *UdpProxy) Run() (err error) {
@@ -172,18 +175,18 @@ func (pxy *UdpProxy) Close() {
 }
 
 func (pxy *UdpProxy) InWorkConn(conn frpNet.Conn) {
-	pxy.Info("incoming a new work connection for udp proxy")
+	pxy.Info("incoming a new work connection for udp proxy, %s", conn.RemoteAddr().String())
 	// close resources releated with old workConn
 	pxy.Close()
 
 	pxy.mu.Lock()
 	pxy.workConn = conn
-	pxy.readCh = make(chan *msg.UdpPacket, 64)
-	pxy.sendCh = make(chan *msg.UdpPacket, 64)
+	pxy.readCh = make(chan *msg.UdpPacket, 1024)
+	pxy.sendCh = make(chan msg.Message, 1024)
 	pxy.closed = false
 	pxy.mu.Unlock()
 
-	workConnReaderFn := func(conn net.Conn) {
+	workConnReaderFn := func(conn net.Conn, readCh chan *msg.UdpPacket) {
 		for {
 			var udpMsg msg.UdpPacket
 			if errRet := msg.ReadMsgInto(conn, &udpMsg); errRet != nil {
@@ -192,26 +195,46 @@ func (pxy *UdpProxy) InWorkConn(conn frpNet.Conn) {
 			}
 			if errRet := errors.PanicToError(func() {
 				pxy.Trace("get udp package from workConn: %s", udpMsg.Content)
-				pxy.readCh <- &udpMsg
+				readCh <- &udpMsg
 			}); errRet != nil {
 				pxy.Info("reader goroutine for udp work connection closed: %v", errRet)
 				return
 			}
 		}
 	}
-	workConnSenderFn := func(conn net.Conn) {
+	workConnSenderFn := func(conn net.Conn, sendCh chan msg.Message) {
+		defer func() {
+			pxy.Info("writer goroutine for udp work connection closed")
+		}()
 		var errRet error
-		for udpMsg := range pxy.sendCh {
-			pxy.Trace("send udp package to workConn: %s", udpMsg.Content)
-			if errRet = msg.WriteMsg(conn, udpMsg); errRet != nil {
-				pxy.Info("sender goroutine for udp work connection closed")
+		for rawMsg := range sendCh {
+			switch m := rawMsg.(type) {
+			case *msg.UdpPacket:
+				pxy.Trace("send udp package to workConn: %s", m.Content)
+			case *msg.Ping:
+				pxy.Trace("send ping message to udp workConn")
+			}
+			if errRet = msg.WriteMsg(conn, rawMsg); errRet != nil {
+				pxy.Error("udp work write error: %v", errRet)
 				return
 			}
 		}
 	}
+	heartbeatFn := func(conn net.Conn, sendCh chan msg.Message) {
+		var errRet error
+		for {
+			time.Sleep(time.Duration(30) * time.Second)
+			if errRet = errors.PanicToError(func() {
+				sendCh <- &msg.Ping{}
+			}); errRet != nil {
+				pxy.Trace("heartbeat goroutine for udp work connection closed")
+			}
+		}
+	}
 
-	go workConnSenderFn(pxy.workConn)
-	go workConnReaderFn(pxy.workConn)
+	go workConnSenderFn(pxy.workConn, pxy.sendCh)
+	go workConnReaderFn(pxy.workConn, pxy.readCh)
+	go heartbeatFn(pxy.workConn, pxy.sendCh)
 	udp.Forwarder(pxy.localAddr, pxy.readCh, pxy.sendCh)
 }
 

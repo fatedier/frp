@@ -54,8 +54,8 @@ func GetDeaultClientCommonConf() *ClientCommonConf {
 		PrivilegeToken:    "",
 		PoolCount:         1,
 		User:              "",
-		HeartBeatInterval: 10,
-		HeartBeatTimeout:  30,
+		HeartBeatInterval: 30,
+		HeartBeatTimeout:  90,
 	}
 }
 

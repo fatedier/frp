@@ -77,7 +77,7 @@ func GetDefaultServerCommonConf() *ServerCommonConf {
 		AuthTimeout:      900,
 		SubDomainHost:    "",
 		MaxPoolCount:     10,
-		HeartBeatTimeout: 30,
+		HeartBeatTimeout: 90,
 		UserConnTimeout:  10,
 	}
 }
