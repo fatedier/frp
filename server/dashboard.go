@@ -84,7 +84,7 @@ type AuthWraper struct {
 
 func (aw *AuthWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	user, passwd, hasAuth := r.BasicAuth()
-	if hasAuth && user == aw.user || passwd == aw.passwd {
+	if (aw.user == "" && aw.passwd == "") || (hasAuth && user == aw.user || passwd == aw.passwd) {
 		aw.h.ServeHTTP(w, r)
 	} else {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
@@ -103,7 +103,8 @@ func basicAuthWraper(h http.Handler) http.Handler {
 func basicAuth(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, passwd, hasAuth := r.BasicAuth()
-		if hasAuth && user == config.ServerCommonCfg.DashboardUser || passwd == config.ServerCommonCfg.DashboardPwd {
+		if (config.ServerCommonCfg.DashboardUser == "" && config.ServerCommonCfg.DashboardPwd == "") ||
+			(hasAuth && user == config.ServerCommonCfg.DashboardUser || passwd == config.ServerCommonCfg.DashboardPwd) {
 			h.ServeHTTP(w, r)
 		} else {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
@@ -115,7 +116,8 @@ func basicAuth(h http.HandlerFunc) http.HandlerFunc {
 func httprouterBasicAuth(h httprouter.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		user, passwd, hasAuth := r.BasicAuth()
-		if hasAuth && user == config.ServerCommonCfg.DashboardUser || passwd == config.ServerCommonCfg.DashboardPwd {
+		if (config.ServerCommonCfg.DashboardUser == "" && config.ServerCommonCfg.DashboardPwd == "") ||
+			(hasAuth && user == config.ServerCommonCfg.DashboardUser || passwd == config.ServerCommonCfg.DashboardPwd) {
 			h(w, r, ps)
 		} else {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
