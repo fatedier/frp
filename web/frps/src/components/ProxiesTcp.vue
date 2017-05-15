@@ -97,7 +97,7 @@
         return Humanize.fileSize(row.traffic_out)
       },
       fetchData() {
-        fetch('/api/proxy/tcp')
+        fetch('/api/proxy/tcp', {credentials: 'include'})
           .then(res => {
             return res.json()
           }).then(json => {

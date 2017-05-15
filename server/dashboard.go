@@ -36,20 +36,19 @@ func RunDashboardServer(addr string, port int64) (err error) {
 	router := httprouter.New()
 
 	// api, see dashboard_api.go
-	//mux.HandleFunc("/api/reload", use(apiReload, basicAuth))
-	router.GET("/api/serverinfo", apiServerInfo)
-	router.GET("/api/proxy/tcp", apiProxyTcp)
-	router.GET("/api/proxy/udp", apiProxyUdp)
-	router.GET("/api/proxy/http", apiProxyHttp)
-	router.GET("/api/proxy/https", apiProxyHttps)
-	router.GET("/api/proxy/traffic/:name", apiProxyTraffic)
+	router.GET("/api/serverinfo", httprouterBasicAuth(apiServerInfo))
+	router.GET("/api/proxy/tcp", httprouterBasicAuth(apiProxyTcp))
+	router.GET("/api/proxy/udp", httprouterBasicAuth(apiProxyUdp))
+	router.GET("/api/proxy/http", httprouterBasicAuth(apiProxyHttp))
+	router.GET("/api/proxy/https", httprouterBasicAuth(apiProxyHttps))
+	router.GET("/api/proxy/traffic/:name", httprouterBasicAuth(apiProxyTraffic))
 
 	// view
 	router.Handler("GET", "/favicon.ico", http.FileServer(assets.FileSystem))
-	router.Handler("GET", "/static/*filepath", http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))
-	router.HandlerFunc("GET", "/", func(w http.ResponseWriter, r *http.Request) {
+	router.Handler("GET", "/static/*filepath", basicAuthWraper(http.StripPrefix("/static/", http.FileServer(assets.FileSystem))))
+	router.HandlerFunc("GET", "/", basicAuth(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
-	})
+	}))
 
 	address := fmt.Sprintf("%s:%d", addr, port)
 	server := &http.Server{
@@ -77,22 +76,50 @@ func use(h http.HandlerFunc, middleware ...func(http.HandlerFunc) http.HandlerFu
 	return h
 }
 
+type AuthWraper struct {
+	h      http.Handler
+	user   string
+	passwd string
+}
+
+func (aw *AuthWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	user, passwd, hasAuth := r.BasicAuth()
+	if hasAuth && user == aw.user || passwd == aw.passwd {
+		aw.h.ServeHTTP(w, r)
+	} else {
+		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+	}
+}
+
+func basicAuthWraper(h http.Handler) http.Handler {
+	return &AuthWraper{
+		h:      h,
+		user:   config.ServerCommonCfg.DashboardUser,
+		passwd: config.ServerCommonCfg.DashboardPwd,
+	}
+}
+
 func basicAuth(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
-
-		username, passwd, ok := r.BasicAuth()
-		if !ok {
-			http.Error(w, "Not authorized", 401)
-			return
+		user, passwd, hasAuth := r.BasicAuth()
+		if hasAuth && user == config.ServerCommonCfg.DashboardUser || passwd == config.ServerCommonCfg.DashboardPwd {
+			h.ServeHTTP(w, r)
+		} else {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		}
+	}
+}
 
-		if username != config.ServerCommonCfg.DashboardUser || passwd != config.ServerCommonCfg.DashboardPwd {
-			http.Error(w, "Not authorized", 401)
-			return
+func httprouterBasicAuth(h httprouter.Handle) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		user, passwd, hasAuth := r.BasicAuth()
+		if hasAuth && user == config.ServerCommonCfg.DashboardUser || passwd == config.ServerCommonCfg.DashboardPwd {
+			h(w, r, ps)
+		} else {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		}
-
-		h.ServeHTTP(w, r)
 	}
 }

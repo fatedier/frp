@@ -15,7 +15,7 @@ export default {
     methods: {
         fetchData() {
             let url = '/api/proxy/traffic/' + this.proxy_name
-            fetch(url)
+            fetch(url, {credentials: 'include'})
               .then(res => {
                 return res.json()
               }).then(json => {

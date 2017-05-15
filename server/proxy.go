@@ -434,7 +434,9 @@ func (pxy *UdpProxy) Close() {
 		pxy.isClosed = true
 
 		pxy.BaseProxy.Close()
-		pxy.workConn.Close()
+		if pxy.workConn != nil {
+			pxy.workConn.Close()
+		}
 		pxy.udpConn.Close()
 
 		// all channels only closed here

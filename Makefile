@@ -7,9 +7,11 @@ build: frps frpc
 
 # compile assets into binary file
 file:
+	rm -rf ./assets/static/*
+	cp -rf ./web/frps/dist/* ./assets/static
 	go get -d github.com/rakyll/statik
-	@go install github.com/rakyll/statik
-	@rm -rf ./assets/statik
+	go install github.com/rakyll/statik
+	rm -rf ./assets/statik
 	go generate ./assets/...
 
 fmt:
