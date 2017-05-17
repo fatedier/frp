@@ -49,6 +49,7 @@ type ServerCommonConf struct {
 	PrivilegeToken string
 	AuthTimeout    int64
 	SubDomainHost  string
+	TcpMux         bool
 
 	// if PrivilegeAllowPorts is not nil, tcp proxies which remote port exist in this map can be connected
 	PrivilegeAllowPorts map[int64]struct{}
@@ -76,7 +77,8 @@ func GetDefaultServerCommonConf() *ServerCommonConf {
 		PrivilegeToken:   "",
 		AuthTimeout:      900,
 		SubDomainHost:    "",
-		MaxPoolCount:     10,
+		TcpMux:           true,
+		MaxPoolCount:     5,
 		HeartBeatTimeout: 90,
 		UserConnTimeout:  10,
 	}
@@ -263,6 +265,13 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 	tmpStr, ok = conf.Get("common", "subdomain_host")
 	if ok {
 		cfg.SubDomainHost = strings.ToLower(strings.TrimSpace(tmpStr))
+	}
+
+	tmpStr, ok = conf.Get("common", "tcp_mux")
+	if ok && tmpStr == "false" {
+		cfg.TcpMux = false
+	} else {
+		cfg.TcpMux = true
 	}
 
 	tmpStr, ok = conf.Get("common", "heartbeat_timeout")

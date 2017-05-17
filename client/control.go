@@ -28,6 +28,7 @@ import (
 	"github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
+	"github.com/xtaci/smux"
 )
 
 const (
@@ -49,6 +50,9 @@ type Control struct {
 
 	// control connection
 	conn net.Conn
+
+	// tcp stream multiplexing, if enabled
+	session *smux.Session
 
 	// put a message in this channel to send it over control connection to server
 	sendCh chan (msg.Message)
@@ -122,11 +126,25 @@ func (ctl *Control) Run() error {
 }
 
 func (ctl *Control) NewWorkConn() {
-	workConn, err := net.ConnectTcpServerByHttpProxy(config.ClientCommonCfg.HttpProxy,
-		fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerPort))
-	if err != nil {
-		ctl.Warn("start new work connection error: %v", err)
-		return
+	var (
+		workConn net.Conn
+		err      error
+	)
+	if config.ClientCommonCfg.TcpMux {
+		stream, err := ctl.session.OpenStream()
+		if err != nil {
+			ctl.Warn("start new work connection error: %v", err)
+			return
+		}
+		workConn = net.WrapConn(stream)
+
+	} else {
+		workConn, err = net.ConnectTcpServerByHttpProxy(config.ClientCommonCfg.HttpProxy,
+			fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerPort))
+		if err != nil {
+			ctl.Warn("start new work connection error: %v", err)
+			return
+		}
 	}
 
 	m := &msg.NewWorkConn{
@@ -166,6 +184,10 @@ func (ctl *Control) login() (err error) {
 	if ctl.conn != nil {
 		ctl.conn.Close()
 	}
+	if ctl.session != nil {
+		ctl.session.Close()
+	}
+
 	conn, err := net.ConnectTcpServerByHttpProxy(config.ClientCommonCfg.HttpProxy,
 		fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerPort))
 	if err != nil {
@@ -177,6 +199,20 @@ func (ctl *Control) login() (err error) {
 			conn.Close()
 		}
 	}()
+
+	if config.ClientCommonCfg.TcpMux {
+		session, errRet := smux.Client(conn, nil)
+		if errRet != nil {
+			return errRet
+		}
+		stream, errRet := session.OpenStream()
+		if errRet != nil {
+			session.Close()
+			return errRet
+		}
+		conn = net.WrapConn(stream)
+		ctl.session = session
+	}
 
 	now := time.Now().Unix()
 	ctl.loginMsg.PrivilegeKey = util.GetAuthKey(config.ClientCommonCfg.PrivilegeToken, now)

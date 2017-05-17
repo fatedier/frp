@@ -36,6 +36,7 @@ type ClientCommonConf struct {
 	LogMaxDays        int64
 	PrivilegeToken    string
 	PoolCount         int
+	TcpMux            bool
 	User              string
 	HeartBeatInterval int64
 	HeartBeatTimeout  int64
@@ -53,6 +54,7 @@ func GetDeaultClientCommonConf() *ClientCommonConf {
 		LogMaxDays:        3,
 		PrivilegeToken:    "",
 		PoolCount:         1,
+		TcpMux:            true,
 		User:              "",
 		HeartBeatInterval: 30,
 		HeartBeatTimeout:  90,
@@ -118,6 +120,13 @@ func LoadClientCommonConf(conf ini.File) (cfg *ClientCommonConf, err error) {
 		} else {
 			cfg.PoolCount = int(v)
 		}
+	}
+
+	tmpStr, ok = conf.Get("common", "tcp_mux")
+	if ok && tmpStr == "false" {
+		cfg.TcpMux = false
+	} else {
+		cfg.TcpMux = true
 	}
 
 	tmpStr, ok = conf.Get("common", "user")

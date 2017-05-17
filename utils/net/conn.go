@@ -26,6 +26,18 @@ type Conn interface {
 	log.Logger
 }
 
+type WrapLogConn struct {
+	net.Conn
+	log.Logger
+}
+
+func WrapConn(c net.Conn) Conn {
+	return WrapLogConn{
+		Conn:   c,
+		Logger: log.NewPrefixLogger(""),
+	}
+}
+
 type Listener interface {
 	Accept() (Conn, error)
 	Close() error

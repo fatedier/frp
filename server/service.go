@@ -22,10 +22,12 @@ import (
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/utils/log"
-	"github.com/fatedier/frp/utils/net"
+	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
 	"github.com/fatedier/frp/utils/vhost"
+
+	"github.com/xtaci/smux"
 )
 
 const (
@@ -37,7 +39,7 @@ var ServerService *Service
 // Server service.
 type Service struct {
 	// Accept connections from client.
-	listener net.Listener
+	listener frpNet.Listener
 
 	// For http proxies, route requests to different clients by hostname and other infomation.
 	VhostHttpMuxer *vhost.HttpMuxer
@@ -66,7 +68,7 @@ func NewService() (svr *Service, err error) {
 	}
 
 	// Listen for accepting connections from client.
-	svr.listener, err = net.ListenTcp(config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.BindPort)
+	svr.listener, err = frpNet.ListenTcp(config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.BindPort)
 	if err != nil {
 		err = fmt.Errorf("Create server listener error, %v", err)
 		return
@@ -74,8 +76,8 @@ func NewService() (svr *Service, err error) {
 
 	// Create http vhost muxer.
 	if config.ServerCommonCfg.VhostHttpPort != 0 {
-		var l net.Listener
-		l, err = net.ListenTcp(config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.VhostHttpPort)
+		var l frpNet.Listener
+		l, err = frpNet.ListenTcp(config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.VhostHttpPort)
 		if err != nil {
 			err = fmt.Errorf("Create vhost http listener error, %v", err)
 			return
@@ -89,8 +91,8 @@ func NewService() (svr *Service, err error) {
 
 	// Create https vhost muxer.
 	if config.ServerCommonCfg.VhostHttpsPort != 0 {
-		var l net.Listener
-		l, err = net.ListenTcp(config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.VhostHttpsPort)
+		var l frpNet.Listener
+		l, err = frpNet.ListenTcp(config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.VhostHttpsPort)
 		if err != nil {
 			err = fmt.Errorf("Create vhost https listener error, %v", err)
 			return
@@ -123,40 +125,63 @@ func (svr *Service) Run() {
 		}
 
 		// Start a new goroutine for dealing connections.
-		go func(frpConn net.Conn) {
-			var rawMsg msg.Message
-			frpConn.SetReadDeadline(time.Now().Add(connReadTimeout))
-			if rawMsg, err = msg.ReadMsg(frpConn); err != nil {
-				log.Warn("Failed to read message: %v", err)
-				frpConn.Close()
-				return
-			}
-			frpConn.SetReadDeadline(time.Time{})
-
-			switch m := rawMsg.(type) {
-			case *msg.Login:
-				err = svr.RegisterControl(frpConn, m)
-				// If login failed, send error message there.
-				// Otherwise send success message in control's work goroutine.
-				if err != nil {
-					frpConn.Warn("%v", err)
-					msg.WriteMsg(frpConn, &msg.LoginResp{
-						Version: version.Full(),
-						Error:   err.Error(),
-					})
-					frpConn.Close()
+		go func(frpConn frpNet.Conn) {
+			dealFn := func(conn frpNet.Conn) {
+				var rawMsg msg.Message
+				conn.SetReadDeadline(time.Now().Add(connReadTimeout))
+				if rawMsg, err = msg.ReadMsg(conn); err != nil {
+					log.Warn("Failed to read message: %v", err)
+					conn.Close()
+					return
 				}
-			case *msg.NewWorkConn:
-				svr.RegisterWorkConn(frpConn, m)
-			default:
-				log.Warn("Error message type for the new connection [%s]", frpConn.RemoteAddr().String())
-				frpConn.Close()
+				conn.SetReadDeadline(time.Time{})
+
+				switch m := rawMsg.(type) {
+				case *msg.Login:
+					err = svr.RegisterControl(conn, m)
+					// If login failed, send error message there.
+					// Otherwise send success message in control's work goroutine.
+					if err != nil {
+						conn.Warn("%v", err)
+						msg.WriteMsg(conn, &msg.LoginResp{
+							Version: version.Full(),
+							Error:   err.Error(),
+						})
+						conn.Close()
+					}
+				case *msg.NewWorkConn:
+					svr.RegisterWorkConn(conn, m)
+				default:
+					log.Warn("Error message type for the new connection [%s]", conn.RemoteAddr().String())
+					conn.Close()
+				}
+			}
+
+			if config.ServerCommonCfg.TcpMux {
+				session, err := smux.Server(frpConn, nil)
+				if err != nil {
+					log.Warn("Failed to create mux connection: %v", err)
+					frpConn.Close()
+					return
+				}
+
+				for {
+					stream, err := session.AcceptStream()
+					if err != nil {
+						log.Warn("Accept new mux stream error: %v", err)
+						return
+					}
+					wrapConn := frpNet.WrapConn(stream)
+					go dealFn(wrapConn)
+				}
+			} else {
+				dealFn(frpConn)
 			}
 		}(c)
 	}
 }
 
-func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err error) {
+func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (err error) {
 	ctlConn.Info("client login info: ip [%s] version [%s] hostname [%s] os [%s] arch [%s]",
 		ctlConn.RemoteAddr().String(), loginMsg.Version, loginMsg.Hostname, loginMsg.Os, loginMsg.Arch)
 
@@ -201,7 +226,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 }
 
 // RegisterWorkConn register a new work connection to control and proxies need it.
-func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn) {
+func (svr *Service) RegisterWorkConn(workConn frpNet.Conn, newMsg *msg.NewWorkConn) {
 	ctl, exist := svr.ctlManager.GetById(newMsg.RunId)
 	if !exist {
 		workConn.Warn("No client control found for run id [%s]", newMsg.RunId)
