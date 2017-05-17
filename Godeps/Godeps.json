@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/fatedier/frp",
-	"GoVersion": "go1.6",
+	"GoVersion": "go1.8",
 	"GodepVersion": "v79",
 	"Packages": [
 		"./..."
@@ -31,6 +31,11 @@
 			"Rev": "8a45e95fc75cb77048068a62daed98cc22fdac7c"
 		},
 		{
+			"ImportPath": "github.com/pkg/errors",
+			"Comment": "v0.8.0-5-gc605e28",
+			"Rev": "c605e284fe17294bda444b34710735b29d1a9d90"
+		},
+		{
 			"ImportPath": "github.com/pmezard/go-difflib/difflib",
 			"Comment": "v1.0.0",
 			"Rev": "792786c7400a136282c1664665ae0a8db921c6c2"
@@ -48,6 +53,11 @@
 		{
 			"ImportPath": "github.com/vaughan0/go-ini",
 			"Rev": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
+		},
+		{
+			"ImportPath": "github.com/xtaci/smux",
+			"Comment": "v1.0.5-8-g2de5471",
+			"Rev": "2de5471dfcbc029f5fe1392b83fe784127c4943e"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/pbkdf2",
