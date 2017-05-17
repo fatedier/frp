@@ -228,6 +228,7 @@ func (pxy *UdpProxy) InWorkConn(conn frpNet.Conn) {
 				sendCh <- &msg.Ping{}
 			}); errRet != nil {
 				pxy.Trace("heartbeat goroutine for udp work connection closed")
+				break
 			}
 		}
 	}

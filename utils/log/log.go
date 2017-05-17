@@ -23,7 +23,7 @@ import (
 var Log *logs.BeeLogger
 
 func init() {
-	Log = logs.NewLogger(100)
+	Log = logs.NewLogger(200)
 	Log.EnableFuncCallDepth(true)
 	Log.SetLogFuncCallDepth(Log.GetLogFuncCallDepth() + 1)
 }
@@ -43,7 +43,7 @@ func SetLogFile(logWay string, logFile string, maxdays int64) {
 	}
 }
 
-// value: error, warning, info, debug
+// value: error, warning, info, debug, trace
 func SetLogLevel(logLevel string) {
 	level := 4 // warning
 	switch logLevel {
