@@ -36,7 +36,6 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
 * [Donation](#donation)
     * [AliPay](#alipay)
     * [Paypal](#paypal)
-* [Contributors](#contributors)
 
 <!-- vim-markdown-toc -->
 
@@ -485,16 +484,3 @@ frp QQ group: 606194980
 ### Paypal
 
 Donate money by [paypal](https://www.paypal.me/fatedier) to my account **fatedier@gmail.com**.
-
-## Contributors
-
-* [fatedier](https://github.com/fatedier)
-* [Hurricanezwf](https://github.com/Hurricanezwf)
-* [Pan Hao](https://github.com/vashstorm)
-* [Danping Mao](https://github.com/maodanp)
-* [Eric Larssen](https://github.com/ericlarssen)
-* [Damon Zhao](https://github.com/se77en)
-* [Manfred Touron](https://github.com/moul)
-* [xuebing1110](https://github.com/xuebing1110)
-* [Anbitioner](https://github.com/bingtianbaihua)
-* [LitleCarl](https://github.com/LitleCarl)
