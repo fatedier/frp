@@ -19,8 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	util "github.com/fatedier/frp/utils/util"
-	"github.com/prometheus/common/log"
+	"github.com/fatedier/frp/utils/util"
 	ini "github.com/vaughan0/go-ini"
 )
 
