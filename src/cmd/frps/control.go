@@ -253,7 +253,8 @@ func doLogin(req *msg.ControlReq, c *conn.Conn) (ret int64, info string, s *serv
 			// and PrivilegeMode is enabled
 			if s.Type == "tcp" {
 				if len(server.PrivilegeAllowPorts) != 0 {
-					_, ok := server.PrivilegeAllowPorts[s.ListenPort]
+					// TODO: once linstenPort used, should remove the port from privilege ports
+					ok := server.ContainsPort(server.PrivilegeAllowPorts, s.ListenPort)
 					if !ok {
 						info = fmt.Sprintf("ProxyName [%s], remote_port [%d] isn't allowed", req.ProxyName, s.ListenPort)
 						log.Warn(info)

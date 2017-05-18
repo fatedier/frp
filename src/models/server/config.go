@@ -49,7 +49,7 @@ var (
 	SubDomainHost     string = ""
 
 	// if PrivilegeAllowPorts is not nil, tcp proxies which remote port exist in this map can be connected
-	PrivilegeAllowPorts map[int64]struct{}
+	PrivilegeAllowPorts [][2]int64
 	MaxPoolCount        int64 = 100
 	HeartBeatTimeout    int64 = 30
 	UserConnTimeout     int64 = 10
@@ -179,40 +179,12 @@ func loadCommonConf(confFile string) error {
 			return fmt.Errorf("Parse conf error: privilege_token must be set if privilege_mode is enabled")
 		}
 
-		PrivilegeAllowPorts = make(map[int64]struct{})
-		tmpStr, ok = conf.Get("common", "privilege_allow_ports")
+		allowPortsStr, ok := conf.Get("common", "privilege_allow_ports")
+		// TODO: check if conflicts exist in port ranges
 		if ok {
-			// for example: 1000-2000,2001,2002,3000-4000
-			portRanges := strings.Split(tmpStr, ",")
-			for _, portRangeStr := range portRanges {
-				// 1000-2000 or 2001
-				portArray := strings.Split(portRangeStr, "-")
-				// lenght: only 1 or 2 is correct
-				rangeType := len(portArray)
-				if rangeType == 1 {
-					singlePort, err := strconv.ParseInt(portArray[0], 10, 64)
-					if err != nil {
-						return fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
-					}
-					PrivilegeAllowPorts[singlePort] = struct{}{}
-				} else if rangeType == 2 {
-					min, err := strconv.ParseInt(portArray[0], 10, 64)
-					if err != nil {
-						return fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
-					}
-					max, err := strconv.ParseInt(portArray[1], 10, 64)
-					if err != nil {
-						return fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
-					}
-					if max < min {
-						return fmt.Errorf("Parse conf error: privilege_allow_ports range incorrect")
-					}
-					for i := min; i <= max; i++ {
-						PrivilegeAllowPorts[i] = struct{}{}
-					}
-				} else {
-					return fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect")
-				}
+			PrivilegeAllowPorts, err = getPortRanges(allowPortsStr)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -453,4 +425,67 @@ func GetProxyServer(proxyName string) (p *ProxyServer, ok bool) {
 	defer ProxyServersMutex.RUnlock()
 	p, ok = ProxyServers[proxyName]
 	return
+}
+
+func getPortRanges(rangeStr string) (portRanges [][2]int64, err error) {
+	// for example: 1000-2000,2001,2002,3000-4000
+	log.Debug("rangeStr is %s", rangeStr)
+	rangeArray := strings.Split(rangeStr, ",")
+	for _, portRangeStr := range rangeArray {
+		// 1000-2000 or 2001
+		portArray := strings.Split(portRangeStr, "-")
+		// length: only 1 or 2 is correct
+		rangeType := len(portArray)
+		if rangeType == 1 {
+			singlePort, err := strconv.ParseInt(portArray[0], 10, 64)
+			if err != nil {
+				return [][2]int64{}, fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
+			}
+			portRanges = append(portRanges, [2]int64{singlePort, singlePort})
+		} else if rangeType == 2 {
+			min, err := strconv.ParseInt(portArray[0], 10, 64)
+			if err != nil {
+				return [][2]int64{}, fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
+			}
+			max, err := strconv.ParseInt(portArray[1], 10, 64)
+			if err != nil {
+				return [][2]int64{}, fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
+			}
+			if max < min {
+				return [][2]int64{}, fmt.Errorf("Parse conf error: privilege_allow_ports range incorrect")
+			}
+			portRanges = append(portRanges, [2]int64{min, max})
+		} else {
+			return [][2]int64{}, fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect")
+		}
+	}
+	return portRanges, nil
+}
+
+func ContainsPort(portRanges [][2]int64, port int64) bool {
+	for _, pr := range portRanges {
+		if port >= pr[0] && port <= pr[1] {
+			return true
+		}
+	}
+	return false
+}
+
+func PortRangesCut(portRanges [][2]int64, port int64) [][2]int64 {
+	var tmpRanges [][2]int64
+	for _, pr := range portRanges {
+		if port >= pr[0] && port <= pr[1] {
+			leftRange := [2]int64{pr[0], port - 1}
+			rightRange := [2]int64{port + 1, pr[1]}
+			if leftRange[0] <= leftRange[1] {
+				tmpRanges = append(tmpRanges, leftRange)
+			}
+			if rightRange[0] <= rightRange[1] {
+				tmpRanges = append(tmpRanges, rightRange)
+			}
+		} else {
+			tmpRanges = append(tmpRanges, pr)
+		}
+	}
+	return tmpRanges
 }
