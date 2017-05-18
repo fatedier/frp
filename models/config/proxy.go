@@ -23,6 +23,7 @@ import (
 	"github.com/fatedier/frp/models/consts"
 	"github.com/fatedier/frp/models/msg"
 
+	"github.com/fatedier/frp/utils/util"
 	ini "github.com/vaughan0/go-ini"
 )
 
@@ -173,7 +174,7 @@ func (cfg *BindInfoConf) UnMarshalToMsg(pMsg *msg.NewProxy) {
 
 func (cfg *BindInfoConf) check() (err error) {
 	if len(ServerCommonCfg.PrivilegeAllowPorts) != 0 {
-		if _, ok := ServerCommonCfg.PrivilegeAllowPorts[cfg.RemotePort]; !ok {
+		if ok := util.ContainsPort(ServerCommonCfg.PrivilegeAllowPorts, cfg.RemotePort); !ok {
 			return fmt.Errorf("remote port [%d] isn't allowed", cfg.RemotePort)
 		}
 	}
