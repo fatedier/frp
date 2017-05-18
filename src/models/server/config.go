@@ -434,7 +434,7 @@ func getPortRanges(rangeStr string) (portRanges [][2]int64, err error) {
 	for _, portRangeStr := range rangeArray {
 		// 1000-2000 or 2001
 		portArray := strings.Split(portRangeStr, "-")
-		// lenght: only 1 or 2 is correct
+		// length: only 1 or 2 is correct
 		rangeType := len(portArray)
 		if rangeType == 1 {
 			singlePort, err := strconv.ParseInt(portArray[0], 10, 64)
