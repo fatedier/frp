@@ -15,7 +15,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
 * [Status](#status)
 * [Architecture](#architecture)
 * [Example Usage](#example-usage)
-    * [Communicate with your computer in LAN by SSH](#communicate-with-your-computer-in-lan-by-ssh)
+    * [Access your computer in LAN by SSH](#access-your-computer-in-lan-by-ssh)
     * [Visit your web service in LAN by custom domains](#visit-your-web-service-in-lan-by-custom-domains)
     * [Forward DNS query request](#forward-dns-query-request)
 * [Features](#features)
@@ -25,6 +25,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Reload configures without frps stopped](#reload-configures-without-frps-stopped)
     * [Privilege Mode](#privilege-mode)
         * [Port White List](#port-white-list)
+    * [TCP Stream Multiplexing](#tcp-stream-multiplexing)
     * [Connection Pool](#connection-pool)
     * [Rewriting the Host Header](#rewriting-the-host-header)
     * [Password protecting your web service](#password-protecting-your-web-service)
@@ -42,8 +43,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
 ## What can I do with frp?
 
 * Expose any http and https service behind a NAT or firewall to the internet by a server with public IP address(Name-based Virtual Host Support).
-* Expose any tcp service behind a NAT or firewall to the internet by a server with public IP address.
-* Inspect all http requests/responses that are transmitted over the tunnel(future).
+* Expose any tcp or udp service behind a NAT or firewall to the internet by a server with public IP address.
 
 ## Status
 
@@ -63,37 +63,33 @@ Put **frps** and **frps.ini** to your server with public IP.
 
 Put **frpc** and **frpc.ini** to your server in LAN.
 
-### Communicate with your computer in LAN by SSH
+### Access your computer in LAN by SSH
 
-1. Modify frps.ini, configure a reverse proxy named [ssh]:
+1. Modify frps.ini:
 
   ```ini
   # frps.ini
   [common]
   bind_port = 7000
-
-  [ssh]
-  listen_port = 6000
-  auth_token = 123
   ```
 
 2. Start frps:
 
   `./frps -c ./frps.ini`
 
-3. Modify frpc.ini, set remote frps's server IP as x.x.x.x:
+3. Modify frpc.ini, `server_addr` is your frps's server IP:
 
   ```ini
   # frpc.ini
   [common]
   server_addr = x.x.x.x
   server_port = 7000
-  auth_token = 123
 
   [ssh]
   type = tcp
   local_ip = 127.0.0.1
   local_port = 22
+  remote_port = 6000
   ```
 
 4. Start frpc:
@@ -110,18 +106,13 @@ Sometimes we want to expose a local web service behind a NAT network to others f
 
 However, we can expose a http or https service using frp.
 
-1. Modify frps.ini, configure a http reverse proxy named [web] and set http port as 8080, custom domain as `www.yourdomain.com`:
+1. Modify frps.ini, configure http port 8080:
 
   ```ini
   # frps.ini
   [common]
   bind_port = 7000
   vhost_http_port = 8080
-
-  [web]
-  type = http
-  custom_domains = www.yourdomain.com
-  auth_token = 123
   ```
 
 2. Start frps:
@@ -135,11 +126,11 @@ However, we can expose a http or https service using frp.
   [common]
   server_addr = x.x.x.x
   server_port = 7000
-  auth_token = 123
 
   [web]
   type = http
   local_port = 80
+  custom_domains = www.yourdomain.com
   ```
 
 4. Start frpc:
@@ -158,11 +149,6 @@ However, we can expose a http or https service using frp.
   # frps.ini
   [common]
   bind_port = 7000
-
-  [dns]
-  type = udp
-  listen_port = 6000
-  auth_token = 123
   ```
 
 2. Start frps:
@@ -176,12 +162,12 @@ However, we can expose a http or https service using frp.
   [common]
   server_addr = x.x.x.x
   server_port = 7000
-  auth_token = 123
 
   [dns]
   type = udp
   local_ip = 8.8.8.8
   local_port = 53
+  remote_port = 6000
   ```
 
 4. Start frpc:
@@ -214,120 +200,57 @@ Then visit `http://[server_addr]:7500` to see dashboard, default username and pa
 
 ### Authentication
 
-`auth_token` in frps.ini is configured for each proxy and check for authentication when frpc login in.
+Since v0.10.0, you only need to set `privilege_token` in frps.ini and frpc.ini.
 
-Client that want's to register must set a global `auth_token` equals to frps.ini.
-
-Note that time duration between frpc and frps mustn't exceed 15 minutes because timestamp is used for authentication.
+Note that time duration between server of frpc and frps mustn't exceed 15 minutes because timestamp is used for authentication.
 
 Howerver, this timeout duration can be modified by setting `authentication_timeout` in frps's configure file. It's defalut value is 900, means 15 minutes. If it is equals 0, then frps will not check authentication timeout.
 
 ### Encryption and Compression
 
-Defalut value is false, you could decide if the proxy will use encryption or compression whether the type is:
+Defalut value is false, you could decide if the proxy will use encryption or compression:
 
 ```ini
 # frpc.ini
 [ssh]
 type = tcp
-listen_port = 6000
-auth_token = 123
+local_port = 22
+remote_port = 6000
 use_encryption = true
-use_gzip = true
+use_compression = true
 ```
 
 ### Reload configures without frps stopped
 
-If you want to add a new reverse proxy and avoid restarting frps, you can use this function:
-
-1. `dashboard_port` should be set in frps.ini:
-
-  ```ini
-  # frps.ini
-  [common]
-  bind_port = 7000
-  dashboard_port = 7500
-  ```
-
-2. Start frps:
-
-  `./frps -c ./frps.ini`
-
-3. Modify frps.ini to add a new proxy [new_ssh]:
-
-  ```ini
-  # frps.ini
-  [common]
-  bind_port = 7000
-  dashboard_port = 7500
-
-  [new_ssh]
-  listen_port = 6001
-  auth_token = 123
-  ```
-
-4. Execute `reload` command:
-
-  `./frps -c ./frps.ini --reload`
-
-5. Start frpc and [new_ssh] is available now.
+This feature is removed since v0.10.0.
 
 ### Privilege Mode
 
-Privilege mode is used for who don't want to do operations in frps everytime adding a new proxy.
-
-All proxies's configurations are set in frpc.ini when privilege mode is enabled.
-
-1. Enable privilege mode and set `privilege_token`.Client with the same `privilege_token` can create proxy automaticly:
-
-  ```ini
-  # frps.ini
-  [common]
-  bind_port = 7000
-  privilege_mode = true
-  privilege_token = 1234
-  ```
-
-2. Start frps:
-
-  `./frps -c ./frps.ini`
-
-3. Enable privilege mode for proxy [ssh]:
-
-  ```ini
-  # frpc.ini
-  [common]
-  server_addr = x.x.x.x
-  server_port = 7000
-  privilege_token = 1234
-
-  [ssh]
-  privilege_mode = true
-  local_port = 22
-  remote_port = 6000
-  ```
-
-4. Start frpc:
-
-  `./frpc -c ./frpc.ini`
-
-5. Connect to server in LAN by ssh assuming username is test:
-
-  `ssh -oPort=6000 test@x.x.x.x`
+Privilege mode is the default and only mode support in frp since v0.10.0. All proxy configurations are set in client.
 
 #### Port White List
 
-`privilege_allow_ports` in frps.ini is used for preventing abuse of ports in privilege mode:
+`privilege_allow_ports` in frps.ini is used for preventing abuse of ports:
 
 ```ini
 # frps.ini
 [common]
-privilege_mode = true
-privilege_token = 1234
 privilege_allow_ports = 2000-3000,3001,3003,4000-50000
 ```
 
 `privilege_allow_ports` consists of a specific port or a range of ports divided by `,`.
+
+### TCP Stream Multiplexing
+
+frp support tcp stream multiplexing since v0.10.0 like HTTP2 Multiplexing. All user requests to same frpc can use only one tcp connection.
+
+You can disable this feature by modify frps.ini and frpc.ini:
+
+```ini
+# frps.ini and frpc.ini, must be same
+[common]
+tcp_mux = false
+```
 
 ### Connection Pool
 
@@ -337,30 +260,27 @@ This feature is fit for a large number of short connections.
 
 1. Configure the limit of pool count each proxy can use in frps.ini:
 
-  ```ini         
+  ```ini
   # frps.ini
   [common]
-  max_pool_count = 50
+  max_pool_count = 5
   ```
 
 2. Enable and specify the number of connection pool:
 
   ```ini
   # frpc.ini
-  [ssh]
-  type = tcp
-  local_port = 22
-  pool_count = 10
+  [common]
+  pool_count = 1
   ```
 
 ### Rewriting the Host Header
 
 When forwarding to a local port, frp does not modify the tunneled HTTP requests at all, they are copied to your server byte-for-byte as they are received. Some application servers use the Host header for determining which development site to display. For this reason, frp can rewrite your requests with a modified Host header. Use the `host_header_rewrite` switch to rewrite incoming HTTP requests.
 
-```ini                                                             
-# frpc.ini                                                         
+```ini
+# frpc.ini
 [web]
-privilege_mode = true
 type = http
 local_port = 80
 custom_domains = test.yourdomain.com
@@ -375,12 +295,11 @@ Anyone who can guess your tunnel URL can access your local web server unless you
 
 This enforces HTTP Basic Auth on all requests with the username and password you specify in frpc's configure file.
 
-It can be only enabled when proxy type is http.
+It can only be enabled when proxy type is http.
 
 ```ini
 # frpc.ini
 [web]
-privilege_mode = true
 type = http
 local_port = 80
 custom_domains = test.yourdomain.com
@@ -388,7 +307,7 @@ http_user = abc
 http_pwd = abc
 ```
 
-Visit `test.yourdomain.com` and now you need to input username and password.
+Visit `http://test.yourdomain.com` and now you need to input username and password.
 
 ### Custom subdomain names
 
@@ -404,7 +323,6 @@ Resolve `*.frps.com` to the frps server's IP.
 ```ini
 # frpc.ini
 [web]
-privilege_mode = true
 type = http
 local_port = 80
 subdomain = test
@@ -423,14 +341,12 @@ frp support forward http requests to different backward web services by url rout
 ```ini
 # frpc.ini
 [web01]
-privilege_mode = true
 type = http
 local_port = 80
 custom_domains = web.yourdomain.com
 locations = /
 
 [web02]
-privilege_mode = true
 type = http
 local_port = 81
 custom_domains = web.yourdomain.com
@@ -454,11 +370,12 @@ http_proxy = http://user:pwd@192.168.1.128:8080
 * Log http request information in frps.
 * Direct reverse proxy, like haproxy.
 * Load balance to different service in frpc.
-* Debug mode for frpc, prestent proxy status in terminal.
-* Inspect all http requests/responses that are transmitted over the tunnel.
 * Frpc can directly be a webserver for static files.
 * Full control mode, dynamically modify frpc's configure with dashboard in frps.
 * P2p communicate by make udp hole to penetrate NAT.
+* Client Plugin (http proxy).
+* kubernetes ingress support.
+
 
 ## Contributing
 

@@ -1,21 +1,26 @@
 Issue is only used for submiting bug report and documents typo. If there are same issues or answers can be found in documents, we will close it directly.
 
-Please answer these questions before submitting your issue. Thanks!
+Use the commands below to provide key information from your environment:
+You do NOT have to include this information if this is a FEATURE REQUEST
 
-1. What did you do?
-If possible, provide a recipe for reproducing the error.
-
-
-2. What did you expect to see?
+**What version of frp are you using (./frpc -v or ./frps -v)?**
 
 
-
-3. What did you see instead?
-
+**What operating system and processor architecture are you using (`go env`)?**
 
 
-4. What version of frp are you using (./frpc -v or ./frps -v)?
+**Steps to reproduce the issue:**
+1.
+2.
+3.
+
+**Describe the results you received:**
 
 
+**Describe the results you expected:**
 
-5. Can you point out what caused this issue (optional)?
+
+**Additional information you deem important (e.g. issue happens only occasionally):**
+
+
+**Can you point out what caused this issue (optional)**
