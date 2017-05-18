@@ -174,7 +174,6 @@ func (cfg *BindInfoConf) UnMarshalToMsg(pMsg *msg.NewProxy) {
 
 func (cfg *BindInfoConf) check() (err error) {
 	if len(ServerCommonCfg.PrivilegeAllowPorts) != 0 {
-		// TODO: once linstenPort used, should remove the port from privilege ports
 		if ok := util.ContainsPort(ServerCommonCfg.PrivilegeAllowPorts, cfg.RemotePort); !ok {
 			return fmt.Errorf("remote port [%d] isn't allowed", cfg.RemotePort)
 		}

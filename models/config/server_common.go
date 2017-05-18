@@ -187,23 +187,14 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 
 	// PrivilegeMode configure
 	if cfg.PrivilegeMode == true {
-		tmpStr, ok = conf.Get("common", "privilege_token")
-		if ok {
-			if tmpStr == "" {
-				err = fmt.Errorf("Parse conf error: privilege_token can not be empty")
-				return
-			}
-			cfg.PrivilegeToken = tmpStr
-		} else {
-			err = fmt.Errorf("Parse conf error: privilege_token must be set if privilege_mode is enabled")
-			return
-		}
+		cfg.PrivilegeToken, _ = conf.Get("common", "privilege_token")
 
 		allowPortsStr, ok := conf.Get("common", "privilege_allow_ports")
 		// TODO: check if conflicts exist in port ranges
 		if ok {
 			cfg.PrivilegeAllowPorts, err = util.GetPortRanges(allowPortsStr)
 			if err != nil {
+				err = fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
 				return
 			}
 		}

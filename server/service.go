@@ -169,6 +169,7 @@ func (svr *Service) Run() {
 					stream, err := session.AcceptStream()
 					if err != nil {
 						log.Warn("Accept new mux stream error: %v", err)
+						session.Close()
 						return
 					}
 					wrapConn := frpNet.WrapConn(stream)

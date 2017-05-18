@@ -60,24 +60,24 @@ func GetPortRanges(rangeStr string) (portRanges [][2]int64, err error) {
 		if rangeType == 1 {
 			singlePort, err := strconv.ParseInt(portArray[0], 10, 64)
 			if err != nil {
-				return [][2]int64{}, fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
+				return [][2]int64{}, err
 			}
 			portRanges = append(portRanges, [2]int64{singlePort, singlePort})
 		} else if rangeType == 2 {
 			min, err := strconv.ParseInt(portArray[0], 10, 64)
 			if err != nil {
-				return [][2]int64{}, fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
+				return [][2]int64{}, err
 			}
 			max, err := strconv.ParseInt(portArray[1], 10, 64)
 			if err != nil {
-				return [][2]int64{}, fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
+				return [][2]int64{}, err
 			}
 			if max < min {
-				return [][2]int64{}, fmt.Errorf("Parse conf error: privilege_allow_ports range incorrect")
+				return [][2]int64{}, fmt.Errorf("range incorrect")
 			}
 			portRanges = append(portRanges, [2]int64{min, max})
 		} else {
-			return [][2]int64{}, fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect")
+			return [][2]int64{}, fmt.Errorf("format error")
 		}
 	}
 	return portRanges, nil
