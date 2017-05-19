@@ -111,6 +111,7 @@ func NewService() (svr *Service, err error) {
 			err = fmt.Errorf("Create dashboard web server error, %v", err)
 			return
 		}
+		log.Info("Dashboard listen on %s:%d", config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.DashboardPort)
 	}
 	return
 }
