@@ -32,9 +32,14 @@ type ServerStatistics struct {
 	TotalTrafficOut metric.DateCounter
 	CurConns        metric.Counter
 
-	ClientCounts    metric.Counter
+	// counter for clients
+	ClientCounts metric.Counter
+
+	// counter for proxy types
 	ProxyTypeCounts map[string]metric.Counter
 
+	// statistics for different proxies
+	// key is proxy name
 	ProxyStatistics map[string]*ProxyStatistics
 
 	mu sync.Mutex
@@ -84,7 +89,7 @@ func StatsNewProxy(name string, proxyType string) {
 		globalStats.ProxyTypeCounts[proxyType] = counter
 
 		proxyStats, ok := globalStats.ProxyStatistics[name]
-		if !ok {
+		if !(ok && proxyStats.ProxyType == proxyType) {
 			proxyStats = &ProxyStatistics{
 				ProxyType:  proxyType,
 				CurConns:   metric.NewCounter(),
