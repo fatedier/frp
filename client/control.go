@@ -166,7 +166,7 @@ func (ctl *Control) NewWorkConn() {
 
 	// dispatch this work connection to related proxy
 	if pxy, ok := ctl.proxies[startMsg.ProxyName]; ok {
-		workConn.Info("start a new work connection, localAddr: %s remoteAddr: %s", workConn.LocalAddr().String(), workConn.RemoteAddr().String())
+		workConn.Debug("start a new work connection, localAddr: %s remoteAddr: %s", workConn.LocalAddr().String(), workConn.RemoteAddr().String())
 		go pxy.InWorkConn(workConn)
 	} else {
 		workConn.Close()

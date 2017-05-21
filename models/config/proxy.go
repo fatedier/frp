@@ -239,6 +239,7 @@ func (cfg *DomainConf) check() (err error) {
 	return nil
 }
 
+// Local service info
 type LocalSvrConf struct {
 	LocalIp   string `json:"-"`
 	LocalPort int    `json:"-"`
@@ -259,12 +260,34 @@ func (cfg *LocalSvrConf) LoadFromFile(name string, section ini.Section) (err err
 	return nil
 }
 
+type PluginConf struct {
+	Plugin       string            `json:"-"`
+	PluginParams map[string]string `json:"-"`
+}
+
+func (cfg *PluginConf) LoadFromFile(name string, section ini.Section) (err error) {
+	cfg.Plugin = section["plugin"]
+	cfg.PluginParams = make(map[string]string)
+	if cfg.Plugin != "" {
+		// get params begin with "plugin_"
+		for k, v := range section {
+			if strings.HasPrefix(k, "plugin_") {
+				cfg.PluginParams[k] = v
+			}
+		}
+	} else {
+		return fmt.Errorf("Parse conf error: proxy [%s] no plugin info found", name)
+	}
+	return
+}
+
 // TCP
 type TcpProxyConf struct {
 	BaseProxyConf
 	BindInfoConf
 
 	LocalSvrConf
+	PluginConf
 }
 
 func (cfg *TcpProxyConf) LoadFromMsg(pMsg *msg.NewProxy) {
@@ -279,8 +302,11 @@ func (cfg *TcpProxyConf) LoadFromFile(name string, section ini.Section) (err err
 	if err = cfg.BindInfoConf.LoadFromFile(name, section); err != nil {
 		return
 	}
-	if err = cfg.LocalSvrConf.LoadFromFile(name, section); err != nil {
-		return
+
+	if err = cfg.PluginConf.LoadFromFile(name, section); err != nil {
+		if err = cfg.LocalSvrConf.LoadFromFile(name, section); err != nil {
+			return
+		}
 	}
 	return
 }
@@ -337,6 +363,7 @@ type HttpProxyConf struct {
 	DomainConf
 
 	LocalSvrConf
+	PluginConf
 
 	Locations         []string `json:"locations"`
 	HostHeaderRewrite string   `json:"host_header_rewrite"`
@@ -405,6 +432,7 @@ type HttpsProxyConf struct {
 	DomainConf
 
 	LocalSvrConf
+	PluginConf
 }
 
 func (cfg *HttpsProxyConf) LoadFromMsg(pMsg *msg.NewProxy) {
