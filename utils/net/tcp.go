@@ -128,7 +128,9 @@ func ConnectTcpServerByHttpProxy(httpProxy string, serverAddr string) (c Conn, e
 
 	var proxyAuth string
 	if proxyUrl.User != nil {
-		proxyAuth = "Basic " + base64.StdEncoding.EncodeToString([]byte(proxyUrl.User.String()))
+		username := proxyUrl.User.Username()
+		passwd, _ := proxyUrl.User.Password()
+		proxyAuth = "Basic " + base64.StdEncoding.EncodeToString([]byte(username+":"+passwd))
 	}
 
 	if proxyUrl.Scheme != "http" {
