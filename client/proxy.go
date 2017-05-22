@@ -23,6 +23,7 @@ import (
 
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/models/plugin"
 	"github.com/fatedier/frp/models/proto/tcp"
 	"github.com/fatedier/frp/models/proto/udp"
 	"github.com/fatedier/frp/utils/errors"
@@ -81,57 +82,87 @@ type BaseProxy struct {
 type TcpProxy struct {
 	BaseProxy
 
-	cfg *config.TcpProxyConf
+	cfg         *config.TcpProxyConf
+	proxyPlugin plugin.Plugin
 }
 
 func (pxy *TcpProxy) Run() (err error) {
+	if pxy.cfg.Plugin != "" {
+		pxy.proxyPlugin, err = plugin.Create(pxy.cfg.Plugin, pxy.cfg.PluginParams)
+		if err != nil {
+			return
+		}
+	}
 	return
 }
 
 func (pxy *TcpProxy) Close() {
+	if pxy.proxyPlugin != nil {
+		pxy.proxyPlugin.Close()
+	}
 }
 
 func (pxy *TcpProxy) InWorkConn(conn frpNet.Conn) {
 	defer conn.Close()
-	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, &pxy.cfg.BaseProxyConf, conn)
+	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn)
 }
 
 // HTTP
 type HttpProxy struct {
 	BaseProxy
 
-	cfg *config.HttpProxyConf
+	cfg         *config.HttpProxyConf
+	proxyPlugin plugin.Plugin
 }
 
 func (pxy *HttpProxy) Run() (err error) {
+	if pxy.cfg.Plugin != "" {
+		pxy.proxyPlugin, err = plugin.Create(pxy.cfg.Plugin, pxy.cfg.PluginParams)
+		if err != nil {
+			return
+		}
+	}
 	return
 }
 
 func (pxy *HttpProxy) Close() {
+	if pxy.proxyPlugin != nil {
+		pxy.proxyPlugin.Close()
+	}
 }
 
 func (pxy *HttpProxy) InWorkConn(conn frpNet.Conn) {
 	defer conn.Close()
-	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, &pxy.cfg.BaseProxyConf, conn)
+	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn)
 }
 
 // HTTPS
 type HttpsProxy struct {
 	BaseProxy
 
-	cfg *config.HttpsProxyConf
+	cfg         *config.HttpsProxyConf
+	proxyPlugin plugin.Plugin
 }
 
 func (pxy *HttpsProxy) Run() (err error) {
+	if pxy.cfg.Plugin != "" {
+		pxy.proxyPlugin, err = plugin.Create(pxy.cfg.Plugin, pxy.cfg.PluginParams)
+		if err != nil {
+			return
+		}
+	}
 	return
 }
 
 func (pxy *HttpsProxy) Close() {
+	if pxy.proxyPlugin != nil {
+		pxy.proxyPlugin.Close()
+	}
 }
 
 func (pxy *HttpsProxy) InWorkConn(conn frpNet.Conn) {
 	defer conn.Close()
-	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, &pxy.cfg.BaseProxyConf, conn)
+	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn)
 }
 
 // UDP
@@ -240,14 +271,13 @@ func (pxy *UdpProxy) InWorkConn(conn frpNet.Conn) {
 }
 
 // Common handler for tcp work connections.
-func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, baseInfo *config.BaseProxyConf, workConn frpNet.Conn) {
-	localConn, err := frpNet.ConnectTcpServer(fmt.Sprintf("%s:%d", localInfo.LocalIp, localInfo.LocalPort))
-	if err != nil {
-		workConn.Error("connect to local service [%s:%d] error: %v", localInfo.LocalIp, localInfo.LocalPort, err)
-		return
-	}
+func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.Plugin,
+	baseInfo *config.BaseProxyConf, workConn frpNet.Conn) {
 
-	var remote io.ReadWriteCloser
+	var (
+		remote io.ReadWriteCloser
+		err    error
+	)
 	remote = workConn
 	if baseInfo.UseEncryption {
 		remote, err = tcp.WithEncryption(remote, []byte(config.ClientCommonCfg.PrivilegeToken))
@@ -259,8 +289,23 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, baseInfo *config.Ba
 	if baseInfo.UseCompression {
 		remote = tcp.WithCompression(remote)
 	}
-	workConn.Debug("join connections, localConn(l[%s] r[%s]) workConn(l[%s] r[%s])", localConn.LocalAddr().String(),
-		localConn.RemoteAddr().String(), workConn.LocalAddr().String(), workConn.RemoteAddr().String())
-	tcp.Join(localConn, remote)
-	workConn.Debug("join connections closed")
+
+	if proxyPlugin != nil {
+		// if plugin is set, let plugin handle connections first
+		workConn.Debug("handle by plugin: %s", proxyPlugin.Name())
+		proxyPlugin.Handle(remote)
+		workConn.Debug("handle by plugin finished")
+		return
+	} else {
+		localConn, err := frpNet.ConnectTcpServer(fmt.Sprintf("%s:%d", localInfo.LocalIp, localInfo.LocalPort))
+		if err != nil {
+			workConn.Error("connect to local service [%s:%d] error: %v", localInfo.LocalIp, localInfo.LocalPort, err)
+			return
+		}
+
+		workConn.Debug("join connections, localConn(l[%s] r[%s]) workConn(l[%s] r[%s])", localConn.LocalAddr().String(),
+			localConn.RemoteAddr().String(), workConn.LocalAddr().String(), workConn.RemoteAddr().String())
+		tcp.Join(localConn, remote)
+		workConn.Debug("join connections closed")
+	}
 }
