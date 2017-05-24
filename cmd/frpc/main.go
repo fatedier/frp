@@ -106,7 +106,7 @@ func main() {
 		}
 	}
 
-	pxyCfgs, err := config.LoadProxyConfFromFile(conf)
+	pxyCfgs, err := config.LoadProxyConfFromFile(config.ClientCommonCfg.User, conf, config.ClientCommonCfg.Start)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
