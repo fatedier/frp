@@ -466,14 +466,21 @@ func (cfg *HttpsProxyConf) Check() (err error) {
 	return
 }
 
-func LoadProxyConfFromFile(conf ini.File) (proxyConfs map[string]ProxyConf, err error) {
-	var prefix string
-	if ClientCommonCfg.User != "" {
-		prefix = ClientCommonCfg.User + "."
+// if len(startProxy) is 0, start all
+// otherwise just start proxies in startProxy map
+func LoadProxyConfFromFile(prefix string, conf ini.File, startProxy map[string]struct{}) (proxyConfs map[string]ProxyConf, err error) {
+	if prefix != "" {
+		prefix += "."
+	}
+
+	startAll := true
+	if len(startProxy) > 0 {
+		startAll = false
 	}
 	proxyConfs = make(map[string]ProxyConf)
 	for name, section := range conf {
-		if name != "common" {
+		_, shouldStart := startProxy[name]
+		if name != "common" && (startAll || shouldStart) {
 			cfg, err := NewProxyConfFromFile(name, section)
 			if err != nil {
 				return proxyConfs, err

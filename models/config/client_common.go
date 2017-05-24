@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	ini "github.com/vaughan0/go-ini"
 )
@@ -39,6 +40,7 @@ type ClientCommonConf struct {
 	TcpMux            bool
 	User              string
 	LoginFailExit     bool
+	Start             map[string]struct{}
 	HeartBeatInterval int64
 	HeartBeatTimeout  int64
 }
@@ -58,6 +60,7 @@ func GetDeaultClientCommonConf() *ClientCommonConf {
 		TcpMux:            true,
 		User:              "",
 		LoginFailExit:     true,
+		Start:             make(map[string]struct{}),
 		HeartBeatInterval: 30,
 		HeartBeatTimeout:  90,
 	}
@@ -134,6 +137,14 @@ func LoadClientCommonConf(conf ini.File) (cfg *ClientCommonConf, err error) {
 	tmpStr, ok = conf.Get("common", "user")
 	if ok {
 		cfg.User = tmpStr
+	}
+
+	tmpStr, ok = conf.Get("common", "start")
+	if ok {
+		proxyNames := strings.Split(tmpStr, ",")
+		for _, name := range proxyNames {
+			cfg.Start[name] = struct{}{}
+		}
 	}
 
 	tmpStr, ok = conf.Get("common", "login_fail_exit")
