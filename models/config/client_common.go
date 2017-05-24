@@ -38,6 +38,7 @@ type ClientCommonConf struct {
 	PoolCount         int
 	TcpMux            bool
 	User              string
+	LoginFailExit     bool
 	HeartBeatInterval int64
 	HeartBeatTimeout  int64
 }
@@ -56,6 +57,7 @@ func GetDeaultClientCommonConf() *ClientCommonConf {
 		PoolCount:         1,
 		TcpMux:            true,
 		User:              "",
+		LoginFailExit:     true,
 		HeartBeatInterval: 30,
 		HeartBeatTimeout:  90,
 	}
@@ -132,6 +134,13 @@ func LoadClientCommonConf(conf ini.File) (cfg *ClientCommonConf, err error) {
 	tmpStr, ok = conf.Get("common", "user")
 	if ok {
 		cfg.User = tmpStr
+	}
+
+	tmpStr, ok = conf.Get("common", "login_fail_exit")
+	if ok && tmpStr == "false" {
+		cfg.LoginFailExit = false
+	} else {
+		cfg.LoginFailExit = true
 	}
 
 	tmpStr, ok = conf.Get("common", "heartbeat_timeout")
