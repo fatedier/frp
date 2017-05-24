@@ -106,9 +106,20 @@ func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf) *Control {
 // 7. In controler(): start new reader(), writer(), manager()
 // controler() will keep running
 func (ctl *Control) Run() error {
-	err := ctl.login()
-	if err != nil {
-		return err
+	for {
+		err := ctl.login()
+		if err != nil {
+			// if login_fail_exit is true, just exit this program
+			// otherwise sleep a while and continues relogin to server
+			if config.ClientCommonCfg.LoginFailExit {
+				return err
+			} else {
+				ctl.Warn("login to server fail: %v", err)
+				time.Sleep(30 * time.Second)
+			}
+		} else {
+			break
+		}
 	}
 
 	go ctl.controler()
