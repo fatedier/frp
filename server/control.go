@@ -268,7 +268,7 @@ func (ctl *Control) stoper() {
 	for _, pxy := range ctl.proxies {
 		pxy.Close()
 		ctl.svr.DelProxy(pxy.GetName())
-		StatsCloseProxy(pxy.GetConf().GetBaseInfo().ProxyType)
+		StatsCloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
 	}
 
 	ctl.allShutdown.Done()

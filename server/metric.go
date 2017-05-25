@@ -16,8 +16,10 @@ package server
 
 import (
 	"sync"
+	"time"
 
 	"github.com/fatedier/frp/models/config"
+	"github.com/fatedier/frp/utils/log"
 	"github.com/fatedier/frp/utils/metric"
 )
 
@@ -46,10 +48,13 @@ type ServerStatistics struct {
 }
 
 type ProxyStatistics struct {
-	ProxyType  string
-	TrafficIn  metric.DateCounter
-	TrafficOut metric.DateCounter
-	CurConns   metric.Counter
+	Name          string
+	ProxyType     string
+	TrafficIn     metric.DateCounter
+	TrafficOut    metric.DateCounter
+	CurConns      metric.Counter
+	LastStartTime time.Time
+	LastCloseTime time.Time
 }
 
 func init() {
@@ -62,6 +67,27 @@ func init() {
 		ProxyTypeCounts: make(map[string]metric.Counter),
 
 		ProxyStatistics: make(map[string]*ProxyStatistics),
+	}
+
+	go func() {
+		for {
+			time.Sleep(12 * time.Hour)
+			log.Debug("start to clear useless proxy statistics data...")
+			StatsClearUselessInfo()
+			log.Debug("finish to clear useless proxy statistics data")
+		}
+	}()
+}
+
+func StatsClearUselessInfo() {
+	// To check if there are proxies that closed than 7 days and drop them.
+	globalStats.mu.Lock()
+	defer globalStats.mu.Unlock()
+	for name, data := range globalStats.ProxyStatistics {
+		if !data.LastCloseTime.IsZero() && time.Since(data.LastCloseTime) > time.Duration(7*24)*time.Hour {
+			delete(globalStats.ProxyStatistics, name)
+			log.Trace("clear proxy [%s]'s statistics data, lastCloseTime: [%s]", name, data.LastCloseTime.String())
+		}
 	}
 }
 
@@ -91,22 +117,27 @@ func StatsNewProxy(name string, proxyType string) {
 		proxyStats, ok := globalStats.ProxyStatistics[name]
 		if !(ok && proxyStats.ProxyType == proxyType) {
 			proxyStats = &ProxyStatistics{
-				ProxyType:  proxyType,
-				CurConns:   metric.NewCounter(),
-				TrafficIn:  metric.NewDateCounter(ReserveDays),
-				TrafficOut: metric.NewDateCounter(ReserveDays),
+				Name:          name,
+				ProxyType:     proxyType,
+				CurConns:      metric.NewCounter(),
+				TrafficIn:     metric.NewDateCounter(ReserveDays),
+				TrafficOut:    metric.NewDateCounter(ReserveDays),
+				LastStartTime: time.Now(),
 			}
 			globalStats.ProxyStatistics[name] = proxyStats
 		}
 	}
 }
 
-func StatsCloseProxy(proxyType string) {
+func StatsCloseProxy(proxyName string, proxyType string) {
 	if config.ServerCommonCfg.DashboardPort != 0 {
 		globalStats.mu.Lock()
 		defer globalStats.mu.Unlock()
 		if counter, ok := globalStats.ProxyTypeCounts[proxyType]; ok {
 			counter.Dec(1)
+		}
+		if proxyStats, ok := globalStats.ProxyStatistics[proxyName]; ok {
+			proxyStats.LastCloseTime = time.Now()
 		}
 	}
 }
