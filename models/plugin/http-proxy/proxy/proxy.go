@@ -46,11 +46,13 @@ func NewProxyPlugin(params map[string]string) (p plugin.Plugin, err error) {
 		return
 	}
 
-	p = &Proxy{
+	proxy := &Proxy{
 		Server: NewProxyServer(),
 		Ln:     listen,
 	}
-	return
+	go proxy.Server.Serve(proxy.Ln)
+
+	return proxy, nil
 }
 
 func (proxy *Proxy) Name() string {
