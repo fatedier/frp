@@ -21,6 +21,7 @@ import (
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/consts"
 	"github.com/fatedier/frp/utils/log"
+	"github.com/fatedier/frp/utils/version"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -34,6 +35,7 @@ type GeneralResponse struct {
 type ServerInfoResp struct {
 	GeneralResponse
 
+	Version          string `json:"version"`
 	VhostHttpPort    int64  `json:"vhost_http_port"`
 	VhostHttpsPort   int64  `json:"vhost_https_port"`
 	AuthTimeout      int64  `json:"auth_timeout"`
@@ -61,6 +63,7 @@ func apiServerInfo(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 	cfg := config.ServerCommonCfg
 	serverStats := StatsGetServer()
 	res = ServerInfoResp{
+		Version:          version.Full(),
 		VhostHttpPort:    cfg.VhostHttpPort,
 		VhostHttpsPort:   cfg.VhostHttpsPort,
 		AuthTimeout:      cfg.AuthTimeout,

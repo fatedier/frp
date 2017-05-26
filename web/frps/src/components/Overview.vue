@@ -4,6 +4,9 @@
             <el-col :md="12">
                 <div class="source">
                     <el-form label-position="left" class="server_info">
+                        <el-form-item label="Version">
+                          <span>{{ version }}</span>
+                        </el-form-item>
                         <el-form-item label="Http Port">
                           <span>{{ vhost_http_port }}</span>
                         </el-form-item>
@@ -47,6 +50,7 @@
     export default {
         data() {
             return {
+                version: '',
                 vhost_http_port: '',
                 vhost_https_port: '',
                 auth_timeout: '',
@@ -70,6 +74,7 @@
               .then(res => {
                 return res.json()
               }).then(json => {
+                this.version = json.version
                 this.vhost_http_port = json.vhost_http_port
                 if (this.vhost_http_port == 0) {
                     this.vhost_http_port = "disable"
