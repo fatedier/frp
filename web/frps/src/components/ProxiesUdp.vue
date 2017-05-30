@@ -30,6 +30,12 @@
             <el-form-item label="Compression">
               <span>{{ props.row.compression }}</span>
             </el-form-item>
+            <el-form-item label="Last Start">
+              <span>{{ props.row.last_start_time }}</span>
+            </el-form-item>
+            <el-form-item label="Last Close">
+              <span>{{ props.row.last_close_time }}</span>
+            </el-form-item>
         </el-form>
     </template>
     </el-table-column>

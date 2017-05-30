@@ -28,7 +28,7 @@
                         <el-form-item label="Client Counts">
                           <span>{{ client_counts }}</span>
                         </el-form-item>
-                        <el-form-item label="Current Conns">
+                        <el-form-item label="Current Connections">
                           <span>{{ cur_conns }}</span>
                         </el-form-item>
                         <el-form-item label="Proxy Counts">

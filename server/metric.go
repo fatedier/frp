@@ -117,15 +117,15 @@ func StatsNewProxy(name string, proxyType string) {
 		proxyStats, ok := globalStats.ProxyStatistics[name]
 		if !(ok && proxyStats.ProxyType == proxyType) {
 			proxyStats = &ProxyStatistics{
-				Name:          name,
-				ProxyType:     proxyType,
-				CurConns:      metric.NewCounter(),
-				TrafficIn:     metric.NewDateCounter(ReserveDays),
-				TrafficOut:    metric.NewDateCounter(ReserveDays),
-				LastStartTime: time.Now(),
+				Name:       name,
+				ProxyType:  proxyType,
+				CurConns:   metric.NewCounter(),
+				TrafficIn:  metric.NewDateCounter(ReserveDays),
+				TrafficOut: metric.NewDateCounter(ReserveDays),
 			}
 			globalStats.ProxyStatistics[name] = proxyStats
 		}
+		proxyStats.LastStartTime = time.Now()
 	}
 }
 
@@ -230,6 +230,8 @@ type ProxyStats struct {
 	Type            string
 	TodayTrafficIn  int64
 	TodayTrafficOut int64
+	LastStartTime   string
+	LastCloseTime   string
 	CurConns        int64
 }
 
@@ -249,6 +251,12 @@ func StatsGetProxiesByType(proxyType string) []*ProxyStats {
 			TodayTrafficIn:  proxyStats.TrafficIn.TodayCount(),
 			TodayTrafficOut: proxyStats.TrafficOut.TodayCount(),
 			CurConns:        proxyStats.CurConns.Count(),
+		}
+		if !proxyStats.LastStartTime.IsZero() {
+			ps.LastStartTime = proxyStats.LastStartTime.Format("01-02 15:04:05")
+		}
+		if !proxyStats.LastCloseTime.IsZero() {
+			ps.LastCloseTime = proxyStats.LastCloseTime.Format("01-02 15:04:05")
 		}
 		res = append(res, ps)
 	}

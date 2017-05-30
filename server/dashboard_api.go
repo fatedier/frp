@@ -89,6 +89,8 @@ type ProxyStatsInfo struct {
 	TodayTrafficIn  int64            `json:"today_traffic_in"`
 	TodayTrafficOut int64            `json:"today_traffic_out"`
 	CurConns        int64            `json:"cur_conns"`
+	LastStartTime   string           `json:"last_start_time"`
+	LastCloseTime   string           `json:"last_close_time"`
 	Status          string           `json:"status"`
 }
 
@@ -176,10 +178,12 @@ func getProxyStatsByType(proxyType string) (proxyInfos []*ProxyStatsInfo) {
 		} else {
 			proxyInfo.Status = consts.Offline
 		}
+		proxyInfo.Name = ps.Name
 		proxyInfo.TodayTrafficIn = ps.TodayTrafficIn
 		proxyInfo.TodayTrafficOut = ps.TodayTrafficOut
 		proxyInfo.CurConns = ps.CurConns
-		proxyInfo.Name = ps.Name
+		proxyInfo.LastStartTime = ps.LastStartTime
+		proxyInfo.LastCloseTime = ps.LastCloseTime
 		proxyInfos = append(proxyInfos, proxyInfo)
 	}
 	return

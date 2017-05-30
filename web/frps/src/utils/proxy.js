@@ -11,6 +11,8 @@ class BaseProxy {
         this.conns = proxyStats.cur_conns
         this.traffic_in = proxyStats.today_traffic_in
         this.traffic_out = proxyStats.today_traffic_out
+        this.last_start_time = proxyStats.last_start_time
+        this.last_close_time = proxyStats.last_close_time
         this.status = proxyStats.status
     }
 }
