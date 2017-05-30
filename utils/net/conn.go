@@ -46,11 +46,11 @@ type WrapReadWriteCloserConn struct {
 }
 
 func (conn *WrapReadWriteCloserConn) LocalAddr() net.Addr {
-	return nil
+	return (*net.TCPAddr)(nil)
 }
 
 func (conn *WrapReadWriteCloserConn) RemoteAddr() net.Addr {
-	return nil
+	return (*net.TCPAddr)(nil)
 }
 
 func (conn *WrapReadWriteCloserConn) SetDeadline(t time.Time) error {
