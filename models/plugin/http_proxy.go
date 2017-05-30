@@ -66,6 +66,7 @@ func (l *Listener) Close() error {
 	defer l.mu.Unlock()
 	if !l.closed {
 		close(l.conns)
+		l.closed = true
 	}
 	return nil
 }
