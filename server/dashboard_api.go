@@ -21,6 +21,7 @@ import (
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/consts"
 	"github.com/fatedier/frp/utils/log"
+	"github.com/fatedier/frp/utils/version"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -34,6 +35,7 @@ type GeneralResponse struct {
 type ServerInfoResp struct {
 	GeneralResponse
 
+	Version          string `json:"version"`
 	VhostHttpPort    int64  `json:"vhost_http_port"`
 	VhostHttpsPort   int64  `json:"vhost_https_port"`
 	AuthTimeout      int64  `json:"auth_timeout"`
@@ -61,6 +63,7 @@ func apiServerInfo(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 	cfg := config.ServerCommonCfg
 	serverStats := StatsGetServer()
 	res = ServerInfoResp{
+		Version:          version.Full(),
 		VhostHttpPort:    cfg.VhostHttpPort,
 		VhostHttpsPort:   cfg.VhostHttpsPort,
 		AuthTimeout:      cfg.AuthTimeout,
@@ -86,6 +89,8 @@ type ProxyStatsInfo struct {
 	TodayTrafficIn  int64            `json:"today_traffic_in"`
 	TodayTrafficOut int64            `json:"today_traffic_out"`
 	CurConns        int64            `json:"cur_conns"`
+	LastStartTime   string           `json:"last_start_time"`
+	LastCloseTime   string           `json:"last_close_time"`
 	Status          string           `json:"status"`
 }
 
@@ -173,10 +178,12 @@ func getProxyStatsByType(proxyType string) (proxyInfos []*ProxyStatsInfo) {
 		} else {
 			proxyInfo.Status = consts.Offline
 		}
+		proxyInfo.Name = ps.Name
 		proxyInfo.TodayTrafficIn = ps.TodayTrafficIn
 		proxyInfo.TodayTrafficOut = ps.TodayTrafficOut
 		proxyInfo.CurConns = ps.CurConns
-		proxyInfo.Name = ps.Name
+		proxyInfo.LastStartTime = ps.LastStartTime
+		proxyInfo.LastCloseTime = ps.LastCloseTime
 		proxyInfos = append(proxyInfos, proxyInfo)
 	}
 	return

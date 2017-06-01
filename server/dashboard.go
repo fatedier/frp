@@ -15,9 +15,12 @@
 package server
 
 import (
+	"compress/gzip"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/fatedier/frp/assets"
@@ -45,7 +48,7 @@ func RunDashboardServer(addr string, port int64) (err error) {
 
 	// view
 	router.Handler("GET", "/favicon.ico", http.FileServer(assets.FileSystem))
-	router.Handler("GET", "/static/*filepath", basicAuthWraper(http.StripPrefix("/static/", http.FileServer(assets.FileSystem))))
+	router.Handler("GET", "/static/*filepath", MakeGzipHandler(basicAuthWraper(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))))
 	router.HandlerFunc("GET", "/", basicAuth(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
 	}))
@@ -84,7 +87,7 @@ type AuthWraper struct {
 
 func (aw *AuthWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	user, passwd, hasAuth := r.BasicAuth()
-	if (aw.user == "" && aw.passwd == "") || (hasAuth && user == aw.user || passwd == aw.passwd) {
+	if (aw.user == "" && aw.passwd == "") || (hasAuth && user == aw.user && passwd == aw.passwd) {
 		aw.h.ServeHTTP(w, r)
 	} else {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
@@ -104,7 +107,7 @@ func basicAuth(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, passwd, hasAuth := r.BasicAuth()
 		if (config.ServerCommonCfg.DashboardUser == "" && config.ServerCommonCfg.DashboardPwd == "") ||
-			(hasAuth && user == config.ServerCommonCfg.DashboardUser || passwd == config.ServerCommonCfg.DashboardPwd) {
+			(hasAuth && user == config.ServerCommonCfg.DashboardUser && passwd == config.ServerCommonCfg.DashboardPwd) {
 			h.ServeHTTP(w, r)
 		} else {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
@@ -117,11 +120,42 @@ func httprouterBasicAuth(h httprouter.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		user, passwd, hasAuth := r.BasicAuth()
 		if (config.ServerCommonCfg.DashboardUser == "" && config.ServerCommonCfg.DashboardPwd == "") ||
-			(hasAuth && user == config.ServerCommonCfg.DashboardUser || passwd == config.ServerCommonCfg.DashboardPwd) {
+			(hasAuth && user == config.ServerCommonCfg.DashboardUser && passwd == config.ServerCommonCfg.DashboardPwd) {
 			h(w, r, ps)
 		} else {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		}
 	}
+}
+
+type GzipWraper struct {
+	h http.Handler
+}
+
+func (gw *GzipWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		gw.h.ServeHTTP(w, r)
+		return
+	}
+	w.Header().Set("Content-Encoding", "gzip")
+	gz := gzip.NewWriter(w)
+	defer gz.Close()
+	gzr := gzipResponseWriter{Writer: gz, ResponseWriter: w}
+	gw.h.ServeHTTP(gzr, r)
+}
+
+func MakeGzipHandler(h http.Handler) http.Handler {
+	return &GzipWraper{
+		h: h,
+	}
+}
+
+type gzipResponseWriter struct {
+	io.Writer
+	http.ResponseWriter
+}
+
+func (w gzipResponseWriter) Write(b []byte) (int, error) {
+	return w.Writer.Write(b)
 }

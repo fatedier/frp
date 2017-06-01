@@ -106,9 +106,20 @@ func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf) *Control {
 // 7. In controler(): start new reader(), writer(), manager()
 // controler() will keep running
 func (ctl *Control) Run() error {
-	err := ctl.login()
-	if err != nil {
-		return err
+	for {
+		err := ctl.login()
+		if err != nil {
+			// if login_fail_exit is true, just exit this program
+			// otherwise sleep a while and continues relogin to server
+			if config.ClientCommonCfg.LoginFailExit {
+				return err
+			} else {
+				ctl.Warn("login to server fail: %v", err)
+				time.Sleep(30 * time.Second)
+			}
+		} else {
+			break
+		}
 	}
 
 	go ctl.controler()
@@ -166,7 +177,7 @@ func (ctl *Control) NewWorkConn() {
 
 	// dispatch this work connection to related proxy
 	if pxy, ok := ctl.proxies[startMsg.ProxyName]; ok {
-		workConn.Info("start a new work connection, localAddr: %s remoteAddr: %s", workConn.LocalAddr().String(), workConn.RemoteAddr().String())
+		workConn.Debug("start a new work connection, localAddr: %s remoteAddr: %s", workConn.LocalAddr().String(), workConn.RemoteAddr().String())
 		go pxy.InWorkConn(workConn)
 	} else {
 		workConn.Close()

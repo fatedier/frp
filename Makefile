@@ -42,7 +42,7 @@ alltest: gotest
 clean:
 	rm -f ./bin/frpc
 	rm -f ./bin/frps
-	cd ./test && ./clean_test.sh && cd -
+	cd ./tests && ./clean_test.sh && cd -
 
 save:
 	godep save ./...

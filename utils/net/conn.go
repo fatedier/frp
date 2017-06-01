@@ -15,7 +15,9 @@
 package net
 
 import (
+	"io"
 	"net"
+	"time"
 
 	"github.com/fatedier/frp/utils/log"
 )
@@ -32,9 +34,41 @@ type WrapLogConn struct {
 }
 
 func WrapConn(c net.Conn) Conn {
-	return WrapLogConn{
+	return &WrapLogConn{
 		Conn:   c,
 		Logger: log.NewPrefixLogger(""),
+	}
+}
+
+type WrapReadWriteCloserConn struct {
+	io.ReadWriteCloser
+	log.Logger
+}
+
+func (conn *WrapReadWriteCloserConn) LocalAddr() net.Addr {
+	return (*net.TCPAddr)(nil)
+}
+
+func (conn *WrapReadWriteCloserConn) RemoteAddr() net.Addr {
+	return (*net.TCPAddr)(nil)
+}
+
+func (conn *WrapReadWriteCloserConn) SetDeadline(t time.Time) error {
+	return nil
+}
+
+func (conn *WrapReadWriteCloserConn) SetReadDeadline(t time.Time) error {
+	return nil
+}
+
+func (conn *WrapReadWriteCloserConn) SetWriteDeadline(t time.Time) error {
+	return nil
+}
+
+func WrapReadWriteCloserToConn(rwc io.ReadWriteCloser) Conn {
+	return &WrapReadWriteCloserConn{
+		ReadWriteCloser: rwc,
+		Logger:          log.NewPrefixLogger(""),
 	}
 }
 

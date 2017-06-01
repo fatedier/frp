@@ -26,6 +26,7 @@ func init() {
 	go StartEchoServer()
 	go StartUdpEchoServer()
 	go StartHttpServer()
+	go StartUnixDomainServer()
 	time.Sleep(500 * time.Millisecond)
 }
 
@@ -93,5 +94,26 @@ func TestUdpEchoServer(t *testing.T) {
 
 	if string(bytes.TrimSpace(data[:n])) != "hello frp" {
 		t.Fatalf("message got from udp server error, get %s", string(data[:n-1]))
+	}
+}
+
+func TestUnixDomainServer(t *testing.T) {
+	c, err := frpNet.ConnectTcpServer(fmt.Sprintf("127.0.0.1:%d", 10704))
+	if err != nil {
+		t.Fatalf("connect to echo server error: %v", err)
+	}
+	timer := time.Now().Add(time.Duration(5) * time.Second)
+	c.SetDeadline(timer)
+
+	c.Write([]byte(ECHO_TEST_STR + "\n"))
+
+	br := bufio.NewReader(c)
+	buf, err := br.ReadString('\n')
+	if err != nil {
+		t.Fatalf("read from echo server error: %v", err)
+	}
+
+	if ECHO_TEST_STR != buf {
+		t.Fatalf("content error, send [%s], get [%s]", strings.Trim(ECHO_TEST_STR, "\n"), strings.Trim(buf, "\n"))
 	}
 }
