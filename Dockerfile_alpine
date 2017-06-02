@@ -1,7 +1,7 @@
-FROM alpine:3.4
+FROM alpine:3.5
 
-COPY bin/frpc /frpc
-COPY bin/frps /frps
+COPY tmp/frpc /frpc
+COPY tmp/frps /frps
 COPY conf/frpc_min.ini /frpc.ini
 COPY conf/frps_min.ini /frps.ini
 
