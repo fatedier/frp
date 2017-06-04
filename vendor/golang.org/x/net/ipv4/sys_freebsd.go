@@ -10,6 +10,9 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/net/internal/iana"
+	"golang.org/x/net/internal/socket"
 )
 
 var (
@@ -19,29 +22,29 @@ var (
 		ctlInterface: {sysIP_RECVIF, syscall.SizeofSockaddrDatalink, marshalInterface, parseInterface},
 	}
 
-	sockOpts = [ssoMax]sockOpt{
-		ssoTOS:                {sysIP_TOS, ssoTypeInt},
-		ssoTTL:                {sysIP_TTL, ssoTypeInt},
-		ssoMulticastTTL:       {sysIP_MULTICAST_TTL, ssoTypeByte},
-		ssoMulticastInterface: {sysIP_MULTICAST_IF, ssoTypeInterface},
-		ssoMulticastLoopback:  {sysIP_MULTICAST_LOOP, ssoTypeInt},
-		ssoReceiveTTL:         {sysIP_RECVTTL, ssoTypeInt},
-		ssoReceiveDst:         {sysIP_RECVDSTADDR, ssoTypeInt},
-		ssoReceiveInterface:   {sysIP_RECVIF, ssoTypeInt},
-		ssoHeaderPrepend:      {sysIP_HDRINCL, ssoTypeInt},
-		ssoJoinGroup:          {sysMCAST_JOIN_GROUP, ssoTypeGroupReq},
-		ssoLeaveGroup:         {sysMCAST_LEAVE_GROUP, ssoTypeGroupReq},
-		ssoJoinSourceGroup:    {sysMCAST_JOIN_SOURCE_GROUP, ssoTypeGroupSourceReq},
-		ssoLeaveSourceGroup:   {sysMCAST_LEAVE_SOURCE_GROUP, ssoTypeGroupSourceReq},
-		ssoBlockSourceGroup:   {sysMCAST_BLOCK_SOURCE, ssoTypeGroupSourceReq},
-		ssoUnblockSourceGroup: {sysMCAST_UNBLOCK_SOURCE, ssoTypeGroupSourceReq},
+	sockOpts = map[int]*sockOpt{
+		ssoTOS:                {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_TOS, Len: 4}},
+		ssoTTL:                {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_TTL, Len: 4}},
+		ssoMulticastTTL:       {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_MULTICAST_TTL, Len: 1}},
+		ssoMulticastInterface: {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_MULTICAST_IF, Len: 4}},
+		ssoMulticastLoopback:  {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_MULTICAST_LOOP, Len: 4}},
+		ssoReceiveTTL:         {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_RECVTTL, Len: 4}},
+		ssoReceiveDst:         {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_RECVDSTADDR, Len: 4}},
+		ssoReceiveInterface:   {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_RECVIF, Len: 4}},
+		ssoHeaderPrepend:      {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_HDRINCL, Len: 4}},
+		ssoJoinGroup:          {Option: socket.Option{Level: iana.ProtocolIP, Name: sysMCAST_JOIN_GROUP, Len: sizeofGroupReq}, typ: ssoTypeGroupReq},
+		ssoLeaveGroup:         {Option: socket.Option{Level: iana.ProtocolIP, Name: sysMCAST_LEAVE_GROUP, Len: sizeofGroupReq}, typ: ssoTypeGroupReq},
+		ssoJoinSourceGroup:    {Option: socket.Option{Level: iana.ProtocolIP, Name: sysMCAST_JOIN_SOURCE_GROUP, Len: sizeofGroupSourceReq}, typ: ssoTypeGroupSourceReq},
+		ssoLeaveSourceGroup:   {Option: socket.Option{Level: iana.ProtocolIP, Name: sysMCAST_LEAVE_SOURCE_GROUP, Len: sizeofGroupSourceReq}, typ: ssoTypeGroupSourceReq},
+		ssoBlockSourceGroup:   {Option: socket.Option{Level: iana.ProtocolIP, Name: sysMCAST_BLOCK_SOURCE, Len: sizeofGroupSourceReq}, typ: ssoTypeGroupSourceReq},
+		ssoUnblockSourceGroup: {Option: socket.Option{Level: iana.ProtocolIP, Name: sysMCAST_UNBLOCK_SOURCE, Len: sizeofGroupSourceReq}, typ: ssoTypeGroupSourceReq},
 	}
 )
 
 func init() {
 	freebsdVersion, _ = syscall.SysctlUint32("kern.osreldate")
 	if freebsdVersion >= 1000000 {
-		sockOpts[ssoMulticastInterface].typ = ssoTypeIPMreqn
+		sockOpts[ssoMulticastInterface] = &sockOpt{Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_MULTICAST_IF, Len: sizeofIPMreqn}, typ: ssoTypeIPMreqn}
 	}
 	if runtime.GOOS == "freebsd" && runtime.GOARCH == "386" {
 		archs, _ := syscall.Sysctl("kern.supported_archs")
@@ -54,20 +57,20 @@ func init() {
 	}
 }
 
-func (gr *sysGroupReq) setGroup(grp net.IP) {
-	sa := (*sysSockaddrInet)(unsafe.Pointer(&gr.Group))
-	sa.Len = sysSizeofSockaddrInet
+func (gr *groupReq) setGroup(grp net.IP) {
+	sa := (*sockaddrInet)(unsafe.Pointer(&gr.Group))
+	sa.Len = sizeofSockaddrInet
 	sa.Family = syscall.AF_INET
 	copy(sa.Addr[:], grp)
 }
 
-func (gsr *sysGroupSourceReq) setSourceGroup(grp, src net.IP) {
-	sa := (*sysSockaddrInet)(unsafe.Pointer(&gsr.Group))
-	sa.Len = sysSizeofSockaddrInet
+func (gsr *groupSourceReq) setSourceGroup(grp, src net.IP) {
+	sa := (*sockaddrInet)(unsafe.Pointer(&gsr.Group))
+	sa.Len = sizeofSockaddrInet
 	sa.Family = syscall.AF_INET
 	copy(sa.Addr[:], grp)
-	sa = (*sysSockaddrInet)(unsafe.Pointer(&gsr.Source))
-	sa.Len = sysSizeofSockaddrInet
+	sa = (*sockaddrInet)(unsafe.Pointer(&gsr.Source))
+	sa.Len = sizeofSockaddrInet
 	sa.Family = syscall.AF_INET
 	copy(sa.Addr[:], src)
 }

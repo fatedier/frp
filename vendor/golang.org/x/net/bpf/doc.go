@@ -5,7 +5,8 @@
 /*
 
 Package bpf implements marshaling and unmarshaling of programs for the
-Berkeley Packet Filter virtual machine.
+Berkeley Packet Filter virtual machine, and provides a Go implementation
+of the virtual machine.
 
 BPF's main use is to specify a packet filter for network taps, so that
 the kernel doesn't have to expensively copy every packet it sees to

@@ -4,7 +4,7 @@
 // Package iana provides protocol number resources managed by the Internet Assigned Numbers Authority (IANA).
 package iana
 
-// Differentiated Services Field Codepoints (DSCP), Updated: 2013-06-25
+// Differentiated Services Field Codepoints (DSCP), Updated: 2017-05-12
 const (
 	DiffServCS0        = 0x0  // CS0
 	DiffServCS1        = 0x20 // CS1
@@ -26,7 +26,7 @@ const (
 	DiffServAF41       = 0x88 // AF41
 	DiffServAF42       = 0x90 // AF42
 	DiffServAF43       = 0x98 // AF43
-	DiffServEFPHB      = 0xb8 // EF PHB
+	DiffServEF         = 0xb8 // EF
 	DiffServVOICEADMIT = 0xb0 // VOICE-ADMIT
 )
 
@@ -38,7 +38,7 @@ const (
 	CongestionExperienced = 0x3 // CE (Congestion Experienced)
 )
 
-// Protocol Numbers, Updated: 2015-10-06
+// Protocol Numbers, Updated: 2016-06-22
 const (
 	ProtocolIP             = 0   // IPv4 encapsulation, pseudo protocol number
 	ProtocolHOPOPT         = 0   // IPv6 Hop-by-Hop Option

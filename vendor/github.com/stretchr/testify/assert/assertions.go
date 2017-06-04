@@ -181,7 +181,7 @@ func indentMessageLines(message string, longestLabelLen int) string {
 		// no need to align first line because it starts at the correct location (after the label)
 		if i != 0 {
 			// append alignLen+1 spaces to align with "{{longestLabel}}:" before adding tab
-			outBuf.WriteString("\n\r\t" + strings.Repeat(" ", longestLabelLen+1) + "\t")
+			outBuf.WriteString("\n\r\t" + strings.Repeat(" ", longestLabelLen +1) + "\t")
 		}
 		outBuf.WriteString(scanner.Text())
 	}
@@ -229,7 +229,7 @@ func Fail(t TestingT, failureMessage string, msgAndArgs ...interface{}) bool {
 }
 
 type labeledContent struct {
-	label   string
+	label string
 	content string
 }
 

@@ -57,6 +57,9 @@ func (ri RawInstruction) Disassemble() Instruction {
 			}
 			return LoadScratch{Dst: reg, N: int(ri.K)}
 		case opAddrModeAbsolute:
+			if ri.K > extOffset+0xffffffff {
+				return LoadExtension{Num: Extension(-extOffset + ri.K)}
+			}
 			return LoadAbsolute{Size: sz, Off: ri.K}
 		case opAddrModeIndirect:
 			return LoadIndirect{Size: sz, Off: ri.K}
@@ -104,6 +107,14 @@ func (ri RawInstruction) Disassemble() Instruction {
 		case opJumpAlways:
 			return Jump{Skip: ri.K}
 		case opJumpEqual:
+			if ri.Jt == 0 {
+				return JumpIf{
+					Cond:      JumpNotEqual,
+					Val:       ri.K,
+					SkipTrue:  ri.Jf,
+					SkipFalse: 0,
+				}
+			}
 			return JumpIf{
 				Cond:      JumpEqual,
 				Val:       ri.K,
@@ -111,6 +122,14 @@ func (ri RawInstruction) Disassemble() Instruction {
 				SkipFalse: ri.Jf,
 			}
 		case opJumpGT:
+			if ri.Jt == 0 {
+				return JumpIf{
+					Cond:      JumpLessOrEqual,
+					Val:       ri.K,
+					SkipTrue:  ri.Jf,
+					SkipFalse: 0,
+				}
+			}
 			return JumpIf{
 				Cond:      JumpGreaterThan,
 				Val:       ri.K,
@@ -118,6 +137,14 @@ func (ri RawInstruction) Disassemble() Instruction {
 				SkipFalse: ri.Jf,
 			}
 		case opJumpGE:
+			if ri.Jt == 0 {
+				return JumpIf{
+					Cond:      JumpLessThan,
+					Val:       ri.K,
+					SkipTrue:  ri.Jf,
+					SkipFalse: 0,
+				}
+			}
 			return JumpIf{
 				Cond:      JumpGreaterOrEqual,
 				Val:       ri.K,
@@ -171,6 +198,18 @@ func (a LoadConstant) Assemble() (RawInstruction, error) {
 	return assembleLoad(a.Dst, 4, opAddrModeImmediate, a.Val)
 }
 
+// String returns the the instruction in assembler notation.
+func (a LoadConstant) String() string {
+	switch a.Dst {
+	case RegA:
+		return fmt.Sprintf("ld #%d", a.Val)
+	case RegX:
+		return fmt.Sprintf("ldx #%d", a.Val)
+	default:
+		return fmt.Sprintf("unknown instruction: %#v", a)
+	}
+}
+
 // LoadScratch loads scratch[N] into register Dst.
 type LoadScratch struct {
 	Dst Register
@@ -185,6 +224,18 @@ func (a LoadScratch) Assemble() (RawInstruction, error) {
 	return assembleLoad(a.Dst, 4, opAddrModeScratch, uint32(a.N))
 }
 
+// String returns the the instruction in assembler notation.
+func (a LoadScratch) String() string {
+	switch a.Dst {
+	case RegA:
+		return fmt.Sprintf("ld M[%d]", a.N)
+	case RegX:
+		return fmt.Sprintf("ldx M[%d]", a.N)
+	default:
+		return fmt.Sprintf("unknown instruction: %#v", a)
+	}
+}
+
 // LoadAbsolute loads packet[Off:Off+Size] as an integer value into
 // register A.
 type LoadAbsolute struct {
@@ -197,6 +248,23 @@ func (a LoadAbsolute) Assemble() (RawInstruction, error) {
 	return assembleLoad(RegA, a.Size, opAddrModeAbsolute, a.Off)
 }
 
+// String returns the the instruction in assembler notation.
+func (a LoadAbsolute) String() string {
+	switch a.Size {
+	case 1: // byte
+		return fmt.Sprintf("ldb [%d]", a.Off)
+	case 2: // half word
+		return fmt.Sprintf("ldh [%d]", a.Off)
+	case 4: // word
+		if a.Off > extOffset+0xffffffff {
+			return LoadExtension{Num: Extension(a.Off + 0x1000)}.String()
+		}
+		return fmt.Sprintf("ld [%d]", a.Off)
+	default:
+		return fmt.Sprintf("unknown instruction: %#v", a)
+	}
+}
+
 // LoadIndirect loads packet[X+Off:X+Off+Size] as an integer value
 // into register A.
 type LoadIndirect struct {
@@ -207,6 +275,20 @@ type LoadIndirect struct {
 // Assemble implements the Instruction Assemble method.
 func (a LoadIndirect) Assemble() (RawInstruction, error) {
 	return assembleLoad(RegA, a.Size, opAddrModeIndirect, a.Off)
+}
+
+// String returns the the instruction in assembler notation.
+func (a LoadIndirect) String() string {
+	switch a.Size {
+	case 1: // byte
+		return fmt.Sprintf("ldb [x + %d]", a.Off)
+	case 2: // half word
+		return fmt.Sprintf("ldh [x + %d]", a.Off)
+	case 4: // word
+		return fmt.Sprintf("ld [x + %d]", a.Off)
+	default:
+		return fmt.Sprintf("unknown instruction: %#v", a)
+	}
 }
 
 // LoadMemShift multiplies the first 4 bits of the byte at packet[Off]
@@ -224,6 +306,11 @@ func (a LoadMemShift) Assemble() (RawInstruction, error) {
 	return assembleLoad(RegX, 1, opAddrModeMemShift, a.Off)
 }
 
+// String returns the the instruction in assembler notation.
+func (a LoadMemShift) String() string {
+	return fmt.Sprintf("ldx 4*([%d]&0xf)", a.Off)
+}
+
 // LoadExtension invokes a linux-specific extension and stores the
 // result in register A.
 type LoadExtension struct {
@@ -235,7 +322,47 @@ func (a LoadExtension) Assemble() (RawInstruction, error) {
 	if a.Num == ExtLen {
 		return assembleLoad(RegA, 4, opAddrModePacketLen, 0)
 	}
-	return assembleLoad(RegA, 4, opAddrModeAbsolute, uint32(-0x1000+a.Num))
+	return assembleLoad(RegA, 4, opAddrModeAbsolute, uint32(extOffset+a.Num))
+}
+
+// String returns the the instruction in assembler notation.
+func (a LoadExtension) String() string {
+	switch a.Num {
+	case ExtLen:
+		return "ld #len"
+	case ExtProto:
+		return "ld #proto"
+	case ExtType:
+		return "ld #type"
+	case ExtPayloadOffset:
+		return "ld #poff"
+	case ExtInterfaceIndex:
+		return "ld #ifidx"
+	case ExtNetlinkAttr:
+		return "ld #nla"
+	case ExtNetlinkAttrNested:
+		return "ld #nlan"
+	case ExtMark:
+		return "ld #mark"
+	case ExtQueue:
+		return "ld #queue"
+	case ExtLinkLayerType:
+		return "ld #hatype"
+	case ExtRXHash:
+		return "ld #rxhash"
+	case ExtCPUID:
+		return "ld #cpu"
+	case ExtVLANTag:
+		return "ld #vlan_tci"
+	case ExtVLANTagPresent:
+		return "ld #vlan_avail"
+	case ExtVLANProto:
+		return "ld #vlan_tpid"
+	case ExtRand:
+		return "ld #rand"
+	default:
+		return fmt.Sprintf("unknown instruction: %#v", a)
+	}
 }
 
 // StoreScratch stores register Src into scratch[N].
@@ -265,6 +392,18 @@ func (a StoreScratch) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
+// String returns the the instruction in assembler notation.
+func (a StoreScratch) String() string {
+	switch a.Src {
+	case RegA:
+		return fmt.Sprintf("st M[%d]", a.N)
+	case RegX:
+		return fmt.Sprintf("stx M[%d]", a.N)
+	default:
+		return fmt.Sprintf("unknown instruction: %#v", a)
+	}
+}
+
 // ALUOpConstant executes A = A <Op> Val.
 type ALUOpConstant struct {
 	Op  ALUOp
@@ -279,6 +418,34 @@ func (a ALUOpConstant) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
+// String returns the the instruction in assembler notation.
+func (a ALUOpConstant) String() string {
+	switch a.Op {
+	case ALUOpAdd:
+		return fmt.Sprintf("add #%d", a.Val)
+	case ALUOpSub:
+		return fmt.Sprintf("sub #%d", a.Val)
+	case ALUOpMul:
+		return fmt.Sprintf("mul #%d", a.Val)
+	case ALUOpDiv:
+		return fmt.Sprintf("div #%d", a.Val)
+	case ALUOpMod:
+		return fmt.Sprintf("mod #%d", a.Val)
+	case ALUOpAnd:
+		return fmt.Sprintf("and #%d", a.Val)
+	case ALUOpOr:
+		return fmt.Sprintf("or #%d", a.Val)
+	case ALUOpXor:
+		return fmt.Sprintf("xor #%d", a.Val)
+	case ALUOpShiftLeft:
+		return fmt.Sprintf("lsh #%d", a.Val)
+	case ALUOpShiftRight:
+		return fmt.Sprintf("rsh #%d", a.Val)
+	default:
+		return fmt.Sprintf("unknown instruction: %#v", a)
+	}
+}
+
 // ALUOpX executes A = A <Op> X
 type ALUOpX struct {
 	Op ALUOp
@@ -291,6 +458,34 @@ func (a ALUOpX) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
+// String returns the the instruction in assembler notation.
+func (a ALUOpX) String() string {
+	switch a.Op {
+	case ALUOpAdd:
+		return "add x"
+	case ALUOpSub:
+		return "sub x"
+	case ALUOpMul:
+		return "mul x"
+	case ALUOpDiv:
+		return "div x"
+	case ALUOpMod:
+		return "mod x"
+	case ALUOpAnd:
+		return "and x"
+	case ALUOpOr:
+		return "or x"
+	case ALUOpXor:
+		return "xor x"
+	case ALUOpShiftLeft:
+		return "lsh x"
+	case ALUOpShiftRight:
+		return "rsh x"
+	default:
+		return fmt.Sprintf("unknown instruction: %#v", a)
+	}
+}
+
 // NegateA executes A = -A.
 type NegateA struct{}
 
@@ -299,6 +494,11 @@ func (a NegateA) Assemble() (RawInstruction, error) {
 	return RawInstruction{
 		Op: opClsALU | uint16(aluOpNeg),
 	}, nil
+}
+
+// String returns the the instruction in assembler notation.
+func (a NegateA) String() string {
+	return fmt.Sprintf("neg")
 }
 
 // Jump skips the following Skip instructions in the program.
@@ -312,6 +512,11 @@ func (a Jump) Assemble() (RawInstruction, error) {
 		Op: opClsJump | opJumpAlways,
 		K:  a.Skip,
 	}, nil
+}
+
+// String returns the the instruction in assembler notation.
+func (a Jump) String() string {
+	return fmt.Sprintf("ja %d", a.Skip)
 }
 
 // JumpIf skips the following Skip instructions in the program if A
@@ -361,6 +566,51 @@ func (a JumpIf) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
+// String returns the the instruction in assembler notation.
+func (a JumpIf) String() string {
+	switch a.Cond {
+	// K == A
+	case JumpEqual:
+		return conditionalJump(a, "jeq", "jneq")
+	// K != A
+	case JumpNotEqual:
+		return fmt.Sprintf("jneq #%d,%d", a.Val, a.SkipTrue)
+	// K > A
+	case JumpGreaterThan:
+		return conditionalJump(a, "jgt", "jle")
+	// K < A
+	case JumpLessThan:
+		return fmt.Sprintf("jlt #%d,%d", a.Val, a.SkipTrue)
+	// K >= A
+	case JumpGreaterOrEqual:
+		return conditionalJump(a, "jge", "jlt")
+	// K <= A
+	case JumpLessOrEqual:
+		return fmt.Sprintf("jle #%d,%d", a.Val, a.SkipTrue)
+	// K & A != 0
+	case JumpBitsSet:
+		if a.SkipFalse > 0 {
+			return fmt.Sprintf("jset #%d,%d,%d", a.Val, a.SkipTrue, a.SkipFalse)
+		}
+		return fmt.Sprintf("jset #%d,%d", a.Val, a.SkipTrue)
+	// K & A == 0, there is no assembler instruction for JumpBitNotSet, use JumpBitSet and invert skips
+	case JumpBitsNotSet:
+		return JumpIf{Cond: JumpBitsSet, SkipTrue: a.SkipFalse, SkipFalse: a.SkipTrue, Val: a.Val}.String()
+	default:
+		return fmt.Sprintf("unknown instruction: %#v", a)
+	}
+}
+
+func conditionalJump(inst JumpIf, positiveJump, negativeJump string) string {
+	if inst.SkipTrue > 0 {
+		if inst.SkipFalse > 0 {
+			return fmt.Sprintf("%s #%d,%d,%d", positiveJump, inst.Val, inst.SkipTrue, inst.SkipFalse)
+		}
+		return fmt.Sprintf("%s #%d,%d", positiveJump, inst.Val, inst.SkipTrue)
+	}
+	return fmt.Sprintf("%s #%d,%d", negativeJump, inst.Val, inst.SkipFalse)
+}
+
 // RetA exits the BPF program, returning the value of register A.
 type RetA struct{}
 
@@ -369,6 +619,11 @@ func (a RetA) Assemble() (RawInstruction, error) {
 	return RawInstruction{
 		Op: opClsReturn | opRetSrcA,
 	}, nil
+}
+
+// String returns the the instruction in assembler notation.
+func (a RetA) String() string {
+	return fmt.Sprintf("ret a")
 }
 
 // RetConstant exits the BPF program, returning a constant value.
@@ -384,6 +639,11 @@ func (a RetConstant) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
+// String returns the the instruction in assembler notation.
+func (a RetConstant) String() string {
+	return fmt.Sprintf("ret #%d", a.Val)
+}
+
 // TXA copies the value of register X to register A.
 type TXA struct{}
 
@@ -394,6 +654,11 @@ func (a TXA) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
+// String returns the the instruction in assembler notation.
+func (a TXA) String() string {
+	return fmt.Sprintf("txa")
+}
+
 // TAX copies the value of register A to register X.
 type TAX struct{}
 
@@ -402,6 +667,11 @@ func (a TAX) Assemble() (RawInstruction, error) {
 	return RawInstruction{
 		Op: opClsMisc | opMiscTAX,
 	}, nil
+}
+
+// String returns the the instruction in assembler notation.
+func (a TAX) String() string {
+	return fmt.Sprintf("tax")
 }
 
 func assembleLoad(dst Register, loadSize int, mode uint16, k uint32) (RawInstruction, error) {

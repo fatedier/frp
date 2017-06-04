@@ -6,20 +6,20 @@
 
 package ipv4
 
-const sysSizeofICMPFilter = 0x0
+const sizeofICMPFilter = 0x0
 
-type sysICMPFilter struct {
+type icmpFilter struct {
 }
 
-func (f *sysICMPFilter) accept(typ ICMPType) {
+func (f *icmpFilter) accept(typ ICMPType) {
 }
 
-func (f *sysICMPFilter) block(typ ICMPType) {
+func (f *icmpFilter) block(typ ICMPType) {
 }
 
-func (f *sysICMPFilter) setAll(block bool) {
+func (f *icmpFilter) setAll(block bool) {
 }
 
-func (f *sysICMPFilter) willBlock(typ ICMPType) bool {
+func (f *icmpFilter) willBlock(typ ICMPType) bool {
 	return false
 }

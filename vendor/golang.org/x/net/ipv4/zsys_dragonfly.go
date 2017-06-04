@@ -1,8 +1,6 @@
 // Created by cgo -godefs - DO NOT EDIT
 // cgo -godefs defs_dragonfly.go
 
-// +build dragonfly
-
 package ipv4
 
 const (
@@ -24,10 +22,10 @@ const (
 	sysIP_ADD_MEMBERSHIP  = 0xc
 	sysIP_DROP_MEMBERSHIP = 0xd
 
-	sysSizeofIPMreq = 0x8
+	sizeofIPMreq = 0x8
 )
 
-type sysIPMreq struct {
+type ipMreq struct {
 	Multiaddr [4]byte /* in_addr */
 	Interface [4]byte /* in_addr */
 }

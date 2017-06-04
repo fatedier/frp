@@ -58,39 +58,41 @@ const (
 	sysSOL_SOCKET       = 0x1
 	sysSO_ATTACH_FILTER = 0x1a
 
-	sysSizeofKernelSockaddrStorage = 0x80
-	sysSizeofSockaddrInet          = 0x10
-	sysSizeofInetPktinfo           = 0xc
-	sysSizeofSockExtendedErr       = 0x10
+	sizeofKernelSockaddrStorage = 0x80
+	sizeofSockaddrInet          = 0x10
+	sizeofInetPktinfo           = 0xc
+	sizeofSockExtendedErr       = 0x10
 
-	sysSizeofIPMreq         = 0x8
-	sysSizeofIPMreqn        = 0xc
-	sysSizeofIPMreqSource   = 0xc
-	sysSizeofGroupReq       = 0x84
-	sysSizeofGroupSourceReq = 0x104
+	sizeofIPMreq         = 0x8
+	sizeofIPMreqn        = 0xc
+	sizeofIPMreqSource   = 0xc
+	sizeofGroupReq       = 0x84
+	sizeofGroupSourceReq = 0x104
 
-	sysSizeofICMPFilter = 0x4
+	sizeofICMPFilter = 0x4
+
+	sizeofSockFprog = 0x8
 )
 
-type sysKernelSockaddrStorage struct {
+type kernelSockaddrStorage struct {
 	Family  uint16
 	X__data [126]int8
 }
 
-type sysSockaddrInet struct {
+type sockaddrInet struct {
 	Family uint16
 	Port   uint16
 	Addr   [4]byte /* in_addr */
 	X__pad [8]uint8
 }
 
-type sysInetPktinfo struct {
+type inetPktinfo struct {
 	Ifindex  int32
 	Spec_dst [4]byte /* in_addr */
 	Addr     [4]byte /* in_addr */
 }
 
-type sysSockExtendedErr struct {
+type sockExtendedErr struct {
 	Errno  uint32
 	Origin uint8
 	Type   uint8
@@ -100,45 +102,45 @@ type sysSockExtendedErr struct {
 	Data   uint32
 }
 
-type sysIPMreq struct {
+type ipMreq struct {
 	Multiaddr [4]byte /* in_addr */
 	Interface [4]byte /* in_addr */
 }
 
-type sysIPMreqn struct {
+type ipMreqn struct {
 	Multiaddr [4]byte /* in_addr */
 	Address   [4]byte /* in_addr */
 	Ifindex   int32
 }
 
-type sysIPMreqSource struct {
+type ipMreqSource struct {
 	Multiaddr  uint32
 	Interface  uint32
 	Sourceaddr uint32
 }
 
-type sysGroupReq struct {
+type groupReq struct {
 	Interface uint32
-	Group     sysKernelSockaddrStorage
+	Group     kernelSockaddrStorage
 }
 
-type sysGroupSourceReq struct {
+type groupSourceReq struct {
 	Interface uint32
-	Group     sysKernelSockaddrStorage
-	Source    sysKernelSockaddrStorage
+	Group     kernelSockaddrStorage
+	Source    kernelSockaddrStorage
 }
 
-type sysICMPFilter struct {
+type icmpFilter struct {
 	Data uint32
 }
 
-type sysSockFProg struct {
+type sockFProg struct {
 	Len       uint16
 	Pad_cgo_0 [2]byte
-	Filter    *sysSockFilter
+	Filter    *sockFilter
 }
 
-type sysSockFilter struct {
+type sockFilter struct {
 	Code uint16
 	Jt   uint8
 	Jf   uint8

@@ -4,6 +4,11 @@
 
 package ipv4
 
+import (
+	"golang.org/x/net/internal/iana"
+	"golang.org/x/net/internal/socket"
+)
+
 const (
 	// See ws2tcpip.h.
 	sysIP_OPTIONS                = 0x1
@@ -20,22 +25,22 @@ const (
 	sysIP_DROP_SOURCE_MEMBERSHIP = 0x10
 	sysIP_PKTINFO                = 0x13
 
-	sysSizeofInetPktinfo  = 0x8
-	sysSizeofIPMreq       = 0x8
-	sysSizeofIPMreqSource = 0xc
+	sizeofInetPktinfo  = 0x8
+	sizeofIPMreq       = 0x8
+	sizeofIPMreqSource = 0xc
 )
 
-type sysInetPktinfo struct {
+type inetPktinfo struct {
 	Addr    [4]byte
 	Ifindex int32
 }
 
-type sysIPMreq struct {
+type ipMreq struct {
 	Multiaddr [4]byte
 	Interface [4]byte
 }
 
-type sysIPMreqSource struct {
+type ipMreqSource struct {
 	Multiaddr  [4]byte
 	Sourceaddr [4]byte
 	Interface  [4]byte
@@ -45,17 +50,18 @@ type sysIPMreqSource struct {
 var (
 	ctlOpts = [ctlMax]ctlOpt{}
 
-	sockOpts = [ssoMax]sockOpt{
-		ssoTOS:                {sysIP_TOS, ssoTypeInt},
-		ssoTTL:                {sysIP_TTL, ssoTypeInt},
-		ssoMulticastTTL:       {sysIP_MULTICAST_TTL, ssoTypeInt},
-		ssoMulticastInterface: {sysIP_MULTICAST_IF, ssoTypeInterface},
-		ssoMulticastLoopback:  {sysIP_MULTICAST_LOOP, ssoTypeInt},
-		ssoJoinGroup:          {sysIP_ADD_MEMBERSHIP, ssoTypeIPMreq},
-		ssoLeaveGroup:         {sysIP_DROP_MEMBERSHIP, ssoTypeIPMreq},
+	sockOpts = map[int]*sockOpt{
+		ssoTOS:                {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_TOS, Len: 4}},
+		ssoTTL:                {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_TTL, Len: 4}},
+		ssoMulticastTTL:       {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_MULTICAST_TTL, Len: 4}},
+		ssoMulticastInterface: {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_MULTICAST_IF, Len: 4}},
+		ssoMulticastLoopback:  {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_MULTICAST_LOOP, Len: 4}},
+		ssoHeaderPrepend:      {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_HDRINCL, Len: 4}},
+		ssoJoinGroup:          {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_ADD_MEMBERSHIP, Len: sizeofIPMreq}, typ: ssoTypeIPMreq},
+		ssoLeaveGroup:         {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_DROP_MEMBERSHIP, Len: sizeofIPMreq}, typ: ssoTypeIPMreq},
 	}
 )
 
-func (pi *sysInetPktinfo) setIfindex(i int) {
+func (pi *inetPktinfo) setIfindex(i int) {
 	pi.Ifindex = int32(i)
 }

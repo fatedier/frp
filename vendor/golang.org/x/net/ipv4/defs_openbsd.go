@@ -31,7 +31,7 @@ const (
 	sysIP_ADD_MEMBERSHIP  = C.IP_ADD_MEMBERSHIP
 	sysIP_DROP_MEMBERSHIP = C.IP_DROP_MEMBERSHIP
 
-	sysSizeofIPMreq = C.sizeof_struct_ip_mreq
+	sizeofIPMreq = C.sizeof_struct_ip_mreq
 )
 
-type sysIPMreq C.struct_ip_mreq
+type ipMreq C.struct_ip_mreq

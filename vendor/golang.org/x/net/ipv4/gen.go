@@ -1,4 +1,4 @@
-// Copyright 2013 The Go Authors.  All rights reserved.
+// Copyright 2013 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -51,15 +51,6 @@ func genzsys() error {
 	b, err := cmd.Output()
 	if err != nil {
 		return err
-	}
-	// The ipv4 package still supports go1.2, and so we need to
-	// take care of additional platforms in go1.3 and above for
-	// working with go1.2.
-	switch {
-	case runtime.GOOS == "dragonfly" || runtime.GOOS == "solaris":
-		b = bytes.Replace(b, []byte("package ipv4\n"), []byte("// +build "+runtime.GOOS+"\n\npackage ipv4\n"), 1)
-	case runtime.GOOS == "linux" && (runtime.GOARCH == "arm64" || runtime.GOARCH == "mips64" || runtime.GOARCH == "mips64le" || runtime.GOARCH == "ppc64" || runtime.GOARCH == "ppc64le" || runtime.GOARCH == "s390x"):
-		b = bytes.Replace(b, []byte("package ipv4\n"), []byte("// +build "+runtime.GOOS+","+runtime.GOARCH+"\n\npackage ipv4\n"), 1)
 	}
 	b, err = format.Source(b)
 	if err != nil {
