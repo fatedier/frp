@@ -41,6 +41,9 @@ type Service struct {
 	// Accept connections from client.
 	listener frpNet.Listener
 
+	// Accept connections using kcp.
+	kcpListener frpNet.Listener
+
 	// For http proxies, route requests to different clients by hostname and other infomation.
 	VhostHttpMuxer *vhost.HttpMuxer
 
@@ -73,6 +76,17 @@ func NewService() (svr *Service, err error) {
 		err = fmt.Errorf("Create server listener error, %v", err)
 		return
 	}
+	log.Info("frps tcp listen on %s:%d", config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.BindPort)
+
+	// Listen for accepting connections from client using kcp protocol.
+	if config.ServerCommonCfg.SupportKcp {
+		svr.kcpListener, err = frpNet.ListenKcp(config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.BindPort)
+		if err != nil {
+			err = fmt.Errorf("Listen on kcp address [%s:%d] error: %v", config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.BindPort, err)
+			return
+		}
+		log.Info("frps kcp listen on %s:%d", config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.BindPort)
+	}
 
 	// Create http vhost muxer.
 	if config.ServerCommonCfg.VhostHttpPort != 0 {
@@ -87,6 +101,7 @@ func NewService() (svr *Service, err error) {
 			err = fmt.Errorf("Create vhost httpMuxer error, %v", err)
 			return
 		}
+		log.Info("http service listen on %s:%d", config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.VhostHttpPort)
 	}
 
 	// Create https vhost muxer.
@@ -102,6 +117,7 @@ func NewService() (svr *Service, err error) {
 			err = fmt.Errorf("Create vhost httpsMuxer error, %v", err)
 			return
 		}
+		log.Info("https service listen on %s:%d", config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.VhostHttpsPort)
 	}
 
 	// Create dashboard web server.
@@ -117,9 +133,17 @@ func NewService() (svr *Service, err error) {
 }
 
 func (svr *Service) Run() {
+	if config.ServerCommonCfg.SupportKcp {
+		go svr.HandleListener(svr.kcpListener)
+	}
+	svr.HandleListener(svr.listener)
+
+}
+
+func (svr *Service) HandleListener(l frpNet.Listener) {
 	// Listen for incoming connections from client.
 	for {
-		c, err := svr.listener.Accept()
+		c, err := l.Accept()
 		if err != nil {
 			log.Warn("Listener for incoming connections from client closed")
 			return
@@ -131,7 +155,7 @@ func (svr *Service) Run() {
 				var rawMsg msg.Message
 				conn.SetReadDeadline(time.Now().Add(connReadTimeout))
 				if rawMsg, err = msg.ReadMsg(conn); err != nil {
-					log.Warn("Failed to read message: %v", err)
+					log.Trace("Failed to read message: %v", err)
 					conn.Close()
 					return
 				}

@@ -150,7 +150,7 @@ func (ctl *Control) NewWorkConn() {
 		workConn = net.WrapConn(stream)
 
 	} else {
-		workConn, err = net.ConnectTcpServerByHttpProxy(config.ClientCommonCfg.HttpProxy,
+		workConn, err = net.ConnectServerByHttpProxy(config.ClientCommonCfg.HttpProxy, config.ClientCommonCfg.Protocol,
 			fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerPort))
 		if err != nil {
 			ctl.Warn("start new work connection error: %v", err)
@@ -199,7 +199,7 @@ func (ctl *Control) login() (err error) {
 		ctl.session.Close()
 	}
 
-	conn, err := net.ConnectTcpServerByHttpProxy(config.ClientCommonCfg.HttpProxy,
+	conn, err := net.ConnectServerByHttpProxy(config.ClientCommonCfg.HttpProxy, config.ClientCommonCfg.Protocol,
 		fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerPort))
 	if err != nil {
 		return err

@@ -41,6 +41,7 @@ type ClientCommonConf struct {
 	User              string
 	LoginFailExit     bool
 	Start             map[string]struct{}
+	Protocol          string
 	HeartBeatInterval int64
 	HeartBeatTimeout  int64
 }
@@ -61,6 +62,7 @@ func GetDeaultClientCommonConf() *ClientCommonConf {
 		User:              "",
 		LoginFailExit:     true,
 		Start:             make(map[string]struct{}),
+		Protocol:          "tcp",
 		HeartBeatInterval: 30,
 		HeartBeatTimeout:  90,
 	}
@@ -152,6 +154,15 @@ func LoadClientCommonConf(conf ini.File) (cfg *ClientCommonConf, err error) {
 		cfg.LoginFailExit = false
 	} else {
 		cfg.LoginFailExit = true
+	}
+
+	tmpStr, ok = conf.Get("common", "protocol")
+	if ok {
+		// Now it only support tcp and kcp.
+		if tmpStr != "kcp" {
+			tmpStr = "tcp"
+		}
+		cfg.Protocol = tmpStr
 	}
 
 	tmpStr, ok = conf.Get("common", "heartbeat_timeout")

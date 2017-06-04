@@ -51,6 +51,7 @@ type ServerCommonConf struct {
 	AuthTimeout    int64
 	SubDomainHost  string
 	TcpMux         bool
+	SupportKcp     bool
 
 	// if PrivilegeAllowPorts is not nil, tcp proxies which remote port exist in this map can be connected
 	PrivilegeAllowPorts [][2]int64
@@ -79,6 +80,7 @@ func GetDefaultServerCommonConf() *ServerCommonConf {
 		AuthTimeout:      900,
 		SubDomainHost:    "",
 		TcpMux:           true,
+		SupportKcp:       true,
 		MaxPoolCount:     5,
 		HeartBeatTimeout: 90,
 		UserConnTimeout:  10,
@@ -229,6 +231,13 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		cfg.TcpMux = false
 	} else {
 		cfg.TcpMux = true
+	}
+
+	tmpStr, ok = conf.Get("common", "support_kcp")
+	if ok && tmpStr == "false" {
+		cfg.SupportKcp = false
+	} else {
+		cfg.SupportKcp = true
 	}
 
 	tmpStr, ok = conf.Get("common", "heartbeat_timeout")
