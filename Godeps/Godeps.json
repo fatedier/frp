@@ -31,6 +31,16 @@
 			"Rev": "8a45e95fc75cb77048068a62daed98cc22fdac7c"
 		},
 		{
+			"ImportPath": "github.com/klauspost/cpuid",
+			"Comment": "v1.0",
+			"Rev": "09cded8978dc9e80714c4d85b0322337b0a1e5e0"
+		},
+		{
+			"ImportPath": "github.com/klauspost/reedsolomon",
+			"Comment": "1.3-1-gdde6ad5",
+			"Rev": "dde6ad55c5e5a6379a4e82dcca32ee407346eb6d"
+		},
+		{
 			"ImportPath": "github.com/pkg/errors",
 			"Comment": "v0.8.0-5-gc605e28",
 			"Rev": "c605e284fe17294bda444b34710735b29d1a9d90"
@@ -55,13 +65,58 @@
 			"Rev": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
 		},
 		{
+			"ImportPath": "github.com/xtaci/kcp-go",
+			"Comment": "v3.17",
+			"Rev": "df437e2b8ec365a336200f9d9da53441cf72ed47"
+		},
+		{
 			"ImportPath": "github.com/xtaci/smux",
 			"Comment": "v1.0.5-8-g2de5471",
 			"Rev": "2de5471dfcbc029f5fe1392b83fe784127c4943e"
 		},
 		{
+			"ImportPath": "golang.org/x/crypto/blowfish",
+			"Rev": "1f22c0103821b9390939b6776727195525381532"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/cast5",
+			"Rev": "1f22c0103821b9390939b6776727195525381532"
+		},
+		{
 			"ImportPath": "golang.org/x/crypto/pbkdf2",
 			"Rev": "1f22c0103821b9390939b6776727195525381532"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/salsa20",
+			"Rev": "1f22c0103821b9390939b6776727195525381532"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/salsa20/salsa",
+			"Rev": "1f22c0103821b9390939b6776727195525381532"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/tea",
+			"Rev": "1f22c0103821b9390939b6776727195525381532"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/twofish",
+			"Rev": "1f22c0103821b9390939b6776727195525381532"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/xtea",
+			"Rev": "1f22c0103821b9390939b6776727195525381532"
+		},
+		{
+			"ImportPath": "golang.org/x/net/bpf",
+			"Rev": "3b993948b6f0e651ffb58ba135d8538a68b1cddf"
+		},
+		{
+			"ImportPath": "golang.org/x/net/internal/iana",
+			"Rev": "3b993948b6f0e651ffb58ba135d8538a68b1cddf"
+		},
+		{
+			"ImportPath": "golang.org/x/net/ipv4",
+			"Rev": "3b993948b6f0e651ffb58ba135d8538a68b1cddf"
 		}
 	]
 }
