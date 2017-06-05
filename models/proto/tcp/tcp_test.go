@@ -28,8 +28,8 @@ func TestWithCompression(t *testing.T) {
 	pr, pw := io.Pipe()
 	pr2, pw2 := io.Pipe()
 
-	conn1 := WrapReadWriteCloser(pr, pw2)
-	conn2 := WrapReadWriteCloser(pr2, pw)
+	conn1 := WrapReadWriteCloser(pr, pw2, nil)
+	conn2 := WrapReadWriteCloser(pr2, pw, nil)
 
 	compressionStream1 := WithCompression(conn1)
 	compressionStream2 := WithCompression(conn2)
@@ -71,12 +71,12 @@ func TestWithEncryption(t *testing.T) {
 	pr5, pw5 := io.Pipe()
 	pr6, pw6 := io.Pipe()
 
-	conn1 := WrapReadWriteCloser(pr, pw2)
-	conn2 := WrapReadWriteCloser(pr2, pw)
-	conn3 := WrapReadWriteCloser(pr3, pw4)
-	conn4 := WrapReadWriteCloser(pr4, pw3)
-	conn5 := WrapReadWriteCloser(pr5, pw6)
-	conn6 := WrapReadWriteCloser(pr6, pw5)
+	conn1 := WrapReadWriteCloser(pr, pw2, nil)
+	conn2 := WrapReadWriteCloser(pr2, pw, nil)
+	conn3 := WrapReadWriteCloser(pr3, pw4, nil)
+	conn4 := WrapReadWriteCloser(pr4, pw3, nil)
+	conn5 := WrapReadWriteCloser(pr5, pw6, nil)
+	conn6 := WrapReadWriteCloser(pr6, pw5, nil)
 
 	encryptStream1, err := WithEncryption(conn3, []byte(key))
 	assert.NoError(err)

@@ -37,10 +37,10 @@ func TestJoin(t *testing.T) {
 	pr3, pw3 := io.Pipe()
 	pr4, pw4 := io.Pipe()
 
-	conn1 := WrapReadWriteCloser(pr, pw2)
-	conn2 := WrapReadWriteCloser(pr2, pw)
-	conn3 := WrapReadWriteCloser(pr3, pw4)
-	conn4 := WrapReadWriteCloser(pr4, pw3)
+	conn1 := WrapReadWriteCloser(pr, pw2, nil)
+	conn2 := WrapReadWriteCloser(pr2, pw, nil)
+	conn3 := WrapReadWriteCloser(pr3, pw4, nil)
+	conn4 := WrapReadWriteCloser(pr4, pw3, nil)
 
 	go func() {
 		Join(conn2, conn3)
