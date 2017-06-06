@@ -1,0 +1,5 @@
+{
+    "port":":8080",
+    "auth":true,
+    "user":{"proxy":"proxy"}
+}
