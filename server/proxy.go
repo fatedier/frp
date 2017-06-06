@@ -24,9 +24,9 @@ import (
 
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/models/proto/tcp"
 	"github.com/fatedier/frp/models/proto/udp"
 	"github.com/fatedier/frp/utils/errors"
+	frpIo "github.com/fatedier/frp/utils/io"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/vhost"
@@ -461,20 +461,20 @@ func HandleUserTcpConnection(pxy Proxy, userConn frpNet.Conn) {
 	var local io.ReadWriteCloser = workConn
 	cfg := pxy.GetConf().GetBaseInfo()
 	if cfg.UseEncryption {
-		local, err = tcp.WithEncryption(local, []byte(config.ServerCommonCfg.PrivilegeToken))
+		local, err = frpIo.WithEncryption(local, []byte(config.ServerCommonCfg.PrivilegeToken))
 		if err != nil {
 			pxy.Error("create encryption stream error: %v", err)
 			return
 		}
 	}
 	if cfg.UseCompression {
-		local = tcp.WithCompression(local)
+		local = frpIo.WithCompression(local)
 	}
 	pxy.Debug("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", workConn.LocalAddr().String(),
 		workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 
 	StatsOpenConnection(pxy.GetName())
-	inCount, outCount := tcp.Join(local, userConn)
+	inCount, outCount := frpIo.Join(local, userConn)
 	StatsCloseConnection(pxy.GetName())
 	StatsAddTrafficIn(pxy.GetName(), inCount)
 	StatsAddTrafficOut(pxy.GetName(), outCount)

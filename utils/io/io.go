@@ -12,15 +12,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tcp
+package io
 
 import (
 	"io"
+	"sync"
 
 	"github.com/golang/snappy"
 
 	"github.com/fatedier/frp/utils/crypto"
+	"github.com/fatedier/frp/utils/pool"
 )
+
+// Join two io.ReadWriteCloser and do some operations.
+func Join(c1 io.ReadWriteCloser, c2 io.ReadWriteCloser) (inCount int64, outCount int64) {
+	var wait sync.WaitGroup
+	pipe := func(to io.ReadWriteCloser, from io.ReadWriteCloser, count *int64) {
+		defer to.Close()
+		defer from.Close()
+		defer wait.Done()
+
+		buf := pool.GetBuf(16 * 1024)
+		defer pool.PutBuf(buf)
+		*count, _ = io.CopyBuffer(to, from, buf)
+	}
+
+	wait.Add(2)
+	go pipe(c1, c2, &inCount)
+	go pipe(c2, c1, &outCount)
+	wait.Wait()
+	return
+}
 
 func WithEncryption(rwc io.ReadWriteCloser, key []byte) (io.ReadWriteCloser, error) {
 	w, err := crypto.NewWriter(rwc, key)

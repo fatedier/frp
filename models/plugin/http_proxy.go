@@ -23,8 +23,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/fatedier/frp/models/proto/tcp"
 	"github.com/fatedier/frp/utils/errors"
+	frpIo "github.com/fatedier/frp/utils/io"
 	frpNet "github.com/fatedier/frp/utils/net"
 )
 
@@ -177,7 +177,7 @@ func (hp *HttpProxy) ConnectHandler(rw http.ResponseWriter, req *http.Request) {
 	}
 	client.Write([]byte("HTTP/1.0 200 OK\r\n\r\n"))
 
-	go tcp.Join(remote, client)
+	go frpIo.Join(remote, client)
 }
 
 func (hp *HttpProxy) Auth(rw http.ResponseWriter, req *http.Request) bool {
