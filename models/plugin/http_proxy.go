@@ -175,7 +175,7 @@ func (hp *HttpProxy) ConnectHandler(rw http.ResponseWriter, req *http.Request) {
 		client.Close()
 		return
 	}
-	client.Write([]byte("HTTP/1.0 200 OK\r\n\r\n"))
+	client.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 
 	go frpIo.Join(remote, client)
 }

@@ -15,9 +15,12 @@
 package net
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/fatedier/frp/utils/log"
@@ -48,6 +51,13 @@ type WrapReadWriteCloserConn struct {
 	log.Logger
 }
 
+func WrapReadWriteCloserToConn(rwc io.ReadWriteCloser) Conn {
+	return &WrapReadWriteCloserConn{
+		ReadWriteCloser: rwc,
+		Logger:          log.NewPrefixLogger(""),
+	}
+}
+
 func (conn *WrapReadWriteCloserConn) LocalAddr() net.Addr {
 	return (*net.TCPAddr)(nil)
 }
@@ -57,47 +67,15 @@ func (conn *WrapReadWriteCloserConn) RemoteAddr() net.Addr {
 }
 
 func (conn *WrapReadWriteCloserConn) SetDeadline(t time.Time) error {
-	return nil
+	return &net.OpError{Op: "set", Net: "wrap", Source: nil, Addr: nil, Err: errors.New("deadline not supported")}
 }
 
 func (conn *WrapReadWriteCloserConn) SetReadDeadline(t time.Time) error {
-	return nil
+	return &net.OpError{Op: "set", Net: "wrap", Source: nil, Addr: nil, Err: errors.New("deadline not supported")}
 }
 
 func (conn *WrapReadWriteCloserConn) SetWriteDeadline(t time.Time) error {
-	return nil
-}
-
-func WrapReadWriteCloserToConn(rwc io.ReadWriteCloser) Conn {
-	return &WrapReadWriteCloserConn{
-		ReadWriteCloser: rwc,
-		Logger:          log.NewPrefixLogger(""),
-	}
-}
-
-type Listener interface {
-	Accept() (Conn, error)
-	Close() error
-	log.Logger
-}
-
-type LogListener struct {
-	l net.Listener
-	net.Listener
-	log.Logger
-}
-
-func WrapLogListener(l net.Listener) Listener {
-	return &LogListener{
-		l:        l,
-		Listener: l,
-		Logger:   log.NewPrefixLogger(""),
-	}
-}
-
-func (logL *LogListener) Accept() (Conn, error) {
-	c, err := logL.l.Accept()
-	return WrapConn(c), err
+	return &net.OpError{Op: "set", Net: "wrap", Source: nil, Addr: nil, Err: errors.New("deadline not supported")}
 }
 
 func ConnectServer(protocol string, addr string) (c Conn, err error) {
@@ -135,4 +113,46 @@ func ConnectServerByHttpProxy(httpProxy string, protocol string, addr string) (c
 	default:
 		return nil, fmt.Errorf("unsupport protocol: %s", protocol)
 	}
+}
+
+type SharedConn struct {
+	Conn
+	sync.Mutex
+	buf *bytes.Buffer
+}
+
+// the bytes you read in io.Reader, will be reserved in SharedConn
+func NewShareConn(conn Conn) (*SharedConn, io.Reader) {
+	sc := &SharedConn{
+		Conn: conn,
+		buf:  bytes.NewBuffer(make([]byte, 0, 1024)),
+	}
+	return sc, io.TeeReader(conn, sc.buf)
+}
+
+func (sc *SharedConn) Read(p []byte) (n int, err error) {
+	sc.Lock()
+	if sc.buf == nil {
+		sc.Unlock()
+		return sc.Conn.Read(p)
+	}
+	sc.Unlock()
+	n, err = sc.buf.Read(p)
+
+	if err == io.EOF {
+		sc.Lock()
+		sc.buf = nil
+		sc.Unlock()
+		var n2 int
+		n2, err = sc.Conn.Read(p[n:])
+
+		n += n2
+	}
+	return
+}
+
+func (sc *SharedConn) WriteBuff(buffer []byte) (err error) {
+	sc.buf.Reset()
+	_, err = sc.buf.Write(buffer)
+	return err
 }
