@@ -24,6 +24,7 @@ const (
 	TypeLoginResp     = '1'
 	TypeNewProxy      = 'p'
 	TypeNewProxyResp  = '2'
+	TypeCloseProxy    = 'c'
 	TypeNewWorkConn   = 'w'
 	TypeReqWorkConn   = 'r'
 	TypeStartWorkConn = 's'
@@ -45,6 +46,7 @@ func init() {
 	TypeMap[TypeLoginResp] = reflect.TypeOf(LoginResp{})
 	TypeMap[TypeNewProxy] = reflect.TypeOf(NewProxy{})
 	TypeMap[TypeNewProxyResp] = reflect.TypeOf(NewProxyResp{})
+	TypeMap[TypeCloseProxy] = reflect.TypeOf(CloseProxy{})
 	TypeMap[TypeNewWorkConn] = reflect.TypeOf(NewWorkConn{})
 	TypeMap[TypeReqWorkConn] = reflect.TypeOf(ReqWorkConn{})
 	TypeMap[TypeStartWorkConn] = reflect.TypeOf(StartWorkConn{})
@@ -103,6 +105,10 @@ type NewProxy struct {
 type NewProxyResp struct {
 	ProxyName string `json:"proxy_name"`
 	Error     string `json:"error"`
+}
+
+type CloseProxy struct {
+	ProxyName string `json:"proxy_name"`
 }
 
 type NewWorkConn struct {

@@ -358,6 +358,9 @@ func (ctl *Control) manager() {
 				pxy := NewProxy(ctl, cfg)
 				if err := pxy.Run(); err != nil {
 					ctl.Warn("[%s] proxy start running error: %v", m.ProxyName, err)
+					ctl.sendCh <- &msg.CloseProxy{
+						ProxyName: m.ProxyName,
+					}
 					continue
 				}
 				ctl.proxies[m.ProxyName] = pxy
