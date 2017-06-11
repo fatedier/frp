@@ -126,7 +126,7 @@ func (v *VhostMuxer) handle(c frpNet.Conn) {
 
 	sConn, reqInfoMap, err := v.vhostFunc(c)
 	if err != nil {
-		log.Error("get hostname from http/https request error: %v", err)
+		log.Warn("get hostname from http/https request error: %v", err)
 		c.Close()
 		return
 	}
@@ -135,17 +135,19 @@ func (v *VhostMuxer) handle(c frpNet.Conn) {
 	path := strings.ToLower(reqInfoMap["Path"])
 	l, ok := v.getListener(name, path)
 	if !ok {
+		res := notFoundResponse()
+		res.Write(c)
 		log.Debug("http request for host [%s] path [%s] not found", name, path)
 		c.Close()
 		return
 	}
 
 	// if authFunc is exist and userName/password is set
-	// verify user access
+	// then verify user access
 	if l.mux.authFunc != nil && l.userName != "" && l.passWord != "" {
 		bAccess, err := l.mux.authFunc(c, l.userName, l.passWord, reqInfoMap["Authorization"])
 		if bAccess == false || err != nil {
-			l.Debug("check Authorization failed")
+			l.Debug("check http Authorization failed")
 			res := noAuthResponse()
 			res.Write(c)
 			c.Close()
