@@ -18,6 +18,8 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Access your computer in LAN by SSH](#access-your-computer-in-lan-by-ssh)
     * [Visit your web service in LAN by custom domains](#visit-your-web-service-in-lan-by-custom-domains)
     * [Forward DNS query request](#forward-dns-query-request)
+    * [Forward unix domain socket](#forward-unix-domain-socket)
+    * [Connect website through frpc's network](#connect-website-through-frpcs-network)
 * [Features](#features)
     * [Dashboard](#dashboard)
     * [Authentication](#authentication)
@@ -32,10 +34,12 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Custom subdomain names](#custom-subdomain-names)
     * [URL routing](#url-routing)
     * [Connect frps by HTTP PROXY](#connect-frps-by-http-proxy)
+    * [Plugin](#plugin)
 * [Development Plan](#development-plan)
 * [Contributing](#contributing)
 * [Donation](#donation)
     * [AliPay](#alipay)
+    * [Wechat Pay](#wechat-pay)
     * [Paypal](#paypal)
 
 <!-- vim-markdown-toc -->
@@ -143,7 +147,7 @@ However, we can expose a http or https service using frp.
 
 ### Forward DNS query request
 
-1. Modify frps.ini, configure a reverse proxy named [dns]:
+1. Modify frps.ini:
 
   ```ini
   # frps.ini
@@ -177,6 +181,69 @@ However, we can expose a http or https service using frp.
 5. Send dns query request by dig:
 
   `dig @x.x.x.x -p 6000 www.goolge.com`
+
+### Forward unix domain socket
+
+Using tcp port to connect unix domain socket like docker daemon.
+
+1. Modify frps.ini:
+
+  ```ini
+  # frps.ini
+  [common]
+  bind_port = 7000
+  ```
+
+2. Start frps:
+
+  `./frps -c ./frps.ini`
+
+3. Modify frpc.ini:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [unix_domain_socket]
+  type = tcp
+  remote_port = 6000
+  plugin = unix_domain_socket
+  plugin_unix_path = /var/run/docker.sock
+  ```
+
+4. Start frpc:
+
+  `./frpc -c ./frpc.ini`
+
+5. Get docker version by curl command:
+
+  `curl http://x.x.x.x:6000/version`
+
+### Connect website through frpc's network
+
+Configure frps same as above.
+
+1. Modify frpc.ini:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [http_proxy]
+  type = tcp
+  remote_port = 6000
+  plugin = http_proxy
+  ```
+
+4. Start frpc:
+
+  `./frpc -c ./frpc.ini`
+
+5. Set http proxy `x.x.x.x:6000` in your browser and visit website through frpc's network.
 
 ## Features
 
@@ -360,10 +427,34 @@ frpc can connect frps using HTTP PROXY if you set os environment `HTTP_PROXY` or
 
 ```ini
 # frpc.ini
+[common]
 server_addr = x.x.x.x
 server_port = 7000
 http_proxy = http://user:pwd@192.168.1.128:8080
 ```
+
+### Plugin
+
+frpc only forward request to local tcp or udp port by default.
+
+Plugin is used for providing rich features. There are built-in plugins such as **unix_domain_socket**, **http_proxy** and you can see [example usage](#example-usage).
+
+Specify which plugin to use by `plugin` parameter. Configuration parameters of plugin should be started with `plugin_`. `local_ip` and `local_port` is useless for plugin.
+
+Using plugin **http_proxy**:
+
+```ini
+# frpc.ini
+[http_proxy]
+type = tcp
+remote_port = 6000
+plugin = http_proxy
+plugin_http_user = abc
+plugin_http_passwd = abc
+```
+
+`plugin_http_user` and `plugin_http_passwd` are configuration parameters used in `http_proxy` plugin.
+
 
 ## Development Plan
 
@@ -371,9 +462,7 @@ http_proxy = http://user:pwd@192.168.1.128:8080
 * Direct reverse proxy, like haproxy.
 * Load balance to different service in frpc.
 * Frpc can directly be a webserver for static files.
-* Full control mode, dynamically modify frpc's configure with dashboard in frps.
 * P2p communicate by make udp hole to penetrate NAT.
-* Client Plugin (http proxy).
 * kubernetes ingress support.
 
 
@@ -397,6 +486,10 @@ frp QQ group: 606194980
 ### AliPay
 
 ![donation-alipay](/doc/pic/donate-alipay.png)
+
+### Wechat Pay
+
+![donation-wechatpay](/doc/pic/donate-wechatpay.png)
 
 ### Paypal
 
