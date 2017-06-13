@@ -26,6 +26,7 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
     * [特权模式](#特权模式)
         * [端口白名单](#端口白名单)
     * [TCP 多路复用](#tcp-多路复用)
+    * [支持 kcp 协议](#支持-kcp-协议)
     * [连接池](#连接池)
     * [修改 Host Header](#修改-host-header)
     * [通过密码保护你的 web 服务](#通过密码保护你的-web-服务)
@@ -325,6 +326,35 @@ privilege_allow_ports 可以配置允许使用的某个指定端口或者是一�
 [common]
 tcp_mux = false
 ```
+
+### 支持 kcp 协议
+
+从 v0.12.0 版本开始，底层通信协议支持选择 kcp 协议，在弱网环境下传输效率提升明显，但是会有一些额外的流量消耗。
+
+开启 kcp 协议支持：
+
+1. 在 frps.ini 中启用 kcp 协议支持，指定一个 udp 端口用于接收客户端请求：
+
+  ```ini
+  # frps.ini
+  [common]
+  bind_port = 7000
+  # kcp 绑定的是 udp 端口，可以和 bind_port 一样
+  kcp_bind_port = 7000
+  ```
+
+2. 在 frpc.ini 指定需要使用的协议类型，目前只支持 tcp 和 kcp。其他代理配置不需要变更：
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  # server_port 指定为 frps 的 kcp_bind_port
+  server_port = 7000
+  protocol = kcp
+  ```
+
+3. 像之前一样使用 frp，需要注意开放相关机器上的 udp 的端口的访问权限。
 
 ### 连接池
 

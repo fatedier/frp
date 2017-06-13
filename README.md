@@ -28,6 +28,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Privilege Mode](#privilege-mode)
         * [Port White List](#port-white-list)
     * [TCP Stream Multiplexing](#tcp-stream-multiplexing)
+    * [Support KCP Protocol](#support-kcp-protocol)
     * [Connection Pool](#connection-pool)
     * [Rewriting the Host Header](#rewriting-the-host-header)
     * [Password protecting your web service](#password-protecting-your-web-service)
@@ -318,6 +319,35 @@ You can disable this feature by modify frps.ini and frpc.ini:
 [common]
 tcp_mux = false
 ```
+
+### Support KCP Protocol
+
+frp support kcp protocol since v0.12.0.
+
+KCP is a fast and reliable protocol that can achieve the transmission effect of a reduction of the average latency by 30% to 40% and reduction of the maximum delay by a factor of three, at the cost of 10% to 20% more bandwidth wasted than TCP.
+
+Using kcp in frp:
+
+1. Enable kcp protocol in frps:
+
+  ```ini
+  # frps.ini
+  [common]
+  bind_port = 7000
+  # kcp needs to bind a udp port, it can be same with 'bind_port'
+  kcp_bind_port = 7000
+  ```
+
+2. Configure the protocol used in frpc to connect frps:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  # specify the 'kcp_bind_port' in frps
+  server_port = 7000
+  protocol = kcp
+  ```
 
 ### Connection Pool
 
