@@ -27,9 +27,10 @@ var ServerCommonCfg *ServerCommonConf
 
 // common config
 type ServerCommonConf struct {
-	ConfigFile string
-	BindAddr   string
-	BindPort   int64
+	ConfigFile  string
+	BindAddr    string
+	BindPort    int64
+	KcpBindPort int64
 
 	// If VhostHttpPort equals 0, don't listen a public port for http protocol.
 	VhostHttpPort int64
@@ -51,7 +52,6 @@ type ServerCommonConf struct {
 	AuthTimeout    int64
 	SubDomainHost  string
 	TcpMux         bool
-	SupportKcp     bool
 
 	// if PrivilegeAllowPorts is not nil, tcp proxies which remote port exist in this map can be connected
 	PrivilegeAllowPorts [][2]int64
@@ -65,6 +65,7 @@ func GetDefaultServerCommonConf() *ServerCommonConf {
 		ConfigFile:       "./frps.ini",
 		BindAddr:         "0.0.0.0",
 		BindPort:         7000,
+		KcpBindPort:      0,
 		VhostHttpPort:    0,
 		VhostHttpsPort:   0,
 		DashboardPort:    0,
@@ -80,7 +81,6 @@ func GetDefaultServerCommonConf() *ServerCommonConf {
 		AuthTimeout:      900,
 		SubDomainHost:    "",
 		TcpMux:           true,
-		SupportKcp:       true,
 		MaxPoolCount:     5,
 		HeartBeatTimeout: 90,
 		UserConnTimeout:  10,
@@ -106,6 +106,14 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		v, err = strconv.ParseInt(tmpStr, 10, 64)
 		if err == nil {
 			cfg.BindPort = v
+		}
+	}
+
+	tmpStr, ok = conf.Get("common", "kcp_bind_port")
+	if ok {
+		v, err = strconv.ParseInt(tmpStr, 10, 64)
+		if err == nil && v > 0 {
+			cfg.KcpBindPort = v
 		}
 	}
 
@@ -231,13 +239,6 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		cfg.TcpMux = false
 	} else {
 		cfg.TcpMux = true
-	}
-
-	tmpStr, ok = conf.Get("common", "support_kcp")
-	if ok && tmpStr == "false" {
-		cfg.SupportKcp = false
-	} else {
-		cfg.SupportKcp = true
 	}
 
 	tmpStr, ok = conf.Get("common", "heartbeat_timeout")
