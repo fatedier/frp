@@ -455,6 +455,8 @@ Http requests with url prefix `/news` and `/about` will be forwarded to **web02*
 
 frpc can connect frps using HTTP PROXY if you set os environment `HTTP_PROXY` or configure `http_proxy` param in frpc.ini file.
 
+It only works when protocol is tcp.
+
 ```ini
 # frpc.ini
 [common]
