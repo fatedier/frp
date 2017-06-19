@@ -94,6 +94,7 @@ type BaseProxyConf struct {
 
 	UseEncryption  bool `json:"use_encryption"`
 	UseCompression bool `json:"use_compression"`
+	
 }
 
 func (cfg *BaseProxyConf) GetName() string {
@@ -140,16 +141,22 @@ func (cfg *BaseProxyConf) UnMarshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.ProxyType = cfg.ProxyType
 	pMsg.UseEncryption = cfg.UseEncryption
 	pMsg.UseCompression = cfg.UseCompression
+	//pMsg.RemoteAddr = cfg.RemoteAddr
+
 }
 
 // Bind info
 type BindInfoConf struct {
 	BindAddr   string `json:"bind_addr"`
 	RemotePort int64  `json:"remote_port"`
+	RemoteAddr string `json:"remote_addr"`
+
 }
 
 func (cfg *BindInfoConf) LoadFromMsg(pMsg *msg.NewProxy) {
+	 
 	cfg.BindAddr = ServerCommonCfg.BindAddr
+	cfg.RemoteAddr = pMsg.RemoteAddr
 	cfg.RemotePort = pMsg.RemotePort
 }
 
@@ -158,6 +165,14 @@ func (cfg *BindInfoConf) LoadFromFile(name string, section ini.Section) (err err
 		tmpStr string
 		ok     bool
 	)
+	
+	
+	if tmpStr, ok = section["remote_addr"]; ok {
+		cfg.RemoteAddr = tmpStr
+	} else {
+		cfg.RemoteAddr = ""
+	}
+
 	if tmpStr, ok = section["remote_port"]; ok {
 		if cfg.RemotePort, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
 			return fmt.Errorf("Parse conf error: proxy [%s] remote_port error", name)
@@ -170,6 +185,7 @@ func (cfg *BindInfoConf) LoadFromFile(name string, section ini.Section) (err err
 
 func (cfg *BindInfoConf) UnMarshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.RemotePort = cfg.RemotePort
+	pMsg.RemoteAddr = cfg.RemoteAddr
 }
 
 func (cfg *BindInfoConf) check() (err error) {

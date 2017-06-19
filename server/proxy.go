@@ -15,8 +15,8 @@
 package server
 
 import (
-	"context"
 	"fmt"
+	"golang.org/x/net/context"
 	"io"
 	"net"
 	"sync"
@@ -156,13 +156,13 @@ type TcpProxy struct {
 }
 
 func (pxy *TcpProxy) Run() error {
-	listener, err := frpNet.ListenTcp(config.ServerCommonCfg.BindAddr, pxy.cfg.RemotePort)
+	listener, err := frpNet.ListenTcp(pxy.cfg.RemoteAddr, pxy.cfg.RemotePort)
 	if err != nil {
 		return err
 	}
 	listener.AddLogPrefix(pxy.name)
 	pxy.listeners = append(pxy.listeners, listener)
-	pxy.Info("tcp proxy listen port [%d]", pxy.cfg.RemotePort)
+	pxy.Info("tcp proxy listen host:port [%s:%d]", pxy.cfg.RemoteAddr,pxy.cfg.RemotePort)
 
 	pxy.startListenHandler(pxy, HandleUserTcpConnection)
 	return nil
