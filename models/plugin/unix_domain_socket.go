@@ -19,7 +19,7 @@ import (
 	"io"
 	"net"
 
-	"github.com/fatedier/frp/models/proto/tcp"
+	frpIo "github.com/fatedier/frp/utils/io"
 )
 
 const PluginUnixDomainSocket = "unix_domain_socket"
@@ -57,7 +57,7 @@ func (uds *UnixDomainSocketPlugin) Handle(conn io.ReadWriteCloser) {
 		return
 	}
 
-	tcp.Join(localConn, conn)
+	frpIo.Join(localConn, conn)
 }
 
 func (uds *UnixDomainSocketPlugin) Name() string {

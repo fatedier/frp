@@ -17,15 +17,18 @@ package pool
 import "sync"
 
 var (
-	bufPool5k sync.Pool
-	bufPool2k sync.Pool
-	bufPool1k sync.Pool
-	bufPool   sync.Pool
+	bufPool16k sync.Pool
+	bufPool5k  sync.Pool
+	bufPool2k  sync.Pool
+	bufPool1k  sync.Pool
+	bufPool    sync.Pool
 )
 
 func GetBuf(size int) []byte {
 	var x interface{}
-	if size >= 5*1024 {
+	if size >= 16*1024 {
+		x = bufPool16k.Get()
+	} else if size >= 5*1024 {
 		x = bufPool5k.Get()
 	} else if size >= 2*1024 {
 		x = bufPool2k.Get()
@@ -46,7 +49,9 @@ func GetBuf(size int) []byte {
 
 func PutBuf(buf []byte) {
 	size := cap(buf)
-	if size >= 5*1024 {
+	if size >= 16*1024 {
+		bufPool16k.Put(buf)
+	} else if size >= 5*1024 {
 		bufPool5k.Put(buf)
 	} else if size >= 2*1024 {
 		bufPool2k.Put(buf)

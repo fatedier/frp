@@ -16,6 +16,8 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
     * [通过 ssh 访问公司内网机器](#通过-ssh-访问公司内网机器)
     * [通过自定义域名访问部署于内网的 web 服务](#通过自定义域名访问部署于内网的-web-服务)
     * [转发 DNS 查询请求](#转发-dns-查询请求)
+    * [转发 Unix域套接字](#转发-unix域套接字)
+    * [通过 frpc 所在机器访问外网](#通过-frpc-所在机器访问外网)
 * [功能说明](#功能说明)
     * [Dashboard](#dashboard)
     * [身份验证](#身份验证)
@@ -24,16 +26,19 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
     * [特权模式](#特权模式)
         * [端口白名单](#端口白名单)
     * [TCP 多路复用](#tcp-多路复用)
+    * [支持 kcp 协议](#支持-kcp-协议)
     * [连接池](#连接池)
     * [修改 Host Header](#修改-host-header)
     * [通过密码保护你的 web 服务](#通过密码保护你的-web-服务)
     * [自定义二级域名](#自定义二级域名)
     * [URL 路由](#url-路由)
     * [通过代理连接 frps](#通过代理连接-frps)
+    * [插件](#插件)
 * [开发计划](#开发计划)
 * [为 frp 做贡献](#为-frp-做贡献)
 * [捐助](#捐助)
     * [支付宝扫码捐赠](#支付宝扫码捐赠)
+    * [微信支付捐赠](#微信支付捐赠)
     * [Paypal 捐赠](#paypal-捐赠)
 
 <!-- vim-markdown-toc -->
@@ -179,6 +184,71 @@ DNS 查询请求通常使用 UDP 协议，frp 支持对内网 UDP 服务的穿�
 
   `dig @x.x.x.x -p 6000 www.goolge.com`
 
+### 转发 Unix域套接字
+
+通过 tcp 端口访问内网的 unix域套接字(和 docker daemon 通信)。
+
+1. 修改 frps.ini 文件：
+
+  ```ini
+  # frps.ini
+  [common]
+  bind_port = 7000
+  ```
+
+2. 启动 frps：
+
+  `./frps -c ./frps.ini`
+
+3. 修改 frpc.ini 文件，启用 unix_domain_socket 插件：
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+  
+  [unix_domain_socket]
+  type = tcp
+  remote_port = 6000
+  plugin = unix_domain_socket
+  plugin_unix_path = /var/run/docker.sock
+  ```
+
+4. 启动 frpc：
+
+  `./frpc -c ./frpc.ini`
+
+5. 通过 curl 命令查看 docker 版本信息
+
+  `curl http://x.x.x.x:6000/version`
+
+### 通过 frpc 所在机器访问外网
+
+frpc 内置了 http proxy 插件，可以使其他机器通过 frpc 的网络访问互联网。
+
+frps 的部署步骤同上。
+
+1. 修改 frpc.ini 文件，启用 http_proxy 插件：
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+  
+  [http_proxy]
+  type = tcp
+  remote_port = 6000
+  plugin = http_proxy
+  ```
+
+4. 启动 frpc：
+
+  `./frpc -c ./frpc.ini`
+
+5. 浏览器设置 http 代理地址为 `x.x.x.x:6000`，通过 frpc 机器的网络访问互联网。
+
 ## 功能说明
 
 ### Dashboard
@@ -256,6 +326,35 @@ privilege_allow_ports 可以配置允许使用的某个指定端口或者是一�
 [common]
 tcp_mux = false
 ```
+
+### 支持 kcp 协议
+
+从 v0.12.0 版本开始，底层通信协议支持选择 kcp 协议，在弱网环境下传输效率提升明显，但是会有一些额外的流量消耗。
+
+开启 kcp 协议支持：
+
+1. 在 frps.ini 中启用 kcp 协议支持，指定一个 udp 端口用于接收客户端请求：
+
+  ```ini
+  # frps.ini
+  [common]
+  bind_port = 7000
+  # kcp 绑定的是 udp 端口，可以和 bind_port 一样
+  kcp_bind_port = 7000
+  ```
+
+2. 在 frpc.ini 指定需要使用的协议类型，目前只支持 tcp 和 kcp。其他代理配置不需要变更：
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  # server_port 指定为 frps 的 kcp_bind_port
+  server_port = 7000
+  protocol = kcp
+  ```
+
+3. 像之前一样使用 frp，需要注意开放相关机器上的 udp 的端口的访问权限。
 
 ### 连接池
 
@@ -373,12 +472,37 @@ locations = /news,/about
 
 可以通过设置 `HTTP_PROXY` 系统环境变量或者通过在 frpc 的配置文件中设置 `http_proxy` 参数来使用此功能。
 
+仅在 `protocol = tcp` 时生效。
+
 ```ini
 # frpc.ini
+[common]
 server_addr = x.x.x.x
 server_port = 7000
 http_proxy = http://user:pwd@192.168.1.128:8080
 ```
+
+### 插件
+
+默认情况下，frpc 只会转发请求到本地 tcp 或 udp 端口。
+
+插件模式是为了在客户端提供更加丰富的功能，目前内置的插件有 **unix_domain_socket**、**http_proxy**。具体使用方式请查看[使用示例](#使用示例)。
+
+通过 `plugin` 指定需要使用的插件，插件的配置参数都以 `plugin_` 开头。使用插件后 `local_ip` 和 `local_port 不再需要配置。
+
+使用 **http_proxy** 插件的示例:
+
+```ini
+# frpc.ini
+[http_proxy]
+type = tcp
+remote_port = 6000
+plugin = http_proxy
+plugin_http_user = abc
+plugin_http_passwd = abc
+```
+
+`plugin_http_user` 和 `plugin_http_passwd` 即为 `http_proxy` 插件可选的配置参数。
 
 ## 开发计划
 
@@ -388,9 +512,7 @@ http_proxy = http://user:pwd@192.168.1.128:8080
 * frps 支持直接反向代理，类似 haproxy。
 * frpc 支持负载均衡到后端不同服务。
 * frpc 支持直接作为 webserver 访问指定静态页面。
-* frpc 完全控制模式，通过 dashboard 对 frpc 进行在线操作。
 * 支持 udp 打洞的方式，提供两边内网机器直接通信，流量不经过服务器转发。
-* 支持 plugin，frpc 获取到的连接可以交给指定 plugin 处理，例如 http 代理，简单的 web server。
 * 集成对 k8s 等平台的支持。
 
 ## 为 frp 做贡献
@@ -415,6 +537,10 @@ frp 交流群：606194980 (QQ 群号)
 ### 支付宝扫码捐赠
 
 ![donate-alipay](/doc/pic/donate-alipay.png)
+
+### 微信支付捐赠
+
+![donate-wechatpay](/doc/pic/donate-wechatpay.png)
 
 ### Paypal 捐赠
 

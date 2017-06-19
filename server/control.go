@@ -50,7 +50,7 @@ type Control struct {
 	workConnCh chan net.Conn
 
 	// proxies in one client
-	proxies []Proxy
+	proxies map[string]Proxy
 
 	// pool count
 	poolCount int
@@ -82,7 +82,7 @@ func NewControl(svr *Service, ctlConn net.Conn, loginMsg *msg.Login) *Control {
 		sendCh:          make(chan msg.Message, 10),
 		readCh:          make(chan msg.Message, 10),
 		workConnCh:      make(chan net.Conn, loginMsg.PoolCount+10),
-		proxies:         make([]Proxy, 0),
+		proxies:         make(map[string]Proxy),
 		poolCount:       loginMsg.PoolCount,
 		lastPing:        time.Now(),
 		runId:           loginMsg.RunId,
@@ -265,6 +265,8 @@ func (ctl *Control) stoper() {
 		workConn.Close()
 	}
 
+	ctl.mu.Lock()
+	defer ctl.mu.Unlock()
 	for _, pxy := range ctl.proxies {
 		pxy.Close()
 		ctl.svr.DelProxy(pxy.GetName())
@@ -317,6 +319,9 @@ func (ctl *Control) manager() {
 					StatsNewProxy(m.ProxyName, m.ProxyType)
 				}
 				ctl.sendCh <- resp
+			case *msg.CloseProxy:
+				ctl.CloseProxy(m)
+				ctl.conn.Info("close proxy [%s] success", m.ProxyName)
 			case *msg.Ping:
 				ctl.lastPing = time.Now()
 				ctl.conn.Debug("receive heartbeat")
@@ -355,6 +360,24 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (err error) {
 	if err != nil {
 		return err
 	}
-	ctl.proxies = append(ctl.proxies, pxy)
+
+	ctl.mu.Lock()
+	ctl.proxies[pxy.GetName()] = pxy
+	ctl.mu.Unlock()
 	return nil
+}
+
+func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
+	ctl.mu.Lock()
+	defer ctl.mu.Unlock()
+
+	pxy, ok := ctl.proxies[closeMsg.ProxyName]
+	if !ok {
+		return
+	}
+
+	pxy.Close()
+	ctl.svr.DelProxy(pxy.GetName())
+	StatsCloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
+	return
 }

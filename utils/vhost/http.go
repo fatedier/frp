@@ -35,7 +35,7 @@ type HttpMuxer struct {
 
 func GetHttpRequestInfo(c frpNet.Conn) (_ frpNet.Conn, _ map[string]string, err error) {
 	reqInfoMap := make(map[string]string, 0)
-	sc, rd := newShareConn(c)
+	sc, rd := frpNet.NewShareConn(c)
 
 	request, err := http.ReadRequest(bufio.NewReader(rd))
 	if err != nil {
@@ -62,7 +62,7 @@ func NewHttpMuxer(listener frpNet.Listener, timeout time.Duration) (*HttpMuxer, 
 }
 
 func HttpHostNameRewrite(c frpNet.Conn, rewriteHost string) (_ frpNet.Conn, err error) {
-	sc, rd := newShareConn(c)
+	sc, rd := frpNet.NewShareConn(c)
 	var buff []byte
 	if buff, err = hostNameRewrite(rd, rewriteHost); err != nil {
 		return sc, err

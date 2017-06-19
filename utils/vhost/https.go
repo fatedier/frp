@@ -179,7 +179,7 @@ func readHandshake(rd io.Reader) (host string, err error) {
 
 func GetHttpsHostname(c frpNet.Conn) (sc frpNet.Conn, _ map[string]string, err error) {
 	reqInfoMap := make(map[string]string, 0)
-	sc, rd := newShareConn(c)
+	sc, rd := frpNet.NewShareConn(c)
 	host, err := readHandshake(rd)
 	if err != nil {
 		return sc, reqInfoMap, err

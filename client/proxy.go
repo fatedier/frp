@@ -24,9 +24,9 @@ import (
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/models/plugin"
-	"github.com/fatedier/frp/models/proto/tcp"
 	"github.com/fatedier/frp/models/proto/udp"
 	"github.com/fatedier/frp/utils/errors"
+	frpIo "github.com/fatedier/frp/utils/io"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
 )
@@ -277,14 +277,14 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 	)
 	remote = workConn
 	if baseInfo.UseEncryption {
-		remote, err = tcp.WithEncryption(remote, []byte(config.ClientCommonCfg.PrivilegeToken))
+		remote, err = frpIo.WithEncryption(remote, []byte(config.ClientCommonCfg.PrivilegeToken))
 		if err != nil {
 			workConn.Error("create encryption stream error: %v", err)
 			return
 		}
 	}
 	if baseInfo.UseCompression {
-		remote = tcp.WithCompression(remote)
+		remote = frpIo.WithCompression(remote)
 	}
 
 	if proxyPlugin != nil {
@@ -294,7 +294,7 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 		workConn.Debug("handle by plugin finished")
 		return
 	} else {
-		localConn, err := frpNet.ConnectTcpServer(fmt.Sprintf("%s:%d", localInfo.LocalIp, localInfo.LocalPort))
+		localConn, err := frpNet.ConnectServer("tcp", fmt.Sprintf("%s:%d", localInfo.LocalIp, localInfo.LocalPort))
 		if err != nil {
 			workConn.Error("connect to local service [%s:%d] error: %v", localInfo.LocalIp, localInfo.LocalPort, err)
 			return
@@ -302,7 +302,7 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 
 		workConn.Debug("join connections, localConn(l[%s] r[%s]) workConn(l[%s] r[%s])", localConn.LocalAddr().String(),
 			localConn.RemoteAddr().String(), workConn.LocalAddr().String(), workConn.RemoteAddr().String())
-		tcp.Join(localConn, remote)
+		frpIo.Join(localConn, remote)
 		workConn.Debug("join connections closed")
 	}
 }

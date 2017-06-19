@@ -13,9 +13,7 @@
 package vhost
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"strings"
 	"sync"
 	"time"
@@ -128,7 +126,7 @@ func (v *VhostMuxer) handle(c frpNet.Conn) {
 
 	sConn, reqInfoMap, err := v.vhostFunc(c)
 	if err != nil {
-		log.Error("get hostname from http/https request error: %v", err)
+		log.Warn("get hostname from http/https request error: %v", err)
 		c.Close()
 		return
 	}
@@ -137,17 +135,19 @@ func (v *VhostMuxer) handle(c frpNet.Conn) {
 	path := strings.ToLower(reqInfoMap["Path"])
 	l, ok := v.getListener(name, path)
 	if !ok {
+		res := notFoundResponse()
+		res.Write(c)
 		log.Debug("http request for host [%s] path [%s] not found", name, path)
 		c.Close()
 		return
 	}
 
 	// if authFunc is exist and userName/password is set
-	// verify user access
+	// then verify user access
 	if l.mux.authFunc != nil && l.userName != "" && l.passWord != "" {
 		bAccess, err := l.mux.authFunc(c, l.userName, l.passWord, reqInfoMap["Authorization"])
 		if bAccess == false || err != nil {
-			l.Debug("check Authorization failed")
+			l.Debug("check http Authorization failed")
 			res := noAuthResponse()
 			res.Write(c)
 			c.Close()
@@ -208,46 +208,4 @@ func (l *Listener) Close() error {
 
 func (l *Listener) Name() string {
 	return l.name
-}
-
-type sharedConn struct {
-	frpNet.Conn
-	sync.Mutex
-	buff *bytes.Buffer
-}
-
-// the bytes you read in io.Reader, will be reserved in sharedConn
-func newShareConn(conn frpNet.Conn) (*sharedConn, io.Reader) {
-	sc := &sharedConn{
-		Conn: conn,
-		buff: bytes.NewBuffer(make([]byte, 0, 1024)),
-	}
-	return sc, io.TeeReader(conn, sc.buff)
-}
-
-func (sc *sharedConn) Read(p []byte) (n int, err error) {
-	sc.Lock()
-	if sc.buff == nil {
-		sc.Unlock()
-		return sc.Conn.Read(p)
-	}
-	sc.Unlock()
-	n, err = sc.buff.Read(p)
-
-	if err == io.EOF {
-		sc.Lock()
-		sc.buff = nil
-		sc.Unlock()
-		var n2 int
-		n2, err = sc.Conn.Read(p[n:])
-
-		n += n2
-	}
-	return
-}
-
-func (sc *sharedConn) WriteBuff(buffer []byte) (err error) {
-	sc.buff.Reset()
-	_, err = sc.buff.Write(buffer)
-	return err
 }

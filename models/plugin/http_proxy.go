@@ -15,6 +15,7 @@
 package plugin
 
 import (
+	"bufio"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -23,8 +24,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/fatedier/frp/models/proto/tcp"
 	"github.com/fatedier/frp/utils/errors"
+	frpIo "github.com/fatedier/frp/utils/io"
 	frpNet "github.com/fatedier/frp/utils/net"
 )
 
@@ -106,14 +107,26 @@ func (hp *HttpProxy) Name() string {
 }
 
 func (hp *HttpProxy) Handle(conn io.ReadWriteCloser) {
-	var wrapConn net.Conn
-	if realConn, ok := conn.(net.Conn); ok {
+	var wrapConn frpNet.Conn
+	if realConn, ok := conn.(frpNet.Conn); ok {
 		wrapConn = realConn
 	} else {
 		wrapConn = frpNet.WrapReadWriteCloserToConn(conn)
 	}
 
-	hp.l.PutConn(wrapConn)
+	sc, rd := frpNet.NewShareConn(wrapConn)
+	request, err := http.ReadRequest(bufio.NewReader(rd))
+	if err != nil {
+		wrapConn.Close()
+		return
+	}
+
+	if request.Method == http.MethodConnect {
+		hp.handleConnectReq(request, frpIo.WrapReadWriteCloser(rd, wrapConn, nil))
+		return
+	}
+
+	hp.l.PutConn(sc)
 	return
 }
 
@@ -124,13 +137,15 @@ func (hp *HttpProxy) Close() error {
 }
 
 func (hp *HttpProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	if ok := hp.Auth(rw, req); !ok {
+	if ok := hp.Auth(req); !ok {
 		rw.Header().Set("Proxy-Authenticate", "Basic")
 		rw.WriteHeader(http.StatusProxyAuthRequired)
 		return
 	}
 
-	if req.Method == "CONNECT" {
+	if req.Method == http.MethodConnect {
+		// deprecated
+		// Connect request is handled in Handle function.
 		hp.ConnectHandler(rw, req)
 	} else {
 		hp.HttpHandler(rw, req)
@@ -156,6 +171,9 @@ func (hp *HttpProxy) HttpHandler(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// deprecated
+// Hijack needs to SetReadDeadline on the Conn of the request, but if we use stream compression here,
+// we may always get i/o timeout error.
 func (hp *HttpProxy) ConnectHandler(rw http.ResponseWriter, req *http.Request) {
 	hj, ok := rw.(http.Hijacker)
 	if !ok {
@@ -175,12 +193,12 @@ func (hp *HttpProxy) ConnectHandler(rw http.ResponseWriter, req *http.Request) {
 		client.Close()
 		return
 	}
-	client.Write([]byte("HTTP/1.0 200 OK\r\n\r\n"))
+	client.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 
-	go tcp.Join(remote, client)
+	go frpIo.Join(remote, client)
 }
 
-func (hp *HttpProxy) Auth(rw http.ResponseWriter, req *http.Request) bool {
+func (hp *HttpProxy) Auth(req *http.Request) bool {
 	if hp.AuthUser == "" && hp.AuthPasswd == "" {
 		return true
 	}
@@ -206,6 +224,30 @@ func (hp *HttpProxy) Auth(rw http.ResponseWriter, req *http.Request) bool {
 	return true
 }
 
+func (hp *HttpProxy) handleConnectReq(req *http.Request, rwc io.ReadWriteCloser) {
+	defer rwc.Close()
+	if ok := hp.Auth(req); !ok {
+		res := getBadResponse()
+		res.Write(rwc)
+		return
+	}
+
+	remote, err := net.Dial("tcp", req.URL.Host)
+	if err != nil {
+		res := &http.Response{
+			StatusCode: 400,
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+		}
+		res.Write(rwc)
+		return
+	}
+	rwc.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+
+	frpIo.Join(remote, rwc)
+}
+
 func copyHeaders(dst, src http.Header) {
 	for key, values := range src {
 		for _, value := range values {
@@ -224,4 +266,18 @@ func removeProxyHeaders(req *http.Request) {
 	req.Header.Del("Trailers")
 	req.Header.Del("Transfer-Encoding")
 	req.Header.Del("Upgrade")
+}
+
+func getBadResponse() *http.Response {
+	header := make(map[string][]string)
+	header["Proxy-Authenticate"] = []string{"Basic"}
+	res := &http.Response{
+		Status:     "407 Not authorized",
+		StatusCode: 407,
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Header:     header,
+	}
+	return res
 }
