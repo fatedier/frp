@@ -25,7 +25,7 @@ import (
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/utils/crypto"
 	"github.com/fatedier/frp/utils/log"
-	"github.com/fatedier/frp/utils/net"
+	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
 	"github.com/xtaci/smux"
@@ -48,8 +48,14 @@ type Control struct {
 	// proxies
 	proxies map[string]Proxy
 
+	// vistor configures
+	vistorCfgs map[string]config.ProxyConf
+
+	// vistors
+	vistors map[string]Vistor
+
 	// control connection
-	conn net.Conn
+	conn frpNet.Conn
 
 	// tcp stream multiplexing, if enabled
 	session *smux.Session
@@ -77,7 +83,7 @@ type Control struct {
 	log.Logger
 }
 
-func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf) *Control {
+func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf, vistorCfgs map[string]config.ProxyConf) *Control {
 	loginMsg := &msg.Login{
 		Arch:      runtime.GOARCH,
 		Os:        runtime.GOOS,
@@ -86,14 +92,16 @@ func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf) *Control {
 		Version:   version.Full(),
 	}
 	return &Control{
-		svr:      svr,
-		loginMsg: loginMsg,
-		pxyCfgs:  pxyCfgs,
-		proxies:  make(map[string]Proxy),
-		sendCh:   make(chan msg.Message, 10),
-		readCh:   make(chan msg.Message, 10),
-		closedCh: make(chan int),
-		Logger:   log.NewPrefixLogger(""),
+		svr:        svr,
+		loginMsg:   loginMsg,
+		pxyCfgs:    pxyCfgs,
+		vistorCfgs: vistorCfgs,
+		proxies:    make(map[string]Proxy),
+		vistors:    make(map[string]Vistor),
+		sendCh:     make(chan msg.Message, 10),
+		readCh:     make(chan msg.Message, 10),
+		closedCh:   make(chan int),
+		Logger:     log.NewPrefixLogger(""),
 	}
 }
 
@@ -105,16 +113,17 @@ func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf) *Control {
 // 6. In controler(): ini readCh, sendCh, closedCh
 // 7. In controler(): start new reader(), writer(), manager()
 // controler() will keep running
-func (ctl *Control) Run() error {
+func (ctl *Control) Run() (err error) {
 	for {
-		err := ctl.login()
+		err = ctl.login()
 		if err != nil {
+			ctl.Warn("login to server failed: %v", err)
+
 			// if login_fail_exit is true, just exit this program
 			// otherwise sleep a while and continues relogin to server
 			if config.ClientCommonCfg.LoginFailExit {
-				return err
+				return
 			} else {
-				ctl.Warn("login to server fail: %v", err)
 				time.Sleep(30 * time.Second)
 			}
 		} else {
@@ -133,29 +142,25 @@ func (ctl *Control) Run() error {
 		cfg.UnMarshalToMsg(&newProxyMsg)
 		ctl.sendCh <- &newProxyMsg
 	}
+
+	// start all local vistors
+	for _, cfg := range ctl.vistorCfgs {
+		vistor := NewVistor(ctl, cfg)
+		err = vistor.Run()
+		if err != nil {
+			vistor.Warn("start error: %v", err)
+			continue
+		}
+		ctl.vistors[cfg.GetName()] = vistor
+		vistor.Info("start vistor success")
+	}
 	return nil
 }
 
 func (ctl *Control) NewWorkConn() {
-	var (
-		workConn net.Conn
-		err      error
-	)
-	if config.ClientCommonCfg.TcpMux {
-		stream, err := ctl.session.OpenStream()
-		if err != nil {
-			ctl.Warn("start new work connection error: %v", err)
-			return
-		}
-		workConn = net.WrapConn(stream)
-
-	} else {
-		workConn, err = net.ConnectServerByHttpProxy(config.ClientCommonCfg.HttpProxy, config.ClientCommonCfg.Protocol,
-			fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerPort))
-		if err != nil {
-			ctl.Warn("start new work connection error: %v", err)
-			return
-		}
+	workConn, err := ctl.connectServer()
+	if err != nil {
+		return
 	}
 
 	m := &msg.NewWorkConn{
@@ -199,7 +204,7 @@ func (ctl *Control) login() (err error) {
 		ctl.session.Close()
 	}
 
-	conn, err := net.ConnectServerByHttpProxy(config.ClientCommonCfg.HttpProxy, config.ClientCommonCfg.Protocol,
+	conn, err := frpNet.ConnectServerByHttpProxy(config.ClientCommonCfg.HttpProxy, config.ClientCommonCfg.Protocol,
 		fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerPort))
 	if err != nil {
 		return err
@@ -221,7 +226,7 @@ func (ctl *Control) login() (err error) {
 			session.Close()
 			return errRet
 		}
-		conn = net.WrapConn(stream)
+		conn = frpNet.WrapConn(stream)
 		ctl.session = session
 	}
 
@@ -259,6 +264,27 @@ func (ctl *Control) login() (err error) {
 	ctl.lastPong = time.Now()
 
 	return nil
+}
+
+func (ctl *Control) connectServer() (conn frpNet.Conn, err error) {
+	if config.ClientCommonCfg.TcpMux {
+		stream, errRet := ctl.session.OpenStream()
+		if errRet != nil {
+			err = errRet
+			ctl.Warn("start new connection to server error: %v", err)
+			return
+		}
+		conn = frpNet.WrapConn(stream)
+
+	} else {
+		conn, err = frpNet.ConnectServerByHttpProxy(config.ClientCommonCfg.HttpProxy, config.ClientCommonCfg.Protocol,
+			fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerPort))
+		if err != nil {
+			ctl.Warn("start new connection to server error: %v", err)
+			return
+		}
+	}
+	return
 }
 
 func (ctl *Control) reader() {

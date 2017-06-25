@@ -23,11 +23,11 @@ type Service struct {
 	closedCh chan int
 }
 
-func NewService(pxyCfgs map[string]config.ProxyConf) (svr *Service) {
+func NewService(pxyCfgs map[string]config.ProxyConf, vistorCfgs map[string]config.ProxyConf) (svr *Service) {
 	svr = &Service{
 		closedCh: make(chan int),
 	}
-	ctl := NewControl(svr, pxyCfgs)
+	ctl := NewControl(svr, pxyCfgs, vistorCfgs)
 	svr.ctl = ctl
 	return
 }
