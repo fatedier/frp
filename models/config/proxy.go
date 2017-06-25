@@ -35,6 +35,7 @@ func init() {
 	proxyConfTypeMap[consts.UdpProxy] = reflect.TypeOf(UdpProxyConf{})
 	proxyConfTypeMap[consts.HttpProxy] = reflect.TypeOf(HttpProxyConf{})
 	proxyConfTypeMap[consts.HttpsProxy] = reflect.TypeOf(HttpsProxyConf{})
+	proxyConfTypeMap[consts.StcpProxy] = reflect.TypeOf(StcpProxyConf{})
 }
 
 // NewConfByType creates a empty ProxyConf object by proxyType.
@@ -388,8 +389,10 @@ func (cfg *HttpProxyConf) LoadFromFile(name string, section ini.Section) (err er
 	if err = cfg.DomainConf.LoadFromFile(name, section); err != nil {
 		return
 	}
-	if err = cfg.LocalSvrConf.LoadFromFile(name, section); err != nil {
-		return
+	if err = cfg.PluginConf.LoadFromFile(name, section); err != nil {
+		if err = cfg.LocalSvrConf.LoadFromFile(name, section); err != nil {
+			return
+		}
 	}
 
 	var (
@@ -447,8 +450,10 @@ func (cfg *HttpsProxyConf) LoadFromFile(name string, section ini.Section) (err e
 	if err = cfg.DomainConf.LoadFromFile(name, section); err != nil {
 		return
 	}
-	if err = cfg.LocalSvrConf.LoadFromFile(name, section); err != nil {
-		return
+	if err = cfg.PluginConf.LoadFromFile(name, section); err != nil {
+		if err = cfg.LocalSvrConf.LoadFromFile(name, section); err != nil {
+			return
+		}
 	}
 	return
 }
@@ -466,9 +471,81 @@ func (cfg *HttpsProxyConf) Check() (err error) {
 	return
 }
 
+// STCP
+type StcpProxyConf struct {
+	BaseProxyConf
+
+	Role string `json:"role"`
+	Sk   string `json:"sk"`
+
+	// used in role server
+	LocalSvrConf
+	PluginConf
+
+	// used in role vistor
+	ServerName string `json:"server_name"`
+	BindAddr   string `json:"bind_addr"`
+	BindPort   int    `json:"bind_port"`
+}
+
+// Only for role server.
+func (cfg *StcpProxyConf) LoadFromMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.LoadFromMsg(pMsg)
+	cfg.Sk = pMsg.Sk
+}
+
+func (cfg *StcpProxyConf) LoadFromFile(name string, section ini.Section) (err error) {
+	if err = cfg.BaseProxyConf.LoadFromFile(name, section); err != nil {
+		return
+	}
+
+	tmpStr := section["role"]
+	if tmpStr == "server" || tmpStr == "vistor" {
+		cfg.Role = tmpStr
+	} else {
+		cfg.Role = "server"
+	}
+
+	cfg.Sk = section["sk"]
+
+	if tmpStr == "vistor" {
+		prefix := section["prefix"]
+		cfg.ServerName = prefix + section["server_name"]
+		if cfg.BindAddr = section["bind_addr"]; cfg.BindAddr == "" {
+			cfg.BindAddr = "127.0.0.1"
+		}
+
+		if tmpStr, ok := section["bind_port"]; ok {
+			if cfg.BindPort, err = strconv.Atoi(tmpStr); err != nil {
+				return fmt.Errorf("Parse conf error: proxy [%s] bind_port error", name)
+			}
+		} else {
+			return fmt.Errorf("Parse conf error: proxy [%s] bind_port not found", name)
+		}
+	} else {
+		if err = cfg.PluginConf.LoadFromFile(name, section); err != nil {
+			if err = cfg.LocalSvrConf.LoadFromFile(name, section); err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+func (cfg *StcpProxyConf) UnMarshalToMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.UnMarshalToMsg(pMsg)
+	pMsg.Sk = cfg.Sk
+}
+
+func (cfg *StcpProxyConf) Check() (err error) {
+	return
+}
+
 // if len(startProxy) is 0, start all
 // otherwise just start proxies in startProxy map
-func LoadProxyConfFromFile(prefix string, conf ini.File, startProxy map[string]struct{}) (proxyConfs map[string]ProxyConf, err error) {
+func LoadProxyConfFromFile(prefix string, conf ini.File, startProxy map[string]struct{}) (
+	proxyConfs map[string]ProxyConf, vistorConfs map[string]ProxyConf, err error) {
+
 	if prefix != "" {
 		prefix += "."
 	}
@@ -478,14 +555,23 @@ func LoadProxyConfFromFile(prefix string, conf ini.File, startProxy map[string]s
 		startAll = false
 	}
 	proxyConfs = make(map[string]ProxyConf)
+	vistorConfs = make(map[string]ProxyConf)
 	for name, section := range conf {
 		_, shouldStart := startProxy[name]
 		if name != "common" && (startAll || shouldStart) {
+			// some proxy or visotr configure may be used this prefix
+			section["prefix"] = prefix
 			cfg, err := NewProxyConfFromFile(name, section)
 			if err != nil {
-				return proxyConfs, err
+				return proxyConfs, vistorConfs, err
 			}
-			proxyConfs[prefix+name] = cfg
+
+			role := section["role"]
+			if role == "vistor" {
+				vistorConfs[prefix+name] = cfg
+			} else {
+				proxyConfs[prefix+name] = cfg
+			}
 		}
 	}
 	return

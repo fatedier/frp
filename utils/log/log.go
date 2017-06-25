@@ -88,6 +88,7 @@ func Trace(format string, v ...interface{}) {
 // Logger
 type Logger interface {
 	AddLogPrefix(string)
+	GetPrefixStr() string
 	GetAllPrefix() []string
 	ClearLogPrefix()
 	Error(string, ...interface{})
@@ -117,6 +118,10 @@ func (pl *PrefixLogger) AddLogPrefix(prefix string) {
 
 	pl.prefix += "[" + prefix + "] "
 	pl.allPrefix = append(pl.allPrefix, prefix)
+}
+
+func (pl *PrefixLogger) GetPrefixStr() string {
+	return pl.prefix
 }
 
 func (pl *PrefixLogger) GetAllPrefix() []string {

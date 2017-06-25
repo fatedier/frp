@@ -106,7 +106,7 @@ func main() {
 		}
 	}
 
-	pxyCfgs, err := config.LoadProxyConfFromFile(config.ClientCommonCfg.User, conf, config.ClientCommonCfg.Start)
+	pxyCfgs, vistorCfgs, err := config.LoadProxyConfFromFile(config.ClientCommonCfg.User, conf, config.ClientCommonCfg.Start)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -115,7 +115,7 @@ func main() {
 	log.InitLog(config.ClientCommonCfg.LogWay, config.ClientCommonCfg.LogFile,
 		config.ClientCommonCfg.LogLevel, config.ClientCommonCfg.LogMaxDays)
 
-	svr := client.NewService(pxyCfgs)
+	svr := client.NewService(pxyCfgs, vistorCfgs)
 	err = svr.Run()
 	if err != nil {
 		fmt.Println(err)

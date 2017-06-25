@@ -55,12 +55,16 @@ type Service struct {
 
 	// Manage all proxies.
 	pxyManager *ProxyManager
+
+	// Manage all vistor listeners.
+	vistorManager *VistorManager
 }
 
 func NewService() (svr *Service, err error) {
 	svr = &Service{
-		ctlManager: NewControlManager(),
-		pxyManager: NewProxyManager(),
+		ctlManager:    NewControlManager(),
+		pxyManager:    NewProxyManager(),
+		vistorManager: NewVistorManager(),
 	}
 
 	// Init assets.
@@ -176,6 +180,20 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 					}
 				case *msg.NewWorkConn:
 					svr.RegisterWorkConn(conn, m)
+				case *msg.NewVistorConn:
+					if err = svr.RegisterVistorConn(conn, m); err != nil {
+						conn.Warn("%v", err)
+						msg.WriteMsg(conn, &msg.NewVistorConnResp{
+							ProxyName: m.ProxyName,
+							Error:     err.Error(),
+						})
+						conn.Close()
+					} else {
+						msg.WriteMsg(conn, &msg.NewVistorConnResp{
+							ProxyName: m.ProxyName,
+							Error:     "",
+						})
+					}
 				default:
 					log.Warn("Error message type for the new connection [%s]", conn.RemoteAddr().String())
 					conn.Close()
@@ -262,9 +280,13 @@ func (svr *Service) RegisterWorkConn(workConn frpNet.Conn, newMsg *msg.NewWorkCo
 	return
 }
 
+func (svr *Service) RegisterVistorConn(vistorConn frpNet.Conn, newMsg *msg.NewVistorConn) error {
+	return svr.vistorManager.NewConn(newMsg.ProxyName, vistorConn, newMsg.Timestamp, newMsg.SignKey,
+		newMsg.UseEncryption, newMsg.UseCompression)
+}
+
 func (svr *Service) RegisterProxy(name string, pxy Proxy) error {
-	err := svr.pxyManager.Add(name, pxy)
-	return err
+	return svr.pxyManager.Add(name, pxy)
 }
 
 func (svr *Service) DelProxy(name string) {

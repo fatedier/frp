@@ -143,6 +143,11 @@ func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy, err error) {
 			BaseProxy: basePxy,
 			cfg:       cfg,
 		}
+	case *config.StcpProxyConf:
+		pxy = &StcpProxy{
+			BaseProxy: basePxy,
+			cfg:       cfg,
+		}
 	default:
 		return pxy, fmt.Errorf("proxy type not support")
 	}
@@ -272,6 +277,33 @@ func (pxy *HttpsProxy) GetConf() config.ProxyConf {
 
 func (pxy *HttpsProxy) Close() {
 	pxy.BaseProxy.Close()
+}
+
+type StcpProxy struct {
+	BaseProxy
+	cfg *config.StcpProxyConf
+}
+
+func (pxy *StcpProxy) Run() error {
+	listener, err := pxy.ctl.svr.vistorManager.Listen(pxy.GetName(), pxy.cfg.Sk)
+	if err != nil {
+		return err
+	}
+	listener.AddLogPrefix(pxy.name)
+	pxy.listeners = append(pxy.listeners, listener)
+	pxy.Info("stcp proxy custom listen success")
+
+	pxy.startListenHandler(pxy, HandleUserTcpConnection)
+	return nil
+}
+
+func (pxy *StcpProxy) GetConf() config.ProxyConf {
+	return pxy.cfg
+}
+
+func (pxy *StcpProxy) Close() {
+	pxy.BaseProxy.Close()
+	pxy.ctl.svr.vistorManager.CloseListener(pxy.GetName())
 }
 
 type UdpProxy struct {
