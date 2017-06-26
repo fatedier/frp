@@ -49,9 +49,10 @@ Please try again later.</p>
 func notFoundResponse() *http.Response {
 	header := make(http.Header)
 	header.Set("server", "frp/"+version.Full())
+	header.Set("Content-Type", "text/html")
 	res := &http.Response{
 		Status:     "Not Found",
-		StatusCode: 400,
+		StatusCode: 404,
 		Proto:      "HTTP/1.0",
 		ProtoMajor: 1,
 		ProtoMinor: 0,
