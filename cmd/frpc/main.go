@@ -17,8 +17,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	docopt "github.com/docopt/docopt-go"
 	ini "github.com/vaughan0/go-ini"
@@ -116,9 +119,24 @@ func main() {
 		config.ClientCommonCfg.LogLevel, config.ClientCommonCfg.LogMaxDays)
 
 	svr := client.NewService(pxyCfgs, vistorCfgs)
+
+	// Capture the exit signal if we use kcp.
+	if config.ClientCommonCfg.Protocol == "kcp" {
+		go HandleSignal(svr)
+	}
+
 	err = svr.Run()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func HandleSignal(svr *client.Service) {
+	ch := make(chan os.Signal)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+	<-ch
+	svr.Close()
+	time.Sleep(250 * time.Millisecond)
+	os.Exit(0)
 }

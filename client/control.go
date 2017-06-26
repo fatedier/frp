@@ -24,6 +24,7 @@ import (
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/utils/crypto"
+	"github.com/fatedier/frp/utils/errors"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/util"
@@ -69,8 +70,8 @@ type Control struct {
 	// run id got from server
 	runId string
 
-	// connection or other error happens , control will try to reconnect to server
-	closed int32
+	// if we call close() in control, do not reconnect to server
+	exit bool
 
 	// goroutines can block by reading from this channel, it will be closed only in reader() when control connection is closed
 	closedCh chan int
@@ -181,12 +182,29 @@ func (ctl *Control) NewWorkConn() {
 	workConn.AddLogPrefix(startMsg.ProxyName)
 
 	// dispatch this work connection to related proxy
-	if pxy, ok := ctl.proxies[startMsg.ProxyName]; ok {
+	ctl.mu.RLock()
+	pxy, ok := ctl.proxies[startMsg.ProxyName]
+	ctl.mu.RUnlock()
+	if ok {
 		workConn.Debug("start a new work connection, localAddr: %s remoteAddr: %s", workConn.LocalAddr().String(), workConn.RemoteAddr().String())
 		go pxy.InWorkConn(workConn)
 	} else {
 		workConn.Close()
 	}
+}
+
+func (ctl *Control) Close() error {
+	ctl.mu.Lock()
+	ctl.exit = true
+	err := errors.PanicToError(func() {
+		for name, _ := range ctl.proxies {
+			ctl.sendCh <- &msg.CloseProxy{
+				ProxyName: name,
+			}
+		}
+	})
+	ctl.mu.Unlock()
+	return err
 }
 
 func (ctl *Control) init() {
@@ -377,7 +395,10 @@ func (ctl *Control) manager() {
 					ctl.Warn("[%s] no proxy conf found", m.ProxyName)
 					continue
 				}
+
+				ctl.mu.RLock()
 				oldPxy, ok := ctl.proxies[m.ProxyName]
+				ctl.mu.RUnlock()
 				if ok {
 					oldPxy.Close()
 				}
@@ -389,7 +410,9 @@ func (ctl *Control) manager() {
 					}
 					continue
 				}
+				ctl.mu.Lock()
 				ctl.proxies[m.ProxyName] = pxy
+				ctl.mu.Unlock()
 				ctl.Info("[%s] start proxy success", m.ProxyName)
 			case *msg.Pong:
 				ctl.lastPong = time.Now()
@@ -429,6 +452,14 @@ func (ctl *Control) controler() {
 				for _, pxy := range ctl.proxies {
 					pxy.Close()
 				}
+				// if ctl.exit is true, just exit
+				ctl.mu.RLock()
+				exit := ctl.exit
+				ctl.mu.RUnlock()
+				if exit {
+					return
+				}
+
 				time.Sleep(time.Second)
 
 				// loop util reconnect to server success
