@@ -41,3 +41,7 @@ func (svr *Service) Run() error {
 	<-svr.closedCh
 	return nil
 }
+
+func (svr *Service) Close() error {
+	return svr.ctl.Close()
+}

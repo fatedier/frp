@@ -378,6 +378,7 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 
 	pxy.Close()
 	ctl.svr.DelProxy(pxy.GetName())
+	delete(ctl.proxies, closeMsg.ProxyName)
 	StatsCloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
 	return
 }
