@@ -182,9 +182,10 @@ func (l *Listener) Accept() (frpNet.Conn, error) {
 		return nil, fmt.Errorf("Listener closed")
 	}
 
-	// if rewriteFunc is exist and rewriteHost is set
+	// if rewriteFunc is exist
 	// rewrite http requests with a modified host header
-	if l.mux.rewriteFunc != nil && l.rewriteHost != "" {
+	// if l.rewriteHost is empty, nothing to do
+	if l.mux.rewriteFunc != nil {
 		sConn, err := l.mux.rewriteFunc(conn, l.rewriteHost)
 		if err != nil {
 			l.Warn("host header rewrite failed: %v", err)
