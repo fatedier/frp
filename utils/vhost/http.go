@@ -76,8 +76,12 @@ func hostNameRewrite(request io.Reader, rewriteHost string, remoteIP string) (_ 
 	buf := pool.GetBuf(1024)
 	defer pool.PutBuf(buf)
 
-	request.Read(buf)
-	retBuffer, err := parseRequest(buf, rewriteHost, remoteIP)
+	var n int
+	n, err = request.Read(buf)
+	if err != nil {
+		return
+	}
+	retBuffer, err := parseRequest(buf[:n], rewriteHost, remoteIP)
 	return retBuffer, err
 }
 
@@ -113,8 +117,8 @@ func parseRequest(org []byte, rewriteHost string, remoteIP string) (ret []byte, 
 		}
 		buf := new(bytes.Buffer)
 		buf.Write(b)
-		buf.WriteString(fmt.Sprintf("X-Forwarded-For: %s\n", remoteIP))
-		buf.WriteString(fmt.Sprintf("X-Real-IP: %s\n", remoteIP))
+		buf.WriteString(fmt.Sprintf("X-Forwarded-For: %s\r\n", remoteIP))
+		buf.WriteString(fmt.Sprintf("X-Real-IP: %s\r\n", remoteIP))
 		if len(changedBuf) == 0 {
 			tp.WriteTo(buf)
 		} else {
@@ -138,8 +142,8 @@ func parseRequest(org []byte, rewriteHost string, remoteIP string) (ret []byte, 
 	firstLine := req.Method + " " + req.URL.String() + " " + req.Proto
 	buf := new(bytes.Buffer)
 	buf.WriteString(firstLine)
-	buf.WriteString(fmt.Sprintf("X-Forwarded-For: %s\n", remoteIP))
-	buf.WriteString(fmt.Sprintf("X-Real-IP: %s\n", remoteIP))
+	buf.WriteString(fmt.Sprintf("X-Forwarded-For: %s\r\n", remoteIP))
+	buf.WriteString(fmt.Sprintf("X-Real-IP: %s\r\n", remoteIP))
 	tp.WriteTo(buf)
 	return buf.Bytes(), err
 }
@@ -175,9 +179,9 @@ func changeHostName(buff *bytes.Buffer, rewriteHost string) (_ []byte, err error
 			var hostHeader string
 			portPos := bytes.IndexByte(kv[j+1:], ':')
 			if portPos == -1 {
-				hostHeader = fmt.Sprintf("Host: %s\n", rewriteHost)
+				hostHeader = fmt.Sprintf("Host: %s\r\n", rewriteHost)
 			} else {
-				hostHeader = fmt.Sprintf("Host: %s:%s\n", rewriteHost, kv[j+portPos+2:])
+				hostHeader = fmt.Sprintf("Host: %s:%s\r\n", rewriteHost, kv[j+portPos+2:])
 			}
 			retBuf.WriteString(hostHeader)
 			peek = peek[i+1:]
