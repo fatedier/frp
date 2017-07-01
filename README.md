@@ -237,14 +237,14 @@ Configure frps same as above.
   [http_proxy]
   type = tcp
   remote_port = 6000
-  plugin = http_proxy
+  plugin = http_proxy # or socks5
   ```
 
 4. Start frpc:
 
   `./frpc -c ./frpc.ini`
 
-5. Set http proxy `x.x.x.x:6000` in your browser and visit website through frpc's network.
+5. Set http proxy or socks5 proxy `x.x.x.x:6000` in your browser and visit website through frpc's network.
 
 ## Features
 
@@ -469,7 +469,7 @@ http_proxy = http://user:pwd@192.168.1.128:8080
 
 frpc only forward request to local tcp or udp port by default.
 
-Plugin is used for providing rich features. There are built-in plugins such as **unix_domain_socket**, **http_proxy** and you can see [example usage](#example-usage).
+Plugin is used for providing rich features. There are built-in plugins such as **unix_domain_socket**, **http_proxy**, **socks5** and you can see [example usage](#example-usage).
 
 Specify which plugin to use by `plugin` parameter. Configuration parameters of plugin should be started with `plugin_`. `local_ip` and `local_port` is useless for plugin.
 
