@@ -95,7 +95,7 @@ func NewService() (svr *Service, err error) {
 	// Create http vhost muxer.
 	if config.ServerCommonCfg.VhostHttpPort > 0 {
 		var l frpNet.Listener
-		l, err = frpNet.ListenTcp(config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.VhostHttpPort)
+		l, err = frpNet.ListenTcp(config.ServerCommonCfg.ProxyBindAddr, config.ServerCommonCfg.VhostHttpPort)
 		if err != nil {
 			err = fmt.Errorf("Create vhost http listener error, %v", err)
 			return
@@ -105,13 +105,13 @@ func NewService() (svr *Service, err error) {
 			err = fmt.Errorf("Create vhost httpMuxer error, %v", err)
 			return
 		}
-		log.Info("http service listen on %s:%d", config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.VhostHttpPort)
+		log.Info("http service listen on %s:%d", config.ServerCommonCfg.ProxyBindAddr, config.ServerCommonCfg.VhostHttpPort)
 	}
 
 	// Create https vhost muxer.
 	if config.ServerCommonCfg.VhostHttpsPort > 0 {
 		var l frpNet.Listener
-		l, err = frpNet.ListenTcp(config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.VhostHttpsPort)
+		l, err = frpNet.ListenTcp(config.ServerCommonCfg.ProxyBindAddr, config.ServerCommonCfg.VhostHttpsPort)
 		if err != nil {
 			err = fmt.Errorf("Create vhost https listener error, %v", err)
 			return
@@ -121,7 +121,7 @@ func NewService() (svr *Service, err error) {
 			err = fmt.Errorf("Create vhost httpsMuxer error, %v", err)
 			return
 		}
-		log.Info("https service listen on %s:%d", config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.VhostHttpsPort)
+		log.Info("https service listen on %s:%d", config.ServerCommonCfg.ProxyBindAddr, config.ServerCommonCfg.VhostHttpsPort)
 	}
 
 	// Create dashboard web server.
