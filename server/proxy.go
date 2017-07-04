@@ -161,7 +161,7 @@ type TcpProxy struct {
 }
 
 func (pxy *TcpProxy) Run() error {
-	listener, err := frpNet.ListenTcp(config.ServerCommonCfg.BindAddr, pxy.cfg.RemotePort)
+	listener, err := frpNet.ListenTcp(config.ServerCommonCfg.ProxyBindAddr, pxy.cfg.RemotePort)
 	if err != nil {
 		return err
 	}
@@ -330,7 +330,7 @@ type UdpProxy struct {
 }
 
 func (pxy *UdpProxy) Run() (err error) {
-	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", config.ServerCommonCfg.BindAddr, pxy.cfg.RemotePort))
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", config.ServerCommonCfg.ProxyBindAddr, pxy.cfg.RemotePort))
 	if err != nil {
 		return err
 	}
