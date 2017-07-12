@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package server
+package client
 
 import (
 	"fmt"
@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fatedier/frp/assets"
 	"github.com/fatedier/frp/models/config"
 	frpNet "github.com/fatedier/frp/utils/net"
 
@@ -32,28 +31,14 @@ var (
 	httpServerWriteTimeout = 10 * time.Second
 )
 
-func RunDashboardServer(addr string, port int64) (err error) {
+func (svr *Service) RunAdminServer(addr string, port int64) (err error) {
 	// url router
 	router := httprouter.New()
 
-	user, passwd := config.ServerCommonCfg.DashboardUser, config.ServerCommonCfg.DashboardPwd
+	user, passwd := config.ClientCommonCfg.AdminUser, config.ClientCommonCfg.AdminPwd
 
 	// api, see dashboard_api.go
-	router.GET("/api/serverinfo", frpNet.HttprouterBasicAuth(apiServerInfo, user, passwd))
-	router.GET("/api/proxy/tcp", frpNet.HttprouterBasicAuth(apiProxyTcp, user, passwd))
-	router.GET("/api/proxy/udp", frpNet.HttprouterBasicAuth(apiProxyUdp, user, passwd))
-	router.GET("/api/proxy/http", frpNet.HttprouterBasicAuth(apiProxyHttp, user, passwd))
-	router.GET("/api/proxy/https", frpNet.HttprouterBasicAuth(apiProxyHttps, user, passwd))
-	router.GET("/api/proxy/traffic/:name", frpNet.HttprouterBasicAuth(apiProxyTraffic, user, passwd))
-
-	// view
-	router.Handler("GET", "/favicon.ico", http.FileServer(assets.FileSystem))
-	router.Handler("GET", "/static/*filepath", frpNet.MakeHttpGzipHandler(
-		frpNet.NewHttpBasicAuthWraper(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)), user, passwd)))
-
-	router.HandlerFunc("GET", "/", frpNet.HttpBasicAuth(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
-	}, user, passwd))
+	router.GET("/api/reload", frpNet.HttprouterBasicAuth(svr.apiReload, user, passwd))
 
 	address := fmt.Sprintf("%s:%d", addr, port)
 	server := &http.Server{

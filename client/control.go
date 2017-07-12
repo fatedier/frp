@@ -388,7 +388,7 @@ func (ctl *Control) manager() {
 					ctl.Warn("[%s] start error: %s", m.ProxyName, m.Error)
 					continue
 				}
-				cfg, ok := ctl.pxyCfgs[m.ProxyName]
+				cfg, ok := ctl.getProxyConf(m.ProxyName)
 				if !ok {
 					// it will never go to this branch now
 					ctl.Warn("[%s] no proxy conf found", m.ProxyName)
@@ -424,20 +424,36 @@ func (ctl *Control) controler() {
 	maxDelayTime := 30 * time.Second
 	delayTime := time.Second
 
-	checkInterval := 30 * time.Second
+	checkInterval := 10 * time.Second
 	checkProxyTicker := time.NewTicker(checkInterval)
 	for {
 		select {
 		case <-checkProxyTicker.C:
-			// Every 30 seconds, check which proxy registered failed and reregister it to server.
+			// Every 10 seconds, check which proxy registered failed and reregister it to server.
+			ctl.mu.RLock()
 			for _, cfg := range ctl.pxyCfgs {
-				if _, exist := ctl.getProxy(cfg.GetName()); !exist {
-					ctl.Info("try to reregister proxy [%s]", cfg.GetName())
+				if _, exist := ctl.proxies[cfg.GetName()]; !exist {
+					ctl.Info("try to register proxy [%s]", cfg.GetName())
 					var newProxyMsg msg.NewProxy
 					cfg.UnMarshalToMsg(&newProxyMsg)
 					ctl.sendCh <- &newProxyMsg
 				}
 			}
+
+			for _, cfg := range ctl.vistorCfgs {
+				if _, exist := ctl.vistors[cfg.GetName()]; !exist {
+					ctl.Info("try to start vistor [%s]", cfg.GetName())
+					vistor := NewVistor(ctl, cfg)
+					err = vistor.Run()
+					if err != nil {
+						vistor.Warn("start error: %v", err)
+						continue
+					}
+					ctl.vistors[cfg.GetName()] = vistor
+					vistor.Info("start vistor success")
+				}
+			}
+			ctl.mu.RUnlock()
 		case _, ok := <-ctl.closedCh:
 			// we won't get any variable from this channel
 			if !ok {
@@ -485,11 +501,13 @@ func (ctl *Control) controler() {
 				go ctl.reader()
 
 				// send NewProxy message for all configured proxies
+				ctl.mu.RLock()
 				for _, cfg := range ctl.pxyCfgs {
 					var newProxyMsg msg.NewProxy
 					cfg.UnMarshalToMsg(&newProxyMsg)
 					ctl.sendCh <- &newProxyMsg
 				}
+				ctl.mu.RUnlock()
 
 				checkProxyTicker.Stop()
 				checkProxyTicker = time.NewTicker(checkInterval)
@@ -521,4 +539,83 @@ func (ctl *Control) addProxy(name string, pxy Proxy) {
 	ctl.mu.Lock()
 	defer ctl.mu.Unlock()
 	ctl.proxies[name] = pxy
+}
+
+func (ctl *Control) getProxyConf(name string) (conf config.ProxyConf, ok bool) {
+	ctl.mu.RLock()
+	defer ctl.mu.RUnlock()
+	conf, ok = ctl.pxyCfgs[name]
+	return
+}
+
+func (ctl *Control) reloadConf(pxyCfgs map[string]config.ProxyConf, vistorCfgs map[string]config.ProxyConf) {
+	ctl.mu.Lock()
+	defer ctl.mu.Unlock()
+
+	removedPxyNames := make([]string, 0)
+	for name, oldCfg := range ctl.pxyCfgs {
+		del := false
+		cfg, ok := pxyCfgs[name]
+		if !ok {
+			del = true
+		} else {
+			if !oldCfg.Compare(cfg) {
+				del = true
+			}
+		}
+
+		if del {
+			removedPxyNames = append(removedPxyNames, name)
+			delete(ctl.pxyCfgs, name)
+			if pxy, ok := ctl.proxies[name]; ok {
+				pxy.Close()
+			}
+			delete(ctl.proxies, name)
+			ctl.sendCh <- &msg.CloseProxy{
+				ProxyName: name,
+			}
+		}
+	}
+	ctl.Info("proxy removed: %v", removedPxyNames)
+
+	addedPxyNames := make([]string, 0)
+	for name, cfg := range pxyCfgs {
+		if _, ok := ctl.pxyCfgs[name]; !ok {
+			ctl.pxyCfgs[name] = cfg
+			addedPxyNames = append(addedPxyNames, name)
+		}
+	}
+	ctl.Info("proxy added: %v", addedPxyNames)
+
+	removedVistorName := make([]string, 0)
+	for name, oldVistorCfg := range ctl.vistorCfgs {
+		del := false
+		cfg, ok := vistorCfgs[name]
+		if !ok {
+			del = true
+		} else {
+			if !oldVistorCfg.Compare(cfg) {
+				del = true
+			}
+		}
+
+		if del {
+			removedVistorName = append(removedVistorName, name)
+			delete(ctl.vistorCfgs, name)
+			if vistor, ok := ctl.vistors[name]; ok {
+				vistor.Close()
+			}
+			delete(ctl.vistors, name)
+		}
+	}
+	ctl.Info("vistor removed: %v", removedVistorName)
+
+	addedVistorName := make([]string, 0)
+	for name, vistorCfg := range vistorCfgs {
+		if _, ok := ctl.vistorCfgs[name]; !ok {
+			ctl.vistorCfgs[name] = vistorCfg
+			addedVistorName = append(addedVistorName, name)
+		}
+	}
+	ctl.Info("vistor added: %v", addedVistorName)
 }
