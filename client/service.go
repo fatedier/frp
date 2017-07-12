@@ -14,7 +14,10 @@
 
 package client
 
-import "github.com/fatedier/frp/models/config"
+import (
+	"github.com/fatedier/frp/models/config"
+	"github.com/fatedier/frp/utils/log"
+)
 
 type Service struct {
 	// manager control connection with server
@@ -36,6 +39,14 @@ func (svr *Service) Run() error {
 	err := svr.ctl.Run()
 	if err != nil {
 		return err
+	}
+
+	if config.ClientCommonCfg.AdminPort != 0 {
+		err = svr.RunAdminServer(config.ClientCommonCfg.AdminAddr, config.ClientCommonCfg.AdminPort)
+		if err != nil {
+			log.Warn("run admin server error: %v", err)
+		}
+		log.Info("admin server listen on %s:%d", config.ClientCommonCfg.AdminAddr, config.ClientCommonCfg.AdminPort)
 	}
 
 	<-svr.closedCh

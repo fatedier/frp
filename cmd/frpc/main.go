@@ -54,7 +54,7 @@ Options:
 
 func main() {
 	var err error
-	confFile := "./frpc.ini"
+	confFile := "./frps.ini"
 	// the configures parsed from file will be replaced by those from command line if exist
 	args, err := docopt.Parse(usage, nil, true, version.Full(), false)
 
@@ -73,6 +73,7 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	config.ClientCommonCfg.ConfigFile = confFile
 
 	if args["-L"] != nil {
 		if args["-L"].(string) == "console" {
