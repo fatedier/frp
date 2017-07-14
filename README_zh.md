@@ -225,11 +225,11 @@ DNS 查询请求通常使用 UDP 协议，frp 支持对内网 UDP 服务的穿�
 
 ### 通过 frpc 所在机器访问外网
 
-frpc 内置了 http proxy 插件，可以使其他机器通过 frpc 的网络访问互联网。
+frpc 内置了 http proxy 和 socks5 插件，可以使其他机器通过 frpc 的网络访问互联网。
 
 frps 的部署步骤同上。
 
-1. 修改 frpc.ini 文件，启用 http_proxy 插件：
+1. 修改 frpc.ini 文件，启用 http_proxy 或 socks5 插件(plugin 换为 socks5 即可)：
 
   ```ini
   # frpc.ini
@@ -247,7 +247,7 @@ frps 的部署步骤同上。
 
   `./frpc -c ./frpc.ini`
 
-5. 浏览器设置 http 代理地址为 `x.x.x.x:6000`，通过 frpc 机器的网络访问互联网。
+5. 浏览器设置 http 或 socks5 代理地址为 `x.x.x.x:6000`，通过 frpc 机器的网络访问互联网。
 
 ## 功能说明
 
@@ -486,7 +486,7 @@ http_proxy = http://user:pwd@192.168.1.128:8080
 
 默认情况下，frpc 只会转发请求到本地 tcp 或 udp 端口。
 
-插件模式是为了在客户端提供更加丰富的功能，目前内置的插件有 **unix_domain_socket**、**http_proxy**。具体使用方式请查看[使用示例](#使用示例)。
+插件模式是为了在客户端提供更加丰富的功能，目前内置的插件有 **unix_domain_socket**、**http_proxy**、**socks5**。具体使用方式请查看[使用示例](#使用示例)。
 
 通过 `plugin` 指定需要使用的插件，插件的配置参数都以 `plugin_` 开头。使用插件后 `local_ip` 和 `local_port` 不再需要配置。
 

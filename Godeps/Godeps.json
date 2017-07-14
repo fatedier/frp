@@ -7,6 +7,10 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "github.com/armon/go-socks5",
+			"Rev": "e75332964ef517daa070d7c38a9466a0d687e0a5"
+		},
+		{
 			"ImportPath": "github.com/davecgh/go-spew/spew",
 			"Comment": "v1.1.0",
 			"Rev": "346938d642f2ec3594ed81d874461961cd0faa76"
@@ -108,6 +112,10 @@
 		},
 		{
 			"ImportPath": "golang.org/x/net/bpf",
+			"Rev": "e4fa1c5465ad6111f206fc92186b8c83d64adbe1"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
 			"Rev": "e4fa1c5465ad6111f206fc92186b8c83d64adbe1"
 		},
 		{

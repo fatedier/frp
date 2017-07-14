@@ -36,6 +36,10 @@ type ClientCommonConf struct {
 	LogLevel          string
 	LogMaxDays        int64
 	PrivilegeToken    string
+	AdminAddr         string
+	AdminPort         int64
+	AdminUser         string
+	AdminPwd          string
 	PoolCount         int
 	TcpMux            bool
 	User              string
@@ -57,6 +61,10 @@ func GetDeaultClientCommonConf() *ClientCommonConf {
 		LogLevel:          "info",
 		LogMaxDays:        3,
 		PrivilegeToken:    "",
+		AdminAddr:         "127.0.0.1",
+		AdminPort:         0,
+		AdminUser:         "",
+		AdminPwd:          "",
 		PoolCount:         1,
 		TcpMux:            true,
 		User:              "",
@@ -111,12 +119,36 @@ func LoadClientCommonConf(conf ini.File) (cfg *ClientCommonConf, err error) {
 
 	tmpStr, ok = conf.Get("common", "log_max_days")
 	if ok {
-		cfg.LogMaxDays, _ = strconv.ParseInt(tmpStr, 10, 64)
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err == nil {
+			cfg.LogMaxDays = v
+		}
 	}
 
 	tmpStr, ok = conf.Get("common", "privilege_token")
 	if ok {
 		cfg.PrivilegeToken = tmpStr
+	}
+
+	tmpStr, ok = conf.Get("common", "admin_addr")
+	if ok {
+		cfg.AdminAddr = tmpStr
+	}
+
+	tmpStr, ok = conf.Get("common", "admin_port")
+	if ok {
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err == nil {
+			cfg.AdminPort = v
+		}
+	}
+
+	tmpStr, ok = conf.Get("common", "admin_user")
+	if ok {
+		cfg.AdminUser = tmpStr
+	}
+
+	tmpStr, ok = conf.Get("common", "admin_pwd")
+	if ok {
+		cfg.AdminPwd = tmpStr
 	}
 
 	tmpStr, ok = conf.Get("common", "pool_count")
@@ -145,7 +177,7 @@ func LoadClientCommonConf(conf ini.File) (cfg *ClientCommonConf, err error) {
 	if ok {
 		proxyNames := strings.Split(tmpStr, ",")
 		for _, name := range proxyNames {
-			cfg.Start[name] = struct{}{}
+			cfg.Start[strings.TrimSpace(name)] = struct{}{}
 		}
 	}
 
