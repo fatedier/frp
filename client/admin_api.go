@@ -64,7 +64,7 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request, _ httprout
 		return
 	}
 
-	pxyCfgs, vistorCfgs, err := config.LoadProxyConfFromFile(newCommonCfg.User, conf, newCommonCfg.Start)
+	pxyCfgs, vistorCfgs, err := config.LoadProxyConfFromFile(config.ClientCommonCfg.User, conf, newCommonCfg.Start)
 	if err != nil {
 		res.Code = 3
 		res.Msg = err.Error()
