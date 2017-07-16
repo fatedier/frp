@@ -19,18 +19,21 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Visit your web service in LAN by custom domains](#visit-your-web-service-in-lan-by-custom-domains)
     * [Forward DNS query request](#forward-dns-query-request)
     * [Forward unix domain socket](#forward-unix-domain-socket)
+    * [Expose your service in security](#expose-your-service-in-security)
     * [Connect website through frpc's network](#connect-website-through-frpcs-network)
 * [Features](#features)
+    * [Configuration File](#configuration-file)
     * [Dashboard](#dashboard)
     * [Authentication](#authentication)
     * [Encryption and Compression](#encryption-and-compression)
-    * [Reload configures without frps stopped](#reload-configures-without-frps-stopped)
+    * [Hot-Reload frpc configuration](#hot-reload-frpc-configuration)
     * [Privilege Mode](#privilege-mode)
         * [Port White List](#port-white-list)
     * [TCP Stream Multiplexing](#tcp-stream-multiplexing)
     * [Support KCP Protocol](#support-kcp-protocol)
     * [Connection Pool](#connection-pool)
     * [Rewriting the Host Header](#rewriting-the-host-header)
+    * [Get Real IP](#get-real-ip)
     * [Password protecting your web service](#password-protecting-your-web-service)
     * [Custom subdomain names](#custom-subdomain-names)
     * [URL routing](#url-routing)
@@ -187,19 +190,9 @@ However, we can expose a http or https service using frp.
 
 Using tcp port to connect unix domain socket like docker daemon.
 
-1. Modify frps.ini:
+Configure frps same as above.
 
-  ```ini
-  # frps.ini
-  [common]
-  bind_port = 7000
-  ```
-
-2. Start frps:
-
-  `./frps -c ./frps.ini`
-
-3. Modify frpc.ini:
+1. Start frpc with configurations:
 
   ```ini
   # frpc.ini
@@ -214,19 +207,59 @@ Using tcp port to connect unix domain socket like docker daemon.
   plugin_unix_path = /var/run/docker.sock
   ```
 
-4. Start frpc:
-
-  `./frpc -c ./frpc.ini`
-
-5. Get docker version by curl command:
+2. Get docker version by curl command:
 
   `curl http://x.x.x.x:6000/version`
+
+### Expose your service in security
+
+For some services, if expose them to the public network directly will be a security risk.
+
+**stcp(secret tcp)** help you create a proxy avoiding any one can access it.
+
+Configure frps same as above.
+
+1. Start frpc, forward ssh port and `remote_port` is useless:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [secret_ssh]
+  type = stcp
+  sk = abcdefg
+  local_ip = 127.0.0.1
+  local_port = 22
+  ```
+
+2. Start another frpc in which you want to connect this ssh server:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [secret_ssh_vistor]
+  type = stcp
+  role = vistor
+  server_name = secret_ssh
+  sk = abcdefg
+  bind_addr = 127.0.0.1
+  bind_port = 6000
+  ```
+
+3. Connect to server in LAN by ssh assuming that username is test:
+
+  `ssh -oPort=6000 test@127.0.0.1`
 
 ### Connect website through frpc's network
 
 Configure frps same as above.
 
-1. Modify frpc.ini:
+1. Start frpc with configurations:
 
   ```ini
   # frpc.ini
@@ -240,13 +273,17 @@ Configure frps same as above.
   plugin = http_proxy # or socks5
   ```
 
-4. Start frpc:
-
-  `./frpc -c ./frpc.ini`
-
-5. Set http proxy or socks5 proxy `x.x.x.x:6000` in your browser and visit website through frpc's network.
+2. Set http proxy or socks5 proxy `x.x.x.x:6000` in your browser and visit website through frpc's network.
 
 ## Features
+
+### Configuration File
+
+You can find features which this document not metioned from full example configuration files.
+
+[frps full configuration file](./conf/frps_full.ini)
+
+[frpc full configuration file](./conf/frpc_full.ini)
 
 ### Dashboard
 
@@ -288,9 +325,20 @@ use_encryption = true
 use_compression = true
 ```
 
-### Reload configures without frps stopped
+### Hot-Reload frpc configuration
 
-This feature is removed since v0.10.0.
+First you need to set admin port in frpc's configure file to let it provide HTTP API for more features.
+
+```ini
+# frpc.ini
+[common]
+admin_addr = 127.0.0.1
+admin_port = 7400
+```
+
+Then run command `frpc -c ./frpc.ini --reload` and wait for about 10 seconds to let frpc create or update or delete proxies.
+
+**Note that parameters in [common] section won't be modified except 'start' now.**
 
 ### Privilege Mode
 
@@ -385,6 +433,14 @@ host_header_rewrite = dev.yourdomain.com
 ```
 
 If `host_header_rewrite` is specified, the Host header will be rewritten to match the hostname portion of the forwarding address.
+
+### Get Real IP
+
+Features for http proxy only.
+
+You can get user's real IP from http request header `X-Forwarded-For` and `X-Real-IP`.
+
+**Note that now you can only get these two headers in first request of each user connection.**
 
 ### Password protecting your web service
 
