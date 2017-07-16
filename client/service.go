@@ -14,7 +14,10 @@
 
 package client
 
-import "github.com/fatedier/frp/models/config"
+import (
+	"github.com/fatedier/frp/models/config"
+	"github.com/fatedier/frp/utils/log"
+)
 
 type Service struct {
 	// manager control connection with server
@@ -23,11 +26,11 @@ type Service struct {
 	closedCh chan int
 }
 
-func NewService(pxyCfgs map[string]config.ProxyConf) (svr *Service) {
+func NewService(pxyCfgs map[string]config.ProxyConf, vistorCfgs map[string]config.ProxyConf) (svr *Service) {
 	svr = &Service{
 		closedCh: make(chan int),
 	}
-	ctl := NewControl(svr, pxyCfgs)
+	ctl := NewControl(svr, pxyCfgs, vistorCfgs)
 	svr.ctl = ctl
 	return
 }
@@ -38,6 +41,18 @@ func (svr *Service) Run() error {
 		return err
 	}
 
+	if config.ClientCommonCfg.AdminPort != 0 {
+		err = svr.RunAdminServer(config.ClientCommonCfg.AdminAddr, config.ClientCommonCfg.AdminPort)
+		if err != nil {
+			log.Warn("run admin server error: %v", err)
+		}
+		log.Info("admin server listen on %s:%d", config.ClientCommonCfg.AdminAddr, config.ClientCommonCfg.AdminPort)
+	}
+
 	<-svr.closedCh
 	return nil
+}
+
+func (svr *Service) Close() error {
+	return svr.ctl.Close()
 }

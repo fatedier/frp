@@ -15,8 +15,11 @@
 package net
 
 import (
+	"fmt"
 	"net"
+	"sync"
 
+	"github.com/fatedier/frp/utils/errors"
 	"github.com/fatedier/frp/utils/log"
 )
 
@@ -43,4 +46,54 @@ func WrapLogListener(l net.Listener) Listener {
 func (logL *LogListener) Accept() (Conn, error) {
 	c, err := logL.l.Accept()
 	return WrapConn(c), err
+}
+
+// Custom listener
+type CustomListener struct {
+	conns  chan Conn
+	closed bool
+	mu     sync.Mutex
+
+	log.Logger
+}
+
+func NewCustomListener() *CustomListener {
+	return &CustomListener{
+		conns:  make(chan Conn, 64),
+		Logger: log.NewPrefixLogger(""),
+	}
+}
+
+func (l *CustomListener) Accept() (Conn, error) {
+	conn, ok := <-l.conns
+	if !ok {
+		return nil, fmt.Errorf("listener closed")
+	}
+	conn.AddLogPrefix(l.GetPrefixStr())
+	return conn, nil
+}
+
+func (l *CustomListener) PutConn(conn Conn) error {
+	err := errors.PanicToError(func() {
+		select {
+		case l.conns <- conn:
+		default:
+			conn.Close()
+		}
+	})
+	return err
+}
+
+func (l *CustomListener) Close() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if !l.closed {
+		close(l.conns)
+		l.closed = true
+	}
+	return nil
+}
+
+func (l *CustomListener) Addr() net.Addr {
+	return (*net.TCPAddr)(nil)
 }

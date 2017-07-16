@@ -57,30 +57,35 @@ func GetHttpRequestInfo(c frpNet.Conn) (_ frpNet.Conn, _ map[string]string, err 
 }
 
 func NewHttpMuxer(listener frpNet.Listener, timeout time.Duration) (*HttpMuxer, error) {
-	mux, err := NewVhostMuxer(listener, GetHttpRequestInfo, HttpAuthFunc, HttpHostNameRewrite, timeout)
+	mux, err := NewVhostMuxer(listener, GetHttpRequestInfo, HttpAuthFunc, ModifyHttpRequest, timeout)
 	return &HttpMuxer{mux}, err
 }
 
-func HttpHostNameRewrite(c frpNet.Conn, rewriteHost string) (_ frpNet.Conn, err error) {
+func ModifyHttpRequest(c frpNet.Conn, rewriteHost string) (_ frpNet.Conn, err error) {
 	sc, rd := frpNet.NewShareConn(c)
 	var buff []byte
-	if buff, err = hostNameRewrite(rd, rewriteHost); err != nil {
+	remoteIP := strings.Split(c.RemoteAddr().String(), ":")[0]
+	if buff, err = hostNameRewrite(rd, rewriteHost, remoteIP); err != nil {
 		return sc, err
 	}
 	err = sc.WriteBuff(buff)
 	return sc, err
 }
 
-func hostNameRewrite(request io.Reader, rewriteHost string) (_ []byte, err error) {
+func hostNameRewrite(request io.Reader, rewriteHost string, remoteIP string) (_ []byte, err error) {
 	buf := pool.GetBuf(1024)
 	defer pool.PutBuf(buf)
 
-	request.Read(buf)
-	retBuffer, err := parseRequest(buf, rewriteHost)
+	var n int
+	n, err = request.Read(buf)
+	if err != nil {
+		return
+	}
+	retBuffer, err := parseRequest(buf[:n], rewriteHost, remoteIP)
 	return retBuffer, err
 }
 
-func parseRequest(org []byte, rewriteHost string) (ret []byte, err error) {
+func parseRequest(org []byte, rewriteHost string, remoteIP string) (ret []byte, err error) {
 	tp := bytes.NewBuffer(org)
 	// First line: GET /index.html HTTP/1.0
 	var b []byte
@@ -106,10 +111,19 @@ func parseRequest(org []byte, rewriteHost string) (ret []byte, err error) {
 	//  GET /index.html HTTP/1.1
 	//  Host: www.google.com
 	if req.URL.Host == "" {
-		changedBuf, err := changeHostName(tp, rewriteHost)
+		var changedBuf []byte
+		if rewriteHost != "" {
+			changedBuf, err = changeHostName(tp, rewriteHost)
+		}
 		buf := new(bytes.Buffer)
 		buf.Write(b)
-		buf.Write(changedBuf)
+		buf.WriteString(fmt.Sprintf("X-Forwarded-For: %s\r\n", remoteIP))
+		buf.WriteString(fmt.Sprintf("X-Real-IP: %s\r\n", remoteIP))
+		if len(changedBuf) == 0 {
+			tp.WriteTo(buf)
+		} else {
+			buf.Write(changedBuf)
+		}
 		return buf.Bytes(), err
 	}
 
@@ -117,18 +131,21 @@ func parseRequest(org []byte, rewriteHost string) (ret []byte, err error) {
 	// GET http://www.google.com/index.html HTTP/1.1
 	// Host: doesntmatter
 	// In this case, any Host line is ignored.
-	hostPort := strings.Split(req.URL.Host, ":")
-	if len(hostPort) == 1 {
-		req.URL.Host = rewriteHost
-	} else if len(hostPort) == 2 {
-		req.URL.Host = fmt.Sprintf("%s:%s", rewriteHost, hostPort[1])
+	if rewriteHost != "" {
+		hostPort := strings.Split(req.URL.Host, ":")
+		if len(hostPort) == 1 {
+			req.URL.Host = rewriteHost
+		} else if len(hostPort) == 2 {
+			req.URL.Host = fmt.Sprintf("%s:%s", rewriteHost, hostPort[1])
+		}
 	}
 	firstLine := req.Method + " " + req.URL.String() + " " + req.Proto
 	buf := new(bytes.Buffer)
 	buf.WriteString(firstLine)
+	buf.WriteString(fmt.Sprintf("X-Forwarded-For: %s\r\n", remoteIP))
+	buf.WriteString(fmt.Sprintf("X-Real-IP: %s\r\n", remoteIP))
 	tp.WriteTo(buf)
 	return buf.Bytes(), err
-
 }
 
 // parseRequestLine parses "GET /foo HTTP/1.1" into its three parts.
@@ -162,9 +179,9 @@ func changeHostName(buff *bytes.Buffer, rewriteHost string) (_ []byte, err error
 			var hostHeader string
 			portPos := bytes.IndexByte(kv[j+1:], ':')
 			if portPos == -1 {
-				hostHeader = fmt.Sprintf("Host: %s\n", rewriteHost)
+				hostHeader = fmt.Sprintf("Host: %s\r\n", rewriteHost)
 			} else {
-				hostHeader = fmt.Sprintf("Host: %s:%s\n", rewriteHost, kv[portPos+1:])
+				hostHeader = fmt.Sprintf("Host: %s:%s\r\n", rewriteHost, kv[j+portPos+2:])
 			}
 			retBuf.WriteString(hostHeader)
 			peek = peek[i+1:]

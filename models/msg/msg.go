@@ -20,17 +20,19 @@ import (
 )
 
 const (
-	TypeLogin         = 'o'
-	TypeLoginResp     = '1'
-	TypeNewProxy      = 'p'
-	TypeNewProxyResp  = '2'
-	TypeCloseProxy    = 'c'
-	TypeNewWorkConn   = 'w'
-	TypeReqWorkConn   = 'r'
-	TypeStartWorkConn = 's'
-	TypePing          = 'h'
-	TypePong          = '4'
-	TypeUdpPacket     = 'u'
+	TypeLogin             = 'o'
+	TypeLoginResp         = '1'
+	TypeNewProxy          = 'p'
+	TypeNewProxyResp      = '2'
+	TypeCloseProxy        = 'c'
+	TypeNewWorkConn       = 'w'
+	TypeReqWorkConn       = 'r'
+	TypeStartWorkConn     = 's'
+	TypeNewVistorConn     = 'v'
+	TypeNewVistorConnResp = '3'
+	TypePing              = 'h'
+	TypePong              = '4'
+	TypeUdpPacket         = 'u'
 )
 
 var (
@@ -50,6 +52,8 @@ func init() {
 	TypeMap[TypeNewWorkConn] = reflect.TypeOf(NewWorkConn{})
 	TypeMap[TypeReqWorkConn] = reflect.TypeOf(ReqWorkConn{})
 	TypeMap[TypeStartWorkConn] = reflect.TypeOf(StartWorkConn{})
+	TypeMap[TypeNewVistorConn] = reflect.TypeOf(NewVistorConn{})
+	TypeMap[TypeNewVistorConnResp] = reflect.TypeOf(NewVistorConnResp{})
 	TypeMap[TypePing] = reflect.TypeOf(Ping{})
 	TypeMap[TypePong] = reflect.TypeOf(Pong{})
 	TypeMap[TypeUdpPacket] = reflect.TypeOf(UdpPacket{})
@@ -100,6 +104,9 @@ type NewProxy struct {
 	HostHeaderRewrite string   `json:"host_header_rewrite"`
 	HttpUser          string   `json:"http_user"`
 	HttpPwd           string   `json:"http_pwd"`
+
+	// stcp
+	Sk string `json:"sk"`
 }
 
 type NewProxyResp struct {
@@ -120,6 +127,19 @@ type ReqWorkConn struct {
 
 type StartWorkConn struct {
 	ProxyName string `json:"proxy_name"`
+}
+
+type NewVistorConn struct {
+	ProxyName      string `json:"proxy_name"`
+	SignKey        string `json:"sign_key"`
+	Timestamp      int64  `json:"timestamp"`
+	UseEncryption  bool   `json:"use_encryption"`
+	UseCompression bool   `json:"use_compression"`
+}
+
+type NewVistorConnResp struct {
+	ProxyName string `json:"proxy_name"`
+	Error     string `json:"error"`
 }
 
 type Ping struct {

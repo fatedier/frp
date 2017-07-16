@@ -31,7 +31,7 @@ import (
 	frpNet "github.com/fatedier/frp/utils/net"
 )
 
-// Proxy defines how to work for different proxy type.
+// Proxy defines how to deal with work connections for different proxy type.
 type Proxy interface {
 	Run() error
 
@@ -64,6 +64,11 @@ func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy) {
 		}
 	case *config.HttpsProxyConf:
 		pxy = &HttpsProxy{
+			BaseProxy: baseProxy,
+			cfg:       cfg,
+		}
+	case *config.StcpProxyConf:
+		pxy = &StcpProxy{
 			BaseProxy: baseProxy,
 			cfg:       cfg,
 		}
@@ -159,6 +164,34 @@ func (pxy *HttpsProxy) Close() {
 }
 
 func (pxy *HttpsProxy) InWorkConn(conn frpNet.Conn) {
+	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn)
+}
+
+// STCP
+type StcpProxy struct {
+	BaseProxy
+
+	cfg         *config.StcpProxyConf
+	proxyPlugin plugin.Plugin
+}
+
+func (pxy *StcpProxy) Run() (err error) {
+	if pxy.cfg.Plugin != "" {
+		pxy.proxyPlugin, err = plugin.Create(pxy.cfg.Plugin, pxy.cfg.PluginParams)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func (pxy *StcpProxy) Close() {
+	if pxy.proxyPlugin != nil {
+		pxy.proxyPlugin.Close()
+	}
+}
+
+func (pxy *StcpProxy) InWorkConn(conn frpNet.Conn) {
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn)
 }
 
