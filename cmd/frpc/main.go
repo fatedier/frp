@@ -60,7 +60,7 @@ Options:
 
 func main() {
 	var err error
-	confFile := "./frps.ini"
+	confFile := "./frpc.ini"
 	// the configures parsed from file will be replaced by those from command line if exist
 	args, err := docopt.Parse(usage, nil, true, version.Full(), false)
 
