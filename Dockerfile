@@ -11,7 +11,7 @@ FROM alpine:3.6
 
 COPY --from=frpBuild /go/src/github.com/fatedier/frp/bin/frpc /
 COPY --from=frpBuild /go/src/github.com/fatedier/frp/conf/frpc.ini /
-COPY --from=frpBuild /go/src/github.com/fatedier/frp/bin/frpc /
+COPY --from=frpBuild /go/src/github.com/fatedier/frp/bin/frps /
 COPY --from=frpBuild /go/src/github.com/fatedier/frp/conf/frps.ini /
 
 EXPOSE 80 443 6000 7000 7500
