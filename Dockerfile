@@ -1,17 +1,21 @@
-FROM golang:1.8
+FROM golang:1.8 as frpBuild
 
 COPY . /go/src/github.com/fatedier/frp
 
-RUN cd /go/src/github.com/fatedier/frp \
- && make \
- && mv bin/frpc /frpc \
- && mv bin/frps /frps \
- && mv conf/frpc.ini /frpc.ini \
- && mv conf/frps.ini /frps.ini \
- && make clean
+ENV CGO_ENABLED=0
 
-WORKDIR /
+RUN cd /go/src/github.com/fatedier/frp \
+ && make
+
+FROM alpine:3.6
+
+COPY --from=frpBuild /go/src/github.com/fatedier/frp/bin/frpc /
+COPY --from=frpBuild /go/src/github.com/fatedier/frp/conf/frpc.ini /
+COPY --from=frpBuild /go/src/github.com/fatedier/frp/bin/frps /
+COPY --from=frpBuild /go/src/github.com/fatedier/frp/conf/frps.ini /
 
 EXPOSE 80 443 6000 7000 7500
 
-ENTRYPOINT ["/frps"]
+WORKDIR /
+
+CMD ["/frps","-c","frps.ini"]
