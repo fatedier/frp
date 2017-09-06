@@ -32,17 +32,23 @@ import (
 var usage string = `frps is the server of frp
 
 Usage: 
-    frps [-c config_file] [-L log_file] [--log-level=<log_level>] [--addr=<bind_addr>]
+    frps [--disable-conf=<disable_conf>] [-c config_file] [-L log_file] [--log-level=<log_level>]
+    frps [--addr=<bind_addr>] [--vhost-https-port=<vhost_https_port>]  [--vhost-http-port=<vhost_http_port>]
+    frps [--privilege-token=<privilege_token>]
     frps -h | --help
     frps -v | --version
 
 Options:
-    -c config_file            set config file
-    -L log_file               set output log file, including console
-    --log-level=<log_level>   set log level: debug, info, warn, error
-    --addr=<bind_addr>        listen addr for client, example: 0.0.0.0:7000
-    -h --help                 show this screen
-    -v --version              show version
+	--disable-conf							if true then use command line to config
+    -c config_file            				set config file
+    -L log_file               				set output log file, including console
+    --log-level=<log_level>   				set log level: debug, info, warn, error
+    --addr=<bind_addr>        				listen addr for client, example: 0.0.0.0:7000
+   	--vhost-http-port=<vhost_http_port> 	set vhost_http_port
+	--vhost-https-port=<vhost_https_port> 	set vhost_https_port
+	--privilege-token=<privilege_token> 	enable privilege_mode and set privilege_token
+    -h --help                 				show this screen
+    -v --version              				show version
 `
 
 func main() {
@@ -50,20 +56,23 @@ func main() {
 	confFile := "./frps.ini"
 	// the configures parsed from file will be replaced by those from command line if exist
 	args, err := docopt.Parse(usage, nil, true, version.Full(), false)
-
-	if args["-c"] != nil {
-		confFile = args["-c"].(string)
-	}
-
-	conf, err := ini.LoadFile(confFile)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	config.ServerCommonCfg, err = config.LoadServerCommonConf(conf)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	
+	if args["--disable-conf"] == nil || args["--disable-conf"].(string) != "true" {
+		if args["-c"] != nil {
+			confFile = args["-c"].(string)
+		}
+		conf, err := ini.LoadFile(confFile)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		config.ServerCommonCfg, err = config.LoadServerCommonConf(conf)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	} else {
+		config.ServerCommonCfg = config.GetDefaultServerCommonConf()
 	}
 
 	if args["-L"] != nil {
@@ -92,6 +101,29 @@ func main() {
 		}
 		config.ServerCommonCfg.BindAddr = addr[0]
 		config.ServerCommonCfg.BindPort = bindPort
+	}
+
+	if args["--vhost-http-port"] != nil {
+		vhostHttpPort, err := strconv.ParseInt(args["--vhost-http-port"].(string), 10, 64)
+		if err != nil || vhostHttpPort < 0 || vhostHttpPort > 65535 {
+			fmt.Println("--vhost_http_port error,allow range 0 - 65535")
+			os.Exit(1)
+		}
+		config.ServerCommonCfg.VhostHttpPort = vhostHttpPort
+	}
+
+	if args["--vhost-https-port"] != nil {
+		vhostHttpsPort, err := strconv.ParseInt(args["--vhost-https-port"].(string), 10, 64)
+		if err != nil || vhostHttpsPort < 0 || vhostHttpsPort > 65535 {
+			fmt.Println("--vhost_http_port error,allow range 0 - 65535")
+			os.Exit(1)
+		}
+		config.ServerCommonCfg.VhostHttpsPort = vhostHttpsPort
+	}
+
+	if args["--privilege-token"] != nil {
+		config.ServerCommonCfg.PrivilegeMode = true
+		config.ServerCommonCfg.PrivilegeToken = args["--privilege-token"].(string)
 	}
 
 	if args["-v"] != nil {
