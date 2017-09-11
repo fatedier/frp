@@ -3,6 +3,7 @@ language: go
 
 go:
     - 1.8.x
+    - 1.x
 
 install:
     - make
