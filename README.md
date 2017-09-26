@@ -184,7 +184,7 @@ However, we can expose a http or https service using frp.
 
 5. Send dns query request by dig:
 
-  `dig @x.x.x.x -p 6000 www.goolge.com`
+  `dig @x.x.x.x -p 6000 www.google.com`
 
 ### Forward unix domain socket
 
