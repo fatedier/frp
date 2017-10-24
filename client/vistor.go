@@ -15,9 +15,11 @@
 package client
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -214,47 +216,67 @@ func (sv *XtcpVistor) handleConn(userConn frpNet.Conn) {
 	}
 
 	// Wait for client address at most 10 seconds.
-	var natHoleResp msg.NatHoleResp
+	var natHoleRespMsg msg.NatHoleResp
 	vistorConn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	err = msg.ReadMsgInto(vistorConn, &natHoleResp)
+	buf := pool.GetBuf(1024)
+	n, err := vistorConn.Read(buf)
+	if err != nil {
+		sv.Warn("get natHoleRespMsg error: %v", err)
+		return
+	}
+
+	err = msg.ReadMsgInto(bytes.NewReader(buf[:n]), &natHoleRespMsg)
 	if err != nil {
 		sv.Warn("get natHoleRespMsg error: %v", err)
 		return
 	}
 	vistorConn.SetReadDeadline(time.Time{})
+	pool.PutBuf(buf)
+
+	sv.Trace("get natHoleRespMsg, sid [%s], client address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr)
 
 	// Close vistorConn, so we can use it's local address.
 	vistorConn.Close()
 
-	// Send detect message for all ports of client in case different NAT type.
-	array := strings.Split(natHoleResp.ClientAddr, ":")
-	if len(array) <= 0 {
-		sv.Error("get natHoleResp client address error: %s", natHoleResp.ClientAddr)
+	// Send detect message.
+	array := strings.Split(natHoleRespMsg.ClientAddr, ":")
+	if len(array) <= 1 {
+		sv.Error("get natHoleResp client address error: %s", natHoleRespMsg.ClientAddr)
 		return
 	}
 	laddr, _ := net.ResolveUDPAddr("udp", vistorConn.LocalAddr().String())
-	for i := 1000; i < 65000; i++ {
-		sv.sendDetectMsg(array[0], int64(i), laddr)
+	/*
+		for i := 1000; i < 65000; i++ {
+			sv.sendDetectMsg(array[0], int64(i), laddr, "a")
+		}
+	*/
+	port, err := strconv.ParseInt(array[1], 10, 64)
+	if err != nil {
+		sv.Error("get natHoleResp client address error: %s", natHoleRespMsg.ClientAddr)
+		return
 	}
+	sv.sendDetectMsg(array[0], int64(port), laddr, []byte(natHoleRespMsg.Sid))
+	sv.Trace("send all detect msg done")
 
 	// Listen for vistorConn's address and wait for client connection.
 	lConn, _ := net.ListenUDP("udp", laddr)
-	lConn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	lConn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	sidBuf := pool.GetBuf(1024)
-	n, _, err := lConn.ReadFromUDP(sidBuf)
+	n, _, err = lConn.ReadFromUDP(sidBuf)
 	if err != nil {
 		sv.Warn("get sid from client error: %v", err)
 		return
 	}
 	lConn.SetReadDeadline(time.Time{})
-	if string(sidBuf[:n]) != natHoleResp.Sid {
+	if string(sidBuf[:n]) != natHoleRespMsg.Sid {
 		sv.Warn("incorrect sid from client")
 		return
 	}
+	sv.Info("nat hole connection make success, sid [%s]", string(sidBuf[:n]))
 	pool.PutBuf(sidBuf)
 
 	var remote io.ReadWriteCloser
-	remote, err = frpNet.NewKcpConnFromUdp(lConn, false, natHoleResp.ClientAddr)
+	remote, err = frpNet.NewKcpConnFromUdp(lConn, false, natHoleRespMsg.ClientAddr)
 	if err != nil {
 		sv.Error("create kcp connection from udp connection error: %v", err)
 		return
@@ -275,7 +297,7 @@ func (sv *XtcpVistor) handleConn(userConn frpNet.Conn) {
 	frpIo.Join(userConn, remote)
 }
 
-func (sv *XtcpVistor) sendDetectMsg(addr string, port int64, laddr *net.UDPAddr) (err error) {
+func (sv *XtcpVistor) sendDetectMsg(addr string, port int64, laddr *net.UDPAddr, content []byte) (err error) {
 	daddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", addr, port))
 	if err != nil {
 		return err
@@ -289,7 +311,7 @@ func (sv *XtcpVistor) sendDetectMsg(addr string, port int64, laddr *net.UDPAddr)
 	uConn := ipv4.NewConn(tConn)
 	uConn.SetTTL(3)
 
-	tConn.Write([]byte(fmt.Sprintf("%d", port)))
+	tConn.Write(content)
 	tConn.Close()
 	return nil
 }
