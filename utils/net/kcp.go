@@ -87,5 +87,15 @@ func (l *KcpListener) Close() error {
 }
 
 func NewKcpConnFromUdp(conn *net.UDPConn, connected bool, raddr string) (net.Conn, error) {
-	return kcp.NewConnEx(1, connected, raddr, nil, 10, 3, conn)
+	kcpConn, err := kcp.NewConnEx(1, connected, raddr, nil, 10, 3, conn)
+	if err != nil {
+		return nil, err
+	}
+	kcpConn.SetStreamMode(true)
+	kcpConn.SetWriteDelay(true)
+	kcpConn.SetNoDelay(1, 20, 2, 1)
+	kcpConn.SetMtu(1350)
+	kcpConn.SetWindowSize(1024, 1024)
+	kcpConn.SetACKNoDelay(false)
+	return kcpConn, nil
 }
