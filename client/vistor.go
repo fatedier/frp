@@ -295,6 +295,7 @@ func (sv *XtcpVistor) handleConn(userConn frpNet.Conn) {
 	}
 
 	frpIo.Join(userConn, remote)
+	sv.Debug("join connections closed")
 }
 
 func (sv *XtcpVistor) sendDetectMsg(addr string, port int64, laddr *net.UDPAddr, content []byte) (err error) {

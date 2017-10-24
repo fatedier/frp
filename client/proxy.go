@@ -115,7 +115,8 @@ func (pxy *TcpProxy) Close() {
 }
 
 func (pxy *TcpProxy) InWorkConn(conn frpNet.Conn) {
-	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn)
+	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
+		[]byte(config.ClientCommonCfg.PrivilegeToken))
 }
 
 // HTTP
@@ -143,7 +144,8 @@ func (pxy *HttpProxy) Close() {
 }
 
 func (pxy *HttpProxy) InWorkConn(conn frpNet.Conn) {
-	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn)
+	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
+		[]byte(config.ClientCommonCfg.PrivilegeToken))
 }
 
 // HTTPS
@@ -171,7 +173,8 @@ func (pxy *HttpsProxy) Close() {
 }
 
 func (pxy *HttpsProxy) InWorkConn(conn frpNet.Conn) {
-	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn)
+	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
+		[]byte(config.ClientCommonCfg.PrivilegeToken))
 }
 
 // STCP
@@ -199,7 +202,8 @@ func (pxy *StcpProxy) Close() {
 }
 
 func (pxy *StcpProxy) InWorkConn(conn frpNet.Conn) {
-	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn)
+	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
+		[]byte(config.ClientCommonCfg.PrivilegeToken))
 }
 
 // XTCP
@@ -291,7 +295,8 @@ func (pxy *XtcpProxy) InWorkConn(conn frpNet.Conn) {
 		return
 	}
 
-	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, frpNet.WrapConn(kcpConn))
+	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf,
+		frpNet.WrapConn(kcpConn), []byte(pxy.cfg.Sk))
 }
 
 // UDP
@@ -401,7 +406,7 @@ func (pxy *UdpProxy) InWorkConn(conn frpNet.Conn) {
 
 // Common handler for tcp work connections.
 func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.Plugin,
-	baseInfo *config.BaseProxyConf, workConn frpNet.Conn) {
+	baseInfo *config.BaseProxyConf, workConn frpNet.Conn, encKey []byte) {
 
 	var (
 		remote io.ReadWriteCloser
@@ -409,7 +414,7 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 	)
 	remote = workConn
 	if baseInfo.UseEncryption {
-		remote, err = frpIo.WithEncryption(remote, []byte(config.ClientCommonCfg.PrivilegeToken))
+		remote, err = frpIo.WithEncryption(remote, encKey)
 		if err != nil {
 			workConn.Error("create encryption stream error: %v", err)
 			return
