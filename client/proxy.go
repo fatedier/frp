@@ -15,6 +15,7 @@
 package client
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net"
@@ -29,6 +30,7 @@ import (
 	frpIo "github.com/fatedier/frp/utils/io"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
+	"github.com/fatedier/frp/utils/pool"
 )
 
 // Proxy defines how to deal with work connections for different proxy type.
@@ -248,16 +250,24 @@ func (pxy *XtcpProxy) InWorkConn(conn frpNet.Conn) {
 		return
 	}
 
-	// Wait for client address at most 10 seconds.
+	// Wait for client address at most 5 seconds.
 	var natHoleRespMsg msg.NatHoleResp
-	clientConn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	err = msg.ReadMsgInto(clientConn, &natHoleRespMsg)
+	clientConn.SetReadDeadline(time.Now().Add(5 * time.Second))
+
+	buf := pool.GetBuf(1024)
+	n, err := clientConn.Read(buf)
+	if err != nil {
+		pxy.Error("get natHoleRespMsg error: %v", err)
+		return
+	}
+	err = msg.ReadMsgInto(bytes.NewReader(buf[:n]), &natHoleRespMsg)
 	if err != nil {
 		pxy.Error("get natHoleRespMsg error: %v", err)
 		return
 	}
 	clientConn.SetReadDeadline(time.Time{})
 	clientConn.Close()
+	pxy.Trace("get natHoleRespMsg, sid [%s], client address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr)
 
 	// Send sid to vistor udp address.
 	time.Sleep(time.Second)
