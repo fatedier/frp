@@ -97,9 +97,10 @@ func NewControl(svr *Service, ctlConn net.Conn, loginMsg *msg.Login) *Control {
 // Start send a login success message to client and start working.
 func (ctl *Control) Start() {
 	loginRespMsg := &msg.LoginResp{
-		Version: version.Full(),
-		RunId:   ctl.runId,
-		Error:   "",
+		Version:       version.Full(),
+		RunId:         ctl.runId,
+		ServerUdpPort: config.ServerCommonCfg.BindUdpPort,
+		Error:         "",
 	}
 	msg.WriteMsg(ctl.conn, loginRespMsg)
 

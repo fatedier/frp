@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/fatedier/frp",
-	"GoVersion": "go1.8",
+	"GoVersion": "go1.9",
 	"GodepVersion": "v79",
 	"Packages": [
 		"./..."
@@ -22,8 +22,13 @@
 		},
 		{
 			"ImportPath": "github.com/fatedier/beego/logs",
-			"Comment": "v1.7.2-72-gf73c369",
-			"Rev": "f73c3692bbd70a83728cb59b2c0423ff95e4ecea"
+			"Comment": "v1.7.2-73-g6c6a4f5",
+			"Rev": "6c6a4f5bd5eb5a39f7e289b8f345b55f75e7e3e8"
+		},
+		{
+			"ImportPath": "github.com/fatedier/kcp-go",
+			"Comment": "v3.15-35-gcd167d2",
+			"Rev": "cd167d2f15f451b0f33780ce862fca97adc0331e"
 		},
 		{
 			"ImportPath": "github.com/golang/snappy",
@@ -63,6 +68,25 @@
 			"ImportPath": "github.com/stretchr/testify/assert",
 			"Comment": "v1.1.4-25-g2402e8e",
 			"Rev": "2402e8e7a02fc811447d11f881aa9746cdc57983"
+		},
+		{
+			"ImportPath": "github.com/templexxx/cpufeat",
+			"Rev": "3794dfbfb04749f896b521032f69383f24c3687e"
+		},
+		{
+			"ImportPath": "github.com/templexxx/reedsolomon",
+			"Comment": "0.1.1-4-g7092926",
+			"Rev": "7092926d7d05c415fabb892b1464a03f8228ab80"
+		},
+		{
+			"ImportPath": "github.com/templexxx/xor",
+			"Comment": "0.1.2",
+			"Rev": "0af8e873c554da75f37f2049cdffda804533d44c"
+		},
+		{
+			"ImportPath": "github.com/tjfoc/gmsm/sm4",
+			"Comment": "v1.0-42-g21d76de",
+			"Rev": "21d76dee237dbbc8dfe1510000b9bf2733635aa1"
 		},
 		{
 			"ImportPath": "github.com/vaughan0/go-ini",

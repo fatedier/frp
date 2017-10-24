@@ -30,6 +30,7 @@ type ServerCommonConf struct {
 	ConfigFile    string
 	BindAddr      string
 	BindPort      int64
+	BindUdpPort   int64
 	KcpBindPort   int64
 	ProxyBindAddr string
 
@@ -66,6 +67,7 @@ func GetDefaultServerCommonConf() *ServerCommonConf {
 		ConfigFile:       "./frps.ini",
 		BindAddr:         "0.0.0.0",
 		BindPort:         7000,
+		BindUdpPort:      0,
 		KcpBindPort:      0,
 		ProxyBindAddr:    "0.0.0.0",
 		VhostHttpPort:    0,
@@ -108,6 +110,14 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		v, err = strconv.ParseInt(tmpStr, 10, 64)
 		if err == nil {
 			cfg.BindPort = v
+		}
+	}
+
+	tmpStr, ok = conf.Get("common", "bind_udp_port")
+	if ok {
+		v, err = strconv.ParseInt(tmpStr, 10, 64)
+		if err == nil {
+			cfg.BindUdpPort = v
 		}
 	}
 
