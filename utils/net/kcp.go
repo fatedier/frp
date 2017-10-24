@@ -20,7 +20,7 @@ import (
 
 	"github.com/fatedier/frp/utils/log"
 
-	kcp "github.com/xtaci/kcp-go"
+	kcp "github.com/fatedier/kcp-go"
 )
 
 type KcpListener struct {
@@ -84,4 +84,8 @@ func (l *KcpListener) Close() error {
 		l.listener.Close()
 	}
 	return nil
+}
+
+func NewKcpConnFromUdp(conn *net.UDPConn, connected bool, raddr string) (net.Conn, error) {
+	return kcp.NewConnEx(1, connected, raddr, nil, 10, 3, conn)
 }

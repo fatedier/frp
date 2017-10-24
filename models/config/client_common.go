@@ -30,6 +30,7 @@ type ClientCommonConf struct {
 	ConfigFile        string
 	ServerAddr        string
 	ServerPort        int64
+	ServerUdpPort     int64 // this is specified by login response message from frps
 	HttpProxy         string
 	LogFile           string
 	LogWay            string
@@ -55,6 +56,7 @@ func GetDeaultClientCommonConf() *ClientCommonConf {
 		ConfigFile:        "./frpc.ini",
 		ServerAddr:        "0.0.0.0",
 		ServerPort:        7000,
+		ServerUdpPort:     0,
 		HttpProxy:         "",
 		LogFile:           "console",
 		LogWay:            "console",
