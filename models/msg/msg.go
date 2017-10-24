@@ -33,6 +33,10 @@ const (
 	TypePing              = 'h'
 	TypePong              = '4'
 	TypeUdpPacket         = 'u'
+	TypeNatHoleVistor     = 'i'
+	TypeNatHoleClient     = 'n'
+	TypeNatHoleResp       = 'm'
+	TypeNatHoleSid        = '5'
 )
 
 var (
@@ -57,6 +61,10 @@ func init() {
 	TypeMap[TypePing] = reflect.TypeOf(Ping{})
 	TypeMap[TypePong] = reflect.TypeOf(Pong{})
 	TypeMap[TypeUdpPacket] = reflect.TypeOf(UdpPacket{})
+	TypeMap[TypeNatHoleVistor] = reflect.TypeOf(NatHoleVistor{})
+	TypeMap[TypeNatHoleClient] = reflect.TypeOf(NatHoleClient{})
+	TypeMap[TypeNatHoleResp] = reflect.TypeOf(NatHoleResp{})
+	TypeMap[TypeNatHoleSid] = reflect.TypeOf(NatHoleSid{})
 
 	for k, v := range TypeMap {
 		TypeStringMap[v] = k
@@ -82,9 +90,10 @@ type Login struct {
 }
 
 type LoginResp struct {
-	Version string `json:"version"`
-	RunId   string `json:"run_id"`
-	Error   string `json:"error"`
+	Version       string `json:"version"`
+	RunId         string `json:"run_id"`
+	ServerUdpPort int64  `json:"server_udp_port"`
+	Error         string `json:"error"`
 }
 
 // When frpc login success, send this message to frps for running a new proxy.
@@ -152,4 +161,25 @@ type UdpPacket struct {
 	Content    string       `json:"c"`
 	LocalAddr  *net.UDPAddr `json:"l"`
 	RemoteAddr *net.UDPAddr `json:"r"`
+}
+
+type NatHoleVistor struct {
+	ProxyName string `json:"proxy_name"`
+	SignKey   string `json:"sign_key"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+type NatHoleClient struct {
+	ProxyName string `json:"proxy_name"`
+	Sid       string `json:"sid"`
+}
+
+type NatHoleResp struct {
+	Sid        string `json:"sid"`
+	VistorAddr string `json:"vistor_addr"`
+	ClientAddr string `json:"client_addr"`
+}
+
+type NatHoleSid struct {
+	Sid string `json；"sid"`
 }

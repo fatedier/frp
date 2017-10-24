@@ -271,9 +271,10 @@ func (ctl *Control) login() (err error) {
 	ctl.conn = conn
 	// update runId got from server
 	ctl.setRunId(loginRespMsg.RunId)
+	config.ClientCommonCfg.ServerUdpPort = loginRespMsg.ServerUdpPort
 	ctl.ClearLogPrefix()
 	ctl.AddLogPrefix(loginRespMsg.RunId)
-	ctl.Info("login to server success, get run id [%s]", loginRespMsg.RunId)
+	ctl.Info("login to server success, get run id [%s], server udp port [%d]", loginRespMsg.RunId, loginRespMsg.ServerUdpPort)
 
 	// login success, so we let closedCh available again
 	ctl.closedCh = make(chan int)

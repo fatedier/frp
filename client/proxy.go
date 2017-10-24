@@ -72,6 +72,11 @@ func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy) {
 			BaseProxy: baseProxy,
 			cfg:       cfg,
 		}
+	case *config.XtcpProxyConf:
+		pxy = &XtcpProxy{
+			BaseProxy: baseProxy,
+			cfg:       cfg,
+		}
 	}
 	return
 }
@@ -193,6 +198,90 @@ func (pxy *StcpProxy) Close() {
 
 func (pxy *StcpProxy) InWorkConn(conn frpNet.Conn) {
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn)
+}
+
+// XTCP
+type XtcpProxy struct {
+	BaseProxy
+
+	cfg         *config.XtcpProxyConf
+	proxyPlugin plugin.Plugin
+}
+
+func (pxy *XtcpProxy) Run() (err error) {
+	if pxy.cfg.Plugin != "" {
+		pxy.proxyPlugin, err = plugin.Create(pxy.cfg.Plugin, pxy.cfg.PluginParams)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func (pxy *XtcpProxy) Close() {
+	if pxy.proxyPlugin != nil {
+		pxy.proxyPlugin.Close()
+	}
+}
+
+func (pxy *XtcpProxy) InWorkConn(conn frpNet.Conn) {
+	defer conn.Close()
+	var natHoleSidMsg msg.NatHoleSid
+	err := msg.ReadMsgInto(conn, &natHoleSidMsg)
+	if err != nil {
+		pxy.Error("xtcp read from workConn error: %v", err)
+		return
+	}
+
+	natHoleClientMsg := &msg.NatHoleClient{
+		ProxyName: pxy.cfg.ProxyName,
+		Sid:       natHoleSidMsg.Sid,
+	}
+	raddr, _ := net.ResolveUDPAddr("udp",
+		fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerUdpPort))
+	clientConn, err := net.DialUDP("udp", nil, raddr)
+	defer clientConn.Close()
+
+	err = msg.WriteMsg(clientConn, natHoleClientMsg)
+	if err != nil {
+		pxy.Error("send natHoleClientMsg to server error: %v", err)
+		return
+	}
+
+	// Wait for client address at most 10 seconds.
+	var natHoleRespMsg msg.NatHoleResp
+	clientConn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	err = msg.ReadMsgInto(clientConn, &natHoleRespMsg)
+	if err != nil {
+		pxy.Error("get natHoleRespMsg error: %v", err)
+		return
+	}
+	clientConn.SetReadDeadline(time.Time{})
+	clientConn.Close()
+
+	// Send sid to vistor udp address.
+	time.Sleep(time.Second)
+	laddr, _ := net.ResolveUDPAddr("udp", clientConn.LocalAddr().String())
+	daddr, err := net.ResolveUDPAddr("udp", natHoleRespMsg.VistorAddr)
+	if err != nil {
+		pxy.Error("resolve vistor udp address error: %v", err)
+		return
+	}
+
+	lConn, err := net.DialUDP("udp", laddr, daddr)
+	if err != nil {
+		pxy.Error("dial vistor udp address error: %v", err)
+		return
+	}
+	lConn.Write([]byte(natHoleRespMsg.Sid))
+
+	kcpConn, err := frpNet.NewKcpConnFromUdp(lConn, true, natHoleRespMsg.VistorAddr)
+	if err != nil {
+		pxy.Error("create kcp connection from udp connection error: %v", err)
+		return
+	}
+
+	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, frpNet.WrapConn(kcpConn))
 }
 
 // UDP
