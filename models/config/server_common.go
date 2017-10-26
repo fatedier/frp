@@ -27,9 +27,11 @@ var ServerCommonCfg *ServerCommonConf
 
 // common config
 type ServerCommonConf struct {
-	ConfigFile string
-	BindAddr   string
-	BindPort   int64
+	ConfigFile    string
+	BindAddr      string
+	BindPort      int64
+	KcpBindPort   int64
+	ProxyBindAddr string
 
 	// If VhostHttpPort equals 0, don't listen a public port for http protocol.
 	VhostHttpPort int64
@@ -64,6 +66,8 @@ func GetDefaultServerCommonConf() *ServerCommonConf {
 		ConfigFile:       "./frps.ini",
 		BindAddr:         "0.0.0.0",
 		BindPort:         7000,
+		KcpBindPort:      0,
+		ProxyBindAddr:    "0.0.0.0",
 		VhostHttpPort:    0,
 		VhostHttpsPort:   0,
 		DashboardPort:    0,
@@ -105,6 +109,21 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		if err == nil {
 			cfg.BindPort = v
 		}
+	}
+
+	tmpStr, ok = conf.Get("common", "kcp_bind_port")
+	if ok {
+		v, err = strconv.ParseInt(tmpStr, 10, 64)
+		if err == nil && v > 0 {
+			cfg.KcpBindPort = v
+		}
+	}
+
+	tmpStr, ok = conf.Get("common", "proxy_bind_addr")
+	if ok {
+		cfg.ProxyBindAddr = tmpStr
+	} else {
+		cfg.ProxyBindAddr = cfg.BindAddr
 	}
 
 	tmpStr, ok = conf.Get("common", "vhost_http_port")

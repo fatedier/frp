@@ -41,6 +41,9 @@ type Service struct {
 	// Accept connections from client.
 	listener frpNet.Listener
 
+	// Accept connections using kcp.
+	kcpListener frpNet.Listener
+
 	// For http proxies, route requests to different clients by hostname and other infomation.
 	VhostHttpMuxer *vhost.HttpMuxer
 
@@ -52,12 +55,16 @@ type Service struct {
 
 	// Manage all proxies.
 	pxyManager *ProxyManager
+
+	// Manage all vistor listeners.
+	vistorManager *VistorManager
 }
 
 func NewService() (svr *Service, err error) {
 	svr = &Service{
-		ctlManager: NewControlManager(),
-		pxyManager: NewProxyManager(),
+		ctlManager:    NewControlManager(),
+		pxyManager:    NewProxyManager(),
+		vistorManager: NewVistorManager(),
 	}
 
 	// Init assets.
@@ -73,11 +80,22 @@ func NewService() (svr *Service, err error) {
 		err = fmt.Errorf("Create server listener error, %v", err)
 		return
 	}
+	log.Info("frps tcp listen on %s:%d", config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.BindPort)
+
+	// Listen for accepting connections from client using kcp protocol.
+	if config.ServerCommonCfg.KcpBindPort > 0 {
+		svr.kcpListener, err = frpNet.ListenKcp(config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.KcpBindPort)
+		if err != nil {
+			err = fmt.Errorf("Listen on kcp address udp [%s:%d] error: %v", config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.KcpBindPort, err)
+			return
+		}
+		log.Info("frps kcp listen on udp %s:%d", config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.BindPort)
+	}
 
 	// Create http vhost muxer.
-	if config.ServerCommonCfg.VhostHttpPort != 0 {
+	if config.ServerCommonCfg.VhostHttpPort > 0 {
 		var l frpNet.Listener
-		l, err = frpNet.ListenTcp(config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.VhostHttpPort)
+		l, err = frpNet.ListenTcp(config.ServerCommonCfg.ProxyBindAddr, config.ServerCommonCfg.VhostHttpPort)
 		if err != nil {
 			err = fmt.Errorf("Create vhost http listener error, %v", err)
 			return
@@ -87,12 +105,13 @@ func NewService() (svr *Service, err error) {
 			err = fmt.Errorf("Create vhost httpMuxer error, %v", err)
 			return
 		}
+		log.Info("http service listen on %s:%d", config.ServerCommonCfg.ProxyBindAddr, config.ServerCommonCfg.VhostHttpPort)
 	}
 
 	// Create https vhost muxer.
-	if config.ServerCommonCfg.VhostHttpsPort != 0 {
+	if config.ServerCommonCfg.VhostHttpsPort > 0 {
 		var l frpNet.Listener
-		l, err = frpNet.ListenTcp(config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.VhostHttpsPort)
+		l, err = frpNet.ListenTcp(config.ServerCommonCfg.ProxyBindAddr, config.ServerCommonCfg.VhostHttpsPort)
 		if err != nil {
 			err = fmt.Errorf("Create vhost https listener error, %v", err)
 			return
@@ -102,10 +121,11 @@ func NewService() (svr *Service, err error) {
 			err = fmt.Errorf("Create vhost httpsMuxer error, %v", err)
 			return
 		}
+		log.Info("https service listen on %s:%d", config.ServerCommonCfg.ProxyBindAddr, config.ServerCommonCfg.VhostHttpsPort)
 	}
 
 	// Create dashboard web server.
-	if config.ServerCommonCfg.DashboardPort != 0 {
+	if config.ServerCommonCfg.DashboardPort > 0 {
 		err = RunDashboardServer(config.ServerCommonCfg.BindAddr, config.ServerCommonCfg.DashboardPort)
 		if err != nil {
 			err = fmt.Errorf("Create dashboard web server error, %v", err)
@@ -117,9 +137,17 @@ func NewService() (svr *Service, err error) {
 }
 
 func (svr *Service) Run() {
+	if config.ServerCommonCfg.KcpBindPort > 0 {
+		go svr.HandleListener(svr.kcpListener)
+	}
+	svr.HandleListener(svr.listener)
+
+}
+
+func (svr *Service) HandleListener(l frpNet.Listener) {
 	// Listen for incoming connections from client.
 	for {
-		c, err := svr.listener.Accept()
+		c, err := l.Accept()
 		if err != nil {
 			log.Warn("Listener for incoming connections from client closed")
 			return
@@ -131,7 +159,7 @@ func (svr *Service) Run() {
 				var rawMsg msg.Message
 				conn.SetReadDeadline(time.Now().Add(connReadTimeout))
 				if rawMsg, err = msg.ReadMsg(conn); err != nil {
-					log.Warn("Failed to read message: %v", err)
+					log.Trace("Failed to read message: %v", err)
 					conn.Close()
 					return
 				}
@@ -152,6 +180,20 @@ func (svr *Service) Run() {
 					}
 				case *msg.NewWorkConn:
 					svr.RegisterWorkConn(conn, m)
+				case *msg.NewVistorConn:
+					if err = svr.RegisterVistorConn(conn, m); err != nil {
+						conn.Warn("%v", err)
+						msg.WriteMsg(conn, &msg.NewVistorConnResp{
+							ProxyName: m.ProxyName,
+							Error:     err.Error(),
+						})
+						conn.Close()
+					} else {
+						msg.WriteMsg(conn, &msg.NewVistorConnResp{
+							ProxyName: m.ProxyName,
+							Error:     "",
+						})
+					}
 				default:
 					log.Warn("Error message type for the new connection [%s]", conn.RemoteAddr().String())
 					conn.Close()
@@ -238,9 +280,13 @@ func (svr *Service) RegisterWorkConn(workConn frpNet.Conn, newMsg *msg.NewWorkCo
 	return
 }
 
+func (svr *Service) RegisterVistorConn(vistorConn frpNet.Conn, newMsg *msg.NewVistorConn) error {
+	return svr.vistorManager.NewConn(newMsg.ProxyName, vistorConn, newMsg.Timestamp, newMsg.SignKey,
+		newMsg.UseEncryption, newMsg.UseCompression)
+}
+
 func (svr *Service) RegisterProxy(name string, pxy Proxy) error {
-	err := svr.pxyManager.Add(name, pxy)
-	return err
+	return svr.pxyManager.Add(name, pxy)
 }
 
 func (svr *Service) DelProxy(name string) {

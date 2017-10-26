@@ -24,9 +24,9 @@ import (
 
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/models/proto/tcp"
 	"github.com/fatedier/frp/models/proto/udp"
 	"github.com/fatedier/frp/utils/errors"
+	frpIo "github.com/fatedier/frp/utils/io"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/vhost"
@@ -143,6 +143,11 @@ func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy, err error) {
 			BaseProxy: basePxy,
 			cfg:       cfg,
 		}
+	case *config.StcpProxyConf:
+		pxy = &StcpProxy{
+			BaseProxy: basePxy,
+			cfg:       cfg,
+		}
 	default:
 		return pxy, fmt.Errorf("proxy type not support")
 	}
@@ -156,7 +161,7 @@ type TcpProxy struct {
 }
 
 func (pxy *TcpProxy) Run() error {
-	listener, err := frpNet.ListenTcp(config.ServerCommonCfg.BindAddr, pxy.cfg.RemotePort)
+	listener, err := frpNet.ListenTcp(config.ServerCommonCfg.ProxyBindAddr, pxy.cfg.RemotePort)
 	if err != nil {
 		return err
 	}
@@ -274,6 +279,33 @@ func (pxy *HttpsProxy) Close() {
 	pxy.BaseProxy.Close()
 }
 
+type StcpProxy struct {
+	BaseProxy
+	cfg *config.StcpProxyConf
+}
+
+func (pxy *StcpProxy) Run() error {
+	listener, err := pxy.ctl.svr.vistorManager.Listen(pxy.GetName(), pxy.cfg.Sk)
+	if err != nil {
+		return err
+	}
+	listener.AddLogPrefix(pxy.name)
+	pxy.listeners = append(pxy.listeners, listener)
+	pxy.Info("stcp proxy custom listen success")
+
+	pxy.startListenHandler(pxy, HandleUserTcpConnection)
+	return nil
+}
+
+func (pxy *StcpProxy) GetConf() config.ProxyConf {
+	return pxy.cfg
+}
+
+func (pxy *StcpProxy) Close() {
+	pxy.BaseProxy.Close()
+	pxy.ctl.svr.vistorManager.CloseListener(pxy.GetName())
+}
+
 type UdpProxy struct {
 	BaseProxy
 	cfg *config.UdpProxyConf
@@ -298,7 +330,7 @@ type UdpProxy struct {
 }
 
 func (pxy *UdpProxy) Run() (err error) {
-	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", config.ServerCommonCfg.BindAddr, pxy.cfg.RemotePort))
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", config.ServerCommonCfg.ProxyBindAddr, pxy.cfg.RemotePort))
 	if err != nil {
 		return err
 	}
@@ -461,20 +493,20 @@ func HandleUserTcpConnection(pxy Proxy, userConn frpNet.Conn) {
 	var local io.ReadWriteCloser = workConn
 	cfg := pxy.GetConf().GetBaseInfo()
 	if cfg.UseEncryption {
-		local, err = tcp.WithEncryption(local, []byte(config.ServerCommonCfg.PrivilegeToken))
+		local, err = frpIo.WithEncryption(local, []byte(config.ServerCommonCfg.PrivilegeToken))
 		if err != nil {
 			pxy.Error("create encryption stream error: %v", err)
 			return
 		}
 	}
 	if cfg.UseCompression {
-		local = tcp.WithCompression(local)
+		local = frpIo.WithCompression(local)
 	}
 	pxy.Debug("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", workConn.LocalAddr().String(),
 		workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 
 	StatsOpenConnection(pxy.GetName())
-	inCount, outCount := tcp.Join(local, userConn)
+	inCount, outCount := frpIo.Join(local, userConn)
 	StatsCloseConnection(pxy.GetName())
 	StatsAddTrafficIn(pxy.GetName(), inCount)
 	StatsAddTrafficOut(pxy.GetName(), outCount)

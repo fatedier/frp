@@ -35,6 +35,7 @@ func init() {
 	proxyConfTypeMap[consts.UdpProxy] = reflect.TypeOf(UdpProxyConf{})
 	proxyConfTypeMap[consts.HttpProxy] = reflect.TypeOf(HttpProxyConf{})
 	proxyConfTypeMap[consts.HttpsProxy] = reflect.TypeOf(HttpsProxyConf{})
+	proxyConfTypeMap[consts.StcpProxy] = reflect.TypeOf(StcpProxyConf{})
 }
 
 // NewConfByType creates a empty ProxyConf object by proxyType.
@@ -55,6 +56,7 @@ type ProxyConf interface {
 	LoadFromFile(name string, conf ini.Section) error
 	UnMarshalToMsg(pMsg *msg.NewProxy)
 	Check() error
+	Compare(conf ProxyConf) bool
 }
 
 func NewProxyConf(pMsg *msg.NewProxy) (cfg ProxyConf, err error) {
@@ -104,6 +106,16 @@ func (cfg *BaseProxyConf) GetBaseInfo() *BaseProxyConf {
 	return cfg
 }
 
+func (cfg *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
+	if cfg.ProxyName != cmp.ProxyName ||
+		cfg.ProxyType != cmp.ProxyType ||
+		cfg.UseEncryption != cmp.UseEncryption ||
+		cfg.UseCompression != cmp.UseCompression {
+		return false
+	}
+	return true
+}
+
 func (cfg *BaseProxyConf) LoadFromMsg(pMsg *msg.NewProxy) {
 	cfg.ProxyName = pMsg.ProxyName
 	cfg.ProxyType = pMsg.ProxyType
@@ -148,8 +160,16 @@ type BindInfoConf struct {
 	RemotePort int64  `json:"remote_port"`
 }
 
+func (cfg *BindInfoConf) compare(cmp *BindInfoConf) bool {
+	if cfg.BindAddr != cmp.BindAddr ||
+		cfg.RemotePort != cmp.RemotePort {
+		return false
+	}
+	return true
+}
+
 func (cfg *BindInfoConf) LoadFromMsg(pMsg *msg.NewProxy) {
-	cfg.BindAddr = ServerCommonCfg.BindAddr
+	cfg.BindAddr = ServerCommonCfg.ProxyBindAddr
 	cfg.RemotePort = pMsg.RemotePort
 }
 
@@ -185,6 +205,14 @@ func (cfg *BindInfoConf) check() (err error) {
 type DomainConf struct {
 	CustomDomains []string `json:"custom_domains"`
 	SubDomain     string   `json:"sub_domain"`
+}
+
+func (cfg *DomainConf) compare(cmp *DomainConf) bool {
+	if strings.Join(cfg.CustomDomains, " ") != strings.Join(cmp.CustomDomains, " ") ||
+		cfg.SubDomain != cmp.SubDomain {
+		return false
+	}
+	return true
 }
 
 func (cfg *DomainConf) LoadFromMsg(pMsg *msg.NewProxy) {
@@ -245,6 +273,14 @@ type LocalSvrConf struct {
 	LocalPort int    `json:"-"`
 }
 
+func (cfg *LocalSvrConf) compare(cmp *LocalSvrConf) bool {
+	if cfg.LocalIp != cmp.LocalIp ||
+		cfg.LocalPort != cmp.LocalPort {
+		return false
+	}
+	return true
+}
+
 func (cfg *LocalSvrConf) LoadFromFile(name string, section ini.Section) (err error) {
 	if cfg.LocalIp = section["local_ip"]; cfg.LocalIp == "" {
 		cfg.LocalIp = "127.0.0.1"
@@ -263,6 +299,20 @@ func (cfg *LocalSvrConf) LoadFromFile(name string, section ini.Section) (err err
 type PluginConf struct {
 	Plugin       string            `json:"-"`
 	PluginParams map[string]string `json:"-"`
+}
+
+func (cfg *PluginConf) compare(cmp *PluginConf) bool {
+	if cfg.Plugin != cmp.Plugin ||
+		len(cfg.PluginParams) != len(cmp.PluginParams) {
+		return false
+	}
+	for k, v := range cfg.PluginParams {
+		value, ok := cmp.PluginParams[k]
+		if !ok || v != value {
+			return false
+		}
+	}
+	return true
 }
 
 func (cfg *PluginConf) LoadFromFile(name string, section ini.Section) (err error) {
@@ -288,6 +338,21 @@ type TcpProxyConf struct {
 
 	LocalSvrConf
 	PluginConf
+}
+
+func (cfg *TcpProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*TcpProxyConf)
+	if !ok {
+		return false
+	}
+
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
+		!cfg.BindInfoConf.compare(&cmpConf.BindInfoConf) ||
+		!cfg.LocalSvrConf.compare(&cmpConf.LocalSvrConf) ||
+		!cfg.PluginConf.compare(&cmpConf.PluginConf) {
+		return false
+	}
+	return true
 }
 
 func (cfg *TcpProxyConf) LoadFromMsg(pMsg *msg.NewProxy) {
@@ -327,6 +392,20 @@ type UdpProxyConf struct {
 	BindInfoConf
 
 	LocalSvrConf
+}
+
+func (cfg *UdpProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*UdpProxyConf)
+	if !ok {
+		return false
+	}
+
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
+		!cfg.BindInfoConf.compare(&cmpConf.BindInfoConf) ||
+		!cfg.LocalSvrConf.compare(&cmpConf.LocalSvrConf) {
+		return false
+	}
+	return true
 }
 
 func (cfg *UdpProxyConf) LoadFromMsg(pMsg *msg.NewProxy) {
@@ -371,6 +450,25 @@ type HttpProxyConf struct {
 	HttpPwd           string   `json:"-"`
 }
 
+func (cfg *HttpProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*HttpProxyConf)
+	if !ok {
+		return false
+	}
+
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
+		!cfg.DomainConf.compare(&cmpConf.DomainConf) ||
+		!cfg.LocalSvrConf.compare(&cmpConf.LocalSvrConf) ||
+		!cfg.PluginConf.compare(&cmpConf.PluginConf) ||
+		strings.Join(cfg.Locations, " ") != strings.Join(cmpConf.Locations, " ") ||
+		cfg.HostHeaderRewrite != cmpConf.HostHeaderRewrite ||
+		cfg.HttpUser != cmpConf.HttpUser ||
+		cfg.HttpPwd != cmpConf.HttpPwd {
+		return false
+	}
+	return true
+}
+
 func (cfg *HttpProxyConf) LoadFromMsg(pMsg *msg.NewProxy) {
 	cfg.BaseProxyConf.LoadFromMsg(pMsg)
 	cfg.DomainConf.LoadFromMsg(pMsg)
@@ -388,8 +486,10 @@ func (cfg *HttpProxyConf) LoadFromFile(name string, section ini.Section) (err er
 	if err = cfg.DomainConf.LoadFromFile(name, section); err != nil {
 		return
 	}
-	if err = cfg.LocalSvrConf.LoadFromFile(name, section); err != nil {
-		return
+	if err = cfg.PluginConf.LoadFromFile(name, section); err != nil {
+		if err = cfg.LocalSvrConf.LoadFromFile(name, section); err != nil {
+			return
+		}
 	}
 
 	var (
@@ -435,6 +535,21 @@ type HttpsProxyConf struct {
 	PluginConf
 }
 
+func (cfg *HttpsProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*HttpsProxyConf)
+	if !ok {
+		return false
+	}
+
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
+		!cfg.DomainConf.compare(&cmpConf.DomainConf) ||
+		!cfg.LocalSvrConf.compare(&cmpConf.LocalSvrConf) ||
+		!cfg.PluginConf.compare(&cmpConf.PluginConf) {
+		return false
+	}
+	return true
+}
+
 func (cfg *HttpsProxyConf) LoadFromMsg(pMsg *msg.NewProxy) {
 	cfg.BaseProxyConf.LoadFromMsg(pMsg)
 	cfg.DomainConf.LoadFromMsg(pMsg)
@@ -447,8 +562,10 @@ func (cfg *HttpsProxyConf) LoadFromFile(name string, section ini.Section) (err e
 	if err = cfg.DomainConf.LoadFromFile(name, section); err != nil {
 		return
 	}
-	if err = cfg.LocalSvrConf.LoadFromFile(name, section); err != nil {
-		return
+	if err = cfg.PluginConf.LoadFromFile(name, section); err != nil {
+		if err = cfg.LocalSvrConf.LoadFromFile(name, section); err != nil {
+			return
+		}
 	}
 	return
 }
@@ -466,9 +583,100 @@ func (cfg *HttpsProxyConf) Check() (err error) {
 	return
 }
 
+// STCP
+type StcpProxyConf struct {
+	BaseProxyConf
+
+	Role string `json:"role"`
+	Sk   string `json:"sk"`
+
+	// used in role server
+	LocalSvrConf
+	PluginConf
+
+	// used in role vistor
+	ServerName string `json:"server_name"`
+	BindAddr   string `json:"bind_addr"`
+	BindPort   int    `json:"bind_port"`
+}
+
+func (cfg *StcpProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*StcpProxyConf)
+	if !ok {
+		return false
+	}
+
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
+		!cfg.LocalSvrConf.compare(&cmpConf.LocalSvrConf) ||
+		!cfg.PluginConf.compare(&cmpConf.PluginConf) ||
+		cfg.Role != cmpConf.Role ||
+		cfg.Sk != cmpConf.Sk ||
+		cfg.ServerName != cmpConf.ServerName ||
+		cfg.BindAddr != cmpConf.BindAddr ||
+		cfg.BindPort != cmpConf.BindPort {
+		return false
+	}
+	return true
+}
+
+// Only for role server.
+func (cfg *StcpProxyConf) LoadFromMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.LoadFromMsg(pMsg)
+	cfg.Sk = pMsg.Sk
+}
+
+func (cfg *StcpProxyConf) LoadFromFile(name string, section ini.Section) (err error) {
+	if err = cfg.BaseProxyConf.LoadFromFile(name, section); err != nil {
+		return
+	}
+
+	tmpStr := section["role"]
+	if tmpStr == "server" || tmpStr == "vistor" {
+		cfg.Role = tmpStr
+	} else {
+		cfg.Role = "server"
+	}
+
+	cfg.Sk = section["sk"]
+
+	if tmpStr == "vistor" {
+		prefix := section["prefix"]
+		cfg.ServerName = prefix + section["server_name"]
+		if cfg.BindAddr = section["bind_addr"]; cfg.BindAddr == "" {
+			cfg.BindAddr = "127.0.0.1"
+		}
+
+		if tmpStr, ok := section["bind_port"]; ok {
+			if cfg.BindPort, err = strconv.Atoi(tmpStr); err != nil {
+				return fmt.Errorf("Parse conf error: proxy [%s] bind_port error", name)
+			}
+		} else {
+			return fmt.Errorf("Parse conf error: proxy [%s] bind_port not found", name)
+		}
+	} else {
+		if err = cfg.PluginConf.LoadFromFile(name, section); err != nil {
+			if err = cfg.LocalSvrConf.LoadFromFile(name, section); err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+func (cfg *StcpProxyConf) UnMarshalToMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.UnMarshalToMsg(pMsg)
+	pMsg.Sk = cfg.Sk
+}
+
+func (cfg *StcpProxyConf) Check() (err error) {
+	return
+}
+
 // if len(startProxy) is 0, start all
 // otherwise just start proxies in startProxy map
-func LoadProxyConfFromFile(prefix string, conf ini.File, startProxy map[string]struct{}) (proxyConfs map[string]ProxyConf, err error) {
+func LoadProxyConfFromFile(prefix string, conf ini.File, startProxy map[string]struct{}) (
+	proxyConfs map[string]ProxyConf, vistorConfs map[string]ProxyConf, err error) {
+
 	if prefix != "" {
 		prefix += "."
 	}
@@ -478,14 +686,23 @@ func LoadProxyConfFromFile(prefix string, conf ini.File, startProxy map[string]s
 		startAll = false
 	}
 	proxyConfs = make(map[string]ProxyConf)
+	vistorConfs = make(map[string]ProxyConf)
 	for name, section := range conf {
 		_, shouldStart := startProxy[name]
 		if name != "common" && (startAll || shouldStart) {
+			// some proxy or visotr configure may be used this prefix
+			section["prefix"] = prefix
 			cfg, err := NewProxyConfFromFile(name, section)
 			if err != nil {
-				return proxyConfs, err
+				return proxyConfs, vistorConfs, err
 			}
-			proxyConfs[prefix+name] = cfg
+
+			role := section["role"]
+			if role == "vistor" {
+				vistorConfs[prefix+name] = cfg
+			} else {
+				proxyConfs[prefix+name] = cfg
+			}
 		}
 	}
 	return

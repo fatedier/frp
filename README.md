@@ -18,24 +18,32 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Access your computer in LAN by SSH](#access-your-computer-in-lan-by-ssh)
     * [Visit your web service in LAN by custom domains](#visit-your-web-service-in-lan-by-custom-domains)
     * [Forward DNS query request](#forward-dns-query-request)
+    * [Forward unix domain socket](#forward-unix-domain-socket)
+    * [Expose your service in security](#expose-your-service-in-security)
+    * [Connect website through frpc's network](#connect-website-through-frpcs-network)
 * [Features](#features)
+    * [Configuration File](#configuration-file)
     * [Dashboard](#dashboard)
     * [Authentication](#authentication)
     * [Encryption and Compression](#encryption-and-compression)
-    * [Reload configures without frps stopped](#reload-configures-without-frps-stopped)
+    * [Hot-Reload frpc configuration](#hot-reload-frpc-configuration)
     * [Privilege Mode](#privilege-mode)
         * [Port White List](#port-white-list)
     * [TCP Stream Multiplexing](#tcp-stream-multiplexing)
+    * [Support KCP Protocol](#support-kcp-protocol)
     * [Connection Pool](#connection-pool)
     * [Rewriting the Host Header](#rewriting-the-host-header)
+    * [Get Real IP](#get-real-ip)
     * [Password protecting your web service](#password-protecting-your-web-service)
     * [Custom subdomain names](#custom-subdomain-names)
     * [URL routing](#url-routing)
     * [Connect frps by HTTP PROXY](#connect-frps-by-http-proxy)
+    * [Plugin](#plugin)
 * [Development Plan](#development-plan)
 * [Contributing](#contributing)
 * [Donation](#donation)
     * [AliPay](#alipay)
+    * [Wechat Pay](#wechat-pay)
     * [Paypal](#paypal)
 
 <!-- vim-markdown-toc -->
@@ -143,7 +151,7 @@ However, we can expose a http or https service using frp.
 
 ### Forward DNS query request
 
-1. Modify frps.ini, configure a reverse proxy named [dns]:
+1. Modify frps.ini:
 
   ```ini
   # frps.ini
@@ -178,7 +186,104 @@ However, we can expose a http or https service using frp.
 
   `dig @x.x.x.x -p 6000 www.goolge.com`
 
+### Forward unix domain socket
+
+Using tcp port to connect unix domain socket like docker daemon.
+
+Configure frps same as above.
+
+1. Start frpc with configurations:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [unix_domain_socket]
+  type = tcp
+  remote_port = 6000
+  plugin = unix_domain_socket
+  plugin_unix_path = /var/run/docker.sock
+  ```
+
+2. Get docker version by curl command:
+
+  `curl http://x.x.x.x:6000/version`
+
+### Expose your service in security
+
+For some services, if expose them to the public network directly will be a security risk.
+
+**stcp(secret tcp)** help you create a proxy avoiding any one can access it.
+
+Configure frps same as above.
+
+1. Start frpc, forward ssh port and `remote_port` is useless:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [secret_ssh]
+  type = stcp
+  sk = abcdefg
+  local_ip = 127.0.0.1
+  local_port = 22
+  ```
+
+2. Start another frpc in which you want to connect this ssh server:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [secret_ssh_vistor]
+  type = stcp
+  role = vistor
+  server_name = secret_ssh
+  sk = abcdefg
+  bind_addr = 127.0.0.1
+  bind_port = 6000
+  ```
+
+3. Connect to server in LAN by ssh assuming that username is test:
+
+  `ssh -oPort=6000 test@127.0.0.1`
+
+### Connect website through frpc's network
+
+Configure frps same as above.
+
+1. Start frpc with configurations:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [http_proxy]
+  type = tcp
+  remote_port = 6000
+  plugin = http_proxy # or socks5
+  ```
+
+2. Set http proxy or socks5 proxy `x.x.x.x:6000` in your browser and visit website through frpc's network.
+
 ## Features
+
+### Configuration File
+
+You can find features which this document not metioned from full example configuration files.
+
+[frps full configuration file](./conf/frps_full.ini)
+
+[frpc full configuration file](./conf/frpc_full.ini)
 
 ### Dashboard
 
@@ -220,9 +325,20 @@ use_encryption = true
 use_compression = true
 ```
 
-### Reload configures without frps stopped
+### Hot-Reload frpc configuration
 
-This feature is removed since v0.10.0.
+First you need to set admin port in frpc's configure file to let it provide HTTP API for more features.
+
+```ini
+# frpc.ini
+[common]
+admin_addr = 127.0.0.1
+admin_port = 7400
+```
+
+Then run command `frpc -c ./frpc.ini --reload` and wait for about 10 seconds to let frpc create or update or delete proxies.
+
+**Note that parameters in [common] section won't be modified except 'start' now.**
 
 ### Privilege Mode
 
@@ -251,6 +367,35 @@ You can disable this feature by modify frps.ini and frpc.ini:
 [common]
 tcp_mux = false
 ```
+
+### Support KCP Protocol
+
+frp support kcp protocol since v0.12.0.
+
+KCP is a fast and reliable protocol that can achieve the transmission effect of a reduction of the average latency by 30% to 40% and reduction of the maximum delay by a factor of three, at the cost of 10% to 20% more bandwidth wasted than TCP.
+
+Using kcp in frp:
+
+1. Enable kcp protocol in frps:
+
+  ```ini
+  # frps.ini
+  [common]
+  bind_port = 7000
+  # kcp needs to bind a udp port, it can be same with 'bind_port'
+  kcp_bind_port = 7000
+  ```
+
+2. Configure the protocol used in frpc to connect frps:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  # specify the 'kcp_bind_port' in frps
+  server_port = 7000
+  protocol = kcp
+  ```
 
 ### Connection Pool
 
@@ -288,6 +433,14 @@ host_header_rewrite = dev.yourdomain.com
 ```
 
 If `host_header_rewrite` is specified, the Host header will be rewritten to match the hostname portion of the forwarding address.
+
+### Get Real IP
+
+Features for http proxy only.
+
+You can get user's real IP from http request header `X-Forwarded-For` and `X-Real-IP`.
+
+**Note that now you can only get these two headers in first request of each user connection.**
 
 ### Password protecting your web service
 
@@ -358,12 +511,38 @@ Http requests with url prefix `/news` and `/about` will be forwarded to **web02*
 
 frpc can connect frps using HTTP PROXY if you set os environment `HTTP_PROXY` or configure `http_proxy` param in frpc.ini file.
 
+It only works when protocol is tcp.
+
 ```ini
 # frpc.ini
+[common]
 server_addr = x.x.x.x
 server_port = 7000
 http_proxy = http://user:pwd@192.168.1.128:8080
 ```
+
+### Plugin
+
+frpc only forward request to local tcp or udp port by default.
+
+Plugin is used for providing rich features. There are built-in plugins such as **unix_domain_socket**, **http_proxy**, **socks5** and you can see [example usage](#example-usage).
+
+Specify which plugin to use by `plugin` parameter. Configuration parameters of plugin should be started with `plugin_`. `local_ip` and `local_port` is useless for plugin.
+
+Using plugin **http_proxy**:
+
+```ini
+# frpc.ini
+[http_proxy]
+type = tcp
+remote_port = 6000
+plugin = http_proxy
+plugin_http_user = abc
+plugin_http_passwd = abc
+```
+
+`plugin_http_user` and `plugin_http_passwd` are configuration parameters used in `http_proxy` plugin.
+
 
 ## Development Plan
 
@@ -371,9 +550,7 @@ http_proxy = http://user:pwd@192.168.1.128:8080
 * Direct reverse proxy, like haproxy.
 * Load balance to different service in frpc.
 * Frpc can directly be a webserver for static files.
-* Full control mode, dynamically modify frpc's configure with dashboard in frps.
 * P2p communicate by make udp hole to penetrate NAT.
-* Client Plugin (http proxy).
 * kubernetes ingress support.
 
 
@@ -384,7 +561,7 @@ Interested in getting involved? We would like to help you!
 * Take a look at our [issues list](https://github.com/fatedier/frp/issues) and consider sending a Pull Request to **dev branch**.
 * If you want to add a new feature, please create an issue first to describe the new feature, as well as the implementation approach. Once a proposal is accepted, create an implementation of the new features and submit it as a pull request.
 * Sorry for my poor english and improvement for this document is welcome even some typo fix.
-* If you have some wanderful ideas, send email to fatedier@gmail.com.
+* If you have some wonderful ideas, send email to fatedier@gmail.com.
 
 **Note: We prefer you to give your advise in [issues](https://github.com/fatedier/frp/issues), so others with a same question can search it quickly and we don't need to answer them repeatly.**
 
@@ -397,6 +574,10 @@ frp QQ group: 606194980
 ### AliPay
 
 ![donation-alipay](/doc/pic/donate-alipay.png)
+
+### Wechat Pay
+
+![donation-wechatpay](/doc/pic/donate-wechatpay.png)
 
 ### Paypal
 

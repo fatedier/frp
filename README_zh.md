@@ -16,24 +16,32 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
     * [通过 ssh 访问公司内网机器](#通过-ssh-访问公司内网机器)
     * [通过自定义域名访问部署于内网的 web 服务](#通过自定义域名访问部署于内网的-web-服务)
     * [转发 DNS 查询请求](#转发-dns-查询请求)
+    * [转发 Unix域套接字](#转发-unix域套接字)
+    * [安全地暴露内网服务](#安全地暴露内网服务)
+    * [通过 frpc 所在机器访问外网](#通过-frpc-所在机器访问外网)
 * [功能说明](#功能说明)
+    * [配置文件](#配置文件)
     * [Dashboard](#dashboard)
     * [身份验证](#身份验证)
     * [加密与压缩](#加密与压缩)
-    * [服务器端热加载配置文件](#服务器端热加载配置文件)
+    * [客户端热加载配置文件](#客户端热加载配置文件)
     * [特权模式](#特权模式)
         * [端口白名单](#端口白名单)
     * [TCP 多路复用](#tcp-多路复用)
+    * [底层通信可选 kcp 协议](#底层通信可选-kcp-协议)
     * [连接池](#连接池)
     * [修改 Host Header](#修改-host-header)
+    * [获取用户真实 IP](#获取用户真实-ip)
     * [通过密码保护你的 web 服务](#通过密码保护你的-web-服务)
     * [自定义二级域名](#自定义二级域名)
     * [URL 路由](#url-路由)
     * [通过代理连接 frps](#通过代理连接-frps)
+    * [插件](#插件)
 * [开发计划](#开发计划)
 * [为 frp 做贡献](#为-frp-做贡献)
 * [捐助](#捐助)
     * [支付宝扫码捐赠](#支付宝扫码捐赠)
+    * [微信支付捐赠](#微信支付捐赠)
     * [Paypal 捐赠](#paypal-捐赠)
 
 <!-- vim-markdown-toc -->
@@ -179,7 +187,112 @@ DNS 查询请求通常使用 UDP 协议，frp 支持对内网 UDP 服务的穿�
 
   `dig @x.x.x.x -p 6000 www.goolge.com`
 
+### 转发 Unix域套接字
+
+通过 tcp 端口访问内网的 unix域套接字(和 docker daemon 通信)。
+
+frps 的部署步骤同上。
+
+1. 启动 frpc，启用 unix_domain_socket 插件，配置如下：
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+  
+  [unix_domain_socket]
+  type = tcp
+  remote_port = 6000
+  plugin = unix_domain_socket
+  plugin_unix_path = /var/run/docker.sock
+  ```
+
+2. 通过 curl 命令查看 docker 版本信息
+
+  `curl http://x.x.x.x:6000/version`
+
+### 安全地暴露内网服务
+
+对于某些服务来说如果直接暴露于公网上将会存在安全隐患。
+
+使用 **stcp(secret tcp)** 类型的代理可以避免让任何人都能访问到要穿透的服务，但是访问者也需要运行另外一个 frpc。
+
+以下示例将会创建一个只有自己能访问到的 ssh 服务代理。
+
+frps 的部署步骤同上。
+
+1. 启动 frpc，转发内网的 ssh 服务，配置如下，不需要指定远程端口：
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [secret_ssh]
+  type = stcp
+  # 只有 sk 一致的用户才能访问到此服务
+  sk = abcdefg
+  local_ip = 127.0.0.1
+  local_port = 22
+  ```
+
+2. 在要访问这个服务的机器上启动另外一个 frpc，配置如下：
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [secret_ssh_vistor]
+  type = stcp
+  # stcp 的访问者
+  role = vistor
+  # 要访问的 stcp 代理的名字
+  server_name = secret_ssh
+  sk = abcdefg
+  # 绑定本地端口用于访问 ssh 服务
+  bind_addr = 127.0.0.1
+  bind_port = 6000
+  ```
+
+3. 通过 ssh 访问内网机器，假设用户名为 test：
+
+  `ssh -oPort=6000 test@127.0.0.1`
+
+### 通过 frpc 所在机器访问外网
+
+frpc 内置了 http proxy 和 socks5 插件，可以使其他机器通过 frpc 的网络访问互联网。
+
+frps 的部署步骤同上。
+
+1. 启动 frpc，启用 http_proxy 或 socks5 插件(plugin 换为 socks5 即可)， 配置如下：
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+  
+  [http_proxy]
+  type = tcp
+  remote_port = 6000
+  plugin = http_proxy
+  ```
+
+2. 浏览器设置 http 或 socks5 代理地址为 `x.x.x.x:6000`，通过 frpc 机器的网络访问互联网。
+
 ## 功能说明
+
+### 配置文件
+
+由于 frp 目前支持的功能和配置项较多，未在文档中列出的功能可以从完整的示例配置文件中发现。
+
+[frps 完整配置文件](./conf/frps_full.ini)
+
+[frpc 完整配置文件](./conf/frpc_full.ini)
 
 ### Dashboard
 
@@ -225,9 +338,26 @@ use_compression = true
 
 如果传输的报文长度较长，通过设置 `use_compression = true` 对传输内容进行压缩，可以有效减小 frpc 与 frps 之间的网络流量，加快流量转发速度，但是会额外消耗一些 cpu 资源。
 
-### 服务器端热加载配置文件
+### 客户端热加载配置文件
 
-由于从 v0.10.0 版本开始，所有 proxy 都在客户端配置，这个功能暂时移除。
+当修改了 frpc 中的代理配置，可以通过 `frpc --reload` 命令来动态加载配置文件，通常会在 10 秒内完成代理的更新。
+
+启用此功能需要在 frpc 中启用 admin 端口，用于提供 API 服务。配置如下：
+
+```ini
+# frpc.ini
+[common]
+admin_addr = 127.0.0.1
+admin_port = 7400
+```
+
+之后执行重启命令：
+
+`frpc -c ./frpc.ini --reload`
+
+等待一段时间后客户端会根据新的配置文件创建、更新、删除代理。
+
+**需要注意的是，[common] 中的参数除了 start 外目前无法被修改。**
 
 ### 特权模式
 
@@ -256,6 +386,35 @@ privilege_allow_ports 可以配置允许使用的某个指定端口或者是一�
 [common]
 tcp_mux = false
 ```
+
+### 底层通信可选 kcp 协议
+
+从 v0.12.0 版本开始，底层通信协议支持选择 kcp 协议，在弱网环境下传输效率提升明显，但是会有一些额外的流量消耗。
+
+开启 kcp 协议支持：
+
+1. 在 frps.ini 中启用 kcp 协议支持，指定一个 udp 端口用于接收客户端请求：
+
+  ```ini
+  # frps.ini
+  [common]
+  bind_port = 7000
+  # kcp 绑定的是 udp 端口，可以和 bind_port 一样
+  kcp_bind_port = 7000
+  ```
+
+2. 在 frpc.ini 指定需要使用的协议类型，目前只支持 tcp 和 kcp。其他代理配置不需要变更：
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  # server_port 指定为 frps 的 kcp_bind_port
+  server_port = 7000
+  protocol = kcp
+  ```
+
+3. 像之前一样使用 frp，需要注意开放相关机器上的 udp 的端口的访问权限。
 
 ### 连接池
 
@@ -293,6 +452,12 @@ host_header_rewrite = dev.yourdomain.com
 ```
 
 原来 http 请求中的 host 字段 `test.yourdomain.com` 转发到后端服务时会被替换为 `dev.yourdomain.com`。
+
+### 获取用户真实 IP
+
+目前只有 **http** 类型的代理支持这一功能，可以通过用户请求的 header 中的 `X-Forwarded-For` 和 `X-Real-IP` 来获取用户真实 IP。
+
+**需要注意的是，目前只在每一个用户连接的第一个 HTTP 请求中添加了这两个 header。**
 
 ### 通过密码保护你的 web 服务
 
@@ -373,12 +538,37 @@ locations = /news,/about
 
 可以通过设置 `HTTP_PROXY` 系统环境变量或者通过在 frpc 的配置文件中设置 `http_proxy` 参数来使用此功能。
 
+仅在 `protocol = tcp` 时生效。
+
 ```ini
 # frpc.ini
+[common]
 server_addr = x.x.x.x
 server_port = 7000
 http_proxy = http://user:pwd@192.168.1.128:8080
 ```
+
+### 插件
+
+默认情况下，frpc 只会转发请求到本地 tcp 或 udp 端口。
+
+插件模式是为了在客户端提供更加丰富的功能，目前内置的插件有 **unix_domain_socket**、**http_proxy**、**socks5**。具体使用方式请查看[使用示例](#使用示例)。
+
+通过 `plugin` 指定需要使用的插件，插件的配置参数都以 `plugin_` 开头。使用插件后 `local_ip` 和 `local_port` 不再需要配置。
+
+使用 **http_proxy** 插件的示例:
+
+```ini
+# frpc.ini
+[http_proxy]
+type = tcp
+remote_port = 6000
+plugin = http_proxy
+plugin_http_user = abc
+plugin_http_passwd = abc
+```
+
+`plugin_http_user` 和 `plugin_http_passwd` 即为 `http_proxy` 插件可选的配置参数。
 
 ## 开发计划
 
@@ -388,9 +578,7 @@ http_proxy = http://user:pwd@192.168.1.128:8080
 * frps 支持直接反向代理，类似 haproxy。
 * frpc 支持负载均衡到后端不同服务。
 * frpc 支持直接作为 webserver 访问指定静态页面。
-* frpc 完全控制模式，通过 dashboard 对 frpc 进行在线操作。
 * 支持 udp 打洞的方式，提供两边内网机器直接通信，流量不经过服务器转发。
-* 支持 plugin，frpc 获取到的连接可以交给指定 plugin 处理，例如 http 代理，简单的 web server。
 * 集成对 k8s 等平台的支持。
 
 ## 为 frp 做贡献
@@ -415,6 +603,10 @@ frp 交流群：606194980 (QQ 群号)
 ### 支付宝扫码捐赠
 
 ![donate-alipay](/doc/pic/donate-alipay.png)
+
+### 微信支付捐赠
+
+![donate-wechatpay](/doc/pic/donate-wechatpay.png)
 
 ### Paypal 捐赠
 
