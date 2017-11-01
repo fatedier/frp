@@ -4,7 +4,7 @@
 
 // Package xtea implements XTEA encryption, as defined in Needham and Wheeler's
 // 1997 technical report, "Tea extensions."
-package xtea
+package xtea // import "golang.org/x/crypto/xtea"
 
 // For details, see http://www.cix.co.uk/~klockstone/xtea.pdf
 

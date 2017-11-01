@@ -6,7 +6,7 @@
 // It aims for very high speeds and reasonable compression.
 //
 // The C++ snappy implementation is at https://github.com/google/snappy
-package snappy
+package snappy // import "github.com/golang/snappy"
 
 import (
 	"hash/crc32"
