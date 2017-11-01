@@ -17,7 +17,11 @@ package client
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
+	"net/http"
 	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -211,6 +215,41 @@ func (ctl *Control) init() {
 	ctl.closedCh = make(chan int)
 }
 
+func (ctl *Control) getDynamicServer() (err error) {
+	if config.ClientCommonCfg.ServerDynamic == "" {
+		return
+	}
+
+	serv := config.ClientCommonCfg.ServerDynamic
+	if strings.ToLower(serv[:4]) != "http" {
+		return
+	}
+
+	res, err := http.Get(serv + "?user=" + config.ClientCommonCfg.User)
+	if err != nil {
+		return err
+	}
+
+	data, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+
+	serv = string(data)
+	addr := strings.Split(serv, ":")
+	if len(addr) != 2 {
+		ctl.Error("dynamic server info error: %v", serv)
+		return
+	}
+	serverPort, err := strconv.ParseInt(addr[1], 10, 64)
+	if err != nil {
+		return err
+	}
+	config.ClientCommonCfg.ServerAddr = addr[0]
+	config.ClientCommonCfg.ServerPort = serverPort
+	return
+}
+
 // login send a login message to server and wait for a loginResp message.
 func (ctl *Control) login() (err error) {
 	if ctl.conn != nil {
@@ -218,6 +257,11 @@ func (ctl *Control) login() (err error) {
 	}
 	if ctl.session != nil {
 		ctl.session.Close()
+	}
+
+	errDynamic := ctl.getDynamicServer()
+	if errDynamic != nil {
+		ctl.Error("Get dynamic server error: %s", errDynamic.Error())
 	}
 
 	conn, err := frpNet.ConnectServerByHttpProxy(config.ClientCommonCfg.HttpProxy, config.ClientCommonCfg.Protocol,

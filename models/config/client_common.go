@@ -28,6 +28,7 @@ var ClientCommonCfg *ClientCommonConf
 // client common config
 type ClientCommonConf struct {
 	ConfigFile        string
+	ServerDynamic     string
 	ServerAddr        string
 	ServerPort        int64
 	ServerUdpPort     int64 // this is specified by login response message from frps
@@ -54,6 +55,7 @@ type ClientCommonConf struct {
 func GetDeaultClientCommonConf() *ClientCommonConf {
 	return &ClientCommonConf{
 		ConfigFile:        "./frpc.ini",
+		ServerDynamic:     "",
 		ServerAddr:        "0.0.0.0",
 		ServerPort:        7000,
 		ServerUdpPort:     0,
@@ -86,9 +88,9 @@ func LoadClientCommonConf(conf ini.File) (cfg *ClientCommonConf, err error) {
 	)
 	cfg = GetDeaultClientCommonConf()
 
-	tmpStr, ok = conf.Get("common", "server_addr")
+	tmpStr, ok = conf.Get("common", "server_dynamic")
 	if ok {
-		cfg.ServerAddr = tmpStr
+		cfg.ServerDynamic = tmpStr
 	}
 
 	tmpStr, ok = conf.Get("common", "server_port")
