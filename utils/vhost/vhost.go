@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatedier/frp/utils/errors"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
 )
@@ -162,7 +163,12 @@ func (v *VhostMuxer) handle(c frpNet.Conn) {
 	c = sConn
 
 	l.Debug("get new http request host [%s] path [%s]", name, path)
-	l.accept <- c
+	err = errors.PanicToError(func() {
+		l.accept <- c
+	})
+	if err != nil {
+		l.Warn("listener is already closed, ignore this request")
+	}
 }
 
 type Listener struct {
