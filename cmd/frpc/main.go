@@ -43,7 +43,7 @@ var (
 var usage string = `frpc is the client of frp
 
 Usage: 
-    frpc [-c config_file] [-L log_file] [--log-level=<log_level>] [--server-addr=<server_addr>]
+    frpc [-c config_file] [-L log_file] [--log-level=<log_level>] [--user=<user_name>] [--server-addr=<server_addr>] [--server-dynamic=<http_url>]
     frpc [-c config_file] --reload
     frpc -h | --help
     frpc -v | --version
@@ -53,6 +53,7 @@ Options:
     -L log_file                 set output log file, including console
     --log-level=<log_level>     set log level: debug, info, warn, error
     --server-addr=<server_addr> addr which frps is listening for, example: 0.0.0.0:7000
+    --server-dynamic=<http_url> get frps addr from http_url, example: http://server.com/frp/
     --reload                    reload configure file without program exit
     -h --help                   show this screen
     -v --version                show version
@@ -132,6 +133,14 @@ func main() {
 
 	if args["--log-level"] != nil {
 		config.ClientCommonCfg.LogLevel = args["--log-level"].(string)
+	}
+
+	if args["--user"] != nil {
+		config.ClientCommonCfg.User = args["--user"].(string)
+	}
+
+	if args["--server-dynamic"] != nil {
+		config.ClientCommonCfg.ServerDynamic = args["--server-dynamic"].(string)
 	}
 
 	if args["--server-addr"] != nil {
