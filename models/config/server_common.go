@@ -39,6 +39,7 @@ type ServerCommonConf struct {
 
 	// if VhostHttpsPort equals 0, don't listen a public port for https protocol
 	VhostHttpsPort int64
+	DashboardAddr  string
 
 	// if DashboardPort equals 0, dashboard is not available
 	DashboardPort  int64
@@ -72,6 +73,7 @@ func GetDefaultServerCommonConf() *ServerCommonConf {
 		ProxyBindAddr:    "0.0.0.0",
 		VhostHttpPort:    0,
 		VhostHttpsPort:   0,
+		DashboardAddr:    "0.0.0.0",
 		DashboardPort:    0,
 		DashboardUser:    "admin",
 		DashboardPwd:     "admin",
@@ -156,6 +158,13 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		}
 	} else {
 		cfg.VhostHttpsPort = 0
+	}
+
+	tmpStr, ok = conf.Get("common", "dashboard_addr")
+	if ok {
+		cfg.DashboardAddr = tmpStr
+	} else {
+		cfg.DashboardAddr = cfg.BindAddr
 	}
 
 	tmpStr, ok = conf.Get("common", "dashboard_port")
