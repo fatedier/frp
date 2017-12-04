@@ -35,34 +35,34 @@ import (
 	"github.com/fatedier/frp/utils/util"
 )
 
-// Vistor is used for forward traffics from local port tot remote service.
-type Vistor interface {
+// Visitor is used for forward traffics from local port tot remote service.
+type Visitor interface {
 	Run() error
 	Close()
 	log.Logger
 }
 
-func NewVistor(ctl *Control, pxyConf config.ProxyConf) (vistor Vistor) {
-	baseVistor := BaseVistor{
+func NewVisitor(ctl *Control, pxyConf config.ProxyConf) (visitor Visitor) {
+	baseVisitor := BaseVisitor{
 		ctl:    ctl,
 		Logger: log.NewPrefixLogger(pxyConf.GetName()),
 	}
 	switch cfg := pxyConf.(type) {
 	case *config.StcpProxyConf:
-		vistor = &StcpVistor{
-			BaseVistor: baseVistor,
-			cfg:        cfg,
+		visitor = &StcpVisitor{
+			BaseVisitor: baseVisitor,
+			cfg:         cfg,
 		}
 	case *config.XtcpProxyConf:
-		vistor = &XtcpVistor{
-			BaseVistor: baseVistor,
-			cfg:        cfg,
+		visitor = &XtcpVisitor{
+			BaseVisitor: baseVisitor,
+			cfg:         cfg,
 		}
 	}
 	return
 }
 
-type BaseVistor struct {
+type BaseVisitor struct {
 	ctl    *Control
 	l      frpNet.Listener
 	closed bool
@@ -70,13 +70,13 @@ type BaseVistor struct {
 	log.Logger
 }
 
-type StcpVistor struct {
-	BaseVistor
+type StcpVisitor struct {
+	BaseVisitor
 
 	cfg *config.StcpProxyConf
 }
 
-func (sv *StcpVistor) Run() (err error) {
+func (sv *StcpVisitor) Run() (err error) {
 	sv.l, err = frpNet.ListenTcp(sv.cfg.BindAddr, int64(sv.cfg.BindPort))
 	if err != nil {
 		return
@@ -86,11 +86,11 @@ func (sv *StcpVistor) Run() (err error) {
 	return
 }
 
-func (sv *StcpVistor) Close() {
+func (sv *StcpVisitor) Close() {
 	sv.l.Close()
 }
 
-func (sv *StcpVistor) worker() {
+func (sv *StcpVisitor) worker() {
 	for {
 		conn, err := sv.l.Accept()
 		if err != nil {
@@ -102,46 +102,46 @@ func (sv *StcpVistor) worker() {
 	}
 }
 
-func (sv *StcpVistor) handleConn(userConn frpNet.Conn) {
+func (sv *StcpVisitor) handleConn(userConn frpNet.Conn) {
 	defer userConn.Close()
 
 	sv.Debug("get a new stcp user connection")
-	vistorConn, err := sv.ctl.connectServer()
+	visitorConn, err := sv.ctl.connectServer()
 	if err != nil {
 		return
 	}
-	defer vistorConn.Close()
+	defer visitorConn.Close()
 
 	now := time.Now().Unix()
-	newVistorConnMsg := &msg.NewVistorConn{
+	newVisitorConnMsg := &msg.NewVisitorConn{
 		ProxyName:      sv.cfg.ServerName,
 		SignKey:        util.GetAuthKey(sv.cfg.Sk, now),
 		Timestamp:      now,
 		UseEncryption:  sv.cfg.UseEncryption,
 		UseCompression: sv.cfg.UseCompression,
 	}
-	err = msg.WriteMsg(vistorConn, newVistorConnMsg)
+	err = msg.WriteMsg(visitorConn, newVisitorConnMsg)
 	if err != nil {
-		sv.Warn("send newVistorConnMsg to server error: %v", err)
+		sv.Warn("send newVisitorConnMsg to server error: %v", err)
 		return
 	}
 
-	var newVistorConnRespMsg msg.NewVistorConnResp
-	vistorConn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	err = msg.ReadMsgInto(vistorConn, &newVistorConnRespMsg)
+	var newVisitorConnRespMsg msg.NewVisitorConnResp
+	visitorConn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	err = msg.ReadMsgInto(visitorConn, &newVisitorConnRespMsg)
 	if err != nil {
-		sv.Warn("get newVistorConnRespMsg error: %v", err)
+		sv.Warn("get newVisitorConnRespMsg error: %v", err)
 		return
 	}
-	vistorConn.SetReadDeadline(time.Time{})
+	visitorConn.SetReadDeadline(time.Time{})
 
-	if newVistorConnRespMsg.Error != "" {
-		sv.Warn("start new vistor connection error: %s", newVistorConnRespMsg.Error)
+	if newVisitorConnRespMsg.Error != "" {
+		sv.Warn("start new visitor connection error: %s", newVisitorConnRespMsg.Error)
 		return
 	}
 
 	var remote io.ReadWriteCloser
-	remote = vistorConn
+	remote = visitorConn
 	if sv.cfg.UseEncryption {
 		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk))
 		if err != nil {
@@ -157,13 +157,13 @@ func (sv *StcpVistor) handleConn(userConn frpNet.Conn) {
 	frpIo.Join(userConn, remote)
 }
 
-type XtcpVistor struct {
-	BaseVistor
+type XtcpVisitor struct {
+	BaseVisitor
 
 	cfg *config.XtcpProxyConf
 }
 
-func (sv *XtcpVistor) Run() (err error) {
+func (sv *XtcpVisitor) Run() (err error) {
 	sv.l, err = frpNet.ListenTcp(sv.cfg.BindAddr, int64(sv.cfg.BindPort))
 	if err != nil {
 		return
@@ -173,11 +173,11 @@ func (sv *XtcpVistor) Run() (err error) {
 	return
 }
 
-func (sv *XtcpVistor) Close() {
+func (sv *XtcpVisitor) Close() {
 	sv.l.Close()
 }
 
-func (sv *XtcpVistor) worker() {
+func (sv *XtcpVisitor) worker() {
 	for {
 		conn, err := sv.l.Accept()
 		if err != nil {
@@ -189,7 +189,7 @@ func (sv *XtcpVistor) worker() {
 	}
 }
 
-func (sv *XtcpVistor) handleConn(userConn frpNet.Conn) {
+func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	defer userConn.Close()
 
 	sv.Debug("get a new xtcp user connection")
@@ -200,26 +200,26 @@ func (sv *XtcpVistor) handleConn(userConn frpNet.Conn) {
 
 	raddr, err := net.ResolveUDPAddr("udp",
 		fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerUdpPort))
-	vistorConn, err := net.DialUDP("udp", nil, raddr)
-	defer vistorConn.Close()
+	visitorConn, err := net.DialUDP("udp", nil, raddr)
+	defer visitorConn.Close()
 
 	now := time.Now().Unix()
-	natHoleVistorMsg := &msg.NatHoleVistor{
+	natHoleVisitorMsg := &msg.NatHoleVisitor{
 		ProxyName: sv.cfg.ServerName,
 		SignKey:   util.GetAuthKey(sv.cfg.Sk, now),
 		Timestamp: now,
 	}
-	err = msg.WriteMsg(vistorConn, natHoleVistorMsg)
+	err = msg.WriteMsg(visitorConn, natHoleVisitorMsg)
 	if err != nil {
-		sv.Warn("send natHoleVistorMsg to server error: %v", err)
+		sv.Warn("send natHoleVisitorMsg to server error: %v", err)
 		return
 	}
 
 	// Wait for client address at most 10 seconds.
 	var natHoleRespMsg msg.NatHoleResp
-	vistorConn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	visitorConn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	buf := pool.GetBuf(1024)
-	n, err := vistorConn.Read(buf)
+	n, err := visitorConn.Read(buf)
 	if err != nil {
 		sv.Warn("get natHoleRespMsg error: %v", err)
 		return
@@ -230,13 +230,13 @@ func (sv *XtcpVistor) handleConn(userConn frpNet.Conn) {
 		sv.Warn("get natHoleRespMsg error: %v", err)
 		return
 	}
-	vistorConn.SetReadDeadline(time.Time{})
+	visitorConn.SetReadDeadline(time.Time{})
 	pool.PutBuf(buf)
 
 	sv.Trace("get natHoleRespMsg, sid [%s], client address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr)
 
-	// Close vistorConn, so we can use it's local address.
-	vistorConn.Close()
+	// Close visitorConn, so we can use it's local address.
+	visitorConn.Close()
 
 	// Send detect message.
 	array := strings.Split(natHoleRespMsg.ClientAddr, ":")
@@ -244,7 +244,7 @@ func (sv *XtcpVistor) handleConn(userConn frpNet.Conn) {
 		sv.Error("get natHoleResp client address error: %s", natHoleRespMsg.ClientAddr)
 		return
 	}
-	laddr, _ := net.ResolveUDPAddr("udp", vistorConn.LocalAddr().String())
+	laddr, _ := net.ResolveUDPAddr("udp", visitorConn.LocalAddr().String())
 	/*
 		for i := 1000; i < 65000; i++ {
 			sv.sendDetectMsg(array[0], int64(i), laddr, "a")
@@ -258,7 +258,7 @@ func (sv *XtcpVistor) handleConn(userConn frpNet.Conn) {
 	sv.sendDetectMsg(array[0], int64(port), laddr, []byte(natHoleRespMsg.Sid))
 	sv.Trace("send all detect msg done")
 
-	// Listen for vistorConn's address and wait for client connection.
+	// Listen for visitorConn's address and wait for client connection.
 	lConn, _ := net.ListenUDP("udp", laddr)
 	lConn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	sidBuf := pool.GetBuf(1024)
@@ -298,7 +298,7 @@ func (sv *XtcpVistor) handleConn(userConn frpNet.Conn) {
 	sv.Debug("join connections closed")
 }
 
-func (sv *XtcpVistor) sendDetectMsg(addr string, port int64, laddr *net.UDPAddr, content []byte) (err error) {
+func (sv *XtcpVisitor) sendDetectMsg(addr string, port int64, laddr *net.UDPAddr, content []byte) (err error) {
 	daddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", addr, port))
 	if err != nil {
 		return err

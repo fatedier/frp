@@ -20,23 +20,23 @@ import (
 )
 
 const (
-	TypeLogin             = 'o'
-	TypeLoginResp         = '1'
-	TypeNewProxy          = 'p'
-	TypeNewProxyResp      = '2'
-	TypeCloseProxy        = 'c'
-	TypeNewWorkConn       = 'w'
-	TypeReqWorkConn       = 'r'
-	TypeStartWorkConn     = 's'
-	TypeNewVistorConn     = 'v'
-	TypeNewVistorConnResp = '3'
-	TypePing              = 'h'
-	TypePong              = '4'
-	TypeUdpPacket         = 'u'
-	TypeNatHoleVistor     = 'i'
-	TypeNatHoleClient     = 'n'
-	TypeNatHoleResp       = 'm'
-	TypeNatHoleSid        = '5'
+	TypeLogin              = 'o'
+	TypeLoginResp          = '1'
+	TypeNewProxy           = 'p'
+	TypeNewProxyResp       = '2'
+	TypeCloseProxy         = 'c'
+	TypeNewWorkConn        = 'w'
+	TypeReqWorkConn        = 'r'
+	TypeStartWorkConn      = 's'
+	TypeNewVisitorConn     = 'v'
+	TypeNewVisitorConnResp = '3'
+	TypePing               = 'h'
+	TypePong               = '4'
+	TypeUdpPacket          = 'u'
+	TypeNatHoleVisitor     = 'i'
+	TypeNatHoleClient      = 'n'
+	TypeNatHoleResp        = 'm'
+	TypeNatHoleSid         = '5'
 )
 
 var (
@@ -56,12 +56,12 @@ func init() {
 	TypeMap[TypeNewWorkConn] = reflect.TypeOf(NewWorkConn{})
 	TypeMap[TypeReqWorkConn] = reflect.TypeOf(ReqWorkConn{})
 	TypeMap[TypeStartWorkConn] = reflect.TypeOf(StartWorkConn{})
-	TypeMap[TypeNewVistorConn] = reflect.TypeOf(NewVistorConn{})
-	TypeMap[TypeNewVistorConnResp] = reflect.TypeOf(NewVistorConnResp{})
+	TypeMap[TypeNewVisitorConn] = reflect.TypeOf(NewVisitorConn{})
+	TypeMap[TypeNewVisitorConnResp] = reflect.TypeOf(NewVisitorConnResp{})
 	TypeMap[TypePing] = reflect.TypeOf(Ping{})
 	TypeMap[TypePong] = reflect.TypeOf(Pong{})
 	TypeMap[TypeUdpPacket] = reflect.TypeOf(UdpPacket{})
-	TypeMap[TypeNatHoleVistor] = reflect.TypeOf(NatHoleVistor{})
+	TypeMap[TypeNatHoleVisitor] = reflect.TypeOf(NatHoleVisitor{})
 	TypeMap[TypeNatHoleClient] = reflect.TypeOf(NatHoleClient{})
 	TypeMap[TypeNatHoleResp] = reflect.TypeOf(NatHoleResp{})
 	TypeMap[TypeNatHoleSid] = reflect.TypeOf(NatHoleSid{})
@@ -138,7 +138,7 @@ type StartWorkConn struct {
 	ProxyName string `json:"proxy_name"`
 }
 
-type NewVistorConn struct {
+type NewVisitorConn struct {
 	ProxyName      string `json:"proxy_name"`
 	SignKey        string `json:"sign_key"`
 	Timestamp      int64  `json:"timestamp"`
@@ -146,7 +146,7 @@ type NewVistorConn struct {
 	UseCompression bool   `json:"use_compression"`
 }
 
-type NewVistorConnResp struct {
+type NewVisitorConnResp struct {
 	ProxyName string `json:"proxy_name"`
 	Error     string `json:"error"`
 }
@@ -163,7 +163,7 @@ type UdpPacket struct {
 	RemoteAddr *net.UDPAddr `json:"r"`
 }
 
-type NatHoleVistor struct {
+type NatHoleVisitor struct {
 	ProxyName string `json:"proxy_name"`
 	SignKey   string `json:"sign_key"`
 	Timestamp int64  `json:"timestamp"`
@@ -175,9 +175,9 @@ type NatHoleClient struct {
 }
 
 type NatHoleResp struct {
-	Sid        string `json:"sid"`
-	VistorAddr string `json:"vistor_addr"`
-	ClientAddr string `json:"client_addr"`
+	Sid         string `json:"sid"`
+	VisitorAddr string `json:"visitor_addr"`
+	ClientAddr  string `json:"client_addr"`
 }
 
 type NatHoleSid struct {

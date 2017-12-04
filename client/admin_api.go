@@ -64,7 +64,7 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request, _ httprout
 		return
 	}
 
-	pxyCfgs, vistorCfgs, err := config.LoadProxyConfFromFile(config.ClientCommonCfg.User, conf, newCommonCfg.Start)
+	pxyCfgs, visitorCfgs, err := config.LoadProxyConfFromFile(config.ClientCommonCfg.User, conf, newCommonCfg.Start)
 	if err != nil {
 		res.Code = 3
 		res.Msg = err.Error()
@@ -72,7 +72,7 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request, _ httprout
 		return
 	}
 
-	svr.ctl.reloadConf(pxyCfgs, vistorCfgs)
+	svr.ctl.reloadConf(pxyCfgs, visitorCfgs)
 	log.Info("success reload conf")
 	return
 }

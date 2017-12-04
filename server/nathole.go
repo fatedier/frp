@@ -78,8 +78,8 @@ func (nc *NatHoleController) Run() {
 		}
 
 		switch m := rawMsg.(type) {
-		case *msg.NatHoleVistor:
-			go nc.HandleVistor(m, raddr)
+		case *msg.NatHoleVisitor:
+			go nc.HandleVisitor(m, raddr)
 		case *msg.NatHoleClient:
 			go nc.HandleClient(m, raddr)
 		default:
@@ -96,12 +96,12 @@ func (nc *NatHoleController) GenSid() string {
 	return fmt.Sprintf("%d%s", t, id)
 }
 
-func (nc *NatHoleController) HandleVistor(m *msg.NatHoleVistor, raddr *net.UDPAddr) {
+func (nc *NatHoleController) HandleVisitor(m *msg.NatHoleVisitor, raddr *net.UDPAddr) {
 	sid := nc.GenSid()
 	session := &NatHoleSession{
-		Sid:        sid,
-		VistorAddr: raddr,
-		NotifyCh:   make(chan struct{}, 0),
+		Sid:         sid,
+		VisitorAddr: raddr,
+		NotifyCh:    make(chan struct{}, 0),
 	}
 	nc.mu.Lock()
 	clientCfg, ok := nc.clientCfgs[m.ProxyName]
@@ -111,7 +111,7 @@ func (nc *NatHoleController) HandleVistor(m *msg.NatHoleVistor, raddr *net.UDPAd
 	}
 	nc.sessions[sid] = session
 	nc.mu.Unlock()
-	log.Trace("handle vistor message, sid [%s]", sid)
+	log.Trace("handle visitor message, sid [%s]", sid)
 
 	defer func() {
 		nc.mu.Lock()
@@ -130,7 +130,7 @@ func (nc *NatHoleController) HandleVistor(m *msg.NatHoleVistor, raddr *net.UDPAd
 	select {
 	case <-session.NotifyCh:
 		resp := nc.GenNatHoleResponse(raddr, session)
-		log.Trace("send nat hole response to vistor")
+		log.Trace("send nat hole response to visitor")
 		nc.listener.WriteToUDP(resp, raddr)
 	case <-time.After(time.Duration(NatHoleTimeout) * time.Second):
 		return
@@ -155,9 +155,9 @@ func (nc *NatHoleController) HandleClient(m *msg.NatHoleClient, raddr *net.UDPAd
 
 func (nc *NatHoleController) GenNatHoleResponse(raddr *net.UDPAddr, session *NatHoleSession) []byte {
 	m := &msg.NatHoleResp{
-		Sid:        session.Sid,
-		VistorAddr: session.VistorAddr.String(),
-		ClientAddr: session.ClientAddr.String(),
+		Sid:         session.Sid,
+		VisitorAddr: session.VisitorAddr.String(),
+		ClientAddr:  session.ClientAddr.String(),
 	}
 	b := bytes.NewBuffer(nil)
 	err := msg.WriteMsg(b, m)
@@ -168,9 +168,9 @@ func (nc *NatHoleController) GenNatHoleResponse(raddr *net.UDPAddr, session *Nat
 }
 
 type NatHoleSession struct {
-	Sid        string
-	VistorAddr *net.UDPAddr
-	ClientAddr *net.UDPAddr
+	Sid         string
+	VisitorAddr *net.UDPAddr
+	ClientAddr  *net.UDPAddr
 
 	NotifyCh chan struct{}
 }

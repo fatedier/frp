@@ -56,8 +56,8 @@ type Service struct {
 	// Manage all proxies.
 	pxyManager *ProxyManager
 
-	// Manage all vistor listeners.
-	vistorManager *VistorManager
+	// Manage all visitor listeners.
+	visitorManager *VisitorManager
 
 	// Controller for nat hole connections.
 	natHoleController *NatHoleController
@@ -65,9 +65,9 @@ type Service struct {
 
 func NewService() (svr *Service, err error) {
 	svr = &Service{
-		ctlManager:    NewControlManager(),
-		pxyManager:    NewProxyManager(),
-		vistorManager: NewVistorManager(),
+		ctlManager:     NewControlManager(),
+		pxyManager:     NewProxyManager(),
+		visitorManager: NewVisitorManager(),
 	}
 	cfg := config.ServerCommonCfg
 
@@ -200,16 +200,16 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 					}
 				case *msg.NewWorkConn:
 					svr.RegisterWorkConn(conn, m)
-				case *msg.NewVistorConn:
-					if err = svr.RegisterVistorConn(conn, m); err != nil {
+				case *msg.NewVisitorConn:
+					if err = svr.RegisterVisitorConn(conn, m); err != nil {
 						conn.Warn("%v", err)
-						msg.WriteMsg(conn, &msg.NewVistorConnResp{
+						msg.WriteMsg(conn, &msg.NewVisitorConnResp{
 							ProxyName: m.ProxyName,
 							Error:     err.Error(),
 						})
 						conn.Close()
 					} else {
-						msg.WriteMsg(conn, &msg.NewVistorConnResp{
+						msg.WriteMsg(conn, &msg.NewVisitorConnResp{
 							ProxyName: m.ProxyName,
 							Error:     "",
 						})
@@ -300,8 +300,8 @@ func (svr *Service) RegisterWorkConn(workConn frpNet.Conn, newMsg *msg.NewWorkCo
 	return
 }
 
-func (svr *Service) RegisterVistorConn(vistorConn frpNet.Conn, newMsg *msg.NewVistorConn) error {
-	return svr.vistorManager.NewConn(newMsg.ProxyName, vistorConn, newMsg.Timestamp, newMsg.SignKey,
+func (svr *Service) RegisterVisitorConn(visitorConn frpNet.Conn, newMsg *msg.NewVisitorConn) error {
+	return svr.visitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
 		newMsg.UseEncryption, newMsg.UseCompression)
 }
 
