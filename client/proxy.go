@@ -273,23 +273,23 @@ func (pxy *XtcpProxy) InWorkConn(conn frpNet.Conn) {
 	clientConn.Close()
 	pxy.Trace("get natHoleRespMsg, sid [%s], client address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr)
 
-	// Send sid to vistor udp address.
+	// Send sid to visitor udp address.
 	time.Sleep(time.Second)
 	laddr, _ := net.ResolveUDPAddr("udp", clientConn.LocalAddr().String())
-	daddr, err := net.ResolveUDPAddr("udp", natHoleRespMsg.VistorAddr)
+	daddr, err := net.ResolveUDPAddr("udp", natHoleRespMsg.VisitorAddr)
 	if err != nil {
-		pxy.Error("resolve vistor udp address error: %v", err)
+		pxy.Error("resolve visitor udp address error: %v", err)
 		return
 	}
 
 	lConn, err := net.DialUDP("udp", laddr, daddr)
 	if err != nil {
-		pxy.Error("dial vistor udp address error: %v", err)
+		pxy.Error("dial visitor udp address error: %v", err)
 		return
 	}
 	lConn.Write([]byte(natHoleRespMsg.Sid))
 
-	kcpConn, err := frpNet.NewKcpConnFromUdp(lConn, true, natHoleRespMsg.VistorAddr)
+	kcpConn, err := frpNet.NewKcpConnFromUdp(lConn, true, natHoleRespMsg.VisitorAddr)
 	if err != nil {
 		pxy.Error("create kcp connection from udp connection error: %v", err)
 		return
