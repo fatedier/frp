@@ -290,7 +290,7 @@ type StcpProxy struct {
 }
 
 func (pxy *StcpProxy) Run() error {
-	listener, err := pxy.ctl.svr.vistorManager.Listen(pxy.GetName(), pxy.cfg.Sk)
+	listener, err := pxy.ctl.svr.visitorManager.Listen(pxy.GetName(), pxy.cfg.Sk)
 	if err != nil {
 		return err
 	}
@@ -308,7 +308,7 @@ func (pxy *StcpProxy) GetConf() config.ProxyConf {
 
 func (pxy *StcpProxy) Close() {
 	pxy.BaseProxy.Close()
-	pxy.ctl.svr.vistorManager.CloseListener(pxy.GetName())
+	pxy.ctl.svr.visitorManager.CloseListener(pxy.GetName())
 }
 
 type XtcpProxy struct {
