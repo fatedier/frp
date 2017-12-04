@@ -11,6 +11,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
 ## Table of Contents
 
 <!-- vim-markdown-toc GFM -->
+
 * [What can I do with frp?](#what-can-i-do-with-frp)
 * [Status](#status)
 * [Architecture](#architecture)
@@ -20,6 +21,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Forward DNS query request](#forward-dns-query-request)
     * [Forward unix domain socket](#forward-unix-domain-socket)
     * [Expose your service in security](#expose-your-service-in-security)
+    * [P2P Mode](#p2p-mode)
     * [Connect website through frpc's network](#connect-website-through-frpcs-network)
 * [Features](#features)
     * [Configuration File](#configuration-file)
@@ -184,7 +186,7 @@ However, we can expose a http or https service using frp.
 
 5. Send dns query request by dig:
 
-  `dig @x.x.x.x -p 6000 www.goolge.com`
+  `dig @x.x.x.x -p 6000 www.google.com`
 
 ### Forward unix domain socket
 
@@ -242,9 +244,9 @@ Configure frps same as above.
   server_addr = x.x.x.x
   server_port = 7000
 
-  [secret_ssh_vistor]
+  [secret_ssh_visitor]
   type = stcp
-  role = vistor
+  role = visitor
   server_name = secret_ssh
   sk = abcdefg
   bind_addr = 127.0.0.1
@@ -252,6 +254,54 @@ Configure frps same as above.
   ```
 
 3. Connect to server in LAN by ssh assuming that username is test:
+
+  `ssh -oPort=6000 test@127.0.0.1`
+
+### P2P Mode
+
+**xtcp** is designed for transmitting a large amount of data directly between two client.
+
+Now it can't penetrate all types of NAT devices. You can try **stcp** if **xtcp** doesn't work.
+
+1. Configure a udp port for xtcp:
+
+  ```ini
+  bind_udp_port = 7001
+  ```
+
+2. Start frpc, forward ssh port and `remote_port` is useless:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [p2p_ssh]
+  type = xtcp
+  sk = abcdefg
+  local_ip = 127.0.0.1
+  local_port = 22
+  ```
+
+3. Start another frpc in which you want to connect this ssh server:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [p2p_ssh_visitor]
+  type = xtcp
+  role = visitor
+  server_name = p2p_ssh
+  sk = abcdefg
+  bind_addr = 127.0.0.1
+  bind_port = 6000
+  ```
+
+4. Connect to server in LAN by ssh assuming that username is test:
 
   `ssh -oPort=6000 test@127.0.0.1`
 
@@ -550,7 +600,7 @@ plugin_http_passwd = abc
 * Direct reverse proxy, like haproxy.
 * Load balance to different service in frpc.
 * Frpc can directly be a webserver for static files.
-* P2p communicate by make udp hole to penetrate NAT.
+* P2p communicate by making udp hole to penetrate NAT.
 * kubernetes ingress support.
 
 

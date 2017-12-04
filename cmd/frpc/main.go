@@ -60,7 +60,7 @@ Options:
 
 func main() {
 	var err error
-	confFile := "./frps.ini"
+	confFile := "./frpc.ini"
 	// the configures parsed from file will be replaced by those from command line if exist
 	args, err := docopt.Parse(usage, nil, true, version.Full(), false)
 
@@ -156,7 +156,7 @@ func main() {
 		}
 	}
 
-	pxyCfgs, vistorCfgs, err := config.LoadProxyConfFromFile(config.ClientCommonCfg.User, conf, config.ClientCommonCfg.Start)
+	pxyCfgs, visitorCfgs, err := config.LoadProxyConfFromFile(config.ClientCommonCfg.User, conf, config.ClientCommonCfg.Start)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -165,7 +165,7 @@ func main() {
 	log.InitLog(config.ClientCommonCfg.LogWay, config.ClientCommonCfg.LogFile,
 		config.ClientCommonCfg.LogLevel, config.ClientCommonCfg.LogMaxDays)
 
-	svr := client.NewService(pxyCfgs, vistorCfgs)
+	svr := client.NewService(pxyCfgs, visitorCfgs)
 
 	// Capture the exit signal if we use kcp.
 	if config.ClientCommonCfg.Protocol == "kcp" {

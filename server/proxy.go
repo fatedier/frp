@@ -148,6 +148,11 @@ func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy, err error) {
 			BaseProxy: basePxy,
 			cfg:       cfg,
 		}
+	case *config.XtcpProxyConf:
+		pxy = &XtcpProxy{
+			BaseProxy: basePxy,
+			cfg:       cfg,
+		}
 	default:
 		return pxy, fmt.Errorf("proxy type not support")
 	}
@@ -285,7 +290,7 @@ type StcpProxy struct {
 }
 
 func (pxy *StcpProxy) Run() error {
-	listener, err := pxy.ctl.svr.vistorManager.Listen(pxy.GetName(), pxy.cfg.Sk)
+	listener, err := pxy.ctl.svr.visitorManager.Listen(pxy.GetName(), pxy.cfg.Sk)
 	if err != nil {
 		return err
 	}
@@ -303,7 +308,55 @@ func (pxy *StcpProxy) GetConf() config.ProxyConf {
 
 func (pxy *StcpProxy) Close() {
 	pxy.BaseProxy.Close()
-	pxy.ctl.svr.vistorManager.CloseListener(pxy.GetName())
+	pxy.ctl.svr.visitorManager.CloseListener(pxy.GetName())
+}
+
+type XtcpProxy struct {
+	BaseProxy
+	cfg *config.XtcpProxyConf
+
+	closeCh chan struct{}
+}
+
+func (pxy *XtcpProxy) Run() error {
+	if pxy.ctl.svr.natHoleController == nil {
+		pxy.Error("udp port for xtcp is not specified.")
+		return fmt.Errorf("xtcp is not supported in frps")
+	}
+	sidCh := pxy.ctl.svr.natHoleController.ListenClient(pxy.GetName(), pxy.cfg.Sk)
+	go func() {
+		for {
+			select {
+			case <-pxy.closeCh:
+				break
+			case sid := <-sidCh:
+				workConn, err := pxy.GetWorkConnFromPool()
+				if err != nil {
+					continue
+				}
+				m := &msg.NatHoleSid{
+					Sid: sid,
+				}
+				err = msg.WriteMsg(workConn, m)
+				if err != nil {
+					pxy.Warn("write nat hole sid package error, %v", err)
+				}
+			}
+		}
+	}()
+	return nil
+}
+
+func (pxy *XtcpProxy) GetConf() config.ProxyConf {
+	return pxy.cfg
+}
+
+func (pxy *XtcpProxy) Close() {
+	pxy.BaseProxy.Close()
+	pxy.ctl.svr.natHoleController.CloseClient(pxy.GetName())
+	errors.PanicToError(func() {
+		close(pxy.closeCh)
+	})
 }
 
 type UdpProxy struct {

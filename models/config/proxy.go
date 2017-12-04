@@ -36,6 +36,7 @@ func init() {
 	proxyConfTypeMap[consts.HttpProxy] = reflect.TypeOf(HttpProxyConf{})
 	proxyConfTypeMap[consts.HttpsProxy] = reflect.TypeOf(HttpsProxyConf{})
 	proxyConfTypeMap[consts.StcpProxy] = reflect.TypeOf(StcpProxyConf{})
+	proxyConfTypeMap[consts.XtcpProxy] = reflect.TypeOf(XtcpProxyConf{})
 }
 
 // NewConfByType creates a empty ProxyConf object by proxyType.
@@ -594,7 +595,7 @@ type StcpProxyConf struct {
 	LocalSvrConf
 	PluginConf
 
-	// used in role vistor
+	// used in role visitor
 	ServerName string `json:"server_name"`
 	BindAddr   string `json:"bind_addr"`
 	BindPort   int    `json:"bind_port"`
@@ -631,7 +632,7 @@ func (cfg *StcpProxyConf) LoadFromFile(name string, section ini.Section) (err er
 	}
 
 	tmpStr := section["role"]
-	if tmpStr == "server" || tmpStr == "vistor" {
+	if tmpStr == "server" || tmpStr == "visitor" {
 		cfg.Role = tmpStr
 	} else {
 		cfg.Role = "server"
@@ -639,7 +640,7 @@ func (cfg *StcpProxyConf) LoadFromFile(name string, section ini.Section) (err er
 
 	cfg.Sk = section["sk"]
 
-	if tmpStr == "vistor" {
+	if tmpStr == "visitor" {
 		prefix := section["prefix"]
 		cfg.ServerName = prefix + section["server_name"]
 		if cfg.BindAddr = section["bind_addr"]; cfg.BindAddr == "" {
@@ -672,10 +673,99 @@ func (cfg *StcpProxyConf) Check() (err error) {
 	return
 }
 
+// XTCP
+type XtcpProxyConf struct {
+	BaseProxyConf
+
+	Role string `json:"role"`
+	Sk   string `json:"sk"`
+
+	// used in role server
+	LocalSvrConf
+	PluginConf
+
+	// used in role visitor
+	ServerName string `json:"server_name"`
+	BindAddr   string `json:"bind_addr"`
+	BindPort   int    `json:"bind_port"`
+}
+
+func (cfg *XtcpProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*XtcpProxyConf)
+	if !ok {
+		return false
+	}
+
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
+		!cfg.LocalSvrConf.compare(&cmpConf.LocalSvrConf) ||
+		!cfg.PluginConf.compare(&cmpConf.PluginConf) ||
+		cfg.Role != cmpConf.Role ||
+		cfg.Sk != cmpConf.Sk ||
+		cfg.ServerName != cmpConf.ServerName ||
+		cfg.BindAddr != cmpConf.BindAddr ||
+		cfg.BindPort != cmpConf.BindPort {
+		return false
+	}
+	return true
+}
+
+// Only for role server.
+func (cfg *XtcpProxyConf) LoadFromMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.LoadFromMsg(pMsg)
+	cfg.Sk = pMsg.Sk
+}
+
+func (cfg *XtcpProxyConf) LoadFromFile(name string, section ini.Section) (err error) {
+	if err = cfg.BaseProxyConf.LoadFromFile(name, section); err != nil {
+		return
+	}
+
+	tmpStr := section["role"]
+	if tmpStr == "server" || tmpStr == "visitor" {
+		cfg.Role = tmpStr
+	} else {
+		cfg.Role = "server"
+	}
+
+	cfg.Sk = section["sk"]
+
+	if tmpStr == "visitor" {
+		prefix := section["prefix"]
+		cfg.ServerName = prefix + section["server_name"]
+		if cfg.BindAddr = section["bind_addr"]; cfg.BindAddr == "" {
+			cfg.BindAddr = "127.0.0.1"
+		}
+
+		if tmpStr, ok := section["bind_port"]; ok {
+			if cfg.BindPort, err = strconv.Atoi(tmpStr); err != nil {
+				return fmt.Errorf("Parse conf error: proxy [%s] bind_port error", name)
+			}
+		} else {
+			return fmt.Errorf("Parse conf error: proxy [%s] bind_port not found", name)
+		}
+	} else {
+		if err = cfg.PluginConf.LoadFromFile(name, section); err != nil {
+			if err = cfg.LocalSvrConf.LoadFromFile(name, section); err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+func (cfg *XtcpProxyConf) UnMarshalToMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.UnMarshalToMsg(pMsg)
+	pMsg.Sk = cfg.Sk
+}
+
+func (cfg *XtcpProxyConf) Check() (err error) {
+	return
+}
+
 // if len(startProxy) is 0, start all
 // otherwise just start proxies in startProxy map
 func LoadProxyConfFromFile(prefix string, conf ini.File, startProxy map[string]struct{}) (
-	proxyConfs map[string]ProxyConf, vistorConfs map[string]ProxyConf, err error) {
+	proxyConfs map[string]ProxyConf, visitorConfs map[string]ProxyConf, err error) {
 
 	if prefix != "" {
 		prefix += "."
@@ -686,7 +776,7 @@ func LoadProxyConfFromFile(prefix string, conf ini.File, startProxy map[string]s
 		startAll = false
 	}
 	proxyConfs = make(map[string]ProxyConf)
-	vistorConfs = make(map[string]ProxyConf)
+	visitorConfs = make(map[string]ProxyConf)
 	for name, section := range conf {
 		_, shouldStart := startProxy[name]
 		if name != "common" && (startAll || shouldStart) {
@@ -694,12 +784,12 @@ func LoadProxyConfFromFile(prefix string, conf ini.File, startProxy map[string]s
 			section["prefix"] = prefix
 			cfg, err := NewProxyConfFromFile(name, section)
 			if err != nil {
-				return proxyConfs, vistorConfs, err
+				return proxyConfs, visitorConfs, err
 			}
 
 			role := section["role"]
-			if role == "vistor" {
-				vistorConfs[prefix+name] = cfg
+			if role == "visitor" {
+				visitorConfs[prefix+name] = cfg
 			} else {
 				proxyConfs[prefix+name] = cfg
 			}

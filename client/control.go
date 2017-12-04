@@ -49,11 +49,11 @@ type Control struct {
 	// proxies
 	proxies map[string]Proxy
 
-	// vistor configures
-	vistorCfgs map[string]config.ProxyConf
+	// visitor configures
+	visitorCfgs map[string]config.ProxyConf
 
-	// vistors
-	vistors map[string]Vistor
+	// visitors
+	visitors map[string]Visitor
 
 	// control connection
 	conn frpNet.Conn
@@ -84,7 +84,7 @@ type Control struct {
 	log.Logger
 }
 
-func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf, vistorCfgs map[string]config.ProxyConf) *Control {
+func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf) *Control {
 	loginMsg := &msg.Login{
 		Arch:      runtime.GOARCH,
 		Os:        runtime.GOOS,
@@ -93,16 +93,16 @@ func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf, vistorCfgs ma
 		Version:   version.Full(),
 	}
 	return &Control{
-		svr:        svr,
-		loginMsg:   loginMsg,
-		pxyCfgs:    pxyCfgs,
-		vistorCfgs: vistorCfgs,
-		proxies:    make(map[string]Proxy),
-		vistors:    make(map[string]Vistor),
-		sendCh:     make(chan msg.Message, 10),
-		readCh:     make(chan msg.Message, 10),
-		closedCh:   make(chan int),
-		Logger:     log.NewPrefixLogger(""),
+		svr:         svr,
+		loginMsg:    loginMsg,
+		pxyCfgs:     pxyCfgs,
+		visitorCfgs: visitorCfgs,
+		proxies:     make(map[string]Proxy),
+		visitors:    make(map[string]Visitor),
+		sendCh:      make(chan msg.Message, 10),
+		readCh:      make(chan msg.Message, 10),
+		closedCh:    make(chan int),
+		Logger:      log.NewPrefixLogger(""),
 	}
 }
 
@@ -137,16 +137,16 @@ func (ctl *Control) Run() (err error) {
 	go ctl.writer()
 	go ctl.reader()
 
-	// start all local vistors
-	for _, cfg := range ctl.vistorCfgs {
-		vistor := NewVistor(ctl, cfg)
-		err = vistor.Run()
+	// start all local visitors
+	for _, cfg := range ctl.visitorCfgs {
+		visitor := NewVisitor(ctl, cfg)
+		err = visitor.Run()
 		if err != nil {
-			vistor.Warn("start error: %v", err)
+			visitor.Warn("start error: %v", err)
 			continue
 		}
-		ctl.vistors[cfg.GetName()] = vistor
-		vistor.Info("start vistor success")
+		ctl.visitors[cfg.GetName()] = visitor
+		visitor.Info("start visitor success")
 	}
 
 	// send NewProxy message for all configured proxies
@@ -271,9 +271,10 @@ func (ctl *Control) login() (err error) {
 	ctl.conn = conn
 	// update runId got from server
 	ctl.setRunId(loginRespMsg.RunId)
+	config.ClientCommonCfg.ServerUdpPort = loginRespMsg.ServerUdpPort
 	ctl.ClearLogPrefix()
 	ctl.AddLogPrefix(loginRespMsg.RunId)
-	ctl.Info("login to server success, get run id [%s]", loginRespMsg.RunId)
+	ctl.Info("login to server success, get run id [%s], server udp port [%d]", loginRespMsg.RunId, loginRespMsg.ServerUdpPort)
 
 	// login success, so we let closedCh available again
 	ctl.closedCh = make(chan int)
@@ -440,17 +441,17 @@ func (ctl *Control) controler() {
 				}
 			}
 
-			for _, cfg := range ctl.vistorCfgs {
-				if _, exist := ctl.vistors[cfg.GetName()]; !exist {
-					ctl.Info("try to start vistor [%s]", cfg.GetName())
-					vistor := NewVistor(ctl, cfg)
-					err = vistor.Run()
+			for _, cfg := range ctl.visitorCfgs {
+				if _, exist := ctl.visitors[cfg.GetName()]; !exist {
+					ctl.Info("try to start visitor [%s]", cfg.GetName())
+					visitor := NewVisitor(ctl, cfg)
+					err = visitor.Run()
 					if err != nil {
-						vistor.Warn("start error: %v", err)
+						visitor.Warn("start error: %v", err)
 						continue
 					}
-					ctl.vistors[cfg.GetName()] = vistor
-					vistor.Info("start vistor success")
+					ctl.visitors[cfg.GetName()] = visitor
+					visitor.Info("start visitor success")
 				}
 			}
 			ctl.mu.RUnlock()
@@ -548,7 +549,7 @@ func (ctl *Control) getProxyConf(name string) (conf config.ProxyConf, ok bool) {
 	return
 }
 
-func (ctl *Control) reloadConf(pxyCfgs map[string]config.ProxyConf, vistorCfgs map[string]config.ProxyConf) {
+func (ctl *Control) reloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf) {
 	ctl.mu.Lock()
 	defer ctl.mu.Unlock()
 
@@ -587,35 +588,35 @@ func (ctl *Control) reloadConf(pxyCfgs map[string]config.ProxyConf, vistorCfgs m
 	}
 	ctl.Info("proxy added: %v", addedPxyNames)
 
-	removedVistorName := make([]string, 0)
-	for name, oldVistorCfg := range ctl.vistorCfgs {
+	removedVisitorName := make([]string, 0)
+	for name, oldVisitorCfg := range ctl.visitorCfgs {
 		del := false
-		cfg, ok := vistorCfgs[name]
+		cfg, ok := visitorCfgs[name]
 		if !ok {
 			del = true
 		} else {
-			if !oldVistorCfg.Compare(cfg) {
+			if !oldVisitorCfg.Compare(cfg) {
 				del = true
 			}
 		}
 
 		if del {
-			removedVistorName = append(removedVistorName, name)
-			delete(ctl.vistorCfgs, name)
-			if vistor, ok := ctl.vistors[name]; ok {
-				vistor.Close()
+			removedVisitorName = append(removedVisitorName, name)
+			delete(ctl.visitorCfgs, name)
+			if visitor, ok := ctl.visitors[name]; ok {
+				visitor.Close()
 			}
-			delete(ctl.vistors, name)
+			delete(ctl.visitors, name)
 		}
 	}
-	ctl.Info("vistor removed: %v", removedVistorName)
+	ctl.Info("visitor removed: %v", removedVisitorName)
 
-	addedVistorName := make([]string, 0)
-	for name, vistorCfg := range vistorCfgs {
-		if _, ok := ctl.vistorCfgs[name]; !ok {
-			ctl.vistorCfgs[name] = vistorCfg
-			addedVistorName = append(addedVistorName, name)
+	addedVisitorName := make([]string, 0)
+	for name, visitorCfg := range visitorCfgs {
+		if _, ok := ctl.visitorCfgs[name]; !ok {
+			ctl.visitorCfgs[name] = visitorCfg
+			addedVisitorName = append(addedVisitorName, name)
 		}
 	}
-	ctl.Info("vistor added: %v", addedVistorName)
+	ctl.Info("visitor added: %v", addedVisitorName)
 }
