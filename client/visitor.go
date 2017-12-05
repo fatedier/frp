@@ -259,7 +259,11 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	sv.Trace("send all detect msg done")
 
 	// Listen for visitorConn's address and wait for client connection.
-	lConn, _ := net.ListenUDP("udp", laddr)
+	lConn, err := net.ListenUDP("udp", laddr)
+	if err != nil {
+		sv.Error("listen on visitorConn's local adress error: %v", err)
+		return
+	}
 	lConn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	sidBuf := pool.GetBuf(1024)
 	n, _, err = lConn.ReadFromUDP(sidBuf)
