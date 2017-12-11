@@ -181,5 +181,5 @@ type NatHoleResp struct {
 }
 
 type NatHoleSid struct {
-	Sid string `json；"sid"`
+	Sid string `json:"sid"`
 }
