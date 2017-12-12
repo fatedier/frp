@@ -189,6 +189,8 @@ func (pxy *TcpProxy) Close() {
 type HttpProxy struct {
 	BaseProxy
 	cfg *config.HttpProxyConf
+
+	closeFuncs []func()
 }
 
 func (pxy *HttpProxy) Run() (err error) {
@@ -206,13 +208,16 @@ func (pxy *HttpProxy) Run() (err error) {
 		routeConfig.Domain = domain
 		for _, location := range locations {
 			routeConfig.Location = location
-			l, err := pxy.ctl.svr.VhostHttpMuxer.Listen(routeConfig)
+			err := pxy.ctl.svr.httpReverseProxy.Register(routeConfig.Domain, routeConfig.Location, routeConfig.RewriteHost, pxy.GetWorkConnFromPool)
 			if err != nil {
 				return err
 			}
-			l.AddLogPrefix(pxy.name)
+			tmpDomain := routeConfig.Domain
+			tmpLocation := routeConfig.Location
+			pxy.closeFuncs = append(pxy.closeFuncs, func() {
+				pxy.ctl.svr.httpReverseProxy.UnRegister(tmpDomain, tmpLocation)
+			})
 			pxy.Info("http proxy listen for host [%s] location [%s]", routeConfig.Domain, routeConfig.Location)
-			pxy.listeners = append(pxy.listeners, l)
 		}
 	}
 
@@ -220,17 +225,18 @@ func (pxy *HttpProxy) Run() (err error) {
 		routeConfig.Domain = pxy.cfg.SubDomain + "." + config.ServerCommonCfg.SubDomainHost
 		for _, location := range locations {
 			routeConfig.Location = location
-			l, err := pxy.ctl.svr.VhostHttpMuxer.Listen(routeConfig)
+			err := pxy.ctl.svr.httpReverseProxy.Register(routeConfig.Domain, routeConfig.Location, routeConfig.RewriteHost, pxy.GetWorkConnFromPool)
 			if err != nil {
 				return err
 			}
-			l.AddLogPrefix(pxy.name)
+			tmpDomain := routeConfig.Domain
+			tmpLocation := routeConfig.Location
+			pxy.closeFuncs = append(pxy.closeFuncs, func() {
+				pxy.ctl.svr.httpReverseProxy.UnRegister(tmpDomain, tmpLocation)
+			})
 			pxy.Info("http proxy listen for host [%s] location [%s]", routeConfig.Domain, routeConfig.Location)
-			pxy.listeners = append(pxy.listeners, l)
 		}
 	}
-
-	pxy.startListenHandler(pxy, HandleUserTcpConnection)
 	return
 }
 
@@ -240,6 +246,9 @@ func (pxy *HttpProxy) GetConf() config.ProxyConf {
 
 func (pxy *HttpProxy) Close() {
 	pxy.BaseProxy.Close()
+	for _, closeFn := range pxy.closeFuncs {
+		closeFn()
+	}
 }
 
 type HttpsProxy struct {

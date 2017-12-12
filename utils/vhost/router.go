@@ -14,7 +14,8 @@ type VhostRouters struct {
 type VhostRouter struct {
 	domain   string
 	location string
-	listener *Listener
+
+	payload interface{}
 }
 
 func NewVhostRouters() *VhostRouters {
@@ -23,7 +24,7 @@ func NewVhostRouters() *VhostRouters {
 	}
 }
 
-func (r *VhostRouters) Add(domain, location string, l *Listener) {
+func (r *VhostRouters) Add(domain, location string, payload interface{}) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -35,7 +36,7 @@ func (r *VhostRouters) Add(domain, location string, l *Listener) {
 	vr := &VhostRouter{
 		domain:   domain,
 		location: location,
-		listener: l,
+		payload:  payload,
 	}
 	vrs = append(vrs, vr)
 

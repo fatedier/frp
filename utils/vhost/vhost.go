@@ -91,7 +91,7 @@ func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
 	// if not exist, then check the wildcard_domain such as *.example.com
 	vr, found := v.registryRouter.Get(name, path)
 	if found {
-		return vr.listener, true
+		return vr.payload.(*Listener), true
 	}
 
 	domainSplit := strings.Split(name, ".")
@@ -106,7 +106,7 @@ func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
 		return
 	}
 
-	return vr.listener, true
+	return vr.payload.(*Listener), true
 }
 
 func (v *VhostMuxer) run() {
