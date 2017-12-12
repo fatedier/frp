@@ -208,7 +208,7 @@ func (pxy *HttpProxy) Run() (err error) {
 		routeConfig.Domain = domain
 		for _, location := range locations {
 			routeConfig.Location = location
-			err := pxy.ctl.svr.httpReverseProxy.Register(routeConfig.Domain, routeConfig.Location, routeConfig.RewriteHost, pxy.GetWorkConnFromPool)
+			err := pxy.ctl.svr.httpReverseProxy.Register(routeConfig.Domain, routeConfig.Location, routeConfig.RewriteHost, pxy.GetRealConn)
 			if err != nil {
 				return err
 			}
@@ -225,7 +225,7 @@ func (pxy *HttpProxy) Run() (err error) {
 		routeConfig.Domain = pxy.cfg.SubDomain + "." + config.ServerCommonCfg.SubDomainHost
 		for _, location := range locations {
 			routeConfig.Location = location
-			err := pxy.ctl.svr.httpReverseProxy.Register(routeConfig.Domain, routeConfig.Location, routeConfig.RewriteHost, pxy.GetWorkConnFromPool)
+			err := pxy.ctl.svr.httpReverseProxy.Register(routeConfig.Domain, routeConfig.Location, routeConfig.RewriteHost, pxy.GetRealConn)
 			if err != nil {
 				return err
 			}
@@ -242,6 +242,28 @@ func (pxy *HttpProxy) Run() (err error) {
 
 func (pxy *HttpProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
+}
+
+func (pxy *HttpProxy) GetRealConn() (workConn frpNet.Conn, err error) {
+	tmpConn, errRet := pxy.GetWorkConnFromPool()
+	if errRet != nil {
+		err = errRet
+		return
+	}
+
+	var rwc io.ReadWriteCloser = tmpConn
+	if pxy.cfg.UseEncryption {
+		rwc, err = frpIo.WithEncryption(rwc, []byte(config.ServerCommonCfg.PrivilegeToken))
+		if err != nil {
+			pxy.Error("create encryption stream error: %v", err)
+			return
+		}
+	}
+	if pxy.cfg.UseCompression {
+		rwc = frpIo.WithCompression(rwc)
+	}
+	workConn = frpNet.WrapReadWriteCloserToConn(rwc, tmpConn)
+	return
 }
 
 func (pxy *HttpProxy) Close() {

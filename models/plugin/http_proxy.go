@@ -111,7 +111,7 @@ func (hp *HttpProxy) Handle(conn io.ReadWriteCloser) {
 	if realConn, ok := conn.(frpNet.Conn); ok {
 		wrapConn = realConn
 	} else {
-		wrapConn = frpNet.WrapReadWriteCloserToConn(conn)
+		wrapConn = frpNet.WrapReadWriteCloserToConn(conn, realConn)
 	}
 
 	sc, rd := frpNet.NewShareConn(wrapConn)

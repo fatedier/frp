@@ -146,7 +146,7 @@ func (vm *VisitorManager) NewConn(name string, conn frpNet.Conn, timestamp int64
 		if useCompression {
 			rwc = frpIo.WithCompression(rwc)
 		}
-		err = l.PutConn(frpNet.WrapReadWriteCloserToConn(rwc))
+		err = l.PutConn(frpNet.WrapReadWriteCloserToConn(rwc, conn))
 	} else {
 		err = fmt.Errorf("custom listener for [%s] doesn't exist", name)
 		return

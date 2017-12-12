@@ -15,6 +15,7 @@
 package vhost
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"log"
@@ -74,8 +75,8 @@ func NewHttpReverseProxy() *HttpReverseProxy {
 			host = rp.GetRealHost(host, url)
 			if host != "" {
 				req.Host = host
-				req.URL.Host = req.Host
 			}
+			req.URL.Host = req.Host
 		},
 		Transport: &http.Transport{
 			ResponseHeaderTimeout: responseHeaderTimeout,
@@ -172,6 +173,6 @@ type wrapLogger struct{}
 func newWrapLogger() *wrapLogger { return &wrapLogger{} }
 
 func (l *wrapLogger) Write(p []byte) (n int, err error) {
-	frpLog.Warn("%s", string(p))
+	frpLog.Warn("%s", string(bytes.TrimRight(p, "\n")))
 	return len(p), nil
 }
