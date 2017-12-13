@@ -50,7 +50,7 @@ func (sp *Socks5Plugin) Handle(conn io.ReadWriteCloser) {
 	if realConn, ok := conn.(frpNet.Conn); ok {
 		wrapConn = realConn
 	} else {
-		wrapConn = frpNet.WrapReadWriteCloserToConn(conn)
+		wrapConn = frpNet.WrapReadWriteCloserToConn(conn, realConn)
 	}
 
 	sp.Server.ServeConn(wrapConn)

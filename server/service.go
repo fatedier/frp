@@ -16,6 +16,8 @@ package server
 
 import (
 	"fmt"
+	"net"
+	"net/http"
 	"time"
 
 	"github.com/fatedier/frp/assets"
@@ -44,11 +46,10 @@ type Service struct {
 	// Accept connections using kcp.
 	kcpListener frpNet.Listener
 
-	// For http proxies, route requests to different clients by hostname and other infomation.
-	VhostHttpMuxer *vhost.HttpMuxer
-
 	// For https proxies, route requests to different clients by hostname and other infomation.
 	VhostHttpsMuxer *vhost.HttpsMuxer
+
+	httpReverseProxy *vhost.HttpReverseProxy
 
 	// Manage all controllers.
 	ctlManager *ControlManager
@@ -98,17 +99,21 @@ func NewService() (svr *Service, err error) {
 
 	// Create http vhost muxer.
 	if cfg.VhostHttpPort > 0 {
-		var l frpNet.Listener
-		l, err = frpNet.ListenTcp(cfg.ProxyBindAddr, cfg.VhostHttpPort)
+		rp := vhost.NewHttpReverseProxy()
+		svr.httpReverseProxy = rp
+
+		address := fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHttpPort)
+		server := &http.Server{
+			Addr:    address,
+			Handler: rp,
+		}
+		var l net.Listener
+		l, err = net.Listen("tcp", address)
 		if err != nil {
 			err = fmt.Errorf("Create vhost http listener error, %v", err)
 			return
 		}
-		svr.VhostHttpMuxer, err = vhost.NewHttpMuxer(l, 30*time.Second)
-		if err != nil {
-			err = fmt.Errorf("Create vhost httpMuxer error, %v", err)
-			return
-		}
+		go server.Serve(l)
 		log.Info("http service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHttpPort)
 	}
 
