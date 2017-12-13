@@ -26,7 +26,6 @@ import (
 	"time"
 
 	frpLog "github.com/fatedier/frp/utils/log"
-	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/pool"
 )
 
@@ -45,13 +44,6 @@ func getHostFromAddr(addr string) (host string) {
 		host = addr
 	}
 	return
-}
-
-type CreateConnFunc func() (frpNet.Conn, error)
-
-type ProxyOption struct {
-	RewriteHost string
-	DialFunc    CreateConnFunc
 }
 
 type HttpReverseProxy struct {
@@ -94,18 +86,14 @@ func NewHttpReverseProxy() *HttpReverseProxy {
 	return rp
 }
 
-func (rp *HttpReverseProxy) Register(domain string, location string, rewriteHost string, fn CreateConnFunc) error {
+func (rp *HttpReverseProxy) Register(routeCfg VhostRouteConfig) error {
 	rp.cfgMu.Lock()
 	defer rp.cfgMu.Unlock()
-	_, ok := rp.vhostRouter.Exist(domain, location)
+	_, ok := rp.vhostRouter.Exist(routeCfg.Domain, routeCfg.Location)
 	if ok {
 		return ErrRouterConfigConflict
 	} else {
-		payload := &ProxyOption{
-			RewriteHost: rewriteHost,
-			DialFunc:    fn,
-		}
-		rp.vhostRouter.Add(domain, location, payload)
+		rp.vhostRouter.Add(routeCfg.Domain, routeCfg.Location, &routeCfg)
 	}
 	return nil
 }
@@ -119,7 +107,7 @@ func (rp *HttpReverseProxy) UnRegister(domain string, location string) {
 func (rp *HttpReverseProxy) GetRealHost(domain string, location string) (host string) {
 	vr, ok := rp.getVhost(domain, location)
 	if ok {
-		host = vr.payload.(*ProxyOption).RewriteHost
+		host = vr.payload.(*VhostRouteConfig).RewriteHost
 	}
 	return
 }
@@ -127,12 +115,24 @@ func (rp *HttpReverseProxy) GetRealHost(domain string, location string) (host st
 func (rp *HttpReverseProxy) CreateConnection(domain string, location string) (net.Conn, error) {
 	vr, ok := rp.getVhost(domain, location)
 	if ok {
-		fn := vr.payload.(*ProxyOption).DialFunc
+		fn := vr.payload.(*VhostRouteConfig).CreateConnFn
 		if fn != nil {
 			return fn()
 		}
 	}
 	return nil, ErrNoDomain
+}
+
+func (rp *HttpReverseProxy) CheckAuth(domain, location, user, passwd string) bool {
+	vr, ok := rp.getVhost(domain, location)
+	if ok {
+		checkUser := vr.payload.(*VhostRouteConfig).Username
+		checkPasswd := vr.payload.(*VhostRouteConfig).Password
+		if (checkUser != "" || checkPasswd != "") && (checkUser != user || checkPasswd != passwd) {
+			return false
+		}
+	}
+	return true
 }
 
 func (rp *HttpReverseProxy) getVhost(domain string, location string) (vr *VhostRouter, ok bool) {
@@ -157,6 +157,14 @@ func (rp *HttpReverseProxy) getVhost(domain string, location string) (vr *VhostR
 }
 
 func (rp *HttpReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	domain := getHostFromAddr(req.Host)
+	location := req.URL.Path
+	user, passwd, _ := req.BasicAuth()
+	if !rp.CheckAuth(domain, location, user, passwd) {
+		rw.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+		http.Error(rw, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
+	}
 	rp.proxy.ServeHTTP(rw, req)
 }
 
