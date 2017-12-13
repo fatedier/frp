@@ -194,10 +194,11 @@ type HttpProxy struct {
 }
 
 func (pxy *HttpProxy) Run() (err error) {
-	routeConfig := &vhost.VhostRouteConfig{
-		RewriteHost: pxy.cfg.HostHeaderRewrite,
-		Username:    pxy.cfg.HttpUser,
-		Password:    pxy.cfg.HttpPwd,
+	routeConfig := vhost.VhostRouteConfig{
+		RewriteHost:  pxy.cfg.HostHeaderRewrite,
+		Username:     pxy.cfg.HttpUser,
+		Password:     pxy.cfg.HttpPwd,
+		CreateConnFn: pxy.GetRealConn,
 	}
 
 	locations := pxy.cfg.Locations
@@ -208,7 +209,7 @@ func (pxy *HttpProxy) Run() (err error) {
 		routeConfig.Domain = domain
 		for _, location := range locations {
 			routeConfig.Location = location
-			err := pxy.ctl.svr.httpReverseProxy.Register(routeConfig.Domain, routeConfig.Location, routeConfig.RewriteHost, pxy.GetRealConn)
+			err := pxy.ctl.svr.httpReverseProxy.Register(routeConfig)
 			if err != nil {
 				return err
 			}
@@ -225,7 +226,7 @@ func (pxy *HttpProxy) Run() (err error) {
 		routeConfig.Domain = pxy.cfg.SubDomain + "." + config.ServerCommonCfg.SubDomainHost
 		for _, location := range locations {
 			routeConfig.Location = location
-			err := pxy.ctl.svr.httpReverseProxy.Register(routeConfig.Domain, routeConfig.Location, routeConfig.RewriteHost, pxy.GetRealConn)
+			err := pxy.ctl.svr.httpReverseProxy.Register(routeConfig)
 			if err != nil {
 				return err
 			}

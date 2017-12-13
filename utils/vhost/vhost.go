@@ -50,12 +50,16 @@ func NewVhostMuxer(listener frpNet.Listener, vhostFunc muxFunc, authFunc httpAut
 	return mux, nil
 }
 
+type CreateConnFunc func() (frpNet.Conn, error)
+
 type VhostRouteConfig struct {
 	Domain      string
 	Location    string
 	RewriteHost string
 	Username    string
 	Password    string
+
+	CreateConnFn CreateConnFunc
 }
 
 // listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil
