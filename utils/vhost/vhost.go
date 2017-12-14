@@ -50,12 +50,16 @@ func NewVhostMuxer(listener frpNet.Listener, vhostFunc muxFunc, authFunc httpAut
 	return mux, nil
 }
 
+type CreateConnFunc func() (frpNet.Conn, error)
+
 type VhostRouteConfig struct {
 	Domain      string
 	Location    string
 	RewriteHost string
 	Username    string
 	Password    string
+
+	CreateConnFn CreateConnFunc
 }
 
 // listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil
@@ -91,7 +95,7 @@ func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
 	// if not exist, then check the wildcard_domain such as *.example.com
 	vr, found := v.registryRouter.Get(name, path)
 	if found {
-		return vr.listener, true
+		return vr.payload.(*Listener), true
 	}
 
 	domainSplit := strings.Split(name, ".")
@@ -106,7 +110,7 @@ func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
 		return
 	}
 
-	return vr.listener, true
+	return vr.payload.(*Listener), true
 }
 
 func (v *VhostMuxer) run() {

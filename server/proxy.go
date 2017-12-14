@@ -189,13 +189,16 @@ func (pxy *TcpProxy) Close() {
 type HttpProxy struct {
 	BaseProxy
 	cfg *config.HttpProxyConf
+
+	closeFuncs []func()
 }
 
 func (pxy *HttpProxy) Run() (err error) {
-	routeConfig := &vhost.VhostRouteConfig{
-		RewriteHost: pxy.cfg.HostHeaderRewrite,
-		Username:    pxy.cfg.HttpUser,
-		Password:    pxy.cfg.HttpPwd,
+	routeConfig := vhost.VhostRouteConfig{
+		RewriteHost:  pxy.cfg.HostHeaderRewrite,
+		Username:     pxy.cfg.HttpUser,
+		Password:     pxy.cfg.HttpPwd,
+		CreateConnFn: pxy.GetRealConn,
 	}
 
 	locations := pxy.cfg.Locations
@@ -206,13 +209,16 @@ func (pxy *HttpProxy) Run() (err error) {
 		routeConfig.Domain = domain
 		for _, location := range locations {
 			routeConfig.Location = location
-			l, err := pxy.ctl.svr.VhostHttpMuxer.Listen(routeConfig)
+			err := pxy.ctl.svr.httpReverseProxy.Register(routeConfig)
 			if err != nil {
 				return err
 			}
-			l.AddLogPrefix(pxy.name)
+			tmpDomain := routeConfig.Domain
+			tmpLocation := routeConfig.Location
+			pxy.closeFuncs = append(pxy.closeFuncs, func() {
+				pxy.ctl.svr.httpReverseProxy.UnRegister(tmpDomain, tmpLocation)
+			})
 			pxy.Info("http proxy listen for host [%s] location [%s]", routeConfig.Domain, routeConfig.Location)
-			pxy.listeners = append(pxy.listeners, l)
 		}
 	}
 
@@ -220,17 +226,18 @@ func (pxy *HttpProxy) Run() (err error) {
 		routeConfig.Domain = pxy.cfg.SubDomain + "." + config.ServerCommonCfg.SubDomainHost
 		for _, location := range locations {
 			routeConfig.Location = location
-			l, err := pxy.ctl.svr.VhostHttpMuxer.Listen(routeConfig)
+			err := pxy.ctl.svr.httpReverseProxy.Register(routeConfig)
 			if err != nil {
 				return err
 			}
-			l.AddLogPrefix(pxy.name)
+			tmpDomain := routeConfig.Domain
+			tmpLocation := routeConfig.Location
+			pxy.closeFuncs = append(pxy.closeFuncs, func() {
+				pxy.ctl.svr.httpReverseProxy.UnRegister(tmpDomain, tmpLocation)
+			})
 			pxy.Info("http proxy listen for host [%s] location [%s]", routeConfig.Domain, routeConfig.Location)
-			pxy.listeners = append(pxy.listeners, l)
 		}
 	}
-
-	pxy.startListenHandler(pxy, HandleUserTcpConnection)
 	return
 }
 
@@ -238,8 +245,33 @@ func (pxy *HttpProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
 }
 
+func (pxy *HttpProxy) GetRealConn() (workConn frpNet.Conn, err error) {
+	tmpConn, errRet := pxy.GetWorkConnFromPool()
+	if errRet != nil {
+		err = errRet
+		return
+	}
+
+	var rwc io.ReadWriteCloser = tmpConn
+	if pxy.cfg.UseEncryption {
+		rwc, err = frpIo.WithEncryption(rwc, []byte(config.ServerCommonCfg.PrivilegeToken))
+		if err != nil {
+			pxy.Error("create encryption stream error: %v", err)
+			return
+		}
+	}
+	if pxy.cfg.UseCompression {
+		rwc = frpIo.WithCompression(rwc)
+	}
+	workConn = frpNet.WrapReadWriteCloserToConn(rwc, tmpConn)
+	return
+}
+
 func (pxy *HttpProxy) Close() {
 	pxy.BaseProxy.Close()
+	for _, closeFn := range pxy.closeFuncs {
+		closeFn()
+	}
 }
 
 type HttpsProxy struct {
