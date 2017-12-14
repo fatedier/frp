@@ -503,7 +503,11 @@ tcp_mux = false
 [web]
 type = http
 local_port = 80
+#如果绑定自定义域名 yourdomain.com，那么下面你应该只需要写
+#custom_domains = test,否则会抛出错误
 custom_domains = test.yourdomain.com
+
+
 host_header_rewrite = dev.yourdomain.com
 ```
 
