@@ -632,6 +632,9 @@ func (cfg *StcpProxyConf) LoadFromFile(name string, section ini.Section) (err er
 	}
 
 	tmpStr := section["role"]
+	if tmpStr == "" {
+		tmpStr = "server"
+	}
 	if tmpStr == "server" || tmpStr == "visitor" {
 		cfg.Role = tmpStr
 	} else {
@@ -721,6 +724,9 @@ func (cfg *XtcpProxyConf) LoadFromFile(name string, section ini.Section) (err er
 	}
 
 	tmpStr := section["role"]
+	if tmpStr == "" {
+		tmpStr = "server"
+	}
 	if tmpStr == "server" || tmpStr == "visitor" {
 		cfg.Role = tmpStr
 	} else {
