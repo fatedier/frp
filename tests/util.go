@@ -1,8 +1,11 @@
-package test
+package tests
 
 import (
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"net/http"
 	"time"
 
 	frpNet "github.com/fatedier/frp/utils/net"
@@ -10,11 +13,11 @@ import (
 
 func sendTcpMsg(addr string, msg string) (res string, err error) {
 	c, err := frpNet.ConnectTcpServer(addr)
-	defer c.Close()
 	if err != nil {
 		err = fmt.Errorf("connect to tcp server error: %v", err)
 		return
 	}
+	defer c.Close()
 
 	timer := time.Now().Add(5 * time.Second)
 	c.SetDeadline(timer)
@@ -54,4 +57,37 @@ func sendUdpMsg(addr string, msg string) (res string, err error) {
 		return
 	}
 	return string(buf[:n]), nil
+}
+
+func sendHttpMsg(method, url string, host string, header map[string]string) (code int, body string, err error) {
+	req, errRet := http.NewRequest(method, url, nil)
+	if errRet != nil {
+		err = errRet
+		return
+	}
+
+	if host != "" {
+		req.Host = host
+	}
+	for k, v := range header {
+		req.Header.Set(k, v)
+	}
+	resp, errRet := http.DefaultClient.Do(req)
+	if errRet != nil {
+		err = errRet
+		return
+	}
+	code = resp.StatusCode
+	buf, errRet := ioutil.ReadAll(resp.Body)
+	if errRet != nil {
+		err = errRet
+		return
+	}
+	body = string(buf)
+	return
+}
+
+func basicAuth(username, passwd string) string {
+	auth := username + ":" + passwd
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
 }
