@@ -632,10 +632,13 @@ func (cfg *StcpProxyConf) LoadFromFile(name string, section ini.Section) (err er
 	}
 
 	tmpStr := section["role"]
+	if tmpStr == "" {
+		tmpStr = "server"
+	}
 	if tmpStr == "server" || tmpStr == "visitor" {
 		cfg.Role = tmpStr
 	} else {
-		return fmt.Errorf("Parse conf error: incorrect role [%s]", tmpStr)
+		return fmt.Errorf("Parse conf error: proxy [%s] incorrect role [%s]", name, tmpStr)
 	}
 
 	cfg.Sk = section["sk"]
@@ -721,10 +724,13 @@ func (cfg *XtcpProxyConf) LoadFromFile(name string, section ini.Section) (err er
 	}
 
 	tmpStr := section["role"]
+	if tmpStr == "" {
+		tmpStr = "server"
+	}
 	if tmpStr == "server" || tmpStr == "visitor" {
 		cfg.Role = tmpStr
 	} else {
-		return fmt.Errorf("Parse conf error: incorrect role [%s]", tmpStr)
+		return fmt.Errorf("Parse conf error: proxy [%s] incorrect role [%s]", name, tmpStr)
 	}
 
 	cfg.Sk = section["sk"]
