@@ -48,6 +48,7 @@
     body {
         background-color: #fafafa;
         margin: 0px;
+	font-family: -apple-system,BlinkMacSystemFont,Helvetica Neue,sans-serif;
     }
     
     header {
