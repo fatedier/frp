@@ -283,7 +283,7 @@ func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (e
 	ctl := NewControl(svr, ctlConn, loginMsg)
 
 	if oldCtl := svr.ctlManager.Add(loginMsg.RunId, ctl); oldCtl != nil {
-		oldCtl.allShutdown.WaitDown()
+		oldCtl.allShutdown.WaitDone()
 	}
 
 	ctlConn.AddLogPrefix(loginMsg.RunId)

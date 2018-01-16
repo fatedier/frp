@@ -52,6 +52,7 @@ func NewConfByType(proxyType string) ProxyConf {
 
 type ProxyConf interface {
 	GetName() string
+	GetType() string
 	GetBaseInfo() *BaseProxyConf
 	LoadFromMsg(pMsg *msg.NewProxy)
 	LoadFromFile(name string, conf ini.Section) error
@@ -101,6 +102,10 @@ type BaseProxyConf struct {
 
 func (cfg *BaseProxyConf) GetName() string {
 	return cfg.ProxyName
+}
+
+func (cfg *BaseProxyConf) GetType() string {
+	return cfg.ProxyType
 }
 
 func (cfg *BaseProxyConf) GetBaseInfo() *BaseProxyConf {

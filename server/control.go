@@ -253,13 +253,13 @@ func (ctl *Control) stoper() {
 	ctl.allShutdown.WaitStart()
 
 	close(ctl.readCh)
-	ctl.managerShutdown.WaitDown()
+	ctl.managerShutdown.WaitDone()
 
 	close(ctl.sendCh)
-	ctl.writerShutdown.WaitDown()
+	ctl.writerShutdown.WaitDone()
 
 	ctl.conn.Close()
-	ctl.readerShutdown.WaitDown()
+	ctl.readerShutdown.WaitDone()
 
 	close(ctl.workConnCh)
 	for workConn := range ctl.workConnCh {

@@ -19,19 +19,19 @@ import (
 )
 
 type Shutdown struct {
-	doing  bool
-	ending bool
-	start  chan struct{}
-	down   chan struct{}
-	mu     sync.Mutex
+	doing   bool
+	ending  bool
+	startCh chan struct{}
+	doneCh  chan struct{}
+	mu      sync.Mutex
 }
 
 func New() *Shutdown {
 	return &Shutdown{
-		doing:  false,
-		ending: false,
-		start:  make(chan struct{}),
-		down:   make(chan struct{}),
+		doing:   false,
+		ending:  false,
+		startCh: make(chan struct{}),
+		doneCh:  make(chan struct{}),
 	}
 }
 
@@ -40,12 +40,12 @@ func (s *Shutdown) Start() {
 	defer s.mu.Unlock()
 	if !s.doing {
 		s.doing = true
-		close(s.start)
+		close(s.startCh)
 	}
 }
 
 func (s *Shutdown) WaitStart() {
-	<-s.start
+	<-s.startCh
 }
 
 func (s *Shutdown) Done() {
@@ -53,10 +53,10 @@ func (s *Shutdown) Done() {
 	defer s.mu.Unlock()
 	if !s.ending {
 		s.ending = true
-		close(s.down)
+		close(s.doneCh)
 	}
 }
 
-func (s *Shutdown) WaitDown() {
-	<-s.down
+func (s *Shutdown) WaitDone() {
+	<-s.doneCh
 }
