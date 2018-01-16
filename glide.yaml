@@ -71,3 +71,5 @@ import:
   - internal/iana
   - internal/socket
   - ipv4
+- package: github.com/rodaine/table
+  version: v1.0.0
