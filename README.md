@@ -231,6 +231,7 @@ Configure frps same as above.
 
   [secret_ssh]
   type = stcp
+  role = server
   sk = abcdefg
   local_ip = 127.0.0.1
   local_port = 22
@@ -279,6 +280,7 @@ Now it can't penetrate all types of NAT devices. You can try **stcp** if **xtcp*
 
   [p2p_ssh]
   type = xtcp
+  role = server
   sk = abcdefg
   local_ip = 127.0.0.1
   local_port = 22

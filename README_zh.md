@@ -95,7 +95,7 @@ master 分支用于发布稳定版本，dev 分支用于开发，您可以尝试
   [common]
   server_addr = x.x.x.x
   server_port = 7000
-  
+
   [ssh]
   type = tcp
   local_ip = 127.0.0.1
@@ -173,7 +173,7 @@ DNS 查询请求通常使用 UDP 协议，frp 支持对内网 UDP 服务的穿�
   [common]
   server_addr = x.x.x.x
   server_port = 7000
-  
+
   [dns]
   type = udp
   local_ip = 8.8.8.8
@@ -202,7 +202,7 @@ frps 的部署步骤同上。
   [common]
   server_addr = x.x.x.x
   server_port = 7000
-  
+
   [unix_domain_socket]
   type = tcp
   remote_port = 6000
@@ -234,6 +234,7 @@ frps 的部署步骤同上。
 
   [secret_ssh]
   type = stcp
+  role = server
   # 只有 sk 一致的用户才能访问到此服务
   sk = abcdefg
   local_ip = 127.0.0.1
@@ -288,6 +289,7 @@ frp 提供了一种新的代理类型 **xtcp** 用于应对在希望传输大量
 
   [p2p_ssh]
   type = xtcp
+  role = server
   # 只有 sk 一致的用户才能访问到此服务
   sk = abcdefg
   local_ip = 127.0.0.1
@@ -331,7 +333,7 @@ frps 的部署步骤同上。
   [common]
   server_addr = x.x.x.x
   server_port = 7000
-  
+
   [http_proxy]
   type = tcp
   remote_port = 6000
