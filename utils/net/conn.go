@@ -174,3 +174,38 @@ func (sc *SharedConn) WriteBuff(buffer []byte) (err error) {
 	_, err = sc.buf.Write(buffer)
 	return err
 }
+
+type StatsConn struct {
+	Conn
+
+	totalRead  int64
+	totalWrite int64
+	statsFunc  func(totalRead, totalWrite int64)
+}
+
+func WrapStatsConn(conn Conn, statsFunc func(total, totalWrite int64)) *StatsConn {
+	return &StatsConn{
+		Conn:      conn,
+		statsFunc: statsFunc,
+	}
+}
+
+func (statsConn *StatsConn) Read(p []byte) (n int, err error) {
+	n, err = statsConn.Conn.Read(p)
+	statsConn.totalRead += int64(n)
+	return
+}
+
+func (statsConn *StatsConn) Write(p []byte) (n int, err error) {
+	n, err = statsConn.Conn.Write(p)
+	statsConn.totalWrite += int64(n)
+	return
+}
+
+func (statsConn *StatsConn) Close() (err error) {
+	err = statsConn.Conn.Close()
+	if statsConn.statsFunc != nil {
+		statsConn.statsFunc(statsConn.totalRead, statsConn.totalWrite)
+	}
+	return
+}
