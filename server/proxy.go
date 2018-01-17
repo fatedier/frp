@@ -287,7 +287,16 @@ func (pxy *HttpProxy) GetRealConn() (workConn frpNet.Conn, err error) {
 		rwc = frpIo.WithCompression(rwc)
 	}
 	workConn = frpNet.WrapReadWriteCloserToConn(rwc, tmpConn)
+	workConn = frpNet.WrapStatsConn(workConn, pxy.updateStatsAfterClosedConn)
+	StatsOpenConnection(pxy.GetName())
 	return
+}
+
+func (pxy *HttpProxy) updateStatsAfterClosedConn(totalRead, totalWrite int64) {
+	name := pxy.GetName()
+	StatsCloseConnection(name)
+	StatsAddTrafficIn(name, totalWrite)
+	StatsAddTrafficOut(name, totalRead)
 }
 
 func (pxy *HttpProxy) Close() {
