@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,11 +30,12 @@ import (
 	frpIo "github.com/fatedier/frp/utils/io"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
+	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/vhost"
 )
 
 type Proxy interface {
-	Run() error
+	Run() (remoteAddr string, err error)
 	GetControl() *Control
 	GetName() string
 	GetConf() config.ProxyConf
@@ -165,17 +167,19 @@ type TcpProxy struct {
 	cfg *config.TcpProxyConf
 }
 
-func (pxy *TcpProxy) Run() error {
-	listener, err := frpNet.ListenTcp(config.ServerCommonCfg.ProxyBindAddr, pxy.cfg.RemotePort)
-	if err != nil {
-		return err
+func (pxy *TcpProxy) Run() (remoteAddr string, err error) {
+	remoteAddr = fmt.Sprintf(":%d", pxy.cfg.RemotePort)
+	listener, errRet := frpNet.ListenTcp(config.ServerCommonCfg.ProxyBindAddr, pxy.cfg.RemotePort)
+	if errRet != nil {
+		err = errRet
+		return
 	}
 	listener.AddLogPrefix(pxy.name)
 	pxy.listeners = append(pxy.listeners, listener)
 	pxy.Info("tcp proxy listen port [%d]", pxy.cfg.RemotePort)
 
 	pxy.startListenHandler(pxy, HandleUserTcpConnection)
-	return nil
+	return
 }
 
 func (pxy *TcpProxy) GetConf() config.ProxyConf {
@@ -193,7 +197,7 @@ type HttpProxy struct {
 	closeFuncs []func()
 }
 
-func (pxy *HttpProxy) Run() (err error) {
+func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
 	routeConfig := vhost.VhostRouteConfig{
 		RewriteHost:  pxy.cfg.HostHeaderRewrite,
 		Username:     pxy.cfg.HttpUser,
@@ -205,16 +209,19 @@ func (pxy *HttpProxy) Run() (err error) {
 	if len(locations) == 0 {
 		locations = []string{""}
 	}
+
+	addrs := make([]string, 0)
 	for _, domain := range pxy.cfg.CustomDomains {
 		routeConfig.Domain = domain
 		for _, location := range locations {
 			routeConfig.Location = location
-			err := pxy.ctl.svr.httpReverseProxy.Register(routeConfig)
+			err = pxy.ctl.svr.httpReverseProxy.Register(routeConfig)
 			if err != nil {
-				return err
+				return
 			}
 			tmpDomain := routeConfig.Domain
 			tmpLocation := routeConfig.Location
+			addrs = append(addrs, util.CanonicalAddr(tmpDomain, int(config.ServerCommonCfg.VhostHttpPort)))
 			pxy.closeFuncs = append(pxy.closeFuncs, func() {
 				pxy.ctl.svr.httpReverseProxy.UnRegister(tmpDomain, tmpLocation)
 			})
@@ -226,18 +233,20 @@ func (pxy *HttpProxy) Run() (err error) {
 		routeConfig.Domain = pxy.cfg.SubDomain + "." + config.ServerCommonCfg.SubDomainHost
 		for _, location := range locations {
 			routeConfig.Location = location
-			err := pxy.ctl.svr.httpReverseProxy.Register(routeConfig)
+			err = pxy.ctl.svr.httpReverseProxy.Register(routeConfig)
 			if err != nil {
-				return err
+				return
 			}
 			tmpDomain := routeConfig.Domain
 			tmpLocation := routeConfig.Location
+			addrs = append(addrs, util.CanonicalAddr(tmpDomain, int(config.ServerCommonCfg.VhostHttpPort)))
 			pxy.closeFuncs = append(pxy.closeFuncs, func() {
 				pxy.ctl.svr.httpReverseProxy.UnRegister(tmpDomain, tmpLocation)
 			})
 			pxy.Info("http proxy listen for host [%s] location [%s]", routeConfig.Domain, routeConfig.Location)
 		}
 	}
+	remoteAddr = strings.Join(addrs, ",")
 	return
 }
 
@@ -279,32 +288,38 @@ type HttpsProxy struct {
 	cfg *config.HttpsProxyConf
 }
 
-func (pxy *HttpsProxy) Run() (err error) {
+func (pxy *HttpsProxy) Run() (remoteAddr string, err error) {
 	routeConfig := &vhost.VhostRouteConfig{}
 
+	addrs := make([]string, 0)
 	for _, domain := range pxy.cfg.CustomDomains {
 		routeConfig.Domain = domain
-		l, err := pxy.ctl.svr.VhostHttpsMuxer.Listen(routeConfig)
-		if err != nil {
-			return err
+		l, errRet := pxy.ctl.svr.VhostHttpsMuxer.Listen(routeConfig)
+		if errRet != nil {
+			err = errRet
+			return
 		}
 		l.AddLogPrefix(pxy.name)
 		pxy.Info("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
+		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(config.ServerCommonCfg.VhostHttpsPort)))
 	}
 
 	if pxy.cfg.SubDomain != "" {
 		routeConfig.Domain = pxy.cfg.SubDomain + "." + config.ServerCommonCfg.SubDomainHost
-		l, err := pxy.ctl.svr.VhostHttpsMuxer.Listen(routeConfig)
-		if err != nil {
-			return err
+		l, errRet := pxy.ctl.svr.VhostHttpsMuxer.Listen(routeConfig)
+		if errRet != nil {
+			err = errRet
+			return
 		}
 		l.AddLogPrefix(pxy.name)
 		pxy.Info("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
+		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(config.ServerCommonCfg.VhostHttpsPort)))
 	}
 
 	pxy.startListenHandler(pxy, HandleUserTcpConnection)
+	remoteAddr = strings.Join(addrs, ",")
 	return
 }
 
@@ -321,17 +336,18 @@ type StcpProxy struct {
 	cfg *config.StcpProxyConf
 }
 
-func (pxy *StcpProxy) Run() error {
-	listener, err := pxy.ctl.svr.visitorManager.Listen(pxy.GetName(), pxy.cfg.Sk)
-	if err != nil {
-		return err
+func (pxy *StcpProxy) Run() (remoteAddr string, err error) {
+	listener, errRet := pxy.ctl.svr.visitorManager.Listen(pxy.GetName(), pxy.cfg.Sk)
+	if errRet != nil {
+		err = errRet
+		return
 	}
 	listener.AddLogPrefix(pxy.name)
 	pxy.listeners = append(pxy.listeners, listener)
 	pxy.Info("stcp proxy custom listen success")
 
 	pxy.startListenHandler(pxy, HandleUserTcpConnection)
-	return nil
+	return
 }
 
 func (pxy *StcpProxy) GetConf() config.ProxyConf {
@@ -350,10 +366,11 @@ type XtcpProxy struct {
 	closeCh chan struct{}
 }
 
-func (pxy *XtcpProxy) Run() error {
+func (pxy *XtcpProxy) Run() (remoteAddr string, err error) {
 	if pxy.ctl.svr.natHoleController == nil {
 		pxy.Error("udp port for xtcp is not specified.")
-		return fmt.Errorf("xtcp is not supported in frps")
+		err = fmt.Errorf("xtcp is not supported in frps")
+		return
 	}
 	sidCh := pxy.ctl.svr.natHoleController.ListenClient(pxy.GetName(), pxy.cfg.Sk)
 	go func() {
@@ -362,21 +379,21 @@ func (pxy *XtcpProxy) Run() error {
 			case <-pxy.closeCh:
 				break
 			case sid := <-sidCh:
-				workConn, err := pxy.GetWorkConnFromPool()
-				if err != nil {
+				workConn, errRet := pxy.GetWorkConnFromPool()
+				if errRet != nil {
 					continue
 				}
 				m := &msg.NatHoleSid{
 					Sid: sid,
 				}
-				err = msg.WriteMsg(workConn, m)
-				if err != nil {
-					pxy.Warn("write nat hole sid package error, %v", err)
+				errRet = msg.WriteMsg(workConn, m)
+				if errRet != nil {
+					pxy.Warn("write nat hole sid package error, %v", errRet)
 				}
 			}
 		}
 	}()
-	return nil
+	return
 }
 
 func (pxy *XtcpProxy) GetConf() config.ProxyConf {
@@ -414,15 +431,18 @@ type UdpProxy struct {
 	isClosed bool
 }
 
-func (pxy *UdpProxy) Run() (err error) {
-	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", config.ServerCommonCfg.ProxyBindAddr, pxy.cfg.RemotePort))
-	if err != nil {
-		return err
+func (pxy *UdpProxy) Run() (remoteAddr string, err error) {
+	remoteAddr = fmt.Sprintf(":%d", pxy.cfg.RemotePort)
+	addr, errRet := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", config.ServerCommonCfg.ProxyBindAddr, pxy.cfg.RemotePort))
+	if errRet != nil {
+		err = errRet
+		return
 	}
-	udpConn, err := net.ListenUDP("udp", addr)
-	if err != nil {
+	udpConn, errRet := net.ListenUDP("udp", addr)
+	if errRet != nil {
+		err = errRet
 		pxy.Warn("listen udp port error: %v", err)
-		return err
+		return
 	}
 	pxy.Info("udp proxy listen port [%d]", pxy.cfg.RemotePort)
 
@@ -537,7 +557,7 @@ func (pxy *UdpProxy) Run() (err error) {
 		udp.ForwardUserConn(udpConn, pxy.readCh, pxy.sendCh)
 		pxy.Close()
 	}()
-	return nil
+	return remoteAddr, nil
 }
 
 func (pxy *UdpProxy) GetConf() config.ProxyConf {

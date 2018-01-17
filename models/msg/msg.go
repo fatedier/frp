@@ -119,8 +119,9 @@ type NewProxy struct {
 }
 
 type NewProxyResp struct {
-	ProxyName string `json:"proxy_name"`
-	Error     string `json:"error"`
+	ProxyName  string `json:"proxy_name"`
+	RemoteAddr string `json:"remote_addr"`
+	Error      string `json:"error"`
 }
 
 type CloseProxy struct {

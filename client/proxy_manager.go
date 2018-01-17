@@ -41,6 +41,8 @@ type ProxyWrapper struct {
 	Err    string
 	Cfg    config.ProxyConf
 
+	RemoteAddr string
+
 	pxy Proxy
 
 	mu sync.RWMutex
@@ -52,6 +54,9 @@ type ProxyStatus struct {
 	Status string           `json:"status"`
 	Err    string           `json:"err"`
 	Cfg    config.ProxyConf `json:"cfg"`
+
+	// Got from server.
+	RemoteAddr string `json:"remote_addr"`
 }
 
 func NewProxyWrapper(cfg config.ProxyConf) *ProxyWrapper {
@@ -78,16 +83,17 @@ func (pw *ProxyWrapper) GetStatus() *ProxyStatus {
 	pw.mu.RLock()
 	defer pw.mu.RUnlock()
 	ps := &ProxyStatus{
-		Name:   pw.Name,
-		Type:   pw.Type,
-		Status: pw.Status,
-		Err:    pw.Err,
-		Cfg:    pw.Cfg,
+		Name:       pw.Name,
+		Type:       pw.Type,
+		Status:     pw.Status,
+		Err:        pw.Err,
+		Cfg:        pw.Cfg,
+		RemoteAddr: pw.RemoteAddr,
 	}
 	return ps
 }
 
-func (pw *ProxyWrapper) Start(serverRespErr string) error {
+func (pw *ProxyWrapper) Start(remoteAddr string, serverRespErr string) error {
 	if pw.pxy != nil {
 		pw.pxy.Close()
 		pw.pxy = nil
@@ -96,6 +102,7 @@ func (pw *ProxyWrapper) Start(serverRespErr string) error {
 	if serverRespErr != "" {
 		pw.mu.Lock()
 		pw.Status = ProxyStatusStartErr
+		pw.RemoteAddr = remoteAddr
 		pw.Err = serverRespErr
 		pw.mu.Unlock()
 		return fmt.Errorf(serverRespErr)
@@ -104,6 +111,7 @@ func (pw *ProxyWrapper) Start(serverRespErr string) error {
 	pxy := NewProxy(pw.Cfg)
 	pw.mu.Lock()
 	defer pw.mu.Unlock()
+	pw.RemoteAddr = remoteAddr
 	if err := pxy.Run(); err != nil {
 		pw.Status = ProxyStatusStartErr
 		pw.Err = err.Error()
@@ -139,6 +147,7 @@ func (pw *ProxyWrapper) Close() {
 
 func NewProxyManager(ctl *Control, msgSendCh chan (msg.Message), logPrefix string) *ProxyManager {
 	return &ProxyManager{
+		ctl:         ctl,
 		proxies:     make(map[string]*ProxyWrapper),
 		visitorCfgs: make(map[string]config.ProxyConf),
 		visitors:    make(map[string]Visitor),
@@ -168,7 +177,7 @@ func (pm *ProxyManager) sendMsg(m msg.Message) error {
 	return err
 }
 
-func (pm *ProxyManager) StartProxy(name string, serverRespErr string) error {
+func (pm *ProxyManager) StartProxy(name string, remoteAddr string, serverRespErr string) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 	if pm.closed {
@@ -180,7 +189,7 @@ func (pm *ProxyManager) StartProxy(name string, serverRespErr string) error {
 		return fmt.Errorf("no proxy found")
 	}
 
-	if err := pxy.Start(serverRespErr); err != nil {
+	if err := pxy.Start(remoteAddr, serverRespErr); err != nil {
 		errRet := err
 		err = pm.sendMsg(&msg.CloseProxy{
 			ProxyName: name,

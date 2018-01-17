@@ -110,3 +110,12 @@ func PortRangesCut(portRanges [][2]int64, port int64) [][2]int64 {
 	}
 	return tmpRanges
 }
+
+func CanonicalAddr(host string, port int) (addr string) {
+	if port == 80 || port == 443 {
+		addr = host
+	} else {
+		addr = fmt.Sprintf("%s:%d", host, port)
+	}
+	return
+}

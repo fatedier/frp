@@ -308,7 +308,7 @@ func (ctl *Control) manager() {
 			switch m := rawMsg.(type) {
 			case *msg.NewProxy:
 				// register proxy in this control
-				err := ctl.RegisterProxy(m)
+				remoteAddr, err := ctl.RegisterProxy(m)
 				resp := &msg.NewProxyResp{
 					ProxyName: m.ProxyName,
 				}
@@ -316,6 +316,7 @@ func (ctl *Control) manager() {
 					resp.Error = err.Error()
 					ctl.conn.Warn("new proxy [%s] error: %v", m.ProxyName, err)
 				} else {
+					resp.RemoteAddr = remoteAddr
 					ctl.conn.Info("new proxy [%s] success", m.ProxyName)
 					StatsNewProxy(m.ProxyName, m.ProxyType)
 				}
@@ -332,24 +333,24 @@ func (ctl *Control) manager() {
 	}
 }
 
-func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (err error) {
+func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err error) {
 	var pxyConf config.ProxyConf
 	// Load configures from NewProxy message and check.
 	pxyConf, err = config.NewProxyConf(pxyMsg)
 	if err != nil {
-		return err
+		return
 	}
 
 	// NewProxy will return a interface Proxy.
 	// In fact it create different proxies by different proxy type, we just call run() here.
 	pxy, err := NewProxy(ctl, pxyConf)
 	if err != nil {
-		return err
+		return remoteAddr, err
 	}
 
-	err = pxy.Run()
+	remoteAddr, err = pxy.Run()
 	if err != nil {
-		return err
+		return
 	}
 	defer func() {
 		if err != nil {
@@ -359,13 +360,13 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (err error) {
 
 	err = ctl.svr.RegisterProxy(pxyMsg.ProxyName, pxy)
 	if err != nil {
-		return err
+		return
 	}
 
 	ctl.mu.Lock()
 	ctl.proxies[pxy.GetName()] = pxy
 	ctl.mu.Unlock()
-	return nil
+	return
 }
 
 func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
