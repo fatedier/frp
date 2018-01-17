@@ -158,7 +158,7 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 func (ctl *Control) HandleNewProxyResp(inMsg *msg.NewProxyResp) {
 	// Server will return NewProxyResp message to each NewProxy message.
 	// Start a new proxy handler if no error got
-	err := ctl.pm.StartProxy(inMsg.ProxyName, inMsg.Error)
+	err := ctl.pm.StartProxy(inMsg.ProxyName, inMsg.RemoteAddr, inMsg.Error)
 	if err != nil {
 		ctl.Warn("[%s] start error: %v", inMsg.ProxyName, err)
 	} else {
