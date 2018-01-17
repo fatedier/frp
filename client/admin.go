@@ -31,7 +31,7 @@ var (
 	httpServerWriteTimeout = 10 * time.Second
 )
 
-func (svr *Service) RunAdminServer(addr string, port int64) (err error) {
+func (svr *Service) RunAdminServer(addr string, port int) (err error) {
 	// url router
 	router := httprouter.New()
 

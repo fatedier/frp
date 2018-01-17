@@ -33,7 +33,7 @@ type TcpListener struct {
 	log.Logger
 }
 
-func ListenTcp(bindAddr string, bindPort int64) (l *TcpListener, err error) {
+func ListenTcp(bindAddr string, bindPort int) (l *TcpListener, err error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", bindAddr, bindPort))
 	if err != nil {
 		return l, err

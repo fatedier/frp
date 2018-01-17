@@ -10,28 +10,28 @@ import (
 
 var (
 	TEST_STR                    = "frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet."
-	TEST_TCP_PORT        int64  = 10701
-	TEST_TCP_FRP_PORT    int64  = 10801
-	TEST_TCP_EC_FRP_PORT int64  = 10901
+	TEST_TCP_PORT        int    = 10701
+	TEST_TCP_FRP_PORT    int    = 10801
+	TEST_TCP_EC_FRP_PORT int    = 10901
 	TEST_TCP_ECHO_STR    string = "tcp type:" + TEST_STR
 
-	TEST_UDP_PORT        int64  = 10702
-	TEST_UDP_FRP_PORT    int64  = 10802
-	TEST_UDP_EC_FRP_PORT int64  = 10902
+	TEST_UDP_PORT        int    = 10702
+	TEST_UDP_FRP_PORT    int    = 10802
+	TEST_UDP_EC_FRP_PORT int    = 10902
 	TEST_UDP_ECHO_STR    string = "udp type:" + TEST_STR
 
 	TEST_UNIX_DOMAIN_ADDR     string = "/tmp/frp_echo_server.sock"
-	TEST_UNIX_DOMAIN_FRP_PORT int64  = 10803
+	TEST_UNIX_DOMAIN_FRP_PORT int    = 10803
 	TEST_UNIX_DOMAIN_STR      string = "unix domain type:" + TEST_STR
 
-	TEST_HTTP_PORT       int64  = 10704
-	TEST_HTTP_FRP_PORT   int64  = 10804
+	TEST_HTTP_PORT       int    = 10704
+	TEST_HTTP_FRP_PORT   int    = 10804
 	TEST_HTTP_NORMAL_STR string = "http normal string: " + TEST_STR
 	TEST_HTTP_FOO_STR    string = "http foo string: " + TEST_STR
 	TEST_HTTP_BAR_STR    string = "http bar string: " + TEST_STR
 
-	TEST_STCP_FRP_PORT    int64  = 10805
-	TEST_STCP_EC_FRP_PORT int64  = 10905
+	TEST_STCP_FRP_PORT    int    = 10805
+	TEST_STCP_EC_FRP_PORT int    = 10905
 	TEST_STCP_ECHO_STR    string = "stcp type:" + TEST_STR
 )
 

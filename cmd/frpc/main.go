@@ -99,7 +99,7 @@ func main() {
 	if args["status"] != nil {
 		if args["status"].(bool) {
 			if err = CmdStatus(); err != nil {
-				fmt.Println("frps get status error: %v\n", err)
+				fmt.Printf("frps get status error: %v\n", err)
 				os.Exit(1)
 			} else {
 				os.Exit(0)
@@ -132,7 +132,7 @@ func main() {
 			os.Exit(1)
 		}
 		config.ClientCommonCfg.ServerAddr = addr[0]
-		config.ClientCommonCfg.ServerPort = serverPort
+		config.ClientCommonCfg.ServerPort = int(serverPort)
 	}
 
 	if args["-v"] != nil {

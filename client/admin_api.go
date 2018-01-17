@@ -124,12 +124,20 @@ func NewProxyStatusResp(status *ProxyStatus) ProxyStatusResp {
 			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
 		}
 		psr.Plugin = cfg.Plugin
-		psr.RemoteAddr = config.ClientCommonCfg.ServerAddr + status.RemoteAddr
+		if status.Err != "" {
+			psr.RemoteAddr = fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, cfg.RemotePort)
+		} else {
+			psr.RemoteAddr = config.ClientCommonCfg.ServerAddr + status.RemoteAddr
+		}
 	case *config.UdpProxyConf:
 		if cfg.LocalPort != 0 {
 			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
 		}
-		psr.RemoteAddr = config.ClientCommonCfg.ServerAddr + status.RemoteAddr
+		if status.Err != "" {
+			psr.RemoteAddr = fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, cfg.RemotePort)
+		} else {
+			psr.RemoteAddr = config.ClientCommonCfg.ServerAddr + status.RemoteAddr
+		}
 	case *config.HttpProxyConf:
 		if cfg.LocalPort != 0 {
 			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
