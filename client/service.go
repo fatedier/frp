@@ -53,6 +53,6 @@ func (svr *Service) Run() error {
 	return nil
 }
 
-func (svr *Service) Close() error {
-	return svr.ctl.Close()
+func (svr *Service) Close() {
+	svr.ctl.Close()
 }

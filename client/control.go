@@ -24,9 +24,9 @@ import (
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/utils/crypto"
-	"github.com/fatedier/frp/utils/errors"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
+	"github.com/fatedier/frp/utils/shutdown"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
 	"github.com/xtaci/smux"
@@ -40,20 +40,10 @@ type Control struct {
 	// frpc service
 	svr *Service
 
-	// login message to server
+	// login message to server, only used
 	loginMsg *msg.Login
 
-	// proxy configures
-	pxyCfgs map[string]config.ProxyConf
-
-	// proxies
-	proxies map[string]Proxy
-
-	// visitor configures
-	visitorCfgs map[string]config.ProxyConf
-
-	// visitors
-	visitors map[string]Visitor
+	pm *ProxyManager
 
 	// control connection
 	conn frpNet.Conn
@@ -79,6 +69,10 @@ type Control struct {
 	// last time got the Pong message
 	lastPong time.Time
 
+	readerShutdown     *shutdown.Shutdown
+	writerShutdown     *shutdown.Shutdown
+	msgHandlerShutdown *shutdown.Shutdown
+
 	mu sync.RWMutex
 
 	log.Logger
@@ -92,28 +86,22 @@ func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf, visitorCfgs m
 		User:      config.ClientCommonCfg.User,
 		Version:   version.Full(),
 	}
-	return &Control{
-		svr:         svr,
-		loginMsg:    loginMsg,
-		pxyCfgs:     pxyCfgs,
-		visitorCfgs: visitorCfgs,
-		proxies:     make(map[string]Proxy),
-		visitors:    make(map[string]Visitor),
-		sendCh:      make(chan msg.Message, 10),
-		readCh:      make(chan msg.Message, 10),
-		closedCh:    make(chan int),
-		Logger:      log.NewPrefixLogger(""),
+	ctl := &Control{
+		svr:                svr,
+		loginMsg:           loginMsg,
+		sendCh:             make(chan msg.Message, 10),
+		readCh:             make(chan msg.Message, 10),
+		closedCh:           make(chan int),
+		readerShutdown:     shutdown.New(),
+		writerShutdown:     shutdown.New(),
+		msgHandlerShutdown: shutdown.New(),
+		Logger:             log.NewPrefixLogger(""),
 	}
+	ctl.pm = NewProxyManager(ctl, ctl.sendCh, "")
+	ctl.pm.Reload(pxyCfgs, visitorCfgs)
+	return ctl
 }
 
-// 1. login
-// 2. start reader() writer() manager()
-// 3. connection closed
-// 4. In reader(): close closedCh and exit, controler() get it
-// 5. In controler(): close readCh and sendCh, manager() and writer() will exit
-// 6. In controler(): ini readCh, sendCh, closedCh
-// 7. In controler(): start new reader(), writer(), manager()
-// controler() will keep running
 func (ctl *Control) Run() (err error) {
 	for {
 		err = ctl.login()
@@ -125,47 +113,29 @@ func (ctl *Control) Run() (err error) {
 			if config.ClientCommonCfg.LoginFailExit {
 				return
 			} else {
-				time.Sleep(30 * time.Second)
+				time.Sleep(10 * time.Second)
 			}
 		} else {
 			break
 		}
 	}
 
-	go ctl.controler()
-	go ctl.manager()
-	go ctl.writer()
-	go ctl.reader()
+	go ctl.worker()
 
-	// start all local visitors
-	for _, cfg := range ctl.visitorCfgs {
-		visitor := NewVisitor(ctl, cfg)
-		err = visitor.Run()
-		if err != nil {
-			visitor.Warn("start error: %v", err)
-			continue
-		}
-		ctl.visitors[cfg.GetName()] = visitor
-		visitor.Info("start visitor success")
-	}
-
-	// send NewProxy message for all configured proxies
-	for _, cfg := range ctl.pxyCfgs {
-		var newProxyMsg msg.NewProxy
-		cfg.UnMarshalToMsg(&newProxyMsg)
-		ctl.sendCh <- &newProxyMsg
-	}
+	// start all local visitors and send NewProxy message for all configured proxies
+	ctl.pm.Reset(ctl.sendCh, ctl.runId)
+	ctl.pm.CheckAndStartProxy()
 	return nil
 }
 
-func (ctl *Control) NewWorkConn() {
+func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	workConn, err := ctl.connectServer()
 	if err != nil {
 		return
 	}
 
 	m := &msg.NewWorkConn{
-		RunId: ctl.getRunId(),
+		RunId: ctl.runId,
 	}
 	if err = msg.WriteMsg(workConn, m); err != nil {
 		ctl.Warn("work connection write to server error: %v", err)
@@ -182,33 +152,26 @@ func (ctl *Control) NewWorkConn() {
 	workConn.AddLogPrefix(startMsg.ProxyName)
 
 	// dispatch this work connection to related proxy
-	pxy, ok := ctl.getProxy(startMsg.ProxyName)
-	if ok {
-		workConn.Debug("start a new work connection, localAddr: %s remoteAddr: %s", workConn.LocalAddr().String(), workConn.RemoteAddr().String())
-		go pxy.InWorkConn(workConn)
+	ctl.pm.HandleWorkConn(startMsg.ProxyName, workConn)
+}
+
+func (ctl *Control) HandleNewProxyResp(inMsg *msg.NewProxyResp) {
+	// Server will return NewProxyResp message to each NewProxy message.
+	// Start a new proxy handler if no error got
+	err := ctl.pm.StartProxy(inMsg.ProxyName, inMsg.RemoteAddr, inMsg.Error)
+	if err != nil {
+		ctl.Warn("[%s] start error: %v", inMsg.ProxyName, err)
 	} else {
-		workConn.Close()
+		ctl.Info("[%s] start proxy success", inMsg.ProxyName)
 	}
 }
 
 func (ctl *Control) Close() error {
 	ctl.mu.Lock()
+	defer ctl.mu.Unlock()
 	ctl.exit = true
-	err := errors.PanicToError(func() {
-		for name, _ := range ctl.proxies {
-			ctl.sendCh <- &msg.CloseProxy{
-				ProxyName: name,
-			}
-		}
-	})
-	ctl.mu.Unlock()
-	return err
-}
-
-func (ctl *Control) init() {
-	ctl.sendCh = make(chan msg.Message, 10)
-	ctl.readCh = make(chan msg.Message, 10)
-	ctl.closedCh = make(chan int)
+	ctl.pm.CloseProxies()
+	return nil
 }
 
 // login send a login message to server and wait for a loginResp message.
@@ -249,7 +212,7 @@ func (ctl *Control) login() (err error) {
 	now := time.Now().Unix()
 	ctl.loginMsg.PrivilegeKey = util.GetAuthKey(config.ClientCommonCfg.PrivilegeToken, now)
 	ctl.loginMsg.Timestamp = now
-	ctl.loginMsg.RunId = ctl.getRunId()
+	ctl.loginMsg.RunId = ctl.runId
 
 	if err = msg.WriteMsg(conn, ctl.loginMsg); err != nil {
 		return err
@@ -270,16 +233,11 @@ func (ctl *Control) login() (err error) {
 
 	ctl.conn = conn
 	// update runId got from server
-	ctl.setRunId(loginRespMsg.RunId)
+	ctl.runId = loginRespMsg.RunId
 	config.ClientCommonCfg.ServerUdpPort = loginRespMsg.ServerUdpPort
 	ctl.ClearLogPrefix()
 	ctl.AddLogPrefix(loginRespMsg.RunId)
 	ctl.Info("login to server success, get run id [%s], server udp port [%d]", loginRespMsg.RunId, loginRespMsg.ServerUdpPort)
-
-	// login success, so we let closedCh available again
-	ctl.closedCh = make(chan int)
-	ctl.lastPong = time.Now()
-
 	return nil
 }
 
@@ -292,7 +250,6 @@ func (ctl *Control) connectServer() (conn frpNet.Conn, err error) {
 			return
 		}
 		conn = frpNet.WrapConn(stream)
-
 	} else {
 		conn, err = frpNet.ConnectServerByHttpProxy(config.ClientCommonCfg.HttpProxy, config.ClientCommonCfg.Protocol,
 			fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerPort))
@@ -304,12 +261,14 @@ func (ctl *Control) connectServer() (conn frpNet.Conn, err error) {
 	return
 }
 
+// reader read all messages from frps and send to readCh
 func (ctl *Control) reader() {
 	defer func() {
 		if err := recover(); err != nil {
 			ctl.Error("panic error: %v", err)
 		}
 	}()
+	defer ctl.readerShutdown.Done()
 	defer close(ctl.closedCh)
 
 	encReader := crypto.NewReader(ctl.conn, []byte(config.ClientCommonCfg.PrivilegeToken))
@@ -328,7 +287,9 @@ func (ctl *Control) reader() {
 	}
 }
 
+// writer writes messages got from sendCh to frps
 func (ctl *Control) writer() {
+	defer ctl.writerShutdown.Done()
 	encWriter, err := crypto.NewWriter(ctl.conn, []byte(config.ClientCommonCfg.PrivilegeToken))
 	if err != nil {
 		ctl.conn.Error("crypto new writer error: %v", err)
@@ -348,18 +309,21 @@ func (ctl *Control) writer() {
 	}
 }
 
-// manager handles all channel events and do corresponding process
-func (ctl *Control) manager() {
+// msgHandler handles all channel events and do corresponding operations.
+func (ctl *Control) msgHandler() {
 	defer func() {
 		if err := recover(); err != nil {
 			ctl.Error("panic error: %v", err)
 		}
 	}()
+	defer ctl.msgHandlerShutdown.Done()
 
 	hbSend := time.NewTicker(time.Duration(config.ClientCommonCfg.HeartBeatInterval) * time.Second)
 	defer hbSend.Stop()
 	hbCheck := time.NewTicker(time.Second)
 	defer hbCheck.Stop()
+
+	ctl.lastPong = time.Now()
 
 	for {
 		select {
@@ -381,35 +345,9 @@ func (ctl *Control) manager() {
 
 			switch m := rawMsg.(type) {
 			case *msg.ReqWorkConn:
-				go ctl.NewWorkConn()
+				go ctl.HandleReqWorkConn(m)
 			case *msg.NewProxyResp:
-				// Server will return NewProxyResp message to each NewProxy message.
-				// Start a new proxy handler if no error got
-				if m.Error != "" {
-					ctl.Warn("[%s] start error: %s", m.ProxyName, m.Error)
-					continue
-				}
-				cfg, ok := ctl.getProxyConf(m.ProxyName)
-				if !ok {
-					// it will never go to this branch now
-					ctl.Warn("[%s] no proxy conf found", m.ProxyName)
-					continue
-				}
-
-				oldPxy, ok := ctl.getProxy(m.ProxyName)
-				if ok {
-					oldPxy.Close()
-				}
-				pxy := NewProxy(ctl, cfg)
-				if err := pxy.Run(); err != nil {
-					ctl.Warn("[%s] proxy start running error: %v", m.ProxyName, err)
-					ctl.sendCh <- &msg.CloseProxy{
-						ProxyName: m.ProxyName,
-					}
-					continue
-				}
-				ctl.addProxy(m.ProxyName, pxy)
-				ctl.Info("[%s] start proxy success", m.ProxyName)
+				ctl.HandleNewProxyResp(m)
 			case *msg.Pong:
 				ctl.lastPong = time.Now()
 				ctl.Debug("receive heartbeat from server")
@@ -419,10 +357,14 @@ func (ctl *Control) manager() {
 }
 
 // controler keep watching closedCh, start a new connection if previous control connection is closed.
-// If controler is notified by closedCh, reader and writer and manager will exit, then recall these functions.
-func (ctl *Control) controler() {
+// If controler is notified by closedCh, reader and writer and handler will exit, then recall these functions.
+func (ctl *Control) worker() {
+	go ctl.msgHandler()
+	go ctl.writer()
+	go ctl.reader()
+
 	var err error
-	maxDelayTime := 30 * time.Second
+	maxDelayTime := 20 * time.Second
 	delayTime := time.Second
 
 	checkInterval := 10 * time.Second
@@ -430,41 +372,20 @@ func (ctl *Control) controler() {
 	for {
 		select {
 		case <-checkProxyTicker.C:
-			// Every 10 seconds, check which proxy registered failed and reregister it to server.
-			ctl.mu.RLock()
-			for _, cfg := range ctl.pxyCfgs {
-				if _, exist := ctl.proxies[cfg.GetName()]; !exist {
-					ctl.Info("try to register proxy [%s]", cfg.GetName())
-					var newProxyMsg msg.NewProxy
-					cfg.UnMarshalToMsg(&newProxyMsg)
-					ctl.sendCh <- &newProxyMsg
-				}
-			}
-
-			for _, cfg := range ctl.visitorCfgs {
-				if _, exist := ctl.visitors[cfg.GetName()]; !exist {
-					ctl.Info("try to start visitor [%s]", cfg.GetName())
-					visitor := NewVisitor(ctl, cfg)
-					err = visitor.Run()
-					if err != nil {
-						visitor.Warn("start error: %v", err)
-						continue
-					}
-					ctl.visitors[cfg.GetName()] = visitor
-					visitor.Info("start visitor success")
-				}
-			}
-			ctl.mu.RUnlock()
+			// every 10 seconds, check which proxy registered failed and reregister it to server
+			ctl.pm.CheckAndStartProxy()
 		case _, ok := <-ctl.closedCh:
 			// we won't get any variable from this channel
 			if !ok {
-				// close related channels
+				// close related channels and wait until other goroutines done
 				close(ctl.readCh)
-				close(ctl.sendCh)
+				ctl.readerShutdown.WaitDone()
+				ctl.msgHandlerShutdown.WaitDone()
 
-				for _, pxy := range ctl.proxies {
-					pxy.Close()
-				}
+				close(ctl.sendCh)
+				ctl.writerShutdown.WaitDone()
+
+				ctl.pm.CloseProxies()
 				// if ctl.exit is true, just exit
 				ctl.mu.RLock()
 				exit := ctl.exit
@@ -473,9 +394,7 @@ func (ctl *Control) controler() {
 					return
 				}
 
-				time.Sleep(time.Second)
-
-				// loop util reconnect to server success
+				// loop util reconnecting to server success
 				for {
 					ctl.Info("try to reconnect to server...")
 					err = ctl.login()
@@ -488,27 +407,27 @@ func (ctl *Control) controler() {
 						}
 						continue
 					}
-					// reconnect success, init the delayTime
+					// reconnect success, init delayTime
 					delayTime = time.Second
 					break
 				}
 
 				// init related channels and variables
-				ctl.init()
+				ctl.sendCh = make(chan msg.Message, 10)
+				ctl.readCh = make(chan msg.Message, 10)
+				ctl.closedCh = make(chan int)
+				ctl.readerShutdown = shutdown.New()
+				ctl.writerShutdown = shutdown.New()
+				ctl.msgHandlerShutdown = shutdown.New()
+				ctl.pm.Reset(ctl.sendCh, ctl.runId)
 
 				// previous work goroutines should be closed and start them here
-				go ctl.manager()
+				go ctl.msgHandler()
 				go ctl.writer()
 				go ctl.reader()
 
-				// send NewProxy message for all configured proxies
-				ctl.mu.RLock()
-				for _, cfg := range ctl.pxyCfgs {
-					var newProxyMsg msg.NewProxy
-					cfg.UnMarshalToMsg(&newProxyMsg)
-					ctl.sendCh <- &newProxyMsg
-				}
-				ctl.mu.RUnlock()
+				// start all configured proxies
+				ctl.pm.CheckAndStartProxy()
 
 				checkProxyTicker.Stop()
 				checkProxyTicker = time.NewTicker(checkInterval)
@@ -517,106 +436,7 @@ func (ctl *Control) controler() {
 	}
 }
 
-func (ctl *Control) setRunId(runId string) {
-	ctl.mu.Lock()
-	defer ctl.mu.Unlock()
-	ctl.runId = runId
-}
-
-func (ctl *Control) getRunId() string {
-	ctl.mu.RLock()
-	defer ctl.mu.RUnlock()
-	return ctl.runId
-}
-
-func (ctl *Control) getProxy(name string) (pxy Proxy, ok bool) {
-	ctl.mu.RLock()
-	defer ctl.mu.RUnlock()
-	pxy, ok = ctl.proxies[name]
-	return
-}
-
-func (ctl *Control) addProxy(name string, pxy Proxy) {
-	ctl.mu.Lock()
-	defer ctl.mu.Unlock()
-	ctl.proxies[name] = pxy
-}
-
-func (ctl *Control) getProxyConf(name string) (conf config.ProxyConf, ok bool) {
-	ctl.mu.RLock()
-	defer ctl.mu.RUnlock()
-	conf, ok = ctl.pxyCfgs[name]
-	return
-}
-
-func (ctl *Control) reloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf) {
-	ctl.mu.Lock()
-	defer ctl.mu.Unlock()
-
-	removedPxyNames := make([]string, 0)
-	for name, oldCfg := range ctl.pxyCfgs {
-		del := false
-		cfg, ok := pxyCfgs[name]
-		if !ok {
-			del = true
-		} else {
-			if !oldCfg.Compare(cfg) {
-				del = true
-			}
-		}
-
-		if del {
-			removedPxyNames = append(removedPxyNames, name)
-			delete(ctl.pxyCfgs, name)
-			if pxy, ok := ctl.proxies[name]; ok {
-				pxy.Close()
-			}
-			delete(ctl.proxies, name)
-			ctl.sendCh <- &msg.CloseProxy{
-				ProxyName: name,
-			}
-		}
-	}
-	ctl.Info("proxy removed: %v", removedPxyNames)
-
-	addedPxyNames := make([]string, 0)
-	for name, cfg := range pxyCfgs {
-		if _, ok := ctl.pxyCfgs[name]; !ok {
-			ctl.pxyCfgs[name] = cfg
-			addedPxyNames = append(addedPxyNames, name)
-		}
-	}
-	ctl.Info("proxy added: %v", addedPxyNames)
-
-	removedVisitorName := make([]string, 0)
-	for name, oldVisitorCfg := range ctl.visitorCfgs {
-		del := false
-		cfg, ok := visitorCfgs[name]
-		if !ok {
-			del = true
-		} else {
-			if !oldVisitorCfg.Compare(cfg) {
-				del = true
-			}
-		}
-
-		if del {
-			removedVisitorName = append(removedVisitorName, name)
-			delete(ctl.visitorCfgs, name)
-			if visitor, ok := ctl.visitors[name]; ok {
-				visitor.Close()
-			}
-			delete(ctl.visitors, name)
-		}
-	}
-	ctl.Info("visitor removed: %v", removedVisitorName)
-
-	addedVisitorName := make([]string, 0)
-	for name, visitorCfg := range visitorCfgs {
-		if _, ok := ctl.visitorCfgs[name]; !ok {
-			ctl.visitorCfgs[name] = visitorCfg
-			addedVisitorName = append(addedVisitorName, name)
-		}
-	}
-	ctl.Info("visitor added: %v", addedVisitorName)
+func (ctl *Control) reloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf) error {
+	err := ctl.pm.Reload(pxyCfgs, visitorCfgs)
+	return err
 }

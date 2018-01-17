@@ -39,13 +39,13 @@ type Proxy interface {
 
 	// InWorkConn accept work connections registered to server.
 	InWorkConn(conn frpNet.Conn)
+
 	Close()
 	log.Logger
 }
 
-func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy) {
+func NewProxy(pxyConf config.ProxyConf) (pxy Proxy) {
 	baseProxy := BaseProxy{
-		ctl:    ctl,
 		Logger: log.NewPrefixLogger(pxyConf.GetName()),
 	}
 	switch cfg := pxyConf.(type) {
@@ -84,7 +84,6 @@ func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy) {
 }
 
 type BaseProxy struct {
-	ctl    *Control
 	closed bool
 	mu     sync.RWMutex
 	log.Logger

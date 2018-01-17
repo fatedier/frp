@@ -1,119 +1,157 @@
 package tests
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
-	"io/ioutil"
-	"net"
-	"net/http"
-	"strings"
 	"testing"
 	"time"
 
-	frpNet "github.com/fatedier/frp/utils/net"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
-	ECHO_PORT     int64  = 10711
-	UDP_ECHO_PORT int64  = 10712
-	HTTP_PORT     int64  = 10710
-	ECHO_TEST_STR string = "Hello World\n"
-	HTTP_RES_STR  string = "Hello World"
+	TEST_STR                    = "frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet."
+	TEST_TCP_PORT        int    = 10701
+	TEST_TCP_FRP_PORT    int    = 10801
+	TEST_TCP_EC_FRP_PORT int    = 10901
+	TEST_TCP_ECHO_STR    string = "tcp type:" + TEST_STR
+
+	TEST_UDP_PORT        int    = 10702
+	TEST_UDP_FRP_PORT    int    = 10802
+	TEST_UDP_EC_FRP_PORT int    = 10902
+	TEST_UDP_ECHO_STR    string = "udp type:" + TEST_STR
+
+	TEST_UNIX_DOMAIN_ADDR     string = "/tmp/frp_echo_server.sock"
+	TEST_UNIX_DOMAIN_FRP_PORT int    = 10803
+	TEST_UNIX_DOMAIN_STR      string = "unix domain type:" + TEST_STR
+
+	TEST_HTTP_PORT       int    = 10704
+	TEST_HTTP_FRP_PORT   int    = 10804
+	TEST_HTTP_NORMAL_STR string = "http normal string: " + TEST_STR
+	TEST_HTTP_FOO_STR    string = "http foo string: " + TEST_STR
+	TEST_HTTP_BAR_STR    string = "http bar string: " + TEST_STR
+
+	TEST_STCP_FRP_PORT    int    = 10805
+	TEST_STCP_EC_FRP_PORT int    = 10905
+	TEST_STCP_ECHO_STR    string = "stcp type:" + TEST_STR
 )
 
 func init() {
-	go StartEchoServer()
+	go StartTcpEchoServer()
 	go StartUdpEchoServer()
-	go StartHttpServer()
 	go StartUnixDomainServer()
+	go StartHttpServer()
 	time.Sleep(500 * time.Millisecond)
 }
 
-func TestEchoServer(t *testing.T) {
-	c, err := frpNet.ConnectTcpServer(fmt.Sprintf("127.0.0.1:%d", ECHO_PORT))
-	if err != nil {
-		t.Fatalf("connect to echo server error: %v", err)
-	}
-	timer := time.Now().Add(time.Duration(5) * time.Second)
-	c.SetDeadline(timer)
+func TestTcp(t *testing.T) {
+	assert := assert.New(t)
+	// Normal
+	addr := fmt.Sprintf("127.0.0.1:%d", TEST_TCP_FRP_PORT)
+	res, err := sendTcpMsg(addr, TEST_TCP_ECHO_STR)
+	assert.NoError(err)
+	assert.Equal(TEST_TCP_ECHO_STR, res)
 
-	c.Write([]byte(ECHO_TEST_STR + "\n"))
+	// Encrytion and compression
+	addr = fmt.Sprintf("127.0.0.1:%d", TEST_TCP_EC_FRP_PORT)
+	res, err = sendTcpMsg(addr, TEST_TCP_ECHO_STR)
+	assert.NoError(err)
+	assert.Equal(TEST_TCP_ECHO_STR, res)
+}
 
-	br := bufio.NewReader(c)
-	buf, err := br.ReadString('\n')
-	if err != nil {
-		t.Fatalf("read from echo server error: %v", err)
-	}
+func TestUdp(t *testing.T) {
+	assert := assert.New(t)
+	// Normal
+	addr := fmt.Sprintf("127.0.0.1:%d", TEST_UDP_FRP_PORT)
+	res, err := sendUdpMsg(addr, TEST_UDP_ECHO_STR)
+	assert.NoError(err)
+	assert.Equal(TEST_UDP_ECHO_STR, res)
 
-	if ECHO_TEST_STR != buf {
-		t.Fatalf("content error, send [%s], get [%s]", strings.Trim(ECHO_TEST_STR, "\n"), strings.Trim(buf, "\n"))
+	// Encrytion and compression
+	addr = fmt.Sprintf("127.0.0.1:%d", TEST_UDP_EC_FRP_PORT)
+	res, err = sendUdpMsg(addr, TEST_UDP_ECHO_STR)
+	assert.NoError(err)
+	assert.Equal(TEST_UDP_ECHO_STR, res)
+}
+
+func TestUnixDomain(t *testing.T) {
+	assert := assert.New(t)
+	// Normal
+	addr := fmt.Sprintf("127.0.0.1:%d", TEST_UNIX_DOMAIN_FRP_PORT)
+	res, err := sendTcpMsg(addr, TEST_UNIX_DOMAIN_STR)
+	if assert.NoError(err) {
+		assert.Equal(TEST_UNIX_DOMAIN_STR, res)
 	}
 }
 
-func TestHttpServer(t *testing.T) {
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", fmt.Sprintf("http://127.0.0.1:%d", HTTP_PORT), nil)
-	res, err := client.Do(req)
-	if err != nil {
-		t.Fatalf("do http request error: %v", err)
+func TestStcp(t *testing.T) {
+	assert := assert.New(t)
+	// Normal
+	addr := fmt.Sprintf("127.0.0.1:%d", TEST_STCP_FRP_PORT)
+	res, err := sendTcpMsg(addr, TEST_STCP_ECHO_STR)
+	if assert.NoError(err) {
+		assert.Equal(TEST_STCP_ECHO_STR, res)
 	}
-	if res.StatusCode == 200 {
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			t.Fatalf("read from http server error: %v", err)
-		}
-		bodystr := string(body)
-		if bodystr != HTTP_RES_STR {
-			t.Fatalf("content from http server error [%s], correct string is [%s]", bodystr, HTTP_RES_STR)
-		}
-	} else {
-		t.Fatalf("http code from http server error [%d]", res.StatusCode)
+
+	// Encrytion and compression
+	addr = fmt.Sprintf("127.0.0.1:%d", TEST_STCP_EC_FRP_PORT)
+	res, err = sendTcpMsg(addr, TEST_STCP_ECHO_STR)
+	if assert.NoError(err) {
+		assert.Equal(TEST_STCP_ECHO_STR, res)
 	}
 }
 
-func TestUdpEchoServer(t *testing.T) {
-	addr, err := net.ResolveUDPAddr("udp", "127.0.0.1:10712")
-	if err != nil {
-		t.Fatalf("do udp request error: %v", err)
-	}
-	conn, err := net.DialUDP("udp", nil, addr)
-	if err != nil {
-		t.Fatalf("dial udp server error: %v", err)
-	}
-	defer conn.Close()
-	_, err = conn.Write([]byte("hello frp\n"))
-	if err != nil {
-		t.Fatalf("write to udp server error: %v", err)
-	}
-	data := make([]byte, 20)
-	n, err := conn.Read(data)
-	if err != nil {
-		t.Fatalf("read from udp server error: %v", err)
+func TestHttp(t *testing.T) {
+	assert := assert.New(t)
+	// web01
+	code, body, err := sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "", nil)
+	if assert.NoError(err) {
+		assert.Equal(200, code)
+		assert.Equal(TEST_HTTP_NORMAL_STR, body)
 	}
 
-	if string(bytes.TrimSpace(data[:n])) != "hello frp" {
-		t.Fatalf("message got from udp server error, get %s", string(data[:n-1]))
-	}
-}
-
-func TestUnixDomainServer(t *testing.T) {
-	c, err := frpNet.ConnectTcpServer(fmt.Sprintf("127.0.0.1:%d", 10704))
-	if err != nil {
-		t.Fatalf("connect to echo server error: %v", err)
-	}
-	timer := time.Now().Add(time.Duration(5) * time.Second)
-	c.SetDeadline(timer)
-
-	c.Write([]byte(ECHO_TEST_STR + "\n"))
-
-	br := bufio.NewReader(c)
-	buf, err := br.ReadString('\n')
-	if err != nil {
-		t.Fatalf("read from echo server error: %v", err)
+	// web02
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test2.frp.com", nil)
+	if assert.NoError(err) {
+		assert.Equal(200, code)
+		assert.Equal(TEST_HTTP_NORMAL_STR, body)
 	}
 
-	if ECHO_TEST_STR != buf {
-		t.Fatalf("content error, send [%s], get [%s]", strings.Trim(ECHO_TEST_STR, "\n"), strings.Trim(buf, "\n"))
+	// error host header
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "errorhost.frp.com", nil)
+	if assert.NoError(err) {
+		assert.Equal(404, code)
+	}
+
+	// web03
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test3.frp.com", nil)
+	if assert.NoError(err) {
+		assert.Equal(200, code)
+		assert.Equal(TEST_HTTP_NORMAL_STR, body)
+	}
+
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d/foo", TEST_HTTP_FRP_PORT), "test3.frp.com", nil)
+	if assert.NoError(err) {
+		assert.Equal(200, code)
+		assert.Equal(TEST_HTTP_FOO_STR, body)
+	}
+
+	// web04
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d/bar", TEST_HTTP_FRP_PORT), "test3.frp.com", nil)
+	if assert.NoError(err) {
+		assert.Equal(200, code)
+		assert.Equal(TEST_HTTP_BAR_STR, body)
+	}
+
+	// web05
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test5.frp.com", nil)
+	if assert.NoError(err) {
+		assert.Equal(401, code)
+	}
+
+	header := make(map[string]string)
+	header["Authorization"] = basicAuth("test", "test")
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test5.frp.com", header)
+	if assert.NoError(err) {
+		assert.Equal(401, code)
 	}
 }
