@@ -36,8 +36,8 @@ type ServerInfoResp struct {
 	GeneralResponse
 
 	Version          string `json:"version"`
-	VhostHttpPort    int64  `json:"vhost_http_port"`
-	VhostHttpsPort   int64  `json:"vhost_https_port"`
+	VhostHttpPort    int    `json:"vhost_http_port"`
+	VhostHttpsPort   int    `json:"vhost_https_port"`
 	AuthTimeout      int64  `json:"auth_timeout"`
 	SubdomainHost    string `json:"subdomain_host"`
 	MaxPoolCount     int64  `json:"max_pool_count"`

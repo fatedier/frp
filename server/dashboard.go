@@ -32,7 +32,7 @@ var (
 	httpServerWriteTimeout = 10 * time.Second
 )
 
-func RunDashboardServer(addr string, port int64) (err error) {
+func RunDashboardServer(addr string, port int) (err error) {
 	// url router
 	router := httprouter.New()
 

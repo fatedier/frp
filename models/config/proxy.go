@@ -23,7 +23,6 @@ import (
 	"github.com/fatedier/frp/models/consts"
 	"github.com/fatedier/frp/models/msg"
 
-	"github.com/fatedier/frp/utils/util"
 	ini "github.com/vaughan0/go-ini"
 )
 
@@ -163,7 +162,7 @@ func (cfg *BaseProxyConf) UnMarshalToMsg(pMsg *msg.NewProxy) {
 // Bind info
 type BindInfoConf struct {
 	BindAddr   string `json:"bind_addr"`
-	RemotePort int64  `json:"remote_port"`
+	RemotePort int    `json:"remote_port"`
 }
 
 func (cfg *BindInfoConf) compare(cmp *BindInfoConf) bool {
@@ -183,10 +182,13 @@ func (cfg *BindInfoConf) LoadFromFile(name string, section ini.Section) (err err
 	var (
 		tmpStr string
 		ok     bool
+		v      int64
 	)
 	if tmpStr, ok = section["remote_port"]; ok {
-		if cfg.RemotePort, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
 			return fmt.Errorf("Parse conf error: proxy [%s] remote_port error", name)
+		} else {
+			cfg.RemotePort = int(v)
 		}
 	} else {
 		return fmt.Errorf("Parse conf error: proxy [%s] remote_port not found", name)
@@ -199,11 +201,6 @@ func (cfg *BindInfoConf) UnMarshalToMsg(pMsg *msg.NewProxy) {
 }
 
 func (cfg *BindInfoConf) check() (err error) {
-	if len(ServerCommonCfg.PrivilegeAllowPorts) != 0 {
-		if ok := util.ContainsPort(ServerCommonCfg.PrivilegeAllowPorts, cfg.RemotePort); !ok {
-			return fmt.Errorf("remote port [%d] isn't allowed", cfg.RemotePort)
-		}
-	}
 	return nil
 }
 

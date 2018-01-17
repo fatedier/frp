@@ -60,17 +60,25 @@ type Service struct {
 	// Manage all visitor listeners.
 	visitorManager *VisitorManager
 
+	// Manage all tcp ports.
+	tcpPortManager *PortManager
+
+	// Manage all udp ports.
+	udpPortManager *PortManager
+
 	// Controller for nat hole connections.
 	natHoleController *NatHoleController
 }
 
 func NewService() (svr *Service, err error) {
+	cfg := config.ServerCommonCfg
 	svr = &Service{
 		ctlManager:     NewControlManager(),
 		pxyManager:     NewProxyManager(),
 		visitorManager: NewVisitorManager(),
+		tcpPortManager: NewPortManager("tcp", cfg.ProxyBindAddr, cfg.PrivilegeAllowPorts),
+		udpPortManager: NewPortManager("udp", cfg.ProxyBindAddr, cfg.PrivilegeAllowPorts),
 	}
-	cfg := config.ServerCommonCfg
 
 	// Init assets.
 	err = assets.Load(cfg.AssetsDir)

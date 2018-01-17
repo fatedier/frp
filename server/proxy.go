@@ -165,11 +165,24 @@ func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy, err error) {
 type TcpProxy struct {
 	BaseProxy
 	cfg *config.TcpProxyConf
+
+	realPort int
 }
 
 func (pxy *TcpProxy) Run() (remoteAddr string, err error) {
-	remoteAddr = fmt.Sprintf(":%d", pxy.cfg.RemotePort)
-	listener, errRet := frpNet.ListenTcp(config.ServerCommonCfg.ProxyBindAddr, pxy.cfg.RemotePort)
+	pxy.realPort, err = pxy.ctl.svr.tcpPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
+	if err != nil {
+		return
+	}
+	defer func() {
+		if err != nil {
+			pxy.ctl.svr.tcpPortManager.Release(pxy.realPort)
+		}
+	}()
+
+	remoteAddr = fmt.Sprintf(":%d", pxy.realPort)
+	pxy.cfg.RemotePort = pxy.realPort
+	listener, errRet := frpNet.ListenTcp(config.ServerCommonCfg.ProxyBindAddr, pxy.realPort)
 	if errRet != nil {
 		err = errRet
 		return
@@ -188,6 +201,7 @@ func (pxy *TcpProxy) GetConf() config.ProxyConf {
 
 func (pxy *TcpProxy) Close() {
 	pxy.BaseProxy.Close()
+	pxy.ctl.svr.tcpPortManager.Release(pxy.realPort)
 }
 
 type HttpProxy struct {
@@ -412,6 +426,8 @@ type UdpProxy struct {
 	BaseProxy
 	cfg *config.UdpProxyConf
 
+	realPort int
+
 	// udpConn is the listener of udp packages
 	udpConn *net.UDPConn
 
@@ -432,8 +448,19 @@ type UdpProxy struct {
 }
 
 func (pxy *UdpProxy) Run() (remoteAddr string, err error) {
-	remoteAddr = fmt.Sprintf(":%d", pxy.cfg.RemotePort)
-	addr, errRet := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", config.ServerCommonCfg.ProxyBindAddr, pxy.cfg.RemotePort))
+	pxy.realPort, err = pxy.ctl.svr.udpPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
+	if err != nil {
+		return
+	}
+	defer func() {
+		if err != nil {
+			pxy.ctl.svr.udpPortManager.Release(pxy.realPort)
+		}
+	}()
+
+	remoteAddr = fmt.Sprintf(":%d", pxy.realPort)
+	pxy.cfg.RemotePort = pxy.realPort
+	addr, errRet := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", config.ServerCommonCfg.ProxyBindAddr, pxy.realPort))
 	if errRet != nil {
 		err = errRet
 		return
@@ -581,6 +608,7 @@ func (pxy *UdpProxy) Close() {
 		close(pxy.readCh)
 		close(pxy.sendCh)
 	}
+	pxy.ctl.svr.udpPortManager.Release(pxy.realPort)
 }
 
 // HandleUserTcpConnection is used for incoming tcp user connections.
