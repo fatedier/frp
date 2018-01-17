@@ -106,13 +106,8 @@ func (hp *HttpProxy) Name() string {
 	return PluginHttpProxy
 }
 
-func (hp *HttpProxy) Handle(conn io.ReadWriteCloser) {
-	var wrapConn frpNet.Conn
-	if realConn, ok := conn.(frpNet.Conn); ok {
-		wrapConn = realConn
-	} else {
-		wrapConn = frpNet.WrapReadWriteCloserToConn(conn, realConn)
-	}
+func (hp *HttpProxy) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn) {
+	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
 
 	sc, rd := frpNet.NewShareConn(wrapConn)
 	request, err := http.ReadRequest(bufio.NewReader(rd))

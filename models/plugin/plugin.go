@@ -17,6 +17,8 @@ package plugin
 import (
 	"fmt"
 	"io"
+
+	frpNet "github.com/fatedier/frp/utils/net"
 )
 
 // Creators is used for create plugins to handle connections.
@@ -40,6 +42,6 @@ func Create(name string, params map[string]string) (p Plugin, err error) {
 
 type Plugin interface {
 	Name() string
-	Handle(conn io.ReadWriteCloser)
+	Handle(conn io.ReadWriteCloser, realConn frpNet.Conn)
 	Close() error
 }
