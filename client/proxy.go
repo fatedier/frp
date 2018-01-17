@@ -427,7 +427,7 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 	if proxyPlugin != nil {
 		// if plugin is set, let plugin handle connections first
 		workConn.Debug("handle by plugin: %s", proxyPlugin.Name())
-		proxyPlugin.Handle(remote)
+		proxyPlugin.Handle(remote, workConn)
 		workConn.Debug("handle by plugin finished")
 		return
 	} else {
