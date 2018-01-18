@@ -17,5 +17,5 @@ func TestShutdown(t *testing.T) {
 		time.Sleep(time.Millisecond)
 		s.Done()
 	}()
-	s.WaitDown()
+	s.WaitDone()
 }

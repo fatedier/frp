@@ -1,5 +1,5 @@
-hash: 03ff8b71f63e9038c0182a4ef2a55aa9349782f4813c331e2d1f02f3dd15b4f8
-updated: 2017-11-01T16:16:18.577622991+08:00
+hash: 188e1149e415ff9cefab8db2cded030efae57558a0b9551795c5c7d0b0572a7b
+updated: 2018-01-17T01:14:34.435613+08:00
 imports:
 - name: github.com/armon/go-socks5
   version: e75332964ef517daa070d7c38a9466a0d687e0a5
@@ -33,6 +33,8 @@ imports:
   version: 274df120e9065bdd08eb1120e0375e3dc1ae8465
   subpackages:
   - fs
+- name: github.com/rodaine/table
+  version: 212a2ad1c462ed4d5b5511ea2b480a573281dbbd
 - name: github.com/stretchr/testify
   version: 2402e8e7a02fc811447d11f881aa9746cdc57983
   subpackages:

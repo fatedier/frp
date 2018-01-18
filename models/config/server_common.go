@@ -19,7 +19,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fatedier/frp/utils/util"
 	ini "github.com/vaughan0/go-ini"
 )
 
@@ -29,20 +28,20 @@ var ServerCommonCfg *ServerCommonConf
 type ServerCommonConf struct {
 	ConfigFile    string
 	BindAddr      string
-	BindPort      int64
-	BindUdpPort   int64
-	KcpBindPort   int64
+	BindPort      int
+	BindUdpPort   int
+	KcpBindPort   int
 	ProxyBindAddr string
 
 	// If VhostHttpPort equals 0, don't listen a public port for http protocol.
-	VhostHttpPort int64
+	VhostHttpPort int
 
 	// if VhostHttpsPort equals 0, don't listen a public port for https protocol
-	VhostHttpsPort int64
+	VhostHttpsPort int
 	DashboardAddr  string
 
 	// if DashboardPort equals 0, dashboard is not available
-	DashboardPort  int64
+	DashboardPort  int
 	DashboardUser  string
 	DashboardPwd   string
 	AssetsDir      string
@@ -56,8 +55,7 @@ type ServerCommonConf struct {
 	SubDomainHost  string
 	TcpMux         bool
 
-	// if PrivilegeAllowPorts is not nil, tcp proxies which remote port exist in this map can be connected
-	PrivilegeAllowPorts [][2]int64
+	PrivilegeAllowPorts map[int]struct{}
 	MaxPoolCount        int64
 	HeartBeatTimeout    int64
 	UserConnTimeout     int64
@@ -65,31 +63,32 @@ type ServerCommonConf struct {
 
 func GetDefaultServerCommonConf() *ServerCommonConf {
 	return &ServerCommonConf{
-		ConfigFile:       "./frps.ini",
-		BindAddr:         "0.0.0.0",
-		BindPort:         7000,
-		BindUdpPort:      0,
-		KcpBindPort:      0,
-		ProxyBindAddr:    "0.0.0.0",
-		VhostHttpPort:    0,
-		VhostHttpsPort:   0,
-		DashboardAddr:    "0.0.0.0",
-		DashboardPort:    0,
-		DashboardUser:    "admin",
-		DashboardPwd:     "admin",
-		AssetsDir:        "",
-		LogFile:          "console",
-		LogWay:           "console",
-		LogLevel:         "info",
-		LogMaxDays:       3,
-		PrivilegeMode:    true,
-		PrivilegeToken:   "",
-		AuthTimeout:      900,
-		SubDomainHost:    "",
-		TcpMux:           true,
-		MaxPoolCount:     5,
-		HeartBeatTimeout: 90,
-		UserConnTimeout:  10,
+		ConfigFile:          "./frps.ini",
+		BindAddr:            "0.0.0.0",
+		BindPort:            7000,
+		BindUdpPort:         0,
+		KcpBindPort:         0,
+		ProxyBindAddr:       "0.0.0.0",
+		VhostHttpPort:       0,
+		VhostHttpsPort:      0,
+		DashboardAddr:       "0.0.0.0",
+		DashboardPort:       0,
+		DashboardUser:       "admin",
+		DashboardPwd:        "admin",
+		AssetsDir:           "",
+		LogFile:             "console",
+		LogWay:              "console",
+		LogLevel:            "info",
+		LogMaxDays:          3,
+		PrivilegeMode:       true,
+		PrivilegeToken:      "",
+		AuthTimeout:         900,
+		SubDomainHost:       "",
+		TcpMux:              true,
+		PrivilegeAllowPorts: make(map[int]struct{}),
+		MaxPoolCount:        5,
+		HeartBeatTimeout:    90,
+		UserConnTimeout:     10,
 	}
 }
 
@@ -109,25 +108,31 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 
 	tmpStr, ok = conf.Get("common", "bind_port")
 	if ok {
-		v, err = strconv.ParseInt(tmpStr, 10, 64)
-		if err == nil {
-			cfg.BindPort = v
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid bind_port")
+			return
+		} else {
+			cfg.BindPort = int(v)
 		}
 	}
 
 	tmpStr, ok = conf.Get("common", "bind_udp_port")
 	if ok {
-		v, err = strconv.ParseInt(tmpStr, 10, 64)
-		if err == nil {
-			cfg.BindUdpPort = v
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid bind_udp_port")
+			return
+		} else {
+			cfg.BindUdpPort = int(v)
 		}
 	}
 
 	tmpStr, ok = conf.Get("common", "kcp_bind_port")
 	if ok {
-		v, err = strconv.ParseInt(tmpStr, 10, 64)
-		if err == nil && v > 0 {
-			cfg.KcpBindPort = v
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid kcp_bind_port")
+			return
+		} else {
+			cfg.KcpBindPort = int(v)
 		}
 	}
 
@@ -140,10 +145,11 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 
 	tmpStr, ok = conf.Get("common", "vhost_http_port")
 	if ok {
-		cfg.VhostHttpPort, err = strconv.ParseInt(tmpStr, 10, 64)
-		if err != nil {
-			err = fmt.Errorf("Parse conf error: vhost_http_port is incorrect")
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid vhost_http_port")
 			return
+		} else {
+			cfg.VhostHttpPort = int(v)
 		}
 	} else {
 		cfg.VhostHttpPort = 0
@@ -151,10 +157,11 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 
 	tmpStr, ok = conf.Get("common", "vhost_https_port")
 	if ok {
-		cfg.VhostHttpsPort, err = strconv.ParseInt(tmpStr, 10, 64)
-		if err != nil {
-			err = fmt.Errorf("Parse conf error: vhost_https_port is incorrect")
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid vhost_https_port")
 			return
+		} else {
+			cfg.VhostHttpsPort = int(v)
 		}
 	} else {
 		cfg.VhostHttpsPort = 0
@@ -169,10 +176,11 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 
 	tmpStr, ok = conf.Get("common", "dashboard_port")
 	if ok {
-		cfg.DashboardPort, err = strconv.ParseInt(tmpStr, 10, 64)
-		if err != nil {
-			err = fmt.Errorf("Parse conf error: dashboard_port is incorrect")
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid dashboard_port")
 			return
+		} else {
+			cfg.DashboardPort = int(v)
 		}
 	} else {
 		cfg.DashboardPort = 0
@@ -228,12 +236,45 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		cfg.PrivilegeToken, _ = conf.Get("common", "privilege_token")
 
 		allowPortsStr, ok := conf.Get("common", "privilege_allow_ports")
-		// TODO: check if conflicts exist in port ranges
 		if ok {
-			cfg.PrivilegeAllowPorts, err = util.GetPortRanges(allowPortsStr)
-			if err != nil {
-				err = fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", err)
-				return
+			// e.g. 1000-2000,2001,2002,3000-4000
+			portRanges := strings.Split(allowPortsStr, ",")
+			for _, portRangeStr := range portRanges {
+				// 1000-2000 or 2001
+				portArray := strings.Split(portRangeStr, "-")
+				// length: only 1 or 2 is correct
+				rangeType := len(portArray)
+				if rangeType == 1 {
+					// single port
+					singlePort, errRet := strconv.ParseInt(portArray[0], 10, 64)
+					if errRet != nil {
+						err = fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", errRet)
+						return
+					}
+					cfg.PrivilegeAllowPorts[int(singlePort)] = struct{}{}
+				} else if rangeType == 2 {
+					// range ports
+					min, errRet := strconv.ParseInt(portArray[0], 10, 64)
+					if errRet != nil {
+						err = fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", errRet)
+						return
+					}
+					max, errRet := strconv.ParseInt(portArray[1], 10, 64)
+					if errRet != nil {
+						err = fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", errRet)
+						return
+					}
+					if max < min {
+						err = fmt.Errorf("Parse conf error: privilege_allow_ports range incorrect")
+						return
+					}
+					for i := min; i <= max; i++ {
+						cfg.PrivilegeAllowPorts[int(i)] = struct{}{}
+					}
+				} else {
+					err = fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect")
+					return
+				}
 			}
 		}
 	}
