@@ -39,11 +39,13 @@ gotest:
 	go test -v ./server/...
 	go test -v ./utils/...
 
-alltest: gotest
+ci:
 	cd ./tests && ./run_test.sh && cd -
 	go test -v ./tests/...
 	cd ./tests && ./clean_test.sh && cd -
 
+alltest: gotest ci
+	
 clean:
 	rm -f ./bin/frpc
 	rm -f ./bin/frps
