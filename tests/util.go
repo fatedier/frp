@@ -2,14 +2,77 @@ package tests
 
 import (
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/fatedier/frp/client"
 	frpNet "github.com/fatedier/frp/utils/net"
 )
+
+func getProxyStatus(name string) (status *client.ProxyStatusResp, err error) {
+	req, err := http.NewRequest("GET", "http://"+ADMIN_ADDR+"/api/status", nil)
+	if err != nil {
+		return status, err
+	}
+
+	authStr := "Basic " + base64.StdEncoding.EncodeToString([]byte(ADMIN_USER+":"+ADMIN_PWD))
+	req.Header.Add("Authorization", authStr)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return status, err
+	} else {
+		if resp.StatusCode != 200 {
+			return status, fmt.Errorf("admin api status code [%d]", resp.StatusCode)
+		}
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return status, err
+		}
+		allStatus := &client.StatusResp{}
+		err = json.Unmarshal(body, &allStatus)
+		if err != nil {
+			return status, fmt.Errorf("unmarshal http response error: %s", strings.TrimSpace(string(body)))
+		}
+		for _, s := range allStatus.Tcp {
+			if s.Name == name {
+				return &s, nil
+			}
+		}
+		for _, s := range allStatus.Udp {
+			if s.Name == name {
+				return &s, nil
+			}
+		}
+		for _, s := range allStatus.Http {
+			if s.Name == name {
+				return &s, nil
+			}
+		}
+		for _, s := range allStatus.Https {
+			if s.Name == name {
+				return &s, nil
+			}
+		}
+		for _, s := range allStatus.Stcp {
+			if s.Name == name {
+				return &s, nil
+			}
+		}
+		for _, s := range allStatus.Xtcp {
+			if s.Name == name {
+				return &s, nil
+			}
+		}
+	}
+	return status, errors.New("no proxy status found")
+}
 
 func sendTcpMsg(addr string, msg string) (res string, err error) {
 	c, err := frpNet.ConnectTcpServer(addr)
