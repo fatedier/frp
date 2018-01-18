@@ -2,13 +2,22 @@ package tests
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/fatedier/frp/client"
+	"github.com/fatedier/frp/server"
 )
 
 var (
+	SERVER_ADDR = "127.0.0.1"
+	ADMIN_ADDR  = "127.0.0.1:10600"
+	ADMIN_USER  = "abc"
+	ADMIN_PWD   = "abc"
+
 	TEST_STR                    = "frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet."
 	TEST_TCP_PORT        int    = 10701
 	TEST_TCP_FRP_PORT    int    = 10801
@@ -33,6 +42,14 @@ var (
 	TEST_STCP_FRP_PORT    int    = 10805
 	TEST_STCP_EC_FRP_PORT int    = 10905
 	TEST_STCP_ECHO_STR    string = "stcp type:" + TEST_STR
+
+	ProxyTcpPortNotAllowed  string = "tcp_port_not_allowed"
+	ProxyTcpPortUnavailable string = "tcp_port_unavailable"
+	ProxyTcpPortNormal      string = "tcp_port_normal"
+	ProxyTcpRandomPort      string = "tcp_random_port"
+	ProxyUdpPortNotAllowed  string = "udp_port_not_allowed"
+	ProxyUdpPortNormal      string = "udp_port_normal"
+	ProxyUdpRandomPort      string = "udp_random_port"
 )
 
 func init() {
@@ -153,5 +170,59 @@ func TestHttp(t *testing.T) {
 	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test5.frp.com", header)
 	if assert.NoError(err) {
 		assert.Equal(401, code)
+	}
+}
+
+func TestPrivilegeAllowPorts(t *testing.T) {
+	assert := assert.New(t)
+	// Port not allowed
+	status, err := getProxyStatus(ProxyTcpPortNotAllowed)
+	if assert.NoError(err) {
+		assert.Equal(client.ProxyStatusStartErr, status.Status)
+		assert.True(strings.Contains(status.Err, server.ErrPortNotAllowed.Error()))
+	}
+
+	status, err = getProxyStatus(ProxyUdpPortNotAllowed)
+	if assert.NoError(err) {
+		assert.Equal(client.ProxyStatusStartErr, status.Status)
+		assert.True(strings.Contains(status.Err, server.ErrPortNotAllowed.Error()))
+	}
+
+	status, err = getProxyStatus(ProxyTcpPortUnavailable)
+	if assert.NoError(err) {
+		assert.Equal(client.ProxyStatusStartErr, status.Status)
+		assert.True(strings.Contains(status.Err, server.ErrPortUnAvailable.Error()))
+	}
+
+	// Port normal
+	status, err = getProxyStatus(ProxyTcpPortNormal)
+	if assert.NoError(err) {
+		assert.Equal(client.ProxyStatusRunning, status.Status)
+	}
+
+	status, err = getProxyStatus(ProxyUdpPortNormal)
+	if assert.NoError(err) {
+		assert.Equal(client.ProxyStatusRunning, status.Status)
+	}
+}
+
+func TestRandomPort(t *testing.T) {
+	assert := assert.New(t)
+	// tcp
+	status, err := getProxyStatus(ProxyTcpRandomPort)
+	if assert.NoError(err) {
+		addr := status.RemoteAddr
+		res, err := sendTcpMsg(addr, TEST_TCP_ECHO_STR)
+		assert.NoError(err)
+		assert.Equal(TEST_TCP_ECHO_STR, res)
+	}
+
+	// udp
+	status, err = getProxyStatus(ProxyUdpRandomPort)
+	if assert.NoError(err) {
+		addr := status.RemoteAddr
+		res, err := sendUdpMsg(addr, TEST_UDP_ECHO_STR)
+		assert.NoError(err)
+		assert.Equal(TEST_UDP_ECHO_STR, res)
 	}
 }
