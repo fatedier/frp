@@ -29,6 +29,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Authentication](#authentication)
     * [Encryption and Compression](#encryption-and-compression)
     * [Hot-Reload frpc configuration](#hot-reload-frpc-configuration)
+    * [Get proxy status from client](#get-proxy-status-from-client)
     * [Privilege Mode](#privilege-mode)
         * [Port White List](#port-white-list)
     * [TCP Stream Multiplexing](#tcp-stream-multiplexing)
@@ -386,9 +387,13 @@ admin_addr = 127.0.0.1
 admin_port = 7400
 ```
 
-Then run command `frpc -c ./frpc.ini --reload` and wait for about 10 seconds to let frpc create or update or delete proxies.
+Then run command `frpc reload -c ./frpc.ini` and wait for about 10 seconds to let frpc create or update or delete proxies.
 
 **Note that parameters in [common] section won't be modified except 'start' now.**
+
+### Get proxy status from client
+
+Use `frpc status -c ./frpc.ini` to get status of all proxies. You need to set admin port in frpc's configure file.
 
 ### Privilege Mode
 
