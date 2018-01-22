@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	MinPort                    = 1025
+	MinPort                    = 1
 	MaxPort                    = 65535
 	MaxPortReservedDuration    = time.Duration(24) * time.Hour
 	CleanReservedPortsInterval = time.Hour
