@@ -171,6 +171,20 @@ func TestHttp(t *testing.T) {
 	if assert.NoError(err) {
 		assert.Equal(401, code)
 	}
+
+	// subhost01
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test01.sub.com", nil)
+	if assert.NoError(err) {
+		assert.Equal(200, code)
+		assert.Equal("test01.sub.com", body)
+	}
+
+	// subhost02
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test02.sub.com", nil)
+	if assert.NoError(err) {
+		assert.Equal(200, code)
+		assert.Equal("test02.sub.com", body)
+	}
 }
 
 func TestPrivilegeAllowPorts(t *testing.T) {
