@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -81,7 +82,10 @@ func sendTcpMsg(addr string, msg string) (res string, err error) {
 		return
 	}
 	defer c.Close()
+	return sendTcpMsgByConn(c, msg)
+}
 
+func sendTcpMsgByConn(c net.Conn, msg string) (res string, err error) {
 	timer := time.Now().Add(5 * time.Second)
 	c.SetDeadline(timer)
 	c.Write([]byte(msg))
@@ -122,8 +126,8 @@ func sendUdpMsg(addr string, msg string) (res string, err error) {
 	return string(buf[:n]), nil
 }
 
-func sendHttpMsg(method, url string, host string, header map[string]string) (code int, body string, err error) {
-	req, errRet := http.NewRequest(method, url, nil)
+func sendHttpMsg(method, urlStr string, host string, header map[string]string, proxy string) (code int, body string, err error) {
+	req, errRet := http.NewRequest(method, urlStr, nil)
 	if errRet != nil {
 		err = errRet
 		return
@@ -135,7 +139,29 @@ func sendHttpMsg(method, url string, host string, header map[string]string) (cod
 	for k, v := range header {
 		req.Header.Set(k, v)
 	}
-	resp, errRet := http.DefaultClient.Do(req)
+
+	tr := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}).DialContext,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
+	if len(proxy) != 0 {
+		tr.Proxy = func(req *http.Request) (*url.URL, error) {
+			return url.Parse(proxy)
+		}
+	}
+	client := http.Client{
+		Transport: tr,
+	}
+
+	resp, errRet := client.Do(req)
 	if errRet != nil {
 		err = errRet
 		return

@@ -2,17 +2,43 @@ package tests
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
+
+	"github.com/gorilla/websocket"
 )
 
+var upgrader = websocket.Upgrader{}
+
 func StartHttpServer() {
-	http.HandleFunc("/", request)
+	http.HandleFunc("/", handleHttp)
+	http.HandleFunc("/ws", handleWebSocket)
 	http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", TEST_HTTP_PORT), nil)
 }
 
-func request(w http.ResponseWriter, r *http.Request) {
+func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	c, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Print("upgrade:", err)
+		return
+	}
+	defer c.Close()
+	for {
+		mt, message, err := c.ReadMessage()
+		if err != nil {
+			break
+		}
+		err = c.WriteMessage(mt, message)
+		if err != nil {
+			log.Println("write:", err)
+			break
+		}
+	}
+}
+
+func handleHttp(w http.ResponseWriter, r *http.Request) {
 	match, err := regexp.Match(`.*\.sub\.com`, []byte(r.Host))
 	if err != nil {
 		w.WriteHeader(500)
