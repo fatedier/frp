@@ -214,6 +214,15 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 				case *msg.NewWorkConn:
 					svr.RegisterWorkConn(conn, m)
 				case *msg.NewVisitorConn:
+
+					// irain
+					// 检测是否允许访问者ip
+					if globalIRainIPPool.Check(conn.RemoteAddr().String()) {
+						log.Warn("visitor[%s] not allow access: %s", conn.RemoteAddr())
+						conn.Close()
+						return
+					}
+
 					if err = svr.RegisterVisitorConn(conn, m); err != nil {
 						conn.Warn("%v", err)
 						msg.WriteMsg(conn, &msg.NewVisitorConnResp{
