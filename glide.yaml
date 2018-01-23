@@ -73,3 +73,4 @@ import:
   - ipv4
 - package: github.com/rodaine/table
   version: v1.0.0
+- package: github.com/gorilla/websocket

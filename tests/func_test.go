@@ -2,10 +2,12 @@ package tests
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/fatedier/frp/client"
@@ -185,6 +187,22 @@ func TestHttp(t *testing.T) {
 		assert.Equal(200, code)
 		assert.Equal("test02.sub.com", body)
 	}
+}
+
+func TestWebSocket(t *testing.T) {
+	assert := assert.New(t)
+
+	u := url.URL{Scheme: "ws", Host: fmt.Sprintf("%s:%d", "127.0.0.1", TEST_HTTP_FRP_PORT), Path: "/ws"}
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	assert.NoError(err)
+	defer c.Close()
+
+	err = c.WriteMessage(websocket.TextMessage, []byte(TEST_HTTP_NORMAL_STR))
+	assert.NoError(err)
+
+	_, msg, err := c.ReadMessage()
+	assert.NoError(err)
+	assert.Equal(TEST_HTTP_NORMAL_STR, string(msg))
 }
 
 func TestPrivilegeAllowPorts(t *testing.T) {
