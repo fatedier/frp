@@ -412,10 +412,11 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 		err    error
 	)
 	remote = workConn
-	defer remote.Close()
+
 	if baseInfo.UseEncryption {
 		remote, err = frpIo.WithEncryption(remote, encKey)
 		if err != nil {
+			workConn.Close()
 			workConn.Error("create encryption stream error: %v", err)
 			return
 		}
@@ -433,6 +434,7 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 	} else {
 		localConn, err := frpNet.ConnectServer("tcp", fmt.Sprintf("%s:%d", localInfo.LocalIp, localInfo.LocalPort))
 		if err != nil {
+			workConn.Close()
 			workConn.Error("connect to local service [%s:%d] error: %v", localInfo.LocalIp, localInfo.LocalPort, err)
 			return
 		}
