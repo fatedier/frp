@@ -18,6 +18,7 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
     * [通过自定义域名访问部署于内网的 web 服务](#通过自定义域名访问部署于内网的-web-服务)
     * [转发 DNS 查询请求](#转发-dns-查询请求)
     * [转发 Unix域套接字](#转发-unix域套接字)
+    * [对外提供简单的文件访问服务](#对外提供简单的文件访问服务)
     * [安全地暴露内网服务](#安全地暴露内网服务)
     * [点对点内网穿透](#点对点内网穿透)
     * [通过 frpc 所在机器访问外网](#通过-frpc-所在机器访问外网)
@@ -192,11 +193,11 @@ DNS 查询请求通常使用 UDP 协议，frp 支持对内网 UDP 服务的穿�
 
 ### 转发 Unix域套接字
 
-通过 tcp 端口访问内网的 unix域套接字(和 docker daemon 通信)。
+通过 tcp 端口访问内网的 unix域套接字(例如和 docker daemon 通信)。
 
 frps 的部署步骤同上。
 
-1. 启动 frpc，启用 unix_domain_socket 插件，配置如下：
+1. 启动 frpc，启用 `unix_domain_socket` 插件，配置如下：
 
   ```ini
   # frpc.ini
@@ -214,6 +215,34 @@ frps 的部署步骤同上。
 2. 通过 curl 命令查看 docker 版本信息
 
   `curl http://x.x.x.x:6000/version`
+
+### 对外提供简单的文件访问服务
+
+通过 `static_file` 插件可以对外提供一个简单的基于 HTTP 的文件访问服务。
+
+frps 的部署步骤同上。
+
+1. 启动 frpc，启用 `static_file` 插件，配置如下：
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [test_static_file]
+  type = tcp
+  remote_port = 6000
+  plugin = static_file
+  # 要对外暴露的文件目录
+  plugin_local_path = /tmp/file
+  # 访问 url 中会被去除的前缀，保留的内容即为要访问的文件路径
+  plugin_strip_prefix = static
+  plugin_http_user = abc
+  plugin_http_passwd = abc
+  ```
+
+2. 通过浏览器访问 `http://x.x.x.x:6000/static/` 来查看位于 `/tmp/file` 目录下的文件，会要求输入已设置好的用户名和密码。
 
 ### 安全地暴露内网服务
 
