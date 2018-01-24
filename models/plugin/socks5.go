@@ -32,13 +32,23 @@ func init() {
 
 type Socks5Plugin struct {
 	Server *gosocks5.Server
+
+	user   string
+	passwd string
 }
 
 func NewSocks5Plugin(params map[string]string) (p Plugin, err error) {
-	sp := &Socks5Plugin{}
-	sp.Server, err = gosocks5.New(&gosocks5.Config{
+	user := params["plugin_user"]
+	passwd := params["plugin_passwd"]
+
+	cfg := &gosocks5.Config{
 		Logger: log.New(ioutil.Discard, "", log.LstdFlags),
-	})
+	}
+	if user != "" || passwd != "" {
+		cfg.Credentials = gosocks5.StaticCredentials(map[string]string{user: passwd})
+	}
+	sp := &Socks5Plugin{}
+	sp.Server, err = gosocks5.New(cfg)
 	p = sp
 	return
 }
