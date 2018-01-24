@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
+	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -22,7 +24,9 @@ func IRainRespone(w http.ResponseWriter, code int, msg string) {
 		Message: msg,
 	}
 	b, _ := json.Marshal(ret)
-	w.WriteHeader(code)
+	if code != 0 {
+		w.WriteHeader(code)
+	}
 	w.Write(b)
 }
 
@@ -47,7 +51,8 @@ func (p *IRainIPPool) Put(ip string) {
 	p.list[ip] = time.Now().Add(time.Minute * 30)
 }
 
-func (p *IRainIPPool) Check(ip string) bool {
+func (p *IRainIPPool) Check(addr net.Addr) bool {
+	ip := strings.Split(addr.String(), ":")[0]
 	p.mux.RLock()
 	defer p.mux.RUnlock()
 	if v, ok := p.list[ip]; ok {

@@ -110,7 +110,13 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, frpNet.Con
 					pxy.Info("listener is closed")
 					return
 				}
-				pxy.Debug("get a user connection [%s]", c.RemoteAddr().String())
+				useraddr := c.RemoteAddr().String()
+				pxy.Debug("get a user connection [%s]", useraddr)
+				if !globalIRainIPPool.Check(c.RemoteAddr()) {
+					c.Close()
+					pxy.Warn("user connection not auth [%s]", useraddr)
+					return
+				}
 				go handler(p, c)
 			}
 		}(listener)
