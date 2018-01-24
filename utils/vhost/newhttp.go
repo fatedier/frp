@@ -79,6 +79,11 @@ func NewHttpReverseProxy() *HttpReverseProxy {
 				return rp.CreateConnection(host, url)
 			},
 		},
+		WebSocketDialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			url := ctx.Value("url").(string)
+			host := getHostFromAddr(ctx.Value("host").(string))
+			return rp.CreateConnection(host, url)
+		},
 		BufferPool: newWrapPool(),
 		ErrorLog:   log.New(newWrapLogger(), "", 0),
 	}
