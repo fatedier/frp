@@ -115,7 +115,7 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, frpNet.Con
 				if !globalIRainIPPool.Check(c.RemoteAddr()) {
 					c.Close()
 					pxy.Warn("user connection not auth [%s]", useraddr)
-					return
+					continue
 				}
 				go handler(p, c)
 			}
