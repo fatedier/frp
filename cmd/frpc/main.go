@@ -99,7 +99,7 @@ func main() {
 	if args["status"] != nil {
 		if args["status"].(bool) {
 			if err = CmdStatus(); err != nil {
-				fmt.Printf("frps get status error: %v\n", err)
+				fmt.Printf("frpc get status error: %v\n", err)
 				os.Exit(1)
 			} else {
 				os.Exit(0)
