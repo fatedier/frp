@@ -20,6 +20,8 @@ import (
 	"strings"
 
 	ini "github.com/vaughan0/go-ini"
+
+	"github.com/fatedier/frp/utils/util"
 )
 
 var ServerCommonCfg *ServerCommonConf
@@ -238,43 +240,14 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		allowPortsStr, ok := conf.Get("common", "privilege_allow_ports")
 		if ok {
 			// e.g. 1000-2000,2001,2002,3000-4000
-			portRanges := strings.Split(allowPortsStr, ",")
-			for _, portRangeStr := range portRanges {
-				// 1000-2000 or 2001
-				portArray := strings.Split(portRangeStr, "-")
-				// length: only 1 or 2 is correct
-				rangeType := len(portArray)
-				if rangeType == 1 {
-					// single port
-					singlePort, errRet := strconv.ParseInt(portArray[0], 10, 64)
-					if errRet != nil {
-						err = fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", errRet)
-						return
-					}
-					cfg.PrivilegeAllowPorts[int(singlePort)] = struct{}{}
-				} else if rangeType == 2 {
-					// range ports
-					min, errRet := strconv.ParseInt(portArray[0], 10, 64)
-					if errRet != nil {
-						err = fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", errRet)
-						return
-					}
-					max, errRet := strconv.ParseInt(portArray[1], 10, 64)
-					if errRet != nil {
-						err = fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", errRet)
-						return
-					}
-					if max < min {
-						err = fmt.Errorf("Parse conf error: privilege_allow_ports range incorrect")
-						return
-					}
-					for i := min; i <= max; i++ {
-						cfg.PrivilegeAllowPorts[int(i)] = struct{}{}
-					}
-				} else {
-					err = fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect")
-					return
-				}
+			ports, errRet := util.ParseRangeNumbers(allowPortsStr)
+			if errRet != nil {
+				err = fmt.Errorf("Parse conf error: privilege_allow_ports: %v", errRet)
+				return
+			}
+
+			for _, port := range ports {
+				cfg.PrivilegeAllowPorts[int(port)] = struct{}{}
 			}
 		}
 	}
