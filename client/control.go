@@ -89,8 +89,8 @@ func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf, visitorCfgs m
 	ctl := &Control{
 		svr:                svr,
 		loginMsg:           loginMsg,
-		sendCh:             make(chan msg.Message, 10),
-		readCh:             make(chan msg.Message, 10),
+		sendCh:             make(chan msg.Message, 100),
+		readCh:             make(chan msg.Message, 100),
 		closedCh:           make(chan int),
 		readerShutdown:     shutdown.New(),
 		writerShutdown:     shutdown.New(),
@@ -98,7 +98,7 @@ func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf, visitorCfgs m
 		Logger:             log.NewPrefixLogger(""),
 	}
 	ctl.pm = NewProxyManager(ctl, ctl.sendCh, "")
-	ctl.pm.Reload(pxyCfgs, visitorCfgs)
+	ctl.pm.Reload(pxyCfgs, visitorCfgs, false)
 	return ctl
 }
 
@@ -124,7 +124,7 @@ func (ctl *Control) Run() (err error) {
 
 	// start all local visitors and send NewProxy message for all configured proxies
 	ctl.pm.Reset(ctl.sendCh, ctl.runId)
-	ctl.pm.CheckAndStartProxy()
+	ctl.pm.CheckAndStartProxy([]string{ProxyStatusNew})
 	return nil
 }
 
@@ -360,20 +360,20 @@ func (ctl *Control) msgHandler() {
 // If controler is notified by closedCh, reader and writer and handler will exit, then recall these functions.
 func (ctl *Control) worker() {
 	go ctl.msgHandler()
-	go ctl.writer()
 	go ctl.reader()
+	go ctl.writer()
 
 	var err error
 	maxDelayTime := 20 * time.Second
 	delayTime := time.Second
 
-	checkInterval := 10 * time.Second
+	checkInterval := 60 * time.Second
 	checkProxyTicker := time.NewTicker(checkInterval)
 	for {
 		select {
 		case <-checkProxyTicker.C:
-			// every 10 seconds, check which proxy registered failed and reregister it to server
-			ctl.pm.CheckAndStartProxy()
+			// check which proxy registered failed and reregister it to server
+			ctl.pm.CheckAndStartProxy([]string{ProxyStatusStartErr, ProxyStatusClosed})
 		case _, ok := <-ctl.closedCh:
 			// we won't get any variable from this channel
 			if !ok {
@@ -413,8 +413,8 @@ func (ctl *Control) worker() {
 				}
 
 				// init related channels and variables
-				ctl.sendCh = make(chan msg.Message, 10)
-				ctl.readCh = make(chan msg.Message, 10)
+				ctl.sendCh = make(chan msg.Message, 100)
+				ctl.readCh = make(chan msg.Message, 100)
 				ctl.closedCh = make(chan int)
 				ctl.readerShutdown = shutdown.New()
 				ctl.writerShutdown = shutdown.New()
@@ -427,7 +427,7 @@ func (ctl *Control) worker() {
 				go ctl.reader()
 
 				// start all configured proxies
-				ctl.pm.CheckAndStartProxy()
+				ctl.pm.CheckAndStartProxy([]string{ProxyStatusNew})
 
 				checkProxyTicker.Stop()
 				checkProxyTicker = time.NewTicker(checkInterval)
@@ -437,6 +437,6 @@ func (ctl *Control) worker() {
 }
 
 func (ctl *Control) reloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf) error {
-	err := ctl.pm.Reload(pxyCfgs, visitorCfgs)
+	err := ctl.pm.Reload(pxyCfgs, visitorCfgs, true)
 	return err
 }
