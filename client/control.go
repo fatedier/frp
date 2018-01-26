@@ -427,7 +427,7 @@ func (ctl *Control) worker() {
 				go ctl.reader()
 
 				// start all configured proxies
-				ctl.pm.CheckAndStartProxy([]string{ProxyStatusNew})
+				ctl.pm.CheckAndStartProxy([]string{ProxyStatusNew, ProxyStatusClosed})
 
 				checkProxyTicker.Stop()
 				checkProxyTicker = time.NewTicker(checkInterval)
