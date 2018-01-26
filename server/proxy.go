@@ -40,15 +40,18 @@ type Proxy interface {
 	GetName() string
 	GetConf() config.ProxyConf
 	GetWorkConnFromPool() (workConn frpNet.Conn, err error)
+	GetUsedPortsNum() int
 	Close()
 	log.Logger
 }
 
 type BaseProxy struct {
-	name      string
-	ctl       *Control
-	listeners []frpNet.Listener
-	mu        sync.RWMutex
+	name         string
+	ctl          *Control
+	listeners    []frpNet.Listener
+	usedPortsNum int
+
+	mu sync.RWMutex
 	log.Logger
 }
 
@@ -58,6 +61,10 @@ func (pxy *BaseProxy) GetName() string {
 
 func (pxy *BaseProxy) GetControl() *Control {
 	return pxy.ctl
+}
+
+func (pxy *BaseProxy) GetUsedPortsNum() int {
+	return pxy.usedPortsNum
 }
 
 func (pxy *BaseProxy) Close() {
@@ -126,6 +133,7 @@ func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy, err error) {
 	}
 	switch cfg := pxyConf.(type) {
 	case *config.TcpProxyConf:
+		basePxy.usedPortsNum = 1
 		pxy = &TcpProxy{
 			BaseProxy: basePxy,
 			cfg:       cfg,
@@ -141,6 +149,7 @@ func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy, err error) {
 			cfg:       cfg,
 		}
 	case *config.UdpProxyConf:
+		basePxy.usedPortsNum = 1
 		pxy = &UdpProxy{
 			BaseProxy: basePxy,
 			cfg:       cfg,

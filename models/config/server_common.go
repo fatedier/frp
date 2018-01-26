@@ -59,6 +59,7 @@ type ServerCommonConf struct {
 
 	PrivilegeAllowPorts map[int]struct{}
 	MaxPoolCount        int64
+	MaxPortsPerClient   int64
 	HeartBeatTimeout    int64
 	UserConnTimeout     int64
 }
@@ -89,6 +90,7 @@ func GetDefaultServerCommonConf() *ServerCommonConf {
 		TcpMux:              true,
 		PrivilegeAllowPorts: make(map[int]struct{}),
 		MaxPoolCount:        5,
+		MaxPortsPerClient:   0,
 		HeartBeatTimeout:    90,
 		UserConnTimeout:     10,
 	}
@@ -254,9 +256,29 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 
 	tmpStr, ok = conf.Get("common", "max_pool_count")
 	if ok {
-		v, err = strconv.ParseInt(tmpStr, 10, 64)
-		if err == nil && v >= 0 {
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid max_pool_count")
+			return
+		} else {
+			if v < 0 {
+				err = fmt.Errorf("Parse conf error: invalid max_pool_count")
+				return
+			}
 			cfg.MaxPoolCount = v
+		}
+	}
+
+	tmpStr, ok = conf.Get("common", "max_ports_per_client")
+	if ok {
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid max_ports_per_client")
+			return
+		} else {
+			if v < 0 {
+				err = fmt.Errorf("Parse conf error: invalid max_ports_per_client")
+				return
+			}
+			cfg.MaxPortsPerClient = v
 		}
 	}
 
