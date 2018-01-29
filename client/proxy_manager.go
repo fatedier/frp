@@ -12,10 +12,11 @@ import (
 )
 
 const (
-	ProxyStatusNew      = "new"
-	ProxyStatusStartErr = "start error"
-	ProxyStatusRunning  = "running"
-	ProxyStatusClosed   = "closed"
+	ProxyStatusNew       = "new"
+	ProxyStatusStartErr  = "start error"
+	ProxyStatusWaitStart = "wait start"
+	ProxyStatusRunning   = "running"
+	ProxyStatusClosed    = "closed"
 )
 
 type ProxyManager struct {
@@ -87,6 +88,12 @@ func (pw *ProxyWrapper) GetStatus() *ProxyStatus {
 		RemoteAddr: pw.RemoteAddr,
 	}
 	return ps
+}
+
+func (pw *ProxyWrapper) WaitStart() {
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
+	pw.Status = ProxyStatusWaitStart
 }
 
 func (pw *ProxyWrapper) Start(remoteAddr string, serverRespErr string) error {
@@ -226,6 +233,7 @@ func (pm *ProxyManager) CheckAndStartProxy(pxyStatus []string) {
 					pm.Warn("[%s] proxy send NewProxy message error")
 					return
 				}
+				pxy.WaitStart()
 				break
 			}
 		}

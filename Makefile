@@ -53,6 +53,3 @@ clean:
 	rm -f ./bin/frpc
 	rm -f ./bin/frps
 	cd ./tests && ./clean_test.sh && cd -
-
-save:
-	godep save ./...
