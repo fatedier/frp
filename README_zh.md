@@ -40,6 +40,7 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
     * [自定义二级域名](#自定义二级域名)
     * [URL 路由](#url-路由)
     * [通过代理连接 frps](#通过代理连接-frps)
+    * [范围端口映射](#范围端口映射)
     * [插件](#插件)
 * [开发计划](#开发计划)
 * [为 frp 做贡献](#为-frp-做贡献)
@@ -638,11 +639,30 @@ server_port = 7000
 http_proxy = http://user:pwd@192.168.1.128:8080
 ```
 
+### 范围端口映射
+
+在 frpc 的配置文件中可以指定映射多个端口，目前只支持 tcp 和 udp 的类型。
+
+这一功能通过 `range:` 段落标记来实现，客户端会解析这个标记中的配置，将其拆分成多个 proxy，每一个 proxy 以数字为后缀命名。
+
+例如要映射本地 6000-6005, 6007 这6个端口，主要配置如下：
+
+```ini
+# frpc.ini
+[range:test_tcp]
+type = tcp
+local_ip = 127.0.0.1
+local_port = 6000-6006,6007
+remote_port = 6000-6006,6007
+```
+
+实际连接成功后会创建 6 个 proxy，命名为 `test_tcp_0, test_tcp_1 ... test_tcp_5`。
+
 ### 插件
 
 默认情况下，frpc 只会转发请求到本地 tcp 或 udp 端口。
 
-插件模式是为了在客户端提供更加丰富的功能，目前内置的插件有 **unix_domain_socket**、**http_proxy**、**socks5**。具体使用方式请查看[使用示例](#使用示例)。
+插件模式是为了在客户端提供更加丰富的功能，目前内置的插件有 `unix_domain_socket`、`http_proxy`、`socks5`、`static_file`。具体使用方式请查看[使用示例](#使用示例)。
 
 通过 `plugin` 指定需要使用的插件，插件的配置参数都以 `plugin_` 开头。使用插件后 `local_ip` 和 `local_port` 不再需要配置。
 
@@ -667,8 +687,6 @@ plugin_http_passwd = abc
 * frps 记录 http 请求日志。
 * frps 支持直接反向代理，类似 haproxy。
 * frpc 支持负载均衡到后端不同服务。
-* frpc 支持直接作为 webserver 访问指定静态页面。
-* 支持 udp 打洞的方式，提供两边内网机器直接通信，流量不经过服务器转发。
 * 集成对 k8s 等平台的支持。
 
 ## 为 frp 做贡献
