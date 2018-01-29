@@ -55,6 +55,9 @@ type Control struct {
 	// pool count
 	poolCount int
 
+	// ports used, for limitations
+	portsUsedNum int
+
 	// last time got the Ping message
 	lastPing time.Time
 
@@ -84,6 +87,7 @@ func NewControl(svr *Service, ctlConn net.Conn, loginMsg *msg.Login) *Control {
 		workConnCh:      make(chan net.Conn, loginMsg.PoolCount+10),
 		proxies:         make(map[string]Proxy),
 		poolCount:       loginMsg.PoolCount,
+		portsUsedNum:    0,
 		lastPing:        time.Now(),
 		runId:           loginMsg.RunId,
 		status:          consts.Working,
@@ -348,6 +352,26 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		return remoteAddr, err
 	}
 
+	// Check ports used number in each client
+	if config.ServerCommonCfg.MaxPortsPerClient > 0 {
+		ctl.mu.Lock()
+		if ctl.portsUsedNum+pxy.GetUsedPortsNum() > int(config.ServerCommonCfg.MaxPortsPerClient) {
+			ctl.mu.Unlock()
+			err = fmt.Errorf("exceed the max_ports_per_client")
+			return
+		}
+		ctl.portsUsedNum = ctl.portsUsedNum + pxy.GetUsedPortsNum()
+		ctl.mu.Unlock()
+
+		defer func() {
+			if err != nil {
+				ctl.mu.Lock()
+				ctl.portsUsedNum = ctl.portsUsedNum - pxy.GetUsedPortsNum()
+				ctl.mu.Unlock()
+			}
+		}()
+	}
+
 	remoteAddr, err = pxy.Run()
 	if err != nil {
 		return
@@ -371,16 +395,21 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 
 func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 	ctl.mu.Lock()
-	defer ctl.mu.Unlock()
 
 	pxy, ok := ctl.proxies[closeMsg.ProxyName]
 	if !ok {
+		ctl.mu.Unlock()
 		return
 	}
 
+	if config.ServerCommonCfg.MaxPortsPerClient > 0 {
+		ctl.portsUsedNum = ctl.portsUsedNum - pxy.GetUsedPortsNum()
+	}
 	pxy.Close()
 	ctl.svr.DelProxy(pxy.GetName())
 	delete(ctl.proxies, closeMsg.ProxyName)
+	ctl.mu.Unlock()
+
 	StatsCloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
 	return
 }

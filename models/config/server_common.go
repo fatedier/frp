@@ -20,6 +20,8 @@ import (
 	"strings"
 
 	ini "github.com/vaughan0/go-ini"
+
+	"github.com/fatedier/frp/utils/util"
 )
 
 var ServerCommonCfg *ServerCommonConf
@@ -57,6 +59,7 @@ type ServerCommonConf struct {
 
 	PrivilegeAllowPorts map[int]struct{}
 	MaxPoolCount        int64
+	MaxPortsPerClient   int64
 	HeartBeatTimeout    int64
 	UserConnTimeout     int64
 }
@@ -87,6 +90,7 @@ func GetDefaultServerCommonConf() *ServerCommonConf {
 		TcpMux:              true,
 		PrivilegeAllowPorts: make(map[int]struct{}),
 		MaxPoolCount:        5,
+		MaxPortsPerClient:   0,
 		HeartBeatTimeout:    90,
 		UserConnTimeout:     10,
 	}
@@ -238,52 +242,43 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		allowPortsStr, ok := conf.Get("common", "privilege_allow_ports")
 		if ok {
 			// e.g. 1000-2000,2001,2002,3000-4000
-			portRanges := strings.Split(allowPortsStr, ",")
-			for _, portRangeStr := range portRanges {
-				// 1000-2000 or 2001
-				portArray := strings.Split(portRangeStr, "-")
-				// length: only 1 or 2 is correct
-				rangeType := len(portArray)
-				if rangeType == 1 {
-					// single port
-					singlePort, errRet := strconv.ParseInt(portArray[0], 10, 64)
-					if errRet != nil {
-						err = fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", errRet)
-						return
-					}
-					cfg.PrivilegeAllowPorts[int(singlePort)] = struct{}{}
-				} else if rangeType == 2 {
-					// range ports
-					min, errRet := strconv.ParseInt(portArray[0], 10, 64)
-					if errRet != nil {
-						err = fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", errRet)
-						return
-					}
-					max, errRet := strconv.ParseInt(portArray[1], 10, 64)
-					if errRet != nil {
-						err = fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect, %v", errRet)
-						return
-					}
-					if max < min {
-						err = fmt.Errorf("Parse conf error: privilege_allow_ports range incorrect")
-						return
-					}
-					for i := min; i <= max; i++ {
-						cfg.PrivilegeAllowPorts[int(i)] = struct{}{}
-					}
-				} else {
-					err = fmt.Errorf("Parse conf error: privilege_allow_ports is incorrect")
-					return
-				}
+			ports, errRet := util.ParseRangeNumbers(allowPortsStr)
+			if errRet != nil {
+				err = fmt.Errorf("Parse conf error: privilege_allow_ports: %v", errRet)
+				return
+			}
+
+			for _, port := range ports {
+				cfg.PrivilegeAllowPorts[int(port)] = struct{}{}
 			}
 		}
 	}
 
 	tmpStr, ok = conf.Get("common", "max_pool_count")
 	if ok {
-		v, err = strconv.ParseInt(tmpStr, 10, 64)
-		if err == nil && v >= 0 {
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid max_pool_count")
+			return
+		} else {
+			if v < 0 {
+				err = fmt.Errorf("Parse conf error: invalid max_pool_count")
+				return
+			}
 			cfg.MaxPoolCount = v
+		}
+	}
+
+	tmpStr, ok = conf.Get("common", "max_ports_per_client")
+	if ok {
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid max_ports_per_client")
+			return
+		} else {
+			if v < 0 {
+				err = fmt.Errorf("Parse conf error: invalid max_ports_per_client")
+				return
+			}
+			cfg.MaxPortsPerClient = v
 		}
 	}
 
