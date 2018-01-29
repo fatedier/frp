@@ -53,8 +53,9 @@ var (
 	ProxyUdpPortNotAllowed  string = "udp_port_not_allowed"
 	ProxyUdpPortNormal      string = "udp_port_normal"
 	ProxyUdpRandomPort      string = "udp_random_port"
+	ProxyHttpProxy          string = "http_proxy"
 
-	ProxyHttpProxy string = "http_proxy"
+	ProxyRangeTcpPrefix string = "range_tcp"
 )
 
 func init() {
@@ -283,6 +284,18 @@ func TestPluginHttpProxy(t *testing.T) {
 			res, err := sendTcpMsgByConn(conn, TEST_TCP_ECHO_STR)
 			assert.NoError(err)
 			assert.Equal(TEST_TCP_ECHO_STR, res)
+		}
+	}
+}
+
+func TestRangePortsMapping(t *testing.T) {
+	assert := assert.New(t)
+
+	for i := 0; i < 3; i++ {
+		name := fmt.Sprintf("%s_%d", ProxyRangeTcpPrefix, i)
+		status, err := getProxyStatus(name)
+		if assert.NoError(err) {
+			assert.Equal(client.ProxyStatusRunning, status.Status)
 		}
 	}
 }

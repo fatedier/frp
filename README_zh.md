@@ -18,6 +18,7 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
     * [通过自定义域名访问部署于内网的 web 服务](#通过自定义域名访问部署于内网的-web-服务)
     * [转发 DNS 查询请求](#转发-dns-查询请求)
     * [转发 Unix域套接字](#转发-unix域套接字)
+    * [对外提供简单的文件访问服务](#对外提供简单的文件访问服务)
     * [安全地暴露内网服务](#安全地暴露内网服务)
     * [点对点内网穿透](#点对点内网穿透)
     * [通过 frpc 所在机器访问外网](#通过-frpc-所在机器访问外网)
@@ -39,6 +40,7 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
     * [自定义二级域名](#自定义二级域名)
     * [URL 路由](#url-路由)
     * [通过代理连接 frps](#通过代理连接-frps)
+    * [范围端口映射](#范围端口映射)
     * [插件](#插件)
 * [开发计划](#开发计划)
 * [为 frp 做贡献](#为-frp-做贡献)
@@ -192,11 +194,11 @@ DNS 查询请求通常使用 UDP 协议，frp 支持对内网 UDP 服务的穿�
 
 ### 转发 Unix域套接字
 
-通过 tcp 端口访问内网的 unix域套接字(和 docker daemon 通信)。
+通过 tcp 端口访问内网的 unix域套接字(例如和 docker daemon 通信)。
 
 frps 的部署步骤同上。
 
-1. 启动 frpc，启用 unix_domain_socket 插件，配置如下：
+1. 启动 frpc，启用 `unix_domain_socket` 插件，配置如下：
 
   ```ini
   # frpc.ini
@@ -214,6 +216,34 @@ frps 的部署步骤同上。
 2. 通过 curl 命令查看 docker 版本信息
 
   `curl http://x.x.x.x:6000/version`
+
+### 对外提供简单的文件访问服务
+
+通过 `static_file` 插件可以对外提供一个简单的基于 HTTP 的文件访问服务。
+
+frps 的部署步骤同上。
+
+1. 启动 frpc，启用 `static_file` 插件，配置如下：
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [test_static_file]
+  type = tcp
+  remote_port = 6000
+  plugin = static_file
+  # 要对外暴露的文件目录
+  plugin_local_path = /tmp/file
+  # 访问 url 中会被去除的前缀，保留的内容即为要访问的文件路径
+  plugin_strip_prefix = static
+  plugin_http_user = abc
+  plugin_http_passwd = abc
+  ```
+
+2. 通过浏览器访问 `http://x.x.x.x:6000/static/` 来查看位于 `/tmp/file` 目录下的文件，会要求输入已设置好的用户名和密码。
 
 ### 安全地暴露内网服务
 
@@ -609,11 +639,30 @@ server_port = 7000
 http_proxy = http://user:pwd@192.168.1.128:8080
 ```
 
+### 范围端口映射
+
+在 frpc 的配置文件中可以指定映射多个端口，目前只支持 tcp 和 udp 的类型。
+
+这一功能通过 `range:` 段落标记来实现，客户端会解析这个标记中的配置，将其拆分成多个 proxy，每一个 proxy 以数字为后缀命名。
+
+例如要映射本地 6000-6005, 6007 这6个端口，主要配置如下：
+
+```ini
+# frpc.ini
+[range:test_tcp]
+type = tcp
+local_ip = 127.0.0.1
+local_port = 6000-6006,6007
+remote_port = 6000-6006,6007
+```
+
+实际连接成功后会创建 6 个 proxy，命名为 `test_tcp_0, test_tcp_1 ... test_tcp_5`。
+
 ### 插件
 
 默认情况下，frpc 只会转发请求到本地 tcp 或 udp 端口。
 
-插件模式是为了在客户端提供更加丰富的功能，目前内置的插件有 **unix_domain_socket**、**http_proxy**、**socks5**。具体使用方式请查看[使用示例](#使用示例)。
+插件模式是为了在客户端提供更加丰富的功能，目前内置的插件有 `unix_domain_socket`、`http_proxy`、`socks5`、`static_file`。具体使用方式请查看[使用示例](#使用示例)。
 
 通过 `plugin` 指定需要使用的插件，插件的配置参数都以 `plugin_` 开头。使用插件后 `local_ip` 和 `local_port` 不再需要配置。
 
@@ -638,8 +687,6 @@ plugin_http_passwd = abc
 * frps 记录 http 请求日志。
 * frps 支持直接反向代理，类似 haproxy。
 * frpc 支持负载均衡到后端不同服务。
-* frpc 支持直接作为 webserver 访问指定静态页面。
-* 支持 udp 打洞的方式，提供两边内网机器直接通信，流量不经过服务器转发。
 * 集成对 k8s 等平台的支持。
 
 ## 为 frp 做贡献

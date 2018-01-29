@@ -12,10 +12,11 @@ import (
 )
 
 const (
-	ProxyStatusNew      = "new"
-	ProxyStatusStartErr = "start error"
-	ProxyStatusRunning  = "running"
-	ProxyStatusClosed   = "closed"
+	ProxyStatusNew       = "new"
+	ProxyStatusStartErr  = "start error"
+	ProxyStatusWaitStart = "wait start"
+	ProxyStatusRunning   = "running"
+	ProxyStatusClosed    = "closed"
 )
 
 type ProxyManager struct {
@@ -69,14 +70,10 @@ func NewProxyWrapper(cfg config.ProxyConf) *ProxyWrapper {
 	}
 }
 
-func (pw *ProxyWrapper) IsRunning() bool {
+func (pw *ProxyWrapper) GetStatusStr() string {
 	pw.mu.RLock()
 	defer pw.mu.RUnlock()
-	if pw.Status == ProxyStatusRunning {
-		return true
-	} else {
-		return false
-	}
+	return pw.Status
 }
 
 func (pw *ProxyWrapper) GetStatus() *ProxyStatus {
@@ -91,6 +88,12 @@ func (pw *ProxyWrapper) GetStatus() *ProxyStatus {
 		RemoteAddr: pw.RemoteAddr,
 	}
 	return ps
+}
+
+func (pw *ProxyWrapper) WaitStart() {
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
+	pw.Status = ProxyStatusWaitStart
 }
 
 func (pw *ProxyWrapper) Start(remoteAddr string, serverRespErr string) error {
@@ -210,7 +213,8 @@ func (pm *ProxyManager) CloseProxies() {
 	}
 }
 
-func (pm *ProxyManager) CheckAndStartProxy() {
+// pxyStatus: check and start proxies in which status
+func (pm *ProxyManager) CheckAndStartProxy(pxyStatus []string) {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 	if pm.closed {
@@ -219,13 +223,18 @@ func (pm *ProxyManager) CheckAndStartProxy() {
 	}
 
 	for _, pxy := range pm.proxies {
-		if !pxy.IsRunning() {
-			var newProxyMsg msg.NewProxy
-			pxy.Cfg.UnMarshalToMsg(&newProxyMsg)
-			err := pm.sendMsg(&newProxyMsg)
-			if err != nil {
-				pm.Warn("[%s] proxy send NewProxy message error")
-				return
+		status := pxy.GetStatusStr()
+		for _, s := range pxyStatus {
+			if status == s {
+				var newProxyMsg msg.NewProxy
+				pxy.Cfg.UnMarshalToMsg(&newProxyMsg)
+				err := pm.sendMsg(&newProxyMsg)
+				if err != nil {
+					pm.Warn("[%s] proxy send NewProxy message error")
+					return
+				}
+				pxy.WaitStart()
+				break
 			}
 		}
 	}
@@ -245,9 +254,14 @@ func (pm *ProxyManager) CheckAndStartProxy() {
 	}
 }
 
-func (pm *ProxyManager) Reload(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf) error {
+func (pm *ProxyManager) Reload(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf, startNow bool) error {
 	pm.mu.Lock()
-	defer pm.mu.Unlock()
+	defer func() {
+		pm.mu.Unlock()
+		if startNow {
+			go pm.CheckAndStartProxy([]string{ProxyStatusNew})
+		}
+	}()
 	if pm.closed {
 		err := fmt.Errorf("Reload error: ProxyManager is closed now")
 		pm.Warn(err.Error())
