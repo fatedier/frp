@@ -77,7 +77,7 @@ type StcpVisitor struct {
 }
 
 func (sv *StcpVisitor) Run() (err error) {
-	sv.l, err = frpNet.ListenTcp(sv.cfg.BindAddr, int64(sv.cfg.BindPort))
+	sv.l, err = frpNet.ListenTcp(sv.cfg.BindAddr, sv.cfg.BindPort)
 	if err != nil {
 		return
 	}
@@ -164,7 +164,7 @@ type XtcpVisitor struct {
 }
 
 func (sv *XtcpVisitor) Run() (err error) {
-	sv.l, err = frpNet.ListenTcp(sv.cfg.BindAddr, int64(sv.cfg.BindPort))
+	sv.l, err = frpNet.ListenTcp(sv.cfg.BindAddr, sv.cfg.BindPort)
 	if err != nil {
 		return
 	}
@@ -255,7 +255,7 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 		sv.Error("get natHoleResp client address error: %s", natHoleRespMsg.ClientAddr)
 		return
 	}
-	sv.sendDetectMsg(array[0], int64(port), laddr, []byte(natHoleRespMsg.Sid))
+	sv.sendDetectMsg(array[0], int(port), laddr, []byte(natHoleRespMsg.Sid))
 	sv.Trace("send all detect msg done")
 
 	// Listen for visitorConn's address and wait for client connection.
@@ -302,7 +302,7 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	sv.Debug("join connections closed")
 }
 
-func (sv *XtcpVisitor) sendDetectMsg(addr string, port int64, laddr *net.UDPAddr, content []byte) (err error) {
+func (sv *XtcpVisitor) sendDetectMsg(addr string, port int, laddr *net.UDPAddr, content []byte) (err error) {
 	daddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", addr, port))
 	if err != nil {
 		return err

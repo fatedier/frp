@@ -22,8 +22,8 @@ import (
 
 	"github.com/fatedier/frp/models/consts"
 	"github.com/fatedier/frp/models/msg"
-
 	"github.com/fatedier/frp/utils/util"
+
 	ini "github.com/vaughan0/go-ini"
 )
 
@@ -52,6 +52,7 @@ func NewConfByType(proxyType string) ProxyConf {
 
 type ProxyConf interface {
 	GetName() string
+	GetType() string
 	GetBaseInfo() *BaseProxyConf
 	LoadFromMsg(pMsg *msg.NewProxy)
 	LoadFromFile(name string, conf ini.Section) error
@@ -101,6 +102,10 @@ type BaseProxyConf struct {
 
 func (cfg *BaseProxyConf) GetName() string {
 	return cfg.ProxyName
+}
+
+func (cfg *BaseProxyConf) GetType() string {
+	return cfg.ProxyType
 }
 
 func (cfg *BaseProxyConf) GetBaseInfo() *BaseProxyConf {
@@ -158,7 +163,7 @@ func (cfg *BaseProxyConf) UnMarshalToMsg(pMsg *msg.NewProxy) {
 // Bind info
 type BindInfoConf struct {
 	BindAddr   string `json:"bind_addr"`
-	RemotePort int64  `json:"remote_port"`
+	RemotePort int    `json:"remote_port"`
 }
 
 func (cfg *BindInfoConf) compare(cmp *BindInfoConf) bool {
@@ -178,10 +183,13 @@ func (cfg *BindInfoConf) LoadFromFile(name string, section ini.Section) (err err
 	var (
 		tmpStr string
 		ok     bool
+		v      int64
 	)
 	if tmpStr, ok = section["remote_port"]; ok {
-		if cfg.RemotePort, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
 			return fmt.Errorf("Parse conf error: proxy [%s] remote_port error", name)
+		} else {
+			cfg.RemotePort = int(v)
 		}
 	} else {
 		return fmt.Errorf("Parse conf error: proxy [%s] remote_port not found", name)
@@ -194,11 +202,6 @@ func (cfg *BindInfoConf) UnMarshalToMsg(pMsg *msg.NewProxy) {
 }
 
 func (cfg *BindInfoConf) check() (err error) {
-	if len(ServerCommonCfg.PrivilegeAllowPorts) != 0 {
-		if ok := util.ContainsPort(ServerCommonCfg.PrivilegeAllowPorts, cfg.RemotePort); !ok {
-			return fmt.Errorf("remote port [%d] isn't allowed", cfg.RemotePort)
-		}
-	}
 	return nil
 }
 
@@ -632,10 +635,13 @@ func (cfg *StcpProxyConf) LoadFromFile(name string, section ini.Section) (err er
 	}
 
 	tmpStr := section["role"]
+	if tmpStr == "" {
+		tmpStr = "server"
+	}
 	if tmpStr == "server" || tmpStr == "visitor" {
 		cfg.Role = tmpStr
 	} else {
-		return fmt.Errorf("Parse conf error: incorrect role [%s]", tmpStr)
+		return fmt.Errorf("Parse conf error: proxy [%s] incorrect role [%s]", name, tmpStr)
 	}
 
 	cfg.Sk = section["sk"]
@@ -721,10 +727,13 @@ func (cfg *XtcpProxyConf) LoadFromFile(name string, section ini.Section) (err er
 	}
 
 	tmpStr := section["role"]
+	if tmpStr == "" {
+		tmpStr = "server"
+	}
 	if tmpStr == "server" || tmpStr == "visitor" {
 		cfg.Role = tmpStr
 	} else {
-		return fmt.Errorf("Parse conf error: incorrect role [%s]", tmpStr)
+		return fmt.Errorf("Parse conf error: proxy [%s] incorrect role [%s]", name, tmpStr)
 	}
 
 	cfg.Sk = section["sk"]
@@ -762,6 +771,38 @@ func (cfg *XtcpProxyConf) Check() (err error) {
 	return
 }
 
+func ParseRangeSection(name string, section ini.Section) (sections map[string]ini.Section, err error) {
+	localPorts, errRet := util.ParseRangeNumbers(section["local_port"])
+	if errRet != nil {
+		err = fmt.Errorf("Parse conf error: range section [%s] local_port invalid, %v", name, errRet)
+		return
+	}
+
+	remotePorts, errRet := util.ParseRangeNumbers(section["remote_port"])
+	if errRet != nil {
+		err = fmt.Errorf("Parse conf error: range section [%s] remote_port invalid, %v", name, errRet)
+		return
+	}
+	if len(localPorts) != len(remotePorts) {
+		err = fmt.Errorf("Parse conf error: range section [%s] local ports number should be same with remote ports number", name)
+		return
+	}
+	if len(localPorts) == 0 {
+		err = fmt.Errorf("Parse conf error: range section [%s] local_port and remote_port is necessary")
+		return
+	}
+
+	sections = make(map[string]ini.Section)
+	for i, port := range localPorts {
+		subName := fmt.Sprintf("%s_%d", name, i)
+		subSection := copySection(section)
+		subSection["local_port"] = fmt.Sprintf("%d", port)
+		subSection["remote_port"] = fmt.Sprintf("%d", remotePorts[i])
+		sections[subName] = subSection
+	}
+	return
+}
+
 // if len(startProxy) is 0, start all
 // otherwise just start proxies in startProxy map
 func LoadProxyConfFromFile(prefix string, conf ini.File, startProxy map[string]struct{}) (
@@ -778,22 +819,51 @@ func LoadProxyConfFromFile(prefix string, conf ini.File, startProxy map[string]s
 	proxyConfs = make(map[string]ProxyConf)
 	visitorConfs = make(map[string]ProxyConf)
 	for name, section := range conf {
+		if name == "common" {
+			continue
+		}
+
 		_, shouldStart := startProxy[name]
-		if name != "common" && (startAll || shouldStart) {
+		if !startAll && !shouldStart {
+			continue
+		}
+
+		subSections := make(map[string]ini.Section)
+
+		if strings.HasPrefix(name, "range:") {
+			// range section
+			rangePrefix := strings.TrimSpace(strings.TrimPrefix(name, "range:"))
+			subSections, err = ParseRangeSection(rangePrefix, section)
+			if err != nil {
+				return
+			}
+		} else {
+			subSections[name] = section
+		}
+
+		for subName, subSection := range subSections {
 			// some proxy or visotr configure may be used this prefix
-			section["prefix"] = prefix
-			cfg, err := NewProxyConfFromFile(name, section)
+			subSection["prefix"] = prefix
+			cfg, err := NewProxyConfFromFile(subName, subSection)
 			if err != nil {
 				return proxyConfs, visitorConfs, err
 			}
 
-			role := section["role"]
+			role := subSection["role"]
 			if role == "visitor" {
-				visitorConfs[prefix+name] = cfg
+				visitorConfs[prefix+subName] = cfg
 			} else {
-				proxyConfs[prefix+name] = cfg
+				proxyConfs[prefix+subName] = cfg
 			}
 		}
+	}
+	return
+}
+
+func copySection(section ini.Section) (out ini.Section) {
+	out = make(ini.Section)
+	for k, v := range section {
+		out[k] = v
 	}
 	return
 }

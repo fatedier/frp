@@ -31,7 +31,7 @@ var (
 	httpServerWriteTimeout = 10 * time.Second
 )
 
-func (svr *Service) RunAdminServer(addr string, port int64) (err error) {
+func (svr *Service) RunAdminServer(addr string, port int) (err error) {
 	// url router
 	router := httprouter.New()
 
@@ -39,6 +39,7 @@ func (svr *Service) RunAdminServer(addr string, port int64) (err error) {
 
 	// api, see dashboard_api.go
 	router.GET("/api/reload", frpNet.HttprouterBasicAuth(svr.apiReload, user, passwd))
+	router.GET("/api/status", frpNet.HttprouterBasicAuth(svr.apiStatus, user, passwd))
 
 	address := fmt.Sprintf("%s:%d", addr, port)
 	server := &http.Server{

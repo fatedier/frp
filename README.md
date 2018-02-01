@@ -20,6 +20,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Visit your web service in LAN by custom domains](#visit-your-web-service-in-lan-by-custom-domains)
     * [Forward DNS query request](#forward-dns-query-request)
     * [Forward unix domain socket](#forward-unix-domain-socket)
+    * [Expose a simple http file server](#expose-a-simple-http-file-server)
     * [Expose your service in security](#expose-your-service-in-security)
     * [P2P Mode](#p2p-mode)
     * [Connect website through frpc's network](#connect-website-through-frpcs-network)
@@ -29,6 +30,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Authentication](#authentication)
     * [Encryption and Compression](#encryption-and-compression)
     * [Hot-Reload frpc configuration](#hot-reload-frpc-configuration)
+    * [Get proxy status from client](#get-proxy-status-from-client)
     * [Privilege Mode](#privilege-mode)
         * [Port White List](#port-white-list)
     * [TCP Stream Multiplexing](#tcp-stream-multiplexing)
@@ -213,6 +215,32 @@ Configure frps same as above.
 
   `curl http://x.x.x.x:6000/version`
 
+### Expose a simple http file server
+
+A simple way to visit files in the LAN.
+
+Configure frps same as above.
+
+1. Start frpc with configurations:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [test_static_file]
+  type = tcp
+  remote_port = 6000
+  plugin = static_file
+  plugin_local_path = /tmp/file
+  plugin_strip_prefix = static
+  plugin_http_user = abc
+  plugin_http_passwd = abc
+  ```
+
+2. Visit `http://x.x.x.x:6000/static/` by your browser, set correct user and password, so you can see files in `/tmp/file`.
+
 ### Expose your service in security
 
 For some services, if expose them to the public network directly will be a security risk.
@@ -386,9 +414,13 @@ admin_addr = 127.0.0.1
 admin_port = 7400
 ```
 
-Then run command `frpc -c ./frpc.ini --reload` and wait for about 10 seconds to let frpc create or update or delete proxies.
+Then run command `frpc reload -c ./frpc.ini` and wait for about 10 seconds to let frpc create or update or delete proxies.
 
 **Note that parameters in [common] section won't be modified except 'start' now.**
+
+### Get proxy status from client
+
+Use `frpc status -c ./frpc.ini` to get status of all proxies. You need to set admin port in frpc's configure file.
 
 ### Privilege Mode
 
@@ -571,11 +603,26 @@ server_port = 7000
 http_proxy = http://user:pwd@192.168.1.128:8080
 ```
 
+### Range ports mapping
+
+Proxy name has prefix `range:` will support mapping range ports.
+
+```ini
+# frpc.ini
+[range:test_tcp]
+type = tcp
+local_ip = 127.0.0.1
+local_port = 6000-6006,6007
+remote_port = 6000-6006,6007
+```
+
+frpc will generate 6 proxies like `test_tcp_0, test_tcp_1 ... test_tcp_5`.
+
 ### Plugin
 
 frpc only forward request to local tcp or udp port by default.
 
-Plugin is used for providing rich features. There are built-in plugins such as **unix_domain_socket**, **http_proxy**, **socks5** and you can see [example usage](#example-usage).
+Plugin is used for providing rich features. There are built-in plugins such as `unix_domain_socket`, `http_proxy`, `socks5`, `static_file` and you can see [example usage](#example-usage).
 
 Specify which plugin to use by `plugin` parameter. Configuration parameters of plugin should be started with `plugin_`. `local_ip` and `local_port` is useless for plugin.
 
@@ -593,16 +640,12 @@ plugin_http_passwd = abc
 
 `plugin_http_user` and `plugin_http_passwd` are configuration parameters used in `http_proxy` plugin.
 
-
 ## Development Plan
 
 * Log http request information in frps.
 * Direct reverse proxy, like haproxy.
 * Load balance to different service in frpc.
-* Frpc can directly be a webserver for static files.
-* P2p communicate by making udp hole to penetrate NAT.
 * kubernetes ingress support.
-
 
 ## Contributing
 

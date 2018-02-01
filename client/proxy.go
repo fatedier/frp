@@ -39,13 +39,13 @@ type Proxy interface {
 
 	// InWorkConn accept work connections registered to server.
 	InWorkConn(conn frpNet.Conn)
+
 	Close()
 	log.Logger
 }
 
-func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy) {
+func NewProxy(pxyConf config.ProxyConf) (pxy Proxy) {
 	baseProxy := BaseProxy{
-		ctl:    ctl,
 		Logger: log.NewPrefixLogger(pxyConf.GetName()),
 	}
 	switch cfg := pxyConf.(type) {
@@ -84,7 +84,6 @@ func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy) {
 }
 
 type BaseProxy struct {
-	ctl    *Control
 	closed bool
 	mu     sync.RWMutex
 	log.Logger
@@ -413,9 +412,11 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 		err    error
 	)
 	remote = workConn
+
 	if baseInfo.UseEncryption {
 		remote, err = frpIo.WithEncryption(remote, encKey)
 		if err != nil {
+			workConn.Close()
 			workConn.Error("create encryption stream error: %v", err)
 			return
 		}
@@ -427,12 +428,13 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 	if proxyPlugin != nil {
 		// if plugin is set, let plugin handle connections first
 		workConn.Debug("handle by plugin: %s", proxyPlugin.Name())
-		proxyPlugin.Handle(remote)
+		proxyPlugin.Handle(remote, workConn)
 		workConn.Debug("handle by plugin finished")
 		return
 	} else {
 		localConn, err := frpNet.ConnectServer("tcp", fmt.Sprintf("%s:%d", localInfo.LocalIp, localInfo.LocalPort))
 		if err != nil {
+			workConn.Close()
 			workConn.Error("connect to local service [%s:%d] error: %v", localInfo.LocalIp, localInfo.LocalPort, err)
 			return
 		}

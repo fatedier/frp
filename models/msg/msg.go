@@ -92,7 +92,7 @@ type Login struct {
 type LoginResp struct {
 	Version       string `json:"version"`
 	RunId         string `json:"run_id"`
-	ServerUdpPort int64  `json:"server_udp_port"`
+	ServerUdpPort int    `json:"server_udp_port"`
 	Error         string `json:"error"`
 }
 
@@ -104,7 +104,7 @@ type NewProxy struct {
 	UseCompression bool   `json:"use_compression"`
 
 	// tcp and udp only
-	RemotePort int64 `json:"remote_port"`
+	RemotePort int `json:"remote_port"`
 
 	// http and https only
 	CustomDomains     []string `json:"custom_domains"`
@@ -119,8 +119,9 @@ type NewProxy struct {
 }
 
 type NewProxyResp struct {
-	ProxyName string `json:"proxy_name"`
-	Error     string `json:"error"`
+	ProxyName  string `json:"proxy_name"`
+	RemoteAddr string `json:"remote_addr"`
+	Error      string `json:"error"`
 }
 
 type CloseProxy struct {

@@ -1,5 +1,5 @@
-hash: 03ff8b71f63e9038c0182a4ef2a55aa9349782f4813c331e2d1f02f3dd15b4f8
-updated: 2017-11-01T16:16:18.577622991+08:00
+hash: 4095d78a15bf0e7ffdd63331ce75d7199d663cc8710dcd08b9dcd09ba3183eac
+updated: 2018-01-23T14:48:38.764359+08:00
 imports:
 - name: github.com/armon/go-socks5
   version: e75332964ef517daa070d7c38a9466a0d687e0a5
@@ -17,6 +17,8 @@ imports:
   version: cd167d2f15f451b0f33780ce862fca97adc0331e
 - name: github.com/golang/snappy
   version: 5979233c5d6225d4a8e438cdd0b411888449ddab
+- name: github.com/gorilla/websocket
+  version: 292fd08b2560ad524ee37396253d71570339a821
 - name: github.com/julienschmidt/httprouter
   version: 8a45e95fc75cb77048068a62daed98cc22fdac7c
 - name: github.com/klauspost/cpuid
@@ -33,6 +35,8 @@ imports:
   version: 274df120e9065bdd08eb1120e0375e3dc1ae8465
   subpackages:
   - fs
+- name: github.com/rodaine/table
+  version: 212a2ad1c462ed4d5b5511ea2b480a573281dbbd
 - name: github.com/stretchr/testify
   version: 2402e8e7a02fc811447d11f881aa9746cdc57983
   subpackages:

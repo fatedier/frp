@@ -91,7 +91,7 @@ func main() {
 			os.Exit(1)
 		}
 		config.ServerCommonCfg.BindAddr = addr[0]
-		config.ServerCommonCfg.BindPort = bindPort
+		config.ServerCommonCfg.BindPort = int(bindPort)
 	}
 
 	if args["-v"] != nil {

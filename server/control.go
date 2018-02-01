@@ -55,6 +55,9 @@ type Control struct {
 	// pool count
 	poolCount int
 
+	// ports used, for limitations
+	portsUsedNum int
+
 	// last time got the Ping message
 	lastPing time.Time
 
@@ -84,6 +87,7 @@ func NewControl(svr *Service, ctlConn net.Conn, loginMsg *msg.Login) *Control {
 		workConnCh:      make(chan net.Conn, loginMsg.PoolCount+10),
 		proxies:         make(map[string]Proxy),
 		poolCount:       loginMsg.PoolCount,
+		portsUsedNum:    0,
 		lastPing:        time.Now(),
 		runId:           loginMsg.RunId,
 		status:          consts.Working,
@@ -253,13 +257,13 @@ func (ctl *Control) stoper() {
 	ctl.allShutdown.WaitStart()
 
 	close(ctl.readCh)
-	ctl.managerShutdown.WaitDown()
+	ctl.managerShutdown.WaitDone()
 
 	close(ctl.sendCh)
-	ctl.writerShutdown.WaitDown()
+	ctl.writerShutdown.WaitDone()
 
 	ctl.conn.Close()
-	ctl.readerShutdown.WaitDown()
+	ctl.readerShutdown.WaitDone()
 
 	close(ctl.workConnCh)
 	for workConn := range ctl.workConnCh {
@@ -308,7 +312,7 @@ func (ctl *Control) manager() {
 			switch m := rawMsg.(type) {
 			case *msg.NewProxy:
 				// register proxy in this control
-				err := ctl.RegisterProxy(m)
+				remoteAddr, err := ctl.RegisterProxy(m)
 				resp := &msg.NewProxyResp{
 					ProxyName: m.ProxyName,
 				}
@@ -316,6 +320,7 @@ func (ctl *Control) manager() {
 					resp.Error = err.Error()
 					ctl.conn.Warn("new proxy [%s] error: %v", m.ProxyName, err)
 				} else {
+					resp.RemoteAddr = remoteAddr
 					ctl.conn.Info("new proxy [%s] success", m.ProxyName)
 					StatsNewProxy(m.ProxyName, m.ProxyType)
 				}
@@ -332,24 +337,44 @@ func (ctl *Control) manager() {
 	}
 }
 
-func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (err error) {
+func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err error) {
 	var pxyConf config.ProxyConf
 	// Load configures from NewProxy message and check.
 	pxyConf, err = config.NewProxyConf(pxyMsg)
 	if err != nil {
-		return err
+		return
 	}
 
 	// NewProxy will return a interface Proxy.
 	// In fact it create different proxies by different proxy type, we just call run() here.
 	pxy, err := NewProxy(ctl, pxyConf)
 	if err != nil {
-		return err
+		return remoteAddr, err
 	}
 
-	err = pxy.Run()
+	// Check ports used number in each client
+	if config.ServerCommonCfg.MaxPortsPerClient > 0 {
+		ctl.mu.Lock()
+		if ctl.portsUsedNum+pxy.GetUsedPortsNum() > int(config.ServerCommonCfg.MaxPortsPerClient) {
+			ctl.mu.Unlock()
+			err = fmt.Errorf("exceed the max_ports_per_client")
+			return
+		}
+		ctl.portsUsedNum = ctl.portsUsedNum + pxy.GetUsedPortsNum()
+		ctl.mu.Unlock()
+
+		defer func() {
+			if err != nil {
+				ctl.mu.Lock()
+				ctl.portsUsedNum = ctl.portsUsedNum - pxy.GetUsedPortsNum()
+				ctl.mu.Unlock()
+			}
+		}()
+	}
+
+	remoteAddr, err = pxy.Run()
 	if err != nil {
-		return err
+		return
 	}
 	defer func() {
 		if err != nil {
@@ -359,27 +384,32 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (err error) {
 
 	err = ctl.svr.RegisterProxy(pxyMsg.ProxyName, pxy)
 	if err != nil {
-		return err
+		return
 	}
 
 	ctl.mu.Lock()
 	ctl.proxies[pxy.GetName()] = pxy
 	ctl.mu.Unlock()
-	return nil
+	return
 }
 
 func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 	ctl.mu.Lock()
-	defer ctl.mu.Unlock()
 
 	pxy, ok := ctl.proxies[closeMsg.ProxyName]
 	if !ok {
+		ctl.mu.Unlock()
 		return
 	}
 
+	if config.ServerCommonCfg.MaxPortsPerClient > 0 {
+		ctl.portsUsedNum = ctl.portsUsedNum - pxy.GetUsedPortsNum()
+	}
 	pxy.Close()
 	ctl.svr.DelProxy(pxy.GetName())
 	delete(ctl.proxies, closeMsg.ProxyName)
+	ctl.mu.Unlock()
+
 	StatsCloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
 	return
 }
