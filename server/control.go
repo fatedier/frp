@@ -265,13 +265,14 @@ func (ctl *Control) stoper() {
 	ctl.conn.Close()
 	ctl.readerShutdown.WaitDone()
 
+	ctl.mu.Lock()
+	defer ctl.mu.Unlock()
+
 	close(ctl.workConnCh)
 	for workConn := range ctl.workConnCh {
 		workConn.Close()
 	}
 
-	ctl.mu.Lock()
-	defer ctl.mu.Unlock()
 	for _, pxy := range ctl.proxies {
 		pxy.Close()
 		ctl.svr.DelProxy(pxy.GetName())
@@ -303,6 +304,7 @@ func (ctl *Control) manager() {
 			if time.Since(ctl.lastPing) > time.Duration(config.ServerCommonCfg.HeartBeatTimeout)*time.Second {
 				ctl.conn.Warn("heartbeat timeout")
 				ctl.allShutdown.Start()
+				return
 			}
 		case rawMsg, ok := <-ctl.readCh:
 			if !ok {

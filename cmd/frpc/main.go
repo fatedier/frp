@@ -86,7 +86,7 @@ func main() {
 	if args["reload"] != nil {
 		if args["reload"].(bool) {
 			if err = CmdReload(); err != nil {
-				fmt.Printf("frps reload error: %v\n", err)
+				fmt.Printf("frpc reload error: %v\n", err)
 				os.Exit(1)
 			} else {
 				fmt.Printf("reload success\n")
