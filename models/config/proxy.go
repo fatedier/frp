@@ -788,7 +788,7 @@ func ParseRangeSection(name string, section ini.Section) (sections map[string]in
 		return
 	}
 	if len(localPorts) == 0 {
-		err = fmt.Errorf("Parse conf error: range section [%s] local_port and remote_port is necessary")
+		err = fmt.Errorf("Parse conf error: range section [%s] local_port and remote_port is necessary", name)
 		return
 	}
 
