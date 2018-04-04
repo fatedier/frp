@@ -263,6 +263,37 @@ func StatsGetProxiesByType(proxyType string) []*ProxyStats {
 	return res
 }
 
+func StatsGetProxiesByTypeAndName(proxyType string, proxyName string) (res *ProxyStats) {
+	globalStats.mu.Lock()
+	defer globalStats.mu.Unlock()
+
+	for name, proxyStats := range globalStats.ProxyStatistics {
+		if proxyStats.ProxyType != proxyType {
+			continue
+		}
+
+		if name != proxyName {
+			continue
+		}
+
+		res = &ProxyStats{
+			Name:            name,
+			Type:            proxyStats.ProxyType,
+			TodayTrafficIn:  proxyStats.TrafficIn.TodayCount(),
+			TodayTrafficOut: proxyStats.TrafficOut.TodayCount(),
+			CurConns:        proxyStats.CurConns.Count(),
+		}
+		if !proxyStats.LastStartTime.IsZero() {
+			res.LastStartTime = proxyStats.LastStartTime.Format("01-02 15:04:05")
+		}
+		if !proxyStats.LastCloseTime.IsZero() {
+			res.LastCloseTime = proxyStats.LastCloseTime.Format("01-02 15:04:05")
+		}
+		break
+	}
+	return
+}
+
 type ProxyTrafficInfo struct {
 	Name       string
 	TrafficIn  []int64

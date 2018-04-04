@@ -40,6 +40,10 @@ func RunDashboardServer(addr string, port int) (err error) {
 
 	// api, see dashboard_api.go
 	router.GET("/api/serverinfo", frpNet.HttprouterBasicAuth(apiServerInfo, user, passwd))
+	router.GET("/api/proxy/tcp/:name", frpNet.HttprouterBasicAuth(apiProxyTcpByName, user, passwd))
+	router.GET("/api/proxy/udp/:name", frpNet.HttprouterBasicAuth(apiProxyUdpByName, user, passwd))
+	router.GET("/api/proxy/http/:name", frpNet.HttprouterBasicAuth(apiProxyHttpByName, user, passwd))
+	router.GET("/api/proxy/https/:name", frpNet.HttprouterBasicAuth(apiProxyHttpsByName, user, passwd))
 	router.GET("/api/proxy/tcp", frpNet.HttprouterBasicAuth(apiProxyTcp, user, passwd))
 	router.GET("/api/proxy/udp", frpNet.HttprouterBasicAuth(apiProxyUdp, user, passwd))
 	router.GET("/api/proxy/http", frpNet.HttprouterBasicAuth(apiProxyHttp, user, passwd))
