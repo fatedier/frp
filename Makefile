@@ -19,10 +19,12 @@ fmt:
 	
 frps:
 	go build -o bin/frps ./cmd/frps
+	go build -o bin/frps_service ./service/frps
 	@cp -rf ./assets/static ./bin
 
 frpc:
 	go build -o bin/frpc ./cmd/frpc
+	go build -o bin/frpc_service ./service/frpc
 
 test: gotest
 
