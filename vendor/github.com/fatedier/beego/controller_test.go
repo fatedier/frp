@@ -172,10 +172,10 @@ func TestAdditionalViewPaths(t *testing.T) {
 				t.Fatal("TestAdditionalViewPaths expected error")
 			}
 		}()
-		ctrl.RenderString();
+		ctrl.RenderString()
 	}()
 
 	ctrl.TplName = "file2.tpl"
 	ctrl.ViewPath = dir2
-	ctrl.RenderString();
+	ctrl.RenderString()
 }

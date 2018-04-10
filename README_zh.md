@@ -401,7 +401,7 @@ dashboard_pwd = admin
 
 ### 身份验证
 
-从 v0.10.0 版本开始，所有 proxy 配置全部放在客户端(也就是之前版本的特权模式)，服务端和客户端的 common 配置中的 `privilege_token` 参数一致则身份验证通过。
+从 v0.10.0 版本开始，所有 proxy 配置全部放在客户端(也就是之前版本的特权模式)，服务端和客户端的 common 配置中的 `token` 参数一致则身份验证通过。
 
 需要注意的是 frpc 所在机器和 frps 所在机器的时间相差不能超过 15 分钟，因为时间戳会被用于加密验证中，防止报文被劫持后被其他人利用。
 
@@ -565,7 +565,7 @@ type = http
 local_port = 80
 custom_domains = test.yourdomain.com
 http_user = abc
-http_pwd = abc
+http_passwd = abc
 ```
 
 通过浏览器访问 `http://test.yourdomain.com`，需要输入配置的用户名和密码才能访问。

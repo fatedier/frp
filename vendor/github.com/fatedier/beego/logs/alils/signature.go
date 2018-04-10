@@ -109,4 +109,3 @@ func signature(project *LogProject, method, uri string,
 	digest = base64.StdEncoding.EncodeToString(mac.Sum(nil))
 	return
 }
-

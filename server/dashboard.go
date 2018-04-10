@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/assets"
-	"github.com/fatedier/frp/models/config"
+	"github.com/fatedier/frp/g"
 	frpNet "github.com/fatedier/frp/utils/net"
 
 	"github.com/julienschmidt/httprouter"
@@ -36,7 +36,7 @@ func RunDashboardServer(addr string, port int) (err error) {
 	// url router
 	router := httprouter.New()
 
-	user, passwd := config.ServerCommonCfg.DashboardUser, config.ServerCommonCfg.DashboardPwd
+	user, passwd := g.GlbServerCfg.DashboardUser, g.GlbServerCfg.DashboardPwd
 
 	// api, see dashboard_api.go
 	router.GET("/api/serverinfo", frpNet.HttprouterBasicAuth(apiServerInfo, user, passwd))

@@ -119,7 +119,7 @@ func (m *URLMap) GetMap() map[string]interface{} {
 func (m *URLMap) GetMapData() []map[string]interface{} {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	
+
 	var resultLists []map[string]interface{}
 
 	for k, v := range m.urlmap {
