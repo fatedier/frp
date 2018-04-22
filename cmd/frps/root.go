@@ -52,7 +52,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "", "c", "", "config file of frps")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
 
-	rootCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "h", "0.0.0.0", "bind address")
+	rootCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "", "0.0.0.0", "bind address")
 	rootCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "p", 7000, "bind port")
 	rootCmd.PersistentFlags().IntVarP(&bindUdpPort, "bind_udp_port", "", 0, "bind udp port")
 	rootCmd.PersistentFlags().IntVarP(&kcpBindPort, "kcp_bind_port", "", 0, "kcp bind udp port")
@@ -119,6 +119,8 @@ func parseServerCommonCfg(fileType int, filePath string) (err error) {
 	if err != nil {
 		return
 	}
+
+	config.InitServerCfg(&g.GlbServerCfg.ServerCommonConf)
 	return
 }
 
