@@ -46,8 +46,6 @@ import:
   - sm4
 - package: github.com/vaughan0/go-ini
   version: a98ad7ee00ec53921f08832bc06ecf7fd600e6a1
-- package: github.com/xtaci/kcp-go
-  version: v3.17
 - package: github.com/xtaci/smux
   version: 2de5471dfcbc029f5fe1392b83fe784127c4943e
 - package: golang.org/x/crypto
@@ -72,3 +70,4 @@ import:
 - package: github.com/rodaine/table
   version: v1.0.0
 - package: github.com/gorilla/websocket
+  version: v1.2.0

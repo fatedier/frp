@@ -10,24 +10,6 @@ import (
 	"testing"
 )
 
-var equalASCIIFoldTests = []struct {
-	t, s string
-	eq   bool
-}{
-	{"WebSocket", "websocket", true},
-	{"websocket", "WebSocket", true},
-	{"Öyster", "öyster", false},
-}
-
-func TestEqualASCIIFold(t *testing.T) {
-	for _, tt := range equalASCIIFoldTests {
-		eq := equalASCIIFold(tt.s, tt.t)
-		if eq != tt.eq {
-			t.Errorf("equalASCIIFold(%q, %q) = %v, want %v", tt.s, tt.t, eq, tt.eq)
-		}
-	}
-}
-
 var tokenListContainsValueTests = []struct {
 	value string
 	ok    bool
@@ -56,32 +38,29 @@ var parseExtensionTests = []struct {
 	value      string
 	extensions []map[string]string
 }{
-	{`foo`, []map[string]string{{"": "foo"}}},
+	{`foo`, []map[string]string{map[string]string{"": "foo"}}},
 	{`foo, bar; baz=2`, []map[string]string{
-		{"": "foo"},
-		{"": "bar", "baz": "2"}}},
+		map[string]string{"": "foo"},
+		map[string]string{"": "bar", "baz": "2"}}},
 	{`foo; bar="b,a;z"`, []map[string]string{
-		{"": "foo", "bar": "b,a;z"}}},
+		map[string]string{"": "foo", "bar": "b,a;z"}}},
 	{`foo , bar; baz = 2`, []map[string]string{
-		{"": "foo"},
-		{"": "bar", "baz": "2"}}},
+		map[string]string{"": "foo"},
+		map[string]string{"": "bar", "baz": "2"}}},
 	{`foo, bar; baz=2 junk`, []map[string]string{
-		{"": "foo"}}},
+		map[string]string{"": "foo"}}},
 	{`foo junk, bar; baz=2 junk`, nil},
 	{`mux; max-channels=4; flow-control, deflate-stream`, []map[string]string{
-		{"": "mux", "max-channels": "4", "flow-control": ""},
-		{"": "deflate-stream"}}},
+		map[string]string{"": "mux", "max-channels": "4", "flow-control": ""},
+		map[string]string{"": "deflate-stream"}}},
 	{`permessage-foo; x="10"`, []map[string]string{
-		{"": "permessage-foo", "x": "10"}}},
+		map[string]string{"": "permessage-foo", "x": "10"}}},
 	{`permessage-foo; use_y, permessage-foo`, []map[string]string{
-		{"": "permessage-foo", "use_y": ""},
-		{"": "permessage-foo"}}},
+		map[string]string{"": "permessage-foo", "use_y": ""},
+		map[string]string{"": "permessage-foo"}}},
 	{`permessage-deflate; client_max_window_bits; server_max_window_bits=10 , permessage-deflate; client_max_window_bits`, []map[string]string{
-		{"": "permessage-deflate", "client_max_window_bits": "", "server_max_window_bits": "10"},
-		{"": "permessage-deflate", "client_max_window_bits": ""}}},
-	{"permessage-deflate; server_no_context_takeover; client_max_window_bits=15", []map[string]string{
-		{"": "permessage-deflate", "server_no_context_takeover": "", "client_max_window_bits": "15"},
-	}},
+		map[string]string{"": "permessage-deflate", "client_max_window_bits": "", "server_max_window_bits": "10"},
+		map[string]string{"": "permessage-deflate", "client_max_window_bits": ""}}},
 }
 
 func TestParseExtensions(t *testing.T) {

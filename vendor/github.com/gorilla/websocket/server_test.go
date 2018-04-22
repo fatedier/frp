@@ -49,21 +49,3 @@ func TestIsWebSocketUpgrade(t *testing.T) {
 		}
 	}
 }
-
-var checkSameOriginTests = []struct {
-	ok bool
-	r  *http.Request
-}{
-	{false, &http.Request{Host: "example.org", Header: map[string][]string{"Origin": []string{"https://other.org"}}}},
-	{true, &http.Request{Host: "example.org", Header: map[string][]string{"Origin": []string{"https://example.org"}}}},
-	{true, &http.Request{Host: "Example.org", Header: map[string][]string{"Origin": []string{"https://example.org"}}}},
-}
-
-func TestCheckSameOrigin(t *testing.T) {
-	for _, tt := range checkSameOriginTests {
-		ok := checkSameOrigin(tt.r)
-		if tt.ok != ok {
-			t.Errorf("checkSameOrigin(%+v) returned %v, want %v", tt.r, ok, tt.ok)
-		}
-	}
-}

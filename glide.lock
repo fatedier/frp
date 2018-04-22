@@ -1,5 +1,5 @@
-hash: 4826a83c4ef4490fd09c560e6a8c8737a7586a97f1beb72294123db65be5ac38
-updated: 2018-04-23T02:10:12.581595+08:00
+hash: 367ad1f2515b51db9d04d5620fd88843fb6faabf303fe3103b896ef7a3f5a126
+updated: 2018-04-23T02:30:29.768749+08:00
 imports:
 - name: github.com/armon/go-socks5
   version: e75332964ef517daa070d7c38a9466a0d687e0a5
@@ -16,7 +16,7 @@ imports:
 - name: github.com/golang/snappy
   version: 5979233c5d6225d4a8e438cdd0b411888449ddab
 - name: github.com/gorilla/websocket
-  version: 292fd08b2560ad524ee37396253d71570339a821
+  version: ea4d1f681babbce9545c9c5f3d5194a789c89f5b
 - name: github.com/julienschmidt/httprouter
   version: 8a45e95fc75cb77048068a62daed98cc22fdac7c
 - name: github.com/klauspost/cpuid
@@ -51,8 +51,6 @@ imports:
   - sm4
 - name: github.com/vaughan0/go-ini
   version: a98ad7ee00ec53921f08832bc06ecf7fd600e6a1
-- name: github.com/xtaci/kcp-go
-  version: df437e2b8ec365a336200f9d9da53441cf72ed47
 - name: github.com/xtaci/smux
   version: 2de5471dfcbc029f5fe1392b83fe784127c4943e
 - name: golang.org/x/crypto

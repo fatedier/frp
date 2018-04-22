@@ -26,7 +26,7 @@ import (
 
 	"github.com/fatedier/frp/utils/log"
 
-	kcp "github.com/xtaci/kcp-go"
+	kcp "github.com/fatedier/kcp-go"
 )
 
 // Conn is the interface of connections used in frp.
