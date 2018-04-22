@@ -149,7 +149,7 @@ func cryptBlock(subkeys []uint32, b []uint32, r []byte, dst, src []byte, decrypt
 	permuteInitialBlock(b, src)
 	for i := 0; i < 32; i++ {
 		if decrypt {
-			tm = b[0] ^ l1(p(b[1]^b[2]^b[3]^subkeys[31-i]))
+			tm = b[0] ^ l1(p(b[1]^b[2]^b[3]^subkeys[31 - i]))
 			//			tm = feistel1(b[0], b[1], b[2], b[3], subkeys[31-i])
 		} else {
 			tm = b[0] ^ l1(p(b[1]^b[2]^b[3]^subkeys[i]))

@@ -6,8 +6,6 @@ import:
   version: v1.1.0
   subpackages:
   - spew
-- package: github.com/docopt/docopt-go
-  version: 0.6.2
 - package: github.com/fatedier/beego
   version: 6c6a4f5bd5eb5a39f7e289b8f345b55f75e7e3e8
   subpackages:

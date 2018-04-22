@@ -1,5 +1,5 @@
-hash: 4095d78a15bf0e7ffdd63331ce75d7199d663cc8710dcd08b9dcd09ba3183eac
-updated: 2018-01-23T14:48:38.764359+08:00
+hash: 4826a83c4ef4490fd09c560e6a8c8737a7586a97f1beb72294123db65be5ac38
+updated: 2018-04-23T02:10:12.581595+08:00
 imports:
 - name: github.com/armon/go-socks5
   version: e75332964ef517daa070d7c38a9466a0d687e0a5
@@ -7,8 +7,6 @@ imports:
   version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
   - spew
-- name: github.com/docopt/docopt-go
-  version: 784ddc588536785e7299f7272f39101f7faccc3f
 - name: github.com/fatedier/beego
   version: 6c6a4f5bd5eb5a39f7e289b8f345b55f75e7e3e8
   subpackages:
