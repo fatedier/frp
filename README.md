@@ -383,7 +383,7 @@ Then visit `http://[server_addr]:7500` to see dashboard, default username and pa
 
 ### Authentication
 
-Since v0.10.0, you only need to set `privilege_token` in frps.ini and frpc.ini.
+Since v0.10.0, you only need to set `token` in frps.ini and frpc.ini.
 
 Note that time duration between server of frpc and frps mustn't exceed 15 minutes because timestamp is used for authentication.
 
@@ -539,7 +539,7 @@ type = http
 local_port = 80
 custom_domains = test.yourdomain.com
 http_user = abc
-http_pwd = abc
+http_passwd = abc
 ```
 
 Visit `http://test.yourdomain.com` and now you need to input username and password.

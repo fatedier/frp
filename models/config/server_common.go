@@ -24,49 +24,59 @@ import (
 	"github.com/fatedier/frp/utils/util"
 )
 
-var ServerCommonCfg *ServerCommonConf
+var (
+	// server global configure used for generate proxy conf used in frps
+	proxyBindAddr  string
+	subDomainHost  string
+	vhostHttpPort  int
+	vhostHttpsPort int
+)
+
+func InitServerCfg(cfg *ServerCommonConf) {
+	proxyBindAddr = cfg.ProxyBindAddr
+	subDomainHost = cfg.SubDomainHost
+	vhostHttpPort = cfg.VhostHttpPort
+	vhostHttpsPort = cfg.VhostHttpsPort
+}
 
 // common config
 type ServerCommonConf struct {
-	ConfigFile    string
-	BindAddr      string
-	BindPort      int
-	BindUdpPort   int
-	KcpBindPort   int
-	ProxyBindAddr string
+	BindAddr      string `json:"bind_addr"`
+	BindPort      int    `json:"bind_port"`
+	BindUdpPort   int    `json:"bind_udp_port"`
+	KcpBindPort   int    `json:"kcp_bind_port"`
+	ProxyBindAddr string `json:"proxy_bind_addr"`
 
 	// If VhostHttpPort equals 0, don't listen a public port for http protocol.
-	VhostHttpPort int
+	VhostHttpPort int `json:"vhost_http_port"`
 
 	// if VhostHttpsPort equals 0, don't listen a public port for https protocol
-	VhostHttpsPort int
-	DashboardAddr  string
+	VhostHttpsPort int    `json:"vhost_http_port"`
+	DashboardAddr  string `json:"dashboard_addr"`
 
 	// if DashboardPort equals 0, dashboard is not available
-	DashboardPort  int
-	DashboardUser  string
-	DashboardPwd   string
-	AssetsDir      string
-	LogFile        string
-	LogWay         string // console or file
-	LogLevel       string
-	LogMaxDays     int64
-	PrivilegeMode  bool
-	PrivilegeToken string
-	AuthTimeout    int64
-	SubDomainHost  string
-	TcpMux         bool
+	DashboardPort int    `json:"dashboard_port"`
+	DashboardUser string `json:"dashboard_user"`
+	DashboardPwd  string `json:"dashboard_pwd"`
+	AssetsDir     string `json:"asserts_dir"`
+	LogFile       string `json:"log_file"`
+	LogWay        string `json:"log_way"` // console or file
+	LogLevel      string `json:"log_level"`
+	LogMaxDays    int64  `json:"log_max_days"`
+	Token         string `json:"token"`
+	AuthTimeout   int64  `json:"auth_timeout"`
+	SubDomainHost string `json:"subdomain_host"`
+	TcpMux        bool   `json:"tcp_mux"`
 
 	PrivilegeAllowPorts map[int]struct{}
-	MaxPoolCount        int64
-	MaxPortsPerClient   int64
-	HeartBeatTimeout    int64
-	UserConnTimeout     int64
+	MaxPoolCount        int64 `json:"max_pool_count"`
+	MaxPortsPerClient   int64 `json:"max_ports_per_client"`
+	HeartBeatTimeout    int64 `json:"heart_beat_timeout"`
+	UserConnTimeout     int64 `json:"user_conn_timeout"`
 }
 
-func GetDefaultServerCommonConf() *ServerCommonConf {
+func GetDefaultServerConf() *ServerCommonConf {
 	return &ServerCommonConf{
-		ConfigFile:          "./frps.ini",
 		BindAddr:            "0.0.0.0",
 		BindPort:            7000,
 		BindUdpPort:         0,
@@ -83,8 +93,7 @@ func GetDefaultServerCommonConf() *ServerCommonConf {
 		LogWay:              "console",
 		LogLevel:            "info",
 		LogMaxDays:          3,
-		PrivilegeMode:       true,
-		PrivilegeToken:      "",
+		Token:               "",
 		AuthTimeout:         900,
 		SubDomainHost:       "",
 		TcpMux:              true,
@@ -96,22 +105,28 @@ func GetDefaultServerCommonConf() *ServerCommonConf {
 	}
 }
 
-// Load server common configure.
-func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
+func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (cfg *ServerCommonConf, err error) {
+	cfg = defaultCfg
+	if cfg == nil {
+		cfg = GetDefaultServerConf()
+	}
+
+	conf, err := ini.Load(strings.NewReader(content))
+	if err != nil {
+		err = fmt.Errorf("parse ini conf file error: %v", err)
+		return nil, err
+	}
+
 	var (
 		tmpStr string
 		ok     bool
 		v      int64
 	)
-	cfg = GetDefaultServerCommonConf()
-
-	tmpStr, ok = conf.Get("common", "bind_addr")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "bind_addr"); ok {
 		cfg.BindAddr = tmpStr
 	}
 
-	tmpStr, ok = conf.Get("common", "bind_port")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "bind_port"); ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
 			err = fmt.Errorf("Parse conf error: invalid bind_port")
 			return
@@ -120,8 +135,7 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		}
 	}
 
-	tmpStr, ok = conf.Get("common", "bind_udp_port")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "bind_udp_port"); ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
 			err = fmt.Errorf("Parse conf error: invalid bind_udp_port")
 			return
@@ -130,8 +144,7 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		}
 	}
 
-	tmpStr, ok = conf.Get("common", "kcp_bind_port")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "kcp_bind_port"); ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
 			err = fmt.Errorf("Parse conf error: invalid kcp_bind_port")
 			return
@@ -140,15 +153,13 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		}
 	}
 
-	tmpStr, ok = conf.Get("common", "proxy_bind_addr")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "proxy_bind_addr"); ok {
 		cfg.ProxyBindAddr = tmpStr
 	} else {
 		cfg.ProxyBindAddr = cfg.BindAddr
 	}
 
-	tmpStr, ok = conf.Get("common", "vhost_http_port")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "vhost_http_port"); ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
 			err = fmt.Errorf("Parse conf error: invalid vhost_http_port")
 			return
@@ -159,8 +170,7 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		cfg.VhostHttpPort = 0
 	}
 
-	tmpStr, ok = conf.Get("common", "vhost_https_port")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "vhost_https_port"); ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
 			err = fmt.Errorf("Parse conf error: invalid vhost_https_port")
 			return
@@ -171,15 +181,13 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		cfg.VhostHttpsPort = 0
 	}
 
-	tmpStr, ok = conf.Get("common", "dashboard_addr")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "dashboard_addr"); ok {
 		cfg.DashboardAddr = tmpStr
 	} else {
 		cfg.DashboardAddr = cfg.BindAddr
 	}
 
-	tmpStr, ok = conf.Get("common", "dashboard_port")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "dashboard_port"); ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
 			err = fmt.Errorf("Parse conf error: invalid dashboard_port")
 			return
@@ -190,23 +198,19 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		cfg.DashboardPort = 0
 	}
 
-	tmpStr, ok = conf.Get("common", "dashboard_user")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "dashboard_user"); ok {
 		cfg.DashboardUser = tmpStr
 	}
 
-	tmpStr, ok = conf.Get("common", "dashboard_pwd")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "dashboard_pwd"); ok {
 		cfg.DashboardPwd = tmpStr
 	}
 
-	tmpStr, ok = conf.Get("common", "assets_dir")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "assets_dir"); ok {
 		cfg.AssetsDir = tmpStr
 	}
 
-	tmpStr, ok = conf.Get("common", "log_file")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "log_file"); ok {
 		cfg.LogFile = tmpStr
 		if cfg.LogFile == "console" {
 			cfg.LogWay = "console"
@@ -215,47 +219,33 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		}
 	}
 
-	tmpStr, ok = conf.Get("common", "log_level")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "log_level"); ok {
 		cfg.LogLevel = tmpStr
 	}
 
-	tmpStr, ok = conf.Get("common", "log_max_days")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "log_max_days"); ok {
 		v, err = strconv.ParseInt(tmpStr, 10, 64)
 		if err == nil {
 			cfg.LogMaxDays = v
 		}
 	}
 
-	tmpStr, ok = conf.Get("common", "privilege_mode")
-	if ok {
-		if tmpStr == "true" {
-			cfg.PrivilegeMode = true
+	cfg.Token, _ = conf.Get("common", "token")
+
+	if allowPortsStr, ok := conf.Get("common", "privilege_allow_ports"); ok {
+		// e.g. 1000-2000,2001,2002,3000-4000
+		ports, errRet := util.ParseRangeNumbers(allowPortsStr)
+		if errRet != nil {
+			err = fmt.Errorf("Parse conf error: privilege_allow_ports: %v", errRet)
+			return
+		}
+
+		for _, port := range ports {
+			cfg.PrivilegeAllowPorts[int(port)] = struct{}{}
 		}
 	}
 
-	// PrivilegeMode configure
-	if cfg.PrivilegeMode == true {
-		cfg.PrivilegeToken, _ = conf.Get("common", "privilege_token")
-
-		allowPortsStr, ok := conf.Get("common", "privilege_allow_ports")
-		if ok {
-			// e.g. 1000-2000,2001,2002,3000-4000
-			ports, errRet := util.ParseRangeNumbers(allowPortsStr)
-			if errRet != nil {
-				err = fmt.Errorf("Parse conf error: privilege_allow_ports: %v", errRet)
-				return
-			}
-
-			for _, port := range ports {
-				cfg.PrivilegeAllowPorts[int(port)] = struct{}{}
-			}
-		}
-	}
-
-	tmpStr, ok = conf.Get("common", "max_pool_count")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "max_pool_count"); ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
 			err = fmt.Errorf("Parse conf error: invalid max_pool_count")
 			return
@@ -268,8 +258,7 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		}
 	}
 
-	tmpStr, ok = conf.Get("common", "max_ports_per_client")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "max_ports_per_client"); ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
 			err = fmt.Errorf("Parse conf error: invalid max_ports_per_client")
 			return
@@ -282,8 +271,7 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		}
 	}
 
-	tmpStr, ok = conf.Get("common", "authentication_timeout")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "authentication_timeout"); ok {
 		v, errRet := strconv.ParseInt(tmpStr, 10, 64)
 		if errRet != nil {
 			err = fmt.Errorf("Parse conf error: authentication_timeout is incorrect")
@@ -293,20 +281,17 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 		}
 	}
 
-	tmpStr, ok = conf.Get("common", "subdomain_host")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "subdomain_host"); ok {
 		cfg.SubDomainHost = strings.ToLower(strings.TrimSpace(tmpStr))
 	}
 
-	tmpStr, ok = conf.Get("common", "tcp_mux")
-	if ok && tmpStr == "false" {
+	if tmpStr, ok = conf.Get("common", "tcp_mux"); ok && tmpStr == "false" {
 		cfg.TcpMux = false
 	} else {
 		cfg.TcpMux = true
 	}
 
-	tmpStr, ok = conf.Get("common", "heartbeat_timeout")
-	if ok {
+	if tmpStr, ok = conf.Get("common", "heartbeat_timeout"); ok {
 		v, errRet := strconv.ParseInt(tmpStr, 10, 64)
 		if errRet != nil {
 			err = fmt.Errorf("Parse conf error: heartbeat_timeout is incorrect")
@@ -315,5 +300,9 @@ func LoadServerCommonConf(conf ini.File) (cfg *ServerCommonConf, err error) {
 			cfg.HeartBeatTimeout = v
 		}
 	}
+	return
+}
+
+func (cfg *ServerCommonConf) Check() (err error) {
 	return
 }

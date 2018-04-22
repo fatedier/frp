@@ -15,6 +15,7 @@
 package client
 
 import (
+	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/utils/log"
 )
@@ -41,12 +42,12 @@ func (svr *Service) Run() error {
 		return err
 	}
 
-	if config.ClientCommonCfg.AdminPort != 0 {
-		err = svr.RunAdminServer(config.ClientCommonCfg.AdminAddr, config.ClientCommonCfg.AdminPort)
+	if g.GlbClientCfg.AdminPort != 0 {
+		err = svr.RunAdminServer(g.GlbClientCfg.AdminAddr, g.GlbClientCfg.AdminPort)
 		if err != nil {
 			log.Warn("run admin server error: %v", err)
 		}
-		log.Info("admin server listen on %s:%d", config.ClientCommonCfg.AdminAddr, config.ClientCommonCfg.AdminPort)
+		log.Info("admin server listen on %s:%d", g.GlbClientCfg.AdminAddr, g.GlbClientCfg.AdminPort)
 	}
 
 	<-svr.closedCh

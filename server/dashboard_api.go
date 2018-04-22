@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/consts"
 	"github.com/fatedier/frp/utils/log"
@@ -60,7 +61,7 @@ func apiServerInfo(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 	}()
 
 	log.Info("Http request: [/api/serverinfo]")
-	cfg := config.ServerCommonCfg
+	cfg := &g.GlbServerCfg.ServerCommonConf
 	serverStats := StatsGetServer()
 	res = ServerInfoResp{
 		Version:          version.Full(),

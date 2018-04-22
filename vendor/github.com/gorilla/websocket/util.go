@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"unicode/utf8"
 )
 
 var keyGUID = []byte("258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
@@ -112,14 +111,14 @@ func nextTokenOrQuoted(s string) (value string, rest string) {
 				case escape:
 					escape = false
 					p[j] = b
-					j++
+					j += 1
 				case b == '\\':
 					escape = true
 				case b == '"':
 					return string(p[:j]), s[i+1:]
 				default:
 					p[j] = b
-					j++
+					j += 1
 				}
 			}
 			return "", ""
@@ -128,31 +127,8 @@ func nextTokenOrQuoted(s string) (value string, rest string) {
 	return "", ""
 }
 
-// equalASCIIFold returns true if s is equal to t with ASCII case folding.
-func equalASCIIFold(s, t string) bool {
-	for s != "" && t != "" {
-		sr, size := utf8.DecodeRuneInString(s)
-		s = s[size:]
-		tr, size := utf8.DecodeRuneInString(t)
-		t = t[size:]
-		if sr == tr {
-			continue
-		}
-		if 'A' <= sr && sr <= 'Z' {
-			sr = sr + 'a' - 'A'
-		}
-		if 'A' <= tr && tr <= 'Z' {
-			tr = tr + 'a' - 'A'
-		}
-		if sr != tr {
-			return false
-		}
-	}
-	return s == t
-}
-
 // tokenListContainsValue returns true if the 1#token header with the given
-// name contains a token equal to value with ASCII case folding.
+// name contains token.
 func tokenListContainsValue(header http.Header, name string, value string) bool {
 headers:
 	for _, s := range header[name] {
@@ -166,7 +142,7 @@ headers:
 			if s != "" && s[0] != ',' {
 				continue headers
 			}
-			if equalASCIIFold(t, value) {
+			if strings.EqualFold(t, value) {
 				return true
 			}
 			if s == "" {
@@ -180,6 +156,7 @@ headers:
 
 // parseExtensiosn parses WebSocket extensions from a header.
 func parseExtensions(header http.Header) []map[string]string {
+
 	// From RFC 6455:
 	//
 	//  Sec-WebSocket-Extensions = extension-list
