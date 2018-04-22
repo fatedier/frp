@@ -15,8 +15,10 @@
 package sub
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/signal"
 	"strconv"
@@ -188,6 +190,19 @@ func runClient(cfgFilePath string) (err error) {
 
 func startService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf) (err error) {
 	log.InitLog(g.GlbClientCfg.LogWay, g.GlbClientCfg.LogFile, g.GlbClientCfg.LogLevel, g.GlbClientCfg.LogMaxDays)
+	if g.GlbClientCfg.DnsServer != "" {
+		s := g.GlbClientCfg.DnsServer
+		if !strings.Contains(s, ":") {
+			s += ":53"
+		}
+		// Change default dns server for frpc
+		net.DefaultResolver = &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				return net.Dial("udp", s)
+			},
+		}
+	}
 	svr := client.NewService(pxyCfgs, visitorCfgs)
 
 	// Capture the exit signal if we use kcp.

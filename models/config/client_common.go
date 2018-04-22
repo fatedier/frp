@@ -40,6 +40,7 @@ type ClientCommonConf struct {
 	PoolCount         int                 `json:"pool_count"`
 	TcpMux            bool                `json:"tcp_mux"`
 	User              string              `json:"user"`
+	DnsServer         string              `json:"dns_server"`
 	LoginFailExit     bool                `json:"login_fail_exit"`
 	Start             map[string]struct{} `json:"start"`
 	Protocol          string              `json:"protocol"`
@@ -64,6 +65,7 @@ func GetDefaultClientConf() *ClientCommonConf {
 		PoolCount:         1,
 		TcpMux:            true,
 		User:              "",
+		DnsServer:         "",
 		LoginFailExit:     true,
 		Start:             make(map[string]struct{}),
 		Protocol:          "tcp",
@@ -164,6 +166,10 @@ func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (c
 
 	if tmpStr, ok = conf.Get("common", "user"); ok {
 		cfg.User = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "dns_server"); ok {
+		cfg.DnsServer = tmpStr
 	}
 
 	if tmpStr, ok = conf.Get("common", "start"); ok {
