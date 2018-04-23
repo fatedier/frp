@@ -47,8 +47,8 @@ func init() {
 }
 
 var stcpCmd = &cobra.Command{
-	Use:   "http",
-	Short: "Run frpc with a single http proxy",
+	Use:   "stcp",
+	Short: "Run frpc with a single stcp proxy",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		err := parseClientCommonCfg(CfgFileTypeCmd, "")
 		if err != nil {
