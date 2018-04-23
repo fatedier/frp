@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/assets"
-	"github.com/fatedier/frp/models/config"
+	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
@@ -71,13 +71,13 @@ type Service struct {
 }
 
 func NewService() (svr *Service, err error) {
-	cfg := config.ServerCommonCfg
+	cfg := &g.GlbServerCfg.ServerCommonConf
 	svr = &Service{
 		ctlManager:     NewControlManager(),
 		pxyManager:     NewProxyManager(),
 		visitorManager: NewVisitorManager(),
-		tcpPortManager: NewPortManager("tcp", cfg.ProxyBindAddr, cfg.PrivilegeAllowPorts),
-		udpPortManager: NewPortManager("udp", cfg.ProxyBindAddr, cfg.PrivilegeAllowPorts),
+		tcpPortManager: NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
+		udpPortManager: NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 	}
 
 	// Init assets.
@@ -170,7 +170,7 @@ func (svr *Service) Run() {
 	if svr.natHoleController != nil {
 		go svr.natHoleController.Run()
 	}
-	if config.ServerCommonCfg.KcpBindPort > 0 {
+	if g.GlbServerCfg.KcpBindPort > 0 {
 		go svr.HandleListener(svr.kcpListener)
 	}
 	svr.HandleListener(svr.listener)
@@ -233,7 +233,7 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 				}
 			}
 
-			if config.ServerCommonCfg.TcpMux {
+			if g.GlbServerCfg.TcpMux {
 				session, err := smux.Server(frpConn, nil)
 				if err != nil {
 					log.Warn("Failed to create mux connection: %v", err)
@@ -270,11 +270,11 @@ func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (e
 
 	// Check auth.
 	nowTime := time.Now().Unix()
-	if config.ServerCommonCfg.AuthTimeout != 0 && nowTime-loginMsg.Timestamp > config.ServerCommonCfg.AuthTimeout {
+	if g.GlbServerCfg.AuthTimeout != 0 && nowTime-loginMsg.Timestamp > g.GlbServerCfg.AuthTimeout {
 		err = fmt.Errorf("authorization timeout")
 		return
 	}
-	if util.GetAuthKey(config.ServerCommonCfg.PrivilegeToken, loginMsg.Timestamp) != loginMsg.PrivilegeKey {
+	if util.GetAuthKey(g.GlbServerCfg.Token, loginMsg.Timestamp) != loginMsg.PrivilegeKey {
 		err = fmt.Errorf("authorization failed")
 		return
 	}

@@ -31,8 +31,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Encryption and Compression](#encryption-and-compression)
     * [Hot-Reload frpc configuration](#hot-reload-frpc-configuration)
     * [Get proxy status from client](#get-proxy-status-from-client)
-    * [Privilege Mode](#privilege-mode)
-        * [Port White List](#port-white-list)
+    * [Port White List](#port-white-list)
     * [TCP Stream Multiplexing](#tcp-stream-multiplexing)
     * [Support KCP Protocol](#support-kcp-protocol)
     * [Connection Pool](#connection-pool)
@@ -42,6 +41,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Custom subdomain names](#custom-subdomain-names)
     * [URL routing](#url-routing)
     * [Connect frps by HTTP PROXY](#connect-frps-by-http-proxy)
+    * [Range ports mapping](#range-ports-mapping)
     * [Plugin](#plugin)
 * [Development Plan](#development-plan)
 * [Contributing](#contributing)
@@ -383,7 +383,7 @@ Then visit `http://[server_addr]:7500` to see dashboard, default username and pa
 
 ### Authentication
 
-Since v0.10.0, you only need to set `privilege_token` in frps.ini and frpc.ini.
+Since v0.10.0, you only need to set `token` in frps.ini and frpc.ini.
 
 Note that time duration between server of frpc and frps mustn't exceed 15 minutes because timestamp is used for authentication.
 
@@ -422,21 +422,17 @@ Then run command `frpc reload -c ./frpc.ini` and wait for about 10 seconds to le
 
 Use `frpc status -c ./frpc.ini` to get status of all proxies. You need to set admin port in frpc's configure file.
 
-### Privilege Mode
+### Port White List
 
-Privilege mode is the default and only mode support in frp since v0.10.0. All proxy configurations are set in client.
-
-#### Port White List
-
-`privilege_allow_ports` in frps.ini is used for preventing abuse of ports:
+`allow_ports` in frps.ini is used for preventing abuse of ports:
 
 ```ini
 # frps.ini
 [common]
-privilege_allow_ports = 2000-3000,3001,3003,4000-50000
+allow_ports = 2000-3000,3001,3003,4000-50000
 ```
 
-`privilege_allow_ports` consists of a specific port or a range of ports divided by `,`.
+`allow_ports` consists of a specific port or a range of ports divided by `,`.
 
 ### TCP Stream Multiplexing
 
@@ -539,7 +535,7 @@ type = http
 local_port = 80
 custom_domains = test.yourdomain.com
 http_user = abc
-http_pwd = abc
+http_passwd = abc
 ```
 
 Visit `http://test.yourdomain.com` and now you need to input username and password.

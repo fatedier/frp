@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/models/plugin"
@@ -46,7 +47,7 @@ type Proxy interface {
 
 func NewProxy(pxyConf config.ProxyConf) (pxy Proxy) {
 	baseProxy := BaseProxy{
-		Logger: log.NewPrefixLogger(pxyConf.GetName()),
+		Logger: log.NewPrefixLogger(pxyConf.GetBaseInfo().ProxyName),
 	}
 	switch cfg := pxyConf.(type) {
 	case *config.TcpProxyConf:
@@ -115,7 +116,7 @@ func (pxy *TcpProxy) Close() {
 
 func (pxy *TcpProxy) InWorkConn(conn frpNet.Conn) {
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
-		[]byte(config.ClientCommonCfg.PrivilegeToken))
+		[]byte(g.GlbClientCfg.Token))
 }
 
 // HTTP
@@ -144,7 +145,7 @@ func (pxy *HttpProxy) Close() {
 
 func (pxy *HttpProxy) InWorkConn(conn frpNet.Conn) {
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
-		[]byte(config.ClientCommonCfg.PrivilegeToken))
+		[]byte(g.GlbClientCfg.Token))
 }
 
 // HTTPS
@@ -173,7 +174,7 @@ func (pxy *HttpsProxy) Close() {
 
 func (pxy *HttpsProxy) InWorkConn(conn frpNet.Conn) {
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
-		[]byte(config.ClientCommonCfg.PrivilegeToken))
+		[]byte(g.GlbClientCfg.Token))
 }
 
 // STCP
@@ -202,7 +203,7 @@ func (pxy *StcpProxy) Close() {
 
 func (pxy *StcpProxy) InWorkConn(conn frpNet.Conn) {
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
-		[]byte(config.ClientCommonCfg.PrivilegeToken))
+		[]byte(g.GlbClientCfg.Token))
 }
 
 // XTCP
@@ -243,7 +244,7 @@ func (pxy *XtcpProxy) InWorkConn(conn frpNet.Conn) {
 		Sid:       natHoleSidMsg.Sid,
 	}
 	raddr, _ := net.ResolveUDPAddr("udp",
-		fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerUdpPort))
+		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerUdpPort))
 	clientConn, err := net.DialUDP("udp", nil, raddr)
 	defer clientConn.Close()
 

@@ -39,7 +39,7 @@ ci:
 	go test -v ./tests/...
 	cd ./tests && ./clean_test.sh && cd -
 
-ciclean:
+cic:
 	cd ./tests && ./clean_test.sh && cd -
 
 alltest: gotest ci
