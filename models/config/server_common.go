@@ -68,40 +68,40 @@ type ServerCommonConf struct {
 	SubDomainHost string `json:"subdomain_host"`
 	TcpMux        bool   `json:"tcp_mux"`
 
-	PrivilegeAllowPorts map[int]struct{}
-	MaxPoolCount        int64 `json:"max_pool_count"`
-	MaxPortsPerClient   int64 `json:"max_ports_per_client"`
-	HeartBeatTimeout    int64 `json:"heart_beat_timeout"`
-	UserConnTimeout     int64 `json:"user_conn_timeout"`
+	AllowPorts        map[int]struct{}
+	MaxPoolCount      int64 `json:"max_pool_count"`
+	MaxPortsPerClient int64 `json:"max_ports_per_client"`
+	HeartBeatTimeout  int64 `json:"heart_beat_timeout"`
+	UserConnTimeout   int64 `json:"user_conn_timeout"`
 }
 
 func GetDefaultServerConf() *ServerCommonConf {
 	return &ServerCommonConf{
-		BindAddr:            "0.0.0.0",
-		BindPort:            7000,
-		BindUdpPort:         0,
-		KcpBindPort:         0,
-		ProxyBindAddr:       "0.0.0.0",
-		VhostHttpPort:       0,
-		VhostHttpsPort:      0,
-		DashboardAddr:       "0.0.0.0",
-		DashboardPort:       0,
-		DashboardUser:       "admin",
-		DashboardPwd:        "admin",
-		AssetsDir:           "",
-		LogFile:             "console",
-		LogWay:              "console",
-		LogLevel:            "info",
-		LogMaxDays:          3,
-		Token:               "",
-		AuthTimeout:         900,
-		SubDomainHost:       "",
-		TcpMux:              true,
-		PrivilegeAllowPorts: make(map[int]struct{}),
-		MaxPoolCount:        5,
-		MaxPortsPerClient:   0,
-		HeartBeatTimeout:    90,
-		UserConnTimeout:     10,
+		BindAddr:          "0.0.0.0",
+		BindPort:          7000,
+		BindUdpPort:       0,
+		KcpBindPort:       0,
+		ProxyBindAddr:     "0.0.0.0",
+		VhostHttpPort:     0,
+		VhostHttpsPort:    0,
+		DashboardAddr:     "0.0.0.0",
+		DashboardPort:     0,
+		DashboardUser:     "admin",
+		DashboardPwd:      "admin",
+		AssetsDir:         "",
+		LogFile:           "console",
+		LogWay:            "console",
+		LogLevel:          "info",
+		LogMaxDays:        3,
+		Token:             "",
+		AuthTimeout:       900,
+		SubDomainHost:     "",
+		TcpMux:            true,
+		AllowPorts:        make(map[int]struct{}),
+		MaxPoolCount:      5,
+		MaxPortsPerClient: 0,
+		HeartBeatTimeout:  90,
+		UserConnTimeout:   10,
 	}
 }
 
@@ -232,16 +232,16 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (c
 
 	cfg.Token, _ = conf.Get("common", "token")
 
-	if allowPortsStr, ok := conf.Get("common", "privilege_allow_ports"); ok {
+	if allowPortsStr, ok := conf.Get("common", "allow_ports"); ok {
 		// e.g. 1000-2000,2001,2002,3000-4000
 		ports, errRet := util.ParseRangeNumbers(allowPortsStr)
 		if errRet != nil {
-			err = fmt.Errorf("Parse conf error: privilege_allow_ports: %v", errRet)
+			err = fmt.Errorf("Parse conf error: allow_ports: %v", errRet)
 			return
 		}
 
 		for _, port := range ports {
-			cfg.PrivilegeAllowPorts[int(port)] = struct{}{}
+			cfg.AllowPorts[int(port)] = struct{}{}
 		}
 	}
 

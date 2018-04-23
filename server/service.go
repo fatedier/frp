@@ -76,8 +76,8 @@ func NewService() (svr *Service, err error) {
 		ctlManager:     NewControlManager(),
 		pxyManager:     NewProxyManager(),
 		visitorManager: NewVisitorManager(),
-		tcpPortManager: NewPortManager("tcp", cfg.ProxyBindAddr, cfg.PrivilegeAllowPorts),
-		udpPortManager: NewPortManager("udp", cfg.ProxyBindAddr, cfg.PrivilegeAllowPorts),
+		tcpPortManager: NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
+		udpPortManager: NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 	}
 
 	// Init assets.
