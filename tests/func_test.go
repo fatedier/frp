@@ -209,7 +209,7 @@ func TestWebSocket(t *testing.T) {
 	assert.Equal(TEST_HTTP_NORMAL_STR, string(msg))
 }
 
-func TestPrivilegeAllowPorts(t *testing.T) {
+func TestAllowPorts(t *testing.T) {
 	assert := assert.New(t)
 	// Port not allowed
 	status, err := getProxyStatus(ProxyTcpPortNotAllowed)
