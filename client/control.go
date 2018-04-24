@@ -21,8 +21,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xtaci/smux"
-
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
@@ -32,6 +30,8 @@ import (
 	"github.com/fatedier/frp/utils/shutdown"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
+
+	fmux "github.com/hashicorp/yamux"
 )
 
 const (
@@ -51,7 +51,7 @@ type Control struct {
 	conn frpNet.Conn
 
 	// tcp stream multiplexing, if enabled
-	session *smux.Session
+	session *fmux.Session
 
 	// put a message in this channel to send it over control connection to server
 	sendCh chan (msg.Message)
@@ -198,7 +198,7 @@ func (ctl *Control) login() (err error) {
 	}()
 
 	if g.GlbClientCfg.TcpMux {
-		session, errRet := smux.Client(conn, nil)
+		session, errRet := fmux.Client(conn, nil)
 		if errRet != nil {
 			return errRet
 		}
