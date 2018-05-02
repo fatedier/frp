@@ -46,8 +46,6 @@ import:
   - sm4
 - package: github.com/vaughan0/go-ini
   version: a98ad7ee00ec53921f08832bc06ecf7fd600e6a1
-- package: github.com/xtaci/smux
-  version: 2de5471dfcbc029f5fe1392b83fe784127c4943e
 - package: golang.org/x/crypto
   version: e1a4589e7d3ea14a3352255d04b6f1a418845e5e
   subpackages:
@@ -71,3 +69,6 @@ import:
   version: v1.0.0
 - package: github.com/gorilla/websocket
   version: v1.2.0
+- package: github.com/hashicorp/yamux
+- package: github.com/spf13/cobra
+  version: v0.0.2

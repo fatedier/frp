@@ -29,7 +29,7 @@ import (
 	"github.com/fatedier/frp/utils/version"
 	"github.com/fatedier/frp/utils/vhost"
 
-	"github.com/xtaci/smux"
+	fmux "github.com/hashicorp/yamux"
 )
 
 const (
@@ -234,7 +234,7 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 			}
 
 			if g.GlbServerCfg.TcpMux {
-				session, err := smux.Server(frpConn, nil)
+				session, err := fmux.Server(frpConn, nil)
 				if err != nil {
 					log.Warn("Failed to create mux connection: %v", err)
 					frpConn.Close()

@@ -1,3 +1,17 @@
+// Copyright 2018 fatedier, fatedier@gmail.com
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
@@ -82,13 +96,17 @@ var rootCmd = &cobra.Command{
 			return nil
 		}
 
+		var err error
 		if cfgFile != "" {
-			parseServerCommonCfg(CfgFileTypeIni, cfgFile)
+			err = parseServerCommonCfg(CfgFileTypeIni, cfgFile)
 		} else {
-			parseServerCommonCfg(CfgFileTypeCmd, "")
+			err = parseServerCommonCfg(CfgFileTypeCmd, "")
+		}
+		if err != nil {
+			return err
 		}
 
-		err := runServer()
+		err = runServer()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -113,7 +131,7 @@ func parseServerCommonCfg(fileType int, filePath string) (err error) {
 		return
 	}
 
-	g.GlbServerCfg.CfgFile = cfgFile
+	g.GlbServerCfg.CfgFile = filePath
 
 	err = g.GlbServerCfg.ServerCommonConf.Check()
 	if err != nil {
