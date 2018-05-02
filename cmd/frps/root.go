@@ -82,13 +82,17 @@ var rootCmd = &cobra.Command{
 			return nil
 		}
 
+		var err error
 		if cfgFile != "" {
-			parseServerCommonCfg(CfgFileTypeIni, cfgFile)
+			err = parseServerCommonCfg(CfgFileTypeIni, cfgFile)
 		} else {
-			parseServerCommonCfg(CfgFileTypeCmd, "")
+			err = parseServerCommonCfg(CfgFileTypeCmd, "")
+		}
+		if err != nil {
+			return err
 		}
 
-		err := runServer()
+		err = runServer()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -113,7 +117,7 @@ func parseServerCommonCfg(fileType int, filePath string) (err error) {
 		return
 	}
 
-	g.GlbServerCfg.CfgFile = cfgFile
+	g.GlbServerCfg.CfgFile = filePath
 
 	err = g.GlbServerCfg.ServerCommonConf.Check()
 	if err != nil {
