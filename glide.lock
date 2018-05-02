@@ -1,5 +1,5 @@
-hash: 367ad1f2515b51db9d04d5620fd88843fb6faabf303fe3103b896ef7a3f5a126
-updated: 2018-04-23T02:33:52.913905+08:00
+hash: e2a62cbc49d9da8ff95682f5c0b7731a7047afdd139acddb691c51ea98f726e1
+updated: 2018-04-25T02:41:38.15698+08:00
 imports:
 - name: github.com/armon/go-socks5
   version: e75332964ef517daa070d7c38a9466a0d687e0a5
@@ -17,6 +17,8 @@ imports:
   version: 5979233c5d6225d4a8e438cdd0b411888449ddab
 - name: github.com/gorilla/websocket
   version: ea4d1f681babbce9545c9c5f3d5194a789c89f5b
+- name: github.com/hashicorp/yamux
+  version: 2658be15c5f05e76244154714161f17e3e77de2e
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/julienschmidt/httprouter
@@ -38,7 +40,7 @@ imports:
 - name: github.com/rodaine/table
   version: 212a2ad1c462ed4d5b5511ea2b480a573281dbbd
 - name: github.com/spf13/cobra
-  version: 615425954c3b0d9485a7027d4d451fdcdfdee84e
+  version: a1f051bc3eba734da4772d60e2d677f47cf93ef4
 - name: github.com/spf13/pflag
   version: 583c0c0531f06d5278b7d917446061adc344b5cd
 - name: github.com/stretchr/testify
@@ -57,8 +59,6 @@ imports:
   - sm4
 - name: github.com/vaughan0/go-ini
   version: a98ad7ee00ec53921f08832bc06ecf7fd600e6a1
-- name: github.com/xtaci/smux
-  version: 2de5471dfcbc029f5fe1392b83fe784127c4943e
 - name: golang.org/x/crypto
   version: e1a4589e7d3ea14a3352255d04b6f1a418845e5e
   subpackages:
