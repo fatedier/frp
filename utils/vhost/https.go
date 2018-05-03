@@ -108,7 +108,7 @@ func readHandshake(rd io.Reader) (host string, err error) {
 		return
 	}
 	if len(data) < 2 {
-		err = fmt.Errorf("readHandshake: extension dataLen[%d] is too short")
+		err = fmt.Errorf("readHandshake: extension dataLen[%d] is too short", len(data))
 		return
 	}
 

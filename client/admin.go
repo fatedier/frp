@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fatedier/frp/models/config"
+	"github.com/fatedier/frp/g"
 	frpNet "github.com/fatedier/frp/utils/net"
 
 	"github.com/julienschmidt/httprouter"
@@ -35,7 +35,7 @@ func (svr *Service) RunAdminServer(addr string, port int) (err error) {
 	// url router
 	router := httprouter.New()
 
-	user, passwd := config.ClientCommonCfg.AdminUser, config.ClientCommonCfg.AdminPwd
+	user, passwd := g.GlbClientCfg.AdminUser, g.GlbClientCfg.AdminPwd
 
 	// api, see dashboard_api.go
 	router.GET("/api/reload", frpNet.HttprouterBasicAuth(svr.apiReload, user, passwd))

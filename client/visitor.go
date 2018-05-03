@@ -26,6 +26,7 @@ import (
 
 	"golang.org/x/net/ipv4"
 
+	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	frpIo "github.com/fatedier/frp/utils/io"
@@ -45,7 +46,7 @@ type Visitor interface {
 func NewVisitor(ctl *Control, pxyConf config.ProxyConf) (visitor Visitor) {
 	baseVisitor := BaseVisitor{
 		ctl:    ctl,
-		Logger: log.NewPrefixLogger(pxyConf.GetName()),
+		Logger: log.NewPrefixLogger(pxyConf.GetBaseInfo().ProxyName),
 	}
 	switch cfg := pxyConf.(type) {
 	case *config.StcpProxyConf:
@@ -193,13 +194,13 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	defer userConn.Close()
 
 	sv.Debug("get a new xtcp user connection")
-	if config.ClientCommonCfg.ServerUdpPort == 0 {
+	if g.GlbClientCfg.ServerUdpPort == 0 {
 		sv.Error("xtcp is not supported by server")
 		return
 	}
 
 	raddr, err := net.ResolveUDPAddr("udp",
-		fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerUdpPort))
+		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerUdpPort))
 	visitorConn, err := net.DialUDP("udp", nil, raddr)
 	defer visitorConn.Close()
 
