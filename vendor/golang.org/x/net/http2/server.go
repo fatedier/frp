@@ -46,6 +46,7 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/net/http/httpguts"
 	"golang.org/x/net/http2/hpack"
 )
 
@@ -220,12 +221,15 @@ func ConfigureServer(s *http.Server, conf *Server) error {
 	} else if s.TLSConfig.CipherSuites != nil {
 		// If they already provided a CipherSuite list, return
 		// an error if it has a bad order or is missing
-		// ECDHE_RSA_WITH_AES_128_GCM_SHA256.
-		const requiredCipher = tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+		// ECDHE_RSA_WITH_AES_128_GCM_SHA256 or ECDHE_ECDSA_WITH_AES_128_GCM_SHA256.
 		haveRequired := false
 		sawBad := false
 		for i, cs := range s.TLSConfig.CipherSuites {
-			if cs == requiredCipher {
+			switch cs {
+			case tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				// Alternative MTI cipher to not discourage ECDSA-only servers.
+				// See http://golang.org/cl/30721 for further information.
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:
 				haveRequired = true
 			}
 			if isBadCipher(cs) {
@@ -235,7 +239,7 @@ func ConfigureServer(s *http.Server, conf *Server) error {
 			}
 		}
 		if !haveRequired {
-			return fmt.Errorf("http2: TLSConfig.CipherSuites is missing HTTP/2-required TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256")
+			return fmt.Errorf("http2: TLSConfig.CipherSuites is missing an HTTP/2-required AES_128_GCM_SHA256 cipher.")
 		}
 	}
 
@@ -403,7 +407,7 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 			// addresses during development.
 			//
 			// TODO: optionally enforce? Or enforce at the time we receive
-			// a new request, and verify the the ServerName matches the :authority?
+			// a new request, and verify the ServerName matches the :authority?
 			// But that precludes proxy situations, perhaps.
 			//
 			// So for now, do nothing here again.
@@ -649,7 +653,7 @@ func (sc *serverConn) condlogf(err error, format string, args ...interface{}) {
 	if err == nil {
 		return
 	}
-	if err == io.EOF || err == io.ErrUnexpectedEOF || isClosedConnError(err) {
+	if err == io.EOF || err == io.ErrUnexpectedEOF || isClosedConnError(err) || err == errPrefaceTimeout {
 		// Boring, expected errors.
 		sc.vlogf(format, args...)
 	} else {
@@ -853,8 +857,13 @@ func (sc *serverConn) serve() {
 			}
 		}
 
-		if sc.inGoAway && sc.curOpenStreams() == 0 && !sc.needToSendGoAway && !sc.writingFrame {
-			return
+		// Start the shutdown timer after sending a GOAWAY. When sending GOAWAY
+		// with no error code (graceful shutdown), don't start the timer until
+		// all open streams have been completed.
+		sentGoAway := sc.inGoAway && !sc.needToSendGoAway && !sc.writingFrame
+		gracefulShutdownComplete := sc.goAwayCode == ErrCodeNo && sc.curOpenStreams() == 0
+		if sentGoAway && sc.shutdownTimer == nil && (sc.goAwayCode != ErrCodeNo || gracefulShutdownComplete) {
+			sc.shutDownIn(goAwayTimeout)
 		}
 	}
 }
@@ -889,8 +898,11 @@ func (sc *serverConn) sendServeMsg(msg interface{}) {
 	}
 }
 
-// readPreface reads the ClientPreface greeting from the peer
-// or returns an error on timeout or an invalid greeting.
+var errPrefaceTimeout = errors.New("timeout waiting for client preface")
+
+// readPreface reads the ClientPreface greeting from the peer or
+// returns errPrefaceTimeout on timeout, or an error if the greeting
+// is invalid.
 func (sc *serverConn) readPreface() error {
 	errc := make(chan error, 1)
 	go func() {
@@ -908,7 +920,7 @@ func (sc *serverConn) readPreface() error {
 	defer timer.Stop()
 	select {
 	case <-timer.C:
-		return errors.New("timeout waiting for client preface")
+		return errPrefaceTimeout
 	case err := <-errc:
 		if err == nil {
 			if VerboseLogs {
@@ -1218,29 +1230,30 @@ func (sc *serverConn) startGracefulShutdown() {
 	sc.shutdownOnce.Do(func() { sc.sendServeMsg(gracefulShutdownMsg) })
 }
 
+// After sending GOAWAY, the connection will close after goAwayTimeout.
+// If we close the connection immediately after sending GOAWAY, there may
+// be unsent data in our kernel receive buffer, which will cause the kernel
+// to send a TCP RST on close() instead of a FIN. This RST will abort the
+// connection immediately, whether or not the client had received the GOAWAY.
+//
+// Ideally we should delay for at least 1 RTT + epsilon so the client has
+// a chance to read the GOAWAY and stop sending messages. Measuring RTT
+// is hard, so we approximate with 1 second. See golang.org/issue/18701.
+//
+// This is a var so it can be shorter in tests, where all requests uses the
+// loopback interface making the expected RTT very small.
+//
+// TODO: configurable?
+var goAwayTimeout = 1 * time.Second
+
 func (sc *serverConn) startGracefulShutdownInternal() {
-	sc.goAwayIn(ErrCodeNo, 0)
+	sc.goAway(ErrCodeNo)
 }
 
 func (sc *serverConn) goAway(code ErrCode) {
 	sc.serveG.check()
-	var forceCloseIn time.Duration
-	if code != ErrCodeNo {
-		forceCloseIn = 250 * time.Millisecond
-	} else {
-		// TODO: configurable
-		forceCloseIn = 1 * time.Second
-	}
-	sc.goAwayIn(code, forceCloseIn)
-}
-
-func (sc *serverConn) goAwayIn(code ErrCode, forceCloseIn time.Duration) {
-	sc.serveG.check()
 	if sc.inGoAway {
 		return
-	}
-	if forceCloseIn != 0 {
-		sc.shutDownIn(forceCloseIn)
 	}
 	sc.inGoAway = true
 	sc.needToSendGoAway = true
@@ -1805,7 +1818,7 @@ func (st *stream) processTrailerHeaders(f *MetaHeadersFrame) error {
 	if st.trailer != nil {
 		for _, hf := range f.RegularFields() {
 			key := sc.canonicalHeader(hf.Name)
-			if !ValidTrailerHeader(key) {
+			if !httpguts.ValidTrailerHeader(key) {
 				// TODO: send more details to the peer somehow. But http2 has
 				// no way to send debug data at a stream level. Discuss with
 				// HTTP folk.
@@ -2252,6 +2265,7 @@ type responseWriterState struct {
 	wroteHeader   bool        // WriteHeader called (explicitly or implicitly). Not necessarily sent to user yet.
 	sentHeader    bool        // have we sent the header frame?
 	handlerDone   bool        // handler has finished
+	dirty         bool        // a Write failed; don't reuse this responseWriterState
 
 	sentContentLen int64 // non-zero if handler set a Content-Length header
 	wroteBytes     int64
@@ -2271,8 +2285,8 @@ func (rws *responseWriterState) hasTrailers() bool { return len(rws.trailers) !=
 // written in the trailers at the end of the response.
 func (rws *responseWriterState) declareTrailer(k string) {
 	k = http.CanonicalHeaderKey(k)
-	if !ValidTrailerHeader(k) {
-		// Forbidden by RFC 2616 14.40.
+	if !httpguts.ValidTrailerHeader(k) {
+		// Forbidden by RFC 7230, section 4.1.2.
 		rws.conn.logf("ignoring invalid trailer %q", k)
 		return
 	}
@@ -2309,8 +2323,16 @@ func (rws *responseWriterState) writeChunk(p []byte) (n int, err error) {
 			clen = strconv.Itoa(len(p))
 		}
 		_, hasContentType := rws.snapHeader["Content-Type"]
-		if !hasContentType && bodyAllowedForStatus(rws.status) {
-			ctype = http.DetectContentType(p)
+		if !hasContentType && bodyAllowedForStatus(rws.status) && len(p) > 0 {
+			if cto := rws.snapHeader.Get("X-Content-Type-Options"); strings.EqualFold("nosniff", cto) {
+				// nosniff is an explicit directive not to guess a content-type.
+				// Content-sniffing is no less susceptible to polyglot attacks via
+				// hosted content when done on the server.
+				ctype = "application/octet-stream"
+				rws.conn.logf("http2: WriteHeader called with X-Content-Type-Options:nosniff but no Content-Type")
+			} else {
+				ctype = http.DetectContentType(p)
+			}
 		}
 		var date string
 		if _, ok := rws.snapHeader["Date"]; !ok {
@@ -2333,6 +2355,7 @@ func (rws *responseWriterState) writeChunk(p []byte) (n int, err error) {
 			date:          date,
 		})
 		if err != nil {
+			rws.dirty = true
 			return 0, err
 		}
 		if endStream {
@@ -2354,6 +2377,7 @@ func (rws *responseWriterState) writeChunk(p []byte) (n int, err error) {
 	if len(p) > 0 || endStream {
 		// only send a 0 byte DATA frame if we're ending the stream.
 		if err := rws.conn.writeDataFromHandler(rws.stream, p, endStream); err != nil {
+			rws.dirty = true
 			return 0, err
 		}
 	}
@@ -2365,6 +2389,9 @@ func (rws *responseWriterState) writeChunk(p []byte) (n int, err error) {
 			trailers:  rws.trailers,
 			endStream: true,
 		})
+		if err != nil {
+			rws.dirty = true
+		}
 		return len(p), err
 	}
 	return len(p), nil
@@ -2388,7 +2415,7 @@ const TrailerPrefix = "Trailer:"
 // after the header has already been flushed. Because the Go
 // ResponseWriter interface has no way to set Trailers (only the
 // Header), and because we didn't want to expand the ResponseWriter
-// interface, and because nobody used trailers, and because RFC 2616
+// interface, and because nobody used trailers, and because RFC 7230
 // says you SHOULD (but not must) predeclare any trailers in the
 // header, the official ResponseWriter rules said trailers in Go must
 // be predeclared, and then we reuse the same ResponseWriter.Header()
@@ -2472,6 +2499,24 @@ func (w *responseWriter) Header() http.Header {
 	return rws.handlerHeader
 }
 
+// checkWriteHeaderCode is a copy of net/http's checkWriteHeaderCode.
+func checkWriteHeaderCode(code int) {
+	// Issue 22880: require valid WriteHeader status codes.
+	// For now we only enforce that it's three digits.
+	// In the future we might block things over 599 (600 and above aren't defined
+	// at http://httpwg.org/specs/rfc7231.html#status.codes)
+	// and we might block under 200 (once we have more mature 1xx support).
+	// But for now any three digits.
+	//
+	// We used to send "HTTP/1.1 000 0" on the wire in responses but there's
+	// no equivalent bogus thing we can realistically send in HTTP/2,
+	// so we'll consistently panic instead and help people find their bugs
+	// early. (We can't return an error from WriteHeader even if we wanted to.)
+	if code < 100 || code > 999 {
+		panic(fmt.Sprintf("invalid WriteHeader code %v", code))
+	}
+}
+
 func (w *responseWriter) WriteHeader(code int) {
 	rws := w.rws
 	if rws == nil {
@@ -2482,6 +2527,7 @@ func (w *responseWriter) WriteHeader(code int) {
 
 func (rws *responseWriterState) writeHeader(code int) {
 	if !rws.wroteHeader {
+		checkWriteHeaderCode(code)
 		rws.wroteHeader = true
 		rws.status = code
 		if len(rws.handlerHeader) > 0 {
@@ -2504,7 +2550,7 @@ func cloneHeader(h http.Header) http.Header {
 //
 // * Handler calls w.Write or w.WriteString ->
 // * -> rws.bw (*bufio.Writer) ->
-// * (Handler migth call Flush)
+// * (Handler might call Flush)
 // * -> chunkWriter{rws}
 // * -> responseWriterState.writeChunk(p []byte)
 // * -> responseWriterState.writeChunk (most of the magic; see comment there)
@@ -2543,10 +2589,19 @@ func (w *responseWriter) write(lenData int, dataB []byte, dataS string) (n int, 
 
 func (w *responseWriter) handlerDone() {
 	rws := w.rws
+	dirty := rws.dirty
 	rws.handlerDone = true
 	w.Flush()
 	w.rws = nil
-	responseWriterStatePool.Put(rws)
+	if !dirty {
+		// Only recycle the pool if all prior Write calls to
+		// the serverConn goroutine completed successfully. If
+		// they returned earlier due to resets from the peer
+		// there might still be write goroutines outstanding
+		// from the serverConn referencing the rws memory. See
+		// issue 20704.
+		responseWriterStatePool.Put(rws)
+	}
 }
 
 // Push errors.
@@ -2744,7 +2799,7 @@ func (sc *serverConn) startPush(msg *startPushRequest) {
 }
 
 // foreachHeaderElement splits v according to the "#rule" construction
-// in RFC 2616 section 2.1 and calls fn for each non-empty element.
+// in RFC 7230 section 7 and calls fn for each non-empty element.
 func foreachHeaderElement(v string, fn func(string)) {
 	v = textproto.TrimString(v)
 	if v == "" {
@@ -2790,41 +2845,6 @@ func new400Handler(err error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
-}
-
-// ValidTrailerHeader reports whether name is a valid header field name to appear
-// in trailers.
-// See: http://tools.ietf.org/html/rfc7230#section-4.1.2
-func ValidTrailerHeader(name string) bool {
-	name = http.CanonicalHeaderKey(name)
-	if strings.HasPrefix(name, "If-") || badTrailer[name] {
-		return false
-	}
-	return true
-}
-
-var badTrailer = map[string]bool{
-	"Authorization":       true,
-	"Cache-Control":       true,
-	"Connection":          true,
-	"Content-Encoding":    true,
-	"Content-Length":      true,
-	"Content-Range":       true,
-	"Content-Type":        true,
-	"Expect":              true,
-	"Host":                true,
-	"Keep-Alive":          true,
-	"Max-Forwards":        true,
-	"Pragma":              true,
-	"Proxy-Authenticate":  true,
-	"Proxy-Authorization": true,
-	"Proxy-Connection":    true,
-	"Range":               true,
-	"Realm":               true,
-	"Te":                  true,
-	"Trailer":             true,
-	"Transfer-Encoding":   true,
-	"Www-Authenticate":    true,
 }
 
 // h1ServerKeepAlivesDisabled reports whether hs has its keep-alives

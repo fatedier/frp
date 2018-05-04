@@ -10,8 +10,12 @@ package socket
 import "unsafe"
 
 func (h *msghdr) setIov(vs []iovec) {
+	l := len(vs)
+	if l == 0 {
+		return
+	}
 	h.Iov = &vs[0]
-	h.Iovlen = uint64(len(vs))
+	h.Iovlen = uint64(l)
 }
 
 func (h *msghdr) setControl(b []byte) {

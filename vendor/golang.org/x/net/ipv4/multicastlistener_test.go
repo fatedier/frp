@@ -69,13 +69,16 @@ func TestUDPMultiplePacketConnWithMultipleGroupListeners(t *testing.T) {
 	}
 
 	for _, gaddr := range udpMultipleGroupListenerTests {
-		c1, err := net.ListenPacket("udp4", "224.0.0.0:1024") // wildcard address with reusable port
+		c1, err := net.ListenPacket("udp4", "224.0.0.0:0") // wildcard address with reusable port
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer c1.Close()
-
-		c2, err := net.ListenPacket("udp4", "224.0.0.0:1024") // wildcard address with reusable port
+		_, port, err := net.SplitHostPort(c1.LocalAddr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		c2, err := net.ListenPacket("udp4", net.JoinHostPort("224.0.0.0", port)) // wildcard address with reusable port
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -131,16 +134,29 @@ func TestUDPPerInterfaceSinglePacketConnWithSingleGroupListener(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	port := "0"
 	for i, ifi := range ift {
 		ip, ok := nettest.IsMulticastCapable("ip4", &ifi)
 		if !ok {
 			continue
 		}
-		c, err := net.ListenPacket("udp4", ip.String()+":"+"1024") // unicast address with non-reusable port
+		c, err := net.ListenPacket("udp4", net.JoinHostPort(ip.String(), port)) // unicast address with non-reusable port
 		if err != nil {
-			t.Fatal(err)
+			// The listen may fail when the serivce is
+			// already in use, but it's fine because the
+			// purpose of this is not to test the
+			// bookkeeping of IP control block inside the
+			// kernel.
+			t.Log(err)
+			continue
 		}
 		defer c.Close()
+		if port == "0" {
+			_, port, err = net.SplitHostPort(c.LocalAddr().String())
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
 		p := ipv4.NewPacketConn(c)
 		if err := p.JoinGroup(&ifi, &gaddr); err != nil {
 			t.Fatal(err)

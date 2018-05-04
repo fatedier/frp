@@ -11,6 +11,7 @@
 // ICMP extensions for MPLS are defined in RFC 4950.
 // ICMP extensions for interface and next-hop identification are
 // defined in RFC 5837.
+// PROBE: A utility for probing interfaces is defined in RFC 8335.
 package icmp // import "golang.org/x/net/icmp"
 
 import (
@@ -107,21 +108,25 @@ func (m *Message) Marshal(psh []byte) ([]byte, error) {
 	return b[len(psh):], nil
 }
 
-var parseFns = map[Type]func(int, []byte) (MessageBody, error){
+var parseFns = map[Type]func(int, Type, []byte) (MessageBody, error){
 	ipv4.ICMPTypeDestinationUnreachable: parseDstUnreach,
 	ipv4.ICMPTypeTimeExceeded:           parseTimeExceeded,
 	ipv4.ICMPTypeParameterProblem:       parseParamProb,
 
-	ipv4.ICMPTypeEcho:      parseEcho,
-	ipv4.ICMPTypeEchoReply: parseEcho,
+	ipv4.ICMPTypeEcho:                parseEcho,
+	ipv4.ICMPTypeEchoReply:           parseEcho,
+	ipv4.ICMPTypeExtendedEchoRequest: parseExtendedEchoRequest,
+	ipv4.ICMPTypeExtendedEchoReply:   parseExtendedEchoReply,
 
 	ipv6.ICMPTypeDestinationUnreachable: parseDstUnreach,
 	ipv6.ICMPTypePacketTooBig:           parsePacketTooBig,
 	ipv6.ICMPTypeTimeExceeded:           parseTimeExceeded,
 	ipv6.ICMPTypeParameterProblem:       parseParamProb,
 
-	ipv6.ICMPTypeEchoRequest: parseEcho,
-	ipv6.ICMPTypeEchoReply:   parseEcho,
+	ipv6.ICMPTypeEchoRequest:         parseEcho,
+	ipv6.ICMPTypeEchoReply:           parseEcho,
+	ipv6.ICMPTypeExtendedEchoRequest: parseExtendedEchoRequest,
+	ipv6.ICMPTypeExtendedEchoReply:   parseExtendedEchoReply,
 }
 
 // ParseMessage parses b as an ICMP message.
@@ -143,7 +148,7 @@ func ParseMessage(proto int, b []byte) (*Message, error) {
 	if fn, ok := parseFns[m.Type]; !ok {
 		m.Body, err = parseDefaultMessageBody(proto, b[4:])
 	} else {
-		m.Body, err = fn(proto, b[4:])
+		m.Body, err = fn(proto, m.Type, b[4:])
 	}
 	if err != nil {
 		return nil, err

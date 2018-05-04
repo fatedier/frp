@@ -18,26 +18,26 @@ func marshalTrafficClass(b []byte, cm *ControlMessage) []byte {
 	m := socket.ControlMessage(b)
 	m.MarshalHeader(iana.ProtocolIPv6, sysIPV6_TCLASS, 4)
 	if cm != nil {
-		nativeEndian.PutUint32(m.Data(4), uint32(cm.TrafficClass))
+		socket.NativeEndian.PutUint32(m.Data(4), uint32(cm.TrafficClass))
 	}
 	return m.Next(4)
 }
 
 func parseTrafficClass(cm *ControlMessage, b []byte) {
-	cm.TrafficClass = int(nativeEndian.Uint32(b[:4]))
+	cm.TrafficClass = int(socket.NativeEndian.Uint32(b[:4]))
 }
 
 func marshalHopLimit(b []byte, cm *ControlMessage) []byte {
 	m := socket.ControlMessage(b)
 	m.MarshalHeader(iana.ProtocolIPv6, sysIPV6_HOPLIMIT, 4)
 	if cm != nil {
-		nativeEndian.PutUint32(m.Data(4), uint32(cm.HopLimit))
+		socket.NativeEndian.PutUint32(m.Data(4), uint32(cm.HopLimit))
 	}
 	return m.Next(4)
 }
 
 func parseHopLimit(cm *ControlMessage, b []byte) {
-	cm.HopLimit = int(nativeEndian.Uint32(b[:4]))
+	cm.HopLimit = int(socket.NativeEndian.Uint32(b[:4]))
 }
 
 func marshalPacketInfo(b []byte, cm *ControlMessage) []byte {

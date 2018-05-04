@@ -13,9 +13,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"reflect"
@@ -417,6 +419,11 @@ func TestActualContentLength(t *testing.T) {
 			req:  &http.Request{Body: panicReader{}, ContentLength: 5},
 			want: 5,
 		},
+		// http.NoBody means 0, not -1.
+		3: {
+			req:  &http.Request{Body: go18httpNoBody()},
+			want: 0,
+		},
 	}
 	for i, tt := range tests {
 		got := actualContentLength(tt.req)
@@ -680,7 +687,7 @@ func newLocalListener(t *testing.T) net.Listener {
 	return ln
 }
 
-func (ct *clientTester) greet() {
+func (ct *clientTester) greet(settings ...Setting) {
 	buf := make([]byte, len(ClientPreface))
 	_, err := io.ReadFull(ct.sc, buf)
 	if err != nil {
@@ -694,7 +701,7 @@ func (ct *clientTester) greet() {
 		ct.t.Fatalf("Wanted client settings frame; got %v", f)
 		_ = sf // stash it away?
 	}
-	if err := ct.fr.WriteSettings(); err != nil {
+	if err := ct.fr.WriteSettings(settings...); err != nil {
 		ct.t.Fatal(err)
 	}
 	if err := ct.fr.WriteSettingsAck(); err != nil {
@@ -1365,6 +1372,269 @@ func testInvalidTrailer(t *testing.T, trailers headerType, wantErr error, writeT
 	ct.run()
 }
 
+// headerListSize returns the HTTP2 header list size of h.
+//   http://httpwg.org/specs/rfc7540.html#SETTINGS_MAX_HEADER_LIST_SIZE
+//   http://httpwg.org/specs/rfc7540.html#MaxHeaderBlock
+func headerListSize(h http.Header) (size uint32) {
+	for k, vv := range h {
+		for _, v := range vv {
+			hf := hpack.HeaderField{Name: k, Value: v}
+			size += hf.Size()
+		}
+	}
+	return size
+}
+
+// padHeaders adds data to an http.Header until headerListSize(h) ==
+// limit. Due to the way header list sizes are calculated, padHeaders
+// cannot add fewer than len("Pad-Headers") + 32 bytes to h, and will
+// call t.Fatal if asked to do so. PadHeaders first reserves enough
+// space for an empty "Pad-Headers" key, then adds as many copies of
+// filler as possible. Any remaining bytes necessary to push the
+// header list size up to limit are added to h["Pad-Headers"].
+func padHeaders(t *testing.T, h http.Header, limit uint64, filler string) {
+	if limit > 0xffffffff {
+		t.Fatalf("padHeaders: refusing to pad to more than 2^32-1 bytes. limit = %v", limit)
+	}
+	hf := hpack.HeaderField{Name: "Pad-Headers", Value: ""}
+	minPadding := uint64(hf.Size())
+	size := uint64(headerListSize(h))
+
+	minlimit := size + minPadding
+	if limit < minlimit {
+		t.Fatalf("padHeaders: limit %v < %v", limit, minlimit)
+	}
+
+	// Use a fixed-width format for name so that fieldSize
+	// remains constant.
+	nameFmt := "Pad-Headers-%06d"
+	hf = hpack.HeaderField{Name: fmt.Sprintf(nameFmt, 1), Value: filler}
+	fieldSize := uint64(hf.Size())
+
+	// Add as many complete filler values as possible, leaving
+	// room for at least one empty "Pad-Headers" key.
+	limit = limit - minPadding
+	for i := 0; size+fieldSize < limit; i++ {
+		name := fmt.Sprintf(nameFmt, i)
+		h.Add(name, filler)
+		size += fieldSize
+	}
+
+	// Add enough bytes to reach limit.
+	remain := limit - size
+	lastValue := strings.Repeat("*", int(remain))
+	h.Add("Pad-Headers", lastValue)
+}
+
+func TestPadHeaders(t *testing.T) {
+	check := func(h http.Header, limit uint32, fillerLen int) {
+		if h == nil {
+			h = make(http.Header)
+		}
+		filler := strings.Repeat("f", fillerLen)
+		padHeaders(t, h, uint64(limit), filler)
+		gotSize := headerListSize(h)
+		if gotSize != limit {
+			t.Errorf("Got size = %v; want %v", gotSize, limit)
+		}
+	}
+	// Try all possible combinations for small fillerLen and limit.
+	hf := hpack.HeaderField{Name: "Pad-Headers", Value: ""}
+	minLimit := hf.Size()
+	for limit := minLimit; limit <= 128; limit++ {
+		for fillerLen := 0; uint32(fillerLen) <= limit; fillerLen++ {
+			check(nil, limit, fillerLen)
+		}
+	}
+
+	// Try a few tests with larger limits, plus cumulative
+	// tests. Since these tests are cumulative, tests[i+1].limit
+	// must be >= tests[i].limit + minLimit. See the comment on
+	// padHeaders for more info on why the limit arg has this
+	// restriction.
+	tests := []struct {
+		fillerLen int
+		limit     uint32
+	}{
+		{
+			fillerLen: 64,
+			limit:     1024,
+		},
+		{
+			fillerLen: 1024,
+			limit:     1286,
+		},
+		{
+			fillerLen: 256,
+			limit:     2048,
+		},
+		{
+			fillerLen: 1024,
+			limit:     10 * 1024,
+		},
+		{
+			fillerLen: 1023,
+			limit:     11 * 1024,
+		},
+	}
+	h := make(http.Header)
+	for _, tc := range tests {
+		check(nil, tc.limit, tc.fillerLen)
+		check(h, tc.limit, tc.fillerLen)
+	}
+}
+
+func TestTransportChecksRequestHeaderListSize(t *testing.T) {
+	st := newServerTester(t,
+		func(w http.ResponseWriter, r *http.Request) {
+			// Consume body & force client to send
+			// trailers before writing response.
+			// ioutil.ReadAll returns non-nil err for
+			// requests that attempt to send greater than
+			// maxHeaderListSize bytes of trailers, since
+			// those requests generate a stream reset.
+			ioutil.ReadAll(r.Body)
+			r.Body.Close()
+		},
+		func(ts *httptest.Server) {
+			ts.Config.MaxHeaderBytes = 16 << 10
+		},
+		optOnlyServer,
+		optQuiet,
+	)
+	defer st.Close()
+
+	tr := &Transport{TLSClientConfig: tlsConfigInsecure}
+	defer tr.CloseIdleConnections()
+
+	checkRoundTrip := func(req *http.Request, wantErr error, desc string) {
+		res, err := tr.RoundTrip(req)
+		if err != wantErr {
+			if res != nil {
+				res.Body.Close()
+			}
+			t.Errorf("%v: RoundTrip err = %v; want %v", desc, err, wantErr)
+			return
+		}
+		if err == nil {
+			if res == nil {
+				t.Errorf("%v: response nil; want non-nil.", desc)
+				return
+			}
+			defer res.Body.Close()
+			if res.StatusCode != http.StatusOK {
+				t.Errorf("%v: response status = %v; want %v", desc, res.StatusCode, http.StatusOK)
+			}
+			return
+		}
+		if res != nil {
+			t.Errorf("%v: RoundTrip err = %v but response non-nil", desc, err)
+		}
+	}
+	headerListSizeForRequest := func(req *http.Request) (size uint64) {
+		contentLen := actualContentLength(req)
+		trailers, err := commaSeparatedTrailers(req)
+		if err != nil {
+			t.Fatalf("headerListSizeForRequest: %v", err)
+		}
+		cc := &ClientConn{peerMaxHeaderListSize: 0xffffffffffffffff}
+		cc.henc = hpack.NewEncoder(&cc.hbuf)
+		cc.mu.Lock()
+		hdrs, err := cc.encodeHeaders(req, true, trailers, contentLen)
+		cc.mu.Unlock()
+		if err != nil {
+			t.Fatalf("headerListSizeForRequest: %v", err)
+		}
+		hpackDec := hpack.NewDecoder(initialHeaderTableSize, func(hf hpack.HeaderField) {
+			size += uint64(hf.Size())
+		})
+		if len(hdrs) > 0 {
+			if _, err := hpackDec.Write(hdrs); err != nil {
+				t.Fatalf("headerListSizeForRequest: %v", err)
+			}
+		}
+		return size
+	}
+	// Create a new Request for each test, rather than reusing the
+	// same Request, to avoid a race when modifying req.Headers.
+	// See https://github.com/golang/go/issues/21316
+	newRequest := func() *http.Request {
+		// Body must be non-nil to enable writing trailers.
+		body := strings.NewReader("hello")
+		req, err := http.NewRequest("POST", st.ts.URL, body)
+		if err != nil {
+			t.Fatalf("newRequest: NewRequest: %v", err)
+		}
+		return req
+	}
+
+	// Make an arbitrary request to ensure we get the server's
+	// settings frame and initialize peerMaxHeaderListSize.
+	req := newRequest()
+	checkRoundTrip(req, nil, "Initial request")
+
+	// Get the ClientConn associated with the request and validate
+	// peerMaxHeaderListSize.
+	addr := authorityAddr(req.URL.Scheme, req.URL.Host)
+	cc, err := tr.connPool().GetClientConn(req, addr)
+	if err != nil {
+		t.Fatalf("GetClientConn: %v", err)
+	}
+	cc.mu.Lock()
+	peerSize := cc.peerMaxHeaderListSize
+	cc.mu.Unlock()
+	st.scMu.Lock()
+	wantSize := uint64(st.sc.maxHeaderListSize())
+	st.scMu.Unlock()
+	if peerSize != wantSize {
+		t.Errorf("peerMaxHeaderListSize = %v; want %v", peerSize, wantSize)
+	}
+
+	// Sanity check peerSize. (*serverConn) maxHeaderListSize adds
+	// 320 bytes of padding.
+	wantHeaderBytes := uint64(st.ts.Config.MaxHeaderBytes) + 320
+	if peerSize != wantHeaderBytes {
+		t.Errorf("peerMaxHeaderListSize = %v; want %v.", peerSize, wantHeaderBytes)
+	}
+
+	// Pad headers & trailers, but stay under peerSize.
+	req = newRequest()
+	req.Header = make(http.Header)
+	req.Trailer = make(http.Header)
+	filler := strings.Repeat("*", 1024)
+	padHeaders(t, req.Trailer, peerSize, filler)
+	// cc.encodeHeaders adds some default headers to the request,
+	// so we need to leave room for those.
+	defaultBytes := headerListSizeForRequest(req)
+	padHeaders(t, req.Header, peerSize-defaultBytes, filler)
+	checkRoundTrip(req, nil, "Headers & Trailers under limit")
+
+	// Add enough header bytes to push us over peerSize.
+	req = newRequest()
+	req.Header = make(http.Header)
+	padHeaders(t, req.Header, peerSize, filler)
+	checkRoundTrip(req, errRequestHeaderListSize, "Headers over limit")
+
+	// Push trailers over the limit.
+	req = newRequest()
+	req.Trailer = make(http.Header)
+	padHeaders(t, req.Trailer, peerSize+1, filler)
+	checkRoundTrip(req, errRequestHeaderListSize, "Trailers over limit")
+
+	// Send headers with a single large value.
+	req = newRequest()
+	filler = strings.Repeat("*", int(peerSize))
+	req.Header = make(http.Header)
+	req.Header.Set("Big", filler)
+	checkRoundTrip(req, errRequestHeaderListSize, "Single large header")
+
+	// Send trailers with a single large value.
+	req = newRequest()
+	req.Trailer = make(http.Header)
+	req.Trailer.Set("Big", filler)
+	checkRoundTrip(req, errRequestHeaderListSize, "Single large trailer")
+}
+
 func TestTransportChecksResponseHeaderListSize(t *testing.T) {
 	ct := newClientTester(t)
 	ct.client = func() error {
@@ -1423,7 +1693,7 @@ func TestTransportChecksResponseHeaderListSize(t *testing.T) {
 	ct.run()
 }
 
-// Test that the the Transport returns a typed error from Response.Body.Read calls
+// Test that the Transport returns a typed error from Response.Body.Read calls
 // when the server sends an error. (here we use a panic, since that should generate
 // a stream error, but others like cancel should be similar)
 func TestTransportBodyReadErrorType(t *testing.T) {
@@ -2021,6 +2291,65 @@ func TestTransportReadHeadResponse(t *testing.T) {
 	ct.run()
 }
 
+func TestTransportReadHeadResponseWithBody(t *testing.T) {
+	// This test use not valid response format.
+	// Discarding logger output to not spam tests output.
+	log.SetOutput(ioutil.Discard)
+	defer log.SetOutput(os.Stderr)
+
+	response := "redirecting to /elsewhere"
+	ct := newClientTester(t)
+	clientDone := make(chan struct{})
+	ct.client = func() error {
+		defer close(clientDone)
+		req, _ := http.NewRequest("HEAD", "https://dummy.tld/", nil)
+		res, err := ct.tr.RoundTrip(req)
+		if err != nil {
+			return err
+		}
+		if res.ContentLength != int64(len(response)) {
+			return fmt.Errorf("Content-Length = %d; want %d", res.ContentLength, len(response))
+		}
+		slurp, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return fmt.Errorf("ReadAll: %v", err)
+		}
+		if len(slurp) > 0 {
+			return fmt.Errorf("Unexpected non-empty ReadAll body: %q", slurp)
+		}
+		return nil
+	}
+	ct.server = func() error {
+		ct.greet()
+		for {
+			f, err := ct.fr.ReadFrame()
+			if err != nil {
+				t.Logf("ReadFrame: %v", err)
+				return nil
+			}
+			hf, ok := f.(*HeadersFrame)
+			if !ok {
+				continue
+			}
+			var buf bytes.Buffer
+			enc := hpack.NewEncoder(&buf)
+			enc.WriteField(hpack.HeaderField{Name: ":status", Value: "200"})
+			enc.WriteField(hpack.HeaderField{Name: "content-length", Value: strconv.Itoa(len(response))})
+			ct.fr.WriteHeaders(HeadersFrameParam{
+				StreamID:      hf.StreamID,
+				EndHeaders:    true,
+				EndStream:     false,
+				BlockFragment: buf.Bytes(),
+			})
+			ct.fr.WriteData(hf.StreamID, true, []byte(response))
+
+			<-clientDone
+			return nil
+		}
+	}
+	ct.run()
+}
+
 type neverEnding byte
 
 func (b neverEnding) Read(p []byte) (int, error) {
@@ -2205,12 +2534,11 @@ func testTransportUsesGoAwayDebugError(t *testing.T, failMidBody bool) {
 	ct.run()
 }
 
-// See golang.org/issue/16481
-func TestTransportReturnsUnusedFlowControl(t *testing.T) {
+func testTransportReturnsUnusedFlowControl(t *testing.T, oneDataFrame bool) {
 	ct := newClientTester(t)
 
-	clientClosed := make(chan bool, 1)
-	serverWroteBody := make(chan bool, 1)
+	clientClosed := make(chan struct{})
+	serverWroteFirstByte := make(chan struct{})
 
 	ct.client = func() error {
 		req, _ := http.NewRequest("GET", "https://dummy.tld/", nil)
@@ -2218,13 +2546,13 @@ func TestTransportReturnsUnusedFlowControl(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		<-serverWroteBody
+		<-serverWroteFirstByte
 
 		if n, err := res.Body.Read(make([]byte, 1)); err != nil || n != 1 {
 			return fmt.Errorf("body read = %v, %v; want 1, nil", n, err)
 		}
 		res.Body.Close() // leaving 4999 bytes unread
-		clientClosed <- true
+		close(clientClosed)
 
 		return nil
 	}
@@ -2259,10 +2587,27 @@ func TestTransportReturnsUnusedFlowControl(t *testing.T) {
 			EndStream:     false,
 			BlockFragment: buf.Bytes(),
 		})
-		ct.fr.WriteData(hf.StreamID, false, make([]byte, 5000)) // without ending stream
-		serverWroteBody <- true
 
-		<-clientClosed
+		// Two cases:
+		// - Send one DATA frame with 5000 bytes.
+		// - Send two DATA frames with 1 and 4999 bytes each.
+		//
+		// In both cases, the client should consume one byte of data,
+		// refund that byte, then refund the following 4999 bytes.
+		//
+		// In the second case, the server waits for the client connection to
+		// close before seconding the second DATA frame. This tests the case
+		// where the client receives a DATA frame after it has reset the stream.
+		if oneDataFrame {
+			ct.fr.WriteData(hf.StreamID, false /* don't end stream */, make([]byte, 5000))
+			close(serverWroteFirstByte)
+			<-clientClosed
+		} else {
+			ct.fr.WriteData(hf.StreamID, false /* don't end stream */, make([]byte, 1))
+			close(serverWroteFirstByte)
+			<-clientClosed
+			ct.fr.WriteData(hf.StreamID, false /* don't end stream */, make([]byte, 4999))
+		}
 
 		waitingFor := "RSTStreamFrame"
 		for {
@@ -2276,7 +2621,7 @@ func TestTransportReturnsUnusedFlowControl(t *testing.T) {
 			switch waitingFor {
 			case "RSTStreamFrame":
 				if rf, ok := f.(*RSTStreamFrame); !ok || rf.ErrCode != ErrCodeCancel {
-					return fmt.Errorf("Expected a WindowUpdateFrame with code cancel; got %v", summarizeFrame(f))
+					return fmt.Errorf("Expected a RSTStreamFrame with code cancel; got %v", summarizeFrame(f))
 				}
 				waitingFor = "WindowUpdateFrame"
 			case "WindowUpdateFrame":
@@ -2288,6 +2633,16 @@ func TestTransportReturnsUnusedFlowControl(t *testing.T) {
 		}
 	}
 	ct.run()
+}
+
+// See golang.org/issue/16481
+func TestTransportReturnsUnusedFlowControlSingleWrite(t *testing.T) {
+	testTransportReturnsUnusedFlowControl(t, true)
+}
+
+// See golang.org/issue/20469
+func TestTransportReturnsUnusedFlowControlMultipleWrites(t *testing.T) {
+	testTransportReturnsUnusedFlowControl(t, false)
 }
 
 // Issue 16612: adjust flow control on open streams when transport
@@ -2529,7 +2884,7 @@ func TestTransportBodyDoubleEndStream(t *testing.T) {
 	}
 }
 
-// golangorg/issue/16847
+// golang.org/issue/16847, golang.org/issue/19103
 func TestTransportRequestPathPseudo(t *testing.T) {
 	type result struct {
 		path string
@@ -2549,9 +2904,9 @@ func TestTransportRequestPathPseudo(t *testing.T) {
 			},
 			want: result{path: "/foo"},
 		},
-		// I guess we just don't let users request "//foo" as
-		// a path, since it's illegal to start with two
-		// slashes....
+		// In Go 1.7, we accepted paths of "//foo".
+		// In Go 1.8, we rejected it (issue 16847).
+		// In Go 1.9, we accepted it again (issue 19103).
 		1: {
 			req: &http.Request{
 				Method: "GET",
@@ -2560,7 +2915,7 @@ func TestTransportRequestPathPseudo(t *testing.T) {
 					Path: "//foo",
 				},
 			},
-			want: result{err: `invalid request :path "//foo"`},
+			want: result{path: "//foo"},
 		},
 
 		// Opaque with //$Matching_Hostname/path
@@ -2631,7 +2986,7 @@ func TestTransportRequestPathPseudo(t *testing.T) {
 		},
 	}
 	for i, tt := range tests {
-		cc := &ClientConn{}
+		cc := &ClientConn{peerMaxHeaderListSize: 0xffffffffffffffff}
 		cc.henc = hpack.NewEncoder(&cc.hbuf)
 		cc.mu.Lock()
 		hdrs, err := cc.encodeHeaders(tt.req, false, "", -1)
@@ -2746,6 +3101,34 @@ func TestTransportCancelDataResponseRace(t *testing.T) {
 	if string(slurp) != msg {
 		t.Errorf("Got = %q; want %q", slurp, msg)
 	}
+}
+
+// Issue 21316: It should be safe to reuse an http.Request after the
+// request has completed.
+func TestTransportNoRaceOnRequestObjectAfterRequestComplete(t *testing.T) {
+	st := newServerTester(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		io.WriteString(w, "body")
+	}, optOnlyServer)
+	defer st.Close()
+
+	tr := &Transport{TLSClientConfig: tlsConfigInsecure}
+	defer tr.CloseIdleConnections()
+
+	req, _ := http.NewRequest("GET", st.ts.URL, nil)
+	resp, err := tr.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = io.Copy(ioutil.Discard, resp.Body); err != nil {
+		t.Fatalf("error reading response body: %v", err)
+	}
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("error closing response body: %v", err)
+	}
+
+	// This access of req.Header should not race with code in the transport.
+	req.Header = http.Header{}
 }
 
 func TestTransportRetryAfterGOAWAY(t *testing.T) {
@@ -2895,6 +3278,344 @@ func TestTransportRetryAfterGOAWAY(t *testing.T) {
 	}
 }
 
+func TestTransportRetryAfterRefusedStream(t *testing.T) {
+	clientDone := make(chan struct{})
+	ct := newClientTester(t)
+	ct.client = func() error {
+		defer ct.cc.(*net.TCPConn).CloseWrite()
+		defer close(clientDone)
+		req, _ := http.NewRequest("GET", "https://dummy.tld/", nil)
+		resp, err := ct.tr.RoundTrip(req)
+		if err != nil {
+			return fmt.Errorf("RoundTrip: %v", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != 204 {
+			return fmt.Errorf("Status = %v; want 204", resp.StatusCode)
+		}
+		return nil
+	}
+	ct.server = func() error {
+		ct.greet()
+		var buf bytes.Buffer
+		enc := hpack.NewEncoder(&buf)
+		nreq := 0
+
+		for {
+			f, err := ct.fr.ReadFrame()
+			if err != nil {
+				select {
+				case <-clientDone:
+					// If the client's done, it
+					// will have reported any
+					// errors on its side.
+					return nil
+				default:
+					return err
+				}
+			}
+			switch f := f.(type) {
+			case *WindowUpdateFrame, *SettingsFrame:
+			case *HeadersFrame:
+				if !f.HeadersEnded() {
+					return fmt.Errorf("headers should have END_HEADERS be ended: %v", f)
+				}
+				nreq++
+				if nreq == 1 {
+					ct.fr.WriteRSTStream(f.StreamID, ErrCodeRefusedStream)
+				} else {
+					enc.WriteField(hpack.HeaderField{Name: ":status", Value: "204"})
+					ct.fr.WriteHeaders(HeadersFrameParam{
+						StreamID:      f.StreamID,
+						EndHeaders:    true,
+						EndStream:     true,
+						BlockFragment: buf.Bytes(),
+					})
+				}
+			default:
+				return fmt.Errorf("Unexpected client frame %v", f)
+			}
+		}
+	}
+	ct.run()
+}
+
+func TestTransportRetryHasLimit(t *testing.T) {
+	// Skip in short mode because the total expected delay is 1s+2s+4s+8s+16s=29s.
+	if testing.Short() {
+		t.Skip("skipping long test in short mode")
+	}
+	clientDone := make(chan struct{})
+	ct := newClientTester(t)
+	ct.client = func() error {
+		defer ct.cc.(*net.TCPConn).CloseWrite()
+		defer close(clientDone)
+		req, _ := http.NewRequest("GET", "https://dummy.tld/", nil)
+		resp, err := ct.tr.RoundTrip(req)
+		if err == nil {
+			return fmt.Errorf("RoundTrip expected error, got response: %+v", resp)
+		}
+		t.Logf("expected error, got: %v", err)
+		return nil
+	}
+	ct.server = func() error {
+		ct.greet()
+		for {
+			f, err := ct.fr.ReadFrame()
+			if err != nil {
+				select {
+				case <-clientDone:
+					// If the client's done, it
+					// will have reported any
+					// errors on its side.
+					return nil
+				default:
+					return err
+				}
+			}
+			switch f := f.(type) {
+			case *WindowUpdateFrame, *SettingsFrame:
+			case *HeadersFrame:
+				if !f.HeadersEnded() {
+					return fmt.Errorf("headers should have END_HEADERS be ended: %v", f)
+				}
+				ct.fr.WriteRSTStream(f.StreamID, ErrCodeRefusedStream)
+			default:
+				return fmt.Errorf("Unexpected client frame %v", f)
+			}
+		}
+	}
+	ct.run()
+}
+
+func TestTransportResponseDataBeforeHeaders(t *testing.T) {
+	// This test use not valid response format.
+	// Discarding logger output to not spam tests output.
+	log.SetOutput(ioutil.Discard)
+	defer log.SetOutput(os.Stderr)
+
+	ct := newClientTester(t)
+	ct.client = func() error {
+		defer ct.cc.(*net.TCPConn).CloseWrite()
+		req := httptest.NewRequest("GET", "https://dummy.tld/", nil)
+		// First request is normal to ensure the check is per stream and not per connection.
+		_, err := ct.tr.RoundTrip(req)
+		if err != nil {
+			return fmt.Errorf("RoundTrip expected no error, got: %v", err)
+		}
+		// Second request returns a DATA frame with no HEADERS.
+		resp, err := ct.tr.RoundTrip(req)
+		if err == nil {
+			return fmt.Errorf("RoundTrip expected error, got response: %+v", resp)
+		}
+		if err, ok := err.(StreamError); !ok || err.Code != ErrCodeProtocol {
+			return fmt.Errorf("expected stream PROTOCOL_ERROR, got: %v", err)
+		}
+		return nil
+	}
+	ct.server = func() error {
+		ct.greet()
+		for {
+			f, err := ct.fr.ReadFrame()
+			if err == io.EOF {
+				return nil
+			} else if err != nil {
+				return err
+			}
+			switch f := f.(type) {
+			case *WindowUpdateFrame, *SettingsFrame:
+			case *HeadersFrame:
+				switch f.StreamID {
+				case 1:
+					// Send a valid response to first request.
+					var buf bytes.Buffer
+					enc := hpack.NewEncoder(&buf)
+					enc.WriteField(hpack.HeaderField{Name: ":status", Value: "200"})
+					ct.fr.WriteHeaders(HeadersFrameParam{
+						StreamID:      f.StreamID,
+						EndHeaders:    true,
+						EndStream:     true,
+						BlockFragment: buf.Bytes(),
+					})
+				case 3:
+					ct.fr.WriteData(f.StreamID, true, []byte("payload"))
+				}
+			default:
+				return fmt.Errorf("Unexpected client frame %v", f)
+			}
+		}
+	}
+	ct.run()
+}
+func TestTransportRequestsStallAtServerLimit(t *testing.T) {
+	const maxConcurrent = 2
+
+	greet := make(chan struct{})      // server sends initial SETTINGS frame
+	gotRequest := make(chan struct{}) // server received a request
+	clientDone := make(chan struct{})
+
+	// Collect errors from goroutines.
+	var wg sync.WaitGroup
+	errs := make(chan error, 100)
+	defer func() {
+		wg.Wait()
+		close(errs)
+		for err := range errs {
+			t.Error(err)
+		}
+	}()
+
+	// We will send maxConcurrent+2 requests. This checker goroutine waits for the
+	// following stages:
+	//   1. The first maxConcurrent requests are received by the server.
+	//   2. The client will cancel the next request
+	//   3. The server is unblocked so it can service the first maxConcurrent requests
+	//   4. The client will send the final request
+	wg.Add(1)
+	unblockClient := make(chan struct{})
+	clientRequestCancelled := make(chan struct{})
+	unblockServer := make(chan struct{})
+	go func() {
+		defer wg.Done()
+		// Stage 1.
+		for k := 0; k < maxConcurrent; k++ {
+			<-gotRequest
+		}
+		// Stage 2.
+		close(unblockClient)
+		<-clientRequestCancelled
+		// Stage 3: give some time for the final RoundTrip call to be scheduled and
+		// verify that the final request is not sent.
+		time.Sleep(50 * time.Millisecond)
+		select {
+		case <-gotRequest:
+			errs <- errors.New("last request did not stall")
+			close(unblockServer)
+			return
+		default:
+		}
+		close(unblockServer)
+		// Stage 4.
+		<-gotRequest
+	}()
+
+	ct := newClientTester(t)
+	ct.client = func() error {
+		var wg sync.WaitGroup
+		defer func() {
+			wg.Wait()
+			close(clientDone)
+			ct.cc.(*net.TCPConn).CloseWrite()
+		}()
+		for k := 0; k < maxConcurrent+2; k++ {
+			wg.Add(1)
+			go func(k int) {
+				defer wg.Done()
+				// Don't send the second request until after receiving SETTINGS from the server
+				// to avoid a race where we use the default SettingMaxConcurrentStreams, which
+				// is much larger than maxConcurrent. We have to send the first request before
+				// waiting because the first request triggers the dial and greet.
+				if k > 0 {
+					<-greet
+				}
+				// Block until maxConcurrent requests are sent before sending any more.
+				if k >= maxConcurrent {
+					<-unblockClient
+				}
+				req, _ := http.NewRequest("GET", fmt.Sprintf("https://dummy.tld/%d", k), nil)
+				if k == maxConcurrent {
+					// This request will be canceled.
+					cancel := make(chan struct{})
+					req.Cancel = cancel
+					close(cancel)
+					_, err := ct.tr.RoundTrip(req)
+					close(clientRequestCancelled)
+					if err == nil {
+						errs <- fmt.Errorf("RoundTrip(%d) should have failed due to cancel", k)
+						return
+					}
+				} else {
+					resp, err := ct.tr.RoundTrip(req)
+					if err != nil {
+						errs <- fmt.Errorf("RoundTrip(%d): %v", k, err)
+						return
+					}
+					ioutil.ReadAll(resp.Body)
+					resp.Body.Close()
+					if resp.StatusCode != 204 {
+						errs <- fmt.Errorf("Status = %v; want 204", resp.StatusCode)
+						return
+					}
+				}
+			}(k)
+		}
+		return nil
+	}
+
+	ct.server = func() error {
+		var wg sync.WaitGroup
+		defer wg.Wait()
+
+		ct.greet(Setting{SettingMaxConcurrentStreams, maxConcurrent})
+
+		// Server write loop.
+		var buf bytes.Buffer
+		enc := hpack.NewEncoder(&buf)
+		writeResp := make(chan uint32, maxConcurrent+1)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-unblockServer
+			for id := range writeResp {
+				buf.Reset()
+				enc.WriteField(hpack.HeaderField{Name: ":status", Value: "204"})
+				ct.fr.WriteHeaders(HeadersFrameParam{
+					StreamID:      id,
+					EndHeaders:    true,
+					EndStream:     true,
+					BlockFragment: buf.Bytes(),
+				})
+			}
+		}()
+
+		// Server read loop.
+		var nreq int
+		for {
+			f, err := ct.fr.ReadFrame()
+			if err != nil {
+				select {
+				case <-clientDone:
+					// If the client's done, it will have reported any errors on its side.
+					return nil
+				default:
+					return err
+				}
+			}
+			switch f := f.(type) {
+			case *WindowUpdateFrame:
+			case *SettingsFrame:
+				// Wait for the client SETTINGS ack until ending the greet.
+				close(greet)
+			case *HeadersFrame:
+				if !f.HeadersEnded() {
+					return fmt.Errorf("headers should have END_HEADERS be ended: %v", f)
+				}
+				gotRequest <- struct{}{}
+				nreq++
+				writeResp <- f.StreamID
+				if nreq == maxConcurrent+1 {
+					close(writeResp)
+				}
+			default:
+				return fmt.Errorf("Unexpected client frame %v", f)
+			}
+		}
+	}
+
+	ct.run()
+}
+
 func TestAuthorityAddr(t *testing.T) {
 	tests := []struct {
 		scheme, authority string
@@ -2968,4 +3689,159 @@ func TestTransportAllocationsAfterResponseBodyClose(t *testing.T) {
 	} else if gotErr != errStreamClosed {
 		t.Errorf("Handler Write err = %v; want errStreamClosed", gotErr)
 	}
+}
+
+// Issue 18891: make sure Request.Body == NoBody means no DATA frame
+// is ever sent, even if empty.
+func TestTransportNoBodyMeansNoDATA(t *testing.T) {
+	ct := newClientTester(t)
+
+	unblockClient := make(chan bool)
+
+	ct.client = func() error {
+		req, _ := http.NewRequest("GET", "https://dummy.tld/", go18httpNoBody())
+		ct.tr.RoundTrip(req)
+		<-unblockClient
+		return nil
+	}
+	ct.server = func() error {
+		defer close(unblockClient)
+		defer ct.cc.(*net.TCPConn).Close()
+		ct.greet()
+
+		for {
+			f, err := ct.fr.ReadFrame()
+			if err != nil {
+				return fmt.Errorf("ReadFrame while waiting for Headers: %v", err)
+			}
+			switch f := f.(type) {
+			default:
+				return fmt.Errorf("Got %T; want HeadersFrame", f)
+			case *WindowUpdateFrame, *SettingsFrame:
+				continue
+			case *HeadersFrame:
+				if !f.StreamEnded() {
+					return fmt.Errorf("got headers frame without END_STREAM")
+				}
+				return nil
+			}
+		}
+	}
+	ct.run()
+}
+
+func benchSimpleRoundTrip(b *testing.B, nHeaders int) {
+	defer disableGoroutineTracking()()
+	b.ReportAllocs()
+	st := newServerTester(b,
+		func(w http.ResponseWriter, r *http.Request) {
+		},
+		optOnlyServer,
+		optQuiet,
+	)
+	defer st.Close()
+
+	tr := &Transport{TLSClientConfig: tlsConfigInsecure}
+	defer tr.CloseIdleConnections()
+
+	req, err := http.NewRequest("GET", st.ts.URL, nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for i := 0; i < nHeaders; i++ {
+		name := fmt.Sprint("A-", i)
+		req.Header.Set(name, "*")
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		res, err := tr.RoundTrip(req)
+		if err != nil {
+			if res != nil {
+				res.Body.Close()
+			}
+			b.Fatalf("RoundTrip err = %v; want nil", err)
+		}
+		res.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			b.Fatalf("Response code = %v; want %v", res.StatusCode, http.StatusOK)
+		}
+	}
+}
+
+type infiniteReader struct{}
+
+func (r infiniteReader) Read(b []byte) (int, error) {
+	return len(b), nil
+}
+
+// Issue 20521: it is not an error to receive a response and end stream
+// from the server without the body being consumed.
+func TestTransportResponseAndResetWithoutConsumingBodyRace(t *testing.T) {
+	st := newServerTester(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}, optOnlyServer)
+	defer st.Close()
+
+	tr := &Transport{TLSClientConfig: tlsConfigInsecure}
+	defer tr.CloseIdleConnections()
+
+	// The request body needs to be big enough to trigger flow control.
+	req, _ := http.NewRequest("PUT", st.ts.URL, infiniteReader{})
+	res, err := tr.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("Response code = %v; want %v", res.StatusCode, http.StatusOK)
+	}
+}
+
+// Verify transport doesn't crash when receiving bogus response lacking a :status header.
+// Issue 22880.
+func TestTransportHandlesInvalidStatuslessResponse(t *testing.T) {
+	ct := newClientTester(t)
+	ct.client = func() error {
+		req, _ := http.NewRequest("GET", "https://dummy.tld/", nil)
+		_, err := ct.tr.RoundTrip(req)
+		const substr = "malformed response from server: missing status pseudo header"
+		if !strings.Contains(fmt.Sprint(err), substr) {
+			return fmt.Errorf("RoundTrip error = %v; want substring %q", err, substr)
+		}
+		return nil
+	}
+	ct.server = func() error {
+		ct.greet()
+		var buf bytes.Buffer
+		enc := hpack.NewEncoder(&buf)
+
+		for {
+			f, err := ct.fr.ReadFrame()
+			if err != nil {
+				return err
+			}
+			switch f := f.(type) {
+			case *HeadersFrame:
+				enc.WriteField(hpack.HeaderField{Name: "content-type", Value: "text/html"}) // no :status header
+				ct.fr.WriteHeaders(HeadersFrameParam{
+					StreamID:      f.StreamID,
+					EndHeaders:    true,
+					EndStream:     false, // we'll send some DATA to try to crash the transport
+					BlockFragment: buf.Bytes(),
+				})
+				ct.fr.WriteData(f.StreamID, true, []byte("payload"))
+				return nil
+			}
+		}
+	}
+	ct.run()
+}
+
+func BenchmarkClientRequestHeaders(b *testing.B) {
+	b.Run("   0 Headers", func(b *testing.B) { benchSimpleRoundTrip(b, 0) })
+	b.Run("  10 Headers", func(b *testing.B) { benchSimpleRoundTrip(b, 10) })
+	b.Run(" 100 Headers", func(b *testing.B) { benchSimpleRoundTrip(b, 100) })
+	b.Run("1000 Headers", func(b *testing.B) { benchSimpleRoundTrip(b, 1000) })
 }

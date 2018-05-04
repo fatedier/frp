@@ -49,7 +49,7 @@ func (c *payloadHandler) writeTo(b []byte, cm *ControlMessage, dst net.Addr) (n 
 	case *net.IPConn:
 		n, _, err = c.WriteMsgIP(b, oob, dst.(*net.IPAddr))
 	default:
-		return 0, &net.OpError{Op: "write", Net: c.LocalAddr().Network(), Source: c.LocalAddr(), Err: errInvalidConnType}
+		return 0, &net.OpError{Op: "write", Net: c.LocalAddr().Network(), Source: c.LocalAddr(), Addr: opAddr(dst), Err: errInvalidConnType}
 	}
 	return
 }

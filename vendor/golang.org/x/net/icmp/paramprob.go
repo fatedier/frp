@@ -21,7 +21,7 @@ func (p *ParamProb) Len(proto int) int {
 	if p == nil {
 		return 0
 	}
-	l, _ := multipartMessageBodyDataLen(proto, p.Data, p.Extensions)
+	l, _ := multipartMessageBodyDataLen(proto, true, p.Data, p.Extensions)
 	return 4 + l
 }
 
@@ -33,7 +33,7 @@ func (p *ParamProb) Marshal(proto int) ([]byte, error) {
 		copy(b[4:], p.Data)
 		return b, nil
 	}
-	b, err := marshalMultipartMessageBody(proto, p.Data, p.Extensions)
+	b, err := marshalMultipartMessageBody(proto, true, p.Data, p.Extensions)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (p *ParamProb) Marshal(proto int) ([]byte, error) {
 }
 
 // parseParamProb parses b as an ICMP parameter problem message body.
-func parseParamProb(proto int, b []byte) (MessageBody, error) {
+func parseParamProb(proto int, typ Type, b []byte) (MessageBody, error) {
 	if len(b) < 4 {
 		return nil, errMessageTooShort
 	}
@@ -55,7 +55,7 @@ func parseParamProb(proto int, b []byte) (MessageBody, error) {
 	}
 	p.Pointer = uintptr(b[0])
 	var err error
-	p.Data, p.Extensions, err = parseMultipartMessageBody(proto, b)
+	p.Data, p.Extensions, err = parseMultipartMessageBody(proto, typ, b)
 	if err != nil {
 		return nil, err
 	}

@@ -51,6 +51,10 @@ func ExampleNew() {
 		idna.Transitional(true)) // Map ß -> ss
 	fmt.Println(p.ToASCII("*.faß.com"))
 
+	// Lookup for registration. Also does not allow '*'.
+	p = idna.New(idna.ValidateForRegistration())
+	fmt.Println(p.ToUnicode("*.faß.com"))
+
 	// Set up a profile maps for lookup, but allows wild cards.
 	p = idna.New(
 		idna.MapForLookup(),
@@ -60,6 +64,7 @@ func ExampleNew() {
 
 	// Output:
 	// *.xn--fa-hia.com <nil>
-	// *.fass.com idna: disallowed rune U+002E
+	// *.fass.com idna: disallowed rune U+002A
+	// *.faß.com idna: disallowed rune U+002A
 	// *.fass.com <nil>
 }
