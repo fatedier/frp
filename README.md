@@ -23,7 +23,6 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Expose a simple http file server](#expose-a-simple-http-file-server)
     * [Expose your service in security](#expose-your-service-in-security)
     * [P2P Mode](#p2p-mode)
-    * [Connect website through frpc's network](#connect-website-through-frpcs-network)
 * [Features](#features)
     * [Configuration File](#configuration-file)
     * [Dashboard](#dashboard)
@@ -332,26 +331,6 @@ Now it can't penetrate all types of NAT devices. You can try **stcp** if **xtcp*
 4. Connect to server in LAN by ssh assuming that username is test:
 
   `ssh -oPort=6000 test@127.0.0.1`
-
-### Connect website through frpc's network
-
-Configure frps same as above.
-
-1. Start frpc with configurations:
-
-  ```ini
-  # frpc.ini
-  [common]
-  server_addr = x.x.x.x
-  server_port = 7000
-
-  [http_proxy]
-  type = tcp
-  remote_port = 6000
-  plugin = http_proxy # or socks5
-  ```
-
-2. Set http proxy or socks5 proxy `x.x.x.x:6000` in your browser and visit website through frpc's network.
 
 ## Features
 

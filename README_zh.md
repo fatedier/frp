@@ -21,7 +21,6 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
     * [对外提供简单的文件访问服务](#对外提供简单的文件访问服务)
     * [安全地暴露内网服务](#安全地暴露内网服务)
     * [点对点内网穿透](#点对点内网穿透)
-    * [通过 frpc 所在机器访问外网](#通过-frpc-所在机器访问外网)
 * [功能说明](#功能说明)
     * [配置文件](#配置文件)
     * [Dashboard](#dashboard)
@@ -347,28 +346,6 @@ frp 提供了一种新的代理类型 **xtcp** 用于应对在希望传输大量
 4. 通过 ssh 访问内网机器，假设用户名为 test:
 
   `ssh -oPort=6000 test@127.0.0.1`
-
-### 通过 frpc 所在机器访问外网
-
-frpc 内置了 http proxy 和 socks5 插件，可以使其他机器通过 frpc 的网络访问互联网。
-
-frps 的部署步骤同上。
-
-1. 启动 frpc，启用 http_proxy 或 socks5 插件(plugin 换为 socks5 即可)， 配置如下：
-
-  ```ini
-  # frpc.ini
-  [common]
-  server_addr = x.x.x.x
-  server_port = 7000
-  
-  [http_proxy]
-  type = tcp
-  remote_port = 6000
-  plugin = http_proxy
-  ```
-
-2. 浏览器设置 http 或 socks5 代理地址为 `x.x.x.x:6000`，通过 frpc 机器的网络访问互联网。
 
 ## 功能说明
 
