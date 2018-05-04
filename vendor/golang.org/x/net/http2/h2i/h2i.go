@@ -45,6 +45,7 @@ var (
 	flagNextProto = flag.String("nextproto", "h2,h2-14", "Comma-separated list of NPN/ALPN protocol names to negotiate.")
 	flagInsecure  = flag.Bool("insecure", false, "Whether to skip TLS cert validation")
 	flagSettings  = flag.String("settings", "empty", "comma-separated list of KEY=value settings for the initial SETTINGS frame. The magic value 'empty' sends an empty initial settings frame, and the magic value 'omit' causes no initial settings frame to be sent.")
+	flagDial      = flag.String("dial", "", "optional ip:port to dial, to connect to a host:port but use a different SNI name (including a SNI name without DNS)")
 )
 
 type command struct {
@@ -147,11 +148,14 @@ func (app *h2i) Main() error {
 		InsecureSkipVerify: *flagInsecure,
 	}
 
-	hostAndPort := withPort(app.host)
+	hostAndPort := *flagDial
+	if hostAndPort == "" {
+		hostAndPort = withPort(app.host)
+	}
 	log.Printf("Connecting to %s ...", hostAndPort)
 	tc, err := tls.Dial("tcp", hostAndPort, cfg)
 	if err != nil {
-		return fmt.Errorf("Error dialing %s: %v", withPort(app.host), err)
+		return fmt.Errorf("Error dialing %s: %v", hostAndPort, err)
 	}
 	log.Printf("Connected to %v", tc.RemoteAddr())
 	defer tc.Close()
@@ -452,6 +456,15 @@ func (app *h2i) readFrames() error {
 			if f.HasPriority() {
 				app.logf("  PRIORITY = %v", f.Priority)
 			}
+			if app.hdec == nil {
+				// TODO: if the user uses h2i to send a SETTINGS frame advertising
+				// something larger, we'll need to respect SETTINGS_HEADER_TABLE_SIZE
+				// and stuff here instead of using the 4k default. But for now:
+				tableSize := uint32(4 << 10)
+				app.hdec = hpack.NewDecoder(tableSize, app.onNewHeaderField)
+			}
+			app.hdec.Write(f.HeaderBlockFragment())
+		case *http2.PushPromiseFrame:
 			if app.hdec == nil {
 				// TODO: if the user uses h2i to send a SETTINGS frame advertising
 				// something larger, we'll need to respect SETTINGS_HEADER_TABLE_SIZE

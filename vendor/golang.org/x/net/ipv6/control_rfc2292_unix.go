@@ -17,7 +17,7 @@ func marshal2292HopLimit(b []byte, cm *ControlMessage) []byte {
 	m := socket.ControlMessage(b)
 	m.MarshalHeader(iana.ProtocolIPv6, sysIPV6_2292HOPLIMIT, 4)
 	if cm != nil {
-		nativeEndian.PutUint32(m.Data(4), uint32(cm.HopLimit))
+		socket.NativeEndian.PutUint32(m.Data(4), uint32(cm.HopLimit))
 	}
 	return m.Next(4)
 }

@@ -8,7 +8,7 @@
 // The package provides IP-level socket options that allow
 // manipulation of IPv6 facilities.
 //
-// The IPv6 protocol is defined in RFC 2460.
+// The IPv6 protocol is defined in RFC 8200.
 // Socket interface extensions are defined in RFC 3493, RFC 3542 and
 // RFC 3678.
 // MLDv1 and MLDv2 are defined in RFC 2710 and RFC 3810.

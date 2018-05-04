@@ -119,81 +119,84 @@ func TestUDP(t *testing.T) {
 		t.Skipf("not supported on %s/%s: %v", runtime.GOOS, runtime.GOARCH, err)
 	}
 	defer c.Close()
+	cc, err := socket.NewConn(c.(net.Conn))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run("Message", func(t *testing.T) {
-		testUDPMessage(t, c.(net.Conn))
+		data := []byte("HELLO-R-U-THERE")
+		wm := socket.Message{
+			Buffers: bytes.SplitAfter(data, []byte("-")),
+			Addr:    c.LocalAddr(),
+		}
+		if err := cc.SendMsg(&wm, 0); err != nil {
+			t.Fatal(err)
+		}
+		b := make([]byte, 32)
+		rm := socket.Message{
+			Buffers: [][]byte{b[:1], b[1:3], b[3:7], b[7:11], b[11:]},
+		}
+		if err := cc.RecvMsg(&rm, 0); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(b[:rm.N], data) {
+			t.Fatalf("got %#v; want %#v", b[:rm.N], data)
+		}
 	})
 	switch runtime.GOOS {
-	case "linux":
+	case "android", "linux":
 		t.Run("Messages", func(t *testing.T) {
-			testUDPMessages(t, c.(net.Conn))
+			data := []byte("HELLO-R-U-THERE")
+			wmbs := bytes.SplitAfter(data, []byte("-"))
+			wms := []socket.Message{
+				{Buffers: wmbs[:1], Addr: c.LocalAddr()},
+				{Buffers: wmbs[1:], Addr: c.LocalAddr()},
+			}
+			n, err := cc.SendMsgs(wms, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n != len(wms) {
+				t.Fatalf("got %d; want %d", n, len(wms))
+			}
+			b := make([]byte, 32)
+			rmbs := [][][]byte{{b[:len(wmbs[0])]}, {b[len(wmbs[0]):]}}
+			rms := []socket.Message{
+				{Buffers: rmbs[0]},
+				{Buffers: rmbs[1]},
+			}
+			n, err = cc.RecvMsgs(rms, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n != len(rms) {
+				t.Fatalf("got %d; want %d", n, len(rms))
+			}
+			nn := 0
+			for i := 0; i < n; i++ {
+				nn += rms[i].N
+			}
+			if !bytes.Equal(b[:nn], data) {
+				t.Fatalf("got %#v; want %#v", b[:nn], data)
+			}
 		})
 	}
-}
 
-func testUDPMessage(t *testing.T, c net.Conn) {
-	cc, err := socket.NewConn(c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	data := []byte("HELLO-R-U-THERE")
+	// The behavior of transmission for zero byte paylaod depends
+	// on each platform implementation. Some may transmit only
+	// protocol header and options, other may transmit nothing.
+	// We test only that SendMsg and SendMsgs will not crash with
+	// empty buffers.
 	wm := socket.Message{
-		Buffers: bytes.SplitAfter(data, []byte("-")),
+		Buffers: [][]byte{{}},
 		Addr:    c.LocalAddr(),
 	}
-	if err := cc.SendMsg(&wm, 0); err != nil {
-		t.Fatal(err)
-	}
-	b := make([]byte, 32)
-	rm := socket.Message{
-		Buffers: [][]byte{b[:1], b[1:3], b[3:7], b[7:11], b[11:]},
-	}
-	if err := cc.RecvMsg(&rm, 0); err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(b[:rm.N], data) {
-		t.Fatalf("got %#v; want %#v", b[:rm.N], data)
-	}
-}
-
-func testUDPMessages(t *testing.T, c net.Conn) {
-	cc, err := socket.NewConn(c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	data := []byte("HELLO-R-U-THERE")
-	wmbs := bytes.SplitAfter(data, []byte("-"))
+	cc.SendMsg(&wm, 0)
 	wms := []socket.Message{
-		{Buffers: wmbs[:1], Addr: c.LocalAddr()},
-		{Buffers: wmbs[1:], Addr: c.LocalAddr()},
+		{Buffers: [][]byte{{}}, Addr: c.LocalAddr()},
 	}
-	n, err := cc.SendMsgs(wms, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if n != len(wms) {
-		t.Fatalf("got %d; want %d", n, len(wms))
-	}
-	b := make([]byte, 32)
-	rmbs := [][][]byte{{b[:len(wmbs[0])]}, {b[len(wmbs[0]):]}}
-	rms := []socket.Message{
-		{Buffers: rmbs[0]},
-		{Buffers: rmbs[1]},
-	}
-	n, err = cc.RecvMsgs(rms, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if n != len(rms) {
-		t.Fatalf("got %d; want %d", n, len(rms))
-	}
-	nn := 0
-	for i := 0; i < n; i++ {
-		nn += rms[i].N
-	}
-	if !bytes.Equal(b[:nn], data) {
-		t.Fatalf("got %#v; want %#v", b[:nn], data)
-	}
+	cc.SendMsgs(wms, 0)
 }
 
 func BenchmarkUDP(b *testing.B) {
@@ -230,7 +233,7 @@ func BenchmarkUDP(b *testing.B) {
 			}
 		})
 		switch runtime.GOOS {
-		case "linux":
+		case "android", "linux":
 			wms := make([]socket.Message, M)
 			for i := range wms {
 				wms[i].Buffers = [][]byte{data}

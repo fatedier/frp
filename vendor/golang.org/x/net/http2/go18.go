@@ -52,3 +52,5 @@ func reqGetBody(req *http.Request) func() (io.ReadCloser, error) {
 func reqBodyIsNoBody(body io.ReadCloser) bool {
 	return body == http.NoBody
 }
+
+func go18httpNoBody() io.ReadCloser { return http.NoBody } // for tests only

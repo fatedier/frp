@@ -125,6 +125,7 @@ func (a sortedAttributes) Swap(i, j int) {
 
 func dumpLevel(w io.Writer, n *Node, level int) error {
 	dumpIndent(w, level)
+	level++
 	switch n.Type {
 	case ErrorNode:
 		return errors.New("unexpected ErrorNode")
@@ -140,12 +141,18 @@ func dumpLevel(w io.Writer, n *Node, level int) error {
 		sort.Sort(attr)
 		for _, a := range attr {
 			io.WriteString(w, "\n")
-			dumpIndent(w, level+1)
+			dumpIndent(w, level)
 			if a.Namespace != "" {
 				fmt.Fprintf(w, `%s %s="%s"`, a.Namespace, a.Key, a.Val)
 			} else {
 				fmt.Fprintf(w, `%s="%s"`, a.Key, a.Val)
 			}
+		}
+		if n.Namespace == "" && n.DataAtom == atom.Template {
+			io.WriteString(w, "\n")
+			dumpIndent(w, level)
+			level++
+			io.WriteString(w, "content")
 		}
 	case TextNode:
 		fmt.Fprintf(w, `"%s"`, n.Data)
@@ -176,7 +183,7 @@ func dumpLevel(w io.Writer, n *Node, level int) error {
 	}
 	io.WriteString(w, "\n")
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		if err := dumpLevel(w, c, level+1); err != nil {
+		if err := dumpLevel(w, c, level); err != nil {
 			return err
 		}
 	}
@@ -371,6 +378,11 @@ func TestNodeConsistency(t *testing.T) {
 	if err == nil {
 		t.Errorf("got nil error, want non-nil")
 	}
+}
+
+func TestParseFragmentWithNilContext(t *testing.T) {
+	// This shouldn't panic.
+	ParseFragment(strings.NewReader("<p>hello</p>"), nil)
 }
 
 func BenchmarkParser(b *testing.B) {

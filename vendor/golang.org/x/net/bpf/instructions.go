@@ -198,7 +198,7 @@ func (a LoadConstant) Assemble() (RawInstruction, error) {
 	return assembleLoad(a.Dst, 4, opAddrModeImmediate, a.Val)
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a LoadConstant) String() string {
 	switch a.Dst {
 	case RegA:
@@ -224,7 +224,7 @@ func (a LoadScratch) Assemble() (RawInstruction, error) {
 	return assembleLoad(a.Dst, 4, opAddrModeScratch, uint32(a.N))
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a LoadScratch) String() string {
 	switch a.Dst {
 	case RegA:
@@ -248,7 +248,7 @@ func (a LoadAbsolute) Assemble() (RawInstruction, error) {
 	return assembleLoad(RegA, a.Size, opAddrModeAbsolute, a.Off)
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a LoadAbsolute) String() string {
 	switch a.Size {
 	case 1: // byte
@@ -277,7 +277,7 @@ func (a LoadIndirect) Assemble() (RawInstruction, error) {
 	return assembleLoad(RegA, a.Size, opAddrModeIndirect, a.Off)
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a LoadIndirect) String() string {
 	switch a.Size {
 	case 1: // byte
@@ -306,7 +306,7 @@ func (a LoadMemShift) Assemble() (RawInstruction, error) {
 	return assembleLoad(RegX, 1, opAddrModeMemShift, a.Off)
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a LoadMemShift) String() string {
 	return fmt.Sprintf("ldx 4*([%d]&0xf)", a.Off)
 }
@@ -325,7 +325,7 @@ func (a LoadExtension) Assemble() (RawInstruction, error) {
 	return assembleLoad(RegA, 4, opAddrModeAbsolute, uint32(extOffset+a.Num))
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a LoadExtension) String() string {
 	switch a.Num {
 	case ExtLen:
@@ -392,7 +392,7 @@ func (a StoreScratch) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a StoreScratch) String() string {
 	switch a.Src {
 	case RegA:
@@ -418,7 +418,7 @@ func (a ALUOpConstant) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a ALUOpConstant) String() string {
 	switch a.Op {
 	case ALUOpAdd:
@@ -458,7 +458,7 @@ func (a ALUOpX) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a ALUOpX) String() string {
 	switch a.Op {
 	case ALUOpAdd:
@@ -496,7 +496,7 @@ func (a NegateA) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a NegateA) String() string {
 	return fmt.Sprintf("neg")
 }
@@ -514,7 +514,7 @@ func (a Jump) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a Jump) String() string {
 	return fmt.Sprintf("ja %d", a.Skip)
 }
@@ -566,7 +566,7 @@ func (a JumpIf) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a JumpIf) String() string {
 	switch a.Cond {
 	// K == A
@@ -621,7 +621,7 @@ func (a RetA) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a RetA) String() string {
 	return fmt.Sprintf("ret a")
 }
@@ -639,7 +639,7 @@ func (a RetConstant) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a RetConstant) String() string {
 	return fmt.Sprintf("ret #%d", a.Val)
 }
@@ -654,7 +654,7 @@ func (a TXA) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a TXA) String() string {
 	return fmt.Sprintf("txa")
 }
@@ -669,7 +669,7 @@ func (a TAX) Assemble() (RawInstruction, error) {
 	}, nil
 }
 
-// String returns the the instruction in assembler notation.
+// String returns the instruction in assembler notation.
 func (a TAX) String() string {
 	return fmt.Sprintf("tax")
 }

@@ -279,7 +279,7 @@ func TestPluginHttpProxy(t *testing.T) {
 		}
 
 		// connect method
-		conn, err := net.ConnectTcpServerByHttpProxy("http://"+addr, fmt.Sprintf("127.0.0.1:%d", TEST_TCP_FRP_PORT))
+		conn, err := net.ConnectTcpServerByProxy("http://"+addr, fmt.Sprintf("127.0.0.1:%d", TEST_TCP_FRP_PORT))
 		if assert.NoError(err) {
 			res, err := sendTcpMsgByConn(conn, TEST_TCP_ECHO_STR)
 			assert.NoError(err)

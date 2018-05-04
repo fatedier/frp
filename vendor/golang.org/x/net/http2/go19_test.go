@@ -46,7 +46,6 @@ func TestServerGracefulShutdown(t *testing.T) {
 	wanth := [][2]string{
 		{":status", "200"},
 		{"x-foo", "bar"},
-		{"content-type", "text/plain; charset=utf-8"},
 		{"content-length", "0"},
 	}
 	if !reflect.DeepEqual(goth, wanth) {

@@ -5,7 +5,6 @@
 package ipv6_test
 
 import (
-	"fmt"
 	"net"
 	"runtime"
 	"testing"
@@ -70,13 +69,16 @@ func TestUDPMultiplePacketConnWithMultipleGroupListeners(t *testing.T) {
 	}
 
 	for _, gaddr := range udpMultipleGroupListenerTests {
-		c1, err := net.ListenPacket("udp6", "[ff02::]:1024") // wildcard address with reusable port
+		c1, err := net.ListenPacket("udp6", "[ff02::]:0") // wildcard address with reusable port
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer c1.Close()
-
-		c2, err := net.ListenPacket("udp6", "[ff02::]:1024") // wildcard address with reusable port
+		_, port, err := net.SplitHostPort(c1.LocalAddr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		c2, err := net.ListenPacket("udp6", net.JoinHostPort("ff02::", port)) // wildcard address with reusable port
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -132,16 +134,29 @@ func TestUDPPerInterfaceSinglePacketConnWithSingleGroupListener(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	port := "0"
 	for i, ifi := range ift {
 		ip, ok := nettest.IsMulticastCapable("ip6", &ifi)
 		if !ok {
 			continue
 		}
-		c, err := net.ListenPacket("udp6", fmt.Sprintf("[%s%%%s]:1024", ip.String(), ifi.Name)) // unicast address with non-reusable port
+		c, err := net.ListenPacket("udp6", net.JoinHostPort(ip.String()+"%"+ifi.Name, port)) // unicast address with non-reusable port
 		if err != nil {
-			t.Fatal(err)
+			// The listen may fail when the serivce is
+			// already in use, but it's fine because the
+			// purpose of this is not to test the
+			// bookkeeping of IP control block inside the
+			// kernel.
+			t.Log(err)
+			continue
 		}
 		defer c.Close()
+		if port == "0" {
+			_, port, err = net.SplitHostPort(c.LocalAddr().String())
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
 		p := ipv6.NewPacketConn(c)
 		if err := p.JoinGroup(&ifi, &gaddr); err != nil {
 			t.Fatal(err)
@@ -227,7 +242,7 @@ func TestIPPerInterfaceSinglePacketConnWithSingleGroupListener(t *testing.T) {
 		if !ok {
 			continue
 		}
-		c, err := net.ListenPacket("ip6:ipv6-icmp", fmt.Sprintf("%s%%%s", ip.String(), ifi.Name)) // unicast address
+		c, err := net.ListenPacket("ip6:ipv6-icmp", ip.String()+"%"+ifi.Name) // unicast address
 		if err != nil {
 			t.Fatal(err)
 		}

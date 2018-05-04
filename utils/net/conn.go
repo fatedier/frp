@@ -122,10 +122,10 @@ func ConnectServer(protocol string, addr string) (c Conn, err error) {
 	}
 }
 
-func ConnectServerByHttpProxy(httpProxy string, protocol string, addr string) (c Conn, err error) {
+func ConnectServerByProxy(proxyUrl string, protocol string, addr string) (c Conn, err error) {
 	switch protocol {
 	case "tcp":
-		return ConnectTcpServerByHttpProxy(httpProxy, addr)
+		return ConnectTcpServerByProxy(proxyUrl, addr)
 	case "kcp":
 		// http proxy is not supported for kcp
 		return ConnectServer(protocol, addr)

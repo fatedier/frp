@@ -3,3 +3,4 @@ h2demo.linux
 client-id.dat
 client-secret.dat
 token.dat
+ca-certificates.crt

@@ -9,7 +9,7 @@ import "testing"
 func TestIsBadCipherBad(t *testing.T) {
 	for _, c := range badCiphers {
 		if !isBadCipher(c) {
-			t.Errorf("Wrong result for isBadCipher(%d), want true")
+			t.Errorf("Wrong result for isBadCipher(%d), want true", c)
 		}
 	}
 }

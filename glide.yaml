@@ -58,7 +58,7 @@ import:
   - twofish
   - xtea
 - package: golang.org/x/net
-  version: e4fa1c5465ad6111f206fc92186b8c83d64adbe1
+  version: 640f4622ab692b87c2f3a94265e6f579fe38263d
   subpackages:
   - bpf
   - context
