@@ -16,6 +16,7 @@ package server
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
@@ -234,7 +235,9 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 			}
 
 			if g.GlbServerCfg.TcpMux {
-				session, err := fmux.Server(frpConn, nil)
+				fmuxCfg := fmux.DefaultConfig()
+				fmuxCfg.LogOutput = ioutil.Discard
+				session, err := fmux.Server(frpConn, fmuxCfg)
 				if err != nil {
 					log.Warn("Failed to create mux connection: %v", err)
 					frpConn.Close()

@@ -17,6 +17,7 @@ package client
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"runtime"
 	"sync"
 	"time"
@@ -198,7 +199,9 @@ func (ctl *Control) login() (err error) {
 	}()
 
 	if g.GlbClientCfg.TcpMux {
-		session, errRet := fmux.Client(conn, nil)
+		fmuxCfg := fmux.DefaultConfig()
+		fmuxCfg.LogOutput = ioutil.Discard
+		session, errRet := fmux.Client(conn, fmuxCfg)
 		if errRet != nil {
 			return errRet
 		}
