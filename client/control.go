@@ -185,7 +185,7 @@ func (ctl *Control) login() (err error) {
 		ctl.session.Close()
 	}
 
-	conn, err := frpNet.ConnectServerByHttpProxy(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
+	conn, err := frpNet.ConnectServerByProxy(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
 		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort))
 	if err != nil {
 		return err
@@ -253,7 +253,7 @@ func (ctl *Control) connectServer() (conn frpNet.Conn, err error) {
 		}
 		conn = frpNet.WrapConn(stream)
 	} else {
-		conn, err = frpNet.ConnectServerByHttpProxy(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
+		conn, err = frpNet.ConnectServerByProxy(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
 			fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort))
 		if err != nil {
 			ctl.Warn("start new connection to server error: %v", err)

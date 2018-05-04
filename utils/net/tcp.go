@@ -23,6 +23,8 @@ import (
 	"net/url"
 
 	"github.com/fatedier/frp/utils/log"
+
+	"golang.org/x/net/proxy"
 )
 
 type TcpListener struct {
@@ -93,7 +95,7 @@ type TcpConn struct {
 	log.Logger
 }
 
-func NewTcpConn(conn *net.TCPConn) (c *TcpConn) {
+func NewTcpConn(conn net.Conn) (c *TcpConn) {
 	c = &TcpConn{
 		Conn:   conn,
 		Logger: log.NewPrefixLogger(""),
@@ -114,28 +116,41 @@ func ConnectTcpServer(addr string) (c Conn, err error) {
 	return
 }
 
-// ConnectTcpServerByHttpProxy try to connect remote server by http proxy.
-// If httpProxy is empty, it will connect server directly.
-func ConnectTcpServerByHttpProxy(httpProxy string, serverAddr string) (c Conn, err error) {
-	if httpProxy == "" {
+// ConnectTcpServerByProxy try to connect remote server by proxy.
+func ConnectTcpServerByProxy(proxyStr string, serverAddr string) (c Conn, err error) {
+	if proxyStr == "" {
 		return ConnectTcpServer(serverAddr)
 	}
 
-	var proxyUrl *url.URL
-	if proxyUrl, err = url.Parse(httpProxy); err != nil {
+	var (
+		proxyUrl *url.URL
+		username string
+		passwd   string
+	)
+	if proxyUrl, err = url.Parse(proxyStr); err != nil {
 		return
 	}
+	if proxyUrl.User != nil {
+		username = proxyUrl.User.Username()
+		passwd, _ = proxyUrl.User.Password()
+	}
 
+	switch proxyUrl.Scheme {
+	case "http":
+		return ConnectTcpServerByHttpProxy(proxyUrl, username, passwd, serverAddr)
+	case "socks5":
+		return ConnectTcpServerBySocks5Proxy(proxyUrl, username, passwd, serverAddr)
+	default:
+		err = fmt.Errorf("Proxy URL scheme must be http or socks5, not [%s]", proxyUrl.Scheme)
+		return
+	}
+}
+
+// ConnectTcpServerByHttpProxy try to connect remote server by http proxy.
+func ConnectTcpServerByHttpProxy(proxyUrl *url.URL, user string, passwd string, serverAddr string) (c Conn, err error) {
 	var proxyAuth string
 	if proxyUrl.User != nil {
-		username := proxyUrl.User.Username()
-		passwd, _ := proxyUrl.User.Password()
-		proxyAuth = "Basic " + base64.StdEncoding.EncodeToString([]byte(username+":"+passwd))
-	}
-
-	if proxyUrl.Scheme != "http" {
-		err = fmt.Errorf("Proxy URL scheme must be http, not [%s]", proxyUrl.Scheme)
-		return
+		proxyAuth = "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+passwd))
 	}
 
 	if c, err = ConnectTcpServer(proxyUrl.Host); err != nil {
@@ -161,6 +176,27 @@ func ConnectTcpServerByHttpProxy(httpProxy string, serverAddr string) (c Conn, e
 		err = fmt.Errorf("ConnectTcpServer using proxy error, StatusCode [%d]", resp.StatusCode)
 		return
 	}
+	return
+}
 
+func ConnectTcpServerBySocks5Proxy(proxyUrl *url.URL, user string, passwd string, serverAddr string) (c Conn, err error) {
+	var auth *proxy.Auth
+	if proxyUrl.User != nil {
+		auth = &proxy.Auth{
+			User:     user,
+			Password: passwd,
+		}
+	}
+
+	dialer, err := proxy.SOCKS5("tcp", proxyUrl.Host, auth, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var conn net.Conn
+	if conn, err = dialer.Dial("tcp", serverAddr); err != nil {
+		return
+	}
+	c = NewTcpConn(conn)
 	return
 }
