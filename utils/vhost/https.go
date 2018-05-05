@@ -55,14 +55,17 @@ func readHandshake(rd io.Reader) (host string, err error) {
 	data := pool.GetBuf(1024)
 	origin := data
 	defer pool.PutBuf(origin)
-	length, err := rd.Read(data)
+
+	_, err = io.ReadFull(rd, data[:47])
+	if err != nil {
+		return
+	}
+
+	length, err := rd.Read(data[47:])
 	if err != nil {
 		return
 	} else {
-		if length < 47 {
-			err = fmt.Errorf("readHandshake: proto length[%d] is too short", length)
-			return
-		}
+		length += 47
 	}
 	data = data[:length]
 	if uint8(data[5]) != typeClientHello {

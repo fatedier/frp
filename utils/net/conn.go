@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -136,7 +135,6 @@ func ConnectServerByProxy(proxyUrl string, protocol string, addr string) (c Conn
 
 type SharedConn struct {
 	Conn
-	sync.Mutex
 	buf *bytes.Buffer
 }
 
@@ -149,22 +147,24 @@ func NewShareConn(conn Conn) (*SharedConn, io.Reader) {
 	return sc, io.TeeReader(conn, sc.buf)
 }
 
+func NewShareConnSize(conn Conn, bufSize int) (*SharedConn, io.Reader) {
+	sc := &SharedConn{
+		Conn: conn,
+		buf:  bytes.NewBuffer(make([]byte, 0, bufSize)),
+	}
+	return sc, io.TeeReader(conn, sc.buf)
+}
+
+// Not thread safety.
 func (sc *SharedConn) Read(p []byte) (n int, err error) {
-	sc.Lock()
 	if sc.buf == nil {
-		sc.Unlock()
 		return sc.Conn.Read(p)
 	}
-	sc.Unlock()
 	n, err = sc.buf.Read(p)
-
 	if err == io.EOF {
-		sc.Lock()
 		sc.buf = nil
-		sc.Unlock()
 		var n2 int
 		n2, err = sc.Conn.Read(p[n:])
-
 		n += n2
 	}
 	return
