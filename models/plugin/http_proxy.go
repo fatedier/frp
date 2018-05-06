@@ -66,14 +66,21 @@ func (hp *HttpProxy) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn) {
 	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
 
 	sc, rd := frpNet.NewShareConn(wrapConn)
-	request, err := http.ReadRequest(bufio.NewReader(rd))
+	firstBytes := make([]byte, 7)
+	_, err := rd.Read(firstBytes)
 	if err != nil {
 		wrapConn.Close()
 		return
 	}
 
-	if request.Method == http.MethodConnect {
-		hp.handleConnectReq(request, frpIo.WrapReadWriteCloser(rd, wrapConn, nil))
+	if strings.ToUpper(string(firstBytes)) == "CONNECT" {
+		bufRd := bufio.NewReader(sc)
+		request, err := http.ReadRequest(bufRd)
+		if err != nil {
+			wrapConn.Close()
+			return
+		}
+		hp.handleConnectReq(request, frpIo.WrapReadWriteCloser(bufRd, wrapConn, wrapConn.Close))
 		return
 	}
 
