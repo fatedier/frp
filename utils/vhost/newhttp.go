@@ -26,7 +26,8 @@ import (
 	"time"
 
 	frpLog "github.com/fatedier/frp/utils/log"
-	"github.com/fatedier/frp/utils/pool"
+
+	"github.com/fatedier/golib/pool"
 )
 
 var (

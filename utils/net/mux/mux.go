@@ -8,8 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/utils/errors"
 	frpNet "github.com/fatedier/frp/utils/net"
+
+	"github.com/fatedier/golib/errors"
 )
 
 const (

@@ -21,7 +21,7 @@ import (
 	"time"
 
 	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/pool"
+	"github.com/fatedier/golib/pool"
 )
 
 const (

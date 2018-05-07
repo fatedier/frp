@@ -25,13 +25,13 @@ import (
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/crypto"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/shutdown"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
 
+	"github.com/fatedier/golib/crypto"
 	fmux "github.com/hashicorp/yamux"
 )
 

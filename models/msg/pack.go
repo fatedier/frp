@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/fatedier/frp/utils/errors"
+	"github.com/fatedier/frp/models/errors"
 )
 
 func unpack(typeByte byte, buffer []byte, msgIn Message) (msg Message, err error) {

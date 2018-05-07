@@ -23,12 +23,14 @@ import (
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/consts"
+	frpErr "github.com/fatedier/frp/models/errors"
 	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/crypto"
-	"github.com/fatedier/frp/utils/errors"
 	"github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/shutdown"
 	"github.com/fatedier/frp/utils/version"
+
+	"github.com/fatedier/golib/crypto"
+	"github.com/fatedier/golib/errors"
 )
 
 type Control struct {
@@ -151,7 +153,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 	select {
 	case workConn, ok = <-ctl.workConnCh:
 		if !ok {
-			err = errors.ErrCtlClosed
+			err = frpErr.ErrCtlClosed
 			return
 		}
 		ctl.conn.Debug("get work connection from pool")
@@ -168,7 +170,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 		select {
 		case workConn, ok = <-ctl.workConnCh:
 			if !ok {
-				err = errors.ErrCtlClosed
+				err = frpErr.ErrCtlClosed
 				ctl.conn.Warn("no work connections avaiable, %v", err)
 				return
 			}

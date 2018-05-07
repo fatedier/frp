@@ -32,8 +32,9 @@ import (
 	frpIo "github.com/fatedier/frp/utils/io"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/pool"
 	"github.com/fatedier/frp/utils/util"
+
+	"github.com/fatedier/golib/pool"
 )
 
 // Visitor is used for forward traffics from local port tot remote service.

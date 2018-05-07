@@ -27,11 +27,12 @@ import (
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/models/plugin"
 	"github.com/fatedier/frp/models/proto/udp"
-	"github.com/fatedier/frp/utils/errors"
 	frpIo "github.com/fatedier/frp/utils/io"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/pool"
+
+	"github.com/fatedier/golib/errors"
+	"github.com/fatedier/golib/pool"
 )
 
 // Proxy defines how to deal with work connections for different proxy type.

@@ -20,8 +20,9 @@ import (
 	"net"
 	"sync"
 
-	"github.com/fatedier/frp/utils/errors"
 	frpNet "github.com/fatedier/frp/utils/net"
+
+	"github.com/fatedier/golib/errors"
 )
 
 // Creators is used for create plugins to handle connections.

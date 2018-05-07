@@ -12,8 +12,6 @@ import:
   - logs
 - package: github.com/fatedier/kcp-go
   version: cd167d2f15f451b0f33780ce862fca97adc0331e
-- package: github.com/golang/snappy
-  version: 5979233c5d6225d4a8e438cdd0b411888449ddab
 - package: github.com/julienschmidt/httprouter
   version: 8a45e95fc75cb77048068a62daed98cc22fdac7c
 - package: github.com/klauspost/cpuid
