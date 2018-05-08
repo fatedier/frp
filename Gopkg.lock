@@ -21,12 +21,13 @@
   branch = "master"
   name = "github.com/fatedier/golib"
   packages = [
+    "control/shutdown",
     "crypto",
     "errors",
     "io",
     "pool"
   ]
-  revision = "0508aee5d2b1b6be52b00cf4cf00e6430a71e39e"
+  revision = "d7011355f61fc8a2d1e38114604b5c14397841c4"
 
 [[projects]]
   branch = "frp"
@@ -159,6 +160,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4876e5a22dfa4bb103f18d44151253b5e8a321f6b64f5ce6403682750b8ff7d5"
+  inputs-digest = "8a34960c52b0b575f8e5cb799e6af7288fe0289cb3b76b9346a2b69b677a3977"
   solver-name = "gps-cdcl"
   solver-version = 1

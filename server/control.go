@@ -26,9 +26,9 @@ import (
 	frpErr "github.com/fatedier/frp/models/errors"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/shutdown"
 	"github.com/fatedier/frp/utils/version"
 
+	"github.com/fatedier/golib/control/shutdown"
 	"github.com/fatedier/golib/crypto"
 	"github.com/fatedier/golib/errors"
 )
