@@ -1,3 +1,17 @@
+// Copyright 2018 fatedier, fatedier@gmail.com
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package mux
 
 import (
@@ -8,9 +22,8 @@ import (
 	"sync"
 	"time"
 
-	frpNet "github.com/fatedier/frp/utils/net"
-
 	"github.com/fatedier/golib/errors"
+	gnet "github.com/fatedier/golib/net"
 )
 
 const (
@@ -131,7 +144,7 @@ func (mux *Mux) handleConn(conn net.Conn) {
 	defaultLn := mux.defaultLn
 	mux.mu.RUnlock()
 
-	shareConn, rd := frpNet.NewShareConnSize(frpNet.WrapConn(conn), int(maxNeedBytesNum))
+	sharedConn, rd := gnet.NewSharedConnSize(conn, int(maxNeedBytesNum))
 	data := make([]byte, maxNeedBytesNum)
 
 	conn.SetReadDeadline(time.Now().Add(DefaultTimeout))
@@ -145,7 +158,7 @@ func (mux *Mux) handleConn(conn net.Conn) {
 	for _, ln := range lns {
 		if match := ln.matchFn(data); match {
 			err = errors.PanicToError(func() {
-				ln.c <- shareConn
+				ln.c <- sharedConn
 			})
 			if err != nil {
 				conn.Close()
@@ -157,7 +170,7 @@ func (mux *Mux) handleConn(conn net.Conn) {
 	// No match listeners
 	if defaultLn != nil {
 		err = errors.PanicToError(func() {
-			defaultLn.c <- shareConn
+			defaultLn.c <- sharedConn
 		})
 		if err != nil {
 			conn.Close()

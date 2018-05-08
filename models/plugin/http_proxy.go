@@ -25,6 +25,7 @@ import (
 	frpNet "github.com/fatedier/frp/utils/net"
 
 	frpIo "github.com/fatedier/golib/io"
+	gnet "github.com/fatedier/golib/net"
 )
 
 const PluginHttpProxy = "http_proxy"
@@ -66,7 +67,7 @@ func (hp *HttpProxy) Name() string {
 func (hp *HttpProxy) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn) {
 	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
 
-	sc, rd := frpNet.NewShareConn(wrapConn)
+	sc, rd := gnet.NewSharedConn(wrapConn)
 	firstBytes := make([]byte, 7)
 	_, err := rd.Read(firstBytes)
 	if err != nil {

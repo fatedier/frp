@@ -25,9 +25,11 @@
     "crypto",
     "errors",
     "io",
+    "net",
+    "net/mux",
     "pool"
   ]
-  revision = "d7011355f61fc8a2d1e38114604b5c14397841c4"
+  revision = "99af68ddbf3e0c57f3386fcfae251b67f901bf0d"
 
 [[projects]]
   branch = "frp"
@@ -160,6 +162,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8a34960c52b0b575f8e5cb799e6af7288fe0289cb3b76b9346a2b69b677a3977"
+  inputs-digest = "d4f8f1e8dd5c07302832144eed2288be10b8061eb60712540ff0c569774e216f"
   solver-name = "gps-cdcl"
   solver-version = 1

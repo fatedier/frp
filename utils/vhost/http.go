@@ -27,6 +27,7 @@ import (
 
 	frpNet "github.com/fatedier/frp/utils/net"
 
+	gnet "github.com/fatedier/golib/net"
 	"github.com/fatedier/golib/pool"
 )
 
@@ -36,11 +37,11 @@ type HttpMuxer struct {
 
 func GetHttpRequestInfo(c frpNet.Conn) (_ frpNet.Conn, _ map[string]string, err error) {
 	reqInfoMap := make(map[string]string, 0)
-	sc, rd := frpNet.NewShareConn(c)
+	sc, rd := gnet.NewSharedConn(c)
 
 	request, err := http.ReadRequest(bufio.NewReader(rd))
 	if err != nil {
-		return sc, reqInfoMap, err
+		return nil, reqInfoMap, err
 	}
 	// hostName
 	tmpArr := strings.Split(request.Host, ":")
@@ -54,7 +55,7 @@ func GetHttpRequestInfo(c frpNet.Conn) (_ frpNet.Conn, _ map[string]string, err 
 		reqInfoMap["Authorization"] = authStr
 	}
 	request.Body.Close()
-	return sc, reqInfoMap, nil
+	return frpNet.WrapConn(sc), reqInfoMap, nil
 }
 
 func NewHttpMuxer(listener frpNet.Listener, timeout time.Duration) (*HttpMuxer, error) {
@@ -63,14 +64,14 @@ func NewHttpMuxer(listener frpNet.Listener, timeout time.Duration) (*HttpMuxer, 
 }
 
 func ModifyHttpRequest(c frpNet.Conn, rewriteHost string) (_ frpNet.Conn, err error) {
-	sc, rd := frpNet.NewShareConn(c)
+	sc, rd := gnet.NewSharedConn(c)
 	var buff []byte
 	remoteIP := strings.Split(c.RemoteAddr().String(), ":")[0]
 	if buff, err = hostNameRewrite(rd, rewriteHost, remoteIP); err != nil {
-		return sc, err
+		return nil, err
 	}
-	err = sc.WriteBuff(buff)
-	return sc, err
+	err = sc.ResetBuf(buff)
+	return frpNet.WrapConn(sc), err
 }
 
 func hostNameRewrite(request io.Reader, rewriteHost string, remoteIP string) (_ []byte, err error) {

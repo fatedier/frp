@@ -21,6 +21,8 @@ import (
 	"time"
 
 	frpNet "github.com/fatedier/frp/utils/net"
+
+	gnet "github.com/fatedier/golib/net"
 	"github.com/fatedier/golib/pool"
 )
 
@@ -180,14 +182,14 @@ func readHandshake(rd io.Reader) (host string, err error) {
 	return
 }
 
-func GetHttpsHostname(c frpNet.Conn) (sc frpNet.Conn, _ map[string]string, err error) {
+func GetHttpsHostname(c frpNet.Conn) (_ frpNet.Conn, _ map[string]string, err error) {
 	reqInfoMap := make(map[string]string, 0)
-	sc, rd := frpNet.NewShareConn(c)
+	sc, rd := gnet.NewSharedConn(c)
 	host, err := readHandshake(rd)
 	if err != nil {
-		return sc, reqInfoMap, err
+		return nil, reqInfoMap, err
 	}
 	reqInfoMap["Host"] = host
 	reqInfoMap["Scheme"] = "https"
-	return sc, reqInfoMap, nil
+	return frpNet.WrapConn(sc), reqInfoMap, nil
 }
