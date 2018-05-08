@@ -35,7 +35,7 @@
 
 [[constraint]]
   name = "github.com/fatedier/golib"
-  revision = "c4d2b1c9ff1798d2d9adfd1d03179579ee054c09"
+  branch = "master"
 
 [[constraint]]
   branch = "frp"

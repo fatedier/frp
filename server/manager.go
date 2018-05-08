@@ -19,9 +19,10 @@ import (
 	"io"
 	"sync"
 
-	frpIo "github.com/fatedier/frp/utils/io"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/util"
+
+	frpIo "github.com/fatedier/golib/io"
 )
 
 type ControlManager struct {
