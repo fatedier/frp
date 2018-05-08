@@ -24,6 +24,7 @@ import (
 
 	"github.com/fatedier/frp/utils/log"
 
+	gnet "github.com/fatedier/golib/net"
 	kcp "github.com/fatedier/kcp-go"
 )
 
@@ -123,7 +124,11 @@ func ConnectServer(protocol string, addr string) (c Conn, err error) {
 func ConnectServerByProxy(proxyUrl string, protocol string, addr string) (c Conn, err error) {
 	switch protocol {
 	case "tcp":
-		return ConnectTcpServerByProxy(proxyUrl, addr)
+		var conn net.Conn
+		if conn, err = gnet.DialTcpByProxy(proxyUrl, addr); err != nil {
+			return
+		}
+		return WrapConn(conn), nil
 	case "kcp":
 		// http proxy is not supported for kcp
 		return ConnectServer(protocol, addr)

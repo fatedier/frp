@@ -12,7 +12,8 @@ import (
 
 	"github.com/fatedier/frp/client"
 	"github.com/fatedier/frp/server"
-	"github.com/fatedier/frp/utils/net"
+
+	gnet "github.com/fatedier/golib/net"
 )
 
 var (
@@ -279,7 +280,7 @@ func TestPluginHttpProxy(t *testing.T) {
 		}
 
 		// connect method
-		conn, err := net.ConnectTcpServerByProxy("http://"+addr, fmt.Sprintf("127.0.0.1:%d", TEST_TCP_FRP_PORT))
+		conn, err := gnet.DialTcpByProxy("http://"+addr, fmt.Sprintf("127.0.0.1:%d", TEST_TCP_FRP_PORT))
 		if assert.NoError(err) {
 			res, err := sendTcpMsgByConn(conn, TEST_TCP_ECHO_STR)
 			assert.NoError(err)

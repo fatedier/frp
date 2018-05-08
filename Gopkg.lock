@@ -29,7 +29,7 @@
     "net/mux",
     "pool"
   ]
-  revision = "99af68ddbf3e0c57f3386fcfae251b67f901bf0d"
+  revision = "c0c98fef672bc2ef02359dddc03e05dce3737640"
 
 [[projects]]
   branch = "frp"
@@ -62,12 +62,14 @@
 [[projects]]
   name = "github.com/julienschmidt/httprouter"
   packages = ["."]
-  revision = "8a45e95fc75cb77048068a62daed98cc22fdac7c"
+  revision = "8c199fb6259ffc1af525cc3ad52ee60ba8359669"
+  version = "v1.1"
 
 [[projects]]
   name = "github.com/pkg/errors"
   packages = ["."]
-  revision = "c605e284fe17294bda444b34710735b29d1a9d90"
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
 
 [[projects]]
   name = "github.com/pmezard/go-difflib"
@@ -78,8 +80,8 @@
 [[projects]]
   name = "github.com/rakyll/statik"
   packages = ["fs"]
-  revision = "274df120e9065bdd08eb1120e0375e3dc1ae8465"
-  version = "v0.1.0"
+  revision = "fd36b3595eb2ec8da4b8153b107f7ea08504899d"
+  version = "v0.1.1"
 
 [[projects]]
   name = "github.com/rodaine/table"
@@ -102,7 +104,8 @@
 [[projects]]
   name = "github.com/stretchr/testify"
   packages = ["assert"]
-  revision = "2402e8e7a02fc811447d11f881aa9746cdc57983"
+  revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
+  version = "v1.2.1"
 
 [[projects]]
   branch = "master"
@@ -111,10 +114,10 @@
   revision = "3794dfbfb04749f896b521032f69383f24c3687e"
 
 [[projects]]
-  branch = "master"
   name = "github.com/templexxx/reedsolomon"
   packages = ["."]
-  revision = "7092926d7d05c415fabb892b1464a03f8228ab80"
+  revision = "5e06b81a1c7628d9c8d4fb7c3c4e401e37db39b4"
+  version = "0.1.1"
 
 [[projects]]
   name = "github.com/templexxx/xor"
@@ -125,7 +128,8 @@
 [[projects]]
   name = "github.com/tjfoc/gmsm"
   packages = ["sm4"]
-  revision = "21d76dee237dbbc8dfe1510000b9bf2733635aa1"
+  revision = "98aa888b79d8de04afe0fccf45ed10594efc858b"
+  version = "v1.1"
 
 [[projects]]
   name = "github.com/vaughan0/go-ini"
@@ -147,6 +151,7 @@
   revision = "4ec37c66abab2c7e02ae775328b2ff001c3f025a"
 
 [[projects]]
+  branch = "master"
   name = "golang.org/x/net"
   packages = [
     "bpf",
@@ -157,7 +162,7 @@
     "ipv4",
     "proxy"
   ]
-  revision = "640f4622ab692b87c2f3a94265e6f579fe38263d"
+  revision = "d11bb6cd8e3c4e60239c9cb20ef68586d74500d0"
 
 [solve-meta]
   analyzer-name = "dep"
