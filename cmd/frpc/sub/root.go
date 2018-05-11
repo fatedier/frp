@@ -101,6 +101,10 @@ func Execute() {
 	}
 }
 
+func RunFrpc(cfgFilePath string) (err error) {
+	return runClient(cfgFilePath)
+}
+
 func handleSignal(svr *client.Service) {
 	ch := make(chan os.Signal)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
