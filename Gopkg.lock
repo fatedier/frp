@@ -25,11 +25,12 @@
     "crypto",
     "errors",
     "io",
+    "msg/json",
     "net",
     "net/mux",
     "pool"
   ]
-  revision = "c0c98fef672bc2ef02359dddc03e05dce3737640"
+  revision = "354693cdd7fd9fa4f207c2f91ec2534615d3e5e5"
 
 [[projects]]
   branch = "frp"
@@ -167,6 +168,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d4f8f1e8dd5c07302832144eed2288be10b8061eb60712540ff0c569774e216f"
+  inputs-digest = "d934d16928772cfb22c55a39964c7ca364d02fe1ab680a90cdb5c3c8be256273"
   solver-name = "gps-cdcl"
   solver-version = 1
