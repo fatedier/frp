@@ -26,11 +26,11 @@ import (
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/net/mux"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
 	"github.com/fatedier/frp/utils/vhost"
 
+	"github.com/fatedier/golib/net/mux"
 	fmux "github.com/hashicorp/yamux"
 )
 
@@ -281,7 +281,7 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 				for {
 					stream, err := session.AcceptStream()
 					if err != nil {
-						log.Warn("Accept new mux stream error: %v", err)
+						log.Debug("Accept new mux stream error: %v", err)
 						session.Close()
 						return
 					}

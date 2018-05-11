@@ -19,19 +19,20 @@ import (
 	"io"
 	"io/ioutil"
 	"runtime"
+	"runtime/debug"
 	"sync"
 	"time"
 
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/crypto"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/shutdown"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
 
+	"github.com/fatedier/golib/control/shutdown"
+	"github.com/fatedier/golib/crypto"
 	fmux "github.com/hashicorp/yamux"
 )
 
@@ -271,6 +272,7 @@ func (ctl *Control) reader() {
 	defer func() {
 		if err := recover(); err != nil {
 			ctl.Error("panic error: %v", err)
+			ctl.Error(string(debug.Stack()))
 		}
 	}()
 	defer ctl.readerShutdown.Done()
@@ -319,6 +321,7 @@ func (ctl *Control) msgHandler() {
 	defer func() {
 		if err := recover(); err != nil {
 			ctl.Error("panic error: %v", err)
+			ctl.Error(string(debug.Stack()))
 		}
 	}()
 	defer ctl.msgHandlerShutdown.Done()
