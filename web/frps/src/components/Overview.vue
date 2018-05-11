@@ -7,6 +7,12 @@
                         <el-form-item label="Version">
                           <span>{{ version }}</span>
                         </el-form-item>
+                        <el-form-item label="BindPort">
+                          <span>{{ bind_port }}</span>
+                        </el-form-item>
+                        <el-form-item label="BindUdpPort">
+                          <span>{{ bind_udp_port }}</span>
+                        </el-form-item>
                         <el-form-item label="Http Port">
                           <span>{{ vhost_http_port }}</span>
                         </el-form-item>
@@ -21,6 +27,9 @@
                         </el-form-item>
                         <el-form-item label="Max PoolCount">
                           <span>{{ max_pool_count }}</span>
+                        </el-form-item>
+                        <el-form-item label="Max Ports Per Client">
+                          <span>{{ max_ports_per_client }}</span>
                         </el-form-item>
                         <el-form-item label="HeartBeat Timeout">
                           <span>{{ heart_beat_timeout }}</span>
@@ -51,11 +60,14 @@
         data() {
             return {
                 version: '',
+                bind_port: '',
+                bind_udp_port: '',
                 vhost_http_port: '',
                 vhost_https_port: '',
                 auth_timeout: '',
                 subdomain_host: '',
                 max_pool_count: '',
+                max_ports_per_client: '',
                 heart_beat_timeout: '',
                 client_counts: '',
                 cur_conns: '',
@@ -75,6 +87,11 @@
                 return res.json()
               }).then(json => {
                 this.version = json.version
+                this.bind_port = json.bind_port
+                this.bind_udp_port = json.bind_udp_port
+                if (this.bind_udp_port == 0) {
+                    this.bind_udp_port = "disable"
+                }
                 this.vhost_http_port = json.vhost_http_port
                 if (this.vhost_http_port == 0) {
                     this.vhost_http_port = "disable"
@@ -86,6 +103,10 @@
                 this.auth_timeout = json.auth_timeout
                 this.subdomain_host = json.subdomain_host
                 this.max_pool_count = json.max_pool_count
+                this.max_ports_per_client = json.max_ports_per_client
+                if (this.max_ports_per_client == 0) {
+                    this.max_ports_per_client = "no limit"
+                }
                 this.heart_beat_timeout = json.heart_beat_timeout
                 this.client_counts = json.client_counts
                 this.cur_conns = json.cur_conns
