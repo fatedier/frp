@@ -416,7 +416,7 @@ allow_ports = 2000-3000,3001,3003,4000-50000
 
 ### Port Reuse
 
-Now `vhost_http_port` and `vhost_https_port` in frps can be same with `bind_port`. frps will detect connection's protocol and handle it accordingly.
+Now `vhost_http_port` and `vhost_https_port` in frps can use same port with `bind_port`. frps will detect connection's protocol and handle it correspondingly.
 
 We would like to try to allow multiple proxies bind a same remote port with different protocols in the future.
 
