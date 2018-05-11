@@ -281,7 +281,7 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 				for {
 					stream, err := session.AcceptStream()
 					if err != nil {
-						log.Warn("Accept new mux stream error: %v", err)
+						log.Debug("Accept new mux stream error: %v", err)
 						session.Close()
 						return
 					}
