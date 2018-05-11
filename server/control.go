@@ -17,6 +17,7 @@ package server
 import (
 	"fmt"
 	"io"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -125,6 +126,7 @@ func (ctl *Control) RegisterWorkConn(conn net.Conn) {
 	defer func() {
 		if err := recover(); err != nil {
 			ctl.conn.Error("panic error: %v", err)
+			ctl.conn.Error(string(debug.Stack()))
 		}
 	}()
 
@@ -145,6 +147,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 	defer func() {
 		if err := recover(); err != nil {
 			ctl.conn.Error("panic error: %v", err)
+			ctl.conn.Error(string(debug.Stack()))
 		}
 	}()
 
@@ -199,6 +202,7 @@ func (ctl *Control) writer() {
 	defer func() {
 		if err := recover(); err != nil {
 			ctl.conn.Error("panic error: %v", err)
+			ctl.conn.Error(string(debug.Stack()))
 		}
 	}()
 
@@ -228,6 +232,7 @@ func (ctl *Control) reader() {
 	defer func() {
 		if err := recover(); err != nil {
 			ctl.conn.Error("panic error: %v", err)
+			ctl.conn.Error(string(debug.Stack()))
 		}
 	}()
 
@@ -254,6 +259,7 @@ func (ctl *Control) stoper() {
 	defer func() {
 		if err := recover(); err != nil {
 			ctl.conn.Error("panic error: %v", err)
+			ctl.conn.Error(string(debug.Stack()))
 		}
 	}()
 
@@ -292,6 +298,7 @@ func (ctl *Control) manager() {
 	defer func() {
 		if err := recover(); err != nil {
 			ctl.conn.Error("panic error: %v", err)
+			ctl.conn.Error(string(debug.Stack()))
 		}
 	}()
 
@@ -306,7 +313,6 @@ func (ctl *Control) manager() {
 		case <-heartbeat.C:
 			if time.Since(ctl.lastPing) > time.Duration(g.GlbServerCfg.HeartBeatTimeout)*time.Second {
 				ctl.conn.Warn("heartbeat timeout")
-				ctl.allShutdown.Start()
 				return
 			}
 		case rawMsg, ok := <-ctl.readCh:

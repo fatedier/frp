@@ -19,6 +19,7 @@ import (
 	"io"
 	"io/ioutil"
 	"runtime"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -271,6 +272,7 @@ func (ctl *Control) reader() {
 	defer func() {
 		if err := recover(); err != nil {
 			ctl.Error("panic error: %v", err)
+			ctl.Error(string(debug.Stack()))
 		}
 	}()
 	defer ctl.readerShutdown.Done()
@@ -319,6 +321,7 @@ func (ctl *Control) msgHandler() {
 	defer func() {
 		if err := recover(); err != nil {
 			ctl.Error("panic error: %v", err)
+			ctl.Error(string(debug.Stack()))
 		}
 	}()
 	defer ctl.msgHandlerShutdown.Done()
