@@ -26,6 +26,11 @@ type msghdr struct {
 	Flags      int32
 }
 
+type mmsghdr struct {
+	Hdr msghdr
+	Len uint32
+}
+
 type cmsghdr struct {
 	Len   uint32
 	Level int32
@@ -52,6 +57,7 @@ type sockaddrInet6 struct {
 const (
 	sizeofIovec   = 0x8
 	sizeofMsghdr  = 0x1c
+	sizeofMmsghdr = 0x20
 	sizeofCmsghdr = 0xc
 
 	sizeofSockaddrInet  = 0x10

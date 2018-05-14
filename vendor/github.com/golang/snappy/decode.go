@@ -18,7 +18,6 @@ var (
 	// ErrUnsupported reports that the input isn't supported.
 	ErrUnsupported = errors.New("snappy: unsupported input")
 
-	errUnsupportedCopy4Tag      = errors.New("snappy: unsupported COPY_4 tag")
 	errUnsupportedLiteralLength = errors.New("snappy: unsupported literal length")
 )
 
@@ -43,95 +42,33 @@ func decodedLen(src []byte) (blockLen, headerLen int, err error) {
 	return int(v), n, nil
 }
 
+const (
+	decodeErrCodeCorrupt                  = 1
+	decodeErrCodeUnsupportedLiteralLength = 2
+)
+
 // Decode returns the decoded form of src. The returned slice may be a sub-
 // slice of dst if dst was large enough to hold the entire decoded block.
 // Otherwise, a newly allocated slice will be returned.
-// It is valid to pass a nil dst.
+//
+// The dst and src must not overlap. It is valid to pass a nil dst.
 func Decode(dst, src []byte) ([]byte, error) {
 	dLen, s, err := decodedLen(src)
 	if err != nil {
 		return nil, err
 	}
-	if len(dst) < dLen {
+	if dLen <= len(dst) {
+		dst = dst[:dLen]
+	} else {
 		dst = make([]byte, dLen)
 	}
-
-	var d, offset, length int
-	for s < len(src) {
-		switch src[s] & 0x03 {
-		case tagLiteral:
-			x := uint(src[s] >> 2)
-			switch {
-			case x < 60:
-				s++
-			case x == 60:
-				s += 2
-				if uint(s) > uint(len(src)) { // The uint conversions catch overflow from the previous line.
-					return nil, ErrCorrupt
-				}
-				x = uint(src[s-1])
-			case x == 61:
-				s += 3
-				if uint(s) > uint(len(src)) { // The uint conversions catch overflow from the previous line.
-					return nil, ErrCorrupt
-				}
-				x = uint(src[s-2]) | uint(src[s-1])<<8
-			case x == 62:
-				s += 4
-				if uint(s) > uint(len(src)) { // The uint conversions catch overflow from the previous line.
-					return nil, ErrCorrupt
-				}
-				x = uint(src[s-3]) | uint(src[s-2])<<8 | uint(src[s-1])<<16
-			case x == 63:
-				s += 5
-				if uint(s) > uint(len(src)) { // The uint conversions catch overflow from the previous line.
-					return nil, ErrCorrupt
-				}
-				x = uint(src[s-4]) | uint(src[s-3])<<8 | uint(src[s-2])<<16 | uint(src[s-1])<<24
-			}
-			length = int(x + 1)
-			if length <= 0 {
-				return nil, errUnsupportedLiteralLength
-			}
-			if length > len(dst)-d || length > len(src)-s {
-				return nil, ErrCorrupt
-			}
-			copy(dst[d:], src[s:s+length])
-			d += length
-			s += length
-			continue
-
-		case tagCopy1:
-			s += 2
-			if s > len(src) {
-				return nil, ErrCorrupt
-			}
-			length = 4 + int(src[s-2])>>2&0x7
-			offset = int(src[s-2])&0xe0<<3 | int(src[s-1])
-
-		case tagCopy2:
-			s += 3
-			if s > len(src) {
-				return nil, ErrCorrupt
-			}
-			length = 1 + int(src[s-3])>>2
-			offset = int(src[s-2]) | int(src[s-1])<<8
-
-		case tagCopy4:
-			return nil, errUnsupportedCopy4Tag
-		}
-
-		if offset > d || length > len(dst)-d {
-			return nil, ErrCorrupt
-		}
-		for end := d + length; d != end; d++ {
-			dst[d] = dst[d-offset]
-		}
+	switch decode(dst, src[s:]) {
+	case 0:
+		return dst, nil
+	case decodeErrCodeUnsupportedLiteralLength:
+		return nil, errUnsupportedLiteralLength
 	}
-	if d != dLen {
-		return nil, ErrCorrupt
-	}
-	return dst[:d], nil
+	return nil, ErrCorrupt
 }
 
 // NewReader returns a new Reader that decompresses from r, using the framing
@@ -140,8 +77,8 @@ func Decode(dst, src []byte) ([]byte, error) {
 func NewReader(r io.Reader) *Reader {
 	return &Reader{
 		r:       r,
-		decoded: make([]byte, maxUncompressedChunkLen),
-		buf:     make([]byte, MaxEncodedLen(maxUncompressedChunkLen)+checksumSize),
+		decoded: make([]byte, maxBlockSize),
+		buf:     make([]byte, maxEncodedLenOfMaxBlockSize+checksumSize),
 	}
 }
 
@@ -167,9 +104,9 @@ func (r *Reader) Reset(reader io.Reader) {
 	r.readHeader = false
 }
 
-func (r *Reader) readFull(p []byte) (ok bool) {
+func (r *Reader) readFull(p []byte, allowEOF bool) (ok bool) {
 	if _, r.err = io.ReadFull(r.r, p); r.err != nil {
-		if r.err == io.ErrUnexpectedEOF {
+		if r.err == io.ErrUnexpectedEOF || (r.err == io.EOF && !allowEOF) {
 			r.err = ErrCorrupt
 		}
 		return false
@@ -188,7 +125,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 			r.i += n
 			return n, nil
 		}
-		if !r.readFull(r.buf[:4]) {
+		if !r.readFull(r.buf[:4], true) {
 			return 0, r.err
 		}
 		chunkType := r.buf[0]
@@ -215,7 +152,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 				return 0, r.err
 			}
 			buf := r.buf[:chunkLen]
-			if !r.readFull(buf) {
+			if !r.readFull(buf, false) {
 				return 0, r.err
 			}
 			checksum := uint32(buf[0]) | uint32(buf[1])<<8 | uint32(buf[2])<<16 | uint32(buf[3])<<24
@@ -248,13 +185,17 @@ func (r *Reader) Read(p []byte) (int, error) {
 				return 0, r.err
 			}
 			buf := r.buf[:checksumSize]
-			if !r.readFull(buf) {
+			if !r.readFull(buf, false) {
 				return 0, r.err
 			}
 			checksum := uint32(buf[0]) | uint32(buf[1])<<8 | uint32(buf[2])<<16 | uint32(buf[3])<<24
 			// Read directly into r.decoded instead of via r.buf.
 			n := chunkLen - checksumSize
-			if !r.readFull(r.decoded[:n]) {
+			if n > len(r.decoded) {
+				r.err = ErrCorrupt
+				return 0, r.err
+			}
+			if !r.readFull(r.decoded[:n], false) {
 				return 0, r.err
 			}
 			if crc(r.decoded[:n]) != checksum {
@@ -270,7 +211,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 				r.err = ErrCorrupt
 				return 0, r.err
 			}
-			if !r.readFull(r.buf[:len(magicBody)]) {
+			if !r.readFull(r.buf[:len(magicBody)], false) {
 				return 0, r.err
 			}
 			for i := 0; i < len(magicBody); i++ {
@@ -289,7 +230,7 @@ func (r *Reader) Read(p []byte) (int, error) {
 		}
 		// Section 4.4 Padding (chunk type 0xfe).
 		// Section 4.6. Reserved skippable chunks (chunk types 0x80-0xfd).
-		if !r.readFull(r.buf[:chunkLen]) {
+		if !r.readFull(r.buf[:chunkLen], false) {
 			return 0, r.err
 		}
 	}

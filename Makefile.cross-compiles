@@ -1,5 +1,4 @@
 export PATH := $(GOPATH)/bin:$(PATH)
-export GO15VENDOREXPERIMENT := 1
 LDFLAGS := -s -w
 
 all: build

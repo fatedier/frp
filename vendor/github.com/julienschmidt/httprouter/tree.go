@@ -7,7 +7,6 @@ package httprouter
 import (
 	"strings"
 	"unicode"
-	"unicode/utf8"
 )
 
 func min(a, b int) int {
@@ -34,10 +33,9 @@ func countParams(path string) uint8 {
 type nodeType uint8
 
 const (
-	static nodeType = iota // default
-	root
-	param
-	catchAll
+	static   nodeType = 0
+	param    nodeType = 1
+	catchAll nodeType = 2
 )
 
 type node struct {
@@ -60,7 +58,9 @@ func (n *node) incrementChildPrio(pos int) int {
 	newPos := pos
 	for newPos > 0 && n.children[newPos-1].priority < prio {
 		// swap node positions
-		n.children[newPos-1], n.children[newPos] = n.children[newPos], n.children[newPos-1]
+		tmpN := n.children[newPos-1]
+		n.children[newPos-1] = n.children[newPos]
+		n.children[newPos] = tmpN
 
 		newPos--
 	}
@@ -105,7 +105,6 @@ func (n *node) addRoute(path string, handle Handle) {
 				child := node{
 					path:      n.path[i:],
 					wildChild: n.wildChild,
-					nType:     static,
 					indices:   n.indices,
 					children:  n.children,
 					handle:    n.handle,
@@ -142,20 +141,16 @@ func (n *node) addRoute(path string, handle Handle) {
 					numParams--
 
 					// Check if the wildcard matches
-					if len(path) >= len(n.path) && n.path == path[:len(n.path)] &&
-						// Check for longer wildcard, e.g. :name and :names
-						(len(n.path) >= len(path) || path[len(n.path)] == '/') {
-						continue walk
-					} else {
-						// Wildcard conflict
-						pathSeg := strings.SplitN(path, "/", 2)[0]
-						prefix := fullPath[:strings.Index(fullPath, pathSeg)] + n.path
-						panic("'" + pathSeg +
-							"' in new path '" + fullPath +
-							"' conflicts with existing wildcard '" + n.path +
-							"' in existing prefix '" + prefix +
-							"'")
+					if len(path) >= len(n.path) && n.path == path[:len(n.path)] {
+						// check for longer wildcard, e.g. :name and :names
+						if len(n.path) >= len(path) || path[len(n.path)] == '/' {
+							continue walk
+						}
 					}
+
+					panic("path segment '" + path +
+						"' conflicts with existing wildcard '" + n.path +
+						"' in path '" + fullPath + "'")
 				}
 
 				c := path[0]
@@ -192,7 +187,7 @@ func (n *node) addRoute(path string, handle Handle) {
 
 			} else if i == len(path) { // Make node a (in-path) leaf
 				if n.handle != nil {
-					panic("a handle is already registered for path '" + fullPath + "'")
+					panic("a handle is already registered for path ''" + fullPath + "'")
 				}
 				n.handle = handle
 			}
@@ -200,7 +195,6 @@ func (n *node) addRoute(path string, handle Handle) {
 		}
 	} else { // Empty tree
 		n.insertChild(numParams, path, fullPath, handle)
-		n.nType = root
 	}
 }
 
@@ -323,7 +317,7 @@ func (n *node) insertChild(numParams uint8, path, fullPath string, handle Handle
 // made if a handle exists with an extra (without the) trailing slash for the
 // given path.
 func (n *node) getValue(path string) (handle Handle, p Params, tsr bool) {
-walk: // outer loop for walking the tree
+walk: // Outer loop for walking the tree
 	for {
 		if len(path) > len(n.path) {
 			if path[:len(n.path)] == n.path {
@@ -417,11 +411,6 @@ walk: // outer loop for walking the tree
 				return
 			}
 
-			if path == "/" && n.wildChild && n.nType != root {
-				tsr = true
-				return
-			}
-
 			// No handle found. Check if a handle for this path + a
 			// trailing slash exists for trailing slash recommendation
 			for i := 0; i < len(n.indices); i++ {
@@ -450,117 +439,34 @@ walk: // outer loop for walking the tree
 // It returns the case-corrected path and a bool indicating whether the lookup
 // was successful.
 func (n *node) findCaseInsensitivePath(path string, fixTrailingSlash bool) (ciPath []byte, found bool) {
-	return n.findCaseInsensitivePathRec(
-		path,
-		strings.ToLower(path),
-		make([]byte, 0, len(path)+1), // preallocate enough memory for new path
-		[4]byte{},                    // empty rune buffer
-		fixTrailingSlash,
-	)
-}
+	ciPath = make([]byte, 0, len(path)+1) // preallocate enough memory
 
-// shift bytes in array by n bytes left
-func shiftNRuneBytes(rb [4]byte, n int) [4]byte {
-	switch n {
-	case 0:
-		return rb
-	case 1:
-		return [4]byte{rb[1], rb[2], rb[3], 0}
-	case 2:
-		return [4]byte{rb[2], rb[3]}
-	case 3:
-		return [4]byte{rb[3]}
-	default:
-		return [4]byte{}
-	}
-}
-
-// recursive case-insensitive lookup function used by n.findCaseInsensitivePath
-func (n *node) findCaseInsensitivePathRec(path, loPath string, ciPath []byte, rb [4]byte, fixTrailingSlash bool) ([]byte, bool) {
-	loNPath := strings.ToLower(n.path)
-
-walk: // outer loop for walking the tree
-	for len(loPath) >= len(loNPath) && (len(loNPath) == 0 || loPath[1:len(loNPath)] == loNPath[1:]) {
-		// add common path to result
+	// Outer loop for walking the tree
+	for len(path) >= len(n.path) && strings.ToLower(path[:len(n.path)]) == strings.ToLower(n.path) {
+		path = path[len(n.path):]
 		ciPath = append(ciPath, n.path...)
 
-		if path = path[len(n.path):]; len(path) > 0 {
-			loOld := loPath
-			loPath = loPath[len(loNPath):]
-
+		if len(path) > 0 {
 			// If this node does not have a wildcard (param or catchAll) child,
 			// we can just look up the next child node and continue to walk down
 			// the tree
 			if !n.wildChild {
-				// skip rune bytes already processed
-				rb = shiftNRuneBytes(rb, len(loNPath))
-
-				if rb[0] != 0 {
-					// old rune not finished
-					for i := 0; i < len(n.indices); i++ {
-						if n.indices[i] == rb[0] {
-							// continue with child node
-							n = n.children[i]
-							loNPath = strings.ToLower(n.path)
-							continue walk
-						}
-					}
-				} else {
-					// process a new rune
-					var rv rune
-
-					// find rune start
-					// runes are up to 4 byte long,
-					// -4 would definitely be another rune
-					var off int
-					for max := min(len(loNPath), 3); off < max; off++ {
-						if i := len(loNPath) - off; utf8.RuneStart(loOld[i]) {
-							// read rune from cached lowercase path
-							rv, _ = utf8.DecodeRuneInString(loOld[i:])
-							break
-						}
-					}
-
-					// calculate lowercase bytes of current rune
-					utf8.EncodeRune(rb[:], rv)
-					// skipp already processed bytes
-					rb = shiftNRuneBytes(rb, off)
-
-					for i := 0; i < len(n.indices); i++ {
-						// lowercase matches
-						if n.indices[i] == rb[0] {
-							// must use a recursive approach since both the
-							// uppercase byte and the lowercase byte might exist
-							// as an index
-							if out, found := n.children[i].findCaseInsensitivePathRec(
-								path, loPath, ciPath, rb, fixTrailingSlash,
-							); found {
-								return out, true
-							}
-							break
-						}
-					}
-
-					// same for uppercase rune, if it differs
-					if up := unicode.ToUpper(rv); up != rv {
-						utf8.EncodeRune(rb[:], up)
-						rb = shiftNRuneBytes(rb, off)
-
-						for i := 0; i < len(n.indices); i++ {
-							// uppercase matches
-							if n.indices[i] == rb[0] {
-								// continue with child node
-								n = n.children[i]
-								loNPath = strings.ToLower(n.path)
-								continue walk
-							}
+				r := unicode.ToLower(rune(path[0]))
+				for i, index := range n.indices {
+					// must use recursive approach since both index and
+					// ToLower(index) could exist. We must check both.
+					if r == unicode.ToLower(index) {
+						out, found := n.children[i].findCaseInsensitivePath(path, fixTrailingSlash)
+						if found {
+							return append(ciPath, out...), true
 						}
 					}
 				}
 
 				// Nothing found. We can recommend to redirect to the same URL
 				// without a trailing slash if a leaf exists for that path
-				return ciPath, (fixTrailingSlash && path == "/" && n.handle != nil)
+				found = (fixTrailingSlash && path == "/" && n.handle != nil)
+				return
 			}
 
 			n = n.children[0]
@@ -578,11 +484,8 @@ walk: // outer loop for walking the tree
 				// we need to go deeper!
 				if k < len(path) {
 					if len(n.children) > 0 {
-						// continue with child node
-						n = n.children[0]
-						loNPath = strings.ToLower(n.path)
-						loPath = loPath[k:]
 						path = path[k:]
+						n = n.children[0]
 						continue
 					}
 
@@ -590,7 +493,7 @@ walk: // outer loop for walking the tree
 					if fixTrailingSlash && len(path) == k+1 {
 						return ciPath, true
 					}
-					return ciPath, false
+					return
 				}
 
 				if n.handle != nil {
@@ -603,7 +506,7 @@ walk: // outer loop for walking the tree
 						return append(ciPath, '/'), true
 					}
 				}
-				return ciPath, false
+				return
 
 			case catchAll:
 				return append(ciPath, path...), true
@@ -628,11 +531,11 @@ walk: // outer loop for walking the tree
 							(n.nType == catchAll && n.children[0].handle != nil) {
 							return append(ciPath, '/'), true
 						}
-						return ciPath, false
+						return
 					}
 				}
 			}
-			return ciPath, false
+			return
 		}
 	}
 
@@ -642,10 +545,11 @@ walk: // outer loop for walking the tree
 		if path == "/" {
 			return ciPath, true
 		}
-		if len(loPath)+1 == len(loNPath) && loNPath[len(loPath)] == '/' &&
-			loPath[1:] == loNPath[1:len(loPath)] && n.handle != nil {
+		if len(path)+1 == len(n.path) && n.path[len(path)] == '/' &&
+			strings.ToLower(path) == strings.ToLower(n.path[:len(path)]) &&
+			n.handle != nil {
 			return append(ciPath, n.path...), true
 		}
 	}
-	return ciPath, false
+	return
 }

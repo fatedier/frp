@@ -36,13 +36,17 @@ type GeneralResponse struct {
 type ServerInfoResp struct {
 	GeneralResponse
 
-	Version          string `json:"version"`
-	VhostHttpPort    int    `json:"vhost_http_port"`
-	VhostHttpsPort   int    `json:"vhost_https_port"`
-	AuthTimeout      int64  `json:"auth_timeout"`
-	SubdomainHost    string `json:"subdomain_host"`
-	MaxPoolCount     int64  `json:"max_pool_count"`
-	HeartBeatTimeout int64  `json:"heart_beat_timeout"`
+	Version           string `json:"version"`
+	BindPort          int    `json:"bind_port"`
+	BindUdpPort       int    `json:"bind_udp_port"`
+	VhostHttpPort     int    `json:"vhost_http_port"`
+	VhostHttpsPort    int    `json:"vhost_https_port"`
+	KcpBindPort       int    `json:"kcp_bind_port"`
+	AuthTimeout       int64  `json:"auth_timeout"`
+	SubdomainHost     string `json:"subdomain_host"`
+	MaxPoolCount      int64  `json:"max_pool_count"`
+	MaxPortsPerClient int64  `json:"max_ports_per_client"`
+	HeartBeatTimeout  int64  `json:"heart_beat_timeout"`
 
 	TotalTrafficIn  int64            `json:"total_traffic_in"`
 	TotalTrafficOut int64            `json:"total_traffic_out"`
@@ -64,13 +68,17 @@ func apiServerInfo(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 	cfg := &g.GlbServerCfg.ServerCommonConf
 	serverStats := StatsGetServer()
 	res = ServerInfoResp{
-		Version:          version.Full(),
-		VhostHttpPort:    cfg.VhostHttpPort,
-		VhostHttpsPort:   cfg.VhostHttpsPort,
-		AuthTimeout:      cfg.AuthTimeout,
-		SubdomainHost:    cfg.SubDomainHost,
-		MaxPoolCount:     cfg.MaxPoolCount,
-		HeartBeatTimeout: cfg.HeartBeatTimeout,
+		Version:           version.Full(),
+		BindPort:          cfg.BindPort,
+		BindUdpPort:       cfg.BindUdpPort,
+		VhostHttpPort:     cfg.VhostHttpPort,
+		VhostHttpsPort:    cfg.VhostHttpsPort,
+		KcpBindPort:       cfg.KcpBindPort,
+		AuthTimeout:       cfg.AuthTimeout,
+		SubdomainHost:     cfg.SubDomainHost,
+		MaxPoolCount:      cfg.MaxPoolCount,
+		MaxPortsPerClient: cfg.MaxPortsPerClient,
+		HeartBeatTimeout:  cfg.HeartBeatTimeout,
 
 		TotalTrafficIn:  serverStats.TotalTrafficIn,
 		TotalTrafficOut: serverStats.TotalTrafficOut,
