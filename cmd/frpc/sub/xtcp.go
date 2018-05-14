@@ -39,7 +39,7 @@ func init() {
 	xtcpCmd.PersistentFlags().StringVarP(&serverName, "server_name", "", "", "server name")
 	xtcpCmd.PersistentFlags().StringVarP(&localIp, "local_ip", "i", "127.0.0.1", "local ip")
 	xtcpCmd.PersistentFlags().IntVarP(&localPort, "local_port", "l", 0, "local port")
-	xtcpCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "", "", "bind addr")
+	xtcpCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "", "", "bind addr such as 127.0.0.1:9000")
 	xtcpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	xtcpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
 

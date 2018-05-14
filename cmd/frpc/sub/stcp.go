@@ -39,7 +39,7 @@ func init() {
 	stcpCmd.PersistentFlags().StringVarP(&serverName, "server_name", "", "", "server name")
 	stcpCmd.PersistentFlags().StringVarP(&localIp, "local_ip", "i", "127.0.0.1", "local ip")
 	stcpCmd.PersistentFlags().IntVarP(&localPort, "local_port", "l", 0, "local port")
-	stcpCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "", "", "bind addr")
+	stcpCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "", "", "bind addr such as 127.0.0.1:9000")
 	stcpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	stcpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
 
