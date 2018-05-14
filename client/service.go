@@ -36,7 +36,7 @@ func NewService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]conf
 	return
 }
 
-func (svr *Service) Run() error {
+func (svr *Service) Run(cmd bool) error {
 	err := svr.ctl.Run()
 	if err != nil {
 		return err
@@ -50,7 +50,13 @@ func (svr *Service) Run() error {
 		log.Info("admin server listen on %s:%d", g.GlbClientCfg.AdminAddr, g.GlbClientCfg.AdminPort)
 	}
 
-	<-svr.closedCh
+	if cmd {
+		<-svr.closedCh
+	} else {
+		go func() {
+			<-svr.closedCh
+		}()
+	}
 	return nil
 }
 

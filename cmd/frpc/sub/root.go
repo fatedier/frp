@@ -95,13 +95,20 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+// if cmd model
+var cmd bool
+
+var service *client.Service
+
 func Execute() {
+	cmd = true
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
 func RunFrpc(cfgFilePath string) (err error) {
+	cmd = false
 	return runClient(cfgFilePath)
 }
 
@@ -208,12 +215,23 @@ func startService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]co
 		}
 	}
 	svr := client.NewService(pxyCfgs, visitorCfgs)
+	service = svr
 
 	// Capture the exit signal if we use kcp.
 	if g.GlbClientCfg.Protocol == "kcp" {
 		go handleSignal(svr)
 	}
 
-	err = svr.Run()
+	err = svr.Run(cmd)
+	return
+}
+
+func StopFrp() (err error) {
+	if service == nil {
+		return fmt.Errorf("frp not start")
+	}
+
+	service.Close()
+	log.Info("frpc is stoped")
 	return
 }
