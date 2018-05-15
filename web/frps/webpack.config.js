@@ -7,8 +7,7 @@ var publicPath = ''
 
 module.exports = (options = {}) => ({
     entry: {
-        vendor: './src/vendor',
-        index: './src/main.js'
+        vendor: './src/main'
     },
     output: {
         path: path.resolve(__dirname, 'dist'),
@@ -80,6 +79,8 @@ module.exports = (options = {}) => ({
             }
         }),
         new webpack.optimize.UglifyJsPlugin({
+            sourceMap: false,
+            comments: false,
             compress: {
                 warnings: false
             }
