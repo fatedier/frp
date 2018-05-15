@@ -112,6 +112,16 @@ func RunFrpc(cfgFilePath string) (err error) {
 	return runClient(cfgFilePath)
 }
 
+func StopFrp() (err error) {
+	if service == nil {
+		return fmt.Errorf("frp not start")
+	}
+
+	service.Close()
+	log.Info("frpc is stoped")
+	return
+}
+
 func handleSignal(svr *client.Service) {
 	ch := make(chan os.Signal)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
@@ -223,15 +233,5 @@ func startService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]co
 	}
 
 	err = svr.Run(cmd)
-	return
-}
-
-func StopFrp() (err error) {
-	if service == nil {
-		return fmt.Errorf("frp not start")
-	}
-
-	service.Close()
-	log.Info("frpc is stoped")
 	return
 }

@@ -52,9 +52,11 @@ func (svr *Service) Run(cmd bool) error {
 
 	if cmd {
 		<-svr.closedCh
+		log.Info("svr closed")
 	} else {
 		go func() {
 			<-svr.closedCh
+			log.Info("svr closed")
 		}()
 	}
 	return nil
@@ -62,4 +64,5 @@ func (svr *Service) Run(cmd bool) error {
 
 func (svr *Service) Close() {
 	svr.ctl.Close()
+	svr.closedCh <- 0
 }

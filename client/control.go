@@ -172,6 +172,7 @@ func (ctl *Control) Close() error {
 	ctl.mu.Lock()
 	defer ctl.mu.Unlock()
 	ctl.exit = true
+	ctl.conn.Close()
 	ctl.pm.CloseProxies()
 	return nil
 }
