@@ -675,6 +675,10 @@ func (cfg *StcpProxyConf) CheckForCli() (err error) {
 			err = fmt.Errorf("bind_addr shouldn't be empty")
 			return
 		}
+		if cfg.BindPort == 0 {
+			err = fmt.Errorf("bind_port should be set")
+			return
+		}
 	}
 	return
 }
@@ -775,6 +779,10 @@ func (cfg *XtcpProxyConf) CheckForCli() (err error) {
 	if cfg.Role == "visitor" {
 		if cfg.BindAddr == "" {
 			err = fmt.Errorf("bind_addr shouldn't be empty")
+			return
+		}
+		if cfg.BindPort == 0 {
+			err = fmt.Errorf("bind_port should be set")
 			return
 		}
 	}

@@ -106,10 +106,17 @@ func (nc *NatHoleController) HandleVisitor(m *msg.NatHoleVisitor, raddr *net.UDP
 	}
 	nc.mu.Lock()
 	clientCfg, ok := nc.clientCfgs[m.ProxyName]
-	if !ok || m.SignKey != util.GetAuthKey(clientCfg.Sk, m.Timestamp) {
+	if !ok {
 		nc.mu.Unlock()
+		log.Debug("xtcp server for [%s] doesn't exist", m.ProxyName)
 		return
 	}
+	if m.SignKey != util.GetAuthKey(clientCfg.Sk, m.Timestamp) {
+		nc.mu.Unlock()
+		log.Debug("xtcp connection of [%s] auth failed", m.ProxyName)
+		return
+	}
+
 	nc.sessions[sid] = session
 	nc.mu.Unlock()
 	log.Trace("handle visitor message, sid [%s]", sid)
