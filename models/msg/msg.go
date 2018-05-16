@@ -163,6 +163,7 @@ type NatHoleResp struct {
 	Sid         string `json:"sid"`
 	VisitorAddr string `json:"visitor_addr"`
 	ClientAddr  string `json:"client_addr"`
+	Error       string `json:"error"`
 }
 
 type NatHoleSid struct {
