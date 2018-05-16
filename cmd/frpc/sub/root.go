@@ -119,7 +119,6 @@ func StopFrp() (err error) {
 
 	service.Close()
 	log.Info("frpc is stoped")
-	os.Exit(0)
 	return
 }
 
