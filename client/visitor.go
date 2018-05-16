@@ -235,6 +235,11 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	visitorConn.SetReadDeadline(time.Time{})
 	pool.PutBuf(buf)
 
+	if natHoleRespMsg.Error != "" {
+		sv.Error("natHoleRespMsg get error info: %s", natHoleRespMsg.Error)
+		return
+	}
+
 	sv.Trace("get natHoleRespMsg, sid [%s], client address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr)
 
 	// Close visitorConn, so we can use it's local address.

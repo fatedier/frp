@@ -272,6 +272,12 @@ func (pxy *XtcpProxy) InWorkConn(conn frpNet.Conn) {
 	}
 	clientConn.SetReadDeadline(time.Time{})
 	clientConn.Close()
+
+	if natHoleRespMsg.Error != "" {
+		pxy.Error("natHoleRespMsg get error info: %s", natHoleRespMsg.Error)
+		return
+	}
+
 	pxy.Trace("get natHoleRespMsg, sid [%s], client address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr)
 
 	// Send sid to visitor udp address.
