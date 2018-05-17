@@ -509,7 +509,7 @@ func (cfg *HttpProxyConf) CheckForCli() (err error) {
 
 func (cfg *HttpProxyConf) CheckForSvr() (err error) {
 	if vhostHttpPort == 0 {
-		err = fmt.Errorf("type [http] not support when vhost_http_port is not set")
+		return fmt.Errorf("type [http] not support when vhost_http_port is not set")
 	}
 	if err = cfg.DomainConf.checkForSvr(); err != nil {
 		err = fmt.Errorf("proxy [%s] domain conf check error: %v", cfg.ProxyName, err)
