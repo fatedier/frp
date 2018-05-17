@@ -176,6 +176,7 @@ func (ctl *Control) Close() error {
 	ctl.exit = true
 	if ctl.conn != nil {
 		ctl.conn.Close()
+		log.Info("conn closed")
 	}
 	ctl.pm.CloseProxies()
 	return nil

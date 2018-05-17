@@ -34,6 +34,7 @@ import (
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/utils/log"
 	"github.com/fatedier/frp/utils/version"
+	"github.com/fatedier/golib/crypto"
 )
 
 const (
@@ -109,6 +110,7 @@ func Execute() {
 
 func RunFrpc(cfgFilePath string) (err error) {
 	cmd = false
+	crypto.DefaultSalt = "frp"
 	return runClient(cfgFilePath)
 }
 
