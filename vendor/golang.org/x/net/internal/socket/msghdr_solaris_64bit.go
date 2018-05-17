@@ -13,8 +13,10 @@ func (h *msghdr) pack(vs []iovec, bs [][]byte, oob []byte, sa []byte) {
 	for i := range vs {
 		vs[i].set(bs[i])
 	}
-	h.Iov = &vs[0]
-	h.Iovlen = int32(len(vs))
+	if len(vs) > 0 {
+		h.Iov = &vs[0]
+		h.Iovlen = int32(len(vs))
+	}
 	if len(oob) > 0 {
 		h.Accrights = (*int8)(unsafe.Pointer(&oob[0]))
 		h.Accrightslen = int32(len(oob))

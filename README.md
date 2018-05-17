@@ -23,7 +23,6 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Expose a simple http file server](#expose-a-simple-http-file-server)
     * [Expose your service in security](#expose-your-service-in-security)
     * [P2P Mode](#p2p-mode)
-    * [Connect website through frpc's network](#connect-website-through-frpcs-network)
 * [Features](#features)
     * [Configuration File](#configuration-file)
     * [Dashboard](#dashboard)
@@ -32,6 +31,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Hot-Reload frpc configuration](#hot-reload-frpc-configuration)
     * [Get proxy status from client](#get-proxy-status-from-client)
     * [Port White List](#port-white-list)
+    * [Port Reuse](#port-reuse)
     * [TCP Stream Multiplexing](#tcp-stream-multiplexing)
     * [Support KCP Protocol](#support-kcp-protocol)
     * [Connection Pool](#connection-pool)
@@ -333,26 +333,6 @@ Now it can't penetrate all types of NAT devices. You can try **stcp** if **xtcp*
 
   `ssh -oPort=6000 test@127.0.0.1`
 
-### Connect website through frpc's network
-
-Configure frps same as above.
-
-1. Start frpc with configurations:
-
-  ```ini
-  # frpc.ini
-  [common]
-  server_addr = x.x.x.x
-  server_port = 7000
-
-  [http_proxy]
-  type = tcp
-  remote_port = 6000
-  plugin = http_proxy # or socks5
-  ```
-
-2. Set http proxy or socks5 proxy `x.x.x.x:6000` in your browser and visit website through frpc's network.
-
 ## Features
 
 ### Configuration File
@@ -433,6 +413,12 @@ allow_ports = 2000-3000,3001,3003,4000-50000
 ```
 
 `allow_ports` consists of a specific port or a range of ports divided by `,`.
+
+### Port Reuse
+
+Now `vhost_http_port` and `vhost_https_port` in frps can use same port with `bind_port`. frps will detect connection's protocol and handle it correspondingly.
+
+We would like to try to allow multiple proxies bind a same remote port with different protocols in the future.
 
 ### TCP Stream Multiplexing
 

@@ -16,8 +16,12 @@ package main
 
 import (
 	"github.com/fatedier/frp/cmd/frpc/sub"
+
+	"github.com/fatedier/golib/crypto"
 )
 
 func main() {
+	crypto.DefaultSalt = "frp"
+
 	sub.Execute()
 }

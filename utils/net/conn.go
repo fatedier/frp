@@ -15,17 +15,16 @@
 package net
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"net"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/fatedier/frp/utils/log"
 
+	gnet "github.com/fatedier/golib/net"
 	kcp "github.com/fatedier/kcp-go"
 )
 
@@ -122,58 +121,20 @@ func ConnectServer(protocol string, addr string) (c Conn, err error) {
 	}
 }
 
-func ConnectServerByHttpProxy(httpProxy string, protocol string, addr string) (c Conn, err error) {
+func ConnectServerByProxy(proxyUrl string, protocol string, addr string) (c Conn, err error) {
 	switch protocol {
 	case "tcp":
-		return ConnectTcpServerByHttpProxy(httpProxy, addr)
+		var conn net.Conn
+		if conn, err = gnet.DialTcpByProxy(proxyUrl, addr); err != nil {
+			return
+		}
+		return WrapConn(conn), nil
 	case "kcp":
 		// http proxy is not supported for kcp
 		return ConnectServer(protocol, addr)
 	default:
 		return nil, fmt.Errorf("unsupport protocol: %s", protocol)
 	}
-}
-
-type SharedConn struct {
-	Conn
-	sync.Mutex
-	buf *bytes.Buffer
-}
-
-// the bytes you read in io.Reader, will be reserved in SharedConn
-func NewShareConn(conn Conn) (*SharedConn, io.Reader) {
-	sc := &SharedConn{
-		Conn: conn,
-		buf:  bytes.NewBuffer(make([]byte, 0, 1024)),
-	}
-	return sc, io.TeeReader(conn, sc.buf)
-}
-
-func (sc *SharedConn) Read(p []byte) (n int, err error) {
-	sc.Lock()
-	if sc.buf == nil {
-		sc.Unlock()
-		return sc.Conn.Read(p)
-	}
-	sc.Unlock()
-	n, err = sc.buf.Read(p)
-
-	if err == io.EOF {
-		sc.Lock()
-		sc.buf = nil
-		sc.Unlock()
-		var n2 int
-		n2, err = sc.Conn.Read(p[n:])
-
-		n += n2
-	}
-	return
-}
-
-func (sc *SharedConn) WriteBuff(buffer []byte) (err error) {
-	sc.buf.Reset()
-	_, err = sc.buf.Write(buffer)
-	return err
 }
 
 type StatsConn struct {

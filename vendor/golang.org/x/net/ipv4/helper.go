@@ -43,3 +43,21 @@ func netAddrToIP4(a net.Addr) net.IP {
 	}
 	return nil
 }
+
+func opAddr(a net.Addr) net.Addr {
+	switch a.(type) {
+	case *net.TCPAddr:
+		if a == nil {
+			return nil
+		}
+	case *net.UDPAddr:
+		if a == nil {
+			return nil
+		}
+	case *net.IPAddr:
+		if a == nil {
+			return nil
+		}
+	}
+	return a
+}
