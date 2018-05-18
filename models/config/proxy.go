@@ -262,7 +262,7 @@ func (cfg *DomainConf) checkForSvr() (err error) {
 
 	if cfg.SubDomain != "" {
 		if subDomainHost == "" {
-			return fmt.Errorf("subdomain is not supported because this feature is not enabled by frps")
+			return fmt.Errorf("subdomain is not supported because this feature is not enabled in remote frps")
 		}
 		if strings.Contains(cfg.SubDomain, ".") || strings.Contains(cfg.SubDomain, "*") {
 			return fmt.Errorf("'.' and '*' is not supported in subdomain")
