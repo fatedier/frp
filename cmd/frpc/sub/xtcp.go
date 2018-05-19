@@ -40,6 +40,7 @@ func init() {
 	xtcpCmd.PersistentFlags().StringVarP(&localIp, "local_ip", "i", "127.0.0.1", "local ip")
 	xtcpCmd.PersistentFlags().IntVarP(&localPort, "local_port", "l", 0, "local port")
 	xtcpCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "", "", "bind addr")
+	xtcpCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "", 0, "bind port")
 	xtcpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	xtcpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
 
@@ -69,6 +70,7 @@ var xtcpCmd = &cobra.Command{
 		cfg.LocalIp = localIp
 		cfg.LocalPort = localPort
 		cfg.BindAddr = bindAddr
+		cfg.BindPort = bindPort
 		cfg.UseEncryption = useEncryption
 		cfg.UseCompression = useCompression
 

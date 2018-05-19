@@ -49,7 +49,6 @@ func getHostFromAddr(addr string) (host string) {
 
 type HttpReverseProxy struct {
 	proxy *ReverseProxy
-	tr    *http.Transport
 
 	vhostRouter *VhostRouters
 

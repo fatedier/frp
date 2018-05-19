@@ -262,7 +262,7 @@ func (cfg *DomainConf) checkForSvr() (err error) {
 
 	if cfg.SubDomain != "" {
 		if subDomainHost == "" {
-			return fmt.Errorf("subdomain is not supported because this feature is not enabled by frps")
+			return fmt.Errorf("subdomain is not supported because this feature is not enabled in remote frps")
 		}
 		if strings.Contains(cfg.SubDomain, ".") || strings.Contains(cfg.SubDomain, "*") {
 			return fmt.Errorf("'.' and '*' is not supported in subdomain")
@@ -509,7 +509,7 @@ func (cfg *HttpProxyConf) CheckForCli() (err error) {
 
 func (cfg *HttpProxyConf) CheckForSvr() (err error) {
 	if vhostHttpPort == 0 {
-		err = fmt.Errorf("type [http] not support when vhost_http_port is not set")
+		return fmt.Errorf("type [http] not support when vhost_http_port is not set")
 	}
 	if err = cfg.DomainConf.checkForSvr(); err != nil {
 		err = fmt.Errorf("proxy [%s] domain conf check error: %v", cfg.ProxyName, err)
@@ -675,6 +675,10 @@ func (cfg *StcpProxyConf) CheckForCli() (err error) {
 			err = fmt.Errorf("bind_addr shouldn't be empty")
 			return
 		}
+		if cfg.BindPort == 0 {
+			err = fmt.Errorf("bind_port should be set")
+			return
+		}
 	}
 	return
 }
@@ -775,6 +779,10 @@ func (cfg *XtcpProxyConf) CheckForCli() (err error) {
 	if cfg.Role == "visitor" {
 		if cfg.BindAddr == "" {
 			err = fmt.Errorf("bind_addr shouldn't be empty")
+			return
+		}
+		if cfg.BindPort == 0 {
+			err = fmt.Errorf("bind_port should be set")
 			return
 		}
 	}
