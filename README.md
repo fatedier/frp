@@ -616,7 +616,7 @@ local_port = 6000-6006,6007
 remote_port = 6000-6006,6007
 ```
 
-frpc will generate 6 proxies like `test_tcp_0, test_tcp_1 ... test_tcp_5`.
+frpc will generate 8 proxies like `test_tcp_0, test_tcp_1 ... test_tcp_7`.
 
 ### Plugin
 

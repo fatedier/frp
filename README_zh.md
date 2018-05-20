@@ -654,7 +654,7 @@ local_port = 6000-6006,6007
 remote_port = 6000-6006,6007
 ```
 
-实际连接成功后会创建 6 个 proxy，命名为 `test_tcp_0, test_tcp_1 ... test_tcp_5`。
+实际连接成功后会创建 8 个 proxy，命名为 `test_tcp_0, test_tcp_1 ... test_tcp_7`。
 
 ### 插件
 

@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -127,67 +128,76 @@ func TestStcp(t *testing.T) {
 func TestHttp(t *testing.T) {
 	assert := assert.New(t)
 	// web01
-	code, body, err := sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "", nil, "")
+	code, body, _, err := sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(200, code)
 		assert.Equal(TEST_HTTP_NORMAL_STR, body)
 	}
 
 	// web02
-	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test2.frp.com", nil, "")
+	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test2.frp.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(200, code)
 		assert.Equal(TEST_HTTP_NORMAL_STR, body)
 	}
 
 	// error host header
-	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "errorhost.frp.com", nil, "")
+	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "errorhost.frp.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(404, code)
 	}
 
 	// web03
-	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test3.frp.com", nil, "")
+	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test3.frp.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(200, code)
 		assert.Equal(TEST_HTTP_NORMAL_STR, body)
 	}
 
-	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d/foo", TEST_HTTP_FRP_PORT), "test3.frp.com", nil, "")
+	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d/foo", TEST_HTTP_FRP_PORT), "test3.frp.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(200, code)
 		assert.Equal(TEST_HTTP_FOO_STR, body)
 	}
 
 	// web04
-	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d/bar", TEST_HTTP_FRP_PORT), "test3.frp.com", nil, "")
+	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d/bar", TEST_HTTP_FRP_PORT), "test3.frp.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(200, code)
 		assert.Equal(TEST_HTTP_BAR_STR, body)
 	}
 
 	// web05
-	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test5.frp.com", nil, "")
+	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test5.frp.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(401, code)
 	}
 
-	header := make(map[string]string)
-	header["Authorization"] = basicAuth("test", "test")
-	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test5.frp.com", header, "")
+	headers := make(map[string]string)
+	headers["Authorization"] = basicAuth("test", "test")
+	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test5.frp.com", headers, "")
 	if assert.NoError(err) {
 		assert.Equal(401, code)
+	}
+
+	// web06
+	var header http.Header
+	code, body, header, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test6.frp.com", nil, "")
+	if assert.NoError(err) {
+		assert.Equal(200, code)
+		assert.Equal(TEST_HTTP_NORMAL_STR, body)
+		assert.Equal("true", header.Get("X-Header-Set"))
 	}
 
 	// subhost01
-	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test01.sub.com", nil, "")
+	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test01.sub.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(200, code)
 		assert.Equal("test01.sub.com", body)
 	}
 
 	// subhost02
-	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test02.sub.com", nil, "")
+	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test02.sub.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(200, code)
 		assert.Equal("test02.sub.com", body)
@@ -272,7 +282,7 @@ func TestPluginHttpProxy(t *testing.T) {
 
 		// http proxy
 		addr := status.RemoteAddr
-		code, body, err := sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT),
+		code, body, _, err := sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT),
 			"", nil, "http://"+addr)
 		if assert.NoError(err) {
 			assert.Equal(200, code)
