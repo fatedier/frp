@@ -429,10 +429,11 @@ type HttpProxyConf struct {
 
 	LocalSvrConf
 
-	Locations         []string `json:"locations"`
-	HostHeaderRewrite string   `json:"host_header_rewrite"`
-	HttpUser          string   `json:"http_user"`
-	HttpPwd           string   `json:"http_pwd"`
+	Locations         []string          `json:"locations"`
+	HttpUser          string            `json:"http_user"`
+	HttpPwd           string            `json:"http_pwd"`
+	HostHeaderRewrite string            `json:"host_header_rewrite"`
+	Headers           map[string]string `json:"headers"`
 }
 
 func (cfg *HttpProxyConf) Compare(cmp ProxyConf) bool {
@@ -447,8 +448,19 @@ func (cfg *HttpProxyConf) Compare(cmp ProxyConf) bool {
 		strings.Join(cfg.Locations, " ") != strings.Join(cmpConf.Locations, " ") ||
 		cfg.HostHeaderRewrite != cmpConf.HostHeaderRewrite ||
 		cfg.HttpUser != cmpConf.HttpUser ||
-		cfg.HttpPwd != cmpConf.HttpPwd {
+		cfg.HttpPwd != cmpConf.HttpPwd ||
+		len(cfg.Headers) != len(cmpConf.Headers) {
 		return false
+	}
+
+	for k, v := range cfg.Headers {
+		if v2, ok := cmpConf.Headers[k]; !ok {
+			return false
+		} else {
+			if v != v2 {
+				return false
+			}
+		}
 	}
 	return true
 }
@@ -461,6 +473,7 @@ func (cfg *HttpProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.HostHeaderRewrite = pMsg.HostHeaderRewrite
 	cfg.HttpUser = pMsg.HttpUser
 	cfg.HttpPwd = pMsg.HttpPwd
+	cfg.Headers = pMsg.Headers
 }
 
 func (cfg *HttpProxyConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
@@ -487,6 +500,13 @@ func (cfg *HttpProxyConf) UnmarshalFromIni(prefix string, name string, section i
 	cfg.HostHeaderRewrite = section["host_header_rewrite"]
 	cfg.HttpUser = section["http_user"]
 	cfg.HttpPwd = section["http_pwd"]
+	cfg.Headers = make(map[string]string)
+
+	for k, v := range section {
+		if strings.HasPrefix(k, "header_") {
+			cfg.Headers[strings.TrimPrefix(k, "header_")] = v
+		}
+	}
 	return
 }
 
@@ -498,6 +518,7 @@ func (cfg *HttpProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.HostHeaderRewrite = cfg.HostHeaderRewrite
 	pMsg.HttpUser = cfg.HttpUser
 	pMsg.HttpPwd = cfg.HttpPwd
+	pMsg.Headers = cfg.Headers
 }
 
 func (cfg *HttpProxyConf) CheckForCli() (err error) {
