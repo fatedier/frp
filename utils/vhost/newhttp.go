@@ -63,12 +63,17 @@ func NewHttpReverseProxy() *HttpReverseProxy {
 		Director: func(req *http.Request) {
 			req.URL.Scheme = "http"
 			url := req.Context().Value("url").(string)
-			host := getHostFromAddr(req.Context().Value("host").(string))
-			host = rp.GetRealHost(host, url)
+			oldHost := getHostFromAddr(req.Context().Value("host").(string))
+			host := rp.GetRealHost(oldHost, url)
 			if host != "" {
 				req.Host = host
 			}
 			req.URL.Host = req.Host
+
+			headers := rp.GetHeaders(oldHost, url)
+			for k, v := range headers {
+				req.Header.Set(k, v)
+			}
 		},
 		Transport: &http.Transport{
 			ResponseHeaderTimeout: responseHeaderTimeout,
@@ -113,6 +118,14 @@ func (rp *HttpReverseProxy) GetRealHost(domain string, location string) (host st
 	vr, ok := rp.getVhost(domain, location)
 	if ok {
 		host = vr.payload.(*VhostRouteConfig).RewriteHost
+	}
+	return
+}
+
+func (rp *HttpReverseProxy) GetHeaders(domain string, location string) (headers map[string]string) {
+	vr, ok := rp.getVhost(domain, location)
+	if ok {
+		headers = vr.payload.(*VhostRouteConfig).Headers
 	}
 	return
 }
