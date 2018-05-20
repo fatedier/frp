@@ -24,7 +24,7 @@ import (
 	"github.com/fatedier/frp/utils/log"
 	"github.com/fatedier/frp/utils/version"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/gorilla/mux"
 )
 
 type GeneralResponse struct {
@@ -55,16 +55,16 @@ type ServerInfoResp struct {
 	ProxyTypeCounts map[string]int64 `json:"proxy_type_count"`
 }
 
-func apiServerInfo(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func apiServerInfo(w http.ResponseWriter, r *http.Request) {
 	var (
 		buf []byte
 		res ServerInfoResp
 	)
 	defer func() {
-		log.Info("Http response [/api/serverinfo]: code [%d]", res.Code)
+		log.Info("Http response [%s]: code [%d]", r.URL.Path, res.Code)
 	}()
 
-	log.Info("Http request: [/api/serverinfo]")
+	log.Info("Http request: [%s]", r.URL.Path)
 	cfg := &g.GlbServerCfg.ServerCommonConf
 	serverStats := StatsGetServer()
 	res = ServerInfoResp{
@@ -91,16 +91,69 @@ func apiServerInfo(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 	w.Write(buf)
 }
 
+type BaseOutConf struct {
+	config.BaseProxyConf
+}
+
+type TcpOutConf struct {
+	BaseOutConf
+	RemotePort int `json:"remote_port"`
+}
+
+type UdpOutConf struct {
+	BaseOutConf
+	RemotePort int `json:"remote_port"`
+}
+
+type HttpOutConf struct {
+	BaseOutConf
+	config.DomainConf
+	Locations         []string `json:"locations"`
+	HostHeaderRewrite string   `json:"host_header_rewrite"`
+}
+
+type HttpsOutConf struct {
+	BaseOutConf
+	config.DomainConf
+}
+
+type StcpOutConf struct {
+	BaseOutConf
+}
+
+type XtcpOutConf struct {
+	BaseOutConf
+}
+
+func getConfByType(proxyType string) interface{} {
+	switch proxyType {
+	case consts.TcpProxy:
+		return &TcpOutConf{}
+	case consts.UdpProxy:
+		return &UdpOutConf{}
+	case consts.HttpProxy:
+		return &HttpOutConf{}
+	case consts.HttpsProxy:
+		return &HttpsOutConf{}
+	case consts.StcpProxy:
+		return &StcpOutConf{}
+	case consts.XtcpProxy:
+		return &XtcpOutConf{}
+	default:
+		return nil
+	}
+}
+
 // Get proxy info.
 type ProxyStatsInfo struct {
-	Name            string           `json:"name"`
-	Conf            config.ProxyConf `json:"conf"`
-	TodayTrafficIn  int64            `json:"today_traffic_in"`
-	TodayTrafficOut int64            `json:"today_traffic_out"`
-	CurConns        int64            `json:"cur_conns"`
-	LastStartTime   string           `json:"last_start_time"`
-	LastCloseTime   string           `json:"last_close_time"`
-	Status          string           `json:"status"`
+	Name            string      `json:"name"`
+	Conf            interface{} `json:"conf"`
+	TodayTrafficIn  int64       `json:"today_traffic_in"`
+	TodayTrafficOut int64       `json:"today_traffic_out"`
+	CurConns        int64       `json:"cur_conns"`
+	LastStartTime   string      `json:"last_start_time"`
+	LastCloseTime   string      `json:"last_close_time"`
+	Status          string      `json:"status"`
 }
 
 type GetProxyInfoResp struct {
@@ -108,72 +161,27 @@ type GetProxyInfoResp struct {
 	Proxies []*ProxyStatsInfo `json:"proxies"`
 }
 
-// api/proxy/tcp
-func apiProxyTcp(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+// api/proxy/:type
+func apiProxyByType(w http.ResponseWriter, r *http.Request) {
 	var (
 		buf []byte
 		res GetProxyInfoResp
 	)
-	defer func() {
-		log.Info("Http response [/api/proxy/tcp]: code [%d]", res.Code)
-	}()
-	log.Info("Http request: [/api/proxy/tcp]")
+	params := mux.Vars(r)
+	proxyType := params["type"]
 
-	res.Proxies = getProxyStatsByType(consts.TcpProxy)
+	defer func() {
+		log.Info("Http response [%s]: code [%d]", r.URL.Path, res.Code)
+		log.Info(r.URL.Path)
+		log.Info(r.URL.RawPath)
+	}()
+	log.Info("Http request: [%s]", r.URL.Path)
+
+	res.Proxies = getProxyStatsByType(proxyType)
 
 	buf, _ = json.Marshal(&res)
 	w.Write(buf)
-}
 
-// api/proxy/udp
-func apiProxyUdp(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var (
-		buf []byte
-		res GetProxyInfoResp
-	)
-	defer func() {
-		log.Info("Http response [/api/proxy/udp]: code [%d]", res.Code)
-	}()
-	log.Info("Http request: [/api/proxy/udp]")
-
-	res.Proxies = getProxyStatsByType(consts.UdpProxy)
-
-	buf, _ = json.Marshal(&res)
-	w.Write(buf)
-}
-
-// api/proxy/http
-func apiProxyHttp(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var (
-		buf []byte
-		res GetProxyInfoResp
-	)
-	defer func() {
-		log.Info("Http response [/api/proxy/http]: code [%d]", res.Code)
-	}()
-	log.Info("Http request: [/api/proxy/http]")
-
-	res.Proxies = getProxyStatsByType(consts.HttpProxy)
-
-	buf, _ = json.Marshal(&res)
-	w.Write(buf)
-}
-
-// api/proxy/https
-func apiProxyHttps(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var (
-		buf []byte
-		res GetProxyInfoResp
-	)
-	defer func() {
-		log.Info("Http response [/api/proxy/https]: code [%d]", res.Code)
-	}()
-	log.Info("Http request: [/api/proxy/https]")
-
-	res.Proxies = getProxyStatsByType(consts.HttpsProxy)
-
-	buf, _ = json.Marshal(&res)
-	w.Write(buf)
 }
 
 func getProxyStatsByType(proxyType string) (proxyInfos []*ProxyStatsInfo) {
@@ -182,7 +190,16 @@ func getProxyStatsByType(proxyType string) (proxyInfos []*ProxyStatsInfo) {
 	for _, ps := range proxyStats {
 		proxyInfo := &ProxyStatsInfo{}
 		if pxy, ok := ServerService.pxyManager.GetByName(ps.Name); ok {
-			proxyInfo.Conf = pxy.GetConf()
+			content, err := json.Marshal(pxy.GetConf())
+			if err != nil {
+				log.Warn("marshal proxy [%s] conf info error: %v", ps.Name, err)
+				continue
+			}
+			proxyInfo.Conf = getConfByType(ps.Type)
+			if err = json.Unmarshal(content, &proxyInfo.Conf); err != nil {
+				log.Warn("unmarshal proxy [%s] conf info error: %v", ps.Name, err)
+				continue
+			}
 			proxyInfo.Status = consts.Online
 		} else {
 			proxyInfo.Status = consts.Offline
@@ -202,87 +219,32 @@ func getProxyStatsByType(proxyType string) (proxyInfos []*ProxyStatsInfo) {
 type GetProxyStatsResp struct {
 	GeneralResponse
 
-	Name            string           `json:"name"`
-	Conf            config.ProxyConf `json:"conf"`
-	TodayTrafficIn  int64            `json:"today_traffic_in"`
-	TodayTrafficOut int64            `json:"today_traffic_out"`
-	CurConns        int64            `json:"cur_conns"`
-	LastStartTime   string           `json:"last_start_time"`
-	LastCloseTime   string           `json:"last_close_time"`
-	Status          string           `json:"status"`
+	Name            string      `json:"name"`
+	Conf            interface{} `json:"conf"`
+	TodayTrafficIn  int64       `json:"today_traffic_in"`
+	TodayTrafficOut int64       `json:"today_traffic_out"`
+	CurConns        int64       `json:"cur_conns"`
+	LastStartTime   string      `json:"last_start_time"`
+	LastCloseTime   string      `json:"last_close_time"`
+	Status          string      `json:"status"`
 }
 
-// api/proxy/tcp/:name
-func apiProxyTcpByName(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+// api/proxy/:type/:name
+func apiProxyByTypeAndName(w http.ResponseWriter, r *http.Request) {
 	var (
 		buf []byte
 		res GetProxyStatsResp
 	)
-	name := params.ByName("name")
+	params := mux.Vars(r)
+	proxyType := params["type"]
+	name := params["name"]
 
 	defer func() {
-		log.Info("Http response [/api/proxy/tcp/:name]: code [%d]", res.Code)
+		log.Info("Http response [%s]: code [%d]", r.URL.Path, res.Code)
 	}()
-	log.Info("Http request: [/api/proxy/tcp/:name]")
+	log.Info("Http request: [%s]", r.URL.Path)
 
-	res = getProxyStatsByTypeAndName(consts.TcpProxy, name)
-
-	buf, _ = json.Marshal(&res)
-	w.Write(buf)
-}
-
-// api/proxy/udp/:name
-func apiProxyUdpByName(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	var (
-		buf []byte
-		res GetProxyStatsResp
-	)
-	name := params.ByName("name")
-
-	defer func() {
-		log.Info("Http response [/api/proxy/udp/:name]: code [%d]", res.Code)
-	}()
-	log.Info("Http request: [/api/proxy/udp/:name]")
-
-	res = getProxyStatsByTypeAndName(consts.UdpProxy, name)
-
-	buf, _ = json.Marshal(&res)
-	w.Write(buf)
-}
-
-// api/proxy/http/:name
-func apiProxyHttpByName(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	var (
-		buf []byte
-		res GetProxyStatsResp
-	)
-	name := params.ByName("name")
-
-	defer func() {
-		log.Info("Http response [/api/proxy/http/:name]: code [%d]", res.Code)
-	}()
-	log.Info("Http request: [/api/proxy/http/:name]")
-
-	res = getProxyStatsByTypeAndName(consts.HttpProxy, name)
-
-	buf, _ = json.Marshal(&res)
-	w.Write(buf)
-}
-
-// api/proxy/https/:name
-func apiProxyHttpsByName(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	var (
-		buf []byte
-		res GetProxyStatsResp
-	)
-	name := params.ByName("name")
-
-	defer func() {
-		log.Info("Http response [/api/proxy/https/:name]: code [%d]", res.Code)
-	}()
-	log.Info("Http request: [/api/proxy/https/:name]")
-
-	res = getProxyStatsByTypeAndName(consts.HttpsProxy, name)
+	res = getProxyStatsByTypeAndName(proxyType, name)
 
 	buf, _ = json.Marshal(&res)
 	w.Write(buf)
@@ -296,7 +258,20 @@ func getProxyStatsByTypeAndName(proxyType string, proxyName string) (proxyInfo G
 		proxyInfo.Msg = "no proxy info found"
 	} else {
 		if pxy, ok := ServerService.pxyManager.GetByName(proxyName); ok {
-			proxyInfo.Conf = pxy.GetConf()
+			content, err := json.Marshal(pxy.GetConf())
+			if err != nil {
+				log.Warn("marshal proxy [%s] conf info error: %v", ps.Name, err)
+				proxyInfo.Code = 2
+				proxyInfo.Msg = "parse conf error"
+				return
+			}
+			proxyInfo.Conf = getConfByType(ps.Type)
+			if err = json.Unmarshal(content, &proxyInfo.Conf); err != nil {
+				log.Warn("unmarshal proxy [%s] conf info error: %v", ps.Name, err)
+				proxyInfo.Code = 2
+				proxyInfo.Msg = "parse conf error"
+				return
+			}
 			proxyInfo.Status = consts.Online
 		} else {
 			proxyInfo.Status = consts.Offline
@@ -311,7 +286,7 @@ func getProxyStatsByTypeAndName(proxyType string, proxyName string) (proxyInfo G
 	return
 }
 
-// api/proxy/traffic/:name
+// api/traffic/:name
 type GetProxyTrafficResp struct {
 	GeneralResponse
 
@@ -320,17 +295,18 @@ type GetProxyTrafficResp struct {
 	TrafficOut []int64 `json:"traffic_out"`
 }
 
-func apiProxyTraffic(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func apiProxyTraffic(w http.ResponseWriter, r *http.Request) {
 	var (
 		buf []byte
 		res GetProxyTrafficResp
 	)
-	name := params.ByName("name")
+	params := mux.Vars(r)
+	name := params["name"]
 
 	defer func() {
-		log.Info("Http response [/api/proxy/traffic/:name]: code [%d]", res.Code)
+		log.Info("Http response [%s]: code [%d]", r.URL.Path, res.Code)
 	}()
-	log.Info("Http request: [/api/proxy/traffic/:name]")
+	log.Info("Http request: [%s]", r.URL.Path)
 
 	res.Name = name
 	proxyTrafficInfo := StatsGetProxyTraffic(name)

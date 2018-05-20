@@ -24,7 +24,7 @@ import (
 	"github.com/fatedier/frp/g"
 	frpNet "github.com/fatedier/frp/utils/net"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/gorilla/mux"
 )
 
 var (
@@ -34,30 +34,24 @@ var (
 
 func RunDashboardServer(addr string, port int) (err error) {
 	// url router
-	router := httprouter.New()
+	router := mux.NewRouter()
 
 	user, passwd := g.GlbServerCfg.DashboardUser, g.GlbServerCfg.DashboardPwd
+	router.Use(frpNet.NewHttpAuthMiddleware(user, passwd).Middleware)
 
 	// api, see dashboard_api.go
-	router.GET("/api/serverinfo", frpNet.HttprouterBasicAuth(apiServerInfo, user, passwd))
-	router.GET("/api/proxy/tcp/:name", frpNet.HttprouterBasicAuth(apiProxyTcpByName, user, passwd))
-	router.GET("/api/proxy/udp/:name", frpNet.HttprouterBasicAuth(apiProxyUdpByName, user, passwd))
-	router.GET("/api/proxy/http/:name", frpNet.HttprouterBasicAuth(apiProxyHttpByName, user, passwd))
-	router.GET("/api/proxy/https/:name", frpNet.HttprouterBasicAuth(apiProxyHttpsByName, user, passwd))
-	router.GET("/api/proxy/tcp", frpNet.HttprouterBasicAuth(apiProxyTcp, user, passwd))
-	router.GET("/api/proxy/udp", frpNet.HttprouterBasicAuth(apiProxyUdp, user, passwd))
-	router.GET("/api/proxy/http", frpNet.HttprouterBasicAuth(apiProxyHttp, user, passwd))
-	router.GET("/api/proxy/https", frpNet.HttprouterBasicAuth(apiProxyHttps, user, passwd))
-	router.GET("/api/proxy/traffic/:name", frpNet.HttprouterBasicAuth(apiProxyTraffic, user, passwd))
+	router.HandleFunc("/api/serverinfo", apiServerInfo).Methods("GET")
+	router.HandleFunc("/api/proxy/{type}", apiProxyByType).Methods("GET")
+	router.HandleFunc("/api/proxy/{type}/{name}", apiProxyByTypeAndName).Methods("GET")
+	router.HandleFunc("/api/traffic/{name}", apiProxyTraffic).Methods("GET")
 
 	// view
-	router.Handler("GET", "/favicon.ico", http.FileServer(assets.FileSystem))
-	router.Handler("GET", "/static/*filepath", frpNet.MakeHttpGzipHandler(
-		frpNet.NewHttpBasicAuthWraper(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)), user, passwd)))
+	router.Handle("/favicon.ico", http.FileServer(assets.FileSystem)).Methods("GET")
+	router.PathPrefix("/static/").Handler(frpNet.MakeHttpGzipHandler(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))).Methods("GET")
 
-	router.HandlerFunc("GET", "/", frpNet.HttpBasicAuth(func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
-	}, user, passwd))
+	})
 
 	address := fmt.Sprintf("%s:%d", addr, port)
 	server := &http.Server{

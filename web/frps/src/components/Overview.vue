@@ -124,6 +124,12 @@
                     if (json.proxy_type_count.https != null) {
                         this.proxy_counts += json.proxy_type_count.https
                     }
+                    if (json.proxy_type_count.stcp != null) {
+                        this.proxy_counts += json.proxy_type_count.stcp
+                    }
+                    if (json.proxy_type_count.xtcp != null) {
+                        this.proxy_counts += json.proxy_type_count.xtcp
+                    }
                 }
                 DrawTrafficChart('traffic', json.total_traffic_in, json.total_traffic_out)
                 DrawProxyChart('proxies', json)
