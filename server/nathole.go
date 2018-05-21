@@ -106,10 +106,21 @@ func (nc *NatHoleController) HandleVisitor(m *msg.NatHoleVisitor, raddr *net.UDP
 	}
 	nc.mu.Lock()
 	clientCfg, ok := nc.clientCfgs[m.ProxyName]
-	if !ok || m.SignKey != util.GetAuthKey(clientCfg.Sk, m.Timestamp) {
+	if !ok {
 		nc.mu.Unlock()
+		errInfo := fmt.Sprintf("xtcp server for [%s] doesn't exist", m.ProxyName)
+		log.Debug(errInfo)
+		nc.listener.WriteToUDP(nc.GenNatHoleResponse(nil, errInfo), raddr)
 		return
 	}
+	if m.SignKey != util.GetAuthKey(clientCfg.Sk, m.Timestamp) {
+		nc.mu.Unlock()
+		errInfo := fmt.Sprintf("xtcp connection of [%s] auth failed", m.ProxyName)
+		log.Debug(errInfo)
+		nc.listener.WriteToUDP(nc.GenNatHoleResponse(nil, errInfo), raddr)
+		return
+	}
+
 	nc.sessions[sid] = session
 	nc.mu.Unlock()
 	log.Trace("handle visitor message, sid [%s]", sid)
@@ -130,7 +141,7 @@ func (nc *NatHoleController) HandleVisitor(m *msg.NatHoleVisitor, raddr *net.UDP
 	// Wait client connections.
 	select {
 	case <-session.NotifyCh:
-		resp := nc.GenNatHoleResponse(raddr, session)
+		resp := nc.GenNatHoleResponse(session, "")
 		log.Trace("send nat hole response to visitor")
 		nc.listener.WriteToUDP(resp, raddr)
 	case <-time.After(time.Duration(NatHoleTimeout) * time.Second):
@@ -149,16 +160,27 @@ func (nc *NatHoleController) HandleClient(m *msg.NatHoleClient, raddr *net.UDPAd
 	session.ClientAddr = raddr
 	session.NotifyCh <- struct{}{}
 
-	resp := nc.GenNatHoleResponse(raddr, session)
+	resp := nc.GenNatHoleResponse(session, "")
 	log.Trace("send nat hole response to client")
 	nc.listener.WriteToUDP(resp, raddr)
 }
 
-func (nc *NatHoleController) GenNatHoleResponse(raddr *net.UDPAddr, session *NatHoleSession) []byte {
+func (nc *NatHoleController) GenNatHoleResponse(session *NatHoleSession, errInfo string) []byte {
+	var (
+		sid         string
+		visitorAddr string
+		clientAddr  string
+	)
+	if session != nil {
+		sid = session.Sid
+		visitorAddr = session.VisitorAddr.String()
+		clientAddr = session.ClientAddr.String()
+	}
 	m := &msg.NatHoleResp{
-		Sid:         session.Sid,
-		VisitorAddr: session.VisitorAddr.String(),
-		ClientAddr:  session.ClientAddr.String(),
+		Sid:         sid,
+		VisitorAddr: visitorAddr,
+		ClientAddr:  clientAddr,
+		Error:       errInfo,
 	}
 	b := bytes.NewBuffer(nil)
 	err := msg.WriteMsg(b, m)

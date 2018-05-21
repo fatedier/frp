@@ -70,6 +70,7 @@ var (
 	sk                string
 	serverName        string
 	bindAddr          string
+	bindPort          int
 )
 
 func init() {

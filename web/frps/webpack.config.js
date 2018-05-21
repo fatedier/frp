@@ -1,13 +1,13 @@
 const path = require('path')
 var webpack = require('webpack')
 var HtmlWebpackPlugin = require('html-webpack-plugin')
+var VueLoaderPlugin = require('vue-loader/lib/plugin')
 var url = require('url')
 var publicPath = ''
 
 module.exports = (options = {}) => ({
     entry: {
-        vendor: './src/vendor',
-        index: './src/main.js'
+        vendor: './src/main'
     },
     output: {
         path: path.resolve(__dirname, 'dist'),
@@ -25,7 +25,7 @@ module.exports = (options = {}) => ({
     module: {
         rules: [{
             test: /\.vue$/,
-            use: ['vue-loader']
+            loader: 'vue-loader'
         }, {
             test: /\.js$/,
             use: ['babel-loader'],
@@ -71,7 +71,21 @@ module.exports = (options = {}) => ({
         new HtmlWebpackPlugin({
             favicon: 'src/assets/favicon.ico',
             template: 'src/index.html'
-        })
+        }),
+        new webpack.NormalModuleReplacementPlugin(/element-ui[\/\\]lib[\/\\]locale[\/\\]lang[\/\\]zh-CN/, 'element-ui/lib/locale/lang/en'),
+        new webpack.DefinePlugin({
+            'process.env': {
+                NODE_ENV: '"production"'
+            }
+        }),
+        new webpack.optimize.UglifyJsPlugin({
+            sourceMap: false,
+            comments: false,
+            compress: {
+                warnings: false
+            }
+        }),
+        new VueLoaderPlugin()
     ],
     devServer: {
         host: '127.0.0.1',
