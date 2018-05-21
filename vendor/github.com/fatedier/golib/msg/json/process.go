@@ -23,6 +23,7 @@ import (
 var (
 	ErrMsgType      = errors.New("message type error")
 	ErrMaxMsgLength = errors.New("message length exceed the limit")
+	ErrMsgLength    = errors.New("message length error")
 	ErrMsgFormat    = errors.New("message format error")
 )
 
@@ -45,6 +46,9 @@ func (msgCtl *MsgCtl) readMsg(c io.Reader) (typeByte byte, buffer []byte, err er
 	}
 	if length > msgCtl.maxMsgLength {
 		err = ErrMaxMsgLength
+		return
+	} else if length < 0 {
+		err = ErrMsgLength
 		return
 	}
 

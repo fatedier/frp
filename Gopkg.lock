@@ -30,7 +30,7 @@
     "net/mux",
     "pool"
   ]
-  revision = "354693cdd7fd9fa4f207c2f91ec2534615d3e5e5"
+  revision = "674e937d2ef03e9ef7798c363071cad128f3c13b"
 
 [[projects]]
   branch = "frp"
@@ -99,8 +99,8 @@
 [[projects]]
   name = "github.com/spf13/cobra"
   packages = ["."]
-  revision = "a1f051bc3eba734da4772d60e2d677f47cf93ef4"
-  version = "v0.0.2"
+  revision = "ef82de70bb3f60c65fb8eebacbb2d122ef517385"
+  version = "v0.0.3"
 
 [[projects]]
   name = "github.com/spf13/pflag"
@@ -169,11 +169,11 @@
     "ipv4",
     "proxy"
   ]
-  revision = "d11bb6cd8e3c4e60239c9cb20ef68586d74500d0"
+  revision = "57065200b4b034a1c8ad54ff77069408c2218ae6"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "62cd3fc531e189e2459de46ff5f84b935c734a3032f0f78c4ed4b3e9434ba9ad"
+  inputs-digest = "621310de53a9243693d20ce53690f373fd558440616fcf2893fec5ba4aa2b6ca"
   solver-name = "gps-cdcl"
   solver-version = 1
