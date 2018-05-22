@@ -100,8 +100,10 @@ type BaseProxyConf struct {
 	ProxyName string `json:"proxy_name"`
 	ProxyType string `json:"proxy_type"`
 
-	UseEncryption  bool `json:"use_encryption"`
-	UseCompression bool `json:"use_compression"`
+	UseEncryption  bool   `json:"use_encryption"`
+	UseCompression bool   `json:"use_compression"`
+	Group          string `json:"group"`
+	GroupKey       string `json:"group_key"`
 }
 
 func (cfg *BaseProxyConf) GetBaseInfo() *BaseProxyConf {
@@ -112,7 +114,9 @@ func (cfg *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
 	if cfg.ProxyName != cmp.ProxyName ||
 		cfg.ProxyType != cmp.ProxyType ||
 		cfg.UseEncryption != cmp.UseEncryption ||
-		cfg.UseCompression != cmp.UseCompression {
+		cfg.UseCompression != cmp.UseCompression ||
+		cfg.Group != cmp.Group ||
+		cfg.GroupKey != cmp.GroupKey {
 		return false
 	}
 	return true
@@ -123,6 +127,8 @@ func (cfg *BaseProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.ProxyType = pMsg.ProxyType
 	cfg.UseEncryption = pMsg.UseEncryption
 	cfg.UseCompression = pMsg.UseCompression
+	cfg.Group = pMsg.Group
+	cfg.GroupKey = pMsg.GroupKey
 }
 
 func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section ini.Section) error {
@@ -142,6 +148,9 @@ func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section i
 	if ok && tmpStr == "true" {
 		cfg.UseCompression = true
 	}
+
+	cfg.Group = section["group"]
+	cfg.GroupKey = section["group_key"]
 	return nil
 }
 
@@ -150,6 +159,8 @@ func (cfg *BaseProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.ProxyType = cfg.ProxyType
 	pMsg.UseEncryption = cfg.UseEncryption
 	pMsg.UseCompression = cfg.UseCompression
+	pMsg.Group = cfg.Group
+	pMsg.GroupKey = cfg.GroupKey
 }
 
 // Bind info
