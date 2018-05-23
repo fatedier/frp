@@ -12,21 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package server
+package group
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"sync"
 
-	gerr "github.com/fatedier/golib/errors"
-)
+	"github.com/fatedier/frp/server/ports"
 
-var (
-	ErrGroupAuthFailed    = errors.New("group auth failed")
-	ErrGroupParamsInvalid = errors.New("group params invalid")
-	ErrListenerClosed     = errors.New("group listener closed")
+	gerr "github.com/fatedier/golib/errors"
 )
 
 type TcpGroupListener struct {
@@ -173,11 +168,11 @@ func (tg *TcpGroup) CloseListener(ln *TcpGroupListener) {
 type TcpGroupCtl struct {
 	groups map[string]*TcpGroup
 
-	portManager *PortManager
+	portManager *ports.PortManager
 	mu          sync.Mutex
 }
 
-func NewTcpGroupCtl(portManager *PortManager) *TcpGroupCtl {
+func NewTcpGroupCtl(portManager *ports.PortManager) *TcpGroupCtl {
 	return &TcpGroupCtl{
 		groups:      make(map[string]*TcpGroup),
 		portManager: portManager,

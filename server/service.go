@@ -24,6 +24,8 @@ import (
 	"github.com/fatedier/frp/assets"
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/server/group"
+	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/util"
@@ -66,13 +68,13 @@ type Service struct {
 	visitorManager *VisitorManager
 
 	// Manage all tcp ports
-	tcpPortManager *PortManager
+	tcpPortManager *ports.PortManager
 
 	// Manage all udp ports
-	udpPortManager *PortManager
+	udpPortManager *ports.PortManager
 
 	// Tcp Group Controller
-	tcpGroupCtl *TcpGroupCtl
+	tcpGroupCtl *group.TcpGroupCtl
 
 	// Controller for nat hole connections
 	natHoleController *NatHoleController
@@ -84,10 +86,10 @@ func NewService() (svr *Service, err error) {
 		ctlManager:     NewControlManager(),
 		pxyManager:     NewProxyManager(),
 		visitorManager: NewVisitorManager(),
-		tcpPortManager: NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
-		udpPortManager: NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
+		tcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
+		udpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 	}
-	svr.tcpGroupCtl = NewTcpGroupCtl(svr.tcpPortManager)
+	svr.tcpGroupCtl = group.NewTcpGroupCtl(svr.tcpPortManager)
 
 	// Init assets.
 	err = assets.Load(cfg.AssetsDir)
