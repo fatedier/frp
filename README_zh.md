@@ -33,8 +33,9 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
     * [TCP 多路复用](#tcp-多路复用)
     * [底层通信可选 kcp 协议](#底层通信可选-kcp-协议)
     * [连接池](#连接池)
+    * [负载均衡](#负载均衡)
     * [修改 Host Header](#修改-host-header)
-    * [设置 http 请求的 header](#设置-http-请求的-header)
+    * [设置 HTTP 请求的 header](#设置-http-请求的-header)
     * [获取用户真实 IP](#获取用户真实-ip)
     * [通过密码保护你的 web 服务](#通过密码保护你的-web-服务)
     * [自定义二级域名](#自定义二级域名)
@@ -511,6 +512,32 @@ tcp_mux = false
   pool_count = 1
   ```
 
+### 负载均衡
+
+可以将多个相同类型的 proxy 加入到同一个 group 中，从而实现负载均衡的功能。
+目前只支持 tcp 类型的 proxy。
+
+```ini
+# fprc.ini
+[test1]
+type = tcp
+local_port = 8080
+remote_port = 80
+group = web
+group_key = 123
+
+[test2]
+type = tcp
+local_port = 8081
+remote_port = 80
+group = web
+group_key = 123
+```
+
+用户连接 frps 服务器的 80 端口，frps 会将接收到的用户连接随机分发给其中一个存活的 proxy。这样可以在一台 frpc 机器挂掉后仍然有其他节点能够提供服务。
+
+要求 `group_key` 相同，做权限验证，且 `remote_port` 相同。
+
 ### 修改 Host Header
 
 通常情况下 frp 不会修改转发的任何数据。但有一些后端服务会根据 http 请求 header 中的 host 字段来展现不同的网站，例如 nginx 的虚拟主机服务，启用 host-header 的修改功能可以动态修改 http 请求中的 host 字段。该功能仅限于 http 类型的代理。
@@ -526,7 +553,7 @@ host_header_rewrite = dev.yourdomain.com
 
 原来 http 请求中的 host 字段 `test.yourdomain.com` 转发到后端服务时会被替换为 `dev.yourdomain.com`。
 
-### 设置 http 请求的 header
+### 设置 HTTP 请求的 header
 
 对于 `type = http` 的代理，可以设置在转发中动态添加的 header 参数。
 
@@ -684,7 +711,6 @@ plugin_http_passwd = abc
 
 * frps 记录 http 请求日志。
 * frps 支持直接反向代理，类似 haproxy。
-* frpc 支持负载均衡到后端不同服务。
 * 集成对 k8s 等平台的支持。
 
 ## 为 frp 做贡献
