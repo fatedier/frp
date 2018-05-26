@@ -86,6 +86,8 @@ type NewProxy struct {
 	ProxyType      string `json:"proxy_type"`
 	UseEncryption  bool   `json:"use_encryption"`
 	UseCompression bool   `json:"use_compression"`
+	Group          string `json:"group"`
+	GroupKey       string `json:"group_key"`
 
 	// tcp and udp only
 	RemotePort int `json:"remote_port"`
