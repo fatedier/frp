@@ -30,7 +30,7 @@
     "net/mux",
     "pool"
   ]
-  revision = "674e937d2ef03e9ef7798c363071cad128f3c13b"
+  revision = "416571c55dbc32e13ce82c301a2a4b5a48ad7309"
 
 [[projects]]
   branch = "frp"
@@ -169,7 +169,7 @@
     "ipv4",
     "proxy"
   ]
-  revision = "57065200b4b034a1c8ad54ff77069408c2218ae6"
+  revision = "dfa909b99c79129e1100513e5cd36307665e5723"
 
 [solve-meta]
   analyzer-name = "dep"
