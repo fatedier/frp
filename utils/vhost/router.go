@@ -52,16 +52,13 @@ func (r *VhostRouters) Del(domain, location string) {
 	if !found {
 		return
 	}
-
-	for i, vr := range vrs {
-		if vr.location == location {
-			if len(vrs) > i+1 {
-				r.RouterByDomain[domain] = append(vrs[:i], vrs[i+1:]...)
-			} else {
-				r.RouterByDomain[domain] = vrs[:i]
-			}
+	newVrs := make([]*VhostRouter, 0)
+	for _, vr := range vrs {
+		if vr.location != location {
+			newVrs = append(newVrs, vr)
 		}
 	}
+	r.RouterByDomain[domain] = newVrs
 }
 
 func (r *VhostRouters) Get(host, path string) (vr *VhostRouter, exist bool) {

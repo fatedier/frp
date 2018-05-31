@@ -86,17 +86,20 @@ type NewProxy struct {
 	ProxyType      string `json:"proxy_type"`
 	UseEncryption  bool   `json:"use_encryption"`
 	UseCompression bool   `json:"use_compression"`
+	Group          string `json:"group"`
+	GroupKey       string `json:"group_key"`
 
 	// tcp and udp only
 	RemotePort int `json:"remote_port"`
 
 	// http and https only
-	CustomDomains     []string `json:"custom_domains"`
-	SubDomain         string   `json:"subdomain"`
-	Locations         []string `json:"locations"`
-	HostHeaderRewrite string   `json:"host_header_rewrite"`
-	HttpUser          string   `json:"http_user"`
-	HttpPwd           string   `json:"http_pwd"`
+	CustomDomains     []string          `json:"custom_domains"`
+	SubDomain         string            `json:"subdomain"`
+	Locations         []string          `json:"locations"`
+	HttpUser          string            `json:"http_user"`
+	HttpPwd           string            `json:"http_pwd"`
+	HostHeaderRewrite string            `json:"host_header_rewrite"`
+	Headers           map[string]string `json:"headers"`
 
 	// stcp
 	Sk string `json:"sk"`

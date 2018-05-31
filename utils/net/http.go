@@ -19,8 +19,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
-	"github.com/julienschmidt/httprouter"
 )
 
 type HttpAuthWraper struct {
@@ -47,25 +45,37 @@ func (aw *HttpAuthWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type HttpAuthMiddleware struct {
+	user   string
+	passwd string
+}
+
+func NewHttpAuthMiddleware(user, passwd string) *HttpAuthMiddleware {
+	return &HttpAuthMiddleware{
+		user:   user,
+		passwd: passwd,
+	}
+}
+
+func (authMid *HttpAuthMiddleware) Middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqUser, reqPasswd, hasAuth := r.BasicAuth()
+		if (authMid.user == "" && authMid.passwd == "") ||
+			(hasAuth && reqUser == authMid.user && reqPasswd == authMid.passwd) {
+			next.ServeHTTP(w, r)
+		} else {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		}
+	})
+}
+
 func HttpBasicAuth(h http.HandlerFunc, user, passwd string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		reqUser, reqPasswd, hasAuth := r.BasicAuth()
 		if (user == "" && passwd == "") ||
 			(hasAuth && reqUser == user && reqPasswd == passwd) {
 			h.ServeHTTP(w, r)
-		} else {
-			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-		}
-	}
-}
-
-func HttprouterBasicAuth(h httprouter.Handle, user, passwd string) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-		reqUser, reqPasswd, hasAuth := r.BasicAuth()
-		if (user == "" && passwd == "") ||
-			(hasAuth && reqUser == user && reqPasswd == passwd) {
-			h(w, r, ps)
 		} else {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)

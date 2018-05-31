@@ -181,27 +181,44 @@ type TcpProxy struct {
 }
 
 func (pxy *TcpProxy) Run() (remoteAddr string, err error) {
-	pxy.realPort, err = pxy.ctl.svr.tcpPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
-	if err != nil {
-		return
-	}
-	defer func() {
-		if err != nil {
-			pxy.ctl.svr.tcpPortManager.Release(pxy.realPort)
+	if pxy.cfg.Group != "" {
+		l, realPort, errRet := pxy.ctl.svr.tcpGroupCtl.Listen(pxy.name, pxy.cfg.Group, pxy.cfg.GroupKey, g.GlbServerCfg.ProxyBindAddr, pxy.cfg.RemotePort)
+		if errRet != nil {
+			err = errRet
+			return
 		}
-	}()
-
-	remoteAddr = fmt.Sprintf(":%d", pxy.realPort)
-	pxy.cfg.RemotePort = pxy.realPort
-	listener, errRet := frpNet.ListenTcp(g.GlbServerCfg.ProxyBindAddr, pxy.realPort)
-	if errRet != nil {
-		err = errRet
-		return
+		defer func() {
+			if err != nil {
+				l.Close()
+			}
+		}()
+		pxy.realPort = realPort
+		listener := frpNet.WrapLogListener(l)
+		listener.AddLogPrefix(pxy.name)
+		pxy.listeners = append(pxy.listeners, listener)
+		pxy.Info("tcp proxy listen port [%d] in group [%s]", pxy.cfg.RemotePort, pxy.cfg.Group)
+	} else {
+		pxy.realPort, err = pxy.ctl.svr.tcpPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
+		if err != nil {
+			return
+		}
+		defer func() {
+			if err != nil {
+				pxy.ctl.svr.tcpPortManager.Release(pxy.realPort)
+			}
+		}()
+		listener, errRet := frpNet.ListenTcp(g.GlbServerCfg.ProxyBindAddr, pxy.realPort)
+		if errRet != nil {
+			err = errRet
+			return
+		}
+		listener.AddLogPrefix(pxy.name)
+		pxy.listeners = append(pxy.listeners, listener)
+		pxy.Info("tcp proxy listen port [%d]", pxy.cfg.RemotePort)
 	}
-	listener.AddLogPrefix(pxy.name)
-	pxy.listeners = append(pxy.listeners, listener)
-	pxy.Info("tcp proxy listen port [%d]", pxy.cfg.RemotePort)
 
+	pxy.cfg.RemotePort = pxy.realPort
+	remoteAddr = fmt.Sprintf(":%d", pxy.realPort)
 	pxy.startListenHandler(pxy, HandleUserTcpConnection)
 	return
 }
@@ -212,7 +229,9 @@ func (pxy *TcpProxy) GetConf() config.ProxyConf {
 
 func (pxy *TcpProxy) Close() {
 	pxy.BaseProxy.Close()
-	pxy.ctl.svr.tcpPortManager.Release(pxy.realPort)
+	if pxy.cfg.Group == "" {
+		pxy.ctl.svr.tcpPortManager.Release(pxy.realPort)
+	}
 }
 
 type HttpProxy struct {
@@ -225,6 +244,7 @@ type HttpProxy struct {
 func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
 	routeConfig := vhost.VhostRouteConfig{
 		RewriteHost:  pxy.cfg.HostHeaderRewrite,
+		Headers:      pxy.cfg.Headers,
 		Username:     pxy.cfg.HttpUser,
 		Password:     pxy.cfg.HttpPwd,
 		CreateConnFn: pxy.GetRealConn,

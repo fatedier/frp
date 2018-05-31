@@ -35,7 +35,9 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [TCP Stream Multiplexing](#tcp-stream-multiplexing)
     * [Support KCP Protocol](#support-kcp-protocol)
     * [Connection Pool](#connection-pool)
+    * [Load balancing](#load-balancing)
     * [Rewriting the Host Header](#rewriting-the-host-header)
+    * [Set Headers In HTTP Request](#set-headers-in-http-request)
     * [Get Real IP](#get-real-ip)
     * [Password protecting your web service](#password-protecting-your-web-service)
     * [Custom subdomain names](#custom-subdomain-names)
@@ -483,9 +485,35 @@ This feature is fit for a large number of short connections.
   pool_count = 1
   ```
 
+### Load balancing
+
+Load balancing is supported by `group`.
+This feature is available only for type `tcp` now.
+
+```ini
+# frpc.ini
+[test1]
+type = tcp
+local_port = 8080
+remote_port = 80
+group = web
+group_key = 123
+
+[test2]
+type = tcp
+local_port = 8081
+remote_port = 80
+group = web
+group_key = 123
+```
+
+`group_key` is used for authentication.
+
+Proxies in same group will accept connections from port 80 randomly.
+
 ### Rewriting the Host Header
 
-When forwarding to a local port, frp does not modify the tunneled HTTP requests at all, they are copied to your server byte-for-byte as they are received. Some application servers use the Host header for determining which development site to display. For this reason, frp can rewrite your requests with a modified Host header. Use the `host_header_rewrite` switch to rewrite incoming HTTP requests.
+When forwarding to a local port, frp does not modify the tunneled HTTP requests at all, they are copied to your server byte-for-byte as they are received. Some application servers use the Host header for determining which development site to display. For this reason, frp can rewrite your requests with a modified host header. Use the `host_header_rewrite` switch to rewrite incoming HTTP requests.
 
 ```ini
 # frpc.ini
@@ -496,7 +524,24 @@ custom_domains = test.yourdomain.com
 host_header_rewrite = dev.yourdomain.com
 ```
 
-If `host_header_rewrite` is specified, the Host header will be rewritten to match the hostname portion of the forwarding address.
+If `host_header_rewrite` is specified, the host header will be rewritten to match the hostname portion of the forwarding address.
+
+### Set Headers In HTTP Request
+
+You can set headers for proxy which type is `http`.
+
+```ini
+# frpc.ini
+[web]
+type = http
+local_port = 80
+custom_domains = test.yourdomain.com
+host_header_rewrite = dev.yourdomain.com
+header_X-From-Where = frp
+```
+
+Note that params which have prefix `header_` will be added to http request headers.
+In this example, it will set header `X-From-Where: frp` to http request.
 
 ### Get Real IP
 
@@ -598,7 +643,7 @@ local_port = 6000-6006,6007
 remote_port = 6000-6006,6007
 ```
 
-frpc will generate 6 proxies like `test_tcp_0, test_tcp_1 ... test_tcp_5`.
+frpc will generate 8 proxies like `test_tcp_0, test_tcp_1 ... test_tcp_7`.
 
 ### Plugin
 
@@ -626,7 +671,6 @@ plugin_http_passwd = abc
 
 * Log http request information in frps.
 * Direct reverse proxy, like haproxy.
-* Load balance to different service in frpc.
 * kubernetes ingress support.
 
 ## Contributing
