@@ -23,7 +23,7 @@ import (
 	"github.com/fatedier/frp/g"
 	frpNet "github.com/fatedier/frp/utils/net"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/gorilla/mux"
 )
 
 var (
@@ -33,13 +33,14 @@ var (
 
 func (svr *Service) RunAdminServer(addr string, port int) (err error) {
 	// url router
-	router := httprouter.New()
+	router := mux.NewRouter()
 
 	user, passwd := g.GlbClientCfg.AdminUser, g.GlbClientCfg.AdminPwd
+	router.Use(frpNet.NewHttpAuthMiddleware(user, passwd).Middleware)
 
 	// api, see dashboard_api.go
-	router.GET("/api/reload", frpNet.HttprouterBasicAuth(svr.apiReload, user, passwd))
-	router.GET("/api/status", frpNet.HttprouterBasicAuth(svr.apiStatus, user, passwd))
+	router.HandleFunc("/api/reload", svr.apiReload).Methods("GET")
+	router.HandleFunc("/api/status", svr.apiStatus).Methods("GET")
 
 	address := fmt.Sprintf("%s:%d", addr, port)
 	server := &http.Server{

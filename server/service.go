@@ -24,6 +24,8 @@ import (
 	"github.com/fatedier/frp/assets"
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/server/group"
+	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/util"
@@ -40,38 +42,41 @@ const (
 
 var ServerService *Service
 
-// Server service.
+// Server service
 type Service struct {
-	// Dispatch connections to different handlers listen on same port.
+	// Dispatch connections to different handlers listen on same port
 	muxer *mux.Mux
 
-	// Accept connections from client.
+	// Accept connections from client
 	listener frpNet.Listener
 
-	// Accept connections using kcp.
+	// Accept connections using kcp
 	kcpListener frpNet.Listener
 
-	// For https proxies, route requests to different clients by hostname and other infomation.
+	// For https proxies, route requests to different clients by hostname and other infomation
 	VhostHttpsMuxer *vhost.HttpsMuxer
 
 	httpReverseProxy *vhost.HttpReverseProxy
 
-	// Manage all controllers.
+	// Manage all controllers
 	ctlManager *ControlManager
 
-	// Manage all proxies.
+	// Manage all proxies
 	pxyManager *ProxyManager
 
-	// Manage all visitor listeners.
+	// Manage all visitor listeners
 	visitorManager *VisitorManager
 
-	// Manage all tcp ports.
-	tcpPortManager *PortManager
+	// Manage all tcp ports
+	tcpPortManager *ports.PortManager
 
-	// Manage all udp ports.
-	udpPortManager *PortManager
+	// Manage all udp ports
+	udpPortManager *ports.PortManager
 
-	// Controller for nat hole connections.
+	// Tcp Group Controller
+	tcpGroupCtl *group.TcpGroupCtl
+
+	// Controller for nat hole connections
 	natHoleController *NatHoleController
 }
 
@@ -81,9 +86,10 @@ func NewService() (svr *Service, err error) {
 		ctlManager:     NewControlManager(),
 		pxyManager:     NewProxyManager(),
 		visitorManager: NewVisitorManager(),
-		tcpPortManager: NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
-		udpPortManager: NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
+		tcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
+		udpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 	}
+	svr.tcpGroupCtl = group.NewTcpGroupCtl(svr.tcpPortManager)
 
 	// Init assets.
 	err = assets.Load(cfg.AssetsDir)

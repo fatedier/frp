@@ -34,10 +34,13 @@ const (
 type Mux struct {
 	ln net.Listener
 
-	defaultLn       *listener
+	defaultLn *listener
+
+	// sorted by priority
 	lns             []*listener
 	maxNeedBytesNum uint32
-	mu              sync.RWMutex
+
+	mu sync.RWMutex
 }
 
 func NewMux() (mux *Mux) {
@@ -47,10 +50,12 @@ func NewMux() (mux *Mux) {
 	return
 }
 
+// priority
 func (mux *Mux) Listen(priority int, needBytesNum uint32, fn MatchFunc) net.Listener {
 	ln := &listener{
 		c:            make(chan net.Conn),
 		mux:          mux,
+		priority:     priority,
 		needBytesNum: needBytesNum,
 		matchFn:      fn,
 	}
@@ -63,7 +68,10 @@ func (mux *Mux) Listen(priority int, needBytesNum uint32, fn MatchFunc) net.List
 
 	newlns := append(mux.copyLns(), ln)
 	sort.Slice(newlns, func(i, j int) bool {
-		return newlns[i].needBytesNum < newlns[j].needBytesNum
+		if newlns[i].priority == newlns[j].priority {
+			return newlns[i].needBytesNum < newlns[j].needBytesNum
+		}
+		return newlns[i].priority < newlns[j].priority
 	})
 	mux.lns = newlns
 	return ln
@@ -99,6 +107,7 @@ func (mux *Mux) release(ln *listener) bool {
 		if l == ln {
 			lns = append(lns[:i], lns[i+1:]...)
 			result = true
+			break
 		}
 	}
 	mux.lns = lns
@@ -186,6 +195,7 @@ func (mux *Mux) handleConn(conn net.Conn) {
 type listener struct {
 	mux *Mux
 
+	priority     int
 	needBytesNum uint32
 	matchFn      MatchFunc
 
