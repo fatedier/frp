@@ -181,7 +181,7 @@ a custom flag completion function with cobra.BashCompCustom:
 
 ```go
 	annotation := make(map[string][]string)
-	annotation[cobra.BashCompFilenameExt] = []string{"__kubectl_get_namespaces"}
+	annotation[cobra.BashCompCustom] = []string{"__kubectl_get_namespaces"}
 
 	flag := &pflag.Flag{
 		Name:        "namespace",

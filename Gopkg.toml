@@ -50,6 +50,10 @@
   revision = "2658be15c5f05e76244154714161f17e3e77de2e"
 
 [[constraint]]
+  name = "github.com/gorilla/mux"
+  version = "1.6.2"
+
+[[constraint]]
   name = "github.com/rakyll/statik"
   version = "0.1.0"
 
@@ -59,11 +63,15 @@
 
 [[constraint]]
   name = "github.com/spf13/cobra"
-  version = "0.0.2"
+  version = "0.0.3"
 
 [[constraint]]
   name = "github.com/vaughan0/go-ini"
   revision = "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
+
+[[override]]
+  name = "github.com/templexxx/reedsolomon"
+  version = "0.1.1"
 
 [prune]
   go-tests = true

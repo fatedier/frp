@@ -15,7 +15,7 @@ rm -rf ./packages
 mkdir ./packages
 
 os_all='linux windows darwin freebsd'
-arch_all='386 amd64 arm mips64 mips64le mips mipsle'
+arch_all='386 amd64 arm arm64 mips64 mips64le mips mipsle'
 
 for os in $os_all; do
     for arch in $arch_all; do

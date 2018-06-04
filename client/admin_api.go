@@ -22,7 +22,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/julienschmidt/httprouter"
 	ini "github.com/vaughan0/go-ini"
 
 	"github.com/fatedier/frp/g"
@@ -40,7 +39,7 @@ type ReloadResp struct {
 	GeneralResponse
 }
 
-func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 	var (
 		buf []byte
 		res ReloadResp
@@ -176,7 +175,7 @@ func NewProxyStatusResp(status *ProxyStatus) ProxyStatusResp {
 }
 
 // api/status
-func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request) {
 	var (
 		buf []byte
 		res StatusResp

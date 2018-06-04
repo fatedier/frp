@@ -59,6 +59,7 @@ type VhostRouteConfig struct {
 	RewriteHost string
 	Username    string
 	Password    string
+	Headers     map[string]string
 
 	CreateConnFn CreateConnFunc
 }

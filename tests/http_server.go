@@ -39,6 +39,10 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleHttp(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("X-From-Where") == "frp" {
+		w.Header().Set("X-Header-Set", "true")
+	}
+
 	match, err := regexp.Match(`.*\.sub\.com`, []byte(r.Host))
 	if err != nil {
 		w.WriteHeader(500)
@@ -52,7 +56,7 @@ func handleHttp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.Contains(r.Host, "127.0.0.1") || strings.Contains(r.Host, "test2.frp.com") ||
-		strings.Contains(r.Host, "test5.frp.com") {
+		strings.Contains(r.Host, "test5.frp.com") || strings.Contains(r.Host, "test6.frp.com") {
 		w.WriteHeader(200)
 		w.Write([]byte(TEST_HTTP_NORMAL_STR))
 	} else if strings.Contains(r.Host, "test3.frp.com") {
