@@ -25,6 +25,7 @@ import (
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/server"
 	"github.com/fatedier/frp/utils/log"
+	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
 )
 
@@ -84,6 +85,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
 	rootCmd.PersistentFlags().Int64VarP(&authTimeout, "auth_timeout", "", 900, "auth timeout")
 	rootCmd.PersistentFlags().StringVarP(&subDomainHost, "subdomain_host", "", "", "subdomain host")
+	rootCmd.PersistentFlags().StringVarP(&allowPorts, "allow_ports", "", "", "allow ports")
 	rootCmd.PersistentFlags().Int64VarP(&maxPortsPerClient, "max_ports_per_client", "", 0, "max ports per client")
 }
 
@@ -176,6 +178,18 @@ func parseServerCommonCfgFromCmd() (err error) {
 	g.GlbServerCfg.Token = token
 	g.GlbServerCfg.AuthTimeout = authTimeout
 	g.GlbServerCfg.SubDomainHost = subDomainHost
+	if len(allowPorts) > 0 {
+		// e.g. 1000-2000,2001,2002,3000-4000
+		ports, errRet := util.ParseRangeNumbers(allowPorts)
+		if errRet != nil {
+			err = fmt.Errorf("Parse conf error: allow_ports: %v", errRet)
+			return
+		}
+
+		for _, port := range ports {
+			g.GlbServerCfg.AllowPorts[int(port)] = struct{}{}
+		}
+	}
 	g.GlbServerCfg.MaxPortsPerClient = maxPortsPerClient
 	return
 }
