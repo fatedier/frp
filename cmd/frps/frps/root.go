@@ -137,7 +137,7 @@ func RunFrps(cfgFile string) error {
 		return err
 	}
 
-	err = runServer()
+	err = runBackgroundServer()
 	fmt.Println(err)
 	return err
 }
@@ -211,5 +211,18 @@ func runServer() (err error) {
 	log.Info("Start frps success")
 	server.ServerService = svr
 	svr.Run()
+	return
+}
+
+func runBackgroundServer() (err error) {
+	log.InitLog(g.GlbServerCfg.LogWay, g.GlbServerCfg.LogFile, g.GlbServerCfg.LogLevel,
+		g.GlbServerCfg.LogMaxDays)
+	svr, err := server.NewService()
+	if err != nil {
+		return err
+	}
+	log.Info("Start frps success")
+	server.ServerService = svr
+	go svr.Run()
 	return
 }
