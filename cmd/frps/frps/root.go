@@ -214,6 +214,8 @@ func runServer() (err error) {
 	return
 }
 
+var service *server.Service
+
 func runBackgroundServer() (err error) {
 	log.InitLog(g.GlbServerCfg.LogWay, g.GlbServerCfg.LogFile, g.GlbServerCfg.LogLevel,
 		g.GlbServerCfg.LogMaxDays)
@@ -223,6 +225,11 @@ func runBackgroundServer() (err error) {
 	}
 	log.Info("Start frps success")
 	server.ServerService = svr
+	service = svr
 	go svr.Run()
 	return
+}
+
+func StopFrps() error {
+	return service.Stop()
 }

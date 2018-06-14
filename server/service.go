@@ -218,6 +218,10 @@ func (svr *Service) Run() {
 
 }
 
+func (svr *Service) Stop() error {
+	return svr.listener.Close()
+}
+
 func (svr *Service) HandleListener(l frpNet.Listener) {
 	// Listen for incoming connections from client.
 	for {

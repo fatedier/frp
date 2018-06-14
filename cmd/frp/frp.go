@@ -35,3 +35,7 @@ func RunFrps(cfgFilePath string) (err error) {
 
 	return frps.RunFrps(cfgFilePath)
 }
+
+func StopFrps() error {
+	return frps.StopFrps()
+}
