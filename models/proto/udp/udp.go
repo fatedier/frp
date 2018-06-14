@@ -21,8 +21,9 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/errors"
-	"github.com/fatedier/frp/utils/pool"
+
+	"github.com/fatedier/golib/errors"
+	"github.com/fatedier/golib/pool"
 )
 
 func NewUdpPacket(buf []byte, laddr, raddr *net.UDPAddr) *msg.UdpPacket {

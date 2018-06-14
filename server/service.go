@@ -16,6 +16,7 @@ package server
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
@@ -23,12 +24,15 @@ import (
 	"github.com/fatedier/frp/assets"
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/server/group"
+	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
 	"github.com/fatedier/frp/utils/vhost"
 
+	"github.com/fatedier/golib/net/mux"
 	fmux "github.com/hashicorp/yamux"
 )
 
@@ -38,35 +42,41 @@ const (
 
 var ServerService *Service
 
-// Server service.
+// Server service
 type Service struct {
-	// Accept connections from client.
+	// Dispatch connections to different handlers listen on same port
+	muxer *mux.Mux
+
+	// Accept connections from client
 	listener frpNet.Listener
 
-	// Accept connections using kcp.
+	// Accept connections using kcp
 	kcpListener frpNet.Listener
 
-	// For https proxies, route requests to different clients by hostname and other infomation.
+	// For https proxies, route requests to different clients by hostname and other infomation
 	VhostHttpsMuxer *vhost.HttpsMuxer
 
 	httpReverseProxy *vhost.HttpReverseProxy
 
-	// Manage all controllers.
+	// Manage all controllers
 	ctlManager *ControlManager
 
-	// Manage all proxies.
+	// Manage all proxies
 	pxyManager *ProxyManager
 
-	// Manage all visitor listeners.
+	// Manage all visitor listeners
 	visitorManager *VisitorManager
 
-	// Manage all tcp ports.
-	tcpPortManager *PortManager
+	// Manage all tcp ports
+	tcpPortManager *ports.PortManager
 
-	// Manage all udp ports.
-	udpPortManager *PortManager
+	// Manage all udp ports
+	udpPortManager *ports.PortManager
 
-	// Controller for nat hole connections.
+	// Tcp Group Controller
+	tcpGroupCtl *group.TcpGroupCtl
+
+	// Controller for nat hole connections
 	natHoleController *NatHoleController
 }
 
@@ -76,9 +86,10 @@ func NewService() (svr *Service, err error) {
 		ctlManager:     NewControlManager(),
 		pxyManager:     NewProxyManager(),
 		visitorManager: NewVisitorManager(),
-		tcpPortManager: NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
-		udpPortManager: NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
+		tcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
+		udpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 	}
+	svr.tcpGroupCtl = group.NewTcpGroupCtl(svr.tcpPortManager)
 
 	// Init assets.
 	err = assets.Load(cfg.AssetsDir)
@@ -87,12 +98,33 @@ func NewService() (svr *Service, err error) {
 		return
 	}
 
+	var (
+		httpMuxOn  bool
+		httpsMuxOn bool
+	)
+	if cfg.BindAddr == cfg.ProxyBindAddr {
+		if cfg.BindPort == cfg.VhostHttpPort {
+			httpMuxOn = true
+		}
+		if cfg.BindPort == cfg.VhostHttpsPort {
+			httpsMuxOn = true
+		}
+		if httpMuxOn || httpsMuxOn {
+			svr.muxer = mux.NewMux()
+		}
+	}
+
 	// Listen for accepting connections from client.
-	svr.listener, err = frpNet.ListenTcp(cfg.BindAddr, cfg.BindPort)
+	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.BindAddr, cfg.BindPort))
 	if err != nil {
 		err = fmt.Errorf("Create server listener error, %v", err)
 		return
 	}
+	if svr.muxer != nil {
+		go svr.muxer.Serve(ln)
+		ln = svr.muxer.DefaultListener()
+	}
+	svr.listener = frpNet.WrapLogListener(ln)
 	log.Info("frps tcp listen on %s:%d", cfg.BindAddr, cfg.BindPort)
 
 	// Listen for accepting connections from client using kcp protocol.
@@ -116,10 +148,14 @@ func NewService() (svr *Service, err error) {
 			Handler: rp,
 		}
 		var l net.Listener
-		l, err = net.Listen("tcp", address)
-		if err != nil {
-			err = fmt.Errorf("Create vhost http listener error, %v", err)
-			return
+		if httpMuxOn {
+			l = svr.muxer.ListenHttp(0)
+		} else {
+			l, err = net.Listen("tcp", address)
+			if err != nil {
+				err = fmt.Errorf("Create vhost http listener error, %v", err)
+				return
+			}
 		}
 		go server.Serve(l)
 		log.Info("http service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHttpPort)
@@ -127,13 +163,18 @@ func NewService() (svr *Service, err error) {
 
 	// Create https vhost muxer.
 	if cfg.VhostHttpsPort > 0 {
-		var l frpNet.Listener
-		l, err = frpNet.ListenTcp(cfg.ProxyBindAddr, cfg.VhostHttpsPort)
-		if err != nil {
-			err = fmt.Errorf("Create vhost https listener error, %v", err)
-			return
+		var l net.Listener
+		if httpsMuxOn {
+			l = svr.muxer.ListenHttps(0)
+		} else {
+			l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHttpsPort))
+			if err != nil {
+				err = fmt.Errorf("Create server listener error, %v", err)
+				return
+			}
 		}
-		svr.VhostHttpsMuxer, err = vhost.NewHttpsMuxer(l, 30*time.Second)
+
+		svr.VhostHttpsMuxer, err = vhost.NewHttpsMuxer(frpNet.WrapLogListener(l), 30*time.Second)
 		if err != nil {
 			err = fmt.Errorf("Create vhost httpsMuxer error, %v", err)
 			return
@@ -234,7 +275,9 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 			}
 
 			if g.GlbServerCfg.TcpMux {
-				session, err := fmux.Server(frpConn, nil)
+				fmuxCfg := fmux.DefaultConfig()
+				fmuxCfg.LogOutput = ioutil.Discard
+				session, err := fmux.Server(frpConn, fmuxCfg)
 				if err != nil {
 					log.Warn("Failed to create mux connection: %v", err)
 					frpConn.Close()
@@ -244,7 +287,7 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 				for {
 					stream, err := session.AcceptStream()
 					if err != nil {
-						log.Warn("Accept new mux stream error: %v", err)
+						log.Debug("Accept new mux stream error: %v", err)
 						session.Close()
 						return
 					}

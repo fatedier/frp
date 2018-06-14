@@ -100,8 +100,10 @@ type BaseProxyConf struct {
 	ProxyName string `json:"proxy_name"`
 	ProxyType string `json:"proxy_type"`
 
-	UseEncryption  bool `json:"use_encryption"`
-	UseCompression bool `json:"use_compression"`
+	UseEncryption  bool   `json:"use_encryption"`
+	UseCompression bool   `json:"use_compression"`
+	Group          string `json:"group"`
+	GroupKey       string `json:"group_key"`
 }
 
 func (cfg *BaseProxyConf) GetBaseInfo() *BaseProxyConf {
@@ -112,7 +114,9 @@ func (cfg *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
 	if cfg.ProxyName != cmp.ProxyName ||
 		cfg.ProxyType != cmp.ProxyType ||
 		cfg.UseEncryption != cmp.UseEncryption ||
-		cfg.UseCompression != cmp.UseCompression {
+		cfg.UseCompression != cmp.UseCompression ||
+		cfg.Group != cmp.Group ||
+		cfg.GroupKey != cmp.GroupKey {
 		return false
 	}
 	return true
@@ -123,6 +127,8 @@ func (cfg *BaseProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.ProxyType = pMsg.ProxyType
 	cfg.UseEncryption = pMsg.UseEncryption
 	cfg.UseCompression = pMsg.UseCompression
+	cfg.Group = pMsg.Group
+	cfg.GroupKey = pMsg.GroupKey
 }
 
 func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section ini.Section) error {
@@ -142,6 +148,9 @@ func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section i
 	if ok && tmpStr == "true" {
 		cfg.UseCompression = true
 	}
+
+	cfg.Group = section["group"]
+	cfg.GroupKey = section["group_key"]
 	return nil
 }
 
@@ -150,6 +159,8 @@ func (cfg *BaseProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.ProxyType = cfg.ProxyType
 	pMsg.UseEncryption = cfg.UseEncryption
 	pMsg.UseCompression = cfg.UseCompression
+	pMsg.Group = cfg.Group
+	pMsg.GroupKey = cfg.GroupKey
 }
 
 // Bind info
@@ -262,7 +273,7 @@ func (cfg *DomainConf) checkForSvr() (err error) {
 
 	if cfg.SubDomain != "" {
 		if subDomainHost == "" {
-			return fmt.Errorf("subdomain is not supported because this feature is not enabled by frps")
+			return fmt.Errorf("subdomain is not supported because this feature is not enabled in remote frps")
 		}
 		if strings.Contains(cfg.SubDomain, ".") || strings.Contains(cfg.SubDomain, "*") {
 			return fmt.Errorf("'.' and '*' is not supported in subdomain")
@@ -429,10 +440,11 @@ type HttpProxyConf struct {
 
 	LocalSvrConf
 
-	Locations         []string `json:"locations"`
-	HostHeaderRewrite string   `json:"host_header_rewrite"`
-	HttpUser          string   `json:"http_user"`
-	HttpPwd           string   `json:"http_pwd"`
+	Locations         []string          `json:"locations"`
+	HttpUser          string            `json:"http_user"`
+	HttpPwd           string            `json:"http_pwd"`
+	HostHeaderRewrite string            `json:"host_header_rewrite"`
+	Headers           map[string]string `json:"headers"`
 }
 
 func (cfg *HttpProxyConf) Compare(cmp ProxyConf) bool {
@@ -447,8 +459,19 @@ func (cfg *HttpProxyConf) Compare(cmp ProxyConf) bool {
 		strings.Join(cfg.Locations, " ") != strings.Join(cmpConf.Locations, " ") ||
 		cfg.HostHeaderRewrite != cmpConf.HostHeaderRewrite ||
 		cfg.HttpUser != cmpConf.HttpUser ||
-		cfg.HttpPwd != cmpConf.HttpPwd {
+		cfg.HttpPwd != cmpConf.HttpPwd ||
+		len(cfg.Headers) != len(cmpConf.Headers) {
 		return false
+	}
+
+	for k, v := range cfg.Headers {
+		if v2, ok := cmpConf.Headers[k]; !ok {
+			return false
+		} else {
+			if v != v2 {
+				return false
+			}
+		}
 	}
 	return true
 }
@@ -461,6 +484,7 @@ func (cfg *HttpProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.HostHeaderRewrite = pMsg.HostHeaderRewrite
 	cfg.HttpUser = pMsg.HttpUser
 	cfg.HttpPwd = pMsg.HttpPwd
+	cfg.Headers = pMsg.Headers
 }
 
 func (cfg *HttpProxyConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
@@ -487,6 +511,13 @@ func (cfg *HttpProxyConf) UnmarshalFromIni(prefix string, name string, section i
 	cfg.HostHeaderRewrite = section["host_header_rewrite"]
 	cfg.HttpUser = section["http_user"]
 	cfg.HttpPwd = section["http_pwd"]
+	cfg.Headers = make(map[string]string)
+
+	for k, v := range section {
+		if strings.HasPrefix(k, "header_") {
+			cfg.Headers[strings.TrimPrefix(k, "header_")] = v
+		}
+	}
 	return
 }
 
@@ -498,6 +529,7 @@ func (cfg *HttpProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.HostHeaderRewrite = cfg.HostHeaderRewrite
 	pMsg.HttpUser = cfg.HttpUser
 	pMsg.HttpPwd = cfg.HttpPwd
+	pMsg.Headers = cfg.Headers
 }
 
 func (cfg *HttpProxyConf) CheckForCli() (err error) {
@@ -509,9 +541,10 @@ func (cfg *HttpProxyConf) CheckForCli() (err error) {
 
 func (cfg *HttpProxyConf) CheckForSvr() (err error) {
 	if vhostHttpPort == 0 {
-		err = fmt.Errorf("type [http] not support when vhost_http_port is not set")
+		return fmt.Errorf("type [http] not support when vhost_http_port is not set")
 	}
 	if err = cfg.DomainConf.checkForSvr(); err != nil {
+		err = fmt.Errorf("proxy [%s] domain conf check error: %v", cfg.ProxyName, err)
 		return
 	}
 	return
@@ -574,6 +607,7 @@ func (cfg *HttpsProxyConf) CheckForSvr() (err error) {
 		return fmt.Errorf("type [https] not support when vhost_https_port is not set")
 	}
 	if err = cfg.DomainConf.checkForSvr(); err != nil {
+		err = fmt.Errorf("proxy [%s] domain conf check error: %v", cfg.ProxyName, err)
 		return
 	}
 	return
@@ -671,6 +705,10 @@ func (cfg *StcpProxyConf) CheckForCli() (err error) {
 	if cfg.Role == "visitor" {
 		if cfg.BindAddr == "" {
 			err = fmt.Errorf("bind_addr shouldn't be empty")
+			return
+		}
+		if cfg.BindPort == 0 {
+			err = fmt.Errorf("bind_port should be set")
 			return
 		}
 	}
@@ -773,6 +811,10 @@ func (cfg *XtcpProxyConf) CheckForCli() (err error) {
 	if cfg.Role == "visitor" {
 		if cfg.BindAddr == "" {
 			err = fmt.Errorf("bind_addr shouldn't be empty")
+			return
+		}
+		if cfg.BindPort == 0 {
+			err = fmt.Errorf("bind_port should be set")
 			return
 		}
 	}

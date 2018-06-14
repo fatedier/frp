@@ -29,11 +29,12 @@ import (
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
-	frpIo "github.com/fatedier/frp/utils/io"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/pool"
 	"github.com/fatedier/frp/utils/util"
+
+	frpIo "github.com/fatedier/golib/io"
+	"github.com/fatedier/golib/pool"
 )
 
 // Visitor is used for forward traffics from local port tot remote service.
@@ -233,6 +234,11 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	}
 	visitorConn.SetReadDeadline(time.Time{})
 	pool.PutBuf(buf)
+
+	if natHoleRespMsg.Error != "" {
+		sv.Error("natHoleRespMsg get error info: %s", natHoleRespMsg.Error)
+		return
+	}
 
 	sv.Trace("get natHoleRespMsg, sid [%s], client address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr)
 

@@ -27,11 +27,12 @@ import (
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/models/plugin"
 	"github.com/fatedier/frp/models/proto/udp"
-	"github.com/fatedier/frp/utils/errors"
-	frpIo "github.com/fatedier/frp/utils/io"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/pool"
+
+	"github.com/fatedier/golib/errors"
+	frpIo "github.com/fatedier/golib/io"
+	"github.com/fatedier/golib/pool"
 )
 
 // Proxy defines how to deal with work connections for different proxy type.
@@ -271,6 +272,12 @@ func (pxy *XtcpProxy) InWorkConn(conn frpNet.Conn) {
 	}
 	clientConn.SetReadDeadline(time.Time{})
 	clientConn.Close()
+
+	if natHoleRespMsg.Error != "" {
+		pxy.Error("natHoleRespMsg get error info: %s", natHoleRespMsg.Error)
+		return
+	}
+
 	pxy.Trace("get natHoleRespMsg, sid [%s], client address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr)
 
 	// Send sid to visitor udp address.
