@@ -27,7 +27,7 @@ type Service struct {
 	closedCh chan int
 }
 
-func NewService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf) (svr *Service) {
+func NewService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) (svr *Service) {
 	svr = &Service{
 		closedCh: make(chan int),
 	}

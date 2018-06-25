@@ -180,7 +180,7 @@ func runClient(cfgFilePath string) (err error) {
 		return err
 	}
 
-	pxyCfgs, visitorCfgs, err := config.LoadProxyConfFromIni(g.GlbClientCfg.User, conf, g.GlbClientCfg.Start)
+	pxyCfgs, visitorCfgs, err := config.LoadAllConfFromIni(g.GlbClientCfg.User, conf, g.GlbClientCfg.Start)
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func runClient(cfgFilePath string) (err error) {
 	return
 }
 
-func startService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf) (err error) {
+func startService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) (err error) {
 	log.InitLog(g.GlbClientCfg.LogWay, g.GlbClientCfg.LogFile, g.GlbClientCfg.LogLevel, g.GlbClientCfg.LogMaxDays)
 	if g.GlbClientCfg.DnsServer != "" {
 		s := g.GlbClientCfg.DnsServer

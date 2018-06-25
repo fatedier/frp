@@ -13,25 +13,21 @@ import (
 )
 
 const (
-	ProxyStatusNew       = "new"
-	ProxyStatusStartErr  = "start error"
-	ProxyStatusWaitStart = "wait start"
-	ProxyStatusRunning   = "running"
-	ProxyStatusClosed    = "closed"
+	ProxyStatusNew          = "new"
+	ProxyStatusStartErr     = "start error"
+	ProxyStatusWaitStart    = "wait start"
+	ProxyStatusRunning      = "running"
+	ProxyStatusCheckFailed  = "check failed"
+	ProxyStatusCheckSuccess = "check success"
+	ProxyStatusClosed       = "closed"
 )
 
 type ProxyManager struct {
-	ctl *Control
-
+	ctl     *Control
+	sendCh  chan (msg.Message)
 	proxies map[string]*ProxyWrapper
-
-	visitorCfgs map[string]config.ProxyConf
-	visitors    map[string]Visitor
-
-	sendCh chan (msg.Message)
-
-	closed bool
-	mu     sync.RWMutex
+	closed  bool
+	mu      sync.RWMutex
 
 	log.Logger
 }
@@ -151,13 +147,11 @@ func (pw *ProxyWrapper) Close() {
 
 func NewProxyManager(ctl *Control, msgSendCh chan (msg.Message), logPrefix string) *ProxyManager {
 	return &ProxyManager{
-		ctl:         ctl,
-		proxies:     make(map[string]*ProxyWrapper),
-		visitorCfgs: make(map[string]config.ProxyConf),
-		visitors:    make(map[string]Visitor),
-		sendCh:      msgSendCh,
-		closed:      false,
-		Logger:      log.NewPrefixLogger(logPrefix),
+		ctl:     ctl,
+		proxies: make(map[string]*ProxyWrapper),
+		sendCh:  msgSendCh,
+		closed:  false,
+		Logger:  log.NewPrefixLogger(logPrefix),
 	}
 }
 
@@ -239,24 +233,9 @@ func (pm *ProxyManager) CheckAndStartProxy(pxyStatus []string) {
 			}
 		}
 	}
-
-	for _, cfg := range pm.visitorCfgs {
-		name := cfg.GetBaseInfo().ProxyName
-		if _, exist := pm.visitors[name]; !exist {
-			pm.Info("try to start visitor [%s]", name)
-			visitor := NewVisitor(pm.ctl, cfg)
-			err := visitor.Run()
-			if err != nil {
-				visitor.Warn("start error: %v", err)
-				continue
-			}
-			pm.visitors[name] = visitor
-			visitor.Info("start visitor success")
-		}
-	}
 }
 
-func (pm *ProxyManager) Reload(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf, startNow bool) error {
+func (pm *ProxyManager) Reload(pxyCfgs map[string]config.ProxyConf, startNow bool) error {
 	pm.mu.Lock()
 	defer func() {
 		pm.mu.Unlock()
@@ -308,38 +287,6 @@ func (pm *ProxyManager) Reload(pxyCfgs map[string]config.ProxyConf, visitorCfgs 
 		}
 	}
 	pm.Info("proxy added: %v", addPxyNames)
-
-	delVisitorName := make([]string, 0)
-	for name, oldVisitorCfg := range pm.visitorCfgs {
-		del := false
-		cfg, ok := visitorCfgs[name]
-		if !ok {
-			del = true
-		} else {
-			if !oldVisitorCfg.Compare(cfg) {
-				del = true
-			}
-		}
-
-		if del {
-			delVisitorName = append(delVisitorName, name)
-			delete(pm.visitorCfgs, name)
-			if visitor, ok := pm.visitors[name]; ok {
-				visitor.Close()
-			}
-			delete(pm.visitors, name)
-		}
-	}
-	pm.Info("visitor removed: %v", delVisitorName)
-
-	addVisitorName := make([]string, 0)
-	for name, visitorCfg := range visitorCfgs {
-		if _, ok := pm.visitorCfgs[name]; !ok {
-			pm.visitorCfgs[name] = visitorCfg
-			addVisitorName = append(addVisitorName, name)
-		}
-	}
-	pm.Info("visitor added: %v", addVisitorName)
 	return nil
 }
 

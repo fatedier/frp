@@ -47,7 +47,11 @@ type Control struct {
 	// login message to server, only used
 	loginMsg *msg.Login
 
+	// manage all proxies
 	pm *ProxyManager
+
+	// manage all visitors
+	vm *VisitorManager
 
 	// control connection
 	conn frpNet.Conn
@@ -82,7 +86,7 @@ type Control struct {
 	log.Logger
 }
 
-func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf) *Control {
+func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) *Control {
 	loginMsg := &msg.Login{
 		Arch:      runtime.GOARCH,
 		Os:        runtime.GOOS,
@@ -102,7 +106,9 @@ func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf, visitorCfgs m
 		Logger:             log.NewPrefixLogger(""),
 	}
 	ctl.pm = NewProxyManager(ctl, ctl.sendCh, "")
-	ctl.pm.Reload(pxyCfgs, visitorCfgs, false)
+	ctl.pm.Reload(pxyCfgs, false)
+	ctl.vm = NewVisitorManager(ctl)
+	ctl.vm.Reload(visitorCfgs)
 	return ctl
 }
 
@@ -129,6 +135,8 @@ func (ctl *Control) Run() (err error) {
 	// start all local visitors and send NewProxy message for all configured proxies
 	ctl.pm.Reset(ctl.sendCh, ctl.runId)
 	ctl.pm.CheckAndStartProxy([]string{ProxyStatusNew})
+
+	go ctl.vm.Run()
 	return nil
 }
 
@@ -444,7 +452,8 @@ func (ctl *Control) worker() {
 	}
 }
 
-func (ctl *Control) reloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf) error {
-	err := ctl.pm.Reload(pxyCfgs, visitorCfgs, true)
+func (ctl *Control) reloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) error {
+	ctl.vm.Reload(visitorCfgs)
+	err := ctl.pm.Reload(pxyCfgs, true)
 	return err
 }
