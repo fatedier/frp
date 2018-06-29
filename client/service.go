@@ -15,6 +15,7 @@
 package client
 
 import (
+	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/utils/log"
 )
@@ -26,11 +27,11 @@ type Service struct {
 	closedCh chan int
 }
 
-func NewService(pxyCfgs map[string]config.ProxyConf, vistorCfgs map[string]config.ProxyConf) (svr *Service) {
+func NewService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf) (svr *Service) {
 	svr = &Service{
 		closedCh: make(chan int),
 	}
-	ctl := NewControl(svr, pxyCfgs, vistorCfgs)
+	ctl := NewControl(svr, pxyCfgs, visitorCfgs)
 	svr.ctl = ctl
 	return
 }
@@ -41,18 +42,18 @@ func (svr *Service) Run() error {
 		return err
 	}
 
-	if config.ClientCommonCfg.AdminPort != 0 {
-		err = svr.RunAdminServer(config.ClientCommonCfg.AdminAddr, config.ClientCommonCfg.AdminPort)
+	if g.GlbClientCfg.AdminPort != 0 {
+		err = svr.RunAdminServer(g.GlbClientCfg.AdminAddr, g.GlbClientCfg.AdminPort)
 		if err != nil {
 			log.Warn("run admin server error: %v", err)
 		}
-		log.Info("admin server listen on %s:%d", config.ClientCommonCfg.AdminAddr, config.ClientCommonCfg.AdminPort)
+		log.Info("admin server listen on %s:%d", g.GlbClientCfg.AdminAddr, g.GlbClientCfg.AdminPort)
 	}
 
 	<-svr.closedCh
 	return nil
 }
 
-func (svr *Service) Close() error {
-	return svr.ctl.Close()
+func (svr *Service) Close() {
+	svr.ctl.Close()
 }

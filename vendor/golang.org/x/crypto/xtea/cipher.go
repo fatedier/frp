@@ -4,7 +4,7 @@
 
 // Package xtea implements XTEA encryption, as defined in Needham and Wheeler's
 // 1997 technical report, "Tea extensions."
-package xtea
+package xtea // import "golang.org/x/crypto/xtea"
 
 // For details, see http://www.cix.co.uk/~klockstone/xtea.pdf
 
@@ -14,8 +14,8 @@ import "strconv"
 const BlockSize = 8
 
 // A Cipher is an instance of an XTEA cipher using a particular key.
-// table contains a series of precalculated values that are used each round.
 type Cipher struct {
+	// table contains a series of precalculated values that are used each round.
 	table [64]uint32
 }
 
@@ -54,7 +54,7 @@ func (c *Cipher) BlockSize() int { return BlockSize }
 // instead, use an encryption mode like CBC (see crypto/cipher/cbc.go).
 func (c *Cipher) Encrypt(dst, src []byte) { encryptBlock(c, dst, src) }
 
-// Decrypt decrypts the 8 byte buffer src using the key k and stores the result in dst.
+// Decrypt decrypts the 8 byte buffer src using the key and stores the result in dst.
 func (c *Cipher) Decrypt(dst, src []byte) { decryptBlock(c, dst, src) }
 
 // initCipher initializes the cipher context by creating a look up table
@@ -69,7 +69,7 @@ func initCipher(c *Cipher, key []byte) {
 
 	// Precalculate the table
 	const delta = 0x9E3779B9
-	var sum uint32 = 0
+	var sum uint32
 
 	// Two rounds of XTEA applied per loop
 	for i := 0; i < numRounds; {

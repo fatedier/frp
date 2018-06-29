@@ -12,135 +12,135 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package contains an HTTP file system that works with zip contents.
+// Package fs contains an HTTP file system that works with zip contents.
 package fs
 
 import (
 	"archive/zip"
 	"bytes"
 	"errors"
-	"io"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 )
 
 var zipData string
 
-type statikFS struct {
-	files map[string]*zip.File
+// file holds unzipped read-only file contents and file metadata.
+type file struct {
+	os.FileInfo
+	data []byte
 }
 
-// Registers zip contents data, later used to initialize
+type statikFS struct {
+	files map[string]file
+}
+
+// Register registers zip contents data, later used to initialize
 // the statik file system.
 func Register(data string) {
 	zipData = data
 }
 
-// Creates a new file system with the registered zip contents data.
+// New creates a new file system with the registered zip contents data.
+// It unzips all files and stores them in an in-memory map.
 func New() (http.FileSystem, error) {
 	if zipData == "" {
-		return nil, errors.New("statik/fs: No zip data registered.")
+		return nil, errors.New("statik/fs: no zip data registered")
 	}
 	zipReader, err := zip.NewReader(strings.NewReader(zipData), int64(len(zipData)))
 	if err != nil {
 		return nil, err
 	}
-	files := make(map[string]*zip.File)
-	for _, file := range zipReader.File {
-		files["/"+file.Name] = file
+	files := make(map[string]file)
+	for _, zipFile := range zipReader.File {
+		unzipped, err := unzip(zipFile)
+		if err != nil {
+			return nil, fmt.Errorf("statik/fs: error unzipping file %q: %s", zipFile.Name, err)
+		}
+		files["/"+zipFile.Name] = file{
+			FileInfo: zipFile.FileInfo(),
+			data:     unzipped,
+		}
 	}
 	return &statikFS{files: files}, nil
 }
 
-// Opens a file, unzip the contents and initializes
-// readers. Returns os.ErrNotExists if file is not
-// found in the archive.
-func (fs *statikFS) Open(name string) (http.File, error) {
-	name = strings.Replace(name, "//", "/", -1)
-	f, ok := fs.files[name]
-
-	// The file doesn't match, but maybe it's a directory,
-	// thus we should look for index.html
-	if !ok {
-		indexName := strings.Replace(name+"/index.html", "//", "/", -1)
-		f, ok = fs.files[indexName]
-
-		if !ok {
-			return nil, os.ErrNotExist
-		}
-
-		return newFile(f, true)
-	}
-	return newFile(f, false)
-}
-
-var nopCloser = ioutil.NopCloser(nil)
-
-func newFile(zf *zip.File, isDir bool) (*file, error) {
+func unzip(zf *zip.File) ([]byte, error) {
 	rc, err := zf.Open()
 	if err != nil {
 		return nil, err
 	}
 	defer rc.Close()
-	all, err := ioutil.ReadAll(rc)
-	if err != nil {
-		return nil, err
+	return ioutil.ReadAll(rc)
+}
+
+// Open returns a file matching the given file name, or os.ErrNotExists if
+// no file matching the given file name is found in the archive.
+// If a directory is requested, Open returns the file named "index.html"
+// in the requested directory, if that file exists.
+func (fs *statikFS) Open(name string) (http.File, error) {
+	name = strings.Replace(name, "//", "/", -1)
+	f, ok := fs.files[name]
+	if ok {
+		return newHTTPFile(f, false), nil
 	}
-	return &file{
-		FileInfo: zf.FileInfo(),
-		data:     all,
-		readerAt: bytes.NewReader(all),
-		Closer:   nopCloser,
-		isDir:    isDir,
-	}, nil
+	// The file doesn't match, but maybe it's a directory,
+	// thus we should look for index.html
+	indexName := strings.Replace(name+"/index.html", "//", "/", -1)
+	f, ok = fs.files[indexName]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return newHTTPFile(f, true), nil
 }
 
-// Represents an HTTP file, acts as a bridge between
-// zip.File and http.File.
-type file struct {
-	os.FileInfo
-	io.Closer
-
-	data     []byte // non-nil if regular file
-	reader   *io.SectionReader
-	readerAt io.ReaderAt // over data
-	isDir    bool
-
-	once sync.Once
+func newHTTPFile(file file, isDir bool) *httpFile {
+	return &httpFile{
+		file:   file,
+		reader: bytes.NewReader(file.data),
+		isDir:  isDir,
+	}
 }
 
-func (f *file) newReader() {
-	f.reader = io.NewSectionReader(f.readerAt, 0, f.FileInfo.Size())
+// httpFile represents an HTTP file and acts as a bridge
+// between file and http.File.
+type httpFile struct {
+	file
+
+	reader *bytes.Reader
+	isDir  bool
 }
 
-// Reads bytes into p, returns the number of read bytes.
-func (f *file) Read(p []byte) (n int, err error) {
-	f.once.Do(f.newReader)
+// Read reads bytes into p, returns the number of read bytes.
+func (f *httpFile) Read(p []byte) (n int, err error) {
 	return f.reader.Read(p)
 }
 
-// Seeks to the offset.
-func (f *file) Seek(offset int64, whence int) (ret int64, err error) {
-	f.once.Do(f.newReader)
+// Seek seeks to the offset.
+func (f *httpFile) Seek(offset int64, whence int) (ret int64, err error) {
 	return f.reader.Seek(offset, whence)
 }
 
-// Stats the file.
-func (f *file) Stat() (os.FileInfo, error) {
+// Stat stats the file.
+func (f *httpFile) Stat() (os.FileInfo, error) {
 	return f, nil
 }
 
 // IsDir returns true if the file location represents a directory.
-func (f *file) IsDir() bool {
+func (f *httpFile) IsDir() bool {
 	return f.isDir
 }
 
-// Returns an empty slice of files, directory
+// Readdir returns an empty slice of files, directory
 // listing is disabled.
-func (f *file) Readdir(count int) ([]os.FileInfo, error) {
+func (f *httpFile) Readdir(count int) ([]os.FileInfo, error) {
 	// directory listing is disabled.
 	return make([]os.FileInfo, 0), nil
+}
+
+func (f *httpFile) Close() error {
+	return nil
 }
