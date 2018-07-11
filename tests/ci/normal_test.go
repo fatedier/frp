@@ -1,4 +1,4 @@
-package tests
+package ci
 
 import (
 	"fmt"
@@ -42,17 +42,17 @@ func init() {
 }
 
 func runFrps() error {
-	p := util.NewProcess(consts.FRPS_BIN_PATH, []string{"-c", "./config/auto_test_frps.ini"})
+	p := util.NewProcess(consts.FRPS_BIN_PATH, []string{"-c", "./auto_test_frps.ini"})
 	return p.Start()
 }
 
 func runFrpc() error {
-	p := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", "./config/auto_test_frpc.ini"})
+	p := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", "./auto_test_frpc.ini"})
 	return p.Start()
 }
 
 func runFrpcVisitor() error {
-	p := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", "./config/auto_test_frpc_visitor.ini"})
+	p := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", "./auto_test_frpc_visitor.ini"})
 	return p.Start()
 }
 
