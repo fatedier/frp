@@ -1,4 +1,4 @@
-package tests
+package mock
 
 import (
 	"fmt"
@@ -10,8 +10,8 @@ import (
 	frpNet "github.com/fatedier/frp/utils/net"
 )
 
-func StartTcpEchoServer() {
-	l, err := frpNet.ListenTcp("127.0.0.1", TEST_TCP_PORT)
+func StartTcpEchoServer(port int) {
+	l, err := frpNet.ListenTcp("127.0.0.1", port)
 	if err != nil {
 		fmt.Printf("echo server listen error: %v\n", err)
 		return
@@ -28,8 +28,8 @@ func StartTcpEchoServer() {
 	}
 }
 
-func StartTcpEchoServer2() {
-	l, err := frpNet.ListenTcp("127.0.0.1", TEST_TCP2_PORT)
+func StartTcpEchoServer2(port int) {
+	l, err := frpNet.ListenTcp("127.0.0.1", port)
 	if err != nil {
 		fmt.Printf("echo server2 listen error: %v\n", err)
 		return
@@ -46,8 +46,8 @@ func StartTcpEchoServer2() {
 	}
 }
 
-func StartUdpEchoServer() {
-	l, err := frpNet.ListenUDP("127.0.0.1", TEST_UDP_PORT)
+func StartUdpEchoServer(port int) {
+	l, err := frpNet.ListenUDP("127.0.0.1", port)
 	if err != nil {
 		fmt.Printf("udp echo server listen error: %v\n", err)
 		return
@@ -64,8 +64,7 @@ func StartUdpEchoServer() {
 	}
 }
 
-func StartUnixDomainServer() {
-	unixPath := TEST_UNIX_DOMAIN_ADDR
+func StartUnixDomainServer(unixPath string) {
 	os.Remove(unixPath)
 	syscall.Umask(0)
 	l, err := net.Listen("unix", unixPath)
