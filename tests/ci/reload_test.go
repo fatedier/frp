@@ -12,20 +12,17 @@ import (
 	"github.com/fatedier/frp/tests/util"
 )
 
-const FRPS_CONF = `
+const FRPS_RELOAD_CONF = `
 [common]
-server_addr = 127.0.0.1
-server_port = 10700
+bind_addr = 0.0.0.0
+bind_port = 20000
 log_file = console
 # debug, info, warn, error
 log_level = debug
 token = 123456
-admin_port = 10600
-admin_user = abc
-admin_pwd = abc
 `
 
-const FRPC_CONF_1 = `
+const FRPC_RELOAD_CONF_1 = `
 [common]
 server_addr = 127.0.0.1
 server_port = 20000
@@ -55,7 +52,7 @@ local_port = 10701
 remote_port = 20803
 `
 
-const FRPC_CONF_2 = `
+const FRPC_RELOAD_CONF_2 = `
 [common]
 server_addr = 127.0.0.1
 server_port = 20000
@@ -80,12 +77,12 @@ remote_port = 20902
 
 func TestReload(t *testing.T) {
 	assert := assert.New(t)
-	frpsCfgPath, err := config.GenerateConfigFile("./auto_test_frps.ini", FRPS_CONF)
+	frpsCfgPath, err := config.GenerateConfigFile(consts.FRPS_NORMAL_CONFIG, FRPS_RELOAD_CONF)
 	if assert.NoError(err) {
 		defer os.Remove(frpsCfgPath)
 	}
 
-	frpcCfgPath, err := config.GenerateConfigFile("./auto_test_frpc.ini", FRPC_CONF_1)
+	frpcCfgPath, err := config.GenerateConfigFile(consts.FRPC_NORMAL_CONFIG, FRPC_RELOAD_CONF_1)
 	if assert.NoError(err) {
 		defer os.Remove(frpcCfgPath)
 	}
@@ -104,5 +101,46 @@ func TestReload(t *testing.T) {
 		defer frpcProcess.Stop()
 	}
 
-	// TODO
+	time.Sleep(250 * time.Millisecond)
+
+	// test tcp1
+	res, err := util.SendTcpMsg("127.0.0.1:20801", consts.TEST_TCP_ECHO_STR)
+	assert.NoError(err)
+	assert.Equal(consts.TEST_TCP_ECHO_STR, res)
+
+	// test tcp2
+	res, err = util.SendTcpMsg("127.0.0.1:20802", consts.TEST_TCP_ECHO_STR)
+	assert.NoError(err)
+	assert.Equal(consts.TEST_TCP_ECHO_STR, res)
+
+	// test tcp3
+	res, err = util.SendTcpMsg("127.0.0.1:20803", consts.TEST_TCP_ECHO_STR)
+	assert.NoError(err)
+	assert.Equal(consts.TEST_TCP_ECHO_STR, res)
+
+	// reload frpc config
+	frpcCfgPath, err = config.GenerateConfigFile(consts.FRPC_NORMAL_CONFIG, FRPC_RELOAD_CONF_2)
+	assert.NoError(err)
+	err = util.ReloadConf("127.0.0.1:21000", "abc", "abc")
+	assert.NoError(err)
+
+	time.Sleep(time.Second)
+
+	// test tcp1
+	res, err = util.SendTcpMsg("127.0.0.1:20801", consts.TEST_TCP_ECHO_STR)
+	assert.NoError(err)
+	assert.Equal(consts.TEST_TCP_ECHO_STR, res)
+
+	// test origin tcp2, expect failed
+	res, err = util.SendTcpMsg("127.0.0.1:20802", consts.TEST_TCP_ECHO_STR)
+	assert.Error(err)
+
+	// test new origin tcp2 with different port
+	res, err = util.SendTcpMsg("127.0.0.1:20902", consts.TEST_TCP_ECHO_STR)
+	assert.NoError(err)
+	assert.Equal(consts.TEST_TCP_ECHO_STR, res)
+
+	// test tcp3, expect failed
+	res, err = util.SendTcpMsg("127.0.0.1:20803", consts.TEST_TCP_ECHO_STR)
+	assert.Error(err)
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -73,6 +74,27 @@ func GetProxyStatus(statusAddr string, user string, passwd string, name string) 
 		}
 	}
 	return status, errors.New("no proxy status found")
+}
+
+func ReloadConf(reloadAddr string, user string, passwd string) error {
+	req, err := http.NewRequest("GET", "http://"+reloadAddr+"/api/reload", nil)
+	if err != nil {
+		return err
+	}
+
+	authStr := "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+passwd))
+	req.Header.Add("Authorization", authStr)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	} else {
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("admin api status code [%d]", resp.StatusCode)
+		}
+		defer resp.Body.Close()
+		io.Copy(ioutil.Discard, resp.Body)
+	}
+	return nil
 }
 
 func SendTcpMsg(addr string, msg string) (res string, err error) {

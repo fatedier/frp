@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -20,40 +21,36 @@ import (
 	gnet "github.com/fatedier/golib/net"
 )
 
-func init() {
+func TestMain(m *testing.M) {
 	go mock.StartTcpEchoServer(consts.TEST_TCP_PORT)
 	go mock.StartTcpEchoServer2(consts.TEST_TCP2_PORT)
 	go mock.StartUdpEchoServer(consts.TEST_UDP_PORT)
 	go mock.StartUnixDomainServer(consts.TEST_UNIX_DOMAIN_ADDR)
 	go mock.StartHttpServer(consts.TEST_HTTP_PORT)
 
-	if err := runFrps(); err != nil {
+	var err error
+	p1 := util.NewProcess(consts.FRPS_BIN_PATH, []string{"-c", "./auto_test_frps.ini"})
+	if err = p1.Start(); err != nil {
 		panic(err)
 	}
-	time.Sleep(200 * time.Millisecond)
 
-	if err := runFrpc(); err != nil {
+	time.Sleep(200 * time.Millisecond)
+	p2 := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", "./auto_test_frpc.ini"})
+	if err = p2.Start(); err != nil {
 		panic(err)
 	}
-	if err := runFrpcVisitor(); err != nil {
+
+	p3 := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", "./auto_test_frpc_visitor.ini"})
+	if err = p3.Start(); err != nil {
 		panic(err)
 	}
 	time.Sleep(500 * time.Millisecond)
-}
 
-func runFrps() error {
-	p := util.NewProcess(consts.FRPS_BIN_PATH, []string{"-c", "./auto_test_frps.ini"})
-	return p.Start()
-}
-
-func runFrpc() error {
-	p := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", "./auto_test_frpc.ini"})
-	return p.Start()
-}
-
-func runFrpcVisitor() error {
-	p := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", "./auto_test_frpc_visitor.ini"})
-	return p.Start()
+	exitCode := m.Run()
+	p1.Stop()
+	p2.Stop()
+	p3.Stop()
+	os.Exit(exitCode)
 }
 
 func TestTcp(t *testing.T) {

@@ -6,6 +6,9 @@ var (
 	FRPS_BIN_PATH = "../../bin/frps"
 	FRPC_BIN_PATH = "../../bin/frpc"
 
+	FRPS_NORMAL_CONFIG = "./auto_test_frps.ini"
+	FRPC_NORMAL_CONFIG = "./auto_test_frpc.ini"
+
 	SERVER_ADDR = "127.0.0.1"
 	ADMIN_ADDR  = "127.0.0.1:10600"
 	ADMIN_USER  = "abc"
