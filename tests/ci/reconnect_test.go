@@ -58,7 +58,7 @@ func TestReconnect(t *testing.T) {
 		defer frpsProcess.Stop()
 	}
 
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	frpcProcess := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", frpcCfgPath})
 	err = frpcProcess.Start()
