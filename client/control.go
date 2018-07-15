@@ -255,6 +255,7 @@ func (ctl *Control) login() (err error) {
 	return nil
 }
 
+// connectServer return a new connection to frps
 func (ctl *Control) connectServer() (conn frpNet.Conn, err error) {
 	if g.GlbClientCfg.TcpMux {
 		stream, errRet := ctl.session.OpenStream()

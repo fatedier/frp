@@ -18,7 +18,6 @@ const (
 	ProxyStatusWaitStart    = "wait start"
 	ProxyStatusRunning      = "running"
 	ProxyStatusCheckFailed  = "check failed"
-	ProxyStatusCheckSuccess = "check success"
 	ProxyStatusClosed       = "closed"
 )
 
