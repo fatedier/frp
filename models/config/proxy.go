@@ -381,6 +381,8 @@ func (cfg *LocalSvrConf) checkForCli() (err error) {
 // Health check info
 type HealthCheckConf struct {
 	HealthCheckType      string `json:"health_check_type"` // tcp | http
+	HealthCheckTimeout   int    `json:"health_check_timeout"`
+	HealthCheckMaxFailed int    `json:"health_check_max_failed"`
 	HealthCheckIntervalS int    `json:"health_check_interval_s"`
 	HealthCheckUrl       string `json:"health_check_url"`
 
