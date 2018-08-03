@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/fatedier/frp/assets"
@@ -52,6 +53,9 @@ type Service struct {
 
 	// Accept connections using kcp
 	kcpListener frpNet.Listener
+
+	// Accept connections using websocket
+	websocketListener frpNet.Listener
 
 	// For https proxies, route requests to different clients by hostname and other infomation
 	VhostHttpsMuxer *vhost.HttpsMuxer
@@ -109,9 +113,6 @@ func NewService() (svr *Service, err error) {
 		if cfg.BindPort == cfg.VhostHttpsPort {
 			httpsMuxOn = true
 		}
-		if httpMuxOn || httpsMuxOn {
-			svr.muxer = mux.NewMux()
-		}
 	}
 
 	// Listen for accepting connections from client.
@@ -120,10 +121,11 @@ func NewService() (svr *Service, err error) {
 		err = fmt.Errorf("Create server listener error, %v", err)
 		return
 	}
-	if svr.muxer != nil {
-		go svr.muxer.Serve(ln)
-		ln = svr.muxer.DefaultListener()
-	}
+
+	svr.muxer = mux.NewMux()
+	go svr.muxer.Serve(ln)
+	ln = svr.muxer.DefaultListener()
+
 	svr.listener = frpNet.WrapLogListener(ln)
 	log.Info("frps tcp listen on %s:%d", cfg.BindAddr, cfg.BindPort)
 
@@ -148,16 +150,14 @@ func NewService() (svr *Service, err error) {
 			Handler: rp,
 		}
 		var l net.Listener
-		if httpMuxOn {
-			l = svr.muxer.ListenHttp(0)
-		} else {
+		if !httpMuxOn {
 			l, err = net.Listen("tcp", address)
 			if err != nil {
 				err = fmt.Errorf("Create vhost http listener error, %v", err)
 				return
 			}
+			go server.Serve(l)
 		}
-		go server.Serve(l)
 		log.Info("http service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHttpPort)
 	}
 
@@ -204,6 +204,38 @@ func NewService() (svr *Service, err error) {
 		}
 		log.Info("Dashboard listen on %s:%d", cfg.DashboardAddr, cfg.DashboardPort)
 	}
+
+	if !httpMuxOn {
+		svr.websocketListener, err = frpNet.NewWebsocketListener(svr.muxer.ListenHttp(0), nil)
+		return
+	}
+
+	// server := &http.Server{}
+	if httpMuxOn {
+		rp := svr.httpReverseProxy
+		svr.websocketListener, err = frpNet.NewWebsocketListener(svr.muxer.ListenHttp(0),
+			func(w http.ResponseWriter, req *http.Request) bool {
+				domain := getHostFromAddr(req.Host)
+				location := req.URL.Path
+				headers := rp.GetHeaders(domain, location)
+				if headers == nil {
+					return true
+				}
+				rp.ServeHTTP(w, req)
+				return false
+			})
+	}
+
+	return
+}
+
+func getHostFromAddr(addr string) (host string) {
+	strs := strings.Split(addr, ":")
+	if len(strs) > 1 {
+		host = strs[0]
+	} else {
+		host = addr
+	}
 	return
 }
 
@@ -214,8 +246,10 @@ func (svr *Service) Run() {
 	if g.GlbServerCfg.KcpBindPort > 0 {
 		go svr.HandleListener(svr.kcpListener)
 	}
+	if svr.websocketListener != nil {
+		go svr.HandleListener(svr.websocketListener)
+	}
 	svr.HandleListener(svr.listener)
-
 }
 
 func (svr *Service) HandleListener(l frpNet.Listener) {
@@ -226,7 +260,6 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 			log.Warn("Listener for incoming connections from client closed")
 			return
 		}
-
 		// Start a new goroutine for dealing connections.
 		go func(frpConn frpNet.Conn) {
 			dealFn := func(conn frpNet.Conn) {
