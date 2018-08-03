@@ -75,7 +75,7 @@ func NewWebScoketConn(conn net.Conn) (c *WebsocketConn) {
 }
 
 func (p *WebsocketConn) Close() error {
-	if atomic.LoadInt32(&p.closed) == 1 {
+	if atomic.SwapInt32(&p.closed, 1) == 1 {
 		return nil
 	}
 	close(p.wait)
