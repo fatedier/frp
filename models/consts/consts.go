@@ -23,10 +23,11 @@ var (
 	Offline string = "offline"
 
 	// proxy type
-	TcpProxy   string = "tcp"
-	UdpProxy   string = "udp"
-	HttpProxy  string = "http"
-	HttpsProxy string = "https"
-	StcpProxy  string = "stcp"
-	XtcpProxy  string = "xtcp"
+	TcpProxy       string = "tcp"
+	UdpProxy       string = "udp"
+	HttpProxy      string = "http"
+	HttpsProxy     string = "https"
+	StcpProxy      string = "stcp"
+	XtcpProxy      string = "xtcp"
+	WebsocketProxy string = "websocket"
 )

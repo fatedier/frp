@@ -53,6 +53,9 @@ type Service struct {
 	// Accept connections using kcp
 	kcpListener frpNet.Listener
 
+	// Accept connections using websocket
+	websocketListener frpNet.Listener
+
 	// For https proxies, route requests to different clients by hostname and other infomation
 	VhostHttpsMuxer *vhost.HttpsMuxer
 
@@ -137,6 +140,16 @@ func NewService() (svr *Service, err error) {
 		log.Info("frps kcp listen on udp %s:%d", cfg.BindAddr, cfg.KcpBindPort)
 	}
 
+	if cfg.WebsocketBindPort > 0 {
+		svr.websocketListener, err = frpNet.ListenWebsocket(cfg.BindAddr, cfg.WebsocketBindPort)
+		if err != nil {
+			err = fmt.Errorf("Listen on websocket address tcp [%s:%d] error: %v",
+				cfg.BindAddr, cfg.WebsocketBindPort, err)
+			return
+		}
+		log.Info("frps websocket listen on tcp %s:%d", cfg.BindAddr, cfg.WebsocketBindPort)
+	}
+
 	// Create http vhost muxer.
 	if cfg.VhostHttpPort > 0 {
 		rp := vhost.NewHttpReverseProxy()
@@ -214,6 +227,9 @@ func (svr *Service) Run() {
 	if g.GlbServerCfg.KcpBindPort > 0 {
 		go svr.HandleListener(svr.kcpListener)
 	}
+	if g.GlbServerCfg.WebsocketBindPort > 0 {
+		go svr.HandleListener(svr.websocketListener)
+	}
 	svr.HandleListener(svr.listener)
 
 }
@@ -226,7 +242,6 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 			log.Warn("Listener for incoming connections from client closed")
 			return
 		}
-
 		// Start a new goroutine for dealing connections.
 		go func(frpConn frpNet.Conn) {
 			dealFn := func(conn frpNet.Conn) {

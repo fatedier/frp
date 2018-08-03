@@ -187,7 +187,7 @@ func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (c
 
 	if tmpStr, ok = conf.Get("common", "protocol"); ok {
 		// Now it only support tcp and kcp.
-		if tmpStr != "kcp" {
+		if tmpStr != "kcp" && tmpStr != "websocket" {
 			tmpStr = "tcp"
 		}
 		cfg.Protocol = tmpStr

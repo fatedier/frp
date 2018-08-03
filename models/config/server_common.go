@@ -41,11 +41,12 @@ func InitServerCfg(cfg *ServerCommonConf) {
 
 // common config
 type ServerCommonConf struct {
-	BindAddr      string `json:"bind_addr"`
-	BindPort      int    `json:"bind_port"`
-	BindUdpPort   int    `json:"bind_udp_port"`
-	KcpBindPort   int    `json:"kcp_bind_port"`
-	ProxyBindAddr string `json:"proxy_bind_addr"`
+	BindAddr          string `json:"bind_addr"`
+	BindPort          int    `json:"bind_port"`
+	BindUdpPort       int    `json:"bind_udp_port"`
+	KcpBindPort       int    `json:"kcp_bind_port"`
+	WebsocketBindPort int    `json:"websocket_bind_port"`
+	ProxyBindAddr     string `json:"proxy_bind_addr"`
 
 	// If VhostHttpPort equals 0, don't listen a public port for http protocol.
 	VhostHttpPort int `json:"vhost_http_port"`
@@ -150,6 +151,15 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (c
 			return
 		} else {
 			cfg.KcpBindPort = int(v)
+		}
+	}
+
+	if tmpStr, ok = conf.Get("common", "websocket_bind_port"); ok {
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid kcp_bind_port")
+			return
+		} else {
+			cfg.WebsocketBindPort = int(v)
 		}
 	}
 

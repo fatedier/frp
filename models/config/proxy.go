@@ -825,6 +825,55 @@ func (cfg *XtcpProxyConf) CheckForSvr() (err error) {
 	return
 }
 
+// WEBSOCKET
+type WebsocketProxyConf struct {
+	BaseProxyConf
+	BindInfoConf
+
+	LocalSvrConf
+}
+
+func (cfg *WebsocketProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*WebsocketProxyConf)
+	if !ok {
+		return false
+	}
+
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
+		!cfg.BindInfoConf.compare(&cmpConf.BindInfoConf) ||
+		!cfg.LocalSvrConf.compare(&cmpConf.LocalSvrConf) {
+		return false
+	}
+	return true
+}
+
+func (cfg *WebsocketProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.UnmarshalFromMsg(pMsg)
+	cfg.BindInfoConf.UnmarshalFromMsg(pMsg)
+}
+
+func (cfg *WebsocketProxyConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
+	if err = cfg.BaseProxyConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return
+	}
+	if err = cfg.BindInfoConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return
+	}
+	if err = cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return
+	}
+	return
+}
+
+func (cfg *WebsocketProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.MarshalToMsg(pMsg)
+	cfg.BindInfoConf.MarshalToMsg(pMsg)
+}
+
+func (cfg *WebsocketProxyConf) CheckForCli() error { return nil }
+
+func (cfg *WebsocketProxyConf) CheckForSvr() error { return nil }
+
 func ParseRangeSection(name string, section ini.Section) (sections map[string]ini.Section, err error) {
 	localPorts, errRet := util.ParseRangeNumbers(section["local_port"])
 	if errRet != nil {

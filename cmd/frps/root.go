@@ -41,6 +41,7 @@ var (
 	bindPort          int
 	bindUdpPort       int
 	kcpBindPort       int
+	websocketBindPort int
 	proxyBindAddr     string
 	vhostHttpPort     int
 	vhostHttpsPort    int
@@ -70,6 +71,7 @@ func init() {
 	rootCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "p", 7000, "bind port")
 	rootCmd.PersistentFlags().IntVarP(&bindUdpPort, "bind_udp_port", "", 0, "bind udp port")
 	rootCmd.PersistentFlags().IntVarP(&kcpBindPort, "kcp_bind_port", "", 0, "kcp bind udp port")
+	rootCmd.PersistentFlags().IntVarP(&websocketBindPort, "websocket_bind_port", "", 0, "websocket bind tcp port")
 	rootCmd.PersistentFlags().StringVarP(&proxyBindAddr, "proxy_bind_addr", "", "0.0.0.0", "proxy bind address")
 	rootCmd.PersistentFlags().IntVarP(&vhostHttpPort, "vhost_http_port", "", 0, "vhost http port")
 	rootCmd.PersistentFlags().IntVarP(&vhostHttpsPort, "vhost_https_port", "", 0, "vhost https port")
@@ -162,6 +164,7 @@ func parseServerCommonCfgFromCmd() (err error) {
 	g.GlbServerCfg.BindPort = bindPort
 	g.GlbServerCfg.BindUdpPort = bindUdpPort
 	g.GlbServerCfg.KcpBindPort = kcpBindPort
+	g.GlbServerCfg.WebsocketBindPort = websocketBindPort
 	g.GlbServerCfg.ProxyBindAddr = proxyBindAddr
 	g.GlbServerCfg.VhostHttpPort = vhostHttpPort
 	g.GlbServerCfg.VhostHttpsPort = vhostHttpsPort
