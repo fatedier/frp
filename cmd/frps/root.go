@@ -37,29 +37,30 @@ var (
 	cfgFile     string
 	showVersion bool
 
-	bindAddr          string
-	bindPort          int
-	bindUdpPort       int
-	kcpBindPort       int
-	proxyBindAddr     string
-	vhostHttpPort     int
-	vhostHttpsPort    int
-	dashboardAddr     string
-	dashboardPort     int
-	dashboardUser     string
-	dashboardPwd      string
-	assetsDir         string
-	logFile           string
-	logWay            string
-	logLevel          string
-	logMaxDays        int64
-	token             string
-	authTimeout       int64
-	subDomainHost     string
-	tcpMux            bool
-	allowPorts        string
-	maxPoolCount      int64
-	maxPortsPerClient int64
+	bindAddr              string
+	bindPort              int
+	bindUdpPort           int
+	kcpBindPort           int
+	proxyBindAddr         string
+	vhostHttpPort         int
+	vhostHttpsPort        int
+	dashboardAddr         string
+	dashboardPort         int
+	dashboardUser         string
+	dashboardPwd          string
+	assetsDir             string
+	logFile               string
+	logWay                string
+	logLevel              string
+	logMaxDays            int64
+	token                 string
+	authTimeout           int64
+	subDomainHost         string
+	tcpMux                bool
+	allowPorts            string
+	maxPoolCount          int64
+	maxPortsPerClient     int64
+	ResponseHeaderTimeout int64
 )
 
 func init() {
@@ -85,6 +86,7 @@ func init() {
 	rootCmd.PersistentFlags().Int64VarP(&authTimeout, "auth_timeout", "", 900, "auth timeout")
 	rootCmd.PersistentFlags().StringVarP(&subDomainHost, "subdomain_host", "", "", "subdomain host")
 	rootCmd.PersistentFlags().Int64VarP(&maxPortsPerClient, "max_ports_per_client", "", 0, "max ports per client")
+	rootCmd.PersistentFlags().Int64VarP(&ResponseHeaderTimeout, "Response_Header_Timeout", "", 30, "Response Header Timeout")
 }
 
 var rootCmd = &cobra.Command{
@@ -177,6 +179,7 @@ func parseServerCommonCfgFromCmd() (err error) {
 	g.GlbServerCfg.AuthTimeout = authTimeout
 	g.GlbServerCfg.SubDomainHost = subDomainHost
 	g.GlbServerCfg.MaxPortsPerClient = maxPortsPerClient
+	g.GlbServerCfg.ResponseHeaderTimeout = ResponseHeaderTimeout
 	return
 }
 

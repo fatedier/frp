@@ -25,13 +25,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatedier/frp/g"
 	frpLog "github.com/fatedier/frp/utils/log"
 
 	"github.com/fatedier/golib/pool"
 )
 
 var (
-	responseHeaderTimeout = time.Duration(30) * time.Second
+	responseHeaderTimeout = time.Duration(g.GlbServerCfg.ResponseHeaderTimeout) * time.Second
 
 	ErrRouterConfigConflict = errors.New("router config conflict")
 	ErrNoDomain             = errors.New("no such domain")
