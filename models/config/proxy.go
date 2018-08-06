@@ -671,7 +671,6 @@ func (cfg *StcpProxyConf) UnmarshalFromIni(prefix string, name string, section i
 	cfg.Sk = section["sk"]
 
 	if tmpStr == "visitor" {
-		prefix := section["prefix"]
 		cfg.ServerName = prefix + section["server_name"]
 		if cfg.BindAddr = section["bind_addr"]; cfg.BindAddr == "" {
 			cfg.BindAddr = "127.0.0.1"
@@ -777,7 +776,6 @@ func (cfg *XtcpProxyConf) UnmarshalFromIni(prefix string, name string, section i
 	cfg.Sk = section["sk"]
 
 	if tmpStr == "visitor" {
-		prefix := section["prefix"]
 		cfg.ServerName = prefix + section["server_name"]
 		if cfg.BindAddr = section["bind_addr"]; cfg.BindAddr == "" {
 			cfg.BindAddr = "127.0.0.1"
