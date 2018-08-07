@@ -32,7 +32,7 @@ import (
 )
 
 var (
-	responseHeaderTimeout = time.Duration(g.GlbServerCfg.ResponseHeaderTimeout) * time.Second
+	responseHeaderTimeout = time.Duration(g.GlbServerCfg.VhostHttpTimeout) * time.Second
 
 	ErrRouterConfigConflict = errors.New("router config conflict")
 	ErrNoDomain             = errors.New("no such domain")

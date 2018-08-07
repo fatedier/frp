@@ -68,42 +68,42 @@ type ServerCommonConf struct {
 	SubDomainHost string `json:"subdomain_host"`
 	TcpMux        bool   `json:"tcp_mux"`
 
-	AllowPorts            map[int]struct{}
-	MaxPoolCount          int64 `json:"max_pool_count"`
-	MaxPortsPerClient     int64 `json:"max_ports_per_client"`
-	HeartBeatTimeout      int64 `json:"heart_beat_timeout"`
-	UserConnTimeout       int64 `json:"user_conn_timeout"`
-	ResponseHeaderTimeout int64 `json:"Response_Header_Timeout"`
+	AllowPorts        map[int]struct{}
+	MaxPoolCount      int64 `json:"max_pool_count"`
+	MaxPortsPerClient int64 `json:"max_ports_per_client"`
+	HeartBeatTimeout  int64 `json:"heart_beat_timeout"`
+	UserConnTimeout   int64 `json:"user_conn_timeout"`
+	VhostHttpTimeout  int64 `json:"vhost_http_timeout "`
 }
 
 func GetDefaultServerConf() *ServerCommonConf {
 	return &ServerCommonConf{
-		BindAddr:              "0.0.0.0",
-		BindPort:              7000,
-		BindUdpPort:           0,
-		KcpBindPort:           0,
-		ProxyBindAddr:         "0.0.0.0",
-		VhostHttpPort:         0,
-		VhostHttpsPort:        0,
-		DashboardAddr:         "0.0.0.0",
-		DashboardPort:         0,
-		DashboardUser:         "admin",
-		DashboardPwd:          "admin",
-		AssetsDir:             "",
-		LogFile:               "console",
-		LogWay:                "console",
-		LogLevel:              "info",
-		LogMaxDays:            3,
-		Token:                 "",
-		AuthTimeout:           900,
-		SubDomainHost:         "",
-		TcpMux:                true,
-		AllowPorts:            make(map[int]struct{}),
-		MaxPoolCount:          5,
-		MaxPortsPerClient:     0,
-		HeartBeatTimeout:      90,
-		UserConnTimeout:       10,
-		ResponseHeaderTimeout: 30,
+		BindAddr:          "0.0.0.0",
+		BindPort:          7000,
+		BindUdpPort:       0,
+		KcpBindPort:       0,
+		ProxyBindAddr:     "0.0.0.0",
+		VhostHttpPort:     0,
+		VhostHttpsPort:    0,
+		DashboardAddr:     "0.0.0.0",
+		DashboardPort:     0,
+		DashboardUser:     "admin",
+		DashboardPwd:      "admin",
+		AssetsDir:         "",
+		LogFile:           "console",
+		LogWay:            "console",
+		LogLevel:          "info",
+		LogMaxDays:        3,
+		Token:             "",
+		AuthTimeout:       900,
+		SubDomainHost:     "",
+		TcpMux:            true,
+		AllowPorts:        make(map[int]struct{}),
+		MaxPoolCount:      5,
+		MaxPortsPerClient: 0,
+		HeartBeatTimeout:  90,
+		UserConnTimeout:   10,
+		VhostHttpTimeout:  30,
 	}
 }
 
@@ -302,13 +302,13 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (c
 			cfg.HeartBeatTimeout = v
 		}
 	}
-	if tmpStr, ok = conf.Get("common", "Response_Header_Timeout"); ok {
+	if tmpStr, ok = conf.Get("common", "vhost_http_timeout"); ok {
 		v, errRet := strconv.ParseInt(tmpStr, 10, 64)
 		if errRet != nil {
-			err = fmt.Errorf("Parse conf error: Response_Header_Timeout is incorrect")
+			err = fmt.Errorf("Parse conf error: vhost_http_timeout is incorrect")
 			return
 		} else {
-			cfg.ResponseHeaderTimeout = v
+			cfg.VhostHttpTimeout = v
 		}
 	}
 	return
