@@ -25,15 +25,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/g"
 	frpLog "github.com/fatedier/frp/utils/log"
 
 	"github.com/fatedier/golib/pool"
 )
 
 var (
-	responseHeaderTimeout = time.Duration(g.GlbServerCfg.VhostHttpTimeout) * time.Second
-
 	ErrRouterConfigConflict = errors.New("router config conflict")
 	ErrNoDomain             = errors.New("no such domain")
 )
@@ -48,17 +45,26 @@ func getHostFromAddr(addr string) (host string) {
 	return
 }
 
+type HttpReverseProxyOptions struct {
+	ResponseHeaderTimeoutS int64
+}
+
 type HttpReverseProxy struct {
 	proxy *ReverseProxy
 
 	vhostRouter *VhostRouters
 
-	cfgMu sync.RWMutex
+	responseHeaderTimeout time.Duration
+	cfgMu                 sync.RWMutex
 }
 
-func NewHttpReverseProxy() *HttpReverseProxy {
+func NewHttpReverseProxy(option HttpReverseProxyOptions) *HttpReverseProxy {
+	if option.ResponseHeaderTimeoutS <= 0 {
+		option.ResponseHeaderTimeoutS = 60
+	}
 	rp := &HttpReverseProxy{
-		vhostRouter: NewVhostRouters(),
+		responseHeaderTimeout: time.Duration(option.ResponseHeaderTimeoutS) * time.Second,
+		vhostRouter:           NewVhostRouters(),
 	}
 	proxy := &ReverseProxy{
 		Director: func(req *http.Request) {
@@ -77,7 +83,7 @@ func NewHttpReverseProxy() *HttpReverseProxy {
 			}
 		},
 		Transport: &http.Transport{
-			ResponseHeaderTimeout: responseHeaderTimeout,
+			ResponseHeaderTimeout: rp.responseHeaderTimeout,
 			DisableKeepAlives:     true,
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				url := ctx.Value("url").(string)

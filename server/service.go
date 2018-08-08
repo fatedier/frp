@@ -139,7 +139,9 @@ func NewService() (svr *Service, err error) {
 
 	// Create http vhost muxer.
 	if cfg.VhostHttpPort > 0 {
-		rp := vhost.NewHttpReverseProxy()
+		rp := vhost.NewHttpReverseProxy(vhost.HttpReverseProxyOptions{
+			ResponseHeaderTimeoutS: cfg.VhostHttpTimeout,
+		})
 		svr.httpReverseProxy = rp
 
 		address := fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHttpPort)

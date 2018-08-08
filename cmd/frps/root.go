@@ -45,6 +45,7 @@ var (
 	proxyBindAddr     string
 	vhostHttpPort     int
 	vhostHttpsPort    int
+	vhostHttpTimeout  int64
 	dashboardAddr     string
 	dashboardPort     int
 	dashboardUser     string
@@ -61,7 +62,6 @@ var (
 	allowPorts        string
 	maxPoolCount      int64
 	maxPortsPerClient int64
-	vhostHttpTimeout  int64
 )
 
 func init() {
@@ -75,6 +75,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&proxyBindAddr, "proxy_bind_addr", "", "0.0.0.0", "proxy bind address")
 	rootCmd.PersistentFlags().IntVarP(&vhostHttpPort, "vhost_http_port", "", 0, "vhost http port")
 	rootCmd.PersistentFlags().IntVarP(&vhostHttpsPort, "vhost_https_port", "", 0, "vhost https port")
+	rootCmd.PersistentFlags().Int64VarP(&vhostHttpTimeout, "vhost_http_timeout", "", 60, "vhost http response header timeout")
 	rootCmd.PersistentFlags().StringVarP(&dashboardAddr, "dashboard_addr", "", "0.0.0.0", "dasboard address")
 	rootCmd.PersistentFlags().IntVarP(&dashboardPort, "dashboard_port", "", 0, "dashboard port")
 	rootCmd.PersistentFlags().StringVarP(&dashboardUser, "dashboard_user", "", "admin", "dashboard user")
@@ -88,7 +89,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&subDomainHost, "subdomain_host", "", "", "subdomain host")
 	rootCmd.PersistentFlags().StringVarP(&allowPorts, "allow_ports", "", "", "allow ports")
 	rootCmd.PersistentFlags().Int64VarP(&maxPortsPerClient, "max_ports_per_client", "", 0, "max ports per client")
-	rootCmd.PersistentFlags().Int64VarP(&vhostHttpTimeout, "vhost_http_timeout", "", 30, "vhost http timeout")
 }
 
 var rootCmd = &cobra.Command{
@@ -169,6 +169,7 @@ func parseServerCommonCfgFromCmd() (err error) {
 	g.GlbServerCfg.ProxyBindAddr = proxyBindAddr
 	g.GlbServerCfg.VhostHttpPort = vhostHttpPort
 	g.GlbServerCfg.VhostHttpsPort = vhostHttpsPort
+	g.GlbServerCfg.VhostHttpTimeout = vhostHttpTimeout
 	g.GlbServerCfg.DashboardAddr = dashboardAddr
 	g.GlbServerCfg.DashboardPort = dashboardPort
 	g.GlbServerCfg.DashboardUser = dashboardUser
@@ -193,7 +194,6 @@ func parseServerCommonCfgFromCmd() (err error) {
 		}
 	}
 	g.GlbServerCfg.MaxPortsPerClient = maxPortsPerClient
-	g.GlbServerCfg.VhostHttpTimeout = vhostHttpTimeout
 	return
 }
 
