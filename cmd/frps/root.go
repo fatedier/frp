@@ -61,6 +61,7 @@ var (
 	allowPorts        string
 	maxPoolCount      int64
 	maxPortsPerClient int64
+	vhostHttpTimeout  int64
 )
 
 func init() {
@@ -87,6 +88,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&subDomainHost, "subdomain_host", "", "", "subdomain host")
 	rootCmd.PersistentFlags().StringVarP(&allowPorts, "allow_ports", "", "", "allow ports")
 	rootCmd.PersistentFlags().Int64VarP(&maxPortsPerClient, "max_ports_per_client", "", 0, "max ports per client")
+	rootCmd.PersistentFlags().Int64VarP(&vhostHttpTimeout, "vhost_http_timeout", "", 30, "vhost http timeout")
 }
 
 var rootCmd = &cobra.Command{
@@ -191,6 +193,7 @@ func parseServerCommonCfgFromCmd() (err error) {
 		}
 	}
 	g.GlbServerCfg.MaxPortsPerClient = maxPortsPerClient
+	g.GlbServerCfg.VhostHttpTimeout = vhostHttpTimeout
 	return
 }
 
