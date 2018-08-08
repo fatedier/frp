@@ -73,6 +73,7 @@ type ServerCommonConf struct {
 	MaxPortsPerClient int64 `json:"max_ports_per_client"`
 	HeartBeatTimeout  int64 `json:"heart_beat_timeout"`
 	UserConnTimeout   int64 `json:"user_conn_timeout"`
+	VhostHttpTimeout  int64 `json:"vhost_http_timeout "`
 }
 
 func GetDefaultServerConf() *ServerCommonConf {
@@ -102,6 +103,7 @@ func GetDefaultServerConf() *ServerCommonConf {
 		MaxPortsPerClient: 0,
 		HeartBeatTimeout:  90,
 		UserConnTimeout:   10,
+		VhostHttpTimeout:  30,
 	}
 }
 
@@ -298,6 +300,15 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (c
 			return
 		} else {
 			cfg.HeartBeatTimeout = v
+		}
+	}
+	if tmpStr, ok = conf.Get("common", "vhost_http_timeout"); ok {
+		v, errRet := strconv.ParseInt(tmpStr, 10, 64)
+		if errRet != nil {
+			err = fmt.Errorf("Parse conf error: vhost_http_timeout is incorrect")
+			return
+		} else {
+			cfg.VhostHttpTimeout = v
 		}
 	}
 	return
