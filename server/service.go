@@ -140,7 +140,7 @@ func NewService() (svr *Service, err error) {
 	}
 
 	// Listen for accepting connections from client using websocket protocol.
-	websocketPrefix := []byte("GET /%23frp")
+	websocketPrefix := []byte("GET " + frpNet.FrpWebsocketPath)
 	websocketLn := svr.muxer.Listen(0, uint32(len(websocketPrefix)), func(data []byte) bool {
 		return bytes.Equal(data, websocketPrefix)
 	})
@@ -165,8 +165,8 @@ func NewService() (svr *Service, err error) {
 				err = fmt.Errorf("Create vhost http listener error, %v", err)
 				return
 			}
-			go server.Serve(l)
 		}
+		go server.Serve(l)
 		log.Info("http service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHttpPort)
 	}
 

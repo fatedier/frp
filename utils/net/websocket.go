@@ -18,7 +18,7 @@ var (
 )
 
 const (
-	FrpWebsocketPath = "/#frp"
+	FrpWebsocketPath = "/~!frp"
 )
 
 type WebsocketListener struct {
