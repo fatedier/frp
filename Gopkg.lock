@@ -30,7 +30,7 @@
     "net/mux",
     "pool"
   ]
-  revision = "416571c55dbc32e13ce82c301a2a4b5a48ad7309"
+  revision = "280fa74053dee5311c46094f4bdefbf76d3fcbe2"
 
 [[projects]]
   branch = "frp"

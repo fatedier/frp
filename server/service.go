@@ -122,8 +122,8 @@ func NewService() (svr *Service, err error) {
 		return
 	}
 
-	svr.muxer = mux.NewMux()
-	go svr.muxer.Serve(ln)
+	svr.muxer = mux.NewMux(ln)
+	go svr.muxer.Serve()
 	ln = svr.muxer.DefaultListener()
 
 	svr.listener = frpNet.WrapLogListener(ln)
