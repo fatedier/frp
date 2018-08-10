@@ -96,6 +96,75 @@ func (conn *WrapReadWriteCloserConn) SetWriteDeadline(t time.Time) error {
 	return &net.OpError{Op: "set", Net: "wrap", Source: nil, Addr: nil, Err: errors.New("deadline not supported")}
 }
 
+type CloseNotifyConn struct {
+	net.Conn
+	log.Logger
+
+	// 1 means closed
+	closeFlag int32
+
+	closeFn func()
+}
+
+// closeFn will be only called once
+func WrapCloseNotifyConn(c net.Conn, closeFn func()) Conn {
+	return &CloseNotifyConn{
+		Conn:    c,
+		Logger:  log.NewPrefixLogger(""),
+		closeFn: closeFn,
+	}
+}
+
+func (cc *CloseNotifyConn) Close() (err error) {
+	pflag := atomic.SwapInt32(&cc.closeFlag, 1)
+	if pflag == 0 {
+		err = cc.Close()
+		if cc.closeFn != nil {
+			cc.closeFn()
+		}
+	}
+	return
+}
+
+type StatsConn struct {
+	Conn
+
+	closed     int64 // 1 means closed
+	totalRead  int64
+	totalWrite int64
+	statsFunc  func(totalRead, totalWrite int64)
+}
+
+func WrapStatsConn(conn Conn, statsFunc func(total, totalWrite int64)) *StatsConn {
+	return &StatsConn{
+		Conn:      conn,
+		statsFunc: statsFunc,
+	}
+}
+
+func (statsConn *StatsConn) Read(p []byte) (n int, err error) {
+	n, err = statsConn.Conn.Read(p)
+	statsConn.totalRead += int64(n)
+	return
+}
+
+func (statsConn *StatsConn) Write(p []byte) (n int, err error) {
+	n, err = statsConn.Conn.Write(p)
+	statsConn.totalWrite += int64(n)
+	return
+}
+
+func (statsConn *StatsConn) Close() (err error) {
+	old := atomic.SwapInt64(&statsConn.closed, 1)
+	if old != 1 {
+		err = statsConn.Conn.Close()
+		if statsConn.statsFunc != nil {
+			statsConn.statsFunc(statsConn.totalRead, statsConn.totalWrite)
+		}
+	}
+	return
+}
+
 func ConnectServer(protocol string, addr string) (c Conn, err error) {
 	switch protocol {
 	case "tcp":
@@ -137,43 +206,4 @@ func ConnectServerByProxy(proxyUrl string, protocol string, addr string) (c Conn
 	default:
 		return nil, fmt.Errorf("unsupport protocol: %s", protocol)
 	}
-}
-
-type StatsConn struct {
-	Conn
-
-	closed     int64 // 1 means closed
-	totalRead  int64
-	totalWrite int64
-	statsFunc  func(totalRead, totalWrite int64)
-}
-
-func WrapStatsConn(conn Conn, statsFunc func(total, totalWrite int64)) *StatsConn {
-	return &StatsConn{
-		Conn:      conn,
-		statsFunc: statsFunc,
-	}
-}
-
-func (statsConn *StatsConn) Read(p []byte) (n int, err error) {
-	n, err = statsConn.Conn.Read(p)
-	statsConn.totalRead += int64(n)
-	return
-}
-
-func (statsConn *StatsConn) Write(p []byte) (n int, err error) {
-	n, err = statsConn.Conn.Write(p)
-	statsConn.totalWrite += int64(n)
-	return
-}
-
-func (statsConn *StatsConn) Close() (err error) {
-	old := atomic.SwapInt64(&statsConn.closed, 1)
-	if old != 1 {
-		err = statsConn.Conn.Close()
-		if statsConn.statsFunc != nil {
-			statsConn.statsFunc(statsConn.totalRead, statsConn.totalWrite)
-		}
-	}
-	return
 }

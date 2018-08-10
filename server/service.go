@@ -15,11 +15,11 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/fatedier/frp/assets"
@@ -139,6 +139,13 @@ func NewService() (svr *Service, err error) {
 		log.Info("frps kcp listen on udp %s:%d", cfg.BindAddr, cfg.KcpBindPort)
 	}
 
+	// Listen for accepting connections from client using websocket protocol.
+	websocketPrefix := []byte("GET /%23frp")
+	websocketLn := svr.muxer.Listen(0, uint32(len(websocketPrefix)), func(data []byte) bool {
+		return bytes.Equal(data, websocketPrefix)
+	})
+	svr.websocketListener = frpNet.NewWebsocketListener(websocketLn)
+
 	// Create http vhost muxer.
 	if cfg.VhostHttpPort > 0 {
 		rp := vhost.NewHttpReverseProxy()
@@ -150,7 +157,9 @@ func NewService() (svr *Service, err error) {
 			Handler: rp,
 		}
 		var l net.Listener
-		if !httpMuxOn {
+		if httpMuxOn {
+			l = svr.muxer.ListenHttp(1)
+		} else {
 			l, err = net.Listen("tcp", address)
 			if err != nil {
 				err = fmt.Errorf("Create vhost http listener error, %v", err)
@@ -165,7 +174,7 @@ func NewService() (svr *Service, err error) {
 	if cfg.VhostHttpsPort > 0 {
 		var l net.Listener
 		if httpsMuxOn {
-			l = svr.muxer.ListenHttps(0)
+			l = svr.muxer.ListenHttps(1)
 		} else {
 			l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHttpsPort))
 			if err != nil {
@@ -205,37 +214,6 @@ func NewService() (svr *Service, err error) {
 		log.Info("Dashboard listen on %s:%d", cfg.DashboardAddr, cfg.DashboardPort)
 	}
 
-	if !httpMuxOn {
-		svr.websocketListener, err = frpNet.NewWebsocketListener(svr.muxer.ListenHttp(0), nil)
-		return
-	}
-
-	// server := &http.Server{}
-	if httpMuxOn {
-		rp := svr.httpReverseProxy
-		svr.websocketListener, err = frpNet.NewWebsocketListener(svr.muxer.ListenHttp(0),
-			func(w http.ResponseWriter, req *http.Request) bool {
-				domain := getHostFromAddr(req.Host)
-				location := req.URL.Path
-				headers := rp.GetHeaders(domain, location)
-				if headers == nil {
-					return true
-				}
-				rp.ServeHTTP(w, req)
-				return false
-			})
-	}
-
-	return
-}
-
-func getHostFromAddr(addr string) (host string) {
-	strs := strings.Split(addr, ":")
-	if len(strs) > 1 {
-		host = strs[0]
-	} else {
-		host = addr
-	}
 	return
 }
 
@@ -246,9 +224,9 @@ func (svr *Service) Run() {
 	if g.GlbServerCfg.KcpBindPort > 0 {
 		go svr.HandleListener(svr.kcpListener)
 	}
-	if svr.websocketListener != nil {
-		go svr.HandleListener(svr.websocketListener)
-	}
+
+	go svr.HandleListener(svr.websocketListener)
+
 	svr.HandleListener(svr.listener)
 }
 
@@ -260,6 +238,7 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 			log.Warn("Listener for incoming connections from client closed")
 			return
 		}
+
 		// Start a new goroutine for dealing connections.
 		go func(frpConn frpNet.Conn) {
 			dealFn := func(conn frpNet.Conn) {
