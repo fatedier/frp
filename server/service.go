@@ -15,6 +15,7 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -52,6 +53,9 @@ type Service struct {
 
 	// Accept connections using kcp
 	kcpListener frpNet.Listener
+
+	// Accept connections using websocket
+	websocketListener frpNet.Listener
 
 	// For https proxies, route requests to different clients by hostname and other infomation
 	VhostHttpsMuxer *vhost.HttpsMuxer
@@ -109,9 +113,6 @@ func NewService() (svr *Service, err error) {
 		if cfg.BindPort == cfg.VhostHttpsPort {
 			httpsMuxOn = true
 		}
-		if httpMuxOn || httpsMuxOn {
-			svr.muxer = mux.NewMux()
-		}
 	}
 
 	// Listen for accepting connections from client.
@@ -120,10 +121,11 @@ func NewService() (svr *Service, err error) {
 		err = fmt.Errorf("Create server listener error, %v", err)
 		return
 	}
-	if svr.muxer != nil {
-		go svr.muxer.Serve(ln)
-		ln = svr.muxer.DefaultListener()
-	}
+
+	svr.muxer = mux.NewMux(ln)
+	go svr.muxer.Serve()
+	ln = svr.muxer.DefaultListener()
+
 	svr.listener = frpNet.WrapLogListener(ln)
 	log.Info("frps tcp listen on %s:%d", cfg.BindAddr, cfg.BindPort)
 
@@ -137,9 +139,18 @@ func NewService() (svr *Service, err error) {
 		log.Info("frps kcp listen on udp %s:%d", cfg.BindAddr, cfg.KcpBindPort)
 	}
 
+	// Listen for accepting connections from client using websocket protocol.
+	websocketPrefix := []byte("GET " + frpNet.FrpWebsocketPath)
+	websocketLn := svr.muxer.Listen(0, uint32(len(websocketPrefix)), func(data []byte) bool {
+		return bytes.Equal(data, websocketPrefix)
+	})
+	svr.websocketListener = frpNet.NewWebsocketListener(websocketLn)
+
 	// Create http vhost muxer.
 	if cfg.VhostHttpPort > 0 {
-		rp := vhost.NewHttpReverseProxy()
+		rp := vhost.NewHttpReverseProxy(vhost.HttpReverseProxyOptions{
+			ResponseHeaderTimeoutS: cfg.VhostHttpTimeout,
+		})
 		svr.httpReverseProxy = rp
 
 		address := fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHttpPort)
@@ -149,7 +160,7 @@ func NewService() (svr *Service, err error) {
 		}
 		var l net.Listener
 		if httpMuxOn {
-			l = svr.muxer.ListenHttp(0)
+			l = svr.muxer.ListenHttp(1)
 		} else {
 			l, err = net.Listen("tcp", address)
 			if err != nil {
@@ -165,7 +176,7 @@ func NewService() (svr *Service, err error) {
 	if cfg.VhostHttpsPort > 0 {
 		var l net.Listener
 		if httpsMuxOn {
-			l = svr.muxer.ListenHttps(0)
+			l = svr.muxer.ListenHttps(1)
 		} else {
 			l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHttpsPort))
 			if err != nil {
@@ -204,6 +215,7 @@ func NewService() (svr *Service, err error) {
 		}
 		log.Info("Dashboard listen on %s:%d", cfg.DashboardAddr, cfg.DashboardPort)
 	}
+
 	return
 }
 
@@ -214,8 +226,10 @@ func (svr *Service) Run() {
 	if g.GlbServerCfg.KcpBindPort > 0 {
 		go svr.HandleListener(svr.kcpListener)
 	}
-	svr.HandleListener(svr.listener)
 
+	go svr.HandleListener(svr.websocketListener)
+
+	svr.HandleListener(svr.listener)
 }
 
 func (svr *Service) HandleListener(l frpNet.Listener) {

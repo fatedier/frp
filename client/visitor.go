@@ -183,7 +183,7 @@ func (sv *XtcpVisitor) worker() {
 	for {
 		conn, err := sv.l.Accept()
 		if err != nil {
-			sv.Warn("stcp local listener closed")
+			sv.Warn("xtcp local listener closed")
 			return
 		}
 
