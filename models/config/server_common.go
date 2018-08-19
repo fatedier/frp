@@ -51,8 +51,11 @@ type ServerCommonConf struct {
 	VhostHttpPort int `json:"vhost_http_port"`
 
 	// if VhostHttpsPort equals 0, don't listen a public port for https protocol
-	VhostHttpsPort int    `json:"vhost_http_port"`
-	DashboardAddr  string `json:"dashboard_addr"`
+	VhostHttpsPort int `json:"vhost_http_port"`
+
+	VhostHttpTimeout int64 `json:"vhost_http_timeout"`
+
+	DashboardAddr string `json:"dashboard_addr"`
 
 	// if DashboardPort equals 0, dashboard is not available
 	DashboardPort int    `json:"dashboard_port"`
@@ -84,6 +87,7 @@ func GetDefaultServerConf() *ServerCommonConf {
 		ProxyBindAddr:     "0.0.0.0",
 		VhostHttpPort:     0,
 		VhostHttpsPort:    0,
+		VhostHttpTimeout:  60,
 		DashboardAddr:     "0.0.0.0",
 		DashboardPort:     0,
 		DashboardUser:     "admin",
@@ -179,6 +183,16 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (c
 		}
 	} else {
 		cfg.VhostHttpsPort = 0
+	}
+
+	if tmpStr, ok = conf.Get("common", "vhost_http_timeout"); ok {
+		v, errRet := strconv.ParseInt(tmpStr, 10, 64)
+		if errRet != nil || v < 0 {
+			err = fmt.Errorf("Parse conf error: invalid vhost_http_timeout")
+			return
+		} else {
+			cfg.VhostHttpTimeout = v
+		}
 	}
 
 	if tmpStr, ok = conf.Get("common", "dashboard_addr"); ok {
