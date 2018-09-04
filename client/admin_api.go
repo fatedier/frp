@@ -17,14 +17,13 @@ package client
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"sort"
 	"strings"
 
+	"github.com/julienschmidt/httprouter"
 	ini "github.com/vaughan0/go-ini"
 
-	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/utils/log"
 )
@@ -39,7 +38,7 @@ type ReloadResp struct {
 	GeneralResponse
 }
 
-func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var (
 		buf []byte
 		res ReloadResp
@@ -52,16 +51,15 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 
 	log.Info("Http request: [/api/reload]")
 
-	b, err := ioutil.ReadFile(g.GlbClientCfg.CfgFile)
+	conf, err := ini.LoadFile(config.ClientCommonCfg.ConfigFile)
 	if err != nil {
 		res.Code = 1
 		res.Msg = err.Error()
 		log.Error("reload frpc config file error: %v", err)
 		return
 	}
-	content := string(b)
 
-	newCommonCfg, err := config.UnmarshalClientConfFromIni(nil, content)
+	newCommonCfg, err := config.LoadClientCommonConf(conf)
 	if err != nil {
 		res.Code = 2
 		res.Msg = err.Error()
@@ -69,15 +67,7 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conf, err := ini.LoadFile(g.GlbClientCfg.CfgFile)
-	if err != nil {
-		res.Code = 1
-		res.Msg = err.Error()
-		log.Error("reload frpc config file error: %v", err)
-		return
-	}
-
-	pxyCfgs, visitorCfgs, err := config.LoadProxyConfFromIni(g.GlbClientCfg.User, conf, newCommonCfg.Start)
+	pxyCfgs, visitorCfgs, err := config.LoadProxyConfFromFile(config.ClientCommonCfg.User, conf, newCommonCfg.Start)
 	if err != nil {
 		res.Code = 3
 		res.Msg = err.Error()
@@ -135,18 +125,18 @@ func NewProxyStatusResp(status *ProxyStatus) ProxyStatusResp {
 		}
 		psr.Plugin = cfg.Plugin
 		if status.Err != "" {
-			psr.RemoteAddr = fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, cfg.RemotePort)
+			psr.RemoteAddr = fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, cfg.RemotePort)
 		} else {
-			psr.RemoteAddr = g.GlbClientCfg.ServerAddr + status.RemoteAddr
+			psr.RemoteAddr = config.ClientCommonCfg.ServerAddr + status.RemoteAddr
 		}
 	case *config.UdpProxyConf:
 		if cfg.LocalPort != 0 {
 			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
 		}
 		if status.Err != "" {
-			psr.RemoteAddr = fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, cfg.RemotePort)
+			psr.RemoteAddr = fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, cfg.RemotePort)
 		} else {
-			psr.RemoteAddr = g.GlbClientCfg.ServerAddr + status.RemoteAddr
+			psr.RemoteAddr = config.ClientCommonCfg.ServerAddr + status.RemoteAddr
 		}
 	case *config.HttpProxyConf:
 		if cfg.LocalPort != 0 {
@@ -175,7 +165,7 @@ func NewProxyStatusResp(status *ProxyStatus) ProxyStatusResp {
 }
 
 // api/status
-func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var (
 		buf []byte
 		res StatusResp

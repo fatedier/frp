@@ -2,7 +2,7 @@
   <div>
     <el-table :data="proxies" :default-sort="{prop: 'name', order: 'ascending'}" style="width: 100%">
       <el-table-column type="expand">
-        <template slot-scope="props">
+        <template scope="props">
           <el-popover
             ref="popover4"
             placement="right"
@@ -79,7 +79,7 @@
       label="status"
       prop="status"
       sortable>
-      <template slot-scope="scope">
+      <template scope="scope">
         <el-tag type="success" v-if="scope.row.status === 'online'">{{ scope.row.status }}</el-tag>
         <el-tag type="danger" v-else>{{ scope.row.status }}</el-tag>
       </template>

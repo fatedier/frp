@@ -5,7 +5,7 @@
 // +build amd64,!appengine,!gccgo
 
 // This code was translated into a form compatible with 6a from the public
-// domain sources in SUPERCOP: https://bench.cr.yp.to/supercop.html
+// domain sources in SUPERCOP: http://bench.cr.yp.to/supercop.html
 
 // func salsa2020XORKeyStream(out, in *byte, n uint64, nonce, key *byte)
 // This needs up to 64 bytes at 360(SP); hence the non-obvious frame size.

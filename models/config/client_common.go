@@ -23,41 +23,46 @@ import (
 	ini "github.com/vaughan0/go-ini"
 )
 
+var ClientCommonCfg *ClientCommonConf
+
 // client common config
 type ClientCommonConf struct {
-	ServerAddr        string              `json:"server_addr"`
-	ServerPort        int                 `json:"server_port"`
-	HttpProxy         string              `json:"http_proxy"`
-	LogFile           string              `json:"log_file"`
-	LogWay            string              `json:"log_way"`
-	LogLevel          string              `json:"log_level"`
-	LogMaxDays        int64               `json:"log_max_days"`
-	Token             string              `json:"token"`
-	AdminAddr         string              `json:"admin_addr"`
-	AdminPort         int                 `json:"admin_port"`
-	AdminUser         string              `json:"admin_user"`
-	AdminPwd          string              `json:"admin_pwd"`
-	PoolCount         int                 `json:"pool_count"`
-	TcpMux            bool                `json:"tcp_mux"`
-	User              string              `json:"user"`
-	DnsServer         string              `json:"dns_server"`
-	LoginFailExit     bool                `json:"login_fail_exit"`
-	Start             map[string]struct{} `json:"start"`
-	Protocol          string              `json:"protocol"`
-	HeartBeatInterval int64               `json:"heartbeat_interval"`
-	HeartBeatTimeout  int64               `json:"heartbeat_timeout"`
+	ConfigFile        string
+	ServerAddr        string
+	ServerPort        int
+	ServerUdpPort     int // this is specified by login response message from frps
+	HttpProxy         string
+	LogFile           string
+	LogWay            string
+	LogLevel          string
+	LogMaxDays        int64
+	PrivilegeToken    string
+	AdminAddr         string
+	AdminPort         int
+	AdminUser         string
+	AdminPwd          string
+	PoolCount         int
+	TcpMux            bool
+	User              string
+	LoginFailExit     bool
+	Start             map[string]struct{}
+	Protocol          string
+	HeartBeatInterval int64
+	HeartBeatTimeout  int64
 }
 
-func GetDefaultClientConf() *ClientCommonConf {
+func GetDeaultClientCommonConf() *ClientCommonConf {
 	return &ClientCommonConf{
+		ConfigFile:        "./frpc.ini",
 		ServerAddr:        "0.0.0.0",
 		ServerPort:        7000,
-		HttpProxy:         os.Getenv("http_proxy"),
+		ServerUdpPort:     0,
+		HttpProxy:         "",
 		LogFile:           "console",
 		LogWay:            "console",
 		LogLevel:          "info",
 		LogMaxDays:        3,
-		Token:             "",
+		PrivilegeToken:    "",
 		AdminAddr:         "127.0.0.1",
 		AdminPort:         0,
 		AdminUser:         "",
@@ -65,7 +70,6 @@ func GetDefaultClientConf() *ClientCommonConf {
 		PoolCount:         1,
 		TcpMux:            true,
 		User:              "",
-		DnsServer:         "",
 		LoginFailExit:     true,
 		Start:             make(map[string]struct{}),
 		Protocol:          "tcp",
@@ -74,28 +78,21 @@ func GetDefaultClientConf() *ClientCommonConf {
 	}
 }
 
-func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (cfg *ClientCommonConf, err error) {
-	cfg = defaultCfg
-	if cfg == nil {
-		cfg = GetDefaultClientConf()
-	}
-
-	conf, err := ini.Load(strings.NewReader(content))
-	if err != nil {
-		err = fmt.Errorf("parse ini conf file error: %v", err)
-		return nil, err
-	}
-
+func LoadClientCommonConf(conf ini.File) (cfg *ClientCommonConf, err error) {
 	var (
 		tmpStr string
 		ok     bool
 		v      int64
 	)
-	if tmpStr, ok = conf.Get("common", "server_addr"); ok {
+	cfg = GetDeaultClientCommonConf()
+
+	tmpStr, ok = conf.Get("common", "server_addr")
+	if ok {
 		cfg.ServerAddr = tmpStr
 	}
 
-	if tmpStr, ok = conf.Get("common", "server_port"); ok {
+	tmpStr, ok = conf.Get("common", "server_port")
+	if ok {
 		v, err = strconv.ParseInt(tmpStr, 10, 64)
 		if err != nil {
 			err = fmt.Errorf("Parse conf error: invalid server_port")
@@ -104,11 +101,16 @@ func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (c
 		cfg.ServerPort = int(v)
 	}
 
-	if tmpStr, ok = conf.Get("common", "http_proxy"); ok {
+	tmpStr, ok = conf.Get("common", "http_proxy")
+	if ok {
 		cfg.HttpProxy = tmpStr
+	} else {
+		// get http_proxy from env
+		cfg.HttpProxy = os.Getenv("http_proxy")
 	}
 
-	if tmpStr, ok = conf.Get("common", "log_file"); ok {
+	tmpStr, ok = conf.Get("common", "log_file")
+	if ok {
 		cfg.LogFile = tmpStr
 		if cfg.LogFile == "console" {
 			cfg.LogWay = "console"
@@ -117,25 +119,30 @@ func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (c
 		}
 	}
 
-	if tmpStr, ok = conf.Get("common", "log_level"); ok {
+	tmpStr, ok = conf.Get("common", "log_level")
+	if ok {
 		cfg.LogLevel = tmpStr
 	}
 
-	if tmpStr, ok = conf.Get("common", "log_max_days"); ok {
+	tmpStr, ok = conf.Get("common", "log_max_days")
+	if ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err == nil {
 			cfg.LogMaxDays = v
 		}
 	}
 
-	if tmpStr, ok = conf.Get("common", "token"); ok {
-		cfg.Token = tmpStr
+	tmpStr, ok = conf.Get("common", "privilege_token")
+	if ok {
+		cfg.PrivilegeToken = tmpStr
 	}
 
-	if tmpStr, ok = conf.Get("common", "admin_addr"); ok {
+	tmpStr, ok = conf.Get("common", "admin_addr")
+	if ok {
 		cfg.AdminAddr = tmpStr
 	}
 
-	if tmpStr, ok = conf.Get("common", "admin_port"); ok {
+	tmpStr, ok = conf.Get("common", "admin_port")
+	if ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err == nil {
 			cfg.AdminPort = int(v)
 		} else {
@@ -144,58 +151,66 @@ func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (c
 		}
 	}
 
-	if tmpStr, ok = conf.Get("common", "admin_user"); ok {
+	tmpStr, ok = conf.Get("common", "admin_user")
+	if ok {
 		cfg.AdminUser = tmpStr
 	}
 
-	if tmpStr, ok = conf.Get("common", "admin_pwd"); ok {
+	tmpStr, ok = conf.Get("common", "admin_pwd")
+	if ok {
 		cfg.AdminPwd = tmpStr
 	}
 
-	if tmpStr, ok = conf.Get("common", "pool_count"); ok {
-		if v, err = strconv.ParseInt(tmpStr, 10, 64); err == nil {
+	tmpStr, ok = conf.Get("common", "pool_count")
+	if ok {
+		v, err = strconv.ParseInt(tmpStr, 10, 64)
+		if err != nil {
+			cfg.PoolCount = 1
+		} else {
 			cfg.PoolCount = int(v)
 		}
 	}
 
-	if tmpStr, ok = conf.Get("common", "tcp_mux"); ok && tmpStr == "false" {
+	tmpStr, ok = conf.Get("common", "tcp_mux")
+	if ok && tmpStr == "false" {
 		cfg.TcpMux = false
 	} else {
 		cfg.TcpMux = true
 	}
 
-	if tmpStr, ok = conf.Get("common", "user"); ok {
+	tmpStr, ok = conf.Get("common", "user")
+	if ok {
 		cfg.User = tmpStr
 	}
 
-	if tmpStr, ok = conf.Get("common", "dns_server"); ok {
-		cfg.DnsServer = tmpStr
-	}
-
-	if tmpStr, ok = conf.Get("common", "start"); ok {
+	tmpStr, ok = conf.Get("common", "start")
+	if ok {
 		proxyNames := strings.Split(tmpStr, ",")
 		for _, name := range proxyNames {
 			cfg.Start[strings.TrimSpace(name)] = struct{}{}
 		}
 	}
 
-	if tmpStr, ok = conf.Get("common", "login_fail_exit"); ok && tmpStr == "false" {
+	tmpStr, ok = conf.Get("common", "login_fail_exit")
+	if ok && tmpStr == "false" {
 		cfg.LoginFailExit = false
 	} else {
 		cfg.LoginFailExit = true
 	}
 
-	if tmpStr, ok = conf.Get("common", "protocol"); ok {
-		// Now it only support tcp and kcp and websocket.
-		if tmpStr != "tcp" && tmpStr != "kcp" && tmpStr != "websocket" {
-			err = fmt.Errorf("Parse conf error: invalid protocol")
-			return
+	tmpStr, ok = conf.Get("common", "protocol")
+	if ok {
+		// Now it only support tcp and kcp.
+		if tmpStr != "kcp" {
+			tmpStr = "tcp"
 		}
 		cfg.Protocol = tmpStr
 	}
 
-	if tmpStr, ok = conf.Get("common", "heartbeat_timeout"); ok {
-		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+	tmpStr, ok = conf.Get("common", "heartbeat_timeout")
+	if ok {
+		v, err = strconv.ParseInt(tmpStr, 10, 64)
+		if err != nil {
 			err = fmt.Errorf("Parse conf error: invalid heartbeat_timeout")
 			return
 		} else {
@@ -203,18 +218,17 @@ func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (c
 		}
 	}
 
-	if tmpStr, ok = conf.Get("common", "heartbeat_interval"); ok {
-		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+	tmpStr, ok = conf.Get("common", "heartbeat_interval")
+	if ok {
+		v, err = strconv.ParseInt(tmpStr, 10, 64)
+		if err != nil {
 			err = fmt.Errorf("Parse conf error: invalid heartbeat_interval")
 			return
 		} else {
 			cfg.HeartBeatInterval = v
 		}
 	}
-	return
-}
 
-func (cfg *ClientCommonConf) Check() (err error) {
 	if cfg.HeartBeatInterval <= 0 {
 		err = fmt.Errorf("Parse conf error: invalid heartbeat_interval")
 		return

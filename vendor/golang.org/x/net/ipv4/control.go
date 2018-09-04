@@ -83,14 +83,14 @@ func (cm *ControlMessage) Parse(b []byte) error {
 		if lvl != iana.ProtocolIP {
 			continue
 		}
-		switch {
-		case typ == ctlOpts[ctlTTL].name && l >= ctlOpts[ctlTTL].length:
+		switch typ {
+		case ctlOpts[ctlTTL].name:
 			ctlOpts[ctlTTL].parse(cm, m.Data(l))
-		case typ == ctlOpts[ctlDst].name && l >= ctlOpts[ctlDst].length:
+		case ctlOpts[ctlDst].name:
 			ctlOpts[ctlDst].parse(cm, m.Data(l))
-		case typ == ctlOpts[ctlInterface].name && l >= ctlOpts[ctlInterface].length:
+		case ctlOpts[ctlInterface].name:
 			ctlOpts[ctlInterface].parse(cm, m.Data(l))
-		case typ == ctlOpts[ctlPacketInfo].name && l >= ctlOpts[ctlPacketInfo].length:
+		case ctlOpts[ctlPacketInfo].name:
 			ctlOpts[ctlPacketInfo].parse(cm, m.Data(l))
 		}
 	}

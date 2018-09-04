@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/g"
+	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/utils/log"
 	"github.com/fatedier/frp/utils/metric"
 )
@@ -92,19 +92,19 @@ func StatsClearUselessInfo() {
 }
 
 func StatsNewClient() {
-	if g.GlbServerCfg.DashboardPort != 0 {
+	if config.ServerCommonCfg.DashboardPort != 0 {
 		globalStats.ClientCounts.Inc(1)
 	}
 }
 
 func StatsCloseClient() {
-	if g.GlbServerCfg.DashboardPort != 0 {
+	if config.ServerCommonCfg.DashboardPort != 0 {
 		globalStats.ClientCounts.Dec(1)
 	}
 }
 
 func StatsNewProxy(name string, proxyType string) {
-	if g.GlbServerCfg.DashboardPort != 0 {
+	if config.ServerCommonCfg.DashboardPort != 0 {
 		globalStats.mu.Lock()
 		defer globalStats.mu.Unlock()
 		counter, ok := globalStats.ProxyTypeCounts[proxyType]
@@ -130,7 +130,7 @@ func StatsNewProxy(name string, proxyType string) {
 }
 
 func StatsCloseProxy(proxyName string, proxyType string) {
-	if g.GlbServerCfg.DashboardPort != 0 {
+	if config.ServerCommonCfg.DashboardPort != 0 {
 		globalStats.mu.Lock()
 		defer globalStats.mu.Unlock()
 		if counter, ok := globalStats.ProxyTypeCounts[proxyType]; ok {
@@ -143,7 +143,7 @@ func StatsCloseProxy(proxyName string, proxyType string) {
 }
 
 func StatsOpenConnection(name string) {
-	if g.GlbServerCfg.DashboardPort != 0 {
+	if config.ServerCommonCfg.DashboardPort != 0 {
 		globalStats.CurConns.Inc(1)
 
 		globalStats.mu.Lock()
@@ -157,7 +157,7 @@ func StatsOpenConnection(name string) {
 }
 
 func StatsCloseConnection(name string) {
-	if g.GlbServerCfg.DashboardPort != 0 {
+	if config.ServerCommonCfg.DashboardPort != 0 {
 		globalStats.CurConns.Dec(1)
 
 		globalStats.mu.Lock()
@@ -171,7 +171,7 @@ func StatsCloseConnection(name string) {
 }
 
 func StatsAddTrafficIn(name string, trafficIn int64) {
-	if g.GlbServerCfg.DashboardPort != 0 {
+	if config.ServerCommonCfg.DashboardPort != 0 {
 		globalStats.TotalTrafficIn.Inc(trafficIn)
 
 		globalStats.mu.Lock()
@@ -186,7 +186,7 @@ func StatsAddTrafficIn(name string, trafficIn int64) {
 }
 
 func StatsAddTrafficOut(name string, trafficOut int64) {
-	if g.GlbServerCfg.DashboardPort != 0 {
+	if config.ServerCommonCfg.DashboardPort != 0 {
 		globalStats.TotalTrafficOut.Inc(trafficOut)
 
 		globalStats.mu.Lock()
@@ -261,37 +261,6 @@ func StatsGetProxiesByType(proxyType string) []*ProxyStats {
 		res = append(res, ps)
 	}
 	return res
-}
-
-func StatsGetProxiesByTypeAndName(proxyType string, proxyName string) (res *ProxyStats) {
-	globalStats.mu.Lock()
-	defer globalStats.mu.Unlock()
-
-	for name, proxyStats := range globalStats.ProxyStatistics {
-		if proxyStats.ProxyType != proxyType {
-			continue
-		}
-
-		if name != proxyName {
-			continue
-		}
-
-		res = &ProxyStats{
-			Name:            name,
-			Type:            proxyStats.ProxyType,
-			TodayTrafficIn:  proxyStats.TrafficIn.TodayCount(),
-			TodayTrafficOut: proxyStats.TrafficOut.TodayCount(),
-			CurConns:        proxyStats.CurConns.Count(),
-		}
-		if !proxyStats.LastStartTime.IsZero() {
-			res.LastStartTime = proxyStats.LastStartTime.Format("01-02 15:04:05")
-		}
-		if !proxyStats.LastCloseTime.IsZero() {
-			res.LastCloseTime = proxyStats.LastCloseTime.Format("01-02 15:04:05")
-		}
-		break
-	}
-	return
 }
 
 type ProxyTrafficInfo struct {

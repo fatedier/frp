@@ -126,7 +126,7 @@ func sendUdpMsg(addr string, msg string) (res string, err error) {
 	return string(buf[:n]), nil
 }
 
-func sendHttpMsg(method, urlStr string, host string, headers map[string]string, proxy string) (code int, body string, header http.Header, err error) {
+func sendHttpMsg(method, urlStr string, host string, header map[string]string, proxy string) (code int, body string, err error) {
 	req, errRet := http.NewRequest(method, urlStr, nil)
 	if errRet != nil {
 		err = errRet
@@ -136,7 +136,7 @@ func sendHttpMsg(method, urlStr string, host string, headers map[string]string, 
 	if host != "" {
 		req.Host = host
 	}
-	for k, v := range headers {
+	for k, v := range header {
 		req.Header.Set(k, v)
 	}
 
@@ -167,7 +167,6 @@ func sendHttpMsg(method, urlStr string, host string, headers map[string]string, 
 		return
 	}
 	code = resp.StatusCode
-	header = resp.Header
 	buf, errRet := ioutil.ReadAll(resp.Body)
 	if errRet != nil {
 		err = errRet

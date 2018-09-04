@@ -2,7 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -12,9 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/fatedier/frp/client"
-	"github.com/fatedier/frp/server/ports"
-
-	gnet "github.com/fatedier/golib/net"
+	"github.com/fatedier/frp/server"
+	"github.com/fatedier/frp/utils/net"
 )
 
 var (
@@ -25,9 +23,7 @@ var (
 
 	TEST_STR                    = "frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet."
 	TEST_TCP_PORT        int    = 10701
-	TEST_TCP2_PORT       int    = 10702
 	TEST_TCP_FRP_PORT    int    = 10801
-	TEST_TCP2_FRP_PORT   int    = 10802
 	TEST_TCP_EC_FRP_PORT int    = 10901
 	TEST_TCP_ECHO_STR    string = "tcp type:" + TEST_STR
 
@@ -64,7 +60,6 @@ var (
 
 func init() {
 	go StartTcpEchoServer()
-	go StartTcpEchoServer2()
 	go StartUdpEchoServer()
 	go StartUnixDomainServer()
 	go StartHttpServer()
@@ -131,76 +126,67 @@ func TestStcp(t *testing.T) {
 func TestHttp(t *testing.T) {
 	assert := assert.New(t)
 	// web01
-	code, body, _, err := sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "", nil, "")
+	code, body, err := sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(200, code)
 		assert.Equal(TEST_HTTP_NORMAL_STR, body)
 	}
 
 	// web02
-	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test2.frp.com", nil, "")
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test2.frp.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(200, code)
 		assert.Equal(TEST_HTTP_NORMAL_STR, body)
 	}
 
 	// error host header
-	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "errorhost.frp.com", nil, "")
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "errorhost.frp.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(404, code)
 	}
 
 	// web03
-	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test3.frp.com", nil, "")
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test3.frp.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(200, code)
 		assert.Equal(TEST_HTTP_NORMAL_STR, body)
 	}
 
-	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d/foo", TEST_HTTP_FRP_PORT), "test3.frp.com", nil, "")
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d/foo", TEST_HTTP_FRP_PORT), "test3.frp.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(200, code)
 		assert.Equal(TEST_HTTP_FOO_STR, body)
 	}
 
 	// web04
-	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d/bar", TEST_HTTP_FRP_PORT), "test3.frp.com", nil, "")
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d/bar", TEST_HTTP_FRP_PORT), "test3.frp.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(200, code)
 		assert.Equal(TEST_HTTP_BAR_STR, body)
 	}
 
 	// web05
-	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test5.frp.com", nil, "")
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test5.frp.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(401, code)
 	}
 
-	headers := make(map[string]string)
-	headers["Authorization"] = basicAuth("test", "test")
-	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test5.frp.com", headers, "")
+	header := make(map[string]string)
+	header["Authorization"] = basicAuth("test", "test")
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test5.frp.com", header, "")
 	if assert.NoError(err) {
 		assert.Equal(401, code)
-	}
-
-	// web06
-	var header http.Header
-	code, body, header, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test6.frp.com", nil, "")
-	if assert.NoError(err) {
-		assert.Equal(200, code)
-		assert.Equal(TEST_HTTP_NORMAL_STR, body)
-		assert.Equal("true", header.Get("X-Header-Set"))
 	}
 
 	// subhost01
-	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test01.sub.com", nil, "")
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test01.sub.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(200, code)
 		assert.Equal("test01.sub.com", body)
 	}
 
 	// subhost02
-	code, body, _, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test02.sub.com", nil, "")
+	code, body, err = sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT), "test02.sub.com", nil, "")
 	if assert.NoError(err) {
 		assert.Equal(200, code)
 		assert.Equal("test02.sub.com", body)
@@ -223,25 +209,25 @@ func TestWebSocket(t *testing.T) {
 	assert.Equal(TEST_HTTP_NORMAL_STR, string(msg))
 }
 
-func TestAllowPorts(t *testing.T) {
+func TestPrivilegeAllowPorts(t *testing.T) {
 	assert := assert.New(t)
 	// Port not allowed
 	status, err := getProxyStatus(ProxyTcpPortNotAllowed)
 	if assert.NoError(err) {
 		assert.Equal(client.ProxyStatusStartErr, status.Status)
-		assert.True(strings.Contains(status.Err, ports.ErrPortNotAllowed.Error()))
+		assert.True(strings.Contains(status.Err, server.ErrPortNotAllowed.Error()))
 	}
 
 	status, err = getProxyStatus(ProxyUdpPortNotAllowed)
 	if assert.NoError(err) {
 		assert.Equal(client.ProxyStatusStartErr, status.Status)
-		assert.True(strings.Contains(status.Err, ports.ErrPortNotAllowed.Error()))
+		assert.True(strings.Contains(status.Err, server.ErrPortNotAllowed.Error()))
 	}
 
 	status, err = getProxyStatus(ProxyTcpPortUnavailable)
 	if assert.NoError(err) {
 		assert.Equal(client.ProxyStatusStartErr, status.Status)
-		assert.True(strings.Contains(status.Err, ports.ErrPortUnAvailable.Error()))
+		assert.True(strings.Contains(status.Err, server.ErrPortUnAvailable.Error()))
 	}
 
 	// Port normal
@@ -285,7 +271,7 @@ func TestPluginHttpProxy(t *testing.T) {
 
 		// http proxy
 		addr := status.RemoteAddr
-		code, body, _, err := sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT),
+		code, body, err := sendHttpMsg("GET", fmt.Sprintf("http://127.0.0.1:%d", TEST_HTTP_FRP_PORT),
 			"", nil, "http://"+addr)
 		if assert.NoError(err) {
 			assert.Equal(200, code)
@@ -293,7 +279,7 @@ func TestPluginHttpProxy(t *testing.T) {
 		}
 
 		// connect method
-		conn, err := gnet.DialTcpByProxy("http://"+addr, fmt.Sprintf("127.0.0.1:%d", TEST_TCP_FRP_PORT))
+		conn, err := net.ConnectTcpServerByHttpProxy("http://"+addr, fmt.Sprintf("127.0.0.1:%d", TEST_TCP_FRP_PORT))
 		if assert.NoError(err) {
 			res, err := sendTcpMsgByConn(conn, TEST_TCP_ECHO_STR)
 			assert.NoError(err)
@@ -312,26 +298,4 @@ func TestRangePortsMapping(t *testing.T) {
 			assert.Equal(client.ProxyStatusRunning, status.Status)
 		}
 	}
-}
-
-func TestGroup(t *testing.T) {
-	assert := assert.New(t)
-
-	var (
-		p1 int
-		p2 int
-	)
-	addr := fmt.Sprintf("127.0.0.1:%d", TEST_TCP2_FRP_PORT)
-
-	for i := 0; i < 6; i++ {
-		res, err := sendTcpMsg(addr, TEST_TCP_ECHO_STR)
-		assert.NoError(err)
-		switch res {
-		case TEST_TCP_ECHO_STR:
-			p1++
-		case TEST_TCP_ECHO_STR + TEST_TCP_ECHO_STR:
-			p2++
-		}
-	}
-	assert.True(p1 > 0 && p2 > 0, "group proxies load balancing")
 }

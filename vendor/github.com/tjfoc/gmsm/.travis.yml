@@ -1,0 +1,45 @@
+sudo: false
+language: 
+  - go
+go:
+  - 1.8.3
+
+#before_install:
+  #- git rm -r --cached .
+  #- git add .
+  #- git commit -m 'update .gitignore'
+  
+install:
+  - go get -v github.com/golang/lint/golint
+  - go get -v golang.org/x/crypto/ripemd160
+  - go get -v golang.org/x/crypto/sha3
+  - go build -v ./sm2
+  - go build -v ./sm3
+  - go build -v ./sm4
+
+script:
+  - go vet ./sm2
+  - go vet ./sm3
+  - go vet ./sm4
+  - $HOME/gopath/bin/golint .
+  - export GOPATH="${TRAVIS_BUILD_DIR}/Godeps/_workspace:$GOPATH"
+  - export PATH="${TRAVIS_BUILD_DIR}/Godeps/_workspace/bin:$PATH"
+  - ls /home/travis/gopath/src/
+  - go test -v ./sm2
+  - go test -v ./sm3
+  - go test -v ./sm4
+
+after_failure:
+
+ - |
+  echo "Error!"
+notifications:
+  email:
+    recipients:
+      - zhiqiang@tj-fintech.com
+      - yanwenze@tj-fintech.com
+      - maoxiuze@tj-fintech.com
+      - yewei@tj-fintech.com
+      
+    on_success: never # default: change
+    on_failure: never # default: always

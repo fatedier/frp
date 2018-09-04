@@ -6,7 +6,7 @@
 package blowfish // import "golang.org/x/crypto/blowfish"
 
 // The code is a port of Bruce Schneier's C implementation.
-// See https://www.schneier.com/blowfish.html.
+// See http://www.schneier.com/blowfish.html.
 
 import "strconv"
 

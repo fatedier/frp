@@ -22,7 +22,7 @@ class TcpProxy extends BaseProxy {
         super(proxyStats)
         this.type = "tcp"
         if (proxyStats.conf != null) {
-            this.addr = ":" + proxyStats.conf.remote_port
+            this.addr = proxyStats.conf.bind_addr + ":" + proxyStats.conf.remote_port
             this.port = proxyStats.conf.remote_port
         } else {
             this.addr = ""
@@ -36,7 +36,7 @@ class UdpProxy extends BaseProxy {
         super(proxyStats)
         this.type = "udp"
         if (proxyStats.conf != null) {
-            this.addr = ":" + proxyStats.conf.remote_port
+            this.addr = proxyStats.conf.bind_addr + ":" + proxyStats.conf.remote_port
             this.port = proxyStats.conf.remote_port
         } else {
             this.addr = ""
@@ -87,11 +87,4 @@ class HttpsProxy extends BaseProxy {
     }
 }
 
-class StcpProxy extends BaseProxy {
-    constructor(proxyStats) {
-        super(proxyStats)
-        this.type = "stcp"
-    }
-}
-
-export {BaseProxy, TcpProxy, UdpProxy, HttpProxy, HttpsProxy, StcpProxy}
+export {BaseProxy, TcpProxy, UdpProxy, HttpProxy, HttpsProxy}
