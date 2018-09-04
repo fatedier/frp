@@ -76,7 +76,7 @@ func checkSameOrigin(r *http.Request) bool {
 	if err != nil {
 		return false
 	}
-	return u.Host == r.Host
+	return equalASCIIFold(u.Host, r.Host)
 }
 
 func (u *Upgrader) selectSubprotocol(r *http.Request, responseHeader http.Header) string {
@@ -104,24 +104,26 @@ func (u *Upgrader) selectSubprotocol(r *http.Request, responseHeader http.Header
 // If the upgrade fails, then Upgrade replies to the client with an HTTP error
 // response.
 func (u *Upgrader) Upgrade(w http.ResponseWriter, r *http.Request, responseHeader http.Header) (*Conn, error) {
-	if r.Method != "GET" {
-		return u.returnError(w, r, http.StatusMethodNotAllowed, "websocket: not a websocket handshake: request method is not GET")
-	}
-
-	if _, ok := responseHeader["Sec-Websocket-Extensions"]; ok {
-		return u.returnError(w, r, http.StatusInternalServerError, "websocket: application specific 'Sec-Websocket-Extensions' headers are unsupported")
-	}
+	const badHandshake = "websocket: the client is not using the websocket protocol: "
 
 	if !tokenListContainsValue(r.Header, "Connection", "upgrade") {
-		return u.returnError(w, r, http.StatusBadRequest, "websocket: not a websocket handshake: 'upgrade' token not found in 'Connection' header")
+		return u.returnError(w, r, http.StatusBadRequest, badHandshake+"'upgrade' token not found in 'Connection' header")
 	}
 
 	if !tokenListContainsValue(r.Header, "Upgrade", "websocket") {
-		return u.returnError(w, r, http.StatusBadRequest, "websocket: not a websocket handshake: 'websocket' token not found in 'Upgrade' header")
+		return u.returnError(w, r, http.StatusBadRequest, badHandshake+"'websocket' token not found in 'Upgrade' header")
+	}
+
+	if r.Method != "GET" {
+		return u.returnError(w, r, http.StatusMethodNotAllowed, badHandshake+"request method is not GET")
 	}
 
 	if !tokenListContainsValue(r.Header, "Sec-Websocket-Version", "13") {
 		return u.returnError(w, r, http.StatusBadRequest, "websocket: unsupported version: 13 not found in 'Sec-Websocket-Version' header")
+	}
+
+	if _, ok := responseHeader["Sec-Websocket-Extensions"]; ok {
+		return u.returnError(w, r, http.StatusInternalServerError, "websocket: application specific 'Sec-Websocket-Extensions' headers are unsupported")
 	}
 
 	checkOrigin := u.CheckOrigin
@@ -230,10 +232,11 @@ func (u *Upgrader) Upgrade(w http.ResponseWriter, r *http.Request, responseHeade
 
 // Upgrade upgrades the HTTP server connection to the WebSocket protocol.
 //
-// This function is deprecated, use websocket.Upgrader instead.
+// Deprecated: Use websocket.Upgrader instead.
 //
-// The application is responsible for checking the request origin before
-// calling Upgrade. An example implementation of the same origin policy is:
+// Upgrade does not perform origin checking. The application is responsible for
+// checking the Origin header before calling Upgrade. An example implementation
+// of the same origin policy check is:
 //
 //	if req.Header.Get("Origin") != "http://"+req.Host {
 //		http.Error(w, "Origin not allowed", 403)

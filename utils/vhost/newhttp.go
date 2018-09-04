@@ -26,11 +26,12 @@ import (
 	"time"
 
 	frpLog "github.com/fatedier/frp/utils/log"
-
-	"github.com/fatedier/golib/pool"
+	"github.com/fatedier/frp/utils/pool"
 )
 
 var (
+	responseHeaderTimeout = time.Duration(30) * time.Second
+
 	ErrRouterConfigConflict = errors.New("router config conflict")
 	ErrNoDomain             = errors.New("no such domain")
 )
@@ -45,45 +46,32 @@ func getHostFromAddr(addr string) (host string) {
 	return
 }
 
-type HttpReverseProxyOptions struct {
-	ResponseHeaderTimeoutS int64
-}
-
 type HttpReverseProxy struct {
 	proxy *ReverseProxy
+	tr    *http.Transport
 
 	vhostRouter *VhostRouters
 
-	responseHeaderTimeout time.Duration
-	cfgMu                 sync.RWMutex
+	cfgMu sync.RWMutex
 }
 
-func NewHttpReverseProxy(option HttpReverseProxyOptions) *HttpReverseProxy {
-	if option.ResponseHeaderTimeoutS <= 0 {
-		option.ResponseHeaderTimeoutS = 60
-	}
+func NewHttpReverseProxy() *HttpReverseProxy {
 	rp := &HttpReverseProxy{
-		responseHeaderTimeout: time.Duration(option.ResponseHeaderTimeoutS) * time.Second,
-		vhostRouter:           NewVhostRouters(),
+		vhostRouter: NewVhostRouters(),
 	}
 	proxy := &ReverseProxy{
 		Director: func(req *http.Request) {
 			req.URL.Scheme = "http"
 			url := req.Context().Value("url").(string)
-			oldHost := getHostFromAddr(req.Context().Value("host").(string))
-			host := rp.GetRealHost(oldHost, url)
+			host := getHostFromAddr(req.Context().Value("host").(string))
+			host = rp.GetRealHost(host, url)
 			if host != "" {
 				req.Host = host
 			}
 			req.URL.Host = req.Host
-
-			headers := rp.GetHeaders(oldHost, url)
-			for k, v := range headers {
-				req.Header.Set(k, v)
-			}
 		},
 		Transport: &http.Transport{
-			ResponseHeaderTimeout: rp.responseHeaderTimeout,
+			ResponseHeaderTimeout: responseHeaderTimeout,
 			DisableKeepAlives:     true,
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				url := ctx.Value("url").(string)
@@ -125,14 +113,6 @@ func (rp *HttpReverseProxy) GetRealHost(domain string, location string) (host st
 	vr, ok := rp.getVhost(domain, location)
 	if ok {
 		host = vr.payload.(*VhostRouteConfig).RewriteHost
-	}
-	return
-}
-
-func (rp *HttpReverseProxy) GetHeaders(domain string, location string) (headers map[string]string) {
-	vr, ok := rp.getVhost(domain, location)
-	if ok {
-		headers = vr.payload.(*VhostRouteConfig).Headers
 	}
 	return
 }

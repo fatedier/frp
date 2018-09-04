@@ -5,7 +5,7 @@
 // Package twofish implements Bruce Schneier's Twofish encryption algorithm.
 package twofish // import "golang.org/x/crypto/twofish"
 
-// Twofish is defined in https://www.schneier.com/paper-twofish-paper.pdf [TWOFISH]
+// Twofish is defined in http://www.schneier.com/paper-twofish-paper.pdf [TWOFISH]
 
 // This code is a port of the LibTom C implementation.
 // See http://libtom.org/?page=features&newsitems=5&whatfile=crypt.

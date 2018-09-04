@@ -16,7 +16,6 @@
                             <el-menu-item index="/proxies/udp">UDP</el-menu-item>
                             <el-menu-item index="/proxies/http">HTTP</el-menu-item>
                             <el-menu-item index="/proxies/https">HTTPS</el-menu-item>
-                            <el-menu-item index="/proxies/stcp">STCP</el-menu-item>
                         </el-submenu>
                         <el-menu-item index="">Help</el-menu-item>
                     </el-menu>
@@ -38,7 +37,7 @@
         methods: {
             handleSelect(key, path) {
                 if (key == '') {
-                    window.open("https://github.com/fatedier/frp")
+                    window.open("http://github.com/fatedier/frp")
                 }
             }
         }

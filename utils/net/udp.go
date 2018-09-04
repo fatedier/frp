@@ -22,8 +22,7 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/utils/log"
-
-	"github.com/fatedier/golib/pool"
+	"github.com/fatedier/frp/utils/pool"
 )
 
 type UdpPacket struct {

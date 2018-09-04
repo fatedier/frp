@@ -106,3 +106,4 @@ Example of performance on my MacBook 2017 i7 2.8GHz. 10+4 (with 0.1.0).
 * [Klauspost ReedSolomon](https://github.com/klauspost/reedsolomon)
 * [intel ISA-L](https://github.com/01org/isa-l)
 * [GF SIMD] (http://www.ssrc.ucsc.edu/papers/plank-fast13.pdf)
+* [asm2plan9s] (https://github.com/fwessels/asm2plan9s)

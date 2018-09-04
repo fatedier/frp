@@ -61,5 +61,5 @@ func TestCompact(t *testing.T) {
 	assert.True(ok)
 
 	ok, _ = Compat("0.10.0")
-	assert.False(ok)
+	assert.True(ok)
 }

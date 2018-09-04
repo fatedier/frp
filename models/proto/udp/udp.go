@@ -21,9 +21,8 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/models/msg"
-
-	"github.com/fatedier/golib/errors"
-	"github.com/fatedier/golib/pool"
+	"github.com/fatedier/frp/utils/errors"
+	"github.com/fatedier/frp/utils/pool"
 )
 
 func NewUdpPacket(buf []byte, laddr, raddr *net.UDPAddr) *msg.UdpPacket {
@@ -83,7 +82,6 @@ func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UdpPacket, sendCh chan<-
 			mu.Lock()
 			delete(udpConnMap, addr)
 			mu.Unlock()
-			udpConn.Close()
 		}()
 
 		buf := pool.GetBuf(1500)

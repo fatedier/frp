@@ -18,9 +18,9 @@ import (
 	"io"
 	"net/http"
 
-	frpNet "github.com/fatedier/frp/utils/net"
+	"github.com/julienschmidt/httprouter"
 
-	"github.com/gorilla/mux"
+	frpNet "github.com/fatedier/frp/utils/net"
 )
 
 const PluginStaticFile = "static_file"
@@ -61,10 +61,9 @@ func NewStaticFilePlugin(params map[string]string) (Plugin, error) {
 	} else {
 		prefix = "/"
 	}
-
-	router := mux.NewRouter()
-	router.Use(frpNet.NewHttpAuthMiddleware(httpUser, httpPasswd).Middleware)
-	router.PathPrefix(prefix).Handler(frpNet.MakeHttpGzipHandler(http.StripPrefix(prefix, http.FileServer(http.Dir(localPath))))).Methods("GET")
+	router := httprouter.New()
+	router.Handler("GET", prefix+"*filepath", frpNet.MakeHttpGzipHandler(
+		frpNet.NewHttpBasicAuthWraper(http.StripPrefix(prefix, http.FileServer(http.Dir(localPath))), httpUser, httpPasswd)))
 	sp.s = &http.Server{
 		Handler: router,
 	}
