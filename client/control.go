@@ -17,19 +17,23 @@ package client
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"runtime"
+	"runtime/debug"
 	"sync"
 	"time"
 
+	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/crypto"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/shutdown"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
-	"github.com/xtaci/smux"
+
+	"github.com/fatedier/golib/control/shutdown"
+	"github.com/fatedier/golib/crypto"
+	fmux "github.com/hashicorp/yamux"
 )
 
 const (
@@ -49,7 +53,7 @@ type Control struct {
 	conn frpNet.Conn
 
 	// tcp stream multiplexing, if enabled
-	session *smux.Session
+	session *fmux.Session
 
 	// put a message in this channel to send it over control connection to server
 	sendCh chan (msg.Message)
@@ -82,8 +86,8 @@ func NewControl(svr *Service, pxyCfgs map[string]config.ProxyConf, visitorCfgs m
 	loginMsg := &msg.Login{
 		Arch:      runtime.GOARCH,
 		Os:        runtime.GOOS,
-		PoolCount: config.ClientCommonCfg.PoolCount,
-		User:      config.ClientCommonCfg.User,
+		PoolCount: g.GlbClientCfg.PoolCount,
+		User:      g.GlbClientCfg.User,
 		Version:   version.Full(),
 	}
 	ctl := &Control{
@@ -110,7 +114,7 @@ func (ctl *Control) Run() (err error) {
 
 			// if login_fail_exit is true, just exit this program
 			// otherwise sleep a while and continues relogin to server
-			if config.ClientCommonCfg.LoginFailExit {
+			if g.GlbClientCfg.LoginFailExit {
 				return
 			} else {
 				time.Sleep(10 * time.Second)
@@ -183,8 +187,8 @@ func (ctl *Control) login() (err error) {
 		ctl.session.Close()
 	}
 
-	conn, err := frpNet.ConnectServerByHttpProxy(config.ClientCommonCfg.HttpProxy, config.ClientCommonCfg.Protocol,
-		fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerPort))
+	conn, err := frpNet.ConnectServerByProxy(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
+		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort))
 	if err != nil {
 		return err
 	}
@@ -195,8 +199,10 @@ func (ctl *Control) login() (err error) {
 		}
 	}()
 
-	if config.ClientCommonCfg.TcpMux {
-		session, errRet := smux.Client(conn, nil)
+	if g.GlbClientCfg.TcpMux {
+		fmuxCfg := fmux.DefaultConfig()
+		fmuxCfg.LogOutput = ioutil.Discard
+		session, errRet := fmux.Client(conn, fmuxCfg)
 		if errRet != nil {
 			return errRet
 		}
@@ -210,7 +216,7 @@ func (ctl *Control) login() (err error) {
 	}
 
 	now := time.Now().Unix()
-	ctl.loginMsg.PrivilegeKey = util.GetAuthKey(config.ClientCommonCfg.PrivilegeToken, now)
+	ctl.loginMsg.PrivilegeKey = util.GetAuthKey(g.GlbClientCfg.Token, now)
 	ctl.loginMsg.Timestamp = now
 	ctl.loginMsg.RunId = ctl.runId
 
@@ -234,7 +240,7 @@ func (ctl *Control) login() (err error) {
 	ctl.conn = conn
 	// update runId got from server
 	ctl.runId = loginRespMsg.RunId
-	config.ClientCommonCfg.ServerUdpPort = loginRespMsg.ServerUdpPort
+	g.GlbClientCfg.ServerUdpPort = loginRespMsg.ServerUdpPort
 	ctl.ClearLogPrefix()
 	ctl.AddLogPrefix(loginRespMsg.RunId)
 	ctl.Info("login to server success, get run id [%s], server udp port [%d]", loginRespMsg.RunId, loginRespMsg.ServerUdpPort)
@@ -242,7 +248,7 @@ func (ctl *Control) login() (err error) {
 }
 
 func (ctl *Control) connectServer() (conn frpNet.Conn, err error) {
-	if config.ClientCommonCfg.TcpMux {
+	if g.GlbClientCfg.TcpMux {
 		stream, errRet := ctl.session.OpenStream()
 		if errRet != nil {
 			err = errRet
@@ -251,8 +257,8 @@ func (ctl *Control) connectServer() (conn frpNet.Conn, err error) {
 		}
 		conn = frpNet.WrapConn(stream)
 	} else {
-		conn, err = frpNet.ConnectServerByHttpProxy(config.ClientCommonCfg.HttpProxy, config.ClientCommonCfg.Protocol,
-			fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerPort))
+		conn, err = frpNet.ConnectServerByProxy(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
+			fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort))
 		if err != nil {
 			ctl.Warn("start new connection to server error: %v", err)
 			return
@@ -266,12 +272,13 @@ func (ctl *Control) reader() {
 	defer func() {
 		if err := recover(); err != nil {
 			ctl.Error("panic error: %v", err)
+			ctl.Error(string(debug.Stack()))
 		}
 	}()
 	defer ctl.readerShutdown.Done()
 	defer close(ctl.closedCh)
 
-	encReader := crypto.NewReader(ctl.conn, []byte(config.ClientCommonCfg.PrivilegeToken))
+	encReader := crypto.NewReader(ctl.conn, []byte(g.GlbClientCfg.Token))
 	for {
 		if m, err := msg.ReadMsg(encReader); err != nil {
 			if err == io.EOF {
@@ -290,7 +297,7 @@ func (ctl *Control) reader() {
 // writer writes messages got from sendCh to frps
 func (ctl *Control) writer() {
 	defer ctl.writerShutdown.Done()
-	encWriter, err := crypto.NewWriter(ctl.conn, []byte(config.ClientCommonCfg.PrivilegeToken))
+	encWriter, err := crypto.NewWriter(ctl.conn, []byte(g.GlbClientCfg.Token))
 	if err != nil {
 		ctl.conn.Error("crypto new writer error: %v", err)
 		ctl.conn.Close()
@@ -314,11 +321,12 @@ func (ctl *Control) msgHandler() {
 	defer func() {
 		if err := recover(); err != nil {
 			ctl.Error("panic error: %v", err)
+			ctl.Error(string(debug.Stack()))
 		}
 	}()
 	defer ctl.msgHandlerShutdown.Done()
 
-	hbSend := time.NewTicker(time.Duration(config.ClientCommonCfg.HeartBeatInterval) * time.Second)
+	hbSend := time.NewTicker(time.Duration(g.GlbClientCfg.HeartBeatInterval) * time.Second)
 	defer hbSend.Stop()
 	hbCheck := time.NewTicker(time.Second)
 	defer hbCheck.Stop()
@@ -332,7 +340,7 @@ func (ctl *Control) msgHandler() {
 			ctl.Debug("send heartbeat to server")
 			ctl.sendCh <- &msg.Ping{}
 		case <-hbCheck.C:
-			if time.Since(ctl.lastPong) > time.Duration(config.ClientCommonCfg.HeartBeatTimeout)*time.Second {
+			if time.Since(ctl.lastPong) > time.Duration(g.GlbClientCfg.HeartBeatTimeout)*time.Second {
 				ctl.Warn("heartbeat timeout")
 				// let reader() stop
 				ctl.conn.Close()

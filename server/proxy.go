@@ -23,15 +23,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/models/proto/udp"
-	"github.com/fatedier/frp/utils/errors"
-	frpIo "github.com/fatedier/frp/utils/io"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/vhost"
+
+	"github.com/fatedier/golib/errors"
+	frpIo "github.com/fatedier/golib/io"
 )
 
 type Proxy interface {
@@ -126,7 +128,7 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, frpNet.Con
 
 func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy, err error) {
 	basePxy := BaseProxy{
-		name:      pxyConf.GetName(),
+		name:      pxyConf.GetBaseInfo().ProxyName,
 		ctl:       ctl,
 		listeners: make([]frpNet.Listener, 0),
 		Logger:    log.NewPrefixLogger(ctl.runId),
@@ -179,27 +181,44 @@ type TcpProxy struct {
 }
 
 func (pxy *TcpProxy) Run() (remoteAddr string, err error) {
-	pxy.realPort, err = pxy.ctl.svr.tcpPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
-	if err != nil {
-		return
-	}
-	defer func() {
-		if err != nil {
-			pxy.ctl.svr.tcpPortManager.Release(pxy.realPort)
+	if pxy.cfg.Group != "" {
+		l, realPort, errRet := pxy.ctl.svr.tcpGroupCtl.Listen(pxy.name, pxy.cfg.Group, pxy.cfg.GroupKey, g.GlbServerCfg.ProxyBindAddr, pxy.cfg.RemotePort)
+		if errRet != nil {
+			err = errRet
+			return
 		}
-	}()
-
-	remoteAddr = fmt.Sprintf(":%d", pxy.realPort)
-	pxy.cfg.RemotePort = pxy.realPort
-	listener, errRet := frpNet.ListenTcp(config.ServerCommonCfg.ProxyBindAddr, pxy.realPort)
-	if errRet != nil {
-		err = errRet
-		return
+		defer func() {
+			if err != nil {
+				l.Close()
+			}
+		}()
+		pxy.realPort = realPort
+		listener := frpNet.WrapLogListener(l)
+		listener.AddLogPrefix(pxy.name)
+		pxy.listeners = append(pxy.listeners, listener)
+		pxy.Info("tcp proxy listen port [%d] in group [%s]", pxy.cfg.RemotePort, pxy.cfg.Group)
+	} else {
+		pxy.realPort, err = pxy.ctl.svr.tcpPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
+		if err != nil {
+			return
+		}
+		defer func() {
+			if err != nil {
+				pxy.ctl.svr.tcpPortManager.Release(pxy.realPort)
+			}
+		}()
+		listener, errRet := frpNet.ListenTcp(g.GlbServerCfg.ProxyBindAddr, pxy.realPort)
+		if errRet != nil {
+			err = errRet
+			return
+		}
+		listener.AddLogPrefix(pxy.name)
+		pxy.listeners = append(pxy.listeners, listener)
+		pxy.Info("tcp proxy listen port [%d]", pxy.cfg.RemotePort)
 	}
-	listener.AddLogPrefix(pxy.name)
-	pxy.listeners = append(pxy.listeners, listener)
-	pxy.Info("tcp proxy listen port [%d]", pxy.cfg.RemotePort)
 
+	pxy.cfg.RemotePort = pxy.realPort
+	remoteAddr = fmt.Sprintf(":%d", pxy.realPort)
 	pxy.startListenHandler(pxy, HandleUserTcpConnection)
 	return
 }
@@ -210,7 +229,9 @@ func (pxy *TcpProxy) GetConf() config.ProxyConf {
 
 func (pxy *TcpProxy) Close() {
 	pxy.BaseProxy.Close()
-	pxy.ctl.svr.tcpPortManager.Release(pxy.realPort)
+	if pxy.cfg.Group == "" {
+		pxy.ctl.svr.tcpPortManager.Release(pxy.realPort)
+	}
 }
 
 type HttpProxy struct {
@@ -223,6 +244,7 @@ type HttpProxy struct {
 func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
 	routeConfig := vhost.VhostRouteConfig{
 		RewriteHost:  pxy.cfg.HostHeaderRewrite,
+		Headers:      pxy.cfg.Headers,
 		Username:     pxy.cfg.HttpUser,
 		Password:     pxy.cfg.HttpPwd,
 		CreateConnFn: pxy.GetRealConn,
@@ -244,7 +266,7 @@ func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
 			}
 			tmpDomain := routeConfig.Domain
 			tmpLocation := routeConfig.Location
-			addrs = append(addrs, util.CanonicalAddr(tmpDomain, int(config.ServerCommonCfg.VhostHttpPort)))
+			addrs = append(addrs, util.CanonicalAddr(tmpDomain, int(g.GlbServerCfg.VhostHttpPort)))
 			pxy.closeFuncs = append(pxy.closeFuncs, func() {
 				pxy.ctl.svr.httpReverseProxy.UnRegister(tmpDomain, tmpLocation)
 			})
@@ -253,7 +275,7 @@ func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
 	}
 
 	if pxy.cfg.SubDomain != "" {
-		routeConfig.Domain = pxy.cfg.SubDomain + "." + config.ServerCommonCfg.SubDomainHost
+		routeConfig.Domain = pxy.cfg.SubDomain + "." + g.GlbServerCfg.SubDomainHost
 		for _, location := range locations {
 			routeConfig.Location = location
 			err = pxy.ctl.svr.httpReverseProxy.Register(routeConfig)
@@ -262,7 +284,7 @@ func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
 			}
 			tmpDomain := routeConfig.Domain
 			tmpLocation := routeConfig.Location
-			addrs = append(addrs, util.CanonicalAddr(tmpDomain, int(config.ServerCommonCfg.VhostHttpPort)))
+			addrs = append(addrs, util.CanonicalAddr(tmpDomain, g.GlbServerCfg.VhostHttpPort))
 			pxy.closeFuncs = append(pxy.closeFuncs, func() {
 				pxy.ctl.svr.httpReverseProxy.UnRegister(tmpDomain, tmpLocation)
 			})
@@ -286,7 +308,7 @@ func (pxy *HttpProxy) GetRealConn() (workConn frpNet.Conn, err error) {
 
 	var rwc io.ReadWriteCloser = tmpConn
 	if pxy.cfg.UseEncryption {
-		rwc, err = frpIo.WithEncryption(rwc, []byte(config.ServerCommonCfg.PrivilegeToken))
+		rwc, err = frpIo.WithEncryption(rwc, []byte(g.GlbServerCfg.Token))
 		if err != nil {
 			pxy.Error("create encryption stream error: %v", err)
 			return
@@ -334,11 +356,11 @@ func (pxy *HttpsProxy) Run() (remoteAddr string, err error) {
 		l.AddLogPrefix(pxy.name)
 		pxy.Info("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
-		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(config.ServerCommonCfg.VhostHttpsPort)))
+		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, g.GlbServerCfg.VhostHttpsPort))
 	}
 
 	if pxy.cfg.SubDomain != "" {
-		routeConfig.Domain = pxy.cfg.SubDomain + "." + config.ServerCommonCfg.SubDomainHost
+		routeConfig.Domain = pxy.cfg.SubDomain + "." + g.GlbServerCfg.SubDomainHost
 		l, errRet := pxy.ctl.svr.VhostHttpsMuxer.Listen(routeConfig)
 		if errRet != nil {
 			err = errRet
@@ -347,7 +369,7 @@ func (pxy *HttpsProxy) Run() (remoteAddr string, err error) {
 		l.AddLogPrefix(pxy.name)
 		pxy.Info("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
-		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(config.ServerCommonCfg.VhostHttpsPort)))
+		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(g.GlbServerCfg.VhostHttpsPort)))
 	}
 
 	pxy.startListenHandler(pxy, HandleUserTcpConnection)
@@ -478,7 +500,7 @@ func (pxy *UdpProxy) Run() (remoteAddr string, err error) {
 
 	remoteAddr = fmt.Sprintf(":%d", pxy.realPort)
 	pxy.cfg.RemotePort = pxy.realPort
-	addr, errRet := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", config.ServerCommonCfg.ProxyBindAddr, pxy.realPort))
+	addr, errRet := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", g.GlbServerCfg.ProxyBindAddr, pxy.realPort))
 	if errRet != nil {
 		err = errRet
 		return
@@ -644,7 +666,7 @@ func HandleUserTcpConnection(pxy Proxy, userConn frpNet.Conn) {
 	var local io.ReadWriteCloser = workConn
 	cfg := pxy.GetConf().GetBaseInfo()
 	if cfg.UseEncryption {
-		local, err = frpIo.WithEncryption(local, []byte(config.ServerCommonCfg.PrivilegeToken))
+		local, err = frpIo.WithEncryption(local, []byte(g.GlbServerCfg.Token))
 		if err != nil {
 			pxy.Error("create encryption stream error: %v", err)
 			return

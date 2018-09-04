@@ -6,9 +6,10 @@ import (
 
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/errors"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
+
+	"github.com/fatedier/golib/errors"
 )
 
 const (
@@ -62,8 +63,8 @@ type ProxyStatus struct {
 
 func NewProxyWrapper(cfg config.ProxyConf) *ProxyWrapper {
 	return &ProxyWrapper{
-		Name:   cfg.GetName(),
-		Type:   cfg.GetType(),
+		Name:   cfg.GetBaseInfo().ProxyName,
+		Type:   cfg.GetBaseInfo().ProxyType,
 		Status: ProxyStatusNew,
 		Cfg:    cfg,
 		pxy:    nil,
@@ -227,7 +228,7 @@ func (pm *ProxyManager) CheckAndStartProxy(pxyStatus []string) {
 		for _, s := range pxyStatus {
 			if status == s {
 				var newProxyMsg msg.NewProxy
-				pxy.Cfg.UnMarshalToMsg(&newProxyMsg)
+				pxy.Cfg.MarshalToMsg(&newProxyMsg)
 				err := pm.sendMsg(&newProxyMsg)
 				if err != nil {
 					pm.Warn("[%s] proxy send NewProxy message error")
@@ -240,15 +241,16 @@ func (pm *ProxyManager) CheckAndStartProxy(pxyStatus []string) {
 	}
 
 	for _, cfg := range pm.visitorCfgs {
-		if _, exist := pm.visitors[cfg.GetName()]; !exist {
-			pm.Info("try to start visitor [%s]", cfg.GetName())
+		name := cfg.GetBaseInfo().ProxyName
+		if _, exist := pm.visitors[name]; !exist {
+			pm.Info("try to start visitor [%s]", name)
 			visitor := NewVisitor(pm.ctl, cfg)
 			err := visitor.Run()
 			if err != nil {
 				visitor.Warn("start error: %v", err)
 				continue
 			}
-			pm.visitors[cfg.GetName()] = visitor
+			pm.visitors[name] = visitor
 			visitor.Info("start visitor success")
 		}
 	}
