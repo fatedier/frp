@@ -32,6 +32,7 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
     * [端口复用](#端口复用)
     * [TCP 多路复用](#tcp-多路复用)
     * [底层通信可选 kcp 协议](#底层通信可选-kcp-协议)
+    * [底层通信可选 websocket 协议](#底层通信可选-websocket-协议)
     * [连接池](#连接池)
     * [负载均衡](#负载均衡)
     * [修改 Host Header](#修改-host-header)
@@ -489,6 +490,43 @@ tcp_mux = false
   ```
 
 3. 像之前一样使用 frp，需要注意开放相关机器上的 udp 的端口的访问权限。
+
+### 底层通信可选 websocket 协议
+
+从 v0.21.0 版本开始，底层通信协议支持websocket。
+1. 开启websocket协议，只需要将frps和frpc的protocol改为websocket即可
+```ini
+  [common]
+  #可以配置为域名
+  server_addr = xxx.xxx.com
+  protocol = websocket
+```
+2. 开启websocket后可以使用nginx等反向代理，以nginx为例
+
+```nginx
+server {
+  listen 80;
+  server_name xxx.xxx.com; 
+  location / {
+    proxy_pass http://frps:vhost_http_port;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+  #这个是frpc请求的websocket地址
+  location /~!frp {
+    proxy_pass http://frps:bind_port;
+    proxy_http_version 1.1;
+    #frp的默认心跳是90s 所以这里要比心跳间隔大即可
+    proxy_read_timeout 100s;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+}
+```
 
 ### 连接池
 
