@@ -11,15 +11,44 @@ import (
 	"github.com/fatedier/frp/utils/log"
 
 	"golang.org/x/net/websocket"
+	"sync"
 )
 
 var (
 	ErrWebsocketListenerClosed = errors.New("websocket listener closed")
+	websoketClientMap          = new(sync.Map)
+	ticker                     = time.NewTicker(55 * time.Second)
+	pingCodec                  = websocket.Codec{func(v interface{}) ([]byte, byte, error) {
+		return []byte{}, websocket.PingFrame, nil
+	}, nil}
 )
 
 const (
 	FrpWebsocketPath = "/~!frp"
 )
+
+func init() {
+	go pingClient()
+}
+
+func pingClient() {
+	for {
+		select {
+		case <-ticker.C:
+			willRemove := make([]interface{}, 0)
+			websoketClientMap.Range(func(k, v interface{}) bool {
+				conn := v.(*websocket.Conn)
+				if err := pingCodec.Send(conn, nil); err != nil {
+					willRemove = append(willRemove, k)
+				}
+				return true
+			})
+			for _, value := range willRemove {
+				websoketClientMap.Delete(value)
+			}
+		}
+	}
+}
 
 type WebsocketListener struct {
 	net.Addr
@@ -43,8 +72,10 @@ func NewWebsocketListener(ln net.Listener) (wl *WebsocketListener) {
 	muxer.Handle(FrpWebsocketPath, websocket.Handler(func(c *websocket.Conn) {
 		notifyCh := make(chan struct{})
 		conn := WrapCloseNotifyConn(c, func() {
+			websoketClientMap.Delete(c.LocalAddr().String())
 			close(notifyCh)
 		})
+		websoketClientMap.Store(c.LocalAddr().String(), c)
 		wl.accept <- conn
 		<-notifyCh
 	}))
@@ -53,7 +84,6 @@ func NewWebsocketListener(ln net.Listener) (wl *WebsocketListener) {
 		Addr:    ln.Addr().String(),
 		Handler: muxer,
 	}
-
 	go wl.server.Serve(ln)
 	return
 }
