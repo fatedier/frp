@@ -30,7 +30,7 @@
     "net/mux",
     "pool"
   ]
-  revision = "416571c55dbc32e13ce82c301a2a4b5a48ad7309"
+  revision = "280fa74053dee5311c46094f4bdefbf76d3fcbe2"
 
 [[projects]]
   branch = "frp"
@@ -167,13 +167,14 @@
     "internal/socket",
     "internal/socks",
     "ipv4",
-    "proxy"
+    "proxy",
+    "websocket"
   ]
   revision = "dfa909b99c79129e1100513e5cd36307665e5723"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "621310de53a9243693d20ce53690f373fd558440616fcf2893fec5ba4aa2b6ca"
+  inputs-digest = "58a51c884de4111bfa3d2f82a7cfe1cb91e9e8786fafdfdc8d306bed24f23e44"
   solver-name = "gps-cdcl"
   solver-version = 1

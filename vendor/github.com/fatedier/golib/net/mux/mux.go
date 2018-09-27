@@ -43,8 +43,9 @@ type Mux struct {
 	mu sync.RWMutex
 }
 
-func NewMux() (mux *Mux) {
+func NewMux(ln net.Listener) (mux *Mux) {
 	mux = &Mux{
+		ln:  ln,
 		lns: make([]*listener, 0),
 	}
 	return
@@ -123,15 +124,12 @@ func (mux *Mux) copyLns() []*listener {
 }
 
 // Serve handles connections from ln and multiplexes then across registered listeners.
-func (mux *Mux) Serve(ln net.Listener) error {
-	mux.mu.Lock()
-	mux.ln = ln
-	mux.mu.Unlock()
+func (mux *Mux) Serve() error {
 	for {
 		// Wait for the next connection.
 		// If it returns a temporary error then simply retry.
 		// If it returns any other error then exit immediately.
-		conn, err := ln.Accept()
+		conn, err := mux.ln.Accept()
 		if err, ok := err.(interface {
 			Temporary() bool
 		}); ok && err.Temporary() {

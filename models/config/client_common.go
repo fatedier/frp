@@ -186,9 +186,10 @@ func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (c
 	}
 
 	if tmpStr, ok = conf.Get("common", "protocol"); ok {
-		// Now it only support tcp and kcp.
-		if tmpStr != "kcp" {
-			tmpStr = "tcp"
+		// Now it only support tcp and kcp and websocket.
+		if tmpStr != "tcp" && tmpStr != "kcp" && tmpStr != "websocket" {
+			err = fmt.Errorf("Parse conf error: invalid protocol")
+			return
 		}
 		cfg.Protocol = tmpStr
 	}
