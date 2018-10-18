@@ -13,12 +13,12 @@ import (
 )
 
 const (
-	ProxyStatusNew          = "new"
-	ProxyStatusStartErr     = "start error"
-	ProxyStatusWaitStart    = "wait start"
-	ProxyStatusRunning      = "running"
-	ProxyStatusCheckFailed  = "check failed"
-	ProxyStatusClosed       = "closed"
+	ProxyStatusNew         = "new"
+	ProxyStatusStartErr    = "start error"
+	ProxyStatusWaitStart   = "wait start"
+	ProxyStatusRunning     = "running"
+	ProxyStatusCheckFailed = "check failed"
+	ProxyStatusClosed      = "closed"
 )
 
 type ProxyManager struct {
