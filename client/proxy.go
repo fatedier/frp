@@ -35,7 +35,7 @@ import (
 	"github.com/fatedier/golib/pool"
 )
 
-// Proxy defines how to deal with work connections for different proxy type.
+// Proxy defines how to handle work connections for different proxy type.
 type Proxy interface {
 	Run() error
 

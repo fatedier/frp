@@ -85,7 +85,7 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = svr.ctl.reloadConf(pxyCfgs, visitorCfgs)
+	err = svr.ctl.ReloadConf(pxyCfgs, visitorCfgs)
 	if err != nil {
 		res.Code = 4
 		res.Msg = err.Error()
