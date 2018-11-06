@@ -13,17 +13,15 @@ import (
 )
 
 const (
-	ProxyStatusNew          = "new"
-	ProxyStatusStartErr     = "start error"
-	ProxyStatusWaitStart    = "wait start"
-	ProxyStatusRunning      = "running"
-	ProxyStatusCheckFailed  = "check failed"
-	ProxyStatusCheckSuccess = "check success"
-	ProxyStatusClosed       = "closed"
+	ProxyStatusNew         = "new"
+	ProxyStatusStartErr    = "start error"
+	ProxyStatusWaitStart   = "wait start"
+	ProxyStatusRunning     = "running"
+	ProxyStatusCheckFailed = "check failed"
+	ProxyStatusClosed      = "closed"
 )
 
 type ProxyManager struct {
-	ctl     *Control
 	sendCh  chan (msg.Message)
 	proxies map[string]*ProxyWrapper
 	closed  bool
@@ -32,122 +30,8 @@ type ProxyManager struct {
 	log.Logger
 }
 
-type ProxyWrapper struct {
-	Name   string
-	Type   string
-	Status string
-	Err    string
-	Cfg    config.ProxyConf
-
-	RemoteAddr string
-
-	pxy Proxy
-
-	mu sync.RWMutex
-}
-
-type ProxyStatus struct {
-	Name   string           `json:"name"`
-	Type   string           `json:"type"`
-	Status string           `json:"status"`
-	Err    string           `json:"err"`
-	Cfg    config.ProxyConf `json:"cfg"`
-
-	// Got from server.
-	RemoteAddr string `json:"remote_addr"`
-}
-
-func NewProxyWrapper(cfg config.ProxyConf) *ProxyWrapper {
-	return &ProxyWrapper{
-		Name:   cfg.GetBaseInfo().ProxyName,
-		Type:   cfg.GetBaseInfo().ProxyType,
-		Status: ProxyStatusNew,
-		Cfg:    cfg,
-		pxy:    nil,
-	}
-}
-
-func (pw *ProxyWrapper) GetStatusStr() string {
-	pw.mu.RLock()
-	defer pw.mu.RUnlock()
-	return pw.Status
-}
-
-func (pw *ProxyWrapper) GetStatus() *ProxyStatus {
-	pw.mu.RLock()
-	defer pw.mu.RUnlock()
-	ps := &ProxyStatus{
-		Name:       pw.Name,
-		Type:       pw.Type,
-		Status:     pw.Status,
-		Err:        pw.Err,
-		Cfg:        pw.Cfg,
-		RemoteAddr: pw.RemoteAddr,
-	}
-	return ps
-}
-
-func (pw *ProxyWrapper) WaitStart() {
-	pw.mu.Lock()
-	defer pw.mu.Unlock()
-	pw.Status = ProxyStatusWaitStart
-}
-
-func (pw *ProxyWrapper) Start(remoteAddr string, serverRespErr string) error {
-	if pw.pxy != nil {
-		pw.pxy.Close()
-		pw.pxy = nil
-	}
-
-	if serverRespErr != "" {
-		pw.mu.Lock()
-		pw.Status = ProxyStatusStartErr
-		pw.RemoteAddr = remoteAddr
-		pw.Err = serverRespErr
-		pw.mu.Unlock()
-		return fmt.Errorf(serverRespErr)
-	}
-
-	pxy := NewProxy(pw.Cfg)
-	pw.mu.Lock()
-	defer pw.mu.Unlock()
-	pw.RemoteAddr = remoteAddr
-	if err := pxy.Run(); err != nil {
-		pw.Status = ProxyStatusStartErr
-		pw.Err = err.Error()
-		return err
-	}
-	pw.Status = ProxyStatusRunning
-	pw.Err = ""
-	pw.pxy = pxy
-	return nil
-}
-
-func (pw *ProxyWrapper) InWorkConn(workConn frpNet.Conn) {
-	pw.mu.RLock()
-	pxy := pw.pxy
-	pw.mu.RUnlock()
-	if pxy != nil {
-		workConn.Debug("start a new work connection, localAddr: %s remoteAddr: %s", workConn.LocalAddr().String(), workConn.RemoteAddr().String())
-		go pxy.InWorkConn(workConn)
-	} else {
-		workConn.Close()
-	}
-}
-
-func (pw *ProxyWrapper) Close() {
-	pw.mu.Lock()
-	defer pw.mu.Unlock()
-	if pw.pxy != nil {
-		pw.pxy.Close()
-		pw.pxy = nil
-	}
-	pw.Status = ProxyStatusClosed
-}
-
-func NewProxyManager(ctl *Control, msgSendCh chan (msg.Message), logPrefix string) *ProxyManager {
+func NewProxyManager(msgSendCh chan (msg.Message), logPrefix string) *ProxyManager {
 	return &ProxyManager{
-		ctl:     ctl,
 		proxies: make(map[string]*ProxyWrapper),
 		sendCh:  msgSendCh,
 		closed:  false,
@@ -309,4 +193,119 @@ func (pm *ProxyManager) GetAllProxyStatus() []*ProxyStatus {
 		ps = append(ps, pxy.GetStatus())
 	}
 	return ps
+}
+
+type ProxyStatus struct {
+	Name   string           `json:"name"`
+	Type   string           `json:"type"`
+	Status string           `json:"status"`
+	Err    string           `json:"err"`
+	Cfg    config.ProxyConf `json:"cfg"`
+
+	// Got from server.
+	RemoteAddr string `json:"remote_addr"`
+}
+
+// ProxyWrapper is a wrapper of Proxy interface only used in ProxyManager
+// Add additional proxy status info
+type ProxyWrapper struct {
+	Name   string
+	Type   string
+	Status string
+	Err    string
+	Cfg    config.ProxyConf
+
+	RemoteAddr string
+
+	pxy Proxy
+
+	mu sync.RWMutex
+}
+
+func NewProxyWrapper(cfg config.ProxyConf) *ProxyWrapper {
+	return &ProxyWrapper{
+		Name:   cfg.GetBaseInfo().ProxyName,
+		Type:   cfg.GetBaseInfo().ProxyType,
+		Status: ProxyStatusNew,
+		Cfg:    cfg,
+		pxy:    nil,
+	}
+}
+
+func (pw *ProxyWrapper) GetStatusStr() string {
+	pw.mu.RLock()
+	defer pw.mu.RUnlock()
+	return pw.Status
+}
+
+func (pw *ProxyWrapper) GetStatus() *ProxyStatus {
+	pw.mu.RLock()
+	defer pw.mu.RUnlock()
+	ps := &ProxyStatus{
+		Name:       pw.Name,
+		Type:       pw.Type,
+		Status:     pw.Status,
+		Err:        pw.Err,
+		Cfg:        pw.Cfg,
+		RemoteAddr: pw.RemoteAddr,
+	}
+	return ps
+}
+
+func (pw *ProxyWrapper) WaitStart() {
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
+	pw.Status = ProxyStatusWaitStart
+}
+
+func (pw *ProxyWrapper) Start(remoteAddr string, serverRespErr string) error {
+	if pw.pxy != nil {
+		pw.pxy.Close()
+		pw.pxy = nil
+	}
+
+	if serverRespErr != "" {
+		pw.mu.Lock()
+		pw.Status = ProxyStatusStartErr
+		pw.RemoteAddr = remoteAddr
+		pw.Err = serverRespErr
+		pw.mu.Unlock()
+		return fmt.Errorf(serverRespErr)
+	}
+
+	pxy := NewProxy(pw.Cfg)
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
+	pw.RemoteAddr = remoteAddr
+	if err := pxy.Run(); err != nil {
+		pw.Status = ProxyStatusStartErr
+		pw.Err = err.Error()
+		return err
+	}
+	pw.Status = ProxyStatusRunning
+	pw.Err = ""
+	pw.pxy = pxy
+	return nil
+}
+
+func (pw *ProxyWrapper) InWorkConn(workConn frpNet.Conn) {
+	pw.mu.RLock()
+	pxy := pw.pxy
+	pw.mu.RUnlock()
+	if pxy != nil {
+		workConn.Debug("start a new work connection, localAddr: %s remoteAddr: %s", workConn.LocalAddr().String(), workConn.RemoteAddr().String())
+		go pxy.InWorkConn(workConn)
+	} else {
+		workConn.Close()
+	}
+}
+
+func (pw *ProxyWrapper) Close() {
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
+	if pw.pxy != nil {
+		pw.pxy.Close()
+		pw.pxy = nil
+	}
+	pw.Status = ProxyStatusClosed
 }

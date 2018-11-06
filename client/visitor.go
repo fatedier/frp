@@ -202,7 +202,16 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 
 	raddr, err := net.ResolveUDPAddr("udp",
 		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerUdpPort))
+	if err != nil {
+		sv.Error("resolve server UDP addr error")
+		return
+	}
+
 	visitorConn, err := net.DialUDP("udp", nil, raddr)
+	if err != nil {
+		sv.Warn("dial server udp addr error: %v", err)
+		return
+	}
 	defer visitorConn.Close()
 
 	now := time.Now().Unix()
