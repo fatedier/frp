@@ -15,11 +15,13 @@
 package plugin
 
 import (
+	logger "github.com/fatedier/frp/utils/log"
+	frpNet "github.com/fatedier/frp/utils/net"
+	"golang.org/x/net/context"
 	"io"
 	"io/ioutil"
 	"log"
-
-	frpNet "github.com/fatedier/frp/utils/net"
+	"net"
 
 	gosocks5 "github.com/armon/go-socks5"
 )
@@ -40,6 +42,7 @@ type Socks5Plugin struct {
 func NewSocks5Plugin(params map[string]string) (p Plugin, err error) {
 	user := params["plugin_user"]
 	passwd := params["plugin_passwd"]
+	bindAddr := params["plugin_bind_addr"]
 
 	cfg := &gosocks5.Config{
 		Logger: log.New(ioutil.Discard, "", log.LstdFlags),
@@ -47,6 +50,27 @@ func NewSocks5Plugin(params map[string]string) (p Plugin, err error) {
 	if user != "" || passwd != "" {
 		cfg.Credentials = gosocks5.StaticCredentials(map[string]string{user: passwd})
 	}
+
+	if bindAddr != "" {
+		// bindAddr can be hostname
+		localAddr, err := net.ResolveIPAddr("ip", bindAddr)
+		if err != nil {
+			logger.Warn("Failed to resolve socks5 bind address: %v", bindAddr)
+		} else {
+			logger.Info("Bind address resolve to: %v", localAddr.IP)
+			localTCPAddr := net.TCPAddr{
+				IP: localAddr.IP,
+			}
+
+			cfg.Dial = func(ctx context.Context, net_, addr string) (net.Conn, error) {
+				d := net.Dialer{
+					LocalAddr: &localTCPAddr,
+				}
+				return d.Dial(net_, addr)
+			}
+		}
+	}
+
 	sp := &Socks5Plugin{}
 	sp.Server, err = gosocks5.New(cfg)
 	p = sp
