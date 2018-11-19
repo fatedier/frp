@@ -566,7 +566,7 @@ type = http
 local_port = 80
 custom_domains = test.yourdomain.com
 http_user = abc
-http_passwd = abc
+http_pwd = abc
 ```
 
 Visit `http://test.yourdomain.com` and now you need to input username and password.
