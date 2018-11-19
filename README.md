@@ -334,7 +334,42 @@ Now it can't penetrate all types of NAT devices. You can try **stcp** if **xtcp*
 4. Connect to server in LAN by ssh assuming that username is test:
 
   `ssh -oPort=6000 test@127.0.0.1`
-
+  
+### Acessing http & https from both frps.com & www.frps.com
+  
+  1. Config the server with following
+  
+  ```ini
+  # frps.ini
+  [common]
+  bind_port = 7000
+  vhost_http_port = 80
+  vhost_https_port = 443
+  # auth token
+  token = [yourpassword]
+  subdomain_host = frps.com
+  ```
+  2. Config the client with following
+  
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = [server's IP or domain name]
+  server_port = 7000
+  token = [yourpassword]
+  
+  [web]
+  type = https
+  local_ip = 127.0.0.1
+  local_port = 443
+  use_encryption = false
+  use_compression = false
+  subdomain = www
+  custom_domains = frps.com
+  ```
+  
+  3. (Optional) open port on firewall to allow tcp income from bind_port 7000 
+  
 ## Features
 
 ### Configuration File
