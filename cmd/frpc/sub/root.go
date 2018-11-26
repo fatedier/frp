@@ -125,6 +125,10 @@ func StopFrp() (err error) {
 	return
 }
 
+func IsFrpRunning() bool {
+	return service != nil && !service.IsClosed()
+}
+
 func handleSignal(svr *client.Service) {
 	ch := make(chan os.Signal)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)

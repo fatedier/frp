@@ -24,12 +24,15 @@ type Service struct {
 	// manager control connection with server
 	ctl *Control
 
-	closedCh chan int
+	closedCh chan bool
+
+	closed bool
 }
 
 func NewService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf) (svr *Service) {
 	svr = &Service{
-		closedCh: make(chan int),
+		closedCh: make(chan bool),
+		closed:   false,
 	}
 	ctl := NewControl(svr, pxyCfgs, visitorCfgs)
 	svr.ctl = ctl
@@ -51,11 +54,11 @@ func (svr *Service) Run(cmd bool) error {
 	}
 
 	if cmd {
-		<-svr.closedCh
+		svr.closed = <-svr.closedCh
 		log.Info("svr closed")
 	} else {
 		go func() {
-			<-svr.closedCh
+			svr.closed = <-svr.closedCh
 			log.Info("svr closed")
 		}()
 	}
@@ -64,5 +67,9 @@ func (svr *Service) Run(cmd bool) error {
 
 func (svr *Service) Close() {
 	svr.ctl.Close()
-	svr.closedCh <- 0
+	svr.closedCh <- true
+}
+
+func (svr *Service) IsClosed() bool {
+	return svr.closed
 }

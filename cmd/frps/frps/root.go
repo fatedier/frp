@@ -233,3 +233,7 @@ func runBackgroundServer() (err error) {
 func StopFrps() error {
 	return service.Stop()
 }
+
+func IsFrpsRunning() bool {
+	return service != nil && !service.Closed
+}

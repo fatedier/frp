@@ -82,6 +82,9 @@ type Service struct {
 
 	// Controller for nat hole connections
 	natHoleController *NatHoleController
+
+	// Closed is service closed
+	Closed bool
 }
 
 func NewService() (svr *Service, err error) {
@@ -233,10 +236,18 @@ func (svr *Service) Run() {
 }
 
 func (svr *Service) Stop() error {
+	err := svr.muxer.Close()
+	if err != nil {
+		return err
+	}
 	return svr.listener.Close()
 }
 
 func (svr *Service) HandleListener(l frpNet.Listener) {
+	defer func() {
+		svr.Closed = true
+		log.Warn("Frps is Closed")
+	}()
 	// Listen for incoming connections from client.
 	for {
 		c, err := l.Accept()

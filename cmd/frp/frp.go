@@ -30,12 +30,22 @@ func StopFrpc() (err error) {
 	return sub.StopFrp()
 }
 
+func IsFrpcRunning() bool {
+	return sub.IsFrpRunning()
+}
+
 func RunFrps(cfgFilePath string) (err error) {
 	crypto.DefaultSalt = "frp"
 
 	return frps.RunFrps(cfgFilePath)
 }
 
+// StopFrps 停止frps服务
 func StopFrps() error {
 	return frps.StopFrps()
+}
+
+// IsFrpsRunning 是否还在运行
+func IsFrpsRunning() bool {
+	return frps.IsFrpsRunning()
 }

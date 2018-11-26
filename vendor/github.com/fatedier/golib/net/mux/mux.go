@@ -51,6 +51,13 @@ func NewMux(ln net.Listener) (mux *Mux) {
 	return
 }
 
+func (mux *Mux) Close() error {
+	if mux.ln != nil {
+		return mux.ln.Close()
+	}
+	return nil
+}
+
 // priority
 func (mux *Mux) Listen(priority int, needBytesNum uint32, fn MatchFunc) net.Listener {
 	ln := &listener{
