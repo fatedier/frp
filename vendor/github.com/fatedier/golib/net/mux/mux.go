@@ -144,6 +144,7 @@ func (mux *Mux) Serve() error {
 		}
 
 		if err != nil {
+			close(mux.defaultLn.c)
 			return err
 		}
 

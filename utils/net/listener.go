@@ -45,8 +45,15 @@ func WrapLogListener(l net.Listener) Listener {
 }
 
 func (logL *LogListener) Accept() (Conn, error) {
+	log.Info("call Accept")
 	c, err := logL.l.Accept()
+	log.Info("Accept new conn: ", c)
 	return WrapConn(c), err
+}
+
+// Close 关闭listener
+func (logL *LogListener) Close() error {
+	return logL.l.Close()
 }
 
 // Custom listener

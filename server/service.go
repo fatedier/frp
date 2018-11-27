@@ -85,6 +85,9 @@ type Service struct {
 
 	// Closed is service closed
 	Closed bool
+
+	// close chan
+	closedCh chan bool
 }
 
 func NewService() (svr *Service, err error) {
@@ -95,6 +98,7 @@ func NewService() (svr *Service, err error) {
 		visitorManager: NewVisitorManager(),
 		tcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
 		udpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
+		closedCh:       make(chan bool),
 	}
 	svr.tcpGroupCtl = group.NewTcpGroupCtl(svr.tcpPortManager)
 
@@ -235,26 +239,28 @@ func (svr *Service) Run() {
 	svr.HandleListener(svr.listener)
 }
 
+// Stop 停止服务
 func (svr *Service) Stop() error {
 	err := svr.muxer.Close()
-	if err != nil {
-		return err
-	}
-	return svr.listener.Close()
+	<-svr.closedCh
+	svr.Closed = true
+	return err
 }
 
 func (svr *Service) HandleListener(l frpNet.Listener) {
 	defer func() {
-		svr.Closed = true
-		log.Warn("Frps is Closed")
+		close(svr.closedCh)
+		log.Info("Frps is Closed")
 	}()
 	// Listen for incoming connections from client.
 	for {
+		log.Info("Wait for new Connect")
 		c, err := l.Accept()
 		if err != nil {
 			log.Warn("Listener for incoming connections from client closed")
 			return
 		}
+		log.Info("New Conn: ", c, err)
 
 		// Start a new goroutine for dealing connections.
 		go func(frpConn frpNet.Conn) {
