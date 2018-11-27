@@ -1,14 +1,20 @@
-FROM golang:1.10
+FROM golang:1.10 AS base
 
-COPY . /go/src/github.com/fatedier/frp
+ENV CGO_ENABLED=0 
+ENV GOOS=linux
+ENV GOARCH=amd64
+ENV SRCPATH=/go/src/github.com/fatedier/frp
 
-RUN cd /go/src/github.com/fatedier/frp \
- && make \
- && mv bin/frpc /frpc \
- && mv bin/frps /frps \
- && mv conf/frpc.ini /frpc.ini \
- && mv conf/frps.ini /frps.ini \
- && make clean
+RUN go get github.com/fatedier/frp || true  && \
+        cd $SRCPATH \
+        && make
+
+FROM scratch
+ENV SRCPATH=/go/src/github.com/fatedier/frp
+COPY --from=base $SRCPATH/bin/frpc /frpc 
+COPY --from=base $SRCPATH/bin/frps /frps 
+COPY --from=base $SRCPATH/conf/frpc.ini /frpc.ini 
+COPY --from=base $SRCPATH/conf/frps.ini /frps.ini 
 
 WORKDIR /
 
