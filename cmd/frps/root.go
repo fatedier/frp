@@ -16,17 +16,18 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-
-	"github.com/spf13/cobra"
-
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/server"
 	"github.com/fatedier/frp/utils/log"
 	"github.com/fatedier/frp/utils/util"
+
+	//	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
+	"github.com/spf13/cobra"
+	"github.com/vaughan0/go-ini"
+	"io/ioutil"
+	"os"
 )
 
 const (
@@ -101,13 +102,28 @@ var rootCmd = &cobra.Command{
 		}
 
 		var err error
+
 		if cfgFile != "" {
 			err = parseServerCommonCfg(CfgFileTypeIni, cfgFile)
+			if err != nil {
+				return err
+			}
+
+			conf, err := ini.LoadFile(cfgFile)
+			if err != nil {
+				return err
+			}
+			for name := range conf {
+				err = parseSubServerCommonCfgFromIni(cfgFile, name)
+				if err != nil {
+					return err
+				}
+			}
 		} else {
 			err = parseServerCommonCfg(CfgFileTypeCmd, "")
-		}
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 
 		err = runServer()
@@ -115,6 +131,7 @@ var rootCmd = &cobra.Command{
 			fmt.Println(err)
 			os.Exit(1)
 		}
+
 		return nil
 	},
 }
@@ -137,12 +154,12 @@ func parseServerCommonCfg(fileType int, filePath string) (err error) {
 
 	g.GlbServerCfg.CfgFile = filePath
 
-	err = g.GlbServerCfg.ServerCommonConf.Check()
+	err = g.GlbServerCfg.ServerSectionConf.Check()
 	if err != nil {
 		return
 	}
 
-	config.InitServerCfg(&g.GlbServerCfg.ServerCommonConf)
+	config.InitServerCfg(&g.GlbServerCfg.ServerSectionConf)
 	return
 }
 
@@ -153,11 +170,12 @@ func parseServerCommonCfgFromIni(filePath string) (err error) {
 	}
 	content := string(b)
 
-	cfg, err := config.UnmarshalServerConfFromIni(&g.GlbServerCfg.ServerCommonConf, content)
+	cfg, err := config.UnmarshalServerConfFromIni(&g.GlbServerCfg.ServerSectionConf, content)
 	if err != nil {
 		return err
 	}
-	g.GlbServerCfg.ServerCommonConf = *cfg
+
+	g.GlbServerCfg.ServerSectionConf = *cfg
 	return
 }
 
@@ -178,14 +196,15 @@ func parseServerCommonCfgFromCmd() (err error) {
 	g.GlbServerCfg.LogWay = logWay
 	g.GlbServerCfg.LogLevel = logLevel
 	g.GlbServerCfg.LogMaxDays = logMaxDays
-	g.GlbServerCfg.Token = token
+//	g.GlbServerCfg.Token = token
 	g.GlbServerCfg.AuthTimeout = authTimeout
 	g.GlbServerCfg.SubDomainHost = subDomainHost
+/*
 	if len(allowPorts) > 0 {
 		// e.g. 1000-2000,2001,2002,3000-4000
 		ports, errRet := util.ParseRangeNumbers(allowPorts)
 		if errRet != nil {
-			err = fmt.Errorf("Parse conf error: allow_ports: %v", errRet)
+			err = fmt.Errorf("Parse cmd conf error: allow_ports: %v", errRet)
 			return
 		}
 
@@ -193,13 +212,50 @@ func parseServerCommonCfgFromCmd() (err error) {
 			g.GlbServerCfg.AllowPorts[int(port)] = struct{}{}
 		}
 	}
+*/
 	g.GlbServerCfg.MaxPortsPerClient = maxPortsPerClient
+
+	cfg := config.GetDefaultSubServerConf()
+	cfg.Section = "common"
+	cfg.Token = token
+	if len(allowPorts) > 0 {
+		// e.g. 1000-2000,2001,2002,3000-4000
+		ports, errRet := util.ParseRangeNumbers(allowPorts)
+		if errRet != nil {
+			err = fmt.Errorf("Parse cmd conf error: allow_ports: %v", errRet)
+			return
+		}
+
+		for _, port := range ports {
+			cfg.AllowPorts[int(port)] = struct{}{}
+		}
+	}
+	g.GlbServerSubSectionMap["common"] = cfg
+
+	return
+}
+
+
+func parseSubServerCommonCfgFromIni(filePath string, section string) (err error) {
+	b, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	content := string(b)
+
+	cfg, err := config.UnmarshalSubServerConfFromIni(content, section)
+	if err != nil {
+		return err
+	}
+
+	g.GlbServerSubSectionMap[section] = cfg
+
 	return
 }
 
 func runServer() (err error) {
-	log.InitLog(g.GlbServerCfg.LogWay, g.GlbServerCfg.LogFile, g.GlbServerCfg.LogLevel,
-		g.GlbServerCfg.LogMaxDays)
+	log.InitLog(g.GlbServerCfg.LogWay, g.GlbServerCfg.LogFile, g.GlbServerCfg.LogLevel, g.GlbServerCfg.LogMaxDays)
 	svr, err := server.NewService()
 	if err != nil {
 		return err
