@@ -7,6 +7,7 @@ import (
 var (
 	GlbClientCfg *ClientCfg
 	GlbServerCfg *ServerCfg
+	GlbServerSubSectionMap map[string]*config.SubServerSectionConf
 )
 
 func init() {
@@ -14,8 +15,9 @@ func init() {
 		ClientCommonConf: *config.GetDefaultClientConf(),
 	}
 	GlbServerCfg = &ServerCfg{
-		ServerCommonConf: *config.GetDefaultServerConf(),
+		ServerSectionConf: *config.GetDefaultServerConf(),
 	}
+	GlbServerSubSectionMap = make(map[string]*config.SubServerSectionConf)
 }
 
 type ClientCfg struct {
@@ -26,7 +28,7 @@ type ClientCfg struct {
 }
 
 type ServerCfg struct {
-	config.ServerCommonConf
+	config.ServerSectionConf
 
 	CfgFile string
 }
