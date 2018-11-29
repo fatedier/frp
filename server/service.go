@@ -85,13 +85,22 @@ type Service struct {
 }
 
 func NewService() (svr *Service, err error) {
-	cfg := &g.GlbServerCfg.ServerCommonConf
+	cfg := &g.GlbServerCfg.ServerSectionConf
+
+	var allowedPorts map[int]struct{}
+	allowedPorts = make(map[int]struct{})
+	for _, section := range g.GlbServerSubSectionMap {
+		for mapPort, mapValue := range section.AllowPorts {
+			allowedPorts[mapPort] = mapValue
+		}
+	}
+
 	svr = &Service{
 		ctlManager:     NewControlManager(),
 		pxyManager:     NewProxyManager(),
 		visitorManager: NewVisitorManager(),
-		tcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
-		udpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
+		tcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, allowedPorts),
+		udpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, allowedPorts),
 	}
 	svr.tcpGroupCtl = group.NewTcpGroupCtl(svr.tcpPortManager)
 
@@ -331,11 +340,17 @@ func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (e
 		err = fmt.Errorf("authorization timeout")
 		return
 	}
-	if util.GetAuthKey(g.GlbServerCfg.Token, loginMsg.Timestamp) != loginMsg.PrivilegeKey {
+
+	var loginSection string = ""
+	for name, subSection := range g.GlbServerSubSectionMap {
+		if util.GetAuthKey(subSection.Token, loginMsg.Timestamp) == loginMsg.PrivilegeKey {
+			loginSection = name
+		}
+	}
+	if loginSection == "" {
 		err = fmt.Errorf("authorization failed")
 		return
 	}
-
 	// If client's RunId is empty, it's a new client, we just create a new controller.
 	// Otherwise, we check if there is one controller has the same run id. If so, we release previous controller and start new one.
 	if loginMsg.RunId == "" {
@@ -345,7 +360,7 @@ func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (e
 		}
 	}
 
-	ctl := NewControl(svr, ctlConn, loginMsg)
+	ctl := NewControl(svr, ctlConn, loginMsg, loginSection)
 
 	if oldCtl := svr.ctlManager.Add(loginMsg.RunId, ctl); oldCtl != nil {
 		oldCtl.allShutdown.WaitDone()
