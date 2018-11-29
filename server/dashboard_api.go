@@ -65,7 +65,7 @@ func apiServerInfo(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	log.Info("Http request: [%s]", r.URL.Path)
-	cfg := &g.GlbServerCfg.ServerCommonConf
+	cfg := &g.GlbServerCfg.ServerSectionConf
 	serverStats := StatsGetServer()
 	res = ServerInfoResp{
 		Version:           version.Full(),
