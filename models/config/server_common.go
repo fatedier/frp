@@ -21,7 +21,7 @@ import (
 
 	ini "github.com/vaughan0/go-ini"
 
-	"github.com/fatedier/frp/utils/util"
+//	"github.com/fatedier/frp/utils/util"
 )
 
 var (
@@ -32,7 +32,7 @@ var (
 	vhostHttpsPort int
 )
 
-func InitServerCfg(cfg *ServerCommonConf) {
+func InitServerCfg(cfg *ServerSectionConf) {
 	proxyBindAddr = cfg.ProxyBindAddr
 	subDomainHost = cfg.SubDomainHost
 	vhostHttpPort = cfg.VhostHttpPort
@@ -40,7 +40,7 @@ func InitServerCfg(cfg *ServerCommonConf) {
 }
 
 // common config
-type ServerCommonConf struct {
+type ServerSectionConf struct {
 	BindAddr      string `json:"bind_addr"`
 	BindPort      int    `json:"bind_port"`
 	BindUdpPort   int    `json:"bind_udp_port"`
@@ -66,20 +66,18 @@ type ServerCommonConf struct {
 	LogWay        string `json:"log_way"` // console or file
 	LogLevel      string `json:"log_level"`
 	LogMaxDays    int64  `json:"log_max_days"`
-	Token         string `json:"token"`
 	AuthTimeout   int64  `json:"auth_timeout"`
 	SubDomainHost string `json:"subdomain_host"`
 	TcpMux        bool   `json:"tcp_mux"`
 
-	AllowPorts        map[int]struct{}
 	MaxPoolCount      int64 `json:"max_pool_count"`
 	MaxPortsPerClient int64 `json:"max_ports_per_client"`
 	HeartBeatTimeout  int64 `json:"heart_beat_timeout"`
 	UserConnTimeout   int64 `json:"user_conn_timeout"`
 }
 
-func GetDefaultServerConf() *ServerCommonConf {
-	return &ServerCommonConf{
+func GetDefaultServerConf() *ServerSectionConf {
+	return &ServerSectionConf{
 		BindAddr:          "0.0.0.0",
 		BindPort:          7000,
 		BindUdpPort:       0,
@@ -97,11 +95,9 @@ func GetDefaultServerConf() *ServerCommonConf {
 		LogWay:            "console",
 		LogLevel:          "info",
 		LogMaxDays:        3,
-		Token:             "",
 		AuthTimeout:       900,
 		SubDomainHost:     "",
 		TcpMux:            true,
-		AllowPorts:        make(map[int]struct{}),
 		MaxPoolCount:      5,
 		MaxPortsPerClient: 0,
 		HeartBeatTimeout:  90,
@@ -109,7 +105,7 @@ func GetDefaultServerConf() *ServerCommonConf {
 	}
 }
 
-func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (cfg *ServerCommonConf, err error) {
+func UnmarshalServerConfFromIni(defaultCfg *ServerSectionConf, content string) (cfg *ServerSectionConf, err error) {
 	cfg = defaultCfg
 	if cfg == nil {
 		cfg = GetDefaultServerConf()
@@ -117,7 +113,7 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (c
 
 	conf, err := ini.Load(strings.NewReader(content))
 	if err != nil {
-		err = fmt.Errorf("parse ini conf file error: %v", err)
+		err = fmt.Errorf("parse ini file error: %v", err)
 		return nil, err
 	}
 
@@ -126,13 +122,14 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (c
 		ok     bool
 		v      int64
 	)
+
 	if tmpStr, ok = conf.Get("common", "bind_addr"); ok {
 		cfg.BindAddr = tmpStr
 	}
 
 	if tmpStr, ok = conf.Get("common", "bind_port"); ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
-			err = fmt.Errorf("Parse conf error: invalid bind_port")
+			err = fmt.Errorf("parse conf error: invalid bind_port")
 			return
 		} else {
 			cfg.BindPort = int(v)
@@ -244,21 +241,6 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (c
 		}
 	}
 
-	cfg.Token, _ = conf.Get("common", "token")
-
-	if allowPortsStr, ok := conf.Get("common", "allow_ports"); ok {
-		// e.g. 1000-2000,2001,2002,3000-4000
-		ports, errRet := util.ParseRangeNumbers(allowPortsStr)
-		if errRet != nil {
-			err = fmt.Errorf("Parse conf error: allow_ports: %v", errRet)
-			return
-		}
-
-		for _, port := range ports {
-			cfg.AllowPorts[int(port)] = struct{}{}
-		}
-	}
-
 	if tmpStr, ok = conf.Get("common", "max_pool_count"); ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
 			err = fmt.Errorf("Parse conf error: invalid max_pool_count")
@@ -317,6 +299,6 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (c
 	return
 }
 
-func (cfg *ServerCommonConf) Check() (err error) {
+func (cfg *ServerSectionConf) Check() (err error) {
 	return
 }
