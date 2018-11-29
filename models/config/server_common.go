@@ -113,7 +113,7 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerSectionConf, content string) (
 
 	conf, err := ini.Load(strings.NewReader(content))
 	if err != nil {
-		err = fmt.Errorf("parse ini file error: %v", err)
+		err = fmt.Errorf("parse ini conf file error: %v", err)
 		return nil, err
 	}
 
@@ -129,7 +129,7 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerSectionConf, content string) (
 
 	if tmpStr, ok = conf.Get("common", "bind_port"); ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
-			err = fmt.Errorf("parse conf error: invalid bind_port")
+			err = fmt.Errorf("Parse conf error: invalid bind_port")
 			return
 		} else {
 			cfg.BindPort = int(v)
