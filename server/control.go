@@ -376,7 +376,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy, token string) (remoteAdd
 				return
 			}
 		} else {
-			err = fmt.Errorf("proxy type '%s' only allowed in common section", pxyMsg.ProxyType)
+			err = fmt.Errorf("proxy type '%s' only allowed with common token", pxyMsg.ProxyType)
 			return
 		}
 	} else {
