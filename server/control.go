@@ -409,7 +409,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy, token string) (remoteAdd
 		}()
 	}
 
-	remoteAddr, err = pxy.Run() // g.GlbServerSubSectionMap[ctl.section].Token
+	remoteAddr, err = pxy.Run() 
 	if err != nil {
 		return
 	}
