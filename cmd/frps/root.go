@@ -195,23 +195,8 @@ func parseServerCommonCfgFromCmd() (err error) {
 	g.GlbServerCfg.LogWay = logWay
 	g.GlbServerCfg.LogLevel = logLevel
 	g.GlbServerCfg.LogMaxDays = logMaxDays
-//	g.GlbServerCfg.Token = token
 	g.GlbServerCfg.AuthTimeout = authTimeout
 	g.GlbServerCfg.SubDomainHost = subDomainHost
-/*
-	if len(allowPorts) > 0 {
-		// e.g. 1000-2000,2001,2002,3000-4000
-		ports, errRet := util.ParseRangeNumbers(allowPorts)
-		if errRet != nil {
-			err = fmt.Errorf("Parse cmd conf error: allow_ports: %v", errRet)
-			return
-		}
-
-		for _, port := range ports {
-			g.GlbServerCfg.AllowPorts[int(port)] = struct{}{}
-		}
-	}
-*/
 	g.GlbServerCfg.MaxPortsPerClient = maxPortsPerClient
 
 	cfg := config.GetDefaultSubServerConf()
