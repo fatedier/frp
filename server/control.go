@@ -70,6 +70,9 @@ type Control struct {
 	// replace old controller instantly.
 	runId string
 
+	// INI section name
+	section string
+
 	// control status
 	status string
 
@@ -81,7 +84,7 @@ type Control struct {
 	mu sync.RWMutex
 }
 
-func NewControl(svr *Service, ctlConn net.Conn, loginMsg *msg.Login) *Control {
+func NewControl(svr *Service, ctlConn net.Conn, loginMsg *msg.Login, sectionName string) *Control {
 	return &Control{
 		svr:             svr,
 		conn:            ctlConn,
@@ -94,6 +97,7 @@ func NewControl(svr *Service, ctlConn net.Conn, loginMsg *msg.Login) *Control {
 		portsUsedNum:    0,
 		lastPing:        time.Now(),
 		runId:           loginMsg.RunId,
+		section:         sectionName,
 		status:          consts.Working,
 		readerShutdown:  shutdown.New(),
 		writerShutdown:  shutdown.New(),
@@ -209,7 +213,7 @@ func (ctl *Control) writer() {
 	defer ctl.allShutdown.Start()
 	defer ctl.writerShutdown.Done()
 
-	encWriter, err := crypto.NewWriter(ctl.conn, []byte(g.GlbServerCfg.Token))
+	encWriter, err := crypto.NewWriter(ctl.conn, []byte(g.GlbServerSubSectionMap[ctl.section].Token))
 	if err != nil {
 		ctl.conn.Error("crypto new writer error: %v", err)
 		ctl.allShutdown.Start()
@@ -239,7 +243,7 @@ func (ctl *Control) reader() {
 	defer ctl.allShutdown.Start()
 	defer ctl.readerShutdown.Done()
 
-	encReader := crypto.NewReader(ctl.conn, []byte(g.GlbServerCfg.Token))
+	encReader := crypto.NewReader(ctl.conn, []byte(g.GlbServerSubSectionMap[ctl.section].Token))
 	for {
 		if m, err := msg.ReadMsg(encReader); err != nil {
 			if err == io.EOF {
@@ -323,7 +327,7 @@ func (ctl *Control) manager() {
 			switch m := rawMsg.(type) {
 			case *msg.NewProxy:
 				// register proxy in this control
-				remoteAddr, err := ctl.RegisterProxy(m)
+				remoteAddr, err := ctl.RegisterProxy(m, g.GlbServerSubSectionMap[ctl.section].Token)
 				resp := &msg.NewProxyResp{
 					ProxyName: m.ProxyName,
 				}
@@ -348,7 +352,7 @@ func (ctl *Control) manager() {
 	}
 }
 
-func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err error) {
+func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy, token string) (remoteAddr string, err error) {
 	var pxyConf config.ProxyConf
 	// Load configures from NewProxy message and check.
 	pxyConf, err = config.NewProxyConfFromMsg(pxyMsg)
@@ -361,6 +365,28 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 	pxy, err := NewProxy(ctl, pxyConf)
 	if err != nil {
 		return remoteAddr, err
+	}
+
+	// Check if port number belongs to INI section
+	if ctl.section != "common" {
+		// Sub sections only allow tcp/udp
+		if pxyMsg.ProxyType == consts.TcpProxy || pxyMsg.ProxyType == consts.UdpProxy {
+			if _, ok := g.GlbServerSubSectionMap[ctl.section].AllowPorts[pxyMsg.RemotePort]; !ok {
+				err = fmt.Errorf("port %d number does not belong to section/token", pxyMsg.RemotePort)
+				return
+			}
+		} else {
+			err = fmt.Errorf("proxy type '%s' only allowed in common section", pxyMsg.ProxyType)
+			return
+		}
+	} else {
+		// Only TCP and UDP have RemotePort parameter
+		if pxyMsg.ProxyType == consts.TcpProxy || pxyMsg.ProxyType == consts.UdpProxy {
+			if _, ok := g.GlbServerSubSectionMap[ctl.section].AllowPorts[pxyMsg.RemotePort]; !ok {
+				err = fmt.Errorf("port %d number does not belong to section/token", pxyMsg.RemotePort)
+				return
+			}
+		}
 	}
 
 	// Check ports used number in each client
@@ -383,7 +409,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		}()
 	}
 
-	remoteAddr, err = pxy.Run()
+	remoteAddr, err = pxy.Run() // g.GlbServerSubSectionMap[ctl.section].Token
 	if err != nil {
 		return
 	}
