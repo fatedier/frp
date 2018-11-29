@@ -371,9 +371,11 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy, token string) (remoteAdd
 	if ctl.section != "common" {
 		// Sub sections only allow tcp/udp
 		if pxyMsg.ProxyType == consts.TcpProxy || pxyMsg.ProxyType == consts.UdpProxy {
-			if _, ok := g.GlbServerSubSectionMap[ctl.section].AllowPorts[pxyMsg.RemotePort]; !ok {
-				err = fmt.Errorf("port %d number does not belong to section/token", pxyMsg.RemotePort)
-				return
+			if pxyMsg.RemotePort != 0 { // Random port
+				if _, ok := g.GlbServerSubSectionMap[ctl.section].AllowPorts[pxyMsg.RemotePort]; !ok {
+					err = fmt.Errorf("port %d number does not belong to section/token", pxyMsg.RemotePort)
+					return
+				}
 			}
 		} else {
 			err = fmt.Errorf("proxy type '%s' only allowed with common token", pxyMsg.ProxyType)
@@ -382,9 +384,11 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy, token string) (remoteAdd
 	} else {
 		// Only TCP and UDP have RemotePort parameter
 		if pxyMsg.ProxyType == consts.TcpProxy || pxyMsg.ProxyType == consts.UdpProxy {
-			if _, ok := g.GlbServerSubSectionMap[ctl.section].AllowPorts[pxyMsg.RemotePort]; !ok {
-				err = fmt.Errorf("port %d number does not belong to section/token", pxyMsg.RemotePort)
-				return
+			if pxyMsg.RemotePort != 0 { // Random port
+				if _, ok := g.GlbServerSubSectionMap[ctl.section].AllowPorts[pxyMsg.RemotePort]; !ok {
+					err = fmt.Errorf("port %d number does not belong to section/token", pxyMsg.RemotePort)
+					return
+				}
 			}
 		}
 	}
