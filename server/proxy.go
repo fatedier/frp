@@ -40,6 +40,7 @@ type Proxy interface {
 	Run() (remoteAddr string, err error)
 	GetControl() *Control
 	GetName() string
+	GetToken() string
 	GetConf() config.ProxyConf
 	GetWorkConnFromPool() (workConn frpNet.Conn, err error)
 	GetUsedPortsNum() int
@@ -52,6 +53,7 @@ type BaseProxy struct {
 	ctl          *Control
 	listeners    []frpNet.Listener
 	usedPortsNum int
+	token        string
 
 	mu sync.RWMutex
 	log.Logger
@@ -59,6 +61,10 @@ type BaseProxy struct {
 
 func (pxy *BaseProxy) GetName() string {
 	return pxy.name
+}
+
+func (pxy *BaseProxy) GetToken() string {
+	return pxy.token
 }
 
 func (pxy *BaseProxy) GetControl() *Control {
@@ -308,7 +314,7 @@ func (pxy *HttpProxy) GetRealConn() (workConn frpNet.Conn, err error) {
 
 	var rwc io.ReadWriteCloser = tmpConn
 	if pxy.cfg.UseEncryption {
-		rwc, err = frpIo.WithEncryption(rwc, []byte(g.GlbServerCfg.Token))
+		rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.token))
 		if err != nil {
 			pxy.Error("create encryption stream error: %v", err)
 			return
@@ -664,9 +670,12 @@ func HandleUserTcpConnection(pxy Proxy, userConn frpNet.Conn) {
 	defer workConn.Close()
 
 	var local io.ReadWriteCloser = workConn
+	var token string = pxy.GetToken()
+
 	cfg := pxy.GetConf().GetBaseInfo()
+
 	if cfg.UseEncryption {
-		local, err = frpIo.WithEncryption(local, []byte(g.GlbServerCfg.Token))
+		local, err = frpIo.WithEncryption(local, []byte(token))
 		if err != nil {
 			pxy.Error("create encryption stream error: %v", err)
 			return
