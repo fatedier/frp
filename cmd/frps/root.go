@@ -27,6 +27,7 @@ import (
 	"github.com/fatedier/frp/utils/log"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
+	"github.com/vaughan0/go-ini"
 )
 
 const (
