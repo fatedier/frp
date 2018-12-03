@@ -20,6 +20,8 @@ import (
 
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
+
+	"github.com/fatedier/golib/errors"
 )
 
 type muxFunc func(frpNet.Conn) (frpNet.Conn, map[string]string, error)
@@ -49,12 +51,17 @@ func NewVhostMuxer(listener frpNet.Listener, vhostFunc muxFunc, authFunc httpAut
 	return mux, nil
 }
 
+type CreateConnFunc func() (frpNet.Conn, error)
+
 type VhostRouteConfig struct {
 	Domain      string
 	Location    string
 	RewriteHost string
 	Username    string
 	Password    string
+	Headers     map[string]string
+
+	CreateConnFn CreateConnFunc
 }
 
 // listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil
@@ -90,7 +97,7 @@ func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
 	// if not exist, then check the wildcard_domain such as *.example.com
 	vr, found := v.registryRouter.Get(name, path)
 	if found {
-		return vr.listener, true
+		return vr.payload.(*Listener), true
 	}
 
 	domainSplit := strings.Split(name, ".")
@@ -105,7 +112,7 @@ func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
 		return
 	}
 
-	return vr.listener, true
+	return vr.payload.(*Listener), true
 }
 
 func (v *VhostMuxer) run() {
@@ -162,7 +169,12 @@ func (v *VhostMuxer) handle(c frpNet.Conn) {
 	c = sConn
 
 	l.Debug("get new http request host [%s] path [%s]", name, path)
-	l.accept <- c
+	err = errors.PanicToError(func() {
+		l.accept <- c
+	})
+	if err != nil {
+		l.Warn("listener is already closed, ignore this request")
+	}
 }
 
 type Listener struct {

@@ -1,5 +1,4 @@
 export PATH := $(GOPATH)/bin:$(PATH)
-export GO15VENDOREXPERIMENT := 1
 
 all: fmt build
 
@@ -15,12 +14,7 @@ file:
 	go generate ./assets/...
 
 fmt:
-	go fmt ./assets/...
-	go fmt ./client/...
-	go fmt ./cmd/...
-	go fmt ./models/...
-	go fmt ./server/...
-	go fmt ./utils/...
+	go fmt ./...
 	
 frps:
 	go build -o bin/frps ./cmd/frps
@@ -39,15 +33,17 @@ gotest:
 	go test -v ./server/...
 	go test -v ./utils/...
 
-alltest: gotest
+ci:
 	cd ./tests && ./run_test.sh && cd -
 	go test -v ./tests/...
 	cd ./tests && ./clean_test.sh && cd -
 
+cic:
+	cd ./tests && ./clean_test.sh && cd -
+
+alltest: gotest ci
+	
 clean:
 	rm -f ./bin/frpc
 	rm -f ./bin/frps
 	cd ./tests && ./clean_test.sh && cd -
-
-save:
-	godep save ./...

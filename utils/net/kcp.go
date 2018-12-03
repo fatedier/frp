@@ -20,7 +20,7 @@ import (
 
 	"github.com/fatedier/frp/utils/log"
 
-	kcp "github.com/xtaci/kcp-go"
+	kcp "github.com/fatedier/kcp-go"
 )
 
 type KcpListener struct {
@@ -31,7 +31,7 @@ type KcpListener struct {
 	log.Logger
 }
 
-func ListenKcp(bindAddr string, bindPort int64) (l *KcpListener, err error) {
+func ListenKcp(bindAddr string, bindPort int) (l *KcpListener, err error) {
 	listener, err := kcp.ListenWithOptions(fmt.Sprintf("%s:%d", bindAddr, bindPort), nil, 10, 3)
 	if err != nil {
 		return l, err
@@ -84,4 +84,18 @@ func (l *KcpListener) Close() error {
 		l.listener.Close()
 	}
 	return nil
+}
+
+func NewKcpConnFromUdp(conn *net.UDPConn, connected bool, raddr string) (net.Conn, error) {
+	kcpConn, err := kcp.NewConnEx(1, connected, raddr, nil, 10, 3, conn)
+	if err != nil {
+		return nil, err
+	}
+	kcpConn.SetStreamMode(true)
+	kcpConn.SetWriteDelay(true)
+	kcpConn.SetNoDelay(1, 20, 2, 1)
+	kcpConn.SetMtu(1350)
+	kcpConn.SetWindowSize(1024, 1024)
+	kcpConn.SetACKNoDelay(false)
+	return kcpConn, nil
 }

@@ -4,7 +4,7 @@
 
 // Package socket provides a portable interface for socket system
 // calls.
-package socket
+package socket // import "golang.org/x/net/internal/socket"
 
 import (
 	"errors"
@@ -110,7 +110,7 @@ func ControlMessageSpace(dataLen int) int {
 type ControlMessage []byte
 
 // Data returns the data field of the control message at the head on
-// w.
+// m.
 func (m ControlMessage) Data(dataLen int) []byte {
 	l := controlHeaderLen()
 	if len(m) < l || len(m) < l+dataLen {
@@ -119,7 +119,7 @@ func (m ControlMessage) Data(dataLen int) []byte {
 	return m[l : l+dataLen]
 }
 
-// Next returns the control message at the next on w.
+// Next returns the control message at the next on m.
 //
 // Next works only for standard control messages.
 func (m ControlMessage) Next(dataLen int) ControlMessage {
@@ -131,7 +131,7 @@ func (m ControlMessage) Next(dataLen int) ControlMessage {
 }
 
 // MarshalHeader marshals the header fields of the control message at
-// the head on w.
+// the head on m.
 func (m ControlMessage) MarshalHeader(lvl, typ, dataLen int) error {
 	if len(m) < controlHeaderLen() {
 		return errors.New("short message")
@@ -142,7 +142,7 @@ func (m ControlMessage) MarshalHeader(lvl, typ, dataLen int) error {
 }
 
 // ParseHeader parses and returns the header fields of the control
-// message at the head on w.
+// message at the head on m.
 func (m ControlMessage) ParseHeader() (lvl, typ, dataLen int, err error) {
 	l := controlHeaderLen()
 	if len(m) < l {
@@ -152,7 +152,7 @@ func (m ControlMessage) ParseHeader() (lvl, typ, dataLen int, err error) {
 	return h.lvl(), h.typ(), int(uint64(h.len()) - uint64(l)), nil
 }
 
-// Marshal marshals the control message at the head on w, and returns
+// Marshal marshals the control message at the head on m, and returns
 // the next control message.
 func (m ControlMessage) Marshal(lvl, typ int, data []byte) (ControlMessage, error) {
 	l := len(data)
@@ -167,7 +167,7 @@ func (m ControlMessage) Marshal(lvl, typ int, data []byte) (ControlMessage, erro
 	return m.Next(l), nil
 }
 
-// Parse parses w as a single or multiple control messages.
+// Parse parses m as a single or multiple control messages.
 //
 // Parse works for both standard and compatible messages.
 func (m ControlMessage) Parse() ([]ControlMessage, error) {
@@ -175,6 +175,9 @@ func (m ControlMessage) Parse() ([]ControlMessage, error) {
 	for len(m) >= controlHeaderLen() {
 		h := (*cmsghdr)(unsafe.Pointer(&m[0]))
 		l := h.len()
+		if l <= 0 {
+			return nil, errors.New("invalid header length")
+		}
 		if uint64(l) < uint64(controlHeaderLen()) {
 			return nil, errors.New("invalid message length")
 		}

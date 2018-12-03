@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"net"
@@ -11,8 +10,8 @@ import (
 	frpNet "github.com/fatedier/frp/utils/net"
 )
 
-func StartEchoServer() {
-	l, err := frpNet.ListenTcp("127.0.0.1", 10701)
+func StartTcpEchoServer() {
+	l, err := frpNet.ListenTcp("127.0.0.1", TEST_TCP_PORT)
 	if err != nil {
 		fmt.Printf("echo server listen error: %v\n", err)
 		return
@@ -29,8 +28,26 @@ func StartEchoServer() {
 	}
 }
 
+func StartTcpEchoServer2() {
+	l, err := frpNet.ListenTcp("127.0.0.1", TEST_TCP2_PORT)
+	if err != nil {
+		fmt.Printf("echo server2 listen error: %v\n", err)
+		return
+	}
+
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			fmt.Printf("echo server2 accept error: %v\n", err)
+			return
+		}
+
+		go echoWorker2(c)
+	}
+}
+
 func StartUdpEchoServer() {
-	l, err := frpNet.ListenUDP("127.0.0.1", 10703)
+	l, err := frpNet.ListenUDP("127.0.0.1", TEST_UDP_PORT)
 	if err != nil {
 		fmt.Printf("udp echo server listen error: %v\n", err)
 		return
@@ -48,7 +65,7 @@ func StartUdpEchoServer() {
 }
 
 func StartUnixDomainServer() {
-	unixPath := "/tmp/frp_echo_server.sock"
+	unixPath := TEST_UNIX_DOMAIN_ADDR
 	os.Remove(unixPath)
 	syscall.Umask(0)
 	l, err := net.Listen("unix", unixPath)
@@ -69,17 +86,42 @@ func StartUnixDomainServer() {
 }
 
 func echoWorker(c net.Conn) {
-	br := bufio.NewReader(c)
+	buf := make([]byte, 2048)
+
 	for {
-		buf, err := br.ReadString('\n')
-		if err == io.EOF {
-			break
-		}
+		n, err := c.Read(buf)
 		if err != nil {
-			fmt.Printf("echo server read error: %v\n", err)
-			return
+			if err == io.EOF {
+				c.Close()
+				break
+			} else {
+				fmt.Printf("echo server read error: %v\n", err)
+				return
+			}
 		}
 
-		c.Write([]byte(buf + "\n"))
+		c.Write(buf[:n])
+	}
+}
+
+func echoWorker2(c net.Conn) {
+	buf := make([]byte, 2048)
+
+	for {
+		n, err := c.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				c.Close()
+				break
+			} else {
+				fmt.Printf("echo server read error: %v\n", err)
+				return
+			}
+		}
+
+		var w []byte
+		w = append(w, buf[:n]...)
+		w = append(w, buf[:n]...)
+		c.Write(w)
 	}
 }

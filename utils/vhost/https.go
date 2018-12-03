@@ -21,7 +21,9 @@ import (
 	"time"
 
 	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/pool"
+
+	gnet "github.com/fatedier/golib/net"
+	"github.com/fatedier/golib/pool"
 )
 
 const (
@@ -55,14 +57,17 @@ func readHandshake(rd io.Reader) (host string, err error) {
 	data := pool.GetBuf(1024)
 	origin := data
 	defer pool.PutBuf(origin)
-	length, err := rd.Read(data)
+
+	_, err = io.ReadFull(rd, data[:47])
+	if err != nil {
+		return
+	}
+
+	length, err := rd.Read(data[47:])
 	if err != nil {
 		return
 	} else {
-		if length < 47 {
-			err = fmt.Errorf("readHandshake: proto length[%d] is too short", length)
-			return
-		}
+		length += 47
 	}
 	data = data[:length]
 	if uint8(data[5]) != typeClientHello {
@@ -108,7 +113,7 @@ func readHandshake(rd io.Reader) (host string, err error) {
 		return
 	}
 	if len(data) < 2 {
-		err = fmt.Errorf("readHandshake: extension dataLen[%d] is too short")
+		err = fmt.Errorf("readHandshake: extension dataLen[%d] is too short", len(data))
 		return
 	}
 
@@ -177,14 +182,14 @@ func readHandshake(rd io.Reader) (host string, err error) {
 	return
 }
 
-func GetHttpsHostname(c frpNet.Conn) (sc frpNet.Conn, _ map[string]string, err error) {
+func GetHttpsHostname(c frpNet.Conn) (_ frpNet.Conn, _ map[string]string, err error) {
 	reqInfoMap := make(map[string]string, 0)
-	sc, rd := frpNet.NewShareConn(c)
+	sc, rd := gnet.NewSharedConn(c)
 	host, err := readHandshake(rd)
 	if err != nil {
-		return sc, reqInfoMap, err
+		return nil, reqInfoMap, err
 	}
 	reqInfoMap["Host"] = host
 	reqInfoMap["Scheme"] = "https"
-	return sc, reqInfoMap, nil
+	return frpNet.WrapConn(sc), reqInfoMap, nil
 }

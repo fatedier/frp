@@ -4,7 +4,7 @@
 
 // Package cast5 implements CAST5, as defined in RFC 2144. CAST5 is a common
 // OpenPGP cipher.
-package cast5
+package cast5 // import "golang.org/x/crypto/cast5"
 
 import "errors"
 

@@ -32,27 +32,30 @@ func init() {
 
 type Socks5Plugin struct {
 	Server *gosocks5.Server
+
+	user   string
+	passwd string
 }
 
 func NewSocks5Plugin(params map[string]string) (p Plugin, err error) {
-	sp := &Socks5Plugin{}
-	sp.Server, err = gosocks5.New(&gosocks5.Config{
+	user := params["plugin_user"]
+	passwd := params["plugin_passwd"]
+
+	cfg := &gosocks5.Config{
 		Logger: log.New(ioutil.Discard, "", log.LstdFlags),
-	})
+	}
+	if user != "" || passwd != "" {
+		cfg.Credentials = gosocks5.StaticCredentials(map[string]string{user: passwd})
+	}
+	sp := &Socks5Plugin{}
+	sp.Server, err = gosocks5.New(cfg)
 	p = sp
 	return
 }
 
-func (sp *Socks5Plugin) Handle(conn io.ReadWriteCloser) {
+func (sp *Socks5Plugin) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn) {
 	defer conn.Close()
-
-	var wrapConn frpNet.Conn
-	if realConn, ok := conn.(frpNet.Conn); ok {
-		wrapConn = realConn
-	} else {
-		wrapConn = frpNet.WrapReadWriteCloserToConn(conn)
-	}
-
+	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
 	sp.Server.ServeConn(wrapConn)
 }
 
