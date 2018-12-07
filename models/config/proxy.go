@@ -170,6 +170,10 @@ func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section i
 	if err := cfg.HealthCheckConf.UnmarshalFromIni(prefix, name, section); err != nil {
 		return err
 	}
+
+	if cfg.HealthCheckType == "tcp" && cfg.Plugin == "" {
+		cfg.HealthCheckAddr = cfg.LocalIp + fmt.Sprintf(":%d", cfg.LocalPort)
+	}
 	return nil
 }
 
@@ -381,7 +385,7 @@ func (cfg *LocalSvrConf) checkForCli() (err error) {
 // Health check info
 type HealthCheckConf struct {
 	HealthCheckType      string `json:"health_check_type"` // tcp | http
-	HealthCheckTimeout   int    `json:"health_check_timeout"`
+	HealthCheckTimeoutS  int    `json:"health_check_timeout_s"`
 	HealthCheckMaxFailed int    `json:"health_check_max_failed"`
 	HealthCheckIntervalS int    `json:"health_check_interval_s"`
 	HealthCheckUrl       string `json:"health_check_url"`
@@ -392,8 +396,10 @@ type HealthCheckConf struct {
 
 func (cfg *HealthCheckConf) compare(cmp *HealthCheckConf) bool {
 	if cfg.HealthCheckType != cmp.HealthCheckType ||
-		cfg.HealthCheckUrl != cmp.HealthCheckUrl ||
-		cfg.HealthCheckIntervalS != cmp.HealthCheckIntervalS {
+		cfg.HealthCheckTimeoutS != cmp.HealthCheckTimeoutS ||
+		cfg.HealthCheckMaxFailed != cmp.HealthCheckMaxFailed ||
+		cfg.HealthCheckIntervalS != cmp.HealthCheckIntervalS ||
+		cfg.HealthCheckUrl != cmp.HealthCheckUrl {
 		return false
 	}
 	return true
@@ -402,6 +408,18 @@ func (cfg *HealthCheckConf) compare(cmp *HealthCheckConf) bool {
 func (cfg *HealthCheckConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
 	cfg.HealthCheckType = section["health_check_type"]
 	cfg.HealthCheckUrl = section["health_check_url"]
+
+	if tmpStr, ok := section["health_check_timeout_s"]; ok {
+		if cfg.HealthCheckTimeoutS, err = strconv.Atoi(tmpStr); err != nil {
+			return fmt.Errorf("Parse conf error: proxy [%s] health_check_timeout_s error", name)
+		}
+	}
+
+	if tmpStr, ok := section["health_check_max_failed"]; ok {
+		if cfg.HealthCheckMaxFailed, err = strconv.Atoi(tmpStr); err != nil {
+			return fmt.Errorf("Parse conf error: proxy [%s] health_check_max_failed error", name)
+		}
+	}
 
 	if tmpStr, ok := section["health_check_interval_s"]; ok {
 		if cfg.HealthCheckIntervalS, err = strconv.Atoi(tmpStr); err != nil {
@@ -418,9 +436,6 @@ func (cfg *HealthCheckConf) checkForCli() error {
 	if cfg.HealthCheckType != "" {
 		if cfg.HealthCheckType == "http" && cfg.HealthCheckUrl == "" {
 			return fmt.Errorf("health_check_url is required for health check type 'http'")
-		}
-		if cfg.HealthCheckIntervalS <= 0 {
-			return fmt.Errorf("health_check_interval_s is required and should greater than 0")
 		}
 	}
 	return nil

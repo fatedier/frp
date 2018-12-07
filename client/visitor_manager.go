@@ -96,7 +96,9 @@ func (vm *VisitorManager) Reload(cfgs map[string]config.VisitorConf) {
 			delete(vm.visitors, name)
 		}
 	}
-	log.Info("visitor removed: %v", delNames)
+	if len(delNames) > 0 {
+		log.Info("visitor removed: %v", delNames)
+	}
 
 	addNames := make([]string, 0)
 	for name, cfg := range cfgs {
@@ -106,6 +108,16 @@ func (vm *VisitorManager) Reload(cfgs map[string]config.VisitorConf) {
 			vm.startVisitor(cfg)
 		}
 	}
-	log.Info("visitor added: %v", addNames)
+	if len(addNames) > 0 {
+		log.Info("visitor added: %v", addNames)
+	}
 	return
+}
+
+func (vm *VisitorManager) Close() {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	for _, v := range vm.visitors {
+		v.Close()
+	}
 }
