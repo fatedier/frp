@@ -1,4 +1,4 @@
-package client
+package proxy
 
 import (
 	"fmt"
@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/fatedier/frp/client/event"
+	"github.com/fatedier/frp/client/health"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/utils/log"
@@ -48,10 +50,10 @@ type ProxyWrapper struct {
 
 	// if ProxyConf has healcheck config
 	// monitor will watch if it is alive
-	monitor *HealthCheckMonitor
+	monitor *health.HealthCheckMonitor
 
 	// event handler
-	handler EventHandler
+	handler event.EventHandler
 
 	health           uint32
 	lastSendStartMsg time.Time
@@ -63,7 +65,7 @@ type ProxyWrapper struct {
 	log.Logger
 }
 
-func NewProxyWrapper(cfg config.ProxyConf, eventHandler EventHandler, logPrefix string) *ProxyWrapper {
+func NewProxyWrapper(cfg config.ProxyConf, eventHandler event.EventHandler, logPrefix string) *ProxyWrapper {
 	baseInfo := cfg.GetBaseInfo()
 	pw := &ProxyWrapper{
 		ProxyStatus: ProxyStatus{
@@ -81,7 +83,7 @@ func NewProxyWrapper(cfg config.ProxyConf, eventHandler EventHandler, logPrefix 
 
 	if baseInfo.HealthCheckType != "" {
 		pw.health = 1 // means failed
-		pw.monitor = NewHealthCheckMonitor(baseInfo.HealthCheckType, baseInfo.HealthCheckIntervalS,
+		pw.monitor = health.NewHealthCheckMonitor(baseInfo.HealthCheckType, baseInfo.HealthCheckIntervalS,
 			baseInfo.HealthCheckTimeoutS, baseInfo.HealthCheckMaxFailed, baseInfo.HealthCheckAddr,
 			baseInfo.HealthCheckUrl, pw.statusNormalCallback, pw.statusFailedCallback)
 		pw.monitor.SetLogger(pw.Logger)
@@ -137,7 +139,7 @@ func (pw *ProxyWrapper) Stop() {
 	}
 	pw.Status = ProxyStatusClosed
 
-	pw.handler(EvCloseProxy, &CloseProxyPayload{
+	pw.handler(event.EvCloseProxy, &event.CloseProxyPayload{
 		CloseProxyMsg: &msg.CloseProxy{
 			ProxyName: pw.Name,
 		},
@@ -165,7 +167,7 @@ func (pw *ProxyWrapper) checkWorker() {
 				var newProxyMsg msg.NewProxy
 				pw.Cfg.MarshalToMsg(&newProxyMsg)
 				pw.lastSendStartMsg = now
-				pw.handler(EvStartProxy, &StartProxyPayload{
+				pw.handler(event.EvStartProxy, &event.StartProxyPayload{
 					NewProxyMsg: &newProxyMsg,
 				})
 			}
@@ -173,7 +175,7 @@ func (pw *ProxyWrapper) checkWorker() {
 		} else {
 			pw.mu.Lock()
 			if pw.Status == ProxyStatusRunning || pw.Status == ProxyStatusWaitStart {
-				pw.handler(EvCloseProxy, &CloseProxyPayload{
+				pw.handler(event.EvCloseProxy, &event.CloseProxyPayload{
 					CloseProxyMsg: &msg.CloseProxy{
 						ProxyName: pw.Name,
 					},

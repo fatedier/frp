@@ -1,4 +1,4 @@
-package client
+package event
 
 import (
 	"errors"

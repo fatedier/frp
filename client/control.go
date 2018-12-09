@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
@@ -38,7 +39,7 @@ type Control struct {
 
 	// manage all proxies
 	pxyCfgs map[string]config.ProxyConf
-	pm      *ProxyManager
+	pm      *proxy.ProxyManager
 
 	// manage all visitors
 	vm *VisitorManager
@@ -87,7 +88,7 @@ func NewControl(runId string, conn frpNet.Conn, session *fmux.Session, pxyCfgs m
 		msgHandlerShutdown: shutdown.New(),
 		Logger:             log.NewPrefixLogger(""),
 	}
-	ctl.pm = NewProxyManager(ctl.sendCh, runId)
+	ctl.pm = proxy.NewProxyManager(ctl.sendCh, runId)
 
 	ctl.vm = NewVisitorManager(ctl)
 	ctl.vm.Reload(visitorCfgs)

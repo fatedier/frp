@@ -1,9 +1,10 @@
-package client
+package proxy
 
 import (
 	"fmt"
 	"sync"
 
+	"github.com/fatedier/frp/client/event"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/utils/log"
@@ -67,15 +68,15 @@ func (pm *ProxyManager) HandleWorkConn(name string, workConn frpNet.Conn) {
 	}
 }
 
-func (pm *ProxyManager) HandleEvent(evType EventType, payload interface{}) error {
+func (pm *ProxyManager) HandleEvent(evType event.EventType, payload interface{}) error {
 	var m msg.Message
-	switch event := payload.(type) {
-	case *StartProxyPayload:
-		m = event.NewProxyMsg
-	case *CloseProxyPayload:
-		m = event.CloseProxyMsg
+	switch e := payload.(type) {
+	case *event.StartProxyPayload:
+		m = e.NewProxyMsg
+	case *event.CloseProxyPayload:
+		m = e.CloseProxyMsg
 	default:
-		return ErrPayloadType
+		return event.ErrPayloadType
 	}
 
 	err := errors.PanicToError(func() {

@@ -12,7 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/fatedier/frp/client"
+	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/tests/consts"
 	"github.com/fatedier/frp/tests/mock"
@@ -218,31 +218,31 @@ func TestAllowPorts(t *testing.T) {
 	// Port not allowed
 	status, err := util.GetProxyStatus(consts.ADMIN_ADDR, consts.ADMIN_USER, consts.ADMIN_PWD, consts.ProxyTcpPortNotAllowed)
 	if assert.NoError(err) {
-		assert.Equal(client.ProxyStatusStartErr, status.Status)
+		assert.Equal(proxy.ProxyStatusStartErr, status.Status)
 		assert.True(strings.Contains(status.Err, ports.ErrPortNotAllowed.Error()))
 	}
 
 	status, err = util.GetProxyStatus(consts.ADMIN_ADDR, consts.ADMIN_USER, consts.ADMIN_PWD, consts.ProxyUdpPortNotAllowed)
 	if assert.NoError(err) {
-		assert.Equal(client.ProxyStatusStartErr, status.Status)
+		assert.Equal(proxy.ProxyStatusStartErr, status.Status)
 		assert.True(strings.Contains(status.Err, ports.ErrPortNotAllowed.Error()))
 	}
 
 	status, err = util.GetProxyStatus(consts.ADMIN_ADDR, consts.ADMIN_USER, consts.ADMIN_PWD, consts.ProxyTcpPortUnavailable)
 	if assert.NoError(err) {
-		assert.Equal(client.ProxyStatusStartErr, status.Status)
+		assert.Equal(proxy.ProxyStatusStartErr, status.Status)
 		assert.True(strings.Contains(status.Err, ports.ErrPortUnAvailable.Error()))
 	}
 
 	// Port normal
 	status, err = util.GetProxyStatus(consts.ADMIN_ADDR, consts.ADMIN_USER, consts.ADMIN_PWD, consts.ProxyTcpPortNormal)
 	if assert.NoError(err) {
-		assert.Equal(client.ProxyStatusRunning, status.Status)
+		assert.Equal(proxy.ProxyStatusRunning, status.Status)
 	}
 
 	status, err = util.GetProxyStatus(consts.ADMIN_ADDR, consts.ADMIN_USER, consts.ADMIN_PWD, consts.ProxyUdpPortNormal)
 	if assert.NoError(err) {
-		assert.Equal(client.ProxyStatusRunning, status.Status)
+		assert.Equal(proxy.ProxyStatusRunning, status.Status)
 	}
 }
 
@@ -271,7 +271,7 @@ func TestPluginHttpProxy(t *testing.T) {
 	assert := assert.New(t)
 	status, err := util.GetProxyStatus(consts.ADMIN_ADDR, consts.ADMIN_USER, consts.ADMIN_PWD, consts.ProxyHttpProxy)
 	if assert.NoError(err) {
-		assert.Equal(client.ProxyStatusRunning, status.Status)
+		assert.Equal(proxy.ProxyStatusRunning, status.Status)
 
 		// http proxy
 		addr := status.RemoteAddr
@@ -299,7 +299,7 @@ func TestRangePortsMapping(t *testing.T) {
 		name := fmt.Sprintf("%s_%d", consts.ProxyRangeTcpPrefix, i)
 		status, err := util.GetProxyStatus(consts.ADMIN_ADDR, consts.ADMIN_USER, consts.ADMIN_PWD, name)
 		if assert.NoError(err) {
-			assert.Equal(client.ProxyStatusRunning, status.Status)
+			assert.Equal(proxy.ProxyStatusRunning, status.Status)
 		}
 	}
 }
