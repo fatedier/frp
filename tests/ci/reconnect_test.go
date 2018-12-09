@@ -17,7 +17,6 @@ const FRPS_RECONNECT_CONF = `
 bind_addr = 0.0.0.0
 bind_port = 20000
 log_file = console
-# debug, info, warn, error
 log_level = debug
 token = 123456
 `
@@ -27,7 +26,6 @@ const FRPC_RECONNECT_CONF = `
 server_addr = 127.0.0.1
 server_port = 20000
 log_file = console
-# debug, info, warn, error
 log_level = debug
 token = 123456
 admin_port = 21000

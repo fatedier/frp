@@ -52,7 +52,6 @@ var (
 	dashboardPwd      string
 	assetsDir         string
 	logFile           string
-	logWay            string
 	logLevel          string
 	logMaxDays        int64
 	token             string
@@ -81,7 +80,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&dashboardUser, "dashboard_user", "", "admin", "dashboard user")
 	rootCmd.PersistentFlags().StringVarP(&dashboardPwd, "dashboard_pwd", "", "admin", "dashboard password")
 	rootCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "log file")
-	rootCmd.PersistentFlags().StringVarP(&logWay, "log_way", "", "console", "log way")
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	rootCmd.PersistentFlags().Int64VarP(&logMaxDays, "log_max_days", "", 3, "log_max_days")
 	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
@@ -175,7 +173,6 @@ func parseServerCommonCfgFromCmd() (err error) {
 	g.GlbServerCfg.DashboardUser = dashboardUser
 	g.GlbServerCfg.DashboardPwd = dashboardPwd
 	g.GlbServerCfg.LogFile = logFile
-	g.GlbServerCfg.LogWay = logWay
 	g.GlbServerCfg.LogLevel = logLevel
 	g.GlbServerCfg.LogMaxDays = logMaxDays
 	g.GlbServerCfg.Token = token
@@ -194,6 +191,12 @@ func parseServerCommonCfgFromCmd() (err error) {
 		}
 	}
 	g.GlbServerCfg.MaxPortsPerClient = maxPortsPerClient
+
+	if logFile == "console" {
+		g.GlbClientCfg.LogWay = "console"
+	} else {
+		g.GlbClientCfg.LogWay = "file"
+	}
 	return
 }
 

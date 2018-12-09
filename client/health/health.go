@@ -12,13 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client
+package health
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/fatedier/frp/utils/log"
+)
+
+var (
+	ErrHealthCheckType = errors.New("error health check type")
 )
 
 type HealthCheckMonitor struct {
@@ -40,6 +48,8 @@ type HealthCheckMonitor struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+
+	l log.Logger
 }
 
 func NewHealthCheckMonitor(checkType string, intervalS int, timeoutS int, maxFailedTimes int, addr string, url string,
@@ -70,6 +80,10 @@ func NewHealthCheckMonitor(checkType string, intervalS int, timeoutS int, maxFai
 	}
 }
 
+func (monitor *HealthCheckMonitor) SetLogger(l log.Logger) {
+	monitor.l = l
+}
+
 func (monitor *HealthCheckMonitor) Start() {
 	go monitor.checkWorker()
 }
@@ -81,7 +95,7 @@ func (monitor *HealthCheckMonitor) Stop() {
 func (monitor *HealthCheckMonitor) checkWorker() {
 	for {
 		ctx, cancel := context.WithDeadline(monitor.ctx, time.Now().Add(monitor.timeout))
-		ok := monitor.doCheck(ctx)
+		err := monitor.doCheck(ctx)
 
 		// check if this monitor has been closed
 		select {
@@ -92,14 +106,26 @@ func (monitor *HealthCheckMonitor) checkWorker() {
 			cancel()
 		}
 
-		if ok {
+		if err == nil {
+			if monitor.l != nil {
+				monitor.l.Trace("do one health check success")
+			}
 			if !monitor.statusOK && monitor.statusNormalFn != nil {
+				if monitor.l != nil {
+					monitor.l.Info("health check status change to success")
+				}
 				monitor.statusOK = true
 				monitor.statusNormalFn()
 			}
 		} else {
+			if monitor.l != nil {
+				monitor.l.Warn("do one health check failed: %v", err)
+			}
 			monitor.failedTimes++
 			if monitor.statusOK && int(monitor.failedTimes) >= monitor.maxFailedTimes && monitor.statusFailedFn != nil {
+				if monitor.l != nil {
+					monitor.l.Warn("health check status change to failed")
+				}
 				monitor.statusOK = false
 				monitor.statusFailedFn()
 			}
@@ -109,39 +135,44 @@ func (monitor *HealthCheckMonitor) checkWorker() {
 	}
 }
 
-func (monitor *HealthCheckMonitor) doCheck(ctx context.Context) bool {
+func (monitor *HealthCheckMonitor) doCheck(ctx context.Context) error {
 	switch monitor.checkType {
 	case "tcp":
 		return monitor.doTcpCheck(ctx)
 	case "http":
 		return monitor.doHttpCheck(ctx)
 	default:
-		return false
+		return ErrHealthCheckType
 	}
 }
 
-func (monitor *HealthCheckMonitor) doTcpCheck(ctx context.Context) bool {
+func (monitor *HealthCheckMonitor) doTcpCheck(ctx context.Context) error {
+	// if tcp address is not specified, always return nil
+	if monitor.addr == "" {
+		return nil
+	}
+
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", monitor.addr)
 	if err != nil {
-		return false
+		return err
 	}
 	conn.Close()
-	return true
+	return nil
 }
 
-func (monitor *HealthCheckMonitor) doHttpCheck(ctx context.Context) bool {
+func (monitor *HealthCheckMonitor) doHttpCheck(ctx context.Context) error {
 	req, err := http.NewRequest("GET", monitor.url, nil)
 	if err != nil {
-		return false
+		return err
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return false
+		return err
 	}
 
 	if resp.StatusCode/100 != 2 {
-		return false
+		return fmt.Errorf("do http health check, StatusCode is [%d] not 2xx", resp.StatusCode)
 	}
-	return true
+	return nil
 }

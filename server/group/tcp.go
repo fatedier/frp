@@ -114,8 +114,12 @@ func (tg *TcpGroup) Listen(proxyName string, group string, groupKey string, addr
 		}
 		go tg.worker()
 	} else {
-		if tg.group != group || tg.addr != addr || tg.port != port {
+		if tg.group != group || tg.addr != addr {
 			err = ErrGroupParamsInvalid
+			return
+		}
+		if tg.port != port {
+			err = ErrGroupDifferentPort
 			return
 		}
 		if tg.groupKey != groupKey {

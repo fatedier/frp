@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
@@ -37,7 +38,8 @@ type Control struct {
 	runId string
 
 	// manage all proxies
-	pm *ProxyManager
+	pxyCfgs map[string]config.ProxyConf
+	pm      *proxy.ProxyManager
 
 	// manage all visitors
 	vm *VisitorManager
@@ -76,6 +78,7 @@ func NewControl(runId string, conn frpNet.Conn, session *fmux.Session, pxyCfgs m
 		runId:              runId,
 		conn:               conn,
 		session:            session,
+		pxyCfgs:            pxyCfgs,
 		sendCh:             make(chan msg.Message, 100),
 		readCh:             make(chan msg.Message, 100),
 		closedCh:           make(chan struct{}),
@@ -85,8 +88,8 @@ func NewControl(runId string, conn frpNet.Conn, session *fmux.Session, pxyCfgs m
 		msgHandlerShutdown: shutdown.New(),
 		Logger:             log.NewPrefixLogger(""),
 	}
-	ctl.pm = NewProxyManager(ctl.sendCh, "")
-	ctl.pm.Reload(pxyCfgs, false)
+	ctl.pm = proxy.NewProxyManager(ctl.sendCh, runId)
+
 	ctl.vm = NewVisitorManager(ctl)
 	ctl.vm.Reload(visitorCfgs)
 	return ctl
@@ -95,10 +98,10 @@ func NewControl(runId string, conn frpNet.Conn, session *fmux.Session, pxyCfgs m
 func (ctl *Control) Run() {
 	go ctl.worker()
 
-	// start all local visitors and send NewProxy message for all configured proxies
-	ctl.pm.Reset(ctl.sendCh, ctl.runId)
-	ctl.pm.CheckAndStartProxy([]string{ProxyStatusNew})
+	// start all proxies
+	ctl.pm.Reload(ctl.pxyCfgs)
 
+	// start all visitors
 	go ctl.vm.Run()
 	return
 }
@@ -142,7 +145,7 @@ func (ctl *Control) HandleNewProxyResp(inMsg *msg.NewProxyResp) {
 }
 
 func (ctl *Control) Close() error {
-	ctl.pm.CloseProxies()
+	ctl.conn.Close()
 	return nil
 }
 
@@ -275,33 +278,26 @@ func (ctl *Control) worker() {
 	go ctl.reader()
 	go ctl.writer()
 
-	checkInterval := 60 * time.Second
-	checkProxyTicker := time.NewTicker(checkInterval)
+	select {
+	case <-ctl.closedCh:
+		// close related channels and wait until other goroutines done
+		close(ctl.readCh)
+		ctl.readerShutdown.WaitDone()
+		ctl.msgHandlerShutdown.WaitDone()
 
-	for {
-		select {
-		case <-checkProxyTicker.C:
-			// check which proxy registered failed and reregister it to server
-			ctl.pm.CheckAndStartProxy([]string{ProxyStatusStartErr, ProxyStatusClosed})
-		case <-ctl.closedCh:
-			// close related channels and wait until other goroutines done
-			close(ctl.readCh)
-			ctl.readerShutdown.WaitDone()
-			ctl.msgHandlerShutdown.WaitDone()
+		close(ctl.sendCh)
+		ctl.writerShutdown.WaitDone()
 
-			close(ctl.sendCh)
-			ctl.writerShutdown.WaitDone()
+		ctl.pm.Close()
+		ctl.vm.Close()
 
-			ctl.pm.CloseProxies()
-
-			close(ctl.closedDoneCh)
-			return
-		}
+		close(ctl.closedDoneCh)
+		return
 	}
 }
 
 func (ctl *Control) ReloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) error {
 	ctl.vm.Reload(visitorCfgs)
-	err := ctl.pm.Reload(pxyCfgs, true)
-	return err
+	ctl.pm.Reload(pxyCfgs)
+	return nil
 }
