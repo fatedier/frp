@@ -518,7 +518,7 @@ tcp_mux = false
 目前只支持 tcp 类型的 proxy。
 
 ```ini
-# fprc.ini
+# frpc.ini
 [test1]
 type = tcp
 local_port = 8080
@@ -619,7 +619,7 @@ local_port = 80
 subdomain = test
 ```
 
-frps 和 fprc 都启动成功后，通过 `test.frps.com` 就可以访问到内网的 web 服务。
+frps 和 frpc 都启动成功后，通过 `test.frps.com` 就可以访问到内网的 web 服务。
 
 需要注意的是如果 frps 配置了 `subdomain_host`，则 `custom_domains` 中不能是属于 `subdomain_host` 的子域名或者泛域名。
 
