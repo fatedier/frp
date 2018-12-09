@@ -84,7 +84,8 @@ func TestReload(t *testing.T) {
 
 	frpcCfgPath, err := config.GenerateConfigFile(consts.FRPC_NORMAL_CONFIG, FRPC_RELOAD_CONF_1)
 	if assert.NoError(err) {
-		defer os.Remove(frpcCfgPath)
+		rmFile1 := frpcCfgPath
+		defer os.Remove(rmFile1)
 	}
 
 	frpsProcess := util.NewProcess(consts.FRPS_BIN_PATH, []string{"-c", frpsCfgPath})
@@ -120,7 +121,10 @@ func TestReload(t *testing.T) {
 
 	// reload frpc config
 	frpcCfgPath, err = config.GenerateConfigFile(consts.FRPC_NORMAL_CONFIG, FRPC_RELOAD_CONF_2)
-	assert.NoError(err)
+	if assert.NoError(err) {
+		rmFile2 := frpcCfgPath
+		defer os.Remove(rmFile2)
+	}
 	err = util.ReloadConf("127.0.0.1:21000", "abc", "abc")
 	assert.NoError(err)
 

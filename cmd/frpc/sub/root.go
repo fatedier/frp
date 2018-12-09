@@ -166,6 +166,11 @@ func parseClientCommonCfgFromCmd() (err error) {
 	g.GlbClientCfg.LogLevel = logLevel
 	g.GlbClientCfg.LogFile = logFile
 	g.GlbClientCfg.LogMaxDays = int64(logMaxDays)
+	if logFile == "console" {
+		g.GlbClientCfg.LogWay = "console"
+	} else {
+		g.GlbClientCfg.LogWay = "file"
+	}
 	return nil
 }
 

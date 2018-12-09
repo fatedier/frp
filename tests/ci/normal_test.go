@@ -22,13 +22,21 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	go mock.StartTcpEchoServer(consts.TEST_TCP_PORT)
-	go mock.StartTcpEchoServer2(consts.TEST_TCP2_PORT)
+	var err error
+	tcpEcho1 := mock.NewEchoServer(consts.TEST_TCP_PORT, 1, "")
+	tcpEcho2 := mock.NewEchoServer(consts.TEST_TCP2_PORT, 2, "")
+
+	if err = tcpEcho1.Start(); err != nil {
+		panic(err)
+	}
+	if err = tcpEcho2.Start(); err != nil {
+		panic(err)
+	}
+
 	go mock.StartUdpEchoServer(consts.TEST_UDP_PORT)
 	go mock.StartUnixDomainServer(consts.TEST_UNIX_DOMAIN_ADDR)
 	go mock.StartHttpServer(consts.TEST_HTTP_PORT)
 
-	var err error
 	p1 := util.NewProcess(consts.FRPS_BIN_PATH, []string{"-c", "./auto_test_frps.ini"})
 	if err = p1.Start(); err != nil {
 		panic(err)

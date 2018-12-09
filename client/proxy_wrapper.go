@@ -10,6 +10,8 @@ import (
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
+
+	"github.com/fatedier/golib/errors"
 )
 
 const (
@@ -55,6 +57,7 @@ type ProxyWrapper struct {
 	lastSendStartMsg time.Time
 	lastStartErr     time.Time
 	closeCh          chan struct{}
+	healthNotifyCh   chan struct{}
 	mu               sync.RWMutex
 
 	log.Logger
@@ -69,9 +72,10 @@ func NewProxyWrapper(cfg config.ProxyConf, eventHandler EventHandler, logPrefix 
 			Status: ProxyStatusNew,
 			Cfg:    cfg,
 		},
-		closeCh: make(chan struct{}),
-		handler: eventHandler,
-		Logger:  log.NewPrefixLogger(logPrefix),
+		closeCh:        make(chan struct{}),
+		healthNotifyCh: make(chan struct{}),
+		handler:        eventHandler,
+		Logger:         log.NewPrefixLogger(logPrefix),
 	}
 	pw.AddLogPrefix(pw.Name)
 
@@ -125,6 +129,8 @@ func (pw *ProxyWrapper) Start() {
 func (pw *ProxyWrapper) Stop() {
 	pw.mu.Lock()
 	defer pw.mu.Unlock()
+	close(pw.closeCh)
+	close(pw.healthNotifyCh)
 	pw.pxy.Close()
 	if pw.monitor != nil {
 		pw.monitor.Stop()
@@ -139,6 +145,10 @@ func (pw *ProxyWrapper) Stop() {
 }
 
 func (pw *ProxyWrapper) checkWorker() {
+	if pw.monitor != nil {
+		// let monitor do check request first
+		time.Sleep(500 * time.Millisecond)
+	}
 	for {
 		// check proxy status
 		now := time.Now()
@@ -178,17 +188,30 @@ func (pw *ProxyWrapper) checkWorker() {
 		case <-pw.closeCh:
 			return
 		case <-time.After(statusCheckInterval):
+		case <-pw.healthNotifyCh:
 		}
 	}
 }
 
 func (pw *ProxyWrapper) statusNormalCallback() {
 	atomic.StoreUint32(&pw.health, 0)
+	errors.PanicToError(func() {
+		select {
+		case pw.healthNotifyCh <- struct{}{}:
+		default:
+		}
+	})
 	pw.Info("health check success")
 }
 
 func (pw *ProxyWrapper) statusFailedCallback() {
 	atomic.StoreUint32(&pw.health, 1)
+	errors.PanicToError(func() {
+		select {
+		case pw.healthNotifyCh <- struct{}{}:
+		default:
+		}
+	})
 	pw.Info("health check failed")
 }
 
