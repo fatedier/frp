@@ -25,6 +25,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [P2P Mode](#p2p-mode)
 * [Features](#features)
     * [Configuration File](#configuration-file)
+    * [Configuration file template](#configuration-file-template)
     * [Dashboard](#dashboard)
     * [Authentication](#authentication)
     * [Encryption and Compression](#encryption-and-compression)
@@ -344,6 +345,34 @@ You can find features which this document not metioned from full example configu
 [frps full configuration file](./conf/frps_full.ini)
 
 [frpc full configuration file](./conf/frpc_full.ini)
+
+### Configuration file template
+
+Configuration file tempalte can be rendered using os environments. Template uses Go's standard format.
+
+```ini
+# frpc.ini
+[common]
+server_addr = {{ .Envs.FRP_SERVER_ADDR }}
+server_port = 7000
+
+[ssh]
+type = tcp
+local_ip = 127.0.0.1
+local_port = 22
+remote_port = {{ .Envs.FRP_SSH_REMOTE_PORT }}
+```
+
+Start frpc program:
+
+```
+export FRP_SERVER_ADDR="x.x.x.x"
+export FRP_SSH_REMOTE_PORT="6000"
+./frpc -c ./frpc.ini
+```
+
+frpc will auto render configuration file template using os environments.
+All environments has prefix `.Envs`.
 
 ### Dashboard
 
