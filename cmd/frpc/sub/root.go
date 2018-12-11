@@ -68,11 +68,15 @@ var (
 	serverName        string
 	bindAddr          string
 	bindPort          int
+
+	kcpDoneCh chan struct{}
 )
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "", "c", "./frpc.ini", "config file of frpc")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
+
+	kcpDoneCh = make(chan struct{})
 }
 
 var rootCmd = &cobra.Command{
@@ -106,7 +110,7 @@ func handleSignal(svr *client.Service) {
 	<-ch
 	svr.Close()
 	time.Sleep(250 * time.Millisecond)
-	os.Exit(0)
+	close(kcpDoneCh)
 }
 
 func parseClientCommonCfg(fileType int, content string) (err error) {
@@ -209,5 +213,8 @@ func startService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]co
 	}
 
 	err = svr.Run()
+	if g.GlbClientCfg.Protocol == "kcp" {
+		<-kcpDoneCh
+	}
 	return
 }

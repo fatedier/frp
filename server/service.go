@@ -290,6 +290,7 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 
 			if g.GlbServerCfg.TcpMux {
 				fmuxCfg := fmux.DefaultConfig()
+				fmuxCfg.KeepAliveInterval = 20 * time.Second
 				fmuxCfg.LogOutput = ioutil.Discard
 				session, err := fmux.Server(frpConn, fmuxCfg)
 				if err != nil {
