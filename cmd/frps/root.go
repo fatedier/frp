@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -100,7 +99,13 @@ var rootCmd = &cobra.Command{
 
 		var err error
 		if cfgFile != "" {
-			err = parseServerCommonCfg(CfgFileTypeIni, cfgFile)
+			var content string
+			content, err = config.GetRenderedConfFromFile(cfgFile)
+			if err != nil {
+				return err
+			}
+			g.GlbServerCfg.CfgFile = cfgFile
+			err = parseServerCommonCfg(CfgFileTypeIni, content)
 		} else {
 			err = parseServerCommonCfg(CfgFileTypeCmd, "")
 		}
@@ -123,17 +128,15 @@ func Execute() {
 	}
 }
 
-func parseServerCommonCfg(fileType int, filePath string) (err error) {
+func parseServerCommonCfg(fileType int, content string) (err error) {
 	if fileType == CfgFileTypeIni {
-		err = parseServerCommonCfgFromIni(filePath)
+		err = parseServerCommonCfgFromIni(content)
 	} else if fileType == CfgFileTypeCmd {
 		err = parseServerCommonCfgFromCmd()
 	}
 	if err != nil {
 		return
 	}
-
-	g.GlbServerCfg.CfgFile = filePath
 
 	err = g.GlbServerCfg.ServerCommonConf.Check()
 	if err != nil {
@@ -144,13 +147,7 @@ func parseServerCommonCfg(fileType int, filePath string) (err error) {
 	return
 }
 
-func parseServerCommonCfgFromIni(filePath string) (err error) {
-	b, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return err
-	}
-	content := string(b)
-
+func parseServerCommonCfgFromIni(content string) (err error) {
 	cfg, err := config.UnmarshalServerConfFromIni(&g.GlbServerCfg.ServerCommonConf, content)
 	if err != nil {
 		return err
