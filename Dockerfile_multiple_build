@@ -1,4 +1,4 @@
-FROM golang:1.8 as frpBuild
+FROM golang:1.10 as frpBuild
 
 COPY . /go/src/github.com/fatedier/frp
 

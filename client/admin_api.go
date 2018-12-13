@@ -24,6 +24,7 @@ import (
 
 	ini "github.com/vaughan0/go-ini"
 
+	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/utils/log"
@@ -77,7 +78,7 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pxyCfgs, visitorCfgs, err := config.LoadProxyConfFromIni(g.GlbClientCfg.User, conf, newCommonCfg.Start)
+	pxyCfgs, visitorCfgs, err := config.LoadAllConfFromIni(g.GlbClientCfg.User, conf, newCommonCfg.Start)
 	if err != nil {
 		res.Code = 3
 		res.Msg = err.Error()
@@ -85,7 +86,7 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = svr.ctl.reloadConf(pxyCfgs, visitorCfgs)
+	err = svr.ctl.ReloadConf(pxyCfgs, visitorCfgs)
 	if err != nil {
 		res.Code = 4
 		res.Msg = err.Error()
@@ -121,7 +122,7 @@ func (a ByProxyStatusResp) Len() int           { return len(a) }
 func (a ByProxyStatusResp) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByProxyStatusResp) Less(i, j int) bool { return strings.Compare(a[i].Name, a[j].Name) < 0 }
 
-func NewProxyStatusResp(status *ProxyStatus) ProxyStatusResp {
+func NewProxyStatusResp(status *proxy.ProxyStatus) ProxyStatusResp {
 	psr := ProxyStatusResp{
 		Name:   status.Name,
 		Type:   status.Type,

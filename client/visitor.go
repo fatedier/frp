@@ -44,18 +44,18 @@ type Visitor interface {
 	log.Logger
 }
 
-func NewVisitor(ctl *Control, pxyConf config.ProxyConf) (visitor Visitor) {
+func NewVisitor(ctl *Control, cfg config.VisitorConf) (visitor Visitor) {
 	baseVisitor := BaseVisitor{
 		ctl:    ctl,
-		Logger: log.NewPrefixLogger(pxyConf.GetBaseInfo().ProxyName),
+		Logger: log.NewPrefixLogger(cfg.GetBaseInfo().ProxyName),
 	}
-	switch cfg := pxyConf.(type) {
-	case *config.StcpProxyConf:
+	switch cfg := cfg.(type) {
+	case *config.StcpVisitorConf:
 		visitor = &StcpVisitor{
 			BaseVisitor: baseVisitor,
 			cfg:         cfg,
 		}
-	case *config.XtcpProxyConf:
+	case *config.XtcpVisitorConf:
 		visitor = &XtcpVisitor{
 			BaseVisitor: baseVisitor,
 			cfg:         cfg,
@@ -75,7 +75,7 @@ type BaseVisitor struct {
 type StcpVisitor struct {
 	BaseVisitor
 
-	cfg *config.StcpProxyConf
+	cfg *config.StcpVisitorConf
 }
 
 func (sv *StcpVisitor) Run() (err error) {
@@ -162,7 +162,7 @@ func (sv *StcpVisitor) handleConn(userConn frpNet.Conn) {
 type XtcpVisitor struct {
 	BaseVisitor
 
-	cfg *config.XtcpProxyConf
+	cfg *config.XtcpVisitorConf
 }
 
 func (sv *XtcpVisitor) Run() (err error) {
@@ -202,7 +202,16 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 
 	raddr, err := net.ResolveUDPAddr("udp",
 		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerUdpPort))
+	if err != nil {
+		sv.Error("resolve server UDP addr error")
+		return
+	}
+
 	visitorConn, err := net.DialUDP("udp", nil, raddr)
+	if err != nil {
+		sv.Warn("dial server udp addr error: %v", err)
+		return
+	}
 	defer visitorConn.Close()
 
 	now := time.Now().Unix()

@@ -91,7 +91,9 @@ func NewProxyConfFromIni(prefix string, name string, section ini.Section) (cfg P
 	if err = cfg.UnmarshalFromIni(prefix, name, section); err != nil {
 		return
 	}
-	err = cfg.CheckForCli()
+	if err = cfg.CheckForCli(); err != nil {
+		return
+	}
 	return
 }
 
@@ -104,6 +106,9 @@ type BaseProxyConf struct {
 	UseCompression bool   `json:"use_compression"`
 	Group          string `json:"group"`
 	GroupKey       string `json:"group_key"`
+
+	LocalSvrConf
+	HealthCheckConf // only used for client
 }
 
 func (cfg *BaseProxyConf) GetBaseInfo() *BaseProxyConf {
@@ -117,6 +122,12 @@ func (cfg *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
 		cfg.UseCompression != cmp.UseCompression ||
 		cfg.Group != cmp.Group ||
 		cfg.GroupKey != cmp.GroupKey {
+		return false
+	}
+	if !cfg.LocalSvrConf.compare(&cmp.LocalSvrConf) {
+		return false
+	}
+	if !cfg.HealthCheckConf.compare(&cmp.HealthCheckConf) {
 		return false
 	}
 	return true
@@ -151,6 +162,25 @@ func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section i
 
 	cfg.Group = section["group"]
 	cfg.GroupKey = section["group_key"]
+
+	if err := cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return err
+	}
+
+	if err := cfg.HealthCheckConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return err
+	}
+
+	if cfg.HealthCheckType == "tcp" && cfg.Plugin == "" {
+		cfg.HealthCheckAddr = cfg.LocalIp + fmt.Sprintf(":%d", cfg.LocalPort)
+	}
+	if cfg.HealthCheckType == "http" && cfg.Plugin == "" && cfg.HealthCheckUrl != "" {
+		s := fmt.Sprintf("http://%s:%d", cfg.LocalIp, cfg.LocalPort)
+		if !strings.HasPrefix(cfg.HealthCheckUrl, "/") {
+			s += "/"
+		}
+		cfg.HealthCheckUrl = s + cfg.HealthCheckUrl
+	}
 	return nil
 }
 
@@ -161,6 +191,16 @@ func (cfg *BaseProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.UseCompression = cfg.UseCompression
 	pMsg.Group = cfg.Group
 	pMsg.GroupKey = cfg.GroupKey
+}
+
+func (cfg *BaseProxyConf) checkForCli() (err error) {
+	if err = cfg.LocalSvrConf.checkForCli(); err != nil {
+		return
+	}
+	if err = cfg.HealthCheckConf.checkForCli(); err != nil {
+		return
+	}
+	return nil
 }
 
 // Bind info
@@ -335,12 +375,83 @@ func (cfg *LocalSvrConf) UnmarshalFromIni(prefix string, name string, section in
 	return
 }
 
+func (cfg *LocalSvrConf) checkForCli() (err error) {
+	if cfg.Plugin == "" {
+		if cfg.LocalIp == "" {
+			err = fmt.Errorf("local ip or plugin is required")
+			return
+		}
+		if cfg.LocalPort <= 0 {
+			err = fmt.Errorf("error local_port")
+			return
+		}
+	}
+	return
+}
+
+// Health check info
+type HealthCheckConf struct {
+	HealthCheckType      string `json:"health_check_type"` // tcp | http
+	HealthCheckTimeoutS  int    `json:"health_check_timeout_s"`
+	HealthCheckMaxFailed int    `json:"health_check_max_failed"`
+	HealthCheckIntervalS int    `json:"health_check_interval_s"`
+	HealthCheckUrl       string `json:"health_check_url"`
+
+	// local_ip + local_port
+	HealthCheckAddr string `json:"-"`
+}
+
+func (cfg *HealthCheckConf) compare(cmp *HealthCheckConf) bool {
+	if cfg.HealthCheckType != cmp.HealthCheckType ||
+		cfg.HealthCheckTimeoutS != cmp.HealthCheckTimeoutS ||
+		cfg.HealthCheckMaxFailed != cmp.HealthCheckMaxFailed ||
+		cfg.HealthCheckIntervalS != cmp.HealthCheckIntervalS ||
+		cfg.HealthCheckUrl != cmp.HealthCheckUrl {
+		return false
+	}
+	return true
+}
+
+func (cfg *HealthCheckConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
+	cfg.HealthCheckType = section["health_check_type"]
+	cfg.HealthCheckUrl = section["health_check_url"]
+
+	if tmpStr, ok := section["health_check_timeout_s"]; ok {
+		if cfg.HealthCheckTimeoutS, err = strconv.Atoi(tmpStr); err != nil {
+			return fmt.Errorf("Parse conf error: proxy [%s] health_check_timeout_s error", name)
+		}
+	}
+
+	if tmpStr, ok := section["health_check_max_failed"]; ok {
+		if cfg.HealthCheckMaxFailed, err = strconv.Atoi(tmpStr); err != nil {
+			return fmt.Errorf("Parse conf error: proxy [%s] health_check_max_failed error", name)
+		}
+	}
+
+	if tmpStr, ok := section["health_check_interval_s"]; ok {
+		if cfg.HealthCheckIntervalS, err = strconv.Atoi(tmpStr); err != nil {
+			return fmt.Errorf("Parse conf error: proxy [%s] health_check_interval_s error", name)
+		}
+	}
+	return
+}
+
+func (cfg *HealthCheckConf) checkForCli() error {
+	if cfg.HealthCheckType != "" && cfg.HealthCheckType != "tcp" && cfg.HealthCheckType != "http" {
+		return fmt.Errorf("unsupport health check type")
+	}
+	if cfg.HealthCheckType != "" {
+		if cfg.HealthCheckType == "http" && cfg.HealthCheckUrl == "" {
+			return fmt.Errorf("health_check_url is required for health check type 'http'")
+		}
+	}
+	return nil
+}
+
 // TCP
 type TcpProxyConf struct {
 	BaseProxyConf
 	BindInfoConf
-
-	LocalSvrConf
 }
 
 func (cfg *TcpProxyConf) Compare(cmp ProxyConf) bool {
@@ -350,8 +461,7 @@ func (cfg *TcpProxyConf) Compare(cmp ProxyConf) bool {
 	}
 
 	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
-		!cfg.BindInfoConf.compare(&cmpConf.BindInfoConf) ||
-		!cfg.LocalSvrConf.compare(&cmpConf.LocalSvrConf) {
+		!cfg.BindInfoConf.compare(&cmpConf.BindInfoConf) {
 		return false
 	}
 	return true
@@ -369,9 +479,6 @@ func (cfg *TcpProxyConf) UnmarshalFromIni(prefix string, name string, section in
 	if err = cfg.BindInfoConf.UnmarshalFromIni(prefix, name, section); err != nil {
 		return
 	}
-	if err = cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
-		return
-	}
 	return
 }
 
@@ -380,7 +487,12 @@ func (cfg *TcpProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 	cfg.BindInfoConf.MarshalToMsg(pMsg)
 }
 
-func (cfg *TcpProxyConf) CheckForCli() error { return nil }
+func (cfg *TcpProxyConf) CheckForCli() (err error) {
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
+		return err
+	}
+	return
+}
 
 func (cfg *TcpProxyConf) CheckForSvr() error { return nil }
 
@@ -388,8 +500,6 @@ func (cfg *TcpProxyConf) CheckForSvr() error { return nil }
 type UdpProxyConf struct {
 	BaseProxyConf
 	BindInfoConf
-
-	LocalSvrConf
 }
 
 func (cfg *UdpProxyConf) Compare(cmp ProxyConf) bool {
@@ -399,8 +509,7 @@ func (cfg *UdpProxyConf) Compare(cmp ProxyConf) bool {
 	}
 
 	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
-		!cfg.BindInfoConf.compare(&cmpConf.BindInfoConf) ||
-		!cfg.LocalSvrConf.compare(&cmpConf.LocalSvrConf) {
+		!cfg.BindInfoConf.compare(&cmpConf.BindInfoConf) {
 		return false
 	}
 	return true
@@ -418,9 +527,6 @@ func (cfg *UdpProxyConf) UnmarshalFromIni(prefix string, name string, section in
 	if err = cfg.BindInfoConf.UnmarshalFromIni(prefix, name, section); err != nil {
 		return
 	}
-	if err = cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
-		return
-	}
 	return
 }
 
@@ -429,7 +535,12 @@ func (cfg *UdpProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 	cfg.BindInfoConf.MarshalToMsg(pMsg)
 }
 
-func (cfg *UdpProxyConf) CheckForCli() error { return nil }
+func (cfg *UdpProxyConf) CheckForCli() (err error) {
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
+		return
+	}
+	return
+}
 
 func (cfg *UdpProxyConf) CheckForSvr() error { return nil }
 
@@ -437,8 +548,6 @@ func (cfg *UdpProxyConf) CheckForSvr() error { return nil }
 type HttpProxyConf struct {
 	BaseProxyConf
 	DomainConf
-
-	LocalSvrConf
 
 	Locations         []string          `json:"locations"`
 	HttpUser          string            `json:"http_user"`
@@ -455,7 +564,6 @@ func (cfg *HttpProxyConf) Compare(cmp ProxyConf) bool {
 
 	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
 		!cfg.DomainConf.compare(&cmpConf.DomainConf) ||
-		!cfg.LocalSvrConf.compare(&cmpConf.LocalSvrConf) ||
 		strings.Join(cfg.Locations, " ") != strings.Join(cmpConf.Locations, " ") ||
 		cfg.HostHeaderRewrite != cmpConf.HostHeaderRewrite ||
 		cfg.HttpUser != cmpConf.HttpUser ||
@@ -494,9 +602,6 @@ func (cfg *HttpProxyConf) UnmarshalFromIni(prefix string, name string, section i
 	if err = cfg.DomainConf.UnmarshalFromIni(prefix, name, section); err != nil {
 		return
 	}
-	if err = cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
-		return
-	}
 
 	var (
 		tmpStr string
@@ -533,6 +638,9 @@ func (cfg *HttpProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 }
 
 func (cfg *HttpProxyConf) CheckForCli() (err error) {
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
+		return
+	}
 	if err = cfg.DomainConf.checkForCli(); err != nil {
 		return
 	}
@@ -554,8 +662,6 @@ func (cfg *HttpProxyConf) CheckForSvr() (err error) {
 type HttpsProxyConf struct {
 	BaseProxyConf
 	DomainConf
-
-	LocalSvrConf
 }
 
 func (cfg *HttpsProxyConf) Compare(cmp ProxyConf) bool {
@@ -565,8 +671,7 @@ func (cfg *HttpsProxyConf) Compare(cmp ProxyConf) bool {
 	}
 
 	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
-		!cfg.DomainConf.compare(&cmpConf.DomainConf) ||
-		!cfg.LocalSvrConf.compare(&cmpConf.LocalSvrConf) {
+		!cfg.DomainConf.compare(&cmpConf.DomainConf) {
 		return false
 	}
 	return true
@@ -584,9 +689,6 @@ func (cfg *HttpsProxyConf) UnmarshalFromIni(prefix string, name string, section 
 	if err = cfg.DomainConf.UnmarshalFromIni(prefix, name, section); err != nil {
 		return
 	}
-	if err = cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
-		return
-	}
 	return
 }
 
@@ -596,6 +698,9 @@ func (cfg *HttpsProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 }
 
 func (cfg *HttpsProxyConf) CheckForCli() (err error) {
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
+		return
+	}
 	if err = cfg.DomainConf.checkForCli(); err != nil {
 		return
 	}
@@ -619,14 +724,6 @@ type StcpProxyConf struct {
 
 	Role string `json:"role"`
 	Sk   string `json:"sk"`
-
-	// used in role server
-	LocalSvrConf
-
-	// used in role visitor
-	ServerName string `json:"server_name"`
-	BindAddr   string `json:"bind_addr"`
-	BindPort   int    `json:"bind_port"`
 }
 
 func (cfg *StcpProxyConf) Compare(cmp ProxyConf) bool {
@@ -636,12 +733,8 @@ func (cfg *StcpProxyConf) Compare(cmp ProxyConf) bool {
 	}
 
 	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
-		!cfg.LocalSvrConf.compare(&cmpConf.LocalSvrConf) ||
 		cfg.Role != cmpConf.Role ||
-		cfg.Sk != cmpConf.Sk ||
-		cfg.ServerName != cmpConf.ServerName ||
-		cfg.BindAddr != cmpConf.BindAddr ||
-		cfg.BindPort != cmpConf.BindPort {
+		cfg.Sk != cmpConf.Sk {
 		return false
 	}
 	return true
@@ -658,35 +751,15 @@ func (cfg *StcpProxyConf) UnmarshalFromIni(prefix string, name string, section i
 		return
 	}
 
-	tmpStr := section["role"]
-	if tmpStr == "" {
-		tmpStr = "server"
-	}
-	if tmpStr == "server" || tmpStr == "visitor" {
-		cfg.Role = tmpStr
-	} else {
-		return fmt.Errorf("Parse conf error: proxy [%s] incorrect role [%s]", name, tmpStr)
+	cfg.Role = section["role"]
+	if cfg.Role != "server" {
+		return fmt.Errorf("Parse conf error: proxy [%s] incorrect role [%s]", name, cfg.Role)
 	}
 
 	cfg.Sk = section["sk"]
 
-	if tmpStr == "visitor" {
-		cfg.ServerName = prefix + section["server_name"]
-		if cfg.BindAddr = section["bind_addr"]; cfg.BindAddr == "" {
-			cfg.BindAddr = "127.0.0.1"
-		}
-
-		if tmpStr, ok := section["bind_port"]; ok {
-			if cfg.BindPort, err = strconv.Atoi(tmpStr); err != nil {
-				return fmt.Errorf("Parse conf error: proxy [%s] bind_port error", name)
-			}
-		} else {
-			return fmt.Errorf("Parse conf error: proxy [%s] bind_port not found", name)
-		}
-	} else {
-		if err = cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
-			return
-		}
+	if err = cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return
 	}
 	return
 }
@@ -697,19 +770,12 @@ func (cfg *StcpProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 }
 
 func (cfg *StcpProxyConf) CheckForCli() (err error) {
-	if cfg.Role != "server" && cfg.Role != "visitor" {
-		err = fmt.Errorf("role should be 'server' or 'visitor'")
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
 		return
 	}
-	if cfg.Role == "visitor" {
-		if cfg.BindAddr == "" {
-			err = fmt.Errorf("bind_addr shouldn't be empty")
-			return
-		}
-		if cfg.BindPort == 0 {
-			err = fmt.Errorf("bind_port should be set")
-			return
-		}
+	if cfg.Role != "server" {
+		err = fmt.Errorf("role should be 'server'")
+		return
 	}
 	return
 }
@@ -724,14 +790,6 @@ type XtcpProxyConf struct {
 
 	Role string `json:"role"`
 	Sk   string `json:"sk"`
-
-	// used in role server
-	LocalSvrConf
-
-	// used in role visitor
-	ServerName string `json:"server_name"`
-	BindAddr   string `json:"bind_addr"`
-	BindPort   int    `json:"bind_port"`
 }
 
 func (cfg *XtcpProxyConf) Compare(cmp ProxyConf) bool {
@@ -743,10 +801,7 @@ func (cfg *XtcpProxyConf) Compare(cmp ProxyConf) bool {
 	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
 		!cfg.LocalSvrConf.compare(&cmpConf.LocalSvrConf) ||
 		cfg.Role != cmpConf.Role ||
-		cfg.Sk != cmpConf.Sk ||
-		cfg.ServerName != cmpConf.ServerName ||
-		cfg.BindAddr != cmpConf.BindAddr ||
-		cfg.BindPort != cmpConf.BindPort {
+		cfg.Sk != cmpConf.Sk {
 		return false
 	}
 	return true
@@ -763,35 +818,15 @@ func (cfg *XtcpProxyConf) UnmarshalFromIni(prefix string, name string, section i
 		return
 	}
 
-	tmpStr := section["role"]
-	if tmpStr == "" {
-		tmpStr = "server"
-	}
-	if tmpStr == "server" || tmpStr == "visitor" {
-		cfg.Role = tmpStr
-	} else {
-		return fmt.Errorf("Parse conf error: proxy [%s] incorrect role [%s]", name, tmpStr)
+	cfg.Role = section["role"]
+	if cfg.Role != "server" {
+		return fmt.Errorf("Parse conf error: proxy [%s] incorrect role [%s]", name, cfg.Role)
 	}
 
 	cfg.Sk = section["sk"]
 
-	if tmpStr == "visitor" {
-		cfg.ServerName = prefix + section["server_name"]
-		if cfg.BindAddr = section["bind_addr"]; cfg.BindAddr == "" {
-			cfg.BindAddr = "127.0.0.1"
-		}
-
-		if tmpStr, ok := section["bind_port"]; ok {
-			if cfg.BindPort, err = strconv.Atoi(tmpStr); err != nil {
-				return fmt.Errorf("Parse conf error: proxy [%s] bind_port error", name)
-			}
-		} else {
-			return fmt.Errorf("Parse conf error: proxy [%s] bind_port not found", name)
-		}
-	} else {
-		if err = cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
-			return
-		}
+	if err = cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return
 	}
 	return
 }
@@ -802,19 +837,12 @@ func (cfg *XtcpProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 }
 
 func (cfg *XtcpProxyConf) CheckForCli() (err error) {
-	if cfg.Role != "server" && cfg.Role != "visitor" {
-		err = fmt.Errorf("role should be 'server' or 'visitor'")
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
 		return
 	}
-	if cfg.Role == "visitor" {
-		if cfg.BindAddr == "" {
-			err = fmt.Errorf("bind_addr shouldn't be empty")
-			return
-		}
-		if cfg.BindPort == 0 {
-			err = fmt.Errorf("bind_port should be set")
-			return
-		}
+	if cfg.Role != "server" {
+		err = fmt.Errorf("role should be 'server'")
+		return
 	}
 	return
 }
@@ -857,8 +885,8 @@ func ParseRangeSection(name string, section ini.Section) (sections map[string]in
 
 // if len(startProxy) is 0, start all
 // otherwise just start proxies in startProxy map
-func LoadProxyConfFromIni(prefix string, conf ini.File, startProxy map[string]struct{}) (
-	proxyConfs map[string]ProxyConf, visitorConfs map[string]ProxyConf, err error) {
+func LoadAllConfFromIni(prefix string, conf ini.File, startProxy map[string]struct{}) (
+	proxyConfs map[string]ProxyConf, visitorConfs map[string]VisitorConf, err error) {
 
 	if prefix != "" {
 		prefix += "."
@@ -869,7 +897,7 @@ func LoadProxyConfFromIni(prefix string, conf ini.File, startProxy map[string]st
 		startAll = false
 	}
 	proxyConfs = make(map[string]ProxyConf)
-	visitorConfs = make(map[string]ProxyConf)
+	visitorConfs = make(map[string]VisitorConf)
 	for name, section := range conf {
 		if name == "common" {
 			continue
@@ -894,16 +922,27 @@ func LoadProxyConfFromIni(prefix string, conf ini.File, startProxy map[string]st
 		}
 
 		for subName, subSection := range subSections {
-			cfg, err := NewProxyConfFromIni(prefix, subName, subSection)
-			if err != nil {
-				return proxyConfs, visitorConfs, err
+			if subSection["role"] == "" {
+				subSection["role"] = "server"
 			}
-
 			role := subSection["role"]
-			if role == "visitor" {
+			if role == "server" {
+				cfg, errRet := NewProxyConfFromIni(prefix, subName, subSection)
+				if errRet != nil {
+					err = errRet
+					return
+				}
+				proxyConfs[prefix+subName] = cfg
+			} else if role == "visitor" {
+				cfg, errRet := NewVisitorConfFromIni(prefix, subName, subSection)
+				if errRet != nil {
+					err = errRet
+					return
+				}
 				visitorConfs[prefix+subName] = cfg
 			} else {
-				proxyConfs[prefix+subName] = cfg
+				err = fmt.Errorf("role should be 'server' or 'visitor'")
+				return
 			}
 		}
 	}

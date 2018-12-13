@@ -43,6 +43,7 @@ func DialTcpByProxy(proxyStr string, addr string) (c net.Conn, err error) {
 
 	auth := &ProxyAuth{}
 	if proxyUrl.User != nil {
+		auth.Enable = true
 		auth.Username = proxyUrl.User.Username()
 		auth.Passwd, _ = proxyUrl.User.Password()
 	}

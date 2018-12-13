@@ -1,21 +1,54 @@
-package tests
+package mock
 
 import (
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
 
+	"github.com/fatedier/frp/tests/consts"
+
 	"github.com/gorilla/websocket"
 )
 
+type HttpServer struct {
+	l net.Listener
+
+	port    int
+	handler http.HandlerFunc
+}
+
+func NewHttpServer(port int, handler http.HandlerFunc) *HttpServer {
+	return &HttpServer{
+		port:    port,
+		handler: handler,
+	}
+}
+
+func (hs *HttpServer) Start() error {
+	l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", hs.port))
+	if err != nil {
+		fmt.Printf("http server listen error: %v\n", err)
+		return err
+	}
+	hs.l = l
+
+	go http.Serve(l, http.HandlerFunc(hs.handler))
+	return nil
+}
+
+func (hs *HttpServer) Stop() {
+	hs.l.Close()
+}
+
 var upgrader = websocket.Upgrader{}
 
-func StartHttpServer() {
+func StartHttpServer(port int) {
 	http.HandleFunc("/", handleHttp)
 	http.HandleFunc("/ws", handleWebSocket)
-	http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", TEST_HTTP_PORT), nil)
+	http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", port), nil)
 }
 
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
@@ -58,15 +91,15 @@ func handleHttp(w http.ResponseWriter, r *http.Request) {
 	if strings.Contains(r.Host, "127.0.0.1") || strings.Contains(r.Host, "test2.frp.com") ||
 		strings.Contains(r.Host, "test5.frp.com") || strings.Contains(r.Host, "test6.frp.com") {
 		w.WriteHeader(200)
-		w.Write([]byte(TEST_HTTP_NORMAL_STR))
+		w.Write([]byte(consts.TEST_HTTP_NORMAL_STR))
 	} else if strings.Contains(r.Host, "test3.frp.com") {
 		w.WriteHeader(200)
 		if strings.Contains(r.URL.Path, "foo") {
-			w.Write([]byte(TEST_HTTP_FOO_STR))
+			w.Write([]byte(consts.TEST_HTTP_FOO_STR))
 		} else if strings.Contains(r.URL.Path, "bar") {
-			w.Write([]byte(TEST_HTTP_BAR_STR))
+			w.Write([]byte(consts.TEST_HTTP_BAR_STR))
 		} else {
-			w.Write([]byte(TEST_HTTP_NORMAL_STR))
+			w.Write([]byte(consts.TEST_HTTP_NORMAL_STR))
 		}
 	} else {
 		w.WriteHeader(404)

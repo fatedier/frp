@@ -2,23 +2,29 @@
 
 
 [[projects]]
+  digest = "1:5a91fc342af1f94bce8b760a80d5b709fe53ea10c870a5daf1dc7e9fada8525f"
   name = "github.com/armon/go-socks5"
   packages = ["."]
+  pruneopts = "UT"
   revision = "e75332964ef517daa070d7c38a9466a0d687e0a5"
 
 [[projects]]
+  digest = "1:a2c1d0e43bd3baaa071d1b9ed72c27d78169b2b269f71c105ac4ba34b1be4a39"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
+  pruneopts = "UT"
   revision = "346938d642f2ec3594ed81d874461961cd0faa76"
   version = "v1.1.0"
 
 [[projects]]
+  digest = "1:0f8ca5fa815e8058bfbf5d0e4ad0c2f8334d68cac86e3bfee94b4e3031e9f69f"
   name = "github.com/fatedier/beego"
   packages = ["logs"]
+  pruneopts = "UT"
   revision = "6c6a4f5bd5eb5a39f7e289b8f345b55f75e7e3e8"
 
 [[projects]]
-  branch = "master"
+  digest = "1:edb90bd03be19aa95d375ed6eb5d681538e0a3f7d2a057b69bc2ca6e5217477a"
   name = "github.com/fatedier/golib"
   packages = [
     "control/shutdown",
@@ -28,122 +34,162 @@
     "msg/json",
     "net",
     "net/mux",
-    "pool"
+    "pool",
   ]
-  revision = "280fa74053dee5311c46094f4bdefbf76d3fcbe2"
+  pruneopts = "UT"
+  revision = "ff8cd814b04901d617b7fffaca6fedb81067821d"
 
 [[projects]]
   branch = "frp"
+  digest = "1:6621826f49b587c0d6f868e1c56d2bbbc1d75597347d97419b3b027e8a753bdb"
   name = "github.com/fatedier/kcp-go"
   packages = ["."]
+  pruneopts = "UT"
   revision = "cd167d2f15f451b0f33780ce862fca97adc0331e"
 
 [[projects]]
+  digest = "1:29a5ab9fa9e845fd8e8726f31b187d710afd271ef1eb32085fe3d604b7e06382"
   name = "github.com/golang/snappy"
   packages = ["."]
+  pruneopts = "UT"
   revision = "553a641470496b2327abcac10b36396bd98e45c9"
 
 [[projects]]
+  digest = "1:c79fb010be38a59d657c48c6ba1d003a8aa651fa56b579d959d74573b7dff8e1"
   name = "github.com/gorilla/context"
   packages = ["."]
+  pruneopts = "UT"
   revision = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42"
   version = "v1.1.1"
 
 [[projects]]
+  digest = "1:e73f5b0152105f18bc131fba127d9949305c8693f8a762588a82a48f61756f5f"
   name = "github.com/gorilla/mux"
   packages = ["."]
+  pruneopts = "UT"
   revision = "e3702bed27f0d39777b0b37b664b6280e8ef8fbf"
   version = "v1.6.2"
 
 [[projects]]
+  digest = "1:43dd08a10854b2056e615d1b1d22ac94559d822e1f8b6fcc92c1a1057e85188e"
   name = "github.com/gorilla/websocket"
   packages = ["."]
+  pruneopts = "UT"
   revision = "ea4d1f681babbce9545c9c5f3d5194a789c89f5b"
   version = "v1.2.0"
 
 [[projects]]
+  digest = "1:6074024c54115955afc83ee5064367523bbc55e4eb0e9cf145e43c9c0371918c"
   name = "github.com/hashicorp/yamux"
   packages = ["."]
+  pruneopts = "UT"
   revision = "2658be15c5f05e76244154714161f17e3e77de2e"
 
 [[projects]]
+  digest = "1:870d441fe217b8e689d7949fef6e43efbc787e50f200cb1e70dbca9204a1d6be"
   name = "github.com/inconshreveable/mousetrap"
   packages = ["."]
+  pruneopts = "UT"
   revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
   version = "v1.0"
 
 [[projects]]
+  digest = "1:40e195917a951a8bf867cd05de2a46aaf1806c50cf92eebf4c16f78cd196f747"
   name = "github.com/pkg/errors"
   packages = ["."]
+  pruneopts = "UT"
   revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
   version = "v0.8.0"
 
 [[projects]]
+  digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
+  pruneopts = "UT"
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:bc91590d3e20673d5e33267fc140e7dadddde0b84f2e9030547ba86859d2d13e"
   name = "github.com/rakyll/statik"
   packages = ["fs"]
+  pruneopts = "UT"
   revision = "fd36b3595eb2ec8da4b8153b107f7ea08504899d"
   version = "v0.1.1"
 
 [[projects]]
+  digest = "1:4c01929c0b1665523b469482fc8241a04519bd5bfc97a1c113367cfadebab07b"
   name = "github.com/rodaine/table"
   packages = ["."]
+  pruneopts = "UT"
   revision = "212a2ad1c462ed4d5b5511ea2b480a573281dbbd"
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:645cabccbb4fa8aab25a956cbcbdf6a6845ca736b2c64e197ca7cbb9d210b939"
   name = "github.com/spf13/cobra"
   packages = ["."]
+  pruneopts = "UT"
   revision = "ef82de70bb3f60c65fb8eebacbb2d122ef517385"
   version = "v0.0.3"
 
 [[projects]]
+  digest = "1:9424f440bba8f7508b69414634aef3b2b3a877e522d8a4624692412805407bb7"
   name = "github.com/spf13/pflag"
   packages = ["."]
+  pruneopts = "UT"
   revision = "583c0c0531f06d5278b7d917446061adc344b5cd"
   version = "v1.0.1"
 
 [[projects]]
+  digest = "1:f85e109eda8f6080877185d1c39e98dd8795e1780c08beca28304b87fd855a1c"
   name = "github.com/stretchr/testify"
   packages = ["assert"]
+  pruneopts = "UT"
   revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
   version = "v1.2.1"
 
 [[projects]]
   branch = "master"
+  digest = "1:710ccf83337a9ca27abe968c3e58fdf16bd69d76b9870dadafc511e94fc33d7f"
   name = "github.com/templexxx/cpufeat"
   packages = ["."]
+  pruneopts = "UT"
   revision = "3794dfbfb04749f896b521032f69383f24c3687e"
 
 [[projects]]
+  digest = "1:7bf0e709c5dd92c937e6f59a76056fe0a89cfe2f52ce25493c6337d23781af0a"
   name = "github.com/templexxx/reedsolomon"
   packages = ["."]
+  pruneopts = "UT"
   revision = "5e06b81a1c7628d9c8d4fb7c3c4e401e37db39b4"
   version = "0.1.1"
 
 [[projects]]
+  digest = "1:a0a269bea865974fc4d583373c984a5aa60cf98b5aa4f3e1b5de527891d37845"
   name = "github.com/templexxx/xor"
   packages = ["."]
+  pruneopts = "UT"
   revision = "0af8e873c554da75f37f2049cdffda804533d44c"
   version = "0.1.2"
 
 [[projects]]
+  digest = "1:97293f3bd0b9f81484da18dba66a20de340307b43835a91157aaaee484c80e9b"
   name = "github.com/tjfoc/gmsm"
   packages = ["sm4"]
+  pruneopts = "UT"
   revision = "98aa888b79d8de04afe0fccf45ed10594efc858b"
   version = "v1.1"
 
 [[projects]]
+  digest = "1:8f70510b21fd07eba5bd4e0f84d49d932ea74c8b0ea20a5807e9492cc819928c"
   name = "github.com/vaughan0/go-ini"
   packages = ["."]
+  pruneopts = "UT"
   revision = "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
 
 [[projects]]
+  digest = "1:a14b2b0fb9cc2d9ed073aac9834ff93ded673b94fedee4eead3cd9a65e80a40b"
   name = "golang.org/x/crypto"
   packages = [
     "blowfish",
@@ -153,12 +199,14 @@
     "salsa20/salsa",
     "tea",
     "twofish",
-    "xtea"
+    "xtea",
   ]
+  pruneopts = "UT"
   revision = "4ec37c66abab2c7e02ae775328b2ff001c3f025a"
 
 [[projects]]
   branch = "master"
+  digest = "1:4781de952463c8e97ab707c03c73f5f53296be672d1bceac9323393a7b6e7e0a"
   name = "golang.org/x/net"
   packages = [
     "bpf",
@@ -168,13 +216,36 @@
     "internal/socks",
     "ipv4",
     "proxy",
-    "websocket"
+    "websocket",
   ]
+  pruneopts = "UT"
   revision = "dfa909b99c79129e1100513e5cd36307665e5723"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "58a51c884de4111bfa3d2f82a7cfe1cb91e9e8786fafdfdc8d306bed24f23e44"
+  input-imports = [
+    "github.com/armon/go-socks5",
+    "github.com/fatedier/beego/logs",
+    "github.com/fatedier/golib/control/shutdown",
+    "github.com/fatedier/golib/crypto",
+    "github.com/fatedier/golib/errors",
+    "github.com/fatedier/golib/io",
+    "github.com/fatedier/golib/msg/json",
+    "github.com/fatedier/golib/net",
+    "github.com/fatedier/golib/net/mux",
+    "github.com/fatedier/golib/pool",
+    "github.com/fatedier/kcp-go",
+    "github.com/gorilla/mux",
+    "github.com/gorilla/websocket",
+    "github.com/hashicorp/yamux",
+    "github.com/rakyll/statik/fs",
+    "github.com/rodaine/table",
+    "github.com/spf13/cobra",
+    "github.com/stretchr/testify/assert",
+    "github.com/vaughan0/go-ini",
+    "golang.org/x/net/ipv4",
+    "golang.org/x/net/websocket",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
