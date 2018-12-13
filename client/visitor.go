@@ -26,13 +26,15 @@ import (
 
 	"golang.org/x/net/ipv4"
 
+	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
-	frpIo "github.com/fatedier/frp/utils/io"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/pool"
 	"github.com/fatedier/frp/utils/util"
+
+	frpIo "github.com/fatedier/golib/io"
+	"github.com/fatedier/golib/pool"
 )
 
 // Visitor is used for forward traffics from local port tot remote service.
@@ -42,18 +44,18 @@ type Visitor interface {
 	log.Logger
 }
 
-func NewVisitor(ctl *Control, pxyConf config.ProxyConf) (visitor Visitor) {
+func NewVisitor(ctl *Control, cfg config.VisitorConf) (visitor Visitor) {
 	baseVisitor := BaseVisitor{
 		ctl:    ctl,
-		Logger: log.NewPrefixLogger(pxyConf.GetName()),
+		Logger: log.NewPrefixLogger(cfg.GetBaseInfo().ProxyName),
 	}
-	switch cfg := pxyConf.(type) {
-	case *config.StcpProxyConf:
+	switch cfg := cfg.(type) {
+	case *config.StcpVisitorConf:
 		visitor = &StcpVisitor{
 			BaseVisitor: baseVisitor,
 			cfg:         cfg,
 		}
-	case *config.XtcpProxyConf:
+	case *config.XtcpVisitorConf:
 		visitor = &XtcpVisitor{
 			BaseVisitor: baseVisitor,
 			cfg:         cfg,
@@ -73,11 +75,11 @@ type BaseVisitor struct {
 type StcpVisitor struct {
 	BaseVisitor
 
-	cfg *config.StcpProxyConf
+	cfg *config.StcpVisitorConf
 }
 
 func (sv *StcpVisitor) Run() (err error) {
-	sv.l, err = frpNet.ListenTcp(sv.cfg.BindAddr, int64(sv.cfg.BindPort))
+	sv.l, err = frpNet.ListenTcp(sv.cfg.BindAddr, sv.cfg.BindPort)
 	if err != nil {
 		return
 	}
@@ -160,11 +162,11 @@ func (sv *StcpVisitor) handleConn(userConn frpNet.Conn) {
 type XtcpVisitor struct {
 	BaseVisitor
 
-	cfg *config.XtcpProxyConf
+	cfg *config.XtcpVisitorConf
 }
 
 func (sv *XtcpVisitor) Run() (err error) {
-	sv.l, err = frpNet.ListenTcp(sv.cfg.BindAddr, int64(sv.cfg.BindPort))
+	sv.l, err = frpNet.ListenTcp(sv.cfg.BindAddr, sv.cfg.BindPort)
 	if err != nil {
 		return
 	}
@@ -181,7 +183,7 @@ func (sv *XtcpVisitor) worker() {
 	for {
 		conn, err := sv.l.Accept()
 		if err != nil {
-			sv.Warn("stcp local listener closed")
+			sv.Warn("xtcp local listener closed")
 			return
 		}
 
@@ -193,14 +195,23 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	defer userConn.Close()
 
 	sv.Debug("get a new xtcp user connection")
-	if config.ClientCommonCfg.ServerUdpPort == 0 {
+	if g.GlbClientCfg.ServerUdpPort == 0 {
 		sv.Error("xtcp is not supported by server")
 		return
 	}
 
 	raddr, err := net.ResolveUDPAddr("udp",
-		fmt.Sprintf("%s:%d", config.ClientCommonCfg.ServerAddr, config.ClientCommonCfg.ServerUdpPort))
+		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerUdpPort))
+	if err != nil {
+		sv.Error("resolve server UDP addr error")
+		return
+	}
+
 	visitorConn, err := net.DialUDP("udp", nil, raddr)
+	if err != nil {
+		sv.Warn("dial server udp addr error: %v", err)
+		return
+	}
 	defer visitorConn.Close()
 
 	now := time.Now().Unix()
@@ -233,6 +244,11 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	visitorConn.SetReadDeadline(time.Time{})
 	pool.PutBuf(buf)
 
+	if natHoleRespMsg.Error != "" {
+		sv.Error("natHoleRespMsg get error info: %s", natHoleRespMsg.Error)
+		return
+	}
+
 	sv.Trace("get natHoleRespMsg, sid [%s], client address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr)
 
 	// Close visitorConn, so we can use it's local address.
@@ -255,7 +271,7 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 		sv.Error("get natHoleResp client address error: %s", natHoleRespMsg.ClientAddr)
 		return
 	}
-	sv.sendDetectMsg(array[0], int64(port), laddr, []byte(natHoleRespMsg.Sid))
+	sv.sendDetectMsg(array[0], int(port), laddr, []byte(natHoleRespMsg.Sid))
 	sv.Trace("send all detect msg done")
 
 	// Listen for visitorConn's address and wait for client connection.
@@ -302,7 +318,7 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	sv.Debug("join connections closed")
 }
 
-func (sv *XtcpVisitor) sendDetectMsg(addr string, port int64, laddr *net.UDPAddr, content []byte) (err error) {
+func (sv *XtcpVisitor) sendDetectMsg(addr string, port int, laddr *net.UDPAddr, content []byte) (err error) {
 	daddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", addr, port))
 	if err != nil {
 		return err

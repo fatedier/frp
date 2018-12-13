@@ -6,7 +6,7 @@
 
 ## What is frp?
 
-frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet. Now, it supports tcp, udp, http and https protocol when requests can be forwarded by domains to backward web services.
+frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet. As of now, it supports tcp & udp, as well as http and https protocols, where requests can be forwarded to internal services by domain name.
 
 ## Table of Contents
 
@@ -20,26 +20,30 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Visit your web service in LAN by custom domains](#visit-your-web-service-in-lan-by-custom-domains)
     * [Forward DNS query request](#forward-dns-query-request)
     * [Forward unix domain socket](#forward-unix-domain-socket)
+    * [Expose a simple http file server](#expose-a-simple-http-file-server)
     * [Expose your service in security](#expose-your-service-in-security)
     * [P2P Mode](#p2p-mode)
-    * [Connect website through frpc's network](#connect-website-through-frpcs-network)
 * [Features](#features)
     * [Configuration File](#configuration-file)
     * [Dashboard](#dashboard)
     * [Authentication](#authentication)
     * [Encryption and Compression](#encryption-and-compression)
     * [Hot-Reload frpc configuration](#hot-reload-frpc-configuration)
-    * [Privilege Mode](#privilege-mode)
-        * [Port White List](#port-white-list)
+    * [Get proxy status from client](#get-proxy-status-from-client)
+    * [Port White List](#port-white-list)
+    * [Port Reuse](#port-reuse)
     * [TCP Stream Multiplexing](#tcp-stream-multiplexing)
     * [Support KCP Protocol](#support-kcp-protocol)
     * [Connection Pool](#connection-pool)
+    * [Load balancing](#load-balancing)
     * [Rewriting the Host Header](#rewriting-the-host-header)
+    * [Set Headers In HTTP Request](#set-headers-in-http-request)
     * [Get Real IP](#get-real-ip)
     * [Password protecting your web service](#password-protecting-your-web-service)
     * [Custom subdomain names](#custom-subdomain-names)
     * [URL routing](#url-routing)
     * [Connect frps by HTTP PROXY](#connect-frps-by-http-proxy)
+    * [Range ports mapping](#range-ports-mapping)
     * [Plugin](#plugin)
 * [Development Plan](#development-plan)
 * [Contributing](#contributing)
@@ -213,6 +217,32 @@ Configure frps same as above.
 
   `curl http://x.x.x.x:6000/version`
 
+### Expose a simple http file server
+
+A simple way to visit files in the LAN.
+
+Configure frps same as above.
+
+1. Start frpc with configurations:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [test_static_file]
+  type = tcp
+  remote_port = 6000
+  plugin = static_file
+  plugin_local_path = /tmp/file
+  plugin_strip_prefix = static
+  plugin_http_user = abc
+  plugin_http_passwd = abc
+  ```
+
+2. Visit `http://x.x.x.x:6000/static/` by your browser, set correct user and password, so you can see files in `/tmp/file`.
+
 ### Expose your service in security
 
 For some services, if expose them to the public network directly will be a security risk.
@@ -305,26 +335,6 @@ Now it can't penetrate all types of NAT devices. You can try **stcp** if **xtcp*
 
   `ssh -oPort=6000 test@127.0.0.1`
 
-### Connect website through frpc's network
-
-Configure frps same as above.
-
-1. Start frpc with configurations:
-
-  ```ini
-  # frpc.ini
-  [common]
-  server_addr = x.x.x.x
-  server_port = 7000
-
-  [http_proxy]
-  type = tcp
-  remote_port = 6000
-  plugin = http_proxy # or socks5
-  ```
-
-2. Set http proxy or socks5 proxy `x.x.x.x:6000` in your browser and visit website through frpc's network.
-
 ## Features
 
 ### Configuration File
@@ -355,7 +365,7 @@ Then visit `http://[server_addr]:7500` to see dashboard, default username and pa
 
 ### Authentication
 
-Since v0.10.0, you only need to set `privilege_token` in frps.ini and frpc.ini.
+Since v0.10.0, you only need to set `token` in frps.ini and frpc.ini.
 
 Note that time duration between server of frpc and frps mustn't exceed 15 minutes because timestamp is used for authentication.
 
@@ -386,25 +396,31 @@ admin_addr = 127.0.0.1
 admin_port = 7400
 ```
 
-Then run command `frpc -c ./frpc.ini --reload` and wait for about 10 seconds to let frpc create or update or delete proxies.
+Then run command `frpc reload -c ./frpc.ini` and wait for about 10 seconds to let frpc create or update or delete proxies.
 
 **Note that parameters in [common] section won't be modified except 'start' now.**
 
-### Privilege Mode
+### Get proxy status from client
 
-Privilege mode is the default and only mode support in frp since v0.10.0. All proxy configurations are set in client.
+Use `frpc status -c ./frpc.ini` to get status of all proxies. You need to set admin port in frpc's configure file.
 
-#### Port White List
+### Port White List
 
-`privilege_allow_ports` in frps.ini is used for preventing abuse of ports:
+`allow_ports` in frps.ini is used for preventing abuse of ports:
 
 ```ini
 # frps.ini
 [common]
-privilege_allow_ports = 2000-3000,3001,3003,4000-50000
+allow_ports = 2000-3000,3001,3003,4000-50000
 ```
 
-`privilege_allow_ports` consists of a specific port or a range of ports divided by `,`.
+`allow_ports` consists of a specific port or a range of ports divided by `,`.
+
+### Port Reuse
+
+Now `vhost_http_port` and `vhost_https_port` in frps can use same port with `bind_port`. frps will detect connection's protocol and handle it correspondingly.
+
+We would like to try to allow multiple proxies bind a same remote port with different protocols in the future.
 
 ### TCP Stream Multiplexing
 
@@ -469,9 +485,35 @@ This feature is fit for a large number of short connections.
   pool_count = 1
   ```
 
+### Load balancing
+
+Load balancing is supported by `group`.
+This feature is available only for type `tcp` now.
+
+```ini
+# frpc.ini
+[test1]
+type = tcp
+local_port = 8080
+remote_port = 80
+group = web
+group_key = 123
+
+[test2]
+type = tcp
+local_port = 8081
+remote_port = 80
+group = web
+group_key = 123
+```
+
+`group_key` is used for authentication.
+
+Proxies in same group will accept connections from port 80 randomly.
+
 ### Rewriting the Host Header
 
-When forwarding to a local port, frp does not modify the tunneled HTTP requests at all, they are copied to your server byte-for-byte as they are received. Some application servers use the Host header for determining which development site to display. For this reason, frp can rewrite your requests with a modified Host header. Use the `host_header_rewrite` switch to rewrite incoming HTTP requests.
+When forwarding to a local port, frp does not modify the tunneled HTTP requests at all, they are copied to your server byte-for-byte as they are received. Some application servers use the Host header for determining which development site to display. For this reason, frp can rewrite your requests with a modified host header. Use the `host_header_rewrite` switch to rewrite incoming HTTP requests.
 
 ```ini
 # frpc.ini
@@ -482,7 +524,24 @@ custom_domains = test.yourdomain.com
 host_header_rewrite = dev.yourdomain.com
 ```
 
-If `host_header_rewrite` is specified, the Host header will be rewritten to match the hostname portion of the forwarding address.
+If `host_header_rewrite` is specified, the host header will be rewritten to match the hostname portion of the forwarding address.
+
+### Set Headers In HTTP Request
+
+You can set headers for proxy which type is `http`.
+
+```ini
+# frpc.ini
+[web]
+type = http
+local_port = 80
+custom_domains = test.yourdomain.com
+host_header_rewrite = dev.yourdomain.com
+header_X-From-Where = frp
+```
+
+Note that params which have prefix `header_` will be added to http request headers.
+In this example, it will set header `X-From-Where: frp` to http request.
 
 ### Get Real IP
 
@@ -571,11 +630,26 @@ server_port = 7000
 http_proxy = http://user:pwd@192.168.1.128:8080
 ```
 
+### Range ports mapping
+
+Proxy name has prefix `range:` will support mapping range ports.
+
+```ini
+# frpc.ini
+[range:test_tcp]
+type = tcp
+local_ip = 127.0.0.1
+local_port = 6000-6006,6007
+remote_port = 6000-6006,6007
+```
+
+frpc will generate 8 proxies like `test_tcp_0, test_tcp_1 ... test_tcp_7`.
+
 ### Plugin
 
 frpc only forward request to local tcp or udp port by default.
 
-Plugin is used for providing rich features. There are built-in plugins such as **unix_domain_socket**, **http_proxy**, **socks5** and you can see [example usage](#example-usage).
+Plugin is used for providing rich features. There are built-in plugins such as `unix_domain_socket`, `http_proxy`, `socks5`, `static_file` and you can see [example usage](#example-usage).
 
 Specify which plugin to use by `plugin` parameter. Configuration parameters of plugin should be started with `plugin_`. `local_ip` and `local_port` is useless for plugin.
 
@@ -593,16 +667,11 @@ plugin_http_passwd = abc
 
 `plugin_http_user` and `plugin_http_passwd` are configuration parameters used in `http_proxy` plugin.
 
-
 ## Development Plan
 
 * Log http request information in frps.
 * Direct reverse proxy, like haproxy.
-* Load balance to different service in frpc.
-* Frpc can directly be a webserver for static files.
-* P2p communicate by making udp hole to penetrate NAT.
 * kubernetes ingress support.
-
 
 ## Contributing
 

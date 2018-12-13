@@ -15,12 +15,8 @@
 package net
 
 import (
-	"bufio"
-	"encoding/base64"
 	"fmt"
 	"net"
-	"net/http"
-	"net/url"
 
 	"github.com/fatedier/frp/utils/log"
 )
@@ -33,7 +29,7 @@ type TcpListener struct {
 	log.Logger
 }
 
-func ListenTcp(bindAddr string, bindPort int64) (l *TcpListener, err error) {
+func ListenTcp(bindAddr string, bindPort int) (l *TcpListener, err error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", bindAddr, bindPort))
 	if err != nil {
 		return l, err
@@ -93,7 +89,7 @@ type TcpConn struct {
 	log.Logger
 }
 
-func NewTcpConn(conn *net.TCPConn) (c *TcpConn) {
+func NewTcpConn(conn net.Conn) (c *TcpConn) {
 	c = &TcpConn{
 		Conn:   conn,
 		Logger: log.NewPrefixLogger(""),
@@ -111,56 +107,5 @@ func ConnectTcpServer(addr string) (c Conn, err error) {
 		return
 	}
 	c = NewTcpConn(conn)
-	return
-}
-
-// ConnectTcpServerByHttpProxy try to connect remote server by http proxy.
-// If httpProxy is empty, it will connect server directly.
-func ConnectTcpServerByHttpProxy(httpProxy string, serverAddr string) (c Conn, err error) {
-	if httpProxy == "" {
-		return ConnectTcpServer(serverAddr)
-	}
-
-	var proxyUrl *url.URL
-	if proxyUrl, err = url.Parse(httpProxy); err != nil {
-		return
-	}
-
-	var proxyAuth string
-	if proxyUrl.User != nil {
-		username := proxyUrl.User.Username()
-		passwd, _ := proxyUrl.User.Password()
-		proxyAuth = "Basic " + base64.StdEncoding.EncodeToString([]byte(username+":"+passwd))
-	}
-
-	if proxyUrl.Scheme != "http" {
-		err = fmt.Errorf("Proxy URL scheme must be http, not [%s]", proxyUrl.Scheme)
-		return
-	}
-
-	if c, err = ConnectTcpServer(proxyUrl.Host); err != nil {
-		return
-	}
-
-	req, err := http.NewRequest("CONNECT", "http://"+serverAddr, nil)
-	if err != nil {
-		return
-	}
-	if proxyAuth != "" {
-		req.Header.Set("Proxy-Authorization", proxyAuth)
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0")
-	req.Write(c)
-
-	resp, err := http.ReadResponse(bufio.NewReader(c), req)
-	if err != nil {
-		return
-	}
-	resp.Body.Close()
-	if resp.StatusCode != 200 {
-		err = fmt.Errorf("ConnectTcpServer using proxy error, StatusCode [%d]", resp.StatusCode)
-		return
-	}
-
 	return
 }

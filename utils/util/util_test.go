@@ -21,66 +21,28 @@ func TestGetAuthKey(t *testing.T) {
 	assert.Equal("6df41a43725f0c770fd56379e12acf8c", key)
 }
 
-func TestGetPortRanges(t *testing.T) {
+func TestParseRangeNumbers(t *testing.T) {
 	assert := assert.New(t)
-
-	rangesStr := "2000-3000,3001,4000-50000"
-	expect := [][2]int64{
-		[2]int64{2000, 3000},
-		[2]int64{3001, 3001},
-		[2]int64{4000, 50000},
+	numbers, err := ParseRangeNumbers("2-5")
+	if assert.NoError(err) {
+		assert.Equal([]int64{2, 3, 4, 5}, numbers)
 	}
-	actual, err := GetPortRanges(rangesStr)
-	assert.Nil(err)
-	t.Log(actual)
-	assert.Equal(expect, actual)
-}
 
-func TestContainsPort(t *testing.T) {
-	assert := assert.New(t)
-
-	rangesStr := "2000-3000,3001,4000-50000"
-	portRanges, err := GetPortRanges(rangesStr)
-	assert.Nil(err)
-
-	type Case struct {
-		Port   int64
-		Answer bool
+	numbers, err = ParseRangeNumbers("1")
+	if assert.NoError(err) {
+		assert.Equal([]int64{1}, numbers)
 	}
-	cases := []Case{
-		Case{
-			Port:   3001,
-			Answer: true,
-		},
-		Case{
-			Port:   3002,
-			Answer: false,
-		},
-		Case{
-			Port:   44444,
-			Answer: true,
-		},
-	}
-	for _, elem := range cases {
-		ok := ContainsPort(portRanges, elem.Port)
-		assert.Equal(elem.Answer, ok)
-	}
-}
 
-func TestPortRangesCut(t *testing.T) {
-	assert := assert.New(t)
-
-	rangesStr := "2000-3000,3001,4000-50000"
-	portRanges, err := GetPortRanges(rangesStr)
-	assert.Nil(err)
-
-	expect := [][2]int64{
-		[2]int64{2000, 3000},
-		[2]int64{3001, 3001},
-		[2]int64{4000, 44443},
-		[2]int64{44445, 50000},
+	numbers, err = ParseRangeNumbers("3-5,8")
+	if assert.NoError(err) {
+		assert.Equal([]int64{3, 4, 5, 8}, numbers)
 	}
-	actual := PortRangesCut(portRanges, 44444)
-	t.Log(actual)
-	assert.Equal(expect, actual)
+
+	numbers, err = ParseRangeNumbers(" 3-5,8, 10-12 ")
+	if assert.NoError(err) {
+		assert.Equal([]int64{3, 4, 5, 8, 10, 11, 12}, numbers)
+	}
+
+	_, err = ParseRangeNumbers("3-a")
+	assert.Error(err)
 }

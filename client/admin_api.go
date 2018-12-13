@@ -16,11 +16,16 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
+	"sort"
+	"strings"
 
-	"github.com/julienschmidt/httprouter"
 	ini "github.com/vaughan0/go-ini"
 
+	"github.com/fatedier/frp/client/proxy"
+	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/utils/log"
 )
@@ -35,7 +40,7 @@ type ReloadResp struct {
 	GeneralResponse
 }
 
-func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 	var (
 		buf []byte
 		res ReloadResp
@@ -48,15 +53,16 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request, _ httprout
 
 	log.Info("Http request: [/api/reload]")
 
-	conf, err := ini.LoadFile(config.ClientCommonCfg.ConfigFile)
+	b, err := ioutil.ReadFile(g.GlbClientCfg.CfgFile)
 	if err != nil {
 		res.Code = 1
 		res.Msg = err.Error()
 		log.Error("reload frpc config file error: %v", err)
 		return
 	}
+	content := string(b)
 
-	newCommonCfg, err := config.LoadClientCommonConf(conf)
+	newCommonCfg, err := config.UnmarshalClientConfFromIni(nil, content)
 	if err != nil {
 		res.Code = 2
 		res.Msg = err.Error()
@@ -64,7 +70,15 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request, _ httprout
 		return
 	}
 
-	pxyCfgs, visitorCfgs, err := config.LoadProxyConfFromFile(config.ClientCommonCfg.User, conf, newCommonCfg.Start)
+	conf, err := ini.LoadFile(g.GlbClientCfg.CfgFile)
+	if err != nil {
+		res.Code = 1
+		res.Msg = err.Error()
+		log.Error("reload frpc config file error: %v", err)
+		return
+	}
+
+	pxyCfgs, visitorCfgs, err := config.LoadAllConfFromIni(g.GlbClientCfg.User, conf, newCommonCfg.Start)
 	if err != nil {
 		res.Code = 3
 		res.Msg = err.Error()
@@ -72,7 +86,137 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request, _ httprout
 		return
 	}
 
-	svr.ctl.reloadConf(pxyCfgs, visitorCfgs)
+	err = svr.ctl.ReloadConf(pxyCfgs, visitorCfgs)
+	if err != nil {
+		res.Code = 4
+		res.Msg = err.Error()
+		log.Error("reload frpc proxy config error: %v", err)
+		return
+	}
 	log.Info("success reload conf")
+	return
+}
+
+type StatusResp struct {
+	Tcp   []ProxyStatusResp `json:"tcp"`
+	Udp   []ProxyStatusResp `json:"udp"`
+	Http  []ProxyStatusResp `json:"http"`
+	Https []ProxyStatusResp `json:"https"`
+	Stcp  []ProxyStatusResp `json:"stcp"`
+	Xtcp  []ProxyStatusResp `json:"xtcp"`
+}
+
+type ProxyStatusResp struct {
+	Name       string `json:"name"`
+	Type       string `json:"type"`
+	Status     string `json:"status"`
+	Err        string `json:"err"`
+	LocalAddr  string `json:"local_addr"`
+	Plugin     string `json:"plugin"`
+	RemoteAddr string `json:"remote_addr"`
+}
+
+type ByProxyStatusResp []ProxyStatusResp
+
+func (a ByProxyStatusResp) Len() int           { return len(a) }
+func (a ByProxyStatusResp) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByProxyStatusResp) Less(i, j int) bool { return strings.Compare(a[i].Name, a[j].Name) < 0 }
+
+func NewProxyStatusResp(status *proxy.ProxyStatus) ProxyStatusResp {
+	psr := ProxyStatusResp{
+		Name:   status.Name,
+		Type:   status.Type,
+		Status: status.Status,
+		Err:    status.Err,
+	}
+	switch cfg := status.Cfg.(type) {
+	case *config.TcpProxyConf:
+		if cfg.LocalPort != 0 {
+			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
+		}
+		psr.Plugin = cfg.Plugin
+		if status.Err != "" {
+			psr.RemoteAddr = fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, cfg.RemotePort)
+		} else {
+			psr.RemoteAddr = g.GlbClientCfg.ServerAddr + status.RemoteAddr
+		}
+	case *config.UdpProxyConf:
+		if cfg.LocalPort != 0 {
+			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
+		}
+		if status.Err != "" {
+			psr.RemoteAddr = fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, cfg.RemotePort)
+		} else {
+			psr.RemoteAddr = g.GlbClientCfg.ServerAddr + status.RemoteAddr
+		}
+	case *config.HttpProxyConf:
+		if cfg.LocalPort != 0 {
+			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
+		}
+		psr.Plugin = cfg.Plugin
+		psr.RemoteAddr = status.RemoteAddr
+	case *config.HttpsProxyConf:
+		if cfg.LocalPort != 0 {
+			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
+		}
+		psr.Plugin = cfg.Plugin
+		psr.RemoteAddr = status.RemoteAddr
+	case *config.StcpProxyConf:
+		if cfg.LocalPort != 0 {
+			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
+		}
+		psr.Plugin = cfg.Plugin
+	case *config.XtcpProxyConf:
+		if cfg.LocalPort != 0 {
+			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
+		}
+		psr.Plugin = cfg.Plugin
+	}
+	return psr
+}
+
+// api/status
+func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request) {
+	var (
+		buf []byte
+		res StatusResp
+	)
+	res.Tcp = make([]ProxyStatusResp, 0)
+	res.Udp = make([]ProxyStatusResp, 0)
+	res.Http = make([]ProxyStatusResp, 0)
+	res.Https = make([]ProxyStatusResp, 0)
+	res.Stcp = make([]ProxyStatusResp, 0)
+	res.Xtcp = make([]ProxyStatusResp, 0)
+	defer func() {
+		log.Info("Http response [/api/status]")
+		buf, _ = json.Marshal(&res)
+		w.Write(buf)
+	}()
+
+	log.Info("Http request: [/api/status]")
+
+	ps := svr.ctl.pm.GetAllProxyStatus()
+	for _, status := range ps {
+		switch status.Type {
+		case "tcp":
+			res.Tcp = append(res.Tcp, NewProxyStatusResp(status))
+		case "udp":
+			res.Udp = append(res.Udp, NewProxyStatusResp(status))
+		case "http":
+			res.Http = append(res.Http, NewProxyStatusResp(status))
+		case "https":
+			res.Https = append(res.Https, NewProxyStatusResp(status))
+		case "stcp":
+			res.Stcp = append(res.Stcp, NewProxyStatusResp(status))
+		case "xtcp":
+			res.Xtcp = append(res.Xtcp, NewProxyStatusResp(status))
+		}
+	}
+	sort.Sort(ByProxyStatusResp(res.Tcp))
+	sort.Sort(ByProxyStatusResp(res.Udp))
+	sort.Sort(ByProxyStatusResp(res.Http))
+	sort.Sort(ByProxyStatusResp(res.Https))
+	sort.Sort(ByProxyStatusResp(res.Stcp))
+	sort.Sort(ByProxyStatusResp(res.Xtcp))
 	return
 }

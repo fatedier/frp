@@ -50,7 +50,7 @@ func encryptBlock(c *Cipher, dst, src []byte) {
 	uint32ToBlock(v0, v1, dst)
 }
 
-// decryptBlock decrypt a single 8 byte block using XTEA.
+// decryptBlock decrypts a single 8 byte block using XTEA.
 func decryptBlock(c *Cipher, dst, src []byte) {
 	v0, v1 := blockToUint32(src)
 

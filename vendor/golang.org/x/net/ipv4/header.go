@@ -98,7 +98,7 @@ func (h *Header) Marshal() ([]byte, error) {
 	return b, nil
 }
 
-// Parse parses b as an IPv4 header and sotres the result in h.
+// Parse parses b as an IPv4 header and stores the result in h.
 func (h *Header) Parse(b []byte) error {
 	if h == nil || len(b) < HeaderLen {
 		return errHeaderTooShort

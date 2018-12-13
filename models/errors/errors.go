@@ -14,8 +14,11 @@
 
 package errors
 
-import "errors"
+import (
+	"errors"
+)
 
 var (
-	ErrMsgType = errors.New("message type error")
+	ErrMsgType   = errors.New("message type error")
+	ErrCtlClosed = errors.New("control is closed")
 )

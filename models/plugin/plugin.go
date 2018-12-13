@@ -17,6 +17,12 @@ package plugin
 import (
 	"fmt"
 	"io"
+	"net"
+	"sync"
+
+	frpNet "github.com/fatedier/frp/utils/net"
+
+	"github.com/fatedier/golib/errors"
 )
 
 // Creators is used for create plugins to handle connections.
@@ -40,6 +46,47 @@ func Create(name string, params map[string]string) (p Plugin, err error) {
 
 type Plugin interface {
 	Name() string
-	Handle(conn io.ReadWriteCloser)
+	Handle(conn io.ReadWriteCloser, realConn frpNet.Conn)
 	Close() error
+}
+
+type Listener struct {
+	conns  chan net.Conn
+	closed bool
+	mu     sync.Mutex
+}
+
+func NewProxyListener() *Listener {
+	return &Listener{
+		conns: make(chan net.Conn, 64),
+	}
+}
+
+func (l *Listener) Accept() (net.Conn, error) {
+	conn, ok := <-l.conns
+	if !ok {
+		return nil, fmt.Errorf("listener closed")
+	}
+	return conn, nil
+}
+
+func (l *Listener) PutConn(conn net.Conn) error {
+	err := errors.PanicToError(func() {
+		l.conns <- conn
+	})
+	return err
+}
+
+func (l *Listener) Close() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if !l.closed {
+		close(l.conns)
+		l.closed = true
+	}
+	return nil
+}
+
+func (l *Listener) Addr() net.Addr {
+	return (*net.TCPAddr)(nil)
 }

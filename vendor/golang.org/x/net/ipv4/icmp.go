@@ -26,7 +26,7 @@ func (typ ICMPType) Protocol() int {
 // packets. The filter belongs to a packet delivery path on a host and
 // it cannot interact with forwarding packets or tunnel-outer packets.
 //
-// Note: RFC 2460 defines a reasonable role model and it works not
+// Note: RFC 8200 defines a reasonable role model and it works not
 // only for IPv6 but IPv4. A node means a device that implements IP.
 // A router means a node that forwards IP packets not explicitly
 // addressed to itself, and a host means a node that is not a router.

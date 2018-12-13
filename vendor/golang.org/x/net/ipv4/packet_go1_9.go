@@ -61,7 +61,7 @@ func (c *packetHandler) writeTo(h *Header, p []byte, cm *ControlMessage) error {
 	}
 	m.Addr = dst
 	if err := c.SendMsg(&m, 0); err != nil {
-		return &net.OpError{Op: "write", Net: c.IPConn.LocalAddr().Network(), Source: c.IPConn.LocalAddr(), Err: err}
+		return &net.OpError{Op: "write", Net: c.IPConn.LocalAddr().Network(), Source: c.IPConn.LocalAddr(), Addr: opAddr(dst), Err: err}
 	}
 	return nil
 }

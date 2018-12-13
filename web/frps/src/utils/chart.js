@@ -60,6 +60,12 @@ function DrawProxyChart(elementId, serverInfo) {
     if (serverInfo.proxy_type_count.https == null) {
         serverInfo.proxy_type_count.https = 0
     }
+    if (serverInfo.proxy_type_count.stcp == null) {
+        serverInfo.proxy_type_count.stcp = 0
+    }
+    if (serverInfo.proxy_type_count.xtcp == null) {
+        serverInfo.proxy_type_count.xtcp = 0
+    }
     let myChart = echarts.init(document.getElementById(elementId), 'macarons')
     myChart.showLoading()
 
@@ -91,6 +97,12 @@ function DrawProxyChart(elementId, serverInfo) {
             }, {
                 value: serverInfo.proxy_type_count.https,
                 name: 'HTTPS'
+            }, {
+                value: serverInfo.proxy_type_count.stcp,
+                name: 'STCP'
+            }, {
+                value: serverInfo.proxy_type_count.xtcp,
+                name: 'XTCP'
             }],
             itemStyle: {
                 emphasis: {

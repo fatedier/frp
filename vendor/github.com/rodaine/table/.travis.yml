@@ -1,0 +1,10 @@
+sudo: false
+language: go
+go: 1.8
+
+branches:
+  only:
+    - master
+
+install: go get -t ./... github.com/golang/lint/golint
+script: make lint test
