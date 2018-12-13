@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client
+package proxy
 
 import (
 	"bytes"
@@ -35,7 +35,7 @@ import (
 	"github.com/fatedier/golib/pool"
 )
 
-// Proxy defines how to deal with work connections for different proxy type.
+// Proxy defines how to handle work connections for different proxy type.
 type Proxy interface {
 	Run() error
 
