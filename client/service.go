@@ -56,8 +56,8 @@ func NewService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]conf
 		pxyCfgs:     pxyCfgs,
 		visitorCfgs: visitorCfgs,
 		exit:        0,
-		closedCh: make(chan bool),
-		closed:   false,
+		closedCh:    make(chan bool),
+		closed:      false,
 	}
 	return
 }
@@ -229,7 +229,7 @@ func (svr *Service) ReloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs 
 func (svr *Service) Close() {
 	atomic.StoreUint32(&svr.exit, 1)
 	svr.ctl.Close()
-	close(svr.closedCh)
+	svr.closedCh <- true
 }
 
 func (svr *Service) IsClosed() bool {
