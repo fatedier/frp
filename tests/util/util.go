@@ -1,10 +1,11 @@
-package tests
+package util
 
 import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -16,13 +17,13 @@ import (
 	frpNet "github.com/fatedier/frp/utils/net"
 )
 
-func getProxyStatus(name string) (status *client.ProxyStatusResp, err error) {
-	req, err := http.NewRequest("GET", "http://"+ADMIN_ADDR+"/api/status", nil)
+func GetProxyStatus(statusAddr string, user string, passwd string, name string) (status *client.ProxyStatusResp, err error) {
+	req, err := http.NewRequest("GET", "http://"+statusAddr+"/api/status", nil)
 	if err != nil {
 		return status, err
 	}
 
-	authStr := "Basic " + base64.StdEncoding.EncodeToString([]byte(ADMIN_USER+":"+ADMIN_PWD))
+	authStr := "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+passwd))
 	req.Header.Add("Authorization", authStr)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -75,17 +76,38 @@ func getProxyStatus(name string) (status *client.ProxyStatusResp, err error) {
 	return status, errors.New("no proxy status found")
 }
 
-func sendTcpMsg(addr string, msg string) (res string, err error) {
+func ReloadConf(reloadAddr string, user string, passwd string) error {
+	req, err := http.NewRequest("GET", "http://"+reloadAddr+"/api/reload", nil)
+	if err != nil {
+		return err
+	}
+
+	authStr := "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+passwd))
+	req.Header.Add("Authorization", authStr)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	} else {
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("admin api status code [%d]", resp.StatusCode)
+		}
+		defer resp.Body.Close()
+		io.Copy(ioutil.Discard, resp.Body)
+	}
+	return nil
+}
+
+func SendTcpMsg(addr string, msg string) (res string, err error) {
 	c, err := frpNet.ConnectTcpServer(addr)
 	if err != nil {
 		err = fmt.Errorf("connect to tcp server error: %v", err)
 		return
 	}
 	defer c.Close()
-	return sendTcpMsgByConn(c, msg)
+	return SendTcpMsgByConn(c, msg)
 }
 
-func sendTcpMsgByConn(c net.Conn, msg string) (res string, err error) {
+func SendTcpMsgByConn(c net.Conn, msg string) (res string, err error) {
 	timer := time.Now().Add(5 * time.Second)
 	c.SetDeadline(timer)
 	c.Write([]byte(msg))
@@ -99,7 +121,7 @@ func sendTcpMsgByConn(c net.Conn, msg string) (res string, err error) {
 	return string(buf[:n]), nil
 }
 
-func sendUdpMsg(addr string, msg string) (res string, err error) {
+func SendUdpMsg(addr string, msg string) (res string, err error) {
 	udpAddr, errRet := net.ResolveUDPAddr("udp", addr)
 	if errRet != nil {
 		err = fmt.Errorf("resolve udp addr error: %v", err)
@@ -126,7 +148,7 @@ func sendUdpMsg(addr string, msg string) (res string, err error) {
 	return string(buf[:n]), nil
 }
 
-func sendHttpMsg(method, urlStr string, host string, headers map[string]string, proxy string) (code int, body string, header http.Header, err error) {
+func SendHttpMsg(method, urlStr string, host string, headers map[string]string, proxy string) (code int, body string, header http.Header, err error) {
 	req, errRet := http.NewRequest(method, urlStr, nil)
 	if errRet != nil {
 		err = errRet
@@ -177,7 +199,7 @@ func sendHttpMsg(method, urlStr string, host string, headers map[string]string, 
 	return
 }
 
-func basicAuth(username, passwd string) string {
+func BasicAuth(username, passwd string) string {
 	auth := username + ":" + passwd
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
 }

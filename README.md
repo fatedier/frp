@@ -6,7 +6,7 @@
 
 ## What is frp?
 
-frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet. Now, it supports tcp, udp, http and https protocol when requests can be forwarded by domains to backward web services.
+frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet. As of now, it supports tcp & udp, as well as http and https protocols, where requests can be forwarded to internal services by domain name.
 
 ## Table of Contents
 
@@ -566,7 +566,7 @@ type = http
 local_port = 80
 custom_domains = test.yourdomain.com
 http_user = abc
-http_passwd = abc
+http_pwd = abc
 ```
 
 Visit `http://test.yourdomain.com` and now you need to input username and password.
