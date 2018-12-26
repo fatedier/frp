@@ -67,22 +67,27 @@ func SetLogLevel(logLevel string) {
 
 func Error(format string, v ...interface{}) {
 	Log.Error(format, v...)
+	CallLogListeners("[Error] " + fmt.Sprintf(format, v...))
 }
 
 func Warn(format string, v ...interface{}) {
 	Log.Warn(format, v...)
+	CallLogListeners("[Warn] " + fmt.Sprintf(format, v...))
 }
 
 func Info(format string, v ...interface{}) {
 	Log.Info(format, v...)
+	CallLogListeners("[Info] " + fmt.Sprintf(format, v...))
 }
 
 func Debug(format string, v ...interface{}) {
 	Log.Debug(format, v...)
+	CallLogListeners("[Debug] " + fmt.Sprintf(format, v...))
 }
 
 func Trace(format string, v ...interface{}) {
 	Log.Trace(format, v...)
+	CallLogListeners("[Trace] " + fmt.Sprintf(format, v...))
 }
 
 // Logger
