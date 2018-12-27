@@ -98,6 +98,7 @@ func NewService() (svr *Service, err error) {
 		visitorManager: NewVisitorManager(),
 		tcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
 		udpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
+		Closed:         true,
 		closedCh:       make(chan bool),
 	}
 	svr.tcpGroupCtl = group.NewTcpGroupCtl(svr.tcpPortManager)
@@ -236,6 +237,7 @@ func (svr *Service) Run() {
 
 	go svr.HandleListener(svr.websocketListener)
 
+	svr.Closed = false
 	svr.HandleListener(svr.listener)
 }
 

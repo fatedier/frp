@@ -57,7 +57,7 @@ func NewService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]conf
 		visitorCfgs: visitorCfgs,
 		exit:        0,
 		closedCh:    make(chan bool),
-		closed:      false,
+		closed:      true,
 	}
 	return
 }
@@ -103,6 +103,7 @@ func (svr *Service) Run(cmd bool) error {
 		log.Info("admin server listen on %s:%d", g.GlbClientCfg.AdminAddr, g.GlbClientCfg.AdminPort)
 	}
 
+	svr.closed = false
 	if cmd {
 		svr.closed = <-svr.closedCh
 		log.Info("svr closed")
