@@ -30,3 +30,6 @@ test/bin/
 
 # Cache
 *.swp
+
+# macOS
+*.DS_Store
