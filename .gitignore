@@ -33,3 +33,6 @@ test/bin/
 
 # macOS
 *.DS_Store
+
+# vs code
+.vscode/
