@@ -17,6 +17,7 @@ package frp
 import (
 	"github.com/fatedier/frp/cmd/frpc/sub"
 	"github.com/fatedier/frp/cmd/frps/frps"
+	"github.com/fatedier/frp/utils/version"
 	"github.com/fatedier/golib/crypto"
 )
 
@@ -48,4 +49,9 @@ func StopFrps() error {
 // IsFrpsRunning 是否还在运行
 func IsFrpsRunning() bool {
 	return frps.IsFrpsRunning()
+}
+
+// Version frp 版本号
+func Version() string {
+	return version.Full()
 }
