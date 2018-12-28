@@ -1,10 +1,14 @@
 package main
 
 /*
- */
+typedef void (*LogListener) (const char* log);
+extern void setLogListener(LogListener l);
+*/
 import "C"
 
 import (
+	"os"
+
 	"github.com/fatedier/frp/cmd/frpc/sub"
 	"github.com/fatedier/frp/cmd/frps/frps"
 	"github.com/fatedier/frp/utils/version"
@@ -44,9 +48,14 @@ func Version() string {
 }
 
 func main() {
-	// frpsPath := os.Args[2]
+	frpsPath := os.Args[2]
 	// RunFrps(C.CString(frpsPath))
 	// TestFrps(C.CString(frpsPath))
+	println(frpsPath)
+	logLog()
+
+	RunFrps(C.CString(frpsPath))
+
 	c := make(chan bool)
 	<-c
 }
