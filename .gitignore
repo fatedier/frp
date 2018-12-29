@@ -36,3 +36,6 @@ test/bin/
 
 # vs code
 .vscode/
+
+# idea
+.idea/
