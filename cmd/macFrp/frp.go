@@ -1,6 +1,7 @@
 package main
 
 /*
+#cgo CFLAGS: -mmacosx-version-min=10.11
 typedef void (*LogListener) (const char* log);
 extern void setLogListener(LogListener l);
 */
