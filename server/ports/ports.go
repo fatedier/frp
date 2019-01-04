@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
@@ -132,9 +133,17 @@ func (pm *PortManager) Acquire(name string, port int) (realPort int, err error) 
 	return
 }
 
+func newAddress(addr string, port int) string {
+	if strings.Contains(addr, ".") {
+		return fmt.Sprintf("%s:%d", addr, port)
+	} else {
+		return fmt.Sprintf("[%s]:%d", addr, port)
+	}
+}
+
 func (pm *PortManager) isPortAvailable(port int) bool {
 	if pm.netType == "udp" {
-		addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", pm.bindAddr, port))
+		addr, err := net.ResolveUDPAddr("udp", newAddress(pm.bindAddr, port))
 		if err != nil {
 			return false
 		}
@@ -145,7 +154,7 @@ func (pm *PortManager) isPortAvailable(port int) bool {
 		l.Close()
 		return true
 	} else {
-		l, err := net.Listen(pm.netType, fmt.Sprintf("%s:%d", pm.bindAddr, port))
+		l, err := net.Listen(pm.netType, newAddress(pm.bindAddr, port))
 		if err != nil {
 			return false
 		}

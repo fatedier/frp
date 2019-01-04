@@ -156,7 +156,7 @@ func (svr *Service) keepControllerWorking() {
 // session: if it's not nil, using tcp mux
 func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error) {
 	conn, err = frpNet.ConnectServerByProxy(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
-		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort))
+		newAddress(g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort))
 	if err != nil {
 		return
 	}

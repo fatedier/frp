@@ -132,47 +132,55 @@ func NewProxyStatusResp(status *proxy.ProxyStatus) ProxyStatusResp {
 	switch cfg := status.Cfg.(type) {
 	case *config.TcpProxyConf:
 		if cfg.LocalPort != 0 {
-			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
+			psr.LocalAddr = newAddress(cfg.LocalIp, cfg.LocalPort)
 		}
 		psr.Plugin = cfg.Plugin
 		if status.Err != "" {
-			psr.RemoteAddr = fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, cfg.RemotePort)
+			psr.RemoteAddr = newAddress(g.GlbClientCfg.ServerAddr, cfg.RemotePort)
 		} else {
 			psr.RemoteAddr = g.GlbClientCfg.ServerAddr + status.RemoteAddr
 		}
 	case *config.UdpProxyConf:
 		if cfg.LocalPort != 0 {
-			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
+			psr.LocalAddr = newAddress(cfg.LocalIp, cfg.LocalPort)
 		}
 		if status.Err != "" {
-			psr.RemoteAddr = fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, cfg.RemotePort)
+			psr.RemoteAddr = newAddress(g.GlbClientCfg.ServerAddr, cfg.RemotePort)
 		} else {
 			psr.RemoteAddr = g.GlbClientCfg.ServerAddr + status.RemoteAddr
 		}
 	case *config.HttpProxyConf:
 		if cfg.LocalPort != 0 {
-			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
+			psr.LocalAddr = newAddress(cfg.LocalIp, cfg.LocalPort)
 		}
 		psr.Plugin = cfg.Plugin
 		psr.RemoteAddr = status.RemoteAddr
 	case *config.HttpsProxyConf:
 		if cfg.LocalPort != 0 {
-			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
+			psr.LocalAddr = newAddress(cfg.LocalIp, cfg.LocalPort)
 		}
 		psr.Plugin = cfg.Plugin
 		psr.RemoteAddr = status.RemoteAddr
 	case *config.StcpProxyConf:
 		if cfg.LocalPort != 0 {
-			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
+			psr.LocalAddr = newAddress(cfg.LocalIp, cfg.LocalPort)
 		}
 		psr.Plugin = cfg.Plugin
 	case *config.XtcpProxyConf:
 		if cfg.LocalPort != 0 {
-			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
+			psr.LocalAddr = newAddress(cfg.LocalIp, cfg.LocalPort)
 		}
 		psr.Plugin = cfg.Plugin
 	}
 	return psr
+}
+
+func newAddress(addr string, port int) string {
+	if strings.Contains(addr, ".") {
+		return fmt.Sprintf("%s:%d", addr, port)
+	} else {
+		return fmt.Sprintf("[%s]:%d", addr, port)
+	}
 }
 
 // api/status

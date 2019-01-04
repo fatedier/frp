@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/fatedier/frp/assets"
@@ -90,6 +91,14 @@ type Service struct {
 	closedCh chan bool
 }
 
+func newAddress(addr string, port int) string {
+	if strings.Contains(addr, ".") {
+		return fmt.Sprintf("%s:%d", addr, port)
+	} else {
+		return fmt.Sprintf("[%s]:%d", addr, port)
+	}
+}
+
 func NewService() (svr *Service, err error) {
 	cfg := &g.GlbServerCfg.ServerCommonConf
 	svr = &Service{
@@ -124,7 +133,7 @@ func NewService() (svr *Service, err error) {
 	}
 
 	// Listen for accepting connections from client.
-	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.BindAddr, cfg.BindPort))
+	ln, err := net.Listen("tcp", newAddress(cfg.BindAddr, cfg.BindPort))
 	if err != nil {
 		err = fmt.Errorf("Create server listener error, %v", err)
 		return
@@ -161,7 +170,7 @@ func NewService() (svr *Service, err error) {
 		})
 		svr.httpReverseProxy = rp
 
-		address := fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHttpPort)
+		address := newAddress(cfg.ProxyBindAddr, cfg.VhostHttpPort)
 		server := &http.Server{
 			Addr:    address,
 			Handler: rp,
@@ -186,7 +195,7 @@ func NewService() (svr *Service, err error) {
 		if httpsMuxOn {
 			l = svr.muxer.ListenHttps(1)
 		} else {
-			l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHttpsPort))
+			l, err = net.Listen("tcp", newAddress(cfg.ProxyBindAddr, cfg.VhostHttpsPort))
 			if err != nil {
 				err = fmt.Errorf("Create server listener error, %v", err)
 				return
@@ -204,7 +213,7 @@ func NewService() (svr *Service, err error) {
 	// Create nat hole controller.
 	if cfg.BindUdpPort > 0 {
 		var nc *NatHoleController
-		addr := fmt.Sprintf("%s:%d", cfg.BindAddr, cfg.BindUdpPort)
+		addr := newAddress(cfg.BindAddr, cfg.BindUdpPort)
 		nc, err = NewNatHoleController(addr)
 		if err != nil {
 			err = fmt.Errorf("Create nat hole controller error, %v", err)

@@ -30,7 +30,7 @@ type TcpListener struct {
 }
 
 func ListenTcp(bindAddr string, bindPort int) (l *TcpListener, err error) {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", bindAddr, bindPort))
+	tcpAddr, err := net.ResolveTCPAddr("tcp", newAddress(bindAddr, bindPort))
 	if err != nil {
 		return l, err
 	}

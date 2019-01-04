@@ -15,7 +15,6 @@
 package client
 
 import (
-	"fmt"
 	"io"
 	"runtime/debug"
 	"sync"
@@ -169,7 +168,7 @@ func (ctl *Control) connectServer() (conn frpNet.Conn, err error) {
 		conn = frpNet.WrapConn(stream)
 	} else {
 		conn, err = frpNet.ConnectServerByProxy(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
-			fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort))
+			newAddress(g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort))
 		if err != nil {
 			ctl.Warn("start new connection to server error: %v", err)
 			return

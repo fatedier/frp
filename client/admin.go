@@ -15,7 +15,6 @@
 package client
 
 import (
-	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -42,7 +41,7 @@ func (svr *Service) RunAdminServer(addr string, port int) (err error) {
 	router.HandleFunc("/api/reload", svr.apiReload).Methods("GET")
 	router.HandleFunc("/api/status", svr.apiStatus).Methods("GET")
 
-	address := fmt.Sprintf("%s:%d", addr, port)
+	address := newAddress(addr, port)
 	server := &http.Server{
 		Addr:         address,
 		Handler:      router,

@@ -17,6 +17,7 @@ package group
 import (
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/fatedier/frp/server/ports"
@@ -87,6 +88,14 @@ func NewTcpGroup(ctl *TcpGroupCtl) *TcpGroup {
 	}
 }
 
+func newAddress(addr string, port int) string {
+	if strings.Contains(addr, ".") {
+		return fmt.Sprintf("%s:%d", addr, port)
+	} else {
+		return fmt.Sprintf("[%s]:%d", addr, port)
+	}
+}
+
 func (tg *TcpGroup) Listen(proxyName string, group string, groupKey string, addr string, port int) (ln *TcpGroupListener, realPort int, err error) {
 	tg.mu.Lock()
 	defer tg.mu.Unlock()
@@ -95,7 +104,7 @@ func (tg *TcpGroup) Listen(proxyName string, group string, groupKey string, addr
 		if err != nil {
 			return
 		}
-		tcpLn, errRet := net.Listen("tcp", fmt.Sprintf("%s:%d", addr, port))
+		tcpLn, errRet := net.Listen("tcp", newAddress(addr, port))
 		if errRet != nil {
 			err = errRet
 			return

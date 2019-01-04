@@ -16,7 +16,6 @@ package client
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net"
 	"strconv"
@@ -200,8 +199,7 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 		return
 	}
 
-	raddr, err := net.ResolveUDPAddr("udp",
-		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerUdpPort))
+	raddr, err := net.ResolveUDPAddr("udp", newAddress(g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerUdpPort))
 	if err != nil {
 		sv.Error("resolve server UDP addr error")
 		return
@@ -319,7 +317,7 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 }
 
 func (sv *XtcpVisitor) sendDetectMsg(addr string, port int, laddr *net.UDPAddr, content []byte) (err error) {
-	daddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", addr, port))
+	daddr, err := net.ResolveUDPAddr("udp", newAddress(addr, port))
 	if err != nil {
 		return err
 	}
