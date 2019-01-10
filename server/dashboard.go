@@ -32,7 +32,7 @@ var (
 	httpServerWriteTimeout = 10 * time.Second
 )
 
-func RunDashboardServer(addr string, port int) (err error) {
+func (svr *Service) RunDashboardServer(addr string, port int) (err error) {
 	// url router
 	router := mux.NewRouter()
 
@@ -40,10 +40,10 @@ func RunDashboardServer(addr string, port int) (err error) {
 	router.Use(frpNet.NewHttpAuthMiddleware(user, passwd).Middleware)
 
 	// api, see dashboard_api.go
-	router.HandleFunc("/api/serverinfo", apiServerInfo).Methods("GET")
-	router.HandleFunc("/api/proxy/{type}", apiProxyByType).Methods("GET")
-	router.HandleFunc("/api/proxy/{type}/{name}", apiProxyByTypeAndName).Methods("GET")
-	router.HandleFunc("/api/traffic/{name}", apiProxyTraffic).Methods("GET")
+	router.HandleFunc("/api/serverinfo", svr.ApiServerInfo).Methods("GET")
+	router.HandleFunc("/api/proxy/{type}", svr.ApiProxyByType).Methods("GET")
+	router.HandleFunc("/api/proxy/{type}/{name}", svr.ApiProxyByTypeAndName).Methods("GET")
+	router.HandleFunc("/api/traffic/{name}", svr.ApiProxyTraffic).Methods("GET")
 
 	// view
 	router.Handle("/favicon.ico", http.FileServer(assets.FileSystem)).Methods("GET")

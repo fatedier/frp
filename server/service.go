@@ -43,6 +43,36 @@ const (
 
 var ServerService *Service
 
+// All resource managers and controllers
+type ResourceController struct {
+	// Manage all controllers
+	CtlManager *ControlManager
+
+	// Manage all proxies
+	PxyManager *ProxyManager
+
+	// Manage all visitor listeners
+	VisitorManager *VisitorManager
+
+	// Tcp Group Controller
+	TcpGroupCtl *group.TcpGroupCtl
+
+	// Manage all tcp ports
+	TcpPortManager *ports.PortManager
+
+	// Manage all udp ports
+	UdpPortManager *ports.PortManager
+
+	// For http proxies, forwarding http requests
+	HttpReverseProxy *vhost.HttpReverseProxy
+
+	// For https proxies, route requests to different clients by hostname and other infomation
+	VhostHttpsMuxer *vhost.HttpsMuxer
+
+	// Controller for nat hole connections
+	NatHoleController *NatHoleController
+}
+
 // Server service
 type Service struct {
 	// Dispatch connections to different handlers listen on same port
@@ -57,43 +87,22 @@ type Service struct {
 	// Accept connections using websocket
 	websocketListener frpNet.Listener
 
-	// For https proxies, route requests to different clients by hostname and other infomation
-	VhostHttpsMuxer *vhost.HttpsMuxer
-
-	httpReverseProxy *vhost.HttpReverseProxy
-
-	// Manage all controllers
-	ctlManager *ControlManager
-
-	// Manage all proxies
-	pxyManager *ProxyManager
-
-	// Manage all visitor listeners
-	visitorManager *VisitorManager
-
-	// Manage all tcp ports
-	tcpPortManager *ports.PortManager
-
-	// Manage all udp ports
-	udpPortManager *ports.PortManager
-
-	// Tcp Group Controller
-	tcpGroupCtl *group.TcpGroupCtl
-
-	// Controller for nat hole connections
-	natHoleController *NatHoleController
+	// All resource managers and controllers
+	rc *ResourceController
 }
 
 func NewService() (svr *Service, err error) {
 	cfg := &g.GlbServerCfg.ServerCommonConf
 	svr = &Service{
-		ctlManager:     NewControlManager(),
-		pxyManager:     NewProxyManager(),
-		visitorManager: NewVisitorManager(),
-		tcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
-		udpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
+		rc: &ResourceController{
+			CtlManager:     NewControlManager(),
+			PxyManager:     NewProxyManager(),
+			VisitorManager: NewVisitorManager(),
+			TcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
+			UdpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
+		},
 	}
-	svr.tcpGroupCtl = group.NewTcpGroupCtl(svr.tcpPortManager)
+	svr.rc.TcpGroupCtl = group.NewTcpGroupCtl(svr.rc.TcpPortManager)
 
 	// Init assets.
 	err = assets.Load(cfg.AssetsDir)
@@ -151,7 +160,7 @@ func NewService() (svr *Service, err error) {
 		rp := vhost.NewHttpReverseProxy(vhost.HttpReverseProxyOptions{
 			ResponseHeaderTimeoutS: cfg.VhostHttpTimeout,
 		})
-		svr.httpReverseProxy = rp
+		svr.rc.HttpReverseProxy = rp
 
 		address := fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHttpPort)
 		server := &http.Server{
@@ -185,7 +194,7 @@ func NewService() (svr *Service, err error) {
 			}
 		}
 
-		svr.VhostHttpsMuxer, err = vhost.NewHttpsMuxer(frpNet.WrapLogListener(l), 30*time.Second)
+		svr.rc.VhostHttpsMuxer, err = vhost.NewHttpsMuxer(frpNet.WrapLogListener(l), 30*time.Second)
 		if err != nil {
 			err = fmt.Errorf("Create vhost httpsMuxer error, %v", err)
 			return
@@ -202,13 +211,13 @@ func NewService() (svr *Service, err error) {
 			err = fmt.Errorf("Create nat hole controller error, %v", err)
 			return
 		}
-		svr.natHoleController = nc
+		svr.rc.NatHoleController = nc
 		log.Info("nat hole udp service listen on %s:%d", cfg.BindAddr, cfg.BindUdpPort)
 	}
 
 	// Create dashboard web server.
 	if cfg.DashboardPort > 0 {
-		err = RunDashboardServer(cfg.DashboardAddr, cfg.DashboardPort)
+		err = svr.RunDashboardServer(cfg.DashboardAddr, cfg.DashboardPort)
 		if err != nil {
 			err = fmt.Errorf("Create dashboard web server error, %v", err)
 			return
@@ -220,8 +229,8 @@ func NewService() (svr *Service, err error) {
 }
 
 func (svr *Service) Run() {
-	if svr.natHoleController != nil {
-		go svr.natHoleController.Run()
+	if svr.rc.NatHoleController != nil {
+		go svr.rc.NatHoleController.Run()
 	}
 	if g.GlbServerCfg.KcpBindPort > 0 {
 		go svr.HandleListener(svr.kcpListener)
@@ -346,9 +355,9 @@ func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (e
 		}
 	}
 
-	ctl := NewControl(svr, ctlConn, loginMsg)
+	ctl := NewControl(svr.rc, ctlConn, loginMsg)
 
-	if oldCtl := svr.ctlManager.Add(loginMsg.RunId, ctl); oldCtl != nil {
+	if oldCtl := svr.rc.CtlManager.Add(loginMsg.RunId, ctl); oldCtl != nil {
 		oldCtl.allShutdown.WaitDone()
 	}
 
@@ -362,7 +371,7 @@ func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (e
 
 // RegisterWorkConn register a new work connection to control and proxies need it.
 func (svr *Service) RegisterWorkConn(workConn frpNet.Conn, newMsg *msg.NewWorkConn) {
-	ctl, exist := svr.ctlManager.GetById(newMsg.RunId)
+	ctl, exist := svr.rc.CtlManager.GetById(newMsg.RunId)
 	if !exist {
 		workConn.Warn("No client control found for run id [%s]", newMsg.RunId)
 		return
@@ -372,14 +381,6 @@ func (svr *Service) RegisterWorkConn(workConn frpNet.Conn, newMsg *msg.NewWorkCo
 }
 
 func (svr *Service) RegisterVisitorConn(visitorConn frpNet.Conn, newMsg *msg.NewVisitorConn) error {
-	return svr.visitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
+	return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
 		newMsg.UseEncryption, newMsg.UseCompression)
-}
-
-func (svr *Service) RegisterProxy(name string, pxy Proxy) error {
-	return svr.pxyManager.Add(name, pxy)
-}
-
-func (svr *Service) DelProxy(name string) {
-	svr.pxyManager.Del(name)
 }

@@ -35,8 +35,8 @@ import (
 )
 
 type Control struct {
-	// frps service
-	svr *Service
+	// all resource managers and controllers
+	rc *ResourceController
 
 	// login message
 	loginMsg *msg.Login
@@ -81,9 +81,9 @@ type Control struct {
 	mu sync.RWMutex
 }
 
-func NewControl(svr *Service, ctlConn net.Conn, loginMsg *msg.Login) *Control {
+func NewControl(rc *ResourceController, ctlConn net.Conn, loginMsg *msg.Login) *Control {
 	return &Control{
-		svr:             svr,
+		rc:              rc,
 		conn:            ctlConn,
 		loginMsg:        loginMsg,
 		sendCh:          make(chan msg.Message, 10),
@@ -284,11 +284,12 @@ func (ctl *Control) stoper() {
 
 	for _, pxy := range ctl.proxies {
 		pxy.Close()
-		ctl.svr.DelProxy(pxy.GetName())
+		ctl.rc.PxyManager.Del(pxy.GetName())
 		StatsCloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
 	}
 
 	ctl.allShutdown.Done()
+	ctl.rc.CtlManager.Del(ctl.runId)
 	ctl.conn.Info("client exit success")
 
 	StatsCloseClient()
@@ -358,7 +359,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 
 	// NewProxy will return a interface Proxy.
 	// In fact it create different proxies by different proxy type, we just call run() here.
-	pxy, err := NewProxy(ctl, pxyConf)
+	pxy, err := NewProxy(ctl.runId, ctl.rc, ctl.poolCount, ctl.GetWorkConn, pxyConf)
 	if err != nil {
 		return remoteAddr, err
 	}
@@ -393,7 +394,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		}
 	}()
 
-	err = ctl.svr.RegisterProxy(pxyMsg.ProxyName, pxy)
+	err = ctl.rc.PxyManager.Add(pxyMsg.ProxyName, pxy)
 	if err != nil {
 		return
 	}
@@ -406,7 +407,6 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 
 func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 	ctl.mu.Lock()
-
 	pxy, ok := ctl.proxies[closeMsg.ProxyName]
 	if !ok {
 		ctl.mu.Unlock()
@@ -417,7 +417,7 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 		ctl.portsUsedNum = ctl.portsUsedNum - pxy.GetUsedPortsNum()
 	}
 	pxy.Close()
-	ctl.svr.DelProxy(pxy.GetName())
+	ctl.rc.PxyManager.Del(pxy.GetName())
 	delete(ctl.proxies, closeMsg.ProxyName)
 	ctl.mu.Unlock()
 

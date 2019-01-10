@@ -50,6 +50,12 @@ func (cm *ControlManager) Add(runId string, ctl *Control) (oldCtl *Control) {
 	return
 }
 
+func (cm *ControlManager) Del(runId string) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	delete(cm.ctlsByRunId, runId)
+}
+
 func (cm *ControlManager) GetById(runId string) (ctl *Control, ok bool) {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()

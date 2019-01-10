@@ -36,9 +36,10 @@ import (
 	frpIo "github.com/fatedier/golib/io"
 )
 
+type GetWorkConnFn func() (frpNet.Conn, error)
+
 type Proxy interface {
 	Run() (remoteAddr string, err error)
-	GetControl() *Control
 	GetName() string
 	GetConf() config.ProxyConf
 	GetWorkConnFromPool() (workConn frpNet.Conn, err error)
@@ -48,10 +49,12 @@ type Proxy interface {
 }
 
 type BaseProxy struct {
-	name         string
-	ctl          *Control
-	listeners    []frpNet.Listener
-	usedPortsNum int
+	name          string
+	rc            *ResourceController
+	listeners     []frpNet.Listener
+	usedPortsNum  int
+	poolCount     int
+	getWorkConnFn GetWorkConnFn
 
 	mu sync.RWMutex
 	log.Logger
@@ -59,10 +62,6 @@ type BaseProxy struct {
 
 func (pxy *BaseProxy) GetName() string {
 	return pxy.name
-}
-
-func (pxy *BaseProxy) GetControl() *Control {
-	return pxy.ctl
 }
 
 func (pxy *BaseProxy) GetUsedPortsNum() int {
@@ -77,10 +76,9 @@ func (pxy *BaseProxy) Close() {
 }
 
 func (pxy *BaseProxy) GetWorkConnFromPool() (workConn frpNet.Conn, err error) {
-	ctl := pxy.GetControl()
 	// try all connections from the pool
-	for i := 0; i < ctl.poolCount+1; i++ {
-		if workConn, err = ctl.GetWorkConn(); err != nil {
+	for i := 0; i < pxy.poolCount+1; i++ {
+		if workConn, err = pxy.getWorkConnFn(); err != nil {
 			pxy.Warn("failed to get work connection: %v", err)
 			return
 		}
@@ -126,12 +124,14 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, frpNet.Con
 	}
 }
 
-func NewProxy(ctl *Control, pxyConf config.ProxyConf) (pxy Proxy, err error) {
+func NewProxy(runId string, rc *ResourceController, poolCount int, getWorkConnFn GetWorkConnFn, pxyConf config.ProxyConf) (pxy Proxy, err error) {
 	basePxy := BaseProxy{
-		name:      pxyConf.GetBaseInfo().ProxyName,
-		ctl:       ctl,
-		listeners: make([]frpNet.Listener, 0),
-		Logger:    log.NewPrefixLogger(ctl.runId),
+		name:          pxyConf.GetBaseInfo().ProxyName,
+		rc:            rc,
+		listeners:     make([]frpNet.Listener, 0),
+		poolCount:     poolCount,
+		getWorkConnFn: getWorkConnFn,
+		Logger:        log.NewPrefixLogger(runId),
 	}
 	switch cfg := pxyConf.(type) {
 	case *config.TcpProxyConf:
@@ -182,7 +182,7 @@ type TcpProxy struct {
 
 func (pxy *TcpProxy) Run() (remoteAddr string, err error) {
 	if pxy.cfg.Group != "" {
-		l, realPort, errRet := pxy.ctl.svr.tcpGroupCtl.Listen(pxy.name, pxy.cfg.Group, pxy.cfg.GroupKey, g.GlbServerCfg.ProxyBindAddr, pxy.cfg.RemotePort)
+		l, realPort, errRet := pxy.rc.TcpGroupCtl.Listen(pxy.name, pxy.cfg.Group, pxy.cfg.GroupKey, g.GlbServerCfg.ProxyBindAddr, pxy.cfg.RemotePort)
 		if errRet != nil {
 			err = errRet
 			return
@@ -198,13 +198,13 @@ func (pxy *TcpProxy) Run() (remoteAddr string, err error) {
 		pxy.listeners = append(pxy.listeners, listener)
 		pxy.Info("tcp proxy listen port [%d] in group [%s]", pxy.cfg.RemotePort, pxy.cfg.Group)
 	} else {
-		pxy.realPort, err = pxy.ctl.svr.tcpPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
+		pxy.realPort, err = pxy.rc.TcpPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
 		if err != nil {
 			return
 		}
 		defer func() {
 			if err != nil {
-				pxy.ctl.svr.tcpPortManager.Release(pxy.realPort)
+				pxy.rc.TcpPortManager.Release(pxy.realPort)
 			}
 		}()
 		listener, errRet := frpNet.ListenTcp(g.GlbServerCfg.ProxyBindAddr, pxy.realPort)
@@ -230,7 +230,7 @@ func (pxy *TcpProxy) GetConf() config.ProxyConf {
 func (pxy *TcpProxy) Close() {
 	pxy.BaseProxy.Close()
 	if pxy.cfg.Group == "" {
-		pxy.ctl.svr.tcpPortManager.Release(pxy.realPort)
+		pxy.rc.TcpPortManager.Release(pxy.realPort)
 	}
 }
 
@@ -260,7 +260,7 @@ func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
 		routeConfig.Domain = domain
 		for _, location := range locations {
 			routeConfig.Location = location
-			err = pxy.ctl.svr.httpReverseProxy.Register(routeConfig)
+			err = pxy.rc.HttpReverseProxy.Register(routeConfig)
 			if err != nil {
 				return
 			}
@@ -268,7 +268,7 @@ func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
 			tmpLocation := routeConfig.Location
 			addrs = append(addrs, util.CanonicalAddr(tmpDomain, int(g.GlbServerCfg.VhostHttpPort)))
 			pxy.closeFuncs = append(pxy.closeFuncs, func() {
-				pxy.ctl.svr.httpReverseProxy.UnRegister(tmpDomain, tmpLocation)
+				pxy.rc.HttpReverseProxy.UnRegister(tmpDomain, tmpLocation)
 			})
 			pxy.Info("http proxy listen for host [%s] location [%s]", routeConfig.Domain, routeConfig.Location)
 		}
@@ -278,7 +278,7 @@ func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
 		routeConfig.Domain = pxy.cfg.SubDomain + "." + g.GlbServerCfg.SubDomainHost
 		for _, location := range locations {
 			routeConfig.Location = location
-			err = pxy.ctl.svr.httpReverseProxy.Register(routeConfig)
+			err = pxy.rc.HttpReverseProxy.Register(routeConfig)
 			if err != nil {
 				return
 			}
@@ -286,7 +286,7 @@ func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
 			tmpLocation := routeConfig.Location
 			addrs = append(addrs, util.CanonicalAddr(tmpDomain, g.GlbServerCfg.VhostHttpPort))
 			pxy.closeFuncs = append(pxy.closeFuncs, func() {
-				pxy.ctl.svr.httpReverseProxy.UnRegister(tmpDomain, tmpLocation)
+				pxy.rc.HttpReverseProxy.UnRegister(tmpDomain, tmpLocation)
 			})
 			pxy.Info("http proxy listen for host [%s] location [%s]", routeConfig.Domain, routeConfig.Location)
 		}
@@ -348,7 +348,7 @@ func (pxy *HttpsProxy) Run() (remoteAddr string, err error) {
 	addrs := make([]string, 0)
 	for _, domain := range pxy.cfg.CustomDomains {
 		routeConfig.Domain = domain
-		l, errRet := pxy.ctl.svr.VhostHttpsMuxer.Listen(routeConfig)
+		l, errRet := pxy.rc.VhostHttpsMuxer.Listen(routeConfig)
 		if errRet != nil {
 			err = errRet
 			return
@@ -361,7 +361,7 @@ func (pxy *HttpsProxy) Run() (remoteAddr string, err error) {
 
 	if pxy.cfg.SubDomain != "" {
 		routeConfig.Domain = pxy.cfg.SubDomain + "." + g.GlbServerCfg.SubDomainHost
-		l, errRet := pxy.ctl.svr.VhostHttpsMuxer.Listen(routeConfig)
+		l, errRet := pxy.rc.VhostHttpsMuxer.Listen(routeConfig)
 		if errRet != nil {
 			err = errRet
 			return
@@ -391,7 +391,7 @@ type StcpProxy struct {
 }
 
 func (pxy *StcpProxy) Run() (remoteAddr string, err error) {
-	listener, errRet := pxy.ctl.svr.visitorManager.Listen(pxy.GetName(), pxy.cfg.Sk)
+	listener, errRet := pxy.rc.VisitorManager.Listen(pxy.GetName(), pxy.cfg.Sk)
 	if errRet != nil {
 		err = errRet
 		return
@@ -410,7 +410,7 @@ func (pxy *StcpProxy) GetConf() config.ProxyConf {
 
 func (pxy *StcpProxy) Close() {
 	pxy.BaseProxy.Close()
-	pxy.ctl.svr.visitorManager.CloseListener(pxy.GetName())
+	pxy.rc.VisitorManager.CloseListener(pxy.GetName())
 }
 
 type XtcpProxy struct {
@@ -421,12 +421,12 @@ type XtcpProxy struct {
 }
 
 func (pxy *XtcpProxy) Run() (remoteAddr string, err error) {
-	if pxy.ctl.svr.natHoleController == nil {
+	if pxy.rc.NatHoleController == nil {
 		pxy.Error("udp port for xtcp is not specified.")
 		err = fmt.Errorf("xtcp is not supported in frps")
 		return
 	}
-	sidCh := pxy.ctl.svr.natHoleController.ListenClient(pxy.GetName(), pxy.cfg.Sk)
+	sidCh := pxy.rc.NatHoleController.ListenClient(pxy.GetName(), pxy.cfg.Sk)
 	go func() {
 		for {
 			select {
@@ -456,7 +456,7 @@ func (pxy *XtcpProxy) GetConf() config.ProxyConf {
 
 func (pxy *XtcpProxy) Close() {
 	pxy.BaseProxy.Close()
-	pxy.ctl.svr.natHoleController.CloseClient(pxy.GetName())
+	pxy.rc.NatHoleController.CloseClient(pxy.GetName())
 	errors.PanicToError(func() {
 		close(pxy.closeCh)
 	})
@@ -488,13 +488,13 @@ type UdpProxy struct {
 }
 
 func (pxy *UdpProxy) Run() (remoteAddr string, err error) {
-	pxy.realPort, err = pxy.ctl.svr.udpPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
+	pxy.realPort, err = pxy.rc.UdpPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
 	if err != nil {
 		return
 	}
 	defer func() {
 		if err != nil {
-			pxy.ctl.svr.udpPortManager.Release(pxy.realPort)
+			pxy.rc.UdpPortManager.Release(pxy.realPort)
 		}
 	}()
 
@@ -648,7 +648,7 @@ func (pxy *UdpProxy) Close() {
 		close(pxy.readCh)
 		close(pxy.sendCh)
 	}
-	pxy.ctl.svr.udpPortManager.Release(pxy.realPort)
+	pxy.rc.UdpPortManager.Release(pxy.realPort)
 }
 
 // HandleUserTcpConnection is used for incoming tcp user connections.
