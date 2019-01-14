@@ -396,10 +396,6 @@ Then visit `http://[server_addr]:7500` to see dashboard, default username and pa
 
 Since v0.10.0, you only need to set `token` in frps.ini and frpc.ini.
 
-Note that time duration between server of frpc and frps mustn't exceed 15 minutes because timestamp is used for authentication.
-
-Howerver, this timeout duration can be modified by setting `authentication_timeout` in frps's configure file. It's defalut value is 900, means 15 minutes. If it is equals 0, then frps will not check authentication timeout.
-
 ### Encryption and Compression
 
 Defalut value is false, you could decide if the proxy will use encryption or compression:

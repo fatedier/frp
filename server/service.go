@@ -324,11 +324,6 @@ func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (e
 	}
 
 	// Check auth.
-	nowTime := time.Now().Unix()
-	if g.GlbServerCfg.AuthTimeout != 0 && nowTime-loginMsg.Timestamp > g.GlbServerCfg.AuthTimeout {
-		err = fmt.Errorf("authorization timeout")
-		return
-	}
 	if util.GetAuthKey(g.GlbServerCfg.Token, loginMsg.Timestamp) != loginMsg.PrivilegeKey {
 		err = fmt.Errorf("authorization failed")
 		return

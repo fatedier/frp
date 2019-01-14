@@ -41,7 +41,6 @@ type ServerInfoResp struct {
 	VhostHttpPort     int    `json:"vhost_http_port"`
 	VhostHttpsPort    int    `json:"vhost_https_port"`
 	KcpBindPort       int    `json:"kcp_bind_port"`
-	AuthTimeout       int64  `json:"auth_timeout"`
 	SubdomainHost     string `json:"subdomain_host"`
 	MaxPoolCount      int64  `json:"max_pool_count"`
 	MaxPortsPerClient int64  `json:"max_ports_per_client"`
@@ -74,7 +73,6 @@ func (svr *Service) ApiServerInfo(w http.ResponseWriter, r *http.Request) {
 		VhostHttpPort:     cfg.VhostHttpPort,
 		VhostHttpsPort:    cfg.VhostHttpsPort,
 		KcpBindPort:       cfg.KcpBindPort,
-		AuthTimeout:       cfg.AuthTimeout,
 		SubdomainHost:     cfg.SubDomainHost,
 		MaxPoolCount:      cfg.MaxPoolCount,
 		MaxPortsPerClient: cfg.MaxPortsPerClient,
