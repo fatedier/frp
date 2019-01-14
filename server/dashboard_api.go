@@ -66,7 +66,7 @@ func (svr *Service) ApiServerInfo(w http.ResponseWriter, r *http.Request) {
 
 	log.Info("Http request: [%s]", r.URL.Path)
 	cfg := &g.GlbServerCfg.ServerCommonConf
-	serverStats := StatsGetServer()
+	serverStats := svr.statsCollector.GetServer()
 	res = ServerInfoResp{
 		Version:           version.Full(),
 		BindPort:          cfg.BindPort,
@@ -185,11 +185,11 @@ func (svr *Service) ApiProxyByType(w http.ResponseWriter, r *http.Request) {
 }
 
 func (svr *Service) getProxyStatsByType(proxyType string) (proxyInfos []*ProxyStatsInfo) {
-	proxyStats := StatsGetProxiesByType(proxyType)
+	proxyStats := svr.statsCollector.GetProxiesByType(proxyType)
 	proxyInfos = make([]*ProxyStatsInfo, 0, len(proxyStats))
 	for _, ps := range proxyStats {
 		proxyInfo := &ProxyStatsInfo{}
-		if pxy, ok := svr.rc.PxyManager.GetByName(ps.Name); ok {
+		if pxy, ok := svr.pxyManager.GetByName(ps.Name); ok {
 			content, err := json.Marshal(pxy.GetConf())
 			if err != nil {
 				log.Warn("marshal proxy [%s] conf info error: %v", ps.Name, err)
@@ -252,12 +252,12 @@ func (svr *Service) ApiProxyByTypeAndName(w http.ResponseWriter, r *http.Request
 
 func (svr *Service) getProxyStatsByTypeAndName(proxyType string, proxyName string) (proxyInfo GetProxyStatsResp) {
 	proxyInfo.Name = proxyName
-	ps := StatsGetProxiesByTypeAndName(proxyType, proxyName)
+	ps := svr.statsCollector.GetProxiesByTypeAndName(proxyType, proxyName)
 	if ps == nil {
 		proxyInfo.Code = 1
 		proxyInfo.Msg = "no proxy info found"
 	} else {
-		if pxy, ok := svr.rc.PxyManager.GetByName(proxyName); ok {
+		if pxy, ok := svr.pxyManager.GetByName(proxyName); ok {
 			content, err := json.Marshal(pxy.GetConf())
 			if err != nil {
 				log.Warn("marshal proxy [%s] conf info error: %v", ps.Name, err)
@@ -309,7 +309,7 @@ func (svr *Service) ApiProxyTraffic(w http.ResponseWriter, r *http.Request) {
 	log.Info("Http request: [%s]", r.URL.Path)
 
 	res.Name = name
-	proxyTrafficInfo := StatsGetProxyTraffic(name)
+	proxyTrafficInfo := svr.statsCollector.GetProxyTraffic(name)
 	if proxyTrafficInfo == nil {
 		res.Code = 1
 		res.Msg = "no proxy info found"
