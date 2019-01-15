@@ -78,6 +78,10 @@ func (collector *internalCollector) Mark(statsType StatsType, payload interface{
 		collector.newClient(v)
 	case *CloseClientPayload:
 		collector.closeClient(v)
+	case *NewProxyPayload:
+		collector.newProxy(v)
+	case *CloseProxyPayload:
+		collector.closeProxy(v)
 	case *OpenConnectionPayload:
 		collector.openConnection(v)
 	case *CloseConnectionPayload:
