@@ -17,6 +17,7 @@ package client
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -172,6 +173,7 @@ func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error)
 		conn = frpNet.WrapConn(stream)
 	}
 
+	hostname, _ := os.Hostname()
 	now := time.Now().Unix()
 	loginMsg := &msg.Login{
 		Arch:         runtime.GOARCH,
@@ -182,6 +184,7 @@ func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error)
 		PrivilegeKey: util.GetAuthKey(g.GlbClientCfg.Token, now),
 		Timestamp:    now,
 		RunId:        svr.runId,
+		Hostname:     hostname,
 	}
 
 	if err = msg.WriteMsg(conn, loginMsg); err != nil {
