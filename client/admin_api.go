@@ -17,12 +17,9 @@ package client
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"sort"
 	"strings"
-
-	ini "github.com/vaughan0/go-ini"
 
 	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/g"
@@ -53,14 +50,13 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 
 	log.Info("Http request: [/api/reload]")
 
-	b, err := ioutil.ReadFile(g.GlbClientCfg.CfgFile)
+	content, err := config.GetRenderedConfFromFile(g.GlbClientCfg.CfgFile)
 	if err != nil {
 		res.Code = 1
 		res.Msg = err.Error()
 		log.Error("reload frpc config file error: %v", err)
 		return
 	}
-	content := string(b)
 
 	newCommonCfg, err := config.UnmarshalClientConfFromIni(nil, content)
 	if err != nil {
@@ -70,15 +66,7 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conf, err := ini.LoadFile(g.GlbClientCfg.CfgFile)
-	if err != nil {
-		res.Code = 1
-		res.Msg = err.Error()
-		log.Error("reload frpc config file error: %v", err)
-		return
-	}
-
-	pxyCfgs, visitorCfgs, err := config.LoadAllConfFromIni(g.GlbClientCfg.User, conf, newCommonCfg.Start)
+	pxyCfgs, visitorCfgs, err := config.LoadAllConfFromIni(g.GlbClientCfg.User, content, newCommonCfg.Start)
 	if err != nil {
 		res.Code = 3
 		res.Msg = err.Error()
