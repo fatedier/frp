@@ -8,11 +8,12 @@
 
 frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet. As of now, it supports tcp & udp, as well as http and https protocols, where requests can be forwarded to internal services by domain name.
 
+Now it also try to support p2p connect.
+
 ## Table of Contents
 
 <!-- vim-markdown-toc GFM -->
 
-* [What can I do with frp?](#what-can-i-do-with-frp)
 * [Status](#status)
 * [Architecture](#architecture)
 * [Example Usage](#example-usage)
@@ -37,6 +38,7 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Support KCP Protocol](#support-kcp-protocol)
     * [Connection Pool](#connection-pool)
     * [Load balancing](#load-balancing)
+    * [Health Check](#health-check)
     * [Rewriting the Host Header](#rewriting-the-host-header)
     * [Set Headers In HTTP Request](#set-headers-in-http-request)
     * [Get Real IP](#get-real-ip)
@@ -54,11 +56,6 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
     * [Paypal](#paypal)
 
 <!-- vim-markdown-toc -->
-
-## What can I do with frp?
-
-* Expose any http and https service behind a NAT or firewall to the internet by a server with public IP address(Name-based Virtual Host Support).
-* Expose any tcp or udp service behind a NAT or firewall to the internet by a server with public IP address.
 
 ## Status
 
@@ -394,7 +391,7 @@ Then visit `http://[server_addr]:7500` to see dashboard, default username and pa
 
 ### Authentication
 
-Since v0.10.0, you only need to set `token` in frps.ini and frpc.ini.
+`token` in frps.ini and frpc.ini should be same.
 
 ### Encryption and Compression
 
@@ -536,6 +533,52 @@ group_key = 123
 
 Proxies in same group will accept connections from port 80 randomly.
 
+### Health Check
+
+Health check feature can help you achieve high availability with load balancing.
+
+Add `health_check_type = {type}` to enable health check.
+
+**type** can be tcp or http.
+
+Type tcp will dial the service port and type http will send a http rquest to service and require a 200 response.
+
+Type tcp configuration:
+
+```ini
+# frpc.ini
+[test1]
+type = tcp
+local_port = 22
+remote_port = 6000
+# enable tcp health check
+health_check_type = tcp
+# dial timeout seconds
+health_check_timeout_s = 3
+# if continuous failed in 3 times, the proxy will be removed from frps
+health_check_max_failed = 3
+# every 10 seconds will do a health check
+health_check_interval_s = 10
+```
+
+Type http configuration:
+```ini
+# frpc.ini
+[web]
+type = http
+local_ip = 127.0.0.1
+local_port = 80
+custom_domains = test.yourdomain.com
+# enable http health check
+health_check_type = http
+# frpc will send a GET http request '/status' to local http service
+# http service is alive when it return 2xx http response code
+health_check_url = /status
+health_check_interval_s = 10
+health_check_max_failed = 3
+health_check_timeout_s = 3
+```
+
 ### Rewriting the Host Header
 
 When forwarding to a local port, frp does not modify the tunneled HTTP requests at all, they are copied to your server byte-for-byte as they are received. Some application servers use the Host header for determining which development site to display. For this reason, frp can rewrite your requests with a modified host header. Use the `host_header_rewrite` switch to rewrite incoming HTTP requests.
@@ -573,8 +616,6 @@ In this example, it will set header `X-From-Where: frp` to http request.
 Features for http proxy only.
 
 You can get user's real IP from http request header `X-Forwarded-For` and `X-Real-IP`.
-
-**Note that now you can only get these two headers in first request of each user connection.**
 
 ### Password protecting your web service
 
