@@ -67,7 +67,6 @@ type ServerCommonConf struct {
 	LogLevel      string `json:"log_level"`
 	LogMaxDays    int64  `json:"log_max_days"`
 	Token         string `json:"token"`
-	AuthTimeout   int64  `json:"auth_timeout"`
 	SubDomainHost string `json:"subdomain_host"`
 	TcpMux        bool   `json:"tcp_mux"`
 
@@ -98,7 +97,6 @@ func GetDefaultServerConf() *ServerCommonConf {
 		LogLevel:          "info",
 		LogMaxDays:        3,
 		Token:             "",
-		AuthTimeout:       900,
 		SubDomainHost:     "",
 		TcpMux:            true,
 		AllowPorts:        make(map[int]struct{}),
@@ -282,16 +280,6 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (c
 				return
 			}
 			cfg.MaxPortsPerClient = v
-		}
-	}
-
-	if tmpStr, ok = conf.Get("common", "authentication_timeout"); ok {
-		v, errRet := strconv.ParseInt(tmpStr, 10, 64)
-		if errRet != nil {
-			err = fmt.Errorf("Parse conf error: authentication_timeout is incorrect")
-			return
-		} else {
-			cfg.AuthTimeout = v
 		}
 	}
 

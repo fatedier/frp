@@ -4,13 +4,12 @@
 
 [README](README.md) | [中文文档](README_zh.md)
 
-frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp, udp, http, https 协议。
+frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp, udp 协议，为 http 和 https 应用协议提供了额外的能力，且尝试性支持了点对点穿透。
 
 ## 目录
 
 <!-- vim-markdown-toc GFM -->
 
-* [frp 的作用](#frp-的作用)
 * [开发状态](#开发状态)
 * [架构](#架构)
 * [使用示例](#使用示例)
@@ -35,6 +34,7 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
     * [底层通信可选 kcp 协议](#底层通信可选-kcp-协议)
     * [连接池](#连接池)
     * [负载均衡](#负载均衡)
+    * [健康检查](#健康检查)
     * [修改 Host Header](#修改-host-header)
     * [设置 HTTP 请求的 header](#设置-http-请求的-header)
     * [获取用户真实 IP](#获取用户真实-ip)
@@ -53,15 +53,9 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
 
 <!-- vim-markdown-toc -->
 
-## frp 的作用
-
-* 利用处于内网或防火墙后的机器，对外网环境提供 http 或 https 服务。
-* 对于 http, https 服务支持基于域名的虚拟主机，支持自定义域名绑定，使多个域名可以共用一个80端口。
-* 利用处于内网或防火墙后的机器，对外网环境提供 tcp 和 udp 服务，例如在家里通过 ssh 访问处于公司内网环境内的主机。
-
 ## 开发状态
 
-frp 仍然处于前期开发阶段，未经充分测试与验证，不推荐用于生产环境。
+frp 仍然处于开发阶段，未经充分测试与验证，不推荐用于生产环境。
 
 master 分支用于发布稳定版本，dev 分支用于开发，您可以尝试下载最新的 release 版本进行测试。
 
@@ -394,6 +388,8 @@ frpc 会自动使用环境变量渲染配置文件模版，所有环境变量需
 
 通过浏览器查看 frp 的状态以及代理统计信息展示。
 
+**注：Dashboard 尚未针对大量的 proxy 数据展示做优化，如果出现 Dashboard 访问较慢的情况，请不要启用此功能。**
+
 需要在 frps.ini 中指定 dashboard 服务使用的端口，即可开启此功能：
 
 ```ini
@@ -410,11 +406,7 @@ dashboard_pwd = admin
 
 ### 身份验证
 
-从 v0.10.0 版本开始，所有 proxy 配置全部放在客户端(也就是之前版本的特权模式)，服务端和客户端的 common 配置中的 `token` 参数一致则身份验证通过。
-
-需要注意的是 frpc 所在机器和 frps 所在机器的时间相差不能超过 15 分钟，因为时间戳会被用于加密验证中，防止报文被劫持后被其他人利用。
-
-这个超时时间可以在配置文件中通过 `authentication_timeout` 这个参数来修改，单位为秒，默认值为 900，即 15 分钟。如果修改为 0，则 frps 将不对身份验证报文的时间戳进行超时校验。
+服务端和客户端的 common 配置中的 `token` 参数一致则身份验证通过。
 
 ### 加密与压缩
 
@@ -568,6 +560,52 @@ group_key = 123
 
 要求 `group_key` 相同，做权限验证，且 `remote_port` 相同。
 
+### 健康检查
+
+通过给 proxy 加上健康检查的功能，可以在要反向代理的服务出现故障时，将这个服务从 frps 中摘除，搭配负载均衡的功能，可以用来实现高可用的架构，避免服务单点故障。
+
+在每一个 proxy 的配置下加上 `health_check_type = {type}` 来启用健康检查功能。
+
+**type** 目前可选 tcp 和 http。
+
+tcp 只要能够建立连接则认为服务正常，http 会发送一个 http 请求，服务需要返回 2xx 的状态码才会被认为正常。
+
+tcp 示例配置如下：
+
+```ini
+# frpc.ini
+[test1]
+type = tcp
+local_port = 22
+remote_port = 6000
+# 启用健康检查，类型为 tcp
+health_check_type = tcp
+# 建立连接超时时间为 3 秒
+health_check_timeout_s = 3
+# 连续 3 次检查失败，此 proxy 会被摘除
+health_check_max_failed = 3
+# 每隔 10 秒进行一次健康检查
+health_check_interval_s = 10
+```
+
+http 示例配置如下：
+
+```ini
+# frpc.ini
+[web]
+type = http
+local_ip = 127.0.0.1
+local_port = 80
+custom_domains = test.yourdomain.com
+# 启用健康检查，类型为 http
+health_check_type = http
+# 健康检查发送 http 请求的 url，后端服务需要返回 2xx 的 http 状态码
+health_check_url = /status
+health_check_interval_s = 10
+health_check_max_failed = 3
+health_check_timeout_s = 3
+```
+
 ### 修改 Host Header
 
 通常情况下 frp 不会修改转发的任何数据。但有一些后端服务会根据 http 请求 header 中的 host 字段来展现不同的网站，例如 nginx 的虚拟主机服务，启用 host-header 的修改功能可以动态修改 http 请求中的 host 字段。该功能仅限于 http 类型的代理。
@@ -602,8 +640,6 @@ header_X-From-Where = frp
 ### 获取用户真实 IP
 
 目前只有 **http** 类型的代理支持这一功能，可以通过用户请求的 header 中的 `X-Forwarded-For` 和 `X-Real-IP` 来获取用户真实 IP。
-
-**需要注意的是，目前只在每一个用户连接的第一个 HTTP 请求中添加了这两个 header。**
 
 ### 通过密码保护你的 web 服务
 
@@ -651,7 +687,7 @@ subdomain = test
 
 frps 和 frpc 都启动成功后，通过 `test.frps.com` 就可以访问到内网的 web 服务。
 
-需要注意的是如果 frps 配置了 `subdomain_host`，则 `custom_domains` 中不能是属于 `subdomain_host` 的子域名或者泛域名。
+**注：如果 frps 配置了 `subdomain_host`，则 `custom_domains` 中不能是属于 `subdomain_host` 的子域名或者泛域名。**
 
 同一个 http 或 https 类型的代理中 `custom_domains`  和 `subdomain` 可以同时配置。
 
@@ -740,8 +776,6 @@ plugin_http_passwd = abc
 计划在后续版本中加入的功能与优化，排名不分先后，如果有其他功能建议欢迎在 [issues](https://github.com/fatedier/frp/issues) 中反馈。
 
 * frps 记录 http 请求日志。
-* frps 支持直接反向代理，类似 haproxy。
-* 集成对 k8s 等平台的支持。
 
 ## 为 frp 做贡献
 
@@ -761,6 +795,12 @@ frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进�
 如果您觉得 frp 对你有帮助，欢迎给予我们一定的捐助来维持项目的长期发展。
 
 frp 交流群：606194980 (QQ 群号)
+
+### 知识星球
+
+如果您想学习 frp 相关的知识和技术，或者寻求任何帮助，都可以通过微信扫描下方的二维码付费加入知识星球的官方社群：
+
+![zsxq](/doc/pic/zsxq.jpg)
 
 ### 支付宝扫码捐赠
 

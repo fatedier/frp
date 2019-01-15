@@ -26,6 +26,9 @@ import (
 	"github.com/fatedier/frp/models/consts"
 	frpErr "github.com/fatedier/frp/models/errors"
 	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/server/controller"
+	"github.com/fatedier/frp/server/proxy"
+	"github.com/fatedier/frp/server/stats"
 	"github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/version"
 
@@ -34,9 +37,53 @@ import (
 	"github.com/fatedier/golib/errors"
 )
 
+type ControlManager struct {
+	// controls indexed by run id
+	ctlsByRunId map[string]*Control
+
+	mu sync.RWMutex
+}
+
+func NewControlManager() *ControlManager {
+	return &ControlManager{
+		ctlsByRunId: make(map[string]*Control),
+	}
+}
+
+func (cm *ControlManager) Add(runId string, ctl *Control) (oldCtl *Control) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	oldCtl, ok := cm.ctlsByRunId[runId]
+	if ok {
+		oldCtl.Replaced(ctl)
+	}
+	cm.ctlsByRunId[runId] = ctl
+	return
+}
+
+func (cm *ControlManager) Del(runId string) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	delete(cm.ctlsByRunId, runId)
+}
+
+func (cm *ControlManager) GetById(runId string) (ctl *Control, ok bool) {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	ctl, ok = cm.ctlsByRunId[runId]
+	return
+}
+
 type Control struct {
-	// frps service
-	svr *Service
+	// all resource managers and controllers
+	rc *controller.ResourceController
+
+	// proxy manager
+	pxyManager *proxy.ProxyManager
+
+	// stats collector to store stats info of clients and proxies
+	statsCollector stats.Collector
 
 	// login message
 	loginMsg *msg.Login
@@ -54,7 +101,7 @@ type Control struct {
 	workConnCh chan net.Conn
 
 	// proxies in one client
-	proxies map[string]Proxy
+	proxies map[string]proxy.Proxy
 
 	// pool count
 	poolCount int
@@ -81,15 +128,19 @@ type Control struct {
 	mu sync.RWMutex
 }
 
-func NewControl(svr *Service, ctlConn net.Conn, loginMsg *msg.Login) *Control {
+func NewControl(rc *controller.ResourceController, pxyManager *proxy.ProxyManager,
+	statsCollector stats.Collector, ctlConn net.Conn, loginMsg *msg.Login) *Control {
+
 	return &Control{
-		svr:             svr,
+		rc:              rc,
+		pxyManager:      pxyManager,
+		statsCollector:  statsCollector,
 		conn:            ctlConn,
 		loginMsg:        loginMsg,
 		sendCh:          make(chan msg.Message, 10),
 		readCh:          make(chan msg.Message, 10),
 		workConnCh:      make(chan net.Conn, loginMsg.PoolCount+10),
-		proxies:         make(map[string]Proxy),
+		proxies:         make(map[string]proxy.Proxy),
 		poolCount:       loginMsg.PoolCount,
 		portsUsedNum:    0,
 		lastPing:        time.Now(),
@@ -284,14 +335,22 @@ func (ctl *Control) stoper() {
 
 	for _, pxy := range ctl.proxies {
 		pxy.Close()
-		ctl.svr.DelProxy(pxy.GetName())
-		StatsCloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
+		ctl.pxyManager.Del(pxy.GetName())
+		ctl.statsCollector.Mark(stats.TypeCloseProxy, &stats.CloseProxyPayload{
+			Name:      pxy.GetName(),
+			ProxyType: pxy.GetConf().GetBaseInfo().ProxyType,
+		})
 	}
 
 	ctl.allShutdown.Done()
 	ctl.conn.Info("client exit success")
 
-	StatsCloseClient()
+	ctl.statsCollector.Mark(stats.TypeCloseClient, &stats.CloseClientPayload{})
+}
+
+// block until Control closed
+func (ctl *Control) WaitClosed() {
+	ctl.allShutdown.WaitDone()
 }
 
 func (ctl *Control) manager() {
@@ -333,7 +392,10 @@ func (ctl *Control) manager() {
 				} else {
 					resp.RemoteAddr = remoteAddr
 					ctl.conn.Info("new proxy [%s] success", m.ProxyName)
-					StatsNewProxy(m.ProxyName, m.ProxyType)
+					ctl.statsCollector.Mark(stats.TypeNewProxy, &stats.NewProxyPayload{
+						Name:      m.ProxyName,
+						ProxyType: m.ProxyType,
+					})
 				}
 				ctl.sendCh <- resp
 			case *msg.CloseProxy:
@@ -358,7 +420,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 
 	// NewProxy will return a interface Proxy.
 	// In fact it create different proxies by different proxy type, we just call run() here.
-	pxy, err := NewProxy(ctl, pxyConf)
+	pxy, err := proxy.NewProxy(ctl.runId, ctl.rc, ctl.statsCollector, ctl.poolCount, ctl.GetWorkConn, pxyConf)
 	if err != nil {
 		return remoteAddr, err
 	}
@@ -393,7 +455,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		}
 	}()
 
-	err = ctl.svr.RegisterProxy(pxyMsg.ProxyName, pxy)
+	err = ctl.pxyManager.Add(pxyMsg.ProxyName, pxy)
 	if err != nil {
 		return
 	}
@@ -406,7 +468,6 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 
 func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 	ctl.mu.Lock()
-
 	pxy, ok := ctl.proxies[closeMsg.ProxyName]
 	if !ok {
 		ctl.mu.Unlock()
@@ -417,10 +478,13 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 		ctl.portsUsedNum = ctl.portsUsedNum - pxy.GetUsedPortsNum()
 	}
 	pxy.Close()
-	ctl.svr.DelProxy(pxy.GetName())
+	ctl.pxyManager.Del(pxy.GetName())
 	delete(ctl.proxies, closeMsg.ProxyName)
 	ctl.mu.Unlock()
 
-	StatsCloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
+	ctl.statsCollector.Mark(stats.TypeCloseProxy, &stats.CloseProxyPayload{
+		Name:      pxy.GetName(),
+		ProxyType: pxy.GetConf().GetBaseInfo().ProxyType,
+	})
 	return
 }
