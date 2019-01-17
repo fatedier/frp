@@ -16,7 +16,6 @@ package frps
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -25,6 +24,7 @@ import (
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/server"
 	"github.com/fatedier/frp/utils/log"
+	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
 )
 
@@ -44,17 +44,16 @@ var (
 	proxyBindAddr     string
 	vhostHttpPort     int
 	vhostHttpsPort    int
+	vhostHttpTimeout  int64
 	dashboardAddr     string
 	dashboardPort     int
 	dashboardUser     string
 	dashboardPwd      string
 	assetsDir         string
 	logFile           string
-	logWay            string
 	logLevel          string
 	logMaxDays        int64
 	token             string
-	authTimeout       int64
 	subDomainHost     string
 	tcpMux            bool
 	allowPorts        string
@@ -73,17 +72,17 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&proxyBindAddr, "proxy_bind_addr", "", "0.0.0.0", "proxy bind address")
 	rootCmd.PersistentFlags().IntVarP(&vhostHttpPort, "vhost_http_port", "", 0, "vhost http port")
 	rootCmd.PersistentFlags().IntVarP(&vhostHttpsPort, "vhost_https_port", "", 0, "vhost https port")
+	rootCmd.PersistentFlags().Int64VarP(&vhostHttpTimeout, "vhost_http_timeout", "", 60, "vhost http response header timeout")
 	rootCmd.PersistentFlags().StringVarP(&dashboardAddr, "dashboard_addr", "", "0.0.0.0", "dasboard address")
 	rootCmd.PersistentFlags().IntVarP(&dashboardPort, "dashboard_port", "", 0, "dashboard port")
 	rootCmd.PersistentFlags().StringVarP(&dashboardUser, "dashboard_user", "", "admin", "dashboard user")
 	rootCmd.PersistentFlags().StringVarP(&dashboardPwd, "dashboard_pwd", "", "admin", "dashboard password")
 	rootCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "log file")
-	rootCmd.PersistentFlags().StringVarP(&logWay, "log_way", "", "console", "log way")
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	rootCmd.PersistentFlags().Int64VarP(&logMaxDays, "log_max_days", "", 3, "log_max_days")
 	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
-	rootCmd.PersistentFlags().Int64VarP(&authTimeout, "auth_timeout", "", 900, "auth timeout")
 	rootCmd.PersistentFlags().StringVarP(&subDomainHost, "subdomain_host", "", "", "subdomain host")
+	rootCmd.PersistentFlags().StringVarP(&allowPorts, "allow_ports", "", "", "allow ports")
 	rootCmd.PersistentFlags().Int64VarP(&maxPortsPerClient, "max_ports_per_client", "", 0, "max ports per client")
 }
 
@@ -98,7 +97,13 @@ var rootCmd = &cobra.Command{
 
 		var err error
 		if cfgFile != "" {
-			err = parseServerCommonCfg(CfgFileTypeIni, cfgFile)
+			var content string
+			content, err = config.GetRenderedConfFromFile(cfgFile)
+			if err != nil {
+				return err
+			}
+			g.GlbServerCfg.CfgFile = cfgFile
+			err = parseServerCommonCfg(CfgFileTypeIni, content)
 		} else {
 			err = parseServerCommonCfg(CfgFileTypeCmd, "")
 		}
@@ -121,38 +126,15 @@ func Execute() {
 	}
 }
 
-func RunFrps(cfgFile string) error {
-	if showVersion {
-		fmt.Println(version.Full())
-		return nil
-	}
-
-	var err error
-	if cfgFile != "" {
-		err = parseServerCommonCfg(CfgFileTypeIni, cfgFile)
-	} else {
-		err = parseServerCommonCfg(CfgFileTypeCmd, "")
-	}
-	if err != nil {
-		return err
-	}
-
-	err = runBackgroundServer()
-	fmt.Println(err)
-	return err
-}
-
-func parseServerCommonCfg(fileType int, filePath string) (err error) {
+func parseServerCommonCfg(fileType int, content string) (err error) {
 	if fileType == CfgFileTypeIni {
-		err = parseServerCommonCfgFromIni(filePath)
+		err = parseServerCommonCfgFromIni(content)
 	} else if fileType == CfgFileTypeCmd {
 		err = parseServerCommonCfgFromCmd()
 	}
 	if err != nil {
 		return
 	}
-
-	g.GlbServerCfg.CfgFile = filePath
 
 	err = g.GlbServerCfg.ServerCommonConf.Check()
 	if err != nil {
@@ -163,13 +145,7 @@ func parseServerCommonCfg(fileType int, filePath string) (err error) {
 	return
 }
 
-func parseServerCommonCfgFromIni(filePath string) (err error) {
-	b, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return err
-	}
-	content := string(b)
-
+func parseServerCommonCfgFromIni(content string) (err error) {
 	cfg, err := config.UnmarshalServerConfFromIni(&g.GlbServerCfg.ServerCommonConf, content)
 	if err != nil {
 		return err
@@ -186,18 +162,35 @@ func parseServerCommonCfgFromCmd() (err error) {
 	g.GlbServerCfg.ProxyBindAddr = proxyBindAddr
 	g.GlbServerCfg.VhostHttpPort = vhostHttpPort
 	g.GlbServerCfg.VhostHttpsPort = vhostHttpsPort
+	g.GlbServerCfg.VhostHttpTimeout = vhostHttpTimeout
 	g.GlbServerCfg.DashboardAddr = dashboardAddr
 	g.GlbServerCfg.DashboardPort = dashboardPort
 	g.GlbServerCfg.DashboardUser = dashboardUser
 	g.GlbServerCfg.DashboardPwd = dashboardPwd
 	g.GlbServerCfg.LogFile = logFile
-	g.GlbServerCfg.LogWay = logWay
 	g.GlbServerCfg.LogLevel = logLevel
 	g.GlbServerCfg.LogMaxDays = logMaxDays
 	g.GlbServerCfg.Token = token
-	g.GlbServerCfg.AuthTimeout = authTimeout
 	g.GlbServerCfg.SubDomainHost = subDomainHost
+	if len(allowPorts) > 0 {
+		// e.g. 1000-2000,2001,2002,3000-4000
+		ports, errRet := util.ParseRangeNumbers(allowPorts)
+		if errRet != nil {
+			err = fmt.Errorf("Parse conf error: allow_ports: %v", errRet)
+			return
+		}
+
+		for _, port := range ports {
+			g.GlbServerCfg.AllowPorts[int(port)] = struct{}{}
+		}
+	}
 	g.GlbServerCfg.MaxPortsPerClient = maxPortsPerClient
+
+	if logFile == "console" {
+		g.GlbClientCfg.LogWay = "console"
+	} else {
+		g.GlbClientCfg.LogWay = "file"
+	}
 	return
 }
 
@@ -215,6 +208,33 @@ func runServer() (err error) {
 }
 
 var service *server.Service
+
+func RunFrps(cfgFile string) error {
+	if showVersion {
+		fmt.Println(version.Full())
+		return nil
+	}
+
+	var err error
+	if cfgFile != "" {
+		var content string
+		content, err = config.GetRenderedConfFromFile(cfgFile)
+		if err != nil {
+			return err
+		}
+		g.GlbServerCfg.CfgFile = cfgFile
+		err = parseServerCommonCfg(CfgFileTypeIni, content)
+	} else {
+		err = parseServerCommonCfg(CfgFileTypeCmd, "")
+	}
+	if err != nil {
+		return err
+	}
+
+	err = runBackgroundServer()
+	fmt.Println(err)
+	return err
+}
 
 func runBackgroundServer() (err error) {
 	log.InitLog(g.GlbServerCfg.LogWay, g.GlbServerCfg.LogFile, g.GlbServerCfg.LogLevel,

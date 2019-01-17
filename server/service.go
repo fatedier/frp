@@ -98,9 +98,9 @@ func NewService() (svr *Service, err error) {
 			VisitorManager: controller.NewVisitorManager(),
 			TcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
 			UdpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
-			Closed:         true,
-			closedCh:       make(chan bool),
 		},
+		Closed:   true,
+		closedCh: make(chan bool),
 	}
 
 	// Init group controller
