@@ -148,6 +148,9 @@ func (ctl *Control) Close() error {
 		ctl.conn.Close()
 		log.Info("conn closed")
 	}
+	if ctl.pm != nil {
+		ctl.pm.Close()
+	}
 	return nil
 }
 

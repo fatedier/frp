@@ -27,6 +27,7 @@ import (
 
 	"github.com/fatedier/frp/client"
 	"github.com/fatedier/frp/g"
+	"github.com/fatedier/frp/models/config"
 )
 
 func init() {
@@ -37,7 +38,13 @@ var reloadCmd = &cobra.Command{
 	Use:   "reload",
 	Short: "Hot-Reload frpc configuration",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := parseClientCommonCfg(CfgFileTypeIni, cfgFile)
+		iniContent, err := config.GetRenderedConfFromFile(cfgFile)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		err = parseClientCommonCfg(CfgFileTypeIni, iniContent)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

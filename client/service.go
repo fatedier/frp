@@ -169,6 +169,7 @@ func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error)
 
 	if g.GlbClientCfg.TcpMux {
 		fmuxCfg := fmux.DefaultConfig()
+		fmuxCfg.KeepAliveInterval = 20 * time.Second
 		fmuxCfg.LogOutput = ioutil.Discard
 		session, err = fmux.Client(conn, fmuxCfg)
 		if err != nil {

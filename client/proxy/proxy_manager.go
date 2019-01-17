@@ -50,11 +50,12 @@ func (pm *ProxyManager) StartProxy(name string, remoteAddr string, serverRespErr
 }
 
 func (pm *ProxyManager) Close() {
-	pm.mu.RLock()
-	defer pm.mu.RUnlock()
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
 	for _, pxy := range pm.proxies {
 		pxy.Stop()
 	}
+	pm.proxies = make(map[string]*ProxyWrapper)
 }
 
 func (pm *ProxyManager) HandleWorkConn(name string, workConn frpNet.Conn) {

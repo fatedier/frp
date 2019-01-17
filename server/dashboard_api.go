@@ -32,7 +32,6 @@ type GeneralResponse struct {
 	Msg  string `json:"msg"`
 }
 
-// api/serverinfo
 type ServerInfoResp struct {
 	GeneralResponse
 
@@ -42,7 +41,6 @@ type ServerInfoResp struct {
 	VhostHttpPort     int    `json:"vhost_http_port"`
 	VhostHttpsPort    int    `json:"vhost_https_port"`
 	KcpBindPort       int    `json:"kcp_bind_port"`
-	AuthTimeout       int64  `json:"auth_timeout"`
 	SubdomainHost     string `json:"subdomain_host"`
 	MaxPoolCount      int64  `json:"max_pool_count"`
 	MaxPortsPerClient int64  `json:"max_ports_per_client"`
@@ -55,7 +53,8 @@ type ServerInfoResp struct {
 	ProxyTypeCounts map[string]int64 `json:"proxy_type_count"`
 }
 
-func apiServerInfo(w http.ResponseWriter, r *http.Request) {
+// api/serverinfo
+func (svr *Service) ApiServerInfo(w http.ResponseWriter, r *http.Request) {
 	var (
 		buf []byte
 		res ServerInfoResp
@@ -66,7 +65,7 @@ func apiServerInfo(w http.ResponseWriter, r *http.Request) {
 
 	log.Info("Http request: [%s]", r.URL.Path)
 	cfg := &g.GlbServerCfg.ServerCommonConf
-	serverStats := StatsGetServer()
+	serverStats := svr.statsCollector.GetServer()
 	res = ServerInfoResp{
 		Version:           version.Full(),
 		BindPort:          cfg.BindPort,
@@ -74,7 +73,6 @@ func apiServerInfo(w http.ResponseWriter, r *http.Request) {
 		VhostHttpPort:     cfg.VhostHttpPort,
 		VhostHttpsPort:    cfg.VhostHttpsPort,
 		KcpBindPort:       cfg.KcpBindPort,
-		AuthTimeout:       cfg.AuthTimeout,
 		SubdomainHost:     cfg.SubDomainHost,
 		MaxPoolCount:      cfg.MaxPoolCount,
 		MaxPortsPerClient: cfg.MaxPortsPerClient,
@@ -162,7 +160,7 @@ type GetProxyInfoResp struct {
 }
 
 // api/proxy/:type
-func apiProxyByType(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) ApiProxyByType(w http.ResponseWriter, r *http.Request) {
 	var (
 		buf []byte
 		res GetProxyInfoResp
@@ -177,19 +175,19 @@ func apiProxyByType(w http.ResponseWriter, r *http.Request) {
 	}()
 	log.Info("Http request: [%s]", r.URL.Path)
 
-	res.Proxies = getProxyStatsByType(proxyType)
+	res.Proxies = svr.getProxyStatsByType(proxyType)
 
 	buf, _ = json.Marshal(&res)
 	w.Write(buf)
 
 }
 
-func getProxyStatsByType(proxyType string) (proxyInfos []*ProxyStatsInfo) {
-	proxyStats := StatsGetProxiesByType(proxyType)
+func (svr *Service) getProxyStatsByType(proxyType string) (proxyInfos []*ProxyStatsInfo) {
+	proxyStats := svr.statsCollector.GetProxiesByType(proxyType)
 	proxyInfos = make([]*ProxyStatsInfo, 0, len(proxyStats))
 	for _, ps := range proxyStats {
 		proxyInfo := &ProxyStatsInfo{}
-		if pxy, ok := ServerService.pxyManager.GetByName(ps.Name); ok {
+		if pxy, ok := svr.pxyManager.GetByName(ps.Name); ok {
 			content, err := json.Marshal(pxy.GetConf())
 			if err != nil {
 				log.Warn("marshal proxy [%s] conf info error: %v", ps.Name, err)
@@ -230,7 +228,7 @@ type GetProxyStatsResp struct {
 }
 
 // api/proxy/:type/:name
-func apiProxyByTypeAndName(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) ApiProxyByTypeAndName(w http.ResponseWriter, r *http.Request) {
 	var (
 		buf []byte
 		res GetProxyStatsResp
@@ -244,20 +242,20 @@ func apiProxyByTypeAndName(w http.ResponseWriter, r *http.Request) {
 	}()
 	log.Info("Http request: [%s]", r.URL.Path)
 
-	res = getProxyStatsByTypeAndName(proxyType, name)
+	res = svr.getProxyStatsByTypeAndName(proxyType, name)
 
 	buf, _ = json.Marshal(&res)
 	w.Write(buf)
 }
 
-func getProxyStatsByTypeAndName(proxyType string, proxyName string) (proxyInfo GetProxyStatsResp) {
+func (svr *Service) getProxyStatsByTypeAndName(proxyType string, proxyName string) (proxyInfo GetProxyStatsResp) {
 	proxyInfo.Name = proxyName
-	ps := StatsGetProxiesByTypeAndName(proxyType, proxyName)
+	ps := svr.statsCollector.GetProxiesByTypeAndName(proxyType, proxyName)
 	if ps == nil {
 		proxyInfo.Code = 1
 		proxyInfo.Msg = "no proxy info found"
 	} else {
-		if pxy, ok := ServerService.pxyManager.GetByName(proxyName); ok {
+		if pxy, ok := svr.pxyManager.GetByName(proxyName); ok {
 			content, err := json.Marshal(pxy.GetConf())
 			if err != nil {
 				log.Warn("marshal proxy [%s] conf info error: %v", ps.Name, err)
@@ -295,7 +293,7 @@ type GetProxyTrafficResp struct {
 	TrafficOut []int64 `json:"traffic_out"`
 }
 
-func apiProxyTraffic(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) ApiProxyTraffic(w http.ResponseWriter, r *http.Request) {
 	var (
 		buf []byte
 		res GetProxyTrafficResp
@@ -309,7 +307,7 @@ func apiProxyTraffic(w http.ResponseWriter, r *http.Request) {
 	log.Info("Http request: [%s]", r.URL.Path)
 
 	res.Name = name
-	proxyTrafficInfo := StatsGetProxyTraffic(name)
+	proxyTrafficInfo := svr.statsCollector.GetProxyTraffic(name)
 	if proxyTrafficInfo == nil {
 		res.Code = 1
 		res.Msg = "no proxy info found"
