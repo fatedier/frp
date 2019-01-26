@@ -27,7 +27,7 @@ import (
 func init() {
 	udpCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
 	udpCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	udpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp")
+	udpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
 	udpCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
 	udpCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	udpCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
