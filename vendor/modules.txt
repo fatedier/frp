@@ -1,0 +1,71 @@
+# github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
+github.com/armon/go-socks5
+# github.com/davecgh/go-spew v1.1.0
+github.com/davecgh/go-spew/spew
+# github.com/fatedier/beego v0.0.0-20171024143340-6c6a4f5bd5eb
+github.com/fatedier/beego/logs
+# github.com/fatedier/golib v0.0.0-20181107124048-ff8cd814b049
+github.com/fatedier/golib/control/shutdown
+github.com/fatedier/golib/crypto
+github.com/fatedier/golib/io
+github.com/fatedier/golib/pool
+github.com/fatedier/golib/errors
+github.com/fatedier/golib/msg/json
+github.com/fatedier/golib/net
+github.com/fatedier/golib/net/mux
+# github.com/fatedier/kcp-go v0.0.0-20171023144637-cd167d2f15f4
+github.com/fatedier/kcp-go
+# github.com/golang/snappy v0.0.0-20170215233205-553a64147049
+github.com/golang/snappy
+# github.com/gorilla/context v1.1.1
+github.com/gorilla/context
+# github.com/gorilla/mux v1.6.2
+github.com/gorilla/mux
+# github.com/gorilla/websocket v1.2.0
+github.com/gorilla/websocket
+# github.com/hashicorp/yamux v0.0.0-20180314200745-2658be15c5f0
+github.com/hashicorp/yamux
+# github.com/inconshreveable/mousetrap v1.0.0
+github.com/inconshreveable/mousetrap
+# github.com/pkg/errors v0.8.0
+github.com/pkg/errors
+# github.com/pmezard/go-difflib v1.0.0
+github.com/pmezard/go-difflib/difflib
+# github.com/rakyll/statik v0.1.1
+github.com/rakyll/statik/fs
+# github.com/rodaine/table v1.0.0
+github.com/rodaine/table
+# github.com/spf13/cobra v0.0.3
+github.com/spf13/cobra
+# github.com/spf13/pflag v1.0.1
+github.com/spf13/pflag
+# github.com/stretchr/testify v1.2.1
+github.com/stretchr/testify/assert
+# github.com/templexxx/cpufeat v0.0.0-20170927014610-3794dfbfb047
+github.com/templexxx/cpufeat
+# github.com/templexxx/reedsolomon v0.0.0-20170926020725-5e06b81a1c76
+github.com/templexxx/reedsolomon
+# github.com/templexxx/xor v0.0.0-20170926022130-0af8e873c554
+github.com/templexxx/xor
+# github.com/tjfoc/gmsm v0.0.0-20171124023159-98aa888b79d8
+github.com/tjfoc/gmsm/sm4
+# github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec
+github.com/vaughan0/go-ini
+# golang.org/x/crypto v0.0.0-20180505025534-4ec37c66abab
+golang.org/x/crypto/pbkdf2
+golang.org/x/crypto/blowfish
+golang.org/x/crypto/cast5
+golang.org/x/crypto/salsa20
+golang.org/x/crypto/tea
+golang.org/x/crypto/twofish
+golang.org/x/crypto/xtea
+golang.org/x/crypto/salsa20/salsa
+# golang.org/x/net v0.0.0-20180524181706-dfa909b99c79
+golang.org/x/net/ipv4
+golang.org/x/net/websocket
+golang.org/x/net/bpf
+golang.org/x/net/internal/iana
+golang.org/x/net/internal/socket
+golang.org/x/net/context
+golang.org/x/net/proxy
+golang.org/x/net/internal/socks
