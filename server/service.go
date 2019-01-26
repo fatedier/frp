@@ -353,7 +353,7 @@ func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (e
 	go func() {
 		// block until control closed
 		ctl.WaitClosed()
-		svr.ctlManager.Del(loginMsg.RunId)
+		svr.ctlManager.Del(loginMsg.RunId, ctl)
 	}()
 	return
 }
