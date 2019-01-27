@@ -28,7 +28,7 @@ import (
 func init() {
 	httpsCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
 	httpsCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	httpsCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp")
+	httpsCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
 	httpsCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
 	httpsCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	httpsCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
