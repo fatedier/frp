@@ -42,6 +42,7 @@ func (svr *Service) RunAdminServer(addr string, port int) (err error) {
 	router.HandleFunc("/api/reload", svr.apiReload).Methods("GET")
 	router.HandleFunc("/api/status", svr.apiStatus).Methods("GET")
 	router.HandleFunc("/api/config", svr.apiGetConfig).Methods("GET")
+	router.HandleFunc("/api/config", svr.apiPutConfig).Methods("PUT")
 
 	address := fmt.Sprintf("%s:%d", addr, port)
 	server := &http.Server{
