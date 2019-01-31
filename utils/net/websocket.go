@@ -31,6 +31,7 @@ type WebsocketListener struct {
 	httpMutex *http.ServeMux
 }
 
+// NewWebsocketListener to handle websocket connections
 // ln: tcp listener for websocket connections
 func NewWebsocketListener(ln net.Listener) (wl *WebsocketListener) {
 	wl = &WebsocketListener{

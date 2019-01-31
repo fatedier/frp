@@ -53,32 +53,32 @@ func NewProxy(pxyConf config.ProxyConf) (pxy Proxy) {
 	switch cfg := pxyConf.(type) {
 	case *config.TcpProxyConf:
 		pxy = &TcpProxy{
-			BaseProxy: baseProxy,
+			BaseProxy: &baseProxy,
 			cfg:       cfg,
 		}
 	case *config.UdpProxyConf:
 		pxy = &UdpProxy{
-			BaseProxy: baseProxy,
+			BaseProxy: &baseProxy,
 			cfg:       cfg,
 		}
 	case *config.HttpProxyConf:
 		pxy = &HttpProxy{
-			BaseProxy: baseProxy,
+			BaseProxy: &baseProxy,
 			cfg:       cfg,
 		}
 	case *config.HttpsProxyConf:
 		pxy = &HttpsProxy{
-			BaseProxy: baseProxy,
+			BaseProxy: &baseProxy,
 			cfg:       cfg,
 		}
 	case *config.StcpProxyConf:
 		pxy = &StcpProxy{
-			BaseProxy: baseProxy,
+			BaseProxy: &baseProxy,
 			cfg:       cfg,
 		}
 	case *config.XtcpProxyConf:
 		pxy = &XtcpProxy{
-			BaseProxy: baseProxy,
+			BaseProxy: &baseProxy,
 			cfg:       cfg,
 		}
 	}
@@ -93,7 +93,7 @@ type BaseProxy struct {
 
 // TCP
 type TcpProxy struct {
-	BaseProxy
+	*BaseProxy
 
 	cfg         *config.TcpProxyConf
 	proxyPlugin plugin.Plugin
@@ -122,7 +122,7 @@ func (pxy *TcpProxy) InWorkConn(conn frpNet.Conn) {
 
 // HTTP
 type HttpProxy struct {
-	BaseProxy
+	*BaseProxy
 
 	cfg         *config.HttpProxyConf
 	proxyPlugin plugin.Plugin
@@ -151,7 +151,7 @@ func (pxy *HttpProxy) InWorkConn(conn frpNet.Conn) {
 
 // HTTPS
 type HttpsProxy struct {
-	BaseProxy
+	*BaseProxy
 
 	cfg         *config.HttpsProxyConf
 	proxyPlugin plugin.Plugin
@@ -180,7 +180,7 @@ func (pxy *HttpsProxy) InWorkConn(conn frpNet.Conn) {
 
 // STCP
 type StcpProxy struct {
-	BaseProxy
+	*BaseProxy
 
 	cfg         *config.StcpProxyConf
 	proxyPlugin plugin.Plugin
@@ -209,7 +209,7 @@ func (pxy *StcpProxy) InWorkConn(conn frpNet.Conn) {
 
 // XTCP
 type XtcpProxy struct {
-	BaseProxy
+	*BaseProxy
 
 	cfg         *config.XtcpProxyConf
 	proxyPlugin plugin.Plugin
@@ -308,7 +308,7 @@ func (pxy *XtcpProxy) InWorkConn(conn frpNet.Conn) {
 
 // UDP
 type UdpProxy struct {
-	BaseProxy
+	*BaseProxy
 
 	cfg *config.UdpProxyConf
 

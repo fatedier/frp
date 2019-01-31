@@ -23,7 +23,7 @@ import (
 )
 
 type TcpProxy struct {
-	BaseProxy
+	*BaseProxy
 	cfg *config.TcpProxyConf
 
 	realPort int

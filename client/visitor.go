@@ -52,12 +52,12 @@ func NewVisitor(ctl *Control, cfg config.VisitorConf) (visitor Visitor) {
 	switch cfg := cfg.(type) {
 	case *config.StcpVisitorConf:
 		visitor = &StcpVisitor{
-			BaseVisitor: baseVisitor,
+			BaseVisitor: &baseVisitor,
 			cfg:         cfg,
 		}
 	case *config.XtcpVisitorConf:
 		visitor = &XtcpVisitor{
-			BaseVisitor: baseVisitor,
+			BaseVisitor: &baseVisitor,
 			cfg:         cfg,
 		}
 	}
@@ -73,7 +73,7 @@ type BaseVisitor struct {
 }
 
 type StcpVisitor struct {
-	BaseVisitor
+	*BaseVisitor
 
 	cfg *config.StcpVisitorConf
 }
@@ -160,7 +160,7 @@ func (sv *StcpVisitor) handleConn(userConn frpNet.Conn) {
 }
 
 type XtcpVisitor struct {
-	BaseVisitor
+	*BaseVisitor
 
 	cfg *config.XtcpVisitorConf
 }
