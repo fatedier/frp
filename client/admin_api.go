@@ -208,3 +208,48 @@ func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request) {
 	sort.Sort(ByProxyStatusResp(res.Xtcp))
 	return
 }
+
+// api/config
+func (svr *Service) apiGetConfig(w http.ResponseWriter, r *http.Request) {
+	var (
+		buf []byte
+		res GeneralResponse
+	)
+	defer func() {
+		log.Info("Http get response [/api/config]")
+		if len(buf) > 0 {
+			w.Write(buf)
+		} else {
+			buf, _ = json.Marshal(&res)
+			w.Write(buf)
+		}
+	}()
+	log.Info("Http get request: [/api/config]")
+
+	if g.GlbClientCfg.CfgFile == "" {
+		w.WriteHeader(400)
+		res.Code = 1
+		res.Msg = "frpc don't configure a config file path"
+		return
+	}
+
+	content, err := config.GetRenderedConfFromFile(g.GlbClientCfg.CfgFile)
+	if err != nil {
+		w.WriteHeader(400)
+		res.Code = 2
+		res.Msg = err.Error()
+		log.Error("load frpc config file error: %v", err)
+		return
+	}
+
+	rows := strings.Split(content, "\n")
+	newRows := make([]string, 0, len(rows))
+	for _, row := range rows {
+		row = strings.TrimSpace(row)
+		if strings.HasPrefix(row, "token") {
+			continue
+		}
+		newRows = append(newRows, row)
+	}
+	buf = []byte(strings.Join(newRows, "\n"))
+}
