@@ -19,7 +19,7 @@ import (
 )
 
 type StcpProxy struct {
-	BaseProxy
+	*BaseProxy
 	cfg *config.StcpProxyConf
 }
 

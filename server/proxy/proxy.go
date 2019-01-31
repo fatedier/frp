@@ -135,33 +135,33 @@ func NewProxy(runId string, rc *controller.ResourceController, statsCollector st
 	case *config.TcpProxyConf:
 		basePxy.usedPortsNum = 1
 		pxy = &TcpProxy{
-			BaseProxy: basePxy,
+			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
 	case *config.HttpProxyConf:
 		pxy = &HttpProxy{
-			BaseProxy: basePxy,
+			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
 	case *config.HttpsProxyConf:
 		pxy = &HttpsProxy{
-			BaseProxy: basePxy,
+			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
 	case *config.UdpProxyConf:
 		basePxy.usedPortsNum = 1
 		pxy = &UdpProxy{
-			BaseProxy: basePxy,
+			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
 	case *config.StcpProxyConf:
 		pxy = &StcpProxy{
-			BaseProxy: basePxy,
+			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
 	case *config.XtcpProxyConf:
 		pxy = &XtcpProxy{
-			BaseProxy: basePxy,
+			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
 	default:
