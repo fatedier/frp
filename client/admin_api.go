@@ -280,11 +280,18 @@ func (svr *Service) apiPutConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(body) == 0 {
+		res.Code = 2
+		res.Msg = "body can't be empty"
+		log.Warn("%s", res.Msg)
+		return
+	}
+
 	// get token from origin content
 	token := ""
 	b, err := ioutil.ReadFile(g.GlbClientCfg.CfgFile)
 	if err != nil {
-		res.Code = 2
+		res.Code = 3
 		res.Msg = err.Error()
 		log.Warn("load frpc config file error: %v", err)
 		return
@@ -321,7 +328,7 @@ func (svr *Service) apiPutConfig(w http.ResponseWriter, r *http.Request) {
 
 	err = ioutil.WriteFile(g.GlbClientCfg.CfgFile, []byte(content), 0644)
 	if err != nil {
-		res.Code = 3
+		res.Code = 4
 		res.Msg = fmt.Sprintf("write content to frpc config file error: %v", err)
 		log.Warn("%s", res.Msg)
 		return
