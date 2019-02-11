@@ -17,6 +17,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"sort"
 	"strings"
@@ -28,57 +29,53 @@ import (
 )
 
 type GeneralResponse struct {
-	Code int64  `json:"code"`
-	Msg  string `json:"msg"`
+	Code int
+	Msg  string
 }
 
-// api/reload
-type ReloadResp struct {
-	GeneralResponse
-}
+// GET api/reload
 
 func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
-	var (
-		buf []byte
-		res ReloadResp
-	)
-	defer func() {
-		log.Info("Http response [/api/reload]: code [%d]", res.Code)
-		buf, _ = json.Marshal(&res)
-		w.Write(buf)
-	}()
+	res := GeneralResponse{Code: 200}
 
-	log.Info("Http request: [/api/reload]")
+	log.Info("Http request [/api/reload]")
+	defer func() {
+		log.Info("Http response [/api/reload], code [%d]", res.Code)
+		w.WriteHeader(res.Code)
+		if len(res.Msg) > 0 {
+			w.Write([]byte(res.Msg))
+		}
+	}()
 
 	content, err := config.GetRenderedConfFromFile(g.GlbClientCfg.CfgFile)
 	if err != nil {
-		res.Code = 1
+		res.Code = 400
 		res.Msg = err.Error()
-		log.Error("reload frpc config file error: %v", err)
+		log.Warn("reload frpc config file error: %s", res.Msg)
 		return
 	}
 
 	newCommonCfg, err := config.UnmarshalClientConfFromIni(nil, content)
 	if err != nil {
-		res.Code = 2
+		res.Code = 400
 		res.Msg = err.Error()
-		log.Error("reload frpc common section error: %v", err)
+		log.Warn("reload frpc common section error: %s", res.Msg)
 		return
 	}
 
 	pxyCfgs, visitorCfgs, err := config.LoadAllConfFromIni(g.GlbClientCfg.User, content, newCommonCfg.Start)
 	if err != nil {
-		res.Code = 3
+		res.Code = 400
 		res.Msg = err.Error()
-		log.Error("reload frpc proxy config error: %v", err)
+		log.Warn("reload frpc proxy config error: %s", res.Msg)
 		return
 	}
 
 	err = svr.ReloadConf(pxyCfgs, visitorCfgs)
 	if err != nil {
-		res.Code = 4
+		res.Code = 500
 		res.Msg = err.Error()
-		log.Error("reload frpc proxy config error: %v", err)
+		log.Warn("reload frpc proxy config error: %s", res.Msg)
 		return
 	}
 	log.Info("success reload conf")
@@ -163,7 +160,7 @@ func NewProxyStatusResp(status *proxy.ProxyStatus) ProxyStatusResp {
 	return psr
 }
 
-// api/status
+// GET api/status
 func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request) {
 	var (
 		buf []byte
@@ -175,13 +172,13 @@ func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request) {
 	res.Https = make([]ProxyStatusResp, 0)
 	res.Stcp = make([]ProxyStatusResp, 0)
 	res.Xtcp = make([]ProxyStatusResp, 0)
+
+	log.Info("Http request [/api/status]")
 	defer func() {
 		log.Info("Http response [/api/status]")
 		buf, _ = json.Marshal(&res)
 		w.Write(buf)
 	}()
-
-	log.Info("Http request: [/api/status]")
 
 	ps := svr.ctl.pm.GetAllProxyStatus()
 	for _, status := range ps {
@@ -207,4 +204,121 @@ func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request) {
 	sort.Sort(ByProxyStatusResp(res.Stcp))
 	sort.Sort(ByProxyStatusResp(res.Xtcp))
 	return
+}
+
+// GET api/config
+func (svr *Service) apiGetConfig(w http.ResponseWriter, r *http.Request) {
+	res := GeneralResponse{Code: 200}
+
+	log.Info("Http get request [/api/config]")
+	defer func() {
+		log.Info("Http get response [/api/config], code [%d]", res.Code)
+		w.WriteHeader(res.Code)
+		if len(res.Msg) > 0 {
+			w.Write([]byte(res.Msg))
+		}
+	}()
+
+	if g.GlbClientCfg.CfgFile == "" {
+		res.Code = 400
+		res.Msg = "frpc has no config file path"
+		log.Warn("%s", res.Msg)
+		return
+	}
+
+	content, err := config.GetRenderedConfFromFile(g.GlbClientCfg.CfgFile)
+	if err != nil {
+		res.Code = 400
+		res.Msg = err.Error()
+		log.Warn("load frpc config file error: %s", res.Msg)
+		return
+	}
+
+	rows := strings.Split(content, "\n")
+	newRows := make([]string, 0, len(rows))
+	for _, row := range rows {
+		row = strings.TrimSpace(row)
+		if strings.HasPrefix(row, "token") {
+			continue
+		}
+		newRows = append(newRows, row)
+	}
+	res.Msg = strings.Join(newRows, "\n")
+}
+
+// PUT api/config
+func (svr *Service) apiPutConfig(w http.ResponseWriter, r *http.Request) {
+	res := GeneralResponse{Code: 200}
+
+	log.Info("Http put request [/api/config]")
+	defer func() {
+		log.Info("Http put response [/api/config], code [%d]", res.Code)
+		w.WriteHeader(res.Code)
+		if len(res.Msg) > 0 {
+			w.Write([]byte(res.Msg))
+		}
+	}()
+
+	// get new config content
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		res.Code = 400
+		res.Msg = fmt.Sprintf("read request body error: %v", err)
+		log.Warn("%s", res.Msg)
+		return
+	}
+
+	if len(body) == 0 {
+		res.Code = 400
+		res.Msg = "body can't be empty"
+		log.Warn("%s", res.Msg)
+		return
+	}
+
+	// get token from origin content
+	token := ""
+	b, err := ioutil.ReadFile(g.GlbClientCfg.CfgFile)
+	if err != nil {
+		res.Code = 400
+		res.Msg = err.Error()
+		log.Warn("load frpc config file error: %s", res.Msg)
+		return
+	}
+	content := string(b)
+
+	for _, row := range strings.Split(content, "\n") {
+		row = strings.TrimSpace(row)
+		if strings.HasPrefix(row, "token") {
+			token = row
+			break
+		}
+	}
+
+	tmpRows := make([]string, 0)
+	for _, row := range strings.Split(string(body), "\n") {
+		row = strings.TrimSpace(row)
+		if strings.HasPrefix(row, "token") {
+			continue
+		}
+		tmpRows = append(tmpRows, row)
+	}
+
+	newRows := make([]string, 0)
+	if token != "" {
+		for _, row := range tmpRows {
+			newRows = append(newRows, row)
+			if strings.HasPrefix(row, "[common]") {
+				newRows = append(newRows, token)
+			}
+		}
+	}
+	content = strings.Join(newRows, "\n")
+
+	err = ioutil.WriteFile(g.GlbClientCfg.CfgFile, []byte(content), 0644)
+	if err != nil {
+		res.Code = 500
+		res.Msg = fmt.Sprintf("write content to frpc config file error: %v", err)
+		log.Warn("%s", res.Msg)
+		return
+	}
 }
