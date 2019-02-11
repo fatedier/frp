@@ -108,8 +108,9 @@ func (rp *HttpReverseProxy) Register(routeCfg VhostRouteConfig) error {
 	defer rp.cfgMu.Unlock()
 	_, ok := rp.vhostRouter.Exist(routeCfg.Domain, routeCfg.Location)
 	if ok {
-		return ErrRouterConfigConflict
+		return errors.New(ErrRouterConfigConflict.Error() + ". domain = " + routeCfg.Domain + ", location = " + routeCfg.Location)
 	} else {
+		frpLog.Debug("Add domain = %s, location = %s", routeCfg.Domain, routeCfg.Location)
 		rp.vhostRouter.Add(routeCfg.Domain, routeCfg.Location, &routeCfg)
 	}
 	return nil
@@ -145,7 +146,7 @@ func (rp *HttpReverseProxy) CreateConnection(domain string, location string) (ne
 			return fn()
 		}
 	}
-	return nil, ErrNoDomain
+	return nil, errors.New(ErrNoDomain.Error() + ". domain = " + domain + ", location = " + location)
 }
 
 func (rp *HttpReverseProxy) CheckAuth(domain, location, user, passwd string) bool {
