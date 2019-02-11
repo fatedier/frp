@@ -205,7 +205,11 @@ func startService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]co
 			},
 		}
 	}
-	svr := client.NewService(pxyCfgs, visitorCfgs)
+	svr, errRet := client.NewService(pxyCfgs, visitorCfgs)
+	if errRet != nil {
+		err = errRet
+		return
+	}
 
 	// Capture the exit signal if we use kcp.
 	if g.GlbClientCfg.Protocol == "kcp" {

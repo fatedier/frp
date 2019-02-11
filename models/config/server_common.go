@@ -51,7 +51,7 @@ type ServerCommonConf struct {
 	VhostHttpPort int `json:"vhost_http_port"`
 
 	// if VhostHttpsPort equals 0, don't listen a public port for https protocol
-	VhostHttpsPort int `json:"vhost_http_port"`
+	VhostHttpsPort int `json:"vhost_https_port"`
 
 	VhostHttpTimeout int64 `json:"vhost_http_timeout"`
 
