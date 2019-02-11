@@ -318,6 +318,6 @@ func (svr *Service) ApiProxyTraffic(w http.ResponseWriter, r *http.Request) {
 		trafficResp.TrafficOut = proxyTrafficInfo.TrafficOut
 	}
 
-	buf, _ := json.Marshal(&res)
+	buf, _ := json.Marshal(&trafficResp)
 	res.Msg = string(buf)
 }

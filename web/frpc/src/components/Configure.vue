@@ -54,13 +54,9 @@
                         credentials: 'include',
                         method: 'PUT',
                         body: this.textarea,
-                    }).then(res => {
-                        return res.json()
-                    }).then(json => {
+                    }).then(() => {
                         fetch('/api/reload', {credentials: 'include'})
-                        .then(res => {
-                            return res.json()
-                        }).then(json => {
+                        .then(() => {
                             this.$message({
                                 type: 'success',
                                 message: 'Success'
@@ -68,7 +64,7 @@
                         }).catch(err => {
                             this.$message({
                                 showClose: true,
-                                message: 'Reload frpc configure file error!',
+                                message: 'Reload frpc configure file error, ' + err,
                                 type: 'warning'
                             })
                         })
