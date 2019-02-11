@@ -57,30 +57,21 @@
                     }).then(res => {
                         return res.json()
                     }).then(json => {
-                        console.log(json)
-                        if (json.code != 0) {
+                        fetch('/api/reload', {credentials: 'include'})
+                        .then(res => {
+                            return res.json()
+                        }).then(json => {
+                            this.$message({
+                                type: 'success',
+                                message: 'Success'
+                            })
+                        }).catch(err => {
                             this.$message({
                                 showClose: true,
-                                message: 'Put config to frpc and hot reload failed!',
+                                message: 'Reload frpc configure file error!',
                                 type: 'warning'
                             })
-                        } else {
-                            fetch('/api/reload', {credentials: 'include'})
-                            .then(res => {
-                                return res.json()
-                            }).then(json => {
-                                this.$message({
-                                    type: 'success',
-                                    message: 'Success'
-                                })
-                            }).catch(err => {
-                                this.$message({
-                                    showClose: true,
-                                    message: 'Reload frpc configure file error!',
-                                    type: 'warning'
-                                })
-                            })
-                        }
+                        })
                     }).catch(err => {
                         this.$message({
                             showClose: true,
