@@ -311,6 +311,8 @@ func (svr *Service) apiPutConfig(w http.ResponseWriter, r *http.Request) {
 				newRows = append(newRows, token)
 			}
 		}
+	} else {
+		newRows = tmpRows
 	}
 	content = strings.Join(newRows, "\n")
 
