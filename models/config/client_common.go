@@ -66,7 +66,7 @@ func GetDefaultClientConf() *ClientCommonConf {
 		TcpMux:            true,
 		User:              "",
 		DnsServer:         "",
-		LoginFailRetry:    -1,
+		LoginFailRetry:    0,
 		Start:             make(map[string]struct{}),
 		Protocol:          "tcp",
 		HeartBeatInterval: 30,
@@ -179,13 +179,28 @@ func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (c
 		}
 	}
 
+	if tmpStr, ok = conf.Get("common", "login_fail_exit"); ok {
+		fmt.Println("Parse conf warning: login_fail_exit is deprecated; will be overridden by login_fail_retry if present")
+		if tmpStr == "false" {
+			cfg.LoginFailRetry = -1
+		} else {
+			cfg.LoginFailRetry = 0
+		}
+	}
+
 	if tmpStr, ok = conf.Get("common", "login_fail_retry"); ok {
 		v, err = strconv.ParseInt(tmpStr, 10, 0)
 		if err != nil {
 			err = fmt.Errorf("Parse conf error: invalid login_fail_retry")
 			return
 		}
-		cfg.LoginFailRetry = int(v)
+		val := int(v)
+		if cfg.LoginFailRetry == -1 && val >= 0 {
+			err = fmt.Errorf("Parse conf error: cannot have login_fail_exit = false and login_fail_retry >= 0")
+			return
+		} else {
+			cfg.LoginFailRetry = val
+		}
 	}
 
 	if tmpStr, ok = conf.Get("common", "protocol"); ok {
