@@ -75,16 +75,21 @@ func (svr *Service) GetController() *Control {
 
 func (svr *Service) Run() error {
 	// first login
+	retries := g.GlbClientCfg.LoginFailRetry
 	for {
 		conn, session, err := svr.login()
 		if err != nil {
 			log.Warn("login to server failed: %v", err)
 
-			// if login_fail_exit is true, just exit this program
+			// if retries exceeded login_fail_retry, just exit this program
 			// otherwise sleep a while and try again to connect to server
-			if g.GlbClientCfg.LoginFailExit {
+			if retries == 0 {
 				return err
 			} else {
+				//if retries < 0 we always retry
+				if retries > 0 {
+					retries--
+				}
 				time.Sleep(10 * time.Second)
 			}
 		} else {

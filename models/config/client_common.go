@@ -41,7 +41,7 @@ type ClientCommonConf struct {
 	TcpMux            bool                `json:"tcp_mux"`
 	User              string              `json:"user"`
 	DnsServer         string              `json:"dns_server"`
-	LoginFailExit     bool                `json:"login_fail_exit"`
+	LoginFailRetry    int                 `json:"login_fail_retry"`
 	Start             map[string]struct{} `json:"start"`
 	Protocol          string              `json:"protocol"`
 	HeartBeatInterval int64               `json:"heartbeat_interval"`
@@ -66,7 +66,7 @@ func GetDefaultClientConf() *ClientCommonConf {
 		TcpMux:            true,
 		User:              "",
 		DnsServer:         "",
-		LoginFailExit:     true,
+		LoginFailRetry:    -1,
 		Start:             make(map[string]struct{}),
 		Protocol:          "tcp",
 		HeartBeatInterval: 30,
@@ -179,10 +179,13 @@ func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (c
 		}
 	}
 
-	if tmpStr, ok = conf.Get("common", "login_fail_exit"); ok && tmpStr == "false" {
-		cfg.LoginFailExit = false
-	} else {
-		cfg.LoginFailExit = true
+	if tmpStr, ok = conf.Get("common", "login_fail_retry"); ok {
+		v, err = strconv.ParseInt(tmpStr, 10, 0)
+		if err != nil {
+			err = fmt.Errorf("Parse conf error: invalid login_fail_retry")
+			return
+		}
+		cfg.LoginFailRetry = int(v)
 	}
 
 	if tmpStr, ok = conf.Get("common", "protocol"); ok {
