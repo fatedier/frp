@@ -592,7 +592,7 @@ custom_domains = test.yourdomain.com
 host_header_rewrite = dev.yourdomain.com
 ```
 
-If `host_header_rewrite` is specified, the host header will be rewritten to match the hostname portion of the forwarding address.
+The `Host` request header will be rewritten to `Host: dev.yourdomain.com` before it reach your local http server.
 
 ### Set Headers In HTTP Request
 
