@@ -280,6 +280,8 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 		sv.Error("listen on visitorConn's local adress error: %v", err)
 		return
 	}
+	defer lConn.Close()
+
 	lConn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	sidBuf := pool.GetBuf(1024)
 	n, _, err = lConn.ReadFromUDP(sidBuf)

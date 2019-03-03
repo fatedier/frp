@@ -68,7 +68,7 @@ var xtcpCmd = &cobra.Command{
 		if role == "server" {
 			cfg := &config.XtcpProxyConf{}
 			cfg.ProxyName = prefix + proxyName
-			cfg.ProxyType = consts.StcpProxy
+			cfg.ProxyType = consts.XtcpProxy
 			cfg.UseEncryption = useEncryption
 			cfg.UseCompression = useCompression
 			cfg.Role = role
@@ -84,7 +84,7 @@ var xtcpCmd = &cobra.Command{
 		} else if role == "visitor" {
 			cfg := &config.XtcpVisitorConf{}
 			cfg.ProxyName = prefix + proxyName
-			cfg.ProxyType = consts.StcpProxy
+			cfg.ProxyType = consts.XtcpProxy
 			cfg.UseEncryption = useEncryption
 			cfg.UseCompression = useCompression
 			cfg.Role = role
