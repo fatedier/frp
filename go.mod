@@ -12,7 +12,7 @@ require (
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/mux v1.6.2
 	github.com/gorilla/websocket v1.2.0
-	github.com/hashicorp/yamux v0.0.0-20180314200745-2658be15c5f0
+	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/pkg/errors v0.8.0 // indirect
