@@ -24,7 +24,7 @@ import (
 )
 
 type XtcpProxy struct {
-	BaseProxy
+	*BaseProxy
 	cfg *config.XtcpProxyConf
 
 	closeCh chan struct{}

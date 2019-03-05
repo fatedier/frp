@@ -24,7 +24,7 @@ import (
 )
 
 type HttpsProxy struct {
-	BaseProxy
+	*BaseProxy
 	cfg *config.HttpsProxyConf
 }
 

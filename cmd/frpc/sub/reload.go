@@ -16,7 +16,6 @@ package sub
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -25,7 +24,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/fatedier/frp/client"
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 )
@@ -79,21 +77,16 @@ func reload() error {
 	if err != nil {
 		return err
 	} else {
-		if resp.StatusCode != 200 {
-			return fmt.Errorf("admin api status code [%d]", resp.StatusCode)
+		if resp.StatusCode == 200 {
+			return nil
 		}
+
 		defer resp.Body.Close()
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}
-		res := &client.GeneralResponse{}
-		err = json.Unmarshal(body, &res)
-		if err != nil {
-			return fmt.Errorf("unmarshal http response error: %s", strings.TrimSpace(string(body)))
-		} else if res.Code != 0 {
-			return fmt.Errorf(res.Msg)
-		}
+		return fmt.Errorf("code [%d], %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	return nil
 }

@@ -30,7 +30,7 @@ import (
 )
 
 type UdpProxy struct {
-	BaseProxy
+	*BaseProxy
 	cfg *config.UdpProxyConf
 
 	realPort int

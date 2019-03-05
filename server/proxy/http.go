@@ -29,7 +29,7 @@ import (
 )
 
 type HttpProxy struct {
-	BaseProxy
+	*BaseProxy
 	cfg *config.HttpProxyConf
 
 	closeFuncs []func()
