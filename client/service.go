@@ -54,7 +54,7 @@ type Service struct {
 
 func NewService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) (svr *Service, err error) {
 	// Init assets
-	err = assets.Load("")
+	err = assets.Load("", assets.Frpc)
 	if err != nil {
 		err = fmt.Errorf("Load assets error: %v", err)
 		return

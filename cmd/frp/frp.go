@@ -19,7 +19,12 @@ import (
 	"github.com/fatedier/frp/cmd/frps/frps"
 	"github.com/fatedier/frp/utils/version"
 	"github.com/fatedier/golib/crypto"
+	"runtime/debug"
 )
+
+func init() {
+	debug.SetGCPercent(5)
+}
 
 func RunFrpc(cfgFilePath string) (err error) {
 	crypto.DefaultSalt = "frp"
@@ -28,6 +33,7 @@ func RunFrpc(cfgFilePath string) (err error) {
 }
 
 func StopFrpc() (err error) {
+	defer debug.FreeOSMemory()
 	return sub.StopFrp()
 }
 
@@ -43,6 +49,7 @@ func RunFrps(cfgFilePath string) (err error) {
 
 // StopFrps 停止frps服务
 func StopFrps() error {
+	defer debug.FreeOSMemory()
 	return frps.StopFrps()
 }
 

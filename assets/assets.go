@@ -20,6 +20,8 @@ package assets
 //go:generate go fmt ./frpc/statik/statik.go
 
 import (
+	statik2 "github.com/fatedier/frp/assets/frpc/statik"
+	"github.com/fatedier/frp/assets/frps/statik"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -34,16 +36,24 @@ var (
 
 	// if prefix is not empty, we get file content from disk
 	prefixPath string
+
+	Frpc = 1
+	Frps = 2
 )
 
 // if path is empty, load assets in memory
 // or set FileSystem using disk files
-func Load(path string) (err error) {
+func Load(path string, t int) (err error) {
 	prefixPath = path
 	if prefixPath != "" {
 		FileSystem = http.Dir(prefixPath)
 		return nil
 	} else {
+		if t == Frpc {
+			statik.RegisterFrps()
+		} else {
+			statik2.RegisterFrpc()
+		}
 		FileSystem, err = fs.New()
 	}
 	return err

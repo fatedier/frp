@@ -107,7 +107,7 @@ func NewService() (svr *Service, err error) {
 	svr.rc.TcpGroupCtl = group.NewTcpGroupCtl(svr.rc.TcpPortManager)
 
 	// Init assets
-	err = assets.Load(cfg.AssetsDir)
+	err = assets.Load(cfg.AssetsDir, assets.Frps)
 	if err != nil {
 		err = fmt.Errorf("Load assets error: %v", err)
 		return
