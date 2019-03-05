@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"strconv"
 	"strings"
@@ -35,6 +36,7 @@ import (
 
 	frpIo "github.com/fatedier/golib/io"
 	"github.com/fatedier/golib/pool"
+	fmux "github.com/hashicorp/yamux"
 )
 
 // Visitor is used for forward traffics from local port tot remote service.
@@ -316,7 +318,22 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 		remote = frpIo.WithCompression(remote)
 	}
 
-	frpIo.Join(userConn, remote)
+	fmuxCfg := fmux.DefaultConfig()
+	fmuxCfg.KeepAliveInterval = 5 * time.Second
+	fmuxCfg.LogOutput = ioutil.Discard
+	sess, err := fmux.Client(remote, fmuxCfg)
+	if err != nil {
+		sv.Error("create yamux session error: %v", err)
+		return
+	}
+	defer sess.Close()
+	muxConn, err := sess.Open()
+	if err != nil {
+		sv.Error("open yamux stream error: %v", err)
+		return
+	}
+
+	frpIo.Join(userConn, muxConn)
 	sv.Debug("join connections closed")
 }
 
