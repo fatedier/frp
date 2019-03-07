@@ -239,9 +239,10 @@ func (svr *Service) ReloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs 
 func (svr *Service) Close() {
 	atomic.StoreUint32(&svr.exit, 1)
 	if svr.ctl != nil {
-		svr.ctl.Close()
+		_ = svr.ctl.Close()
 	}
 	svr.closedCh <- true
+	svr.ctl = nil
 }
 
 func (svr *Service) IsClosed() bool {

@@ -38,6 +38,7 @@ type PortManager struct {
 	bindAddr string
 	netType  string
 	mu       sync.Mutex
+	stop     chan bool
 }
 
 func NewPortManager(netType string, bindAddr string, allowPorts map[int]struct{}) *PortManager {
@@ -47,6 +48,7 @@ func NewPortManager(netType string, bindAddr string, allowPorts map[int]struct{}
 		freePorts:     make(map[int]struct{}),
 		bindAddr:      bindAddr,
 		netType:       netType,
+		stop:          make(chan bool),
 	}
 	if len(allowPorts) > 0 {
 		for port, _ := range allowPorts {
@@ -176,14 +178,29 @@ func (pm *PortManager) Release(port int) {
 
 // Release reserved port if it isn't used in last 24 hours.
 func (pm *PortManager) cleanReservedPortsWorker() {
+	ticket := time.NewTicker(CleanReservedPortsInterval)
+FOR:
 	for {
-		time.Sleep(CleanReservedPortsInterval)
-		pm.mu.Lock()
-		for name, ctx := range pm.reservedPorts {
-			if ctx.Closed && time.Since(ctx.UpdateTime) > MaxPortReservedDuration {
-				delete(pm.reservedPorts, name)
+		select {
+		case <-ticket.C:
+			pm.mu.Lock()
+			for name, ctx := range pm.reservedPorts {
+				if ctx.Closed && time.Since(ctx.UpdateTime) > MaxPortReservedDuration {
+					delete(pm.reservedPorts, name)
+				}
+			}
+			pm.mu.Unlock()
+		case s := <-pm.stop:
+			if s {
+				ticket.Stop()
+				close(pm.stop)
+				break FOR
 			}
 		}
-		pm.mu.Unlock()
 	}
+}
+
+// Stop Stop
+func (pm *PortManager) Stop() {
+	pm.stop <- true
 }

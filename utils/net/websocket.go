@@ -76,6 +76,14 @@ func (p *WebsocketListener) Accept() (Conn, error) {
 }
 
 func (p *WebsocketListener) Close() error {
+	if p.accept != nil {
+		close(p.accept)
+	}
+	if p.ln != nil {
+		if err := p.ln.Close(); err != nil {
+			return err
+		}
+	}
 	return p.server.Close()
 }
 

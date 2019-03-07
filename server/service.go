@@ -250,14 +250,24 @@ func (svr *Service) Run() {
 // Stop 停止服务
 func (svr *Service) Stop() error {
 	err := svr.muxer.Close()
-	<-svr.closedCh
+	if svr.listener != nil {
+		_ = svr.listener.Close()
+	}
+	if svr.websocketListener != nil {
+		_ = svr.websocketListener.Close()
+	}
+	if svr.kcpListener != nil {
+		_ = svr.kcpListener.Close()
+	}
+	close(svr.closedCh)
 	svr.Closed = true
+	svr.rc.TcpPortManager.Stop()
+	svr.rc.UdpPortManager.Stop()
 	return err
 }
 
 func (svr *Service) HandleListener(l frpNet.Listener) {
 	defer func() {
-		close(svr.closedCh)
 		log.Info("Frps is Closed")
 	}()
 	// Listen for incoming connections from client.

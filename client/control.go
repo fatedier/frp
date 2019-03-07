@@ -145,7 +145,11 @@ func (ctl *Control) HandleNewProxyResp(inMsg *msg.NewProxyResp) {
 
 func (ctl *Control) Close() error {
 	if ctl.conn != nil {
-		ctl.conn.Close()
+		_ = ctl.conn.Close()
+		ctl.conn = nil
+		ctl.msgHandlerShutdown = nil
+		ctl.readerShutdown = nil
+		ctl.session = nil
 		log.Info("conn closed")
 	}
 	if ctl.pm != nil {
