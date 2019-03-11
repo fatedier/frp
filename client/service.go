@@ -15,6 +15,7 @@
 package client
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"runtime"
@@ -151,8 +152,14 @@ func (svr *Service) keepControllerWorking() {
 // conn: control connection
 // session: if it's not nil, using tcp mux
 func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error) {
-	conn, err = frpNet.ConnectServerByProxy(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
-		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort))
+	var tlsConfig *tls.Config
+	if g.GlbClientCfg.TLSEnable {
+		tlsConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
+	conn, err = frpNet.ConnectServerByProxyWithTLS(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
+		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort), tlsConfig)
 	if err != nil {
 		return
 	}
