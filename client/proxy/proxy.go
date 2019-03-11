@@ -18,7 +18,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,6 +36,7 @@ import (
 	"github.com/fatedier/golib/errors"
 	frpIo "github.com/fatedier/golib/io"
 	"github.com/fatedier/golib/pool"
+	fmux "github.com/hashicorp/yamux"
 )
 
 // Proxy defines how to handle work connections for different proxy type.
@@ -278,32 +282,97 @@ func (pxy *XtcpProxy) InWorkConn(conn frpNet.Conn) {
 		return
 	}
 
-	pxy.Trace("get natHoleRespMsg, sid [%s], client address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr)
+	pxy.Trace("get natHoleRespMsg, sid [%s], client address [%s] visitor address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr, natHoleRespMsg.VisitorAddr)
 
-	// Send sid to visitor udp address.
-	time.Sleep(time.Second)
+	// Send detect message
+	array := strings.Split(natHoleRespMsg.VisitorAddr, ":")
+	if len(array) <= 1 {
+		pxy.Error("get NatHoleResp visitor address error: %v", natHoleRespMsg.VisitorAddr)
+	}
 	laddr, _ := net.ResolveUDPAddr("udp", clientConn.LocalAddr().String())
-	daddr, err := net.ResolveUDPAddr("udp", natHoleRespMsg.VisitorAddr)
+	/*
+		for i := 1000; i < 65000; i++ {
+			pxy.sendDetectMsg(array[0], int64(i), laddr, "a")
+		}
+	*/
+	port, err := strconv.ParseInt(array[1], 10, 64)
 	if err != nil {
-		pxy.Error("resolve visitor udp address error: %v", err)
+		pxy.Error("get natHoleResp visitor address error: %v", natHoleRespMsg.VisitorAddr)
 		return
 	}
+	pxy.sendDetectMsg(array[0], int(port), laddr, []byte(natHoleRespMsg.Sid))
+	pxy.Trace("send all detect msg done")
 
-	lConn, err := net.DialUDP("udp", laddr, daddr)
+	msg.WriteMsg(conn, &msg.NatHoleClientDetectOK{})
+
+	// Listen for clientConn's address and wait for visitor connection
+	lConn, err := net.ListenUDP("udp", laddr)
 	if err != nil {
-		pxy.Error("dial visitor udp address error: %v", err)
+		pxy.Error("listen on visitorConn's local adress error: %v", err)
 		return
 	}
-	lConn.Write([]byte(natHoleRespMsg.Sid))
+	defer lConn.Close()
 
-	kcpConn, err := frpNet.NewKcpConnFromUdp(lConn, true, natHoleRespMsg.VisitorAddr)
+	lConn.SetReadDeadline(time.Now().Add(8 * time.Second))
+	sidBuf := pool.GetBuf(1024)
+	var uAddr *net.UDPAddr
+	n, uAddr, err = lConn.ReadFromUDP(sidBuf)
+	if err != nil {
+		pxy.Warn("get sid from visitor error: %v", err)
+		return
+	}
+	lConn.SetReadDeadline(time.Time{})
+	if string(sidBuf[:n]) != natHoleRespMsg.Sid {
+		pxy.Warn("incorrect sid from visitor")
+		return
+	}
+	pool.PutBuf(sidBuf)
+	pxy.Info("nat hole connection make success, sid [%s]", natHoleRespMsg.Sid)
+
+	lConn.WriteToUDP(sidBuf[:n], uAddr)
+
+	kcpConn, err := frpNet.NewKcpConnFromUdp(lConn, false, natHoleRespMsg.VisitorAddr)
 	if err != nil {
 		pxy.Error("create kcp connection from udp connection error: %v", err)
 		return
 	}
 
+	fmuxCfg := fmux.DefaultConfig()
+	fmuxCfg.KeepAliveInterval = 5 * time.Second
+	fmuxCfg.LogOutput = ioutil.Discard
+	sess, err := fmux.Server(kcpConn, fmuxCfg)
+	if err != nil {
+		pxy.Error("create yamux server from kcp connection error: %v", err)
+		return
+	}
+	defer sess.Close()
+	muxConn, err := sess.Accept()
+	if err != nil {
+		pxy.Error("accept for yamux connection error: %v", err)
+		return
+	}
+
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf,
-		frpNet.WrapConn(kcpConn), []byte(pxy.cfg.Sk))
+		frpNet.WrapConn(muxConn), []byte(pxy.cfg.Sk))
+}
+
+func (pxy *XtcpProxy) sendDetectMsg(addr string, port int, laddr *net.UDPAddr, content []byte) (err error) {
+	daddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", addr, port))
+	if err != nil {
+		return err
+	}
+
+	tConn, err := net.DialUDP("udp", laddr, daddr)
+	if err != nil {
+		return err
+	}
+
+	//uConn := ipv4.NewConn(tConn)
+	//uConn.SetTTL(3)
+
+	tConn.Write(content)
+	tConn.Close()
+	return nil
 }
 
 // UDP

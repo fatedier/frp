@@ -44,6 +44,7 @@ type ClientCommonConf struct {
 	LoginFailExit     bool                `json:"login_fail_exit"`
 	Start             map[string]struct{} `json:"start"`
 	Protocol          string              `json:"protocol"`
+	TLSEnable         bool                `json:"tls_enable"`
 	HeartBeatInterval int64               `json:"heartbeat_interval"`
 	HeartBeatTimeout  int64               `json:"heartbeat_timeout"`
 }
@@ -69,6 +70,7 @@ func GetDefaultClientConf() *ClientCommonConf {
 		LoginFailExit:     true,
 		Start:             make(map[string]struct{}),
 		Protocol:          "tcp",
+		TLSEnable:         false,
 		HeartBeatInterval: 30,
 		HeartBeatTimeout:  90,
 	}
@@ -192,6 +194,12 @@ func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (c
 			return
 		}
 		cfg.Protocol = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "tls_enable"); ok && tmpStr == "true" {
+		cfg.TLSEnable = true
+	} else {
+		cfg.TLSEnable = false
 	}
 
 	if tmpStr, ok = conf.Get("common", "heartbeat_timeout"); ok {
