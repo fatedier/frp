@@ -23,7 +23,7 @@ github.com/gorilla/context
 github.com/gorilla/mux
 # github.com/gorilla/websocket v1.2.0
 github.com/gorilla/websocket
-# github.com/hashicorp/yamux v0.0.0-20180314200745-2658be15c5f0
+# github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
 github.com/hashicorp/yamux
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
@@ -61,11 +61,11 @@ golang.org/x/crypto/twofish
 golang.org/x/crypto/xtea
 golang.org/x/crypto/salsa20/salsa
 # golang.org/x/net v0.0.0-20180524181706-dfa909b99c79
-golang.org/x/net/ipv4
 golang.org/x/net/websocket
+golang.org/x/net/context
+golang.org/x/net/proxy
+golang.org/x/net/ipv4
+golang.org/x/net/internal/socks
 golang.org/x/net/bpf
 golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
-golang.org/x/net/context
-golang.org/x/net/proxy
-golang.org/x/net/internal/socks
