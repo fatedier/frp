@@ -18,6 +18,11 @@ import (
 // Timeout seconds.
 var NatHoleTimeout int64 = 10
 
+type SidRequest struct {
+	Sid      string
+	NotifyCh chan struct{}
+}
+
 type NatHoleController struct {
 	listener *net.UDPConn
 
@@ -44,11 +49,11 @@ func NewNatHoleController(udpBindAddr string) (nc *NatHoleController, err error)
 	return nc, nil
 }
 
-func (nc *NatHoleController) ListenClient(name string, sk string) (sidCh chan string) {
+func (nc *NatHoleController) ListenClient(name string, sk string) (sidCh chan *SidRequest) {
 	clientCfg := &NatHoleClientCfg{
 		Name:  name,
 		Sk:    sk,
-		SidCh: make(chan string),
+		SidCh: make(chan *SidRequest),
 	}
 	nc.mu.Lock()
 	nc.clientCfgs[name] = clientCfg
@@ -132,7 +137,10 @@ func (nc *NatHoleController) HandleVisitor(m *msg.NatHoleVisitor, raddr *net.UDP
 	}()
 
 	err := errors.PanicToError(func() {
-		clientCfg.SidCh <- sid
+		clientCfg.SidCh <- &SidRequest{
+			Sid:      sid,
+			NotifyCh: session.NotifyCh,
+		}
 	})
 	if err != nil {
 		return
@@ -158,7 +166,6 @@ func (nc *NatHoleController) HandleClient(m *msg.NatHoleClient, raddr *net.UDPAd
 	}
 	log.Trace("handle client message, sid [%s]", session.Sid)
 	session.ClientAddr = raddr
-	session.NotifyCh <- struct{}{}
 
 	resp := nc.GenNatHoleResponse(session, "")
 	log.Trace("send nat hole response to client")
@@ -201,5 +208,5 @@ type NatHoleSession struct {
 type NatHoleClientCfg struct {
 	Name  string
 	Sk    string
-	SidCh chan string
+	SidCh chan *SidRequest
 }

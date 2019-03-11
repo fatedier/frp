@@ -17,44 +17,46 @@ package msg
 import "net"
 
 const (
-	TypeLogin              = 'o'
-	TypeLoginResp          = '1'
-	TypeNewProxy           = 'p'
-	TypeNewProxyResp       = '2'
-	TypeCloseProxy         = 'c'
-	TypeNewWorkConn        = 'w'
-	TypeReqWorkConn        = 'r'
-	TypeStartWorkConn      = 's'
-	TypeNewVisitorConn     = 'v'
-	TypeNewVisitorConnResp = '3'
-	TypePing               = 'h'
-	TypePong               = '4'
-	TypeUdpPacket          = 'u'
-	TypeNatHoleVisitor     = 'i'
-	TypeNatHoleClient      = 'n'
-	TypeNatHoleResp        = 'm'
-	TypeNatHoleSid         = '5'
+	TypeLogin                 = 'o'
+	TypeLoginResp             = '1'
+	TypeNewProxy              = 'p'
+	TypeNewProxyResp          = '2'
+	TypeCloseProxy            = 'c'
+	TypeNewWorkConn           = 'w'
+	TypeReqWorkConn           = 'r'
+	TypeStartWorkConn         = 's'
+	TypeNewVisitorConn        = 'v'
+	TypeNewVisitorConnResp    = '3'
+	TypePing                  = 'h'
+	TypePong                  = '4'
+	TypeUdpPacket             = 'u'
+	TypeNatHoleVisitor        = 'i'
+	TypeNatHoleClient         = 'n'
+	TypeNatHoleResp           = 'm'
+	TypeNatHoleClientDetectOK = 'd'
+	TypeNatHoleSid            = '5'
 )
 
 var (
 	msgTypeMap = map[byte]interface{}{
-		TypeLogin:              Login{},
-		TypeLoginResp:          LoginResp{},
-		TypeNewProxy:           NewProxy{},
-		TypeNewProxyResp:       NewProxyResp{},
-		TypeCloseProxy:         CloseProxy{},
-		TypeNewWorkConn:        NewWorkConn{},
-		TypeReqWorkConn:        ReqWorkConn{},
-		TypeStartWorkConn:      StartWorkConn{},
-		TypeNewVisitorConn:     NewVisitorConn{},
-		TypeNewVisitorConnResp: NewVisitorConnResp{},
-		TypePing:               Ping{},
-		TypePong:               Pong{},
-		TypeUdpPacket:          UdpPacket{},
-		TypeNatHoleVisitor:     NatHoleVisitor{},
-		TypeNatHoleClient:      NatHoleClient{},
-		TypeNatHoleResp:        NatHoleResp{},
-		TypeNatHoleSid:         NatHoleSid{},
+		TypeLogin:                 Login{},
+		TypeLoginResp:             LoginResp{},
+		TypeNewProxy:              NewProxy{},
+		TypeNewProxyResp:          NewProxyResp{},
+		TypeCloseProxy:            CloseProxy{},
+		TypeNewWorkConn:           NewWorkConn{},
+		TypeReqWorkConn:           ReqWorkConn{},
+		TypeStartWorkConn:         StartWorkConn{},
+		TypeNewVisitorConn:        NewVisitorConn{},
+		TypeNewVisitorConnResp:    NewVisitorConnResp{},
+		TypePing:                  Ping{},
+		TypePong:                  Pong{},
+		TypeUdpPacket:             UdpPacket{},
+		TypeNatHoleVisitor:        NatHoleVisitor{},
+		TypeNatHoleClient:         NatHoleClient{},
+		TypeNatHoleResp:           NatHoleResp{},
+		TypeNatHoleClientDetectOK: NatHoleClientDetectOK{},
+		TypeNatHoleSid:            NatHoleSid{},
 	}
 )
 
@@ -167,6 +169,9 @@ type NatHoleResp struct {
 	VisitorAddr string `json:"visitor_addr"`
 	ClientAddr  string `json:"client_addr"`
 	Error       string `json:"error"`
+}
+
+type NatHoleClientDetectOK struct {
 }
 
 type NatHoleSid struct {
