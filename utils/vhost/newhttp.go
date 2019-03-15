@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -145,7 +146,7 @@ func (rp *HttpReverseProxy) CreateConnection(domain string, location string) (ne
 			return fn()
 		}
 	}
-	return nil, ErrNoDomain
+	return nil, fmt.Errorf("%v: %s %s", ErrNoDomain, domain, location)
 }
 
 func (rp *HttpReverseProxy) CheckAuth(domain, location, user, passwd string) bool {
@@ -173,11 +174,22 @@ func (rp *HttpReverseProxy) getVhost(domain string, location string) (vr *VhostR
 
 	domainSplit := strings.Split(domain, ".")
 	if len(domainSplit) < 3 {
-		return vr, false
+		return nil, false
 	}
-	domainSplit[0] = "*"
-	domain = strings.Join(domainSplit, ".")
-	vr, ok = rp.vhostRouter.Get(domain, location)
+
+	for {
+		if len(domainSplit) < 3 {
+			return nil, false
+		}
+
+		domainSplit[0] = "*"
+		domain = strings.Join(domainSplit, ".")
+		vr, ok = rp.vhostRouter.Get(domain, location)
+		if ok {
+			return vr, true
+		}
+		domainSplit = domainSplit[1:]
+	}
 	return
 }
 
