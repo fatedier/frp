@@ -187,9 +187,9 @@ func parseServerCommonCfgFromCmd() (err error) {
 	g.GlbServerCfg.MaxPortsPerClient = maxPortsPerClient
 
 	if logFile == "console" {
-		g.GlbClientCfg.LogWay = "console"
+		g.GlbServerCfg.LogWay = "console"
 	} else {
-		g.GlbClientCfg.LogWay = "file"
+		g.GlbServerCfg.LogWay = "file"
 	}
 	return
 }
