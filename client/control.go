@@ -298,11 +298,18 @@ func (ctl *Control) worker() {
 	case <-ctl.closedCh:
 		// close related channels and wait until other goroutines done
 		close(ctl.readCh)
-		ctl.readerShutdown.WaitDone()
-		ctl.msgHandlerShutdown.WaitDone()
+		if ctl.readerShutdown != nil {
+			ctl.readerShutdown.WaitDone()
+		}
+
+		if ctl.msgHandlerShutdown != nil {
+			ctl.msgHandlerShutdown.WaitDone()
+		}
 
 		close(ctl.sendCh)
-		ctl.writerShutdown.WaitDone()
+		if ctl.writerShutdown != nil {
+			ctl.writerShutdown.WaitDone()
+		}
 
 		ctl.pm.Close()
 		ctl.vm.Close()
