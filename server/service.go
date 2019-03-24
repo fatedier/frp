@@ -16,8 +16,14 @@ package server
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net"
 	"net/http"
 	"strings"
@@ -62,6 +68,9 @@ type Service struct {
 	// Accept connections using websocket
 	websocketListener frpNet.Listener
 
+	// Accept frp tls connections
+	tlsListener frpNet.Listener
+
 	// Manage all controllers
 	ctlManager *ControlManager
 
@@ -79,6 +88,8 @@ type Service struct {
 
 	// close chan
 	closedCh chan bool
+
+	tlsConfig *tls.Config
 }
 
 func newAddress(addr string, port int) string {
@@ -101,6 +112,7 @@ func NewService() (svr *Service, err error) {
 		},
 		Closed:   true,
 		closedCh: make(chan bool),
+		tlsConfig: generateTLSConfig(),
 	}
 
 	// Init group controller
@@ -204,6 +216,12 @@ func NewService() (svr *Service, err error) {
 		log.Info("https service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHttpsPort)
 	}
 
+	// frp tls listener
+	tlsListener := svr.muxer.Listen(1, 1, func(data []byte) bool {
+		return int(data[0]) == frpNet.FRP_TLS_HEAD_BYTE
+	})
+	svr.tlsListener = frpNet.WrapLogListener(tlsListener)
+
 	// Create nat hole controller.
 	if cfg.BindUdpPort > 0 {
 		var nc *nathole.NatHoleController
@@ -242,6 +260,7 @@ func (svr *Service) Run() {
 	}
 
 	go svr.HandleListener(svr.websocketListener)
+	go svr.HandleListener(svr.tlsListener)
 
 	svr.Closed = false
 	svr.HandleListener(svr.listener)
@@ -279,6 +298,7 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 			return
 		}
 		log.Info("New Conn: ", c, err)
+		c = frpNet.CheckAndEnableTLSServerConn(c, svr.tlsConfig)
 
 		// Start a new goroutine for dealing connections.
 		go func(frpConn frpNet.Conn) {
@@ -414,4 +434,25 @@ func (svr *Service) RegisterWorkConn(workConn frpNet.Conn, newMsg *msg.NewWorkCo
 func (svr *Service) RegisterVisitorConn(visitorConn frpNet.Conn, newMsg *msg.NewVisitorConn) error {
 	return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
 		newMsg.UseEncryption, newMsg.UseCompression)
+}
+
+// Setup a bare-bones TLS config for the server
+func generateTLSConfig() *tls.Config {
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		panic(err)
+	}
+	template := x509.Certificate{SerialNumber: big.NewInt(1)}
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	if err != nil {
+		panic(err)
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+
+	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		panic(err)
+	}
+	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}
 }

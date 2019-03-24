@@ -94,7 +94,7 @@ func TestReload(t *testing.T) {
 		defer frpsProcess.Stop()
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	frpcProcess := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", frpcCfgPath})
 	err = frpcProcess.Start()
@@ -102,7 +102,7 @@ func TestReload(t *testing.T) {
 		defer frpcProcess.Stop()
 	}
 
-	time.Sleep(250 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	// test tcp1
 	res, err := util.SendTcpMsg("127.0.0.1:20801", consts.TEST_TCP_ECHO_STR)

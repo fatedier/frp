@@ -24,8 +24,10 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
     * [配置文件](#配置文件)
     * [配置文件模版渲染](#配置文件模版渲染)
     * [Dashboard](#dashboard)
+    * [Admin UI](#admin-ui)
     * [身份验证](#身份验证)
     * [加密与压缩](#加密与压缩)
+        * [TLS](#tls)
     * [客户端热加载配置文件](#客户端热加载配置文件)
     * [客户端查看代理状态](#客户端查看代理状态)
     * [端口白名单](#端口白名单)
@@ -47,6 +49,7 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
 * [开发计划](#开发计划)
 * [为 frp 做贡献](#为-frp-做贡献)
 * [捐助](#捐助)
+    * [知识星球](#知识星球)
     * [支付宝扫码捐赠](#支付宝扫码捐赠)
     * [微信支付捐赠](#微信支付捐赠)
     * [Paypal 捐赠](#paypal-捐赠)
@@ -404,6 +407,24 @@ dashboard_pwd = admin
 
 ![dashboard](/doc/pic/dashboard.png)
 
+### Admin UI
+
+Admin UI 可以帮助用户通过浏览器来查询和管理客户端的 proxy 状态和配置。
+
+需要在 frpc.ini 中指定 admin 服务使用的端口，即可开启此功能：
+
+```ini
+[common]
+admin_addr = 127.0.0.1
+admin_port = 7400
+admin_user = admin
+admin_pwd = admin
+```
+
+打开浏览器通过 `http://127.0.0.1:7400` 访问 Admin UI，用户名密码默认为 `admin`。
+
+如果想要在外网环境访问 Admin UI，将 7400 端口映射出去即可，但需要重视安全风险。
+
 ### 身份验证
 
 服务端和客户端的 common 配置中的 `token` 参数一致则身份验证通过。
@@ -425,6 +446,14 @@ use_compression = true
 如果公司内网防火墙对外网访问进行了流量识别与屏蔽，例如禁止了 ssh 协议等，通过设置 `use_encryption = true`，将 frpc 与 frps 之间的通信内容加密传输，将会有效防止流量被拦截。
 
 如果传输的报文长度较长，通过设置 `use_compression = true` 对传输内容进行压缩，可以有效减小 frpc 与 frps 之间的网络流量，加快流量转发速度，但是会额外消耗一些 cpu 资源。
+
+#### TLS
+
+从 v0.25.0 版本开始 frpc 和 frps 之间支持通过 TLS 协议加密传输。通过在 `frpc.ini` 的 `common` 中配置 `tls_enable = true` 来启用此功能，安全性更高。
+
+为了端口复用，frp 建立 TLS 连接的第一个字节为 0x17。
+
+**注意: 启用此功能后除 xtcp 外，不需要再设置 use_encryption。**
 
 ### 客户端热加载配置文件
 

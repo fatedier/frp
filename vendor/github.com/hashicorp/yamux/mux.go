@@ -3,6 +3,7 @@ package yamux
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"time"
 )
@@ -30,8 +31,13 @@ type Config struct {
 	// window size that we allow for a stream.
 	MaxStreamWindowSize uint32
 
-	// LogOutput is used to control the log destination
+	// LogOutput is used to control the log destination. Either Logger or
+	// LogOutput can be set, not both.
 	LogOutput io.Writer
+
+	// Logger is used to pass in the logger to be used. Either Logger or
+	// LogOutput can be set, not both.
+	Logger *log.Logger
 }
 
 // DefaultConfig is used to return a default configuration
@@ -56,6 +62,11 @@ func VerifyConfig(config *Config) error {
 	}
 	if config.MaxStreamWindowSize < initialStreamWindow {
 		return fmt.Errorf("MaxStreamWindowSize must be larger than %d", initialStreamWindow)
+	}
+	if config.LogOutput != nil && config.Logger != nil {
+		return fmt.Errorf("both Logger and LogOutput may not be set, select one")
+	} else if config.LogOutput == nil && config.Logger == nil {
+		return fmt.Errorf("one of Logger or LogOutput must be set, select one")
 	}
 	return nil
 }

@@ -88,8 +88,10 @@ func handleHttp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.Contains(r.Host, "127.0.0.1") || strings.Contains(r.Host, "test2.frp.com") ||
-		strings.Contains(r.Host, "test5.frp.com") || strings.Contains(r.Host, "test6.frp.com") {
+	if strings.HasPrefix(r.Host, "127.0.0.1") || strings.HasPrefix(r.Host, "test2.frp.com") ||
+		strings.HasPrefix(r.Host, "test5.frp.com") || strings.HasPrefix(r.Host, "test6.frp.com") ||
+		strings.HasPrefix(r.Host, "test.frp1.com") || strings.HasPrefix(r.Host, "new.test.frp1.com") {
+
 		w.WriteHeader(200)
 		w.Write([]byte(consts.TEST_HTTP_NORMAL_STR))
 	} else if strings.Contains(r.Host, "test3.frp.com") {

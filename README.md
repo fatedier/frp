@@ -28,8 +28,10 @@ Now it also try to support p2p connect.
     * [Configuration File](#configuration-file)
     * [Configuration file template](#configuration-file-template)
     * [Dashboard](#dashboard)
+    * [Admin UI](#admin-ui)
     * [Authentication](#authentication)
     * [Encryption and Compression](#encryption-and-compression)
+        * [TLS](#tls)
     * [Hot-Reload frpc configuration](#hot-reload-frpc-configuration)
     * [Get proxy status from client](#get-proxy-status-from-client)
     * [Port White List](#port-white-list)
@@ -389,6 +391,22 @@ Then visit `http://[server_addr]:7500` to see dashboard, default username and pa
 
 ![dashboard](/doc/pic/dashboard.png)
 
+### Admin UI
+
+Admin UI help you check and manage frpc's configure.
+
+Configure a address for admin UI to enable this feature:
+
+```ini
+[common]
+admin_addr = 127.0.0.1
+admin_port = 7400
+admin_user = admin
+admin_pwd = admin
+```
+
+Then visit `http://127.0.0.1:7400` to see admin UI, default username and password are both `admin`.
+
 ### Authentication
 
 `token` in frps.ini and frpc.ini should be same.
@@ -406,6 +424,14 @@ remote_port = 6000
 use_encryption = true
 use_compression = true
 ```
+
+#### TLS
+
+frp support TLS protocol between frpc and frps since v0.25.0.
+
+Config `tls_enable = true` in `common` section to frpc.ini to enable this feature.
+
+For port multiplexing, frp send a first byte 0x17 to dial a TLS connection.
 
 ### Hot-Reload frpc configuration
 
@@ -592,7 +618,7 @@ custom_domains = test.yourdomain.com
 host_header_rewrite = dev.yourdomain.com
 ```
 
-If `host_header_rewrite` is specified, the host header will be rewritten to match the hostname portion of the forwarding address.
+The `Host` request header will be rewritten to `Host: dev.yourdomain.com` before it reach your local http server.
 
 ### Set Headers In HTTP Request
 
@@ -736,8 +762,6 @@ plugin_http_passwd = abc
 ## Development Plan
 
 * Log http request information in frps.
-* Direct reverse proxy, like haproxy.
-* kubernetes ingress support.
 
 ## Contributing
 

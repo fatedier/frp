@@ -61,3 +61,17 @@ func notFoundResponse() *http.Response {
 	}
 	return res
 }
+
+func noAuthResponse() *http.Response {
+	header := make(map[string][]string)
+	header["WWW-Authenticate"] = []string{`Basic realm="Restricted"`}
+	res := &http.Response{
+		Status:     "401 Not authorized",
+		StatusCode: 401,
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Header:     header,
+	}
+	return res
+}
