@@ -16,7 +16,6 @@ package client
 
 import (
 	"crypto/tls"
-	"fmt"
 	"io"
 	"runtime/debug"
 	"sync"
@@ -182,7 +181,7 @@ func (ctl *Control) connectServer() (conn frpNet.Conn, err error) {
 				InsecureSkipVerify: true,
 			}
 		}
-		conn, err = frpNet.ConnectServerByProxy(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
+		conn, err = frpNet.ConnectServerByProxyWithTLS(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
 			newAddress(g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort), tlsConfig)
 		if err != nil {
 			ctl.Warn("start new connection to server error: %v", err)

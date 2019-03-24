@@ -170,15 +170,15 @@ func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error)
 			InsecureSkipVerify: true,
 		}
 	}
-	conn, err = frpNet.ConnectServerByProxy(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
+	conn, err = frpNet.ConnectServerByProxyWithTLS(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
 		newAddress(g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort), tlsConfig)
 	if err != nil {
 		return
 	}
 
 	defer func() {
-		if err != nil {
-			conn.Close()
+		if err != nil && conn != nil {
+			_ = conn.Close()
 		}
 	}()
 
