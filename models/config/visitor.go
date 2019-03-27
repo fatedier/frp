@@ -137,7 +137,7 @@ func (cfg *BaseVisitorConf) UnmarshalFromIni(prefix string, name string, section
 		return fmt.Errorf("Parse conf error: proxy [%s] incorrect role [%s]", name, cfg.Role)
 	}
 	cfg.Sk = section["sk"]
-	cfg.ServerName = prefix + section["server_name"]
+	cfg.ServerName = section["server_name"]
 	if cfg.BindAddr = section["bind_addr"]; cfg.BindAddr == "" {
 		cfg.BindAddr = "127.0.0.1"
 	}
