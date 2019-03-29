@@ -131,7 +131,7 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	workConn.AddLogPrefix(startMsg.ProxyName)
 
 	// dispatch this work connection to related proxy
-	ctl.pm.HandleWorkConn(startMsg.ProxyName, workConn)
+	ctl.pm.HandleWorkConn(startMsg.ProxyName, workConn, &startMsg)
 }
 
 func (ctl *Control) HandleNewProxyResp(inMsg *msg.NewProxyResp) {

@@ -98,7 +98,7 @@ func (pxy *HttpProxy) GetConf() config.ProxyConf {
 }
 
 func (pxy *HttpProxy) GetRealConn() (workConn frpNet.Conn, err error) {
-	tmpConn, errRet := pxy.GetWorkConnFromPool()
+	tmpConn, errRet := pxy.GetWorkConnFromPool(nil, nil)
 	if errRet != nil {
 		err = errRet
 		return
