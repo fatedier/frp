@@ -51,6 +51,10 @@ func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
 
 	addrs := make([]string, 0)
 	for _, domain := range pxy.cfg.CustomDomains {
+		if domain == "" {
+			continue
+		}
+
 		routeConfig.Domain = domain
 		for _, location := range locations {
 			routeConfig.Location = location
