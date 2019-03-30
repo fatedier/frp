@@ -13,7 +13,7 @@ github.com/fatedier/golib/errors
 github.com/fatedier/golib/msg/json
 github.com/fatedier/golib/net
 github.com/fatedier/golib/net/mux
-# github.com/fatedier/kcp-go v0.0.0-20171023144637-cd167d2f15f4
+# github.com/fatedier/kcp-go v2.0.4-0.20190317085623-2063a803e6fe+incompatible
 github.com/fatedier/kcp-go
 # github.com/golang/snappy v0.0.0-20170215233205-553a64147049
 github.com/golang/snappy
@@ -27,6 +27,10 @@ github.com/gorilla/websocket
 github.com/hashicorp/yamux
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
+# github.com/klauspost/cpuid v1.2.0
+github.com/klauspost/cpuid
+# github.com/klauspost/reedsolomon v1.9.1
+github.com/klauspost/reedsolomon
 # github.com/pkg/errors v0.8.0
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
@@ -43,8 +47,6 @@ github.com/spf13/pflag
 github.com/stretchr/testify/assert
 # github.com/templexxx/cpufeat v0.0.0-20170927014610-3794dfbfb047
 github.com/templexxx/cpufeat
-# github.com/templexxx/reedsolomon v0.0.0-20170926020725-5e06b81a1c76
-github.com/templexxx/reedsolomon
 # github.com/templexxx/xor v0.0.0-20170926022130-0af8e873c554
 github.com/templexxx/xor
 # github.com/tjfoc/gmsm v0.0.0-20171124023159-98aa888b79d8
@@ -65,6 +67,7 @@ golang.org/x/net/websocket
 golang.org/x/net/context
 golang.org/x/net/proxy
 golang.org/x/net/ipv4
+golang.org/x/net/ipv6
 golang.org/x/net/internal/socks
 golang.org/x/net/bpf
 golang.org/x/net/internal/iana

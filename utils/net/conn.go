@@ -211,6 +211,10 @@ func ConnectServerByProxy(proxyUrl string, protocol string, addr string) (c Conn
 
 func ConnectServerByProxyWithTLS(proxyUrl string, protocol string, addr string, tlsConfig *tls.Config) (c Conn, err error) {
 	c, err = ConnectServerByProxy(proxyUrl, protocol, addr)
+	if err != nil {
+		return
+	}
+
 	if tlsConfig == nil {
 		return
 	}
