@@ -347,6 +347,8 @@ You can find features which this document not metioned from full example configu
 
 ### Configuration file template
 
+> New in v0.23.0+
+
 Configuration file tempalte can be rendered using os environments. Template uses Go's standard format.
 
 ```ini
@@ -392,6 +394,8 @@ Then visit `http://[server_addr]:7500` to see dashboard, default username and pa
 ![dashboard](/doc/pic/dashboard.png)
 
 ### Admin UI
+
+> New in v0.24.0+
 
 Admin UI help you check and manage frpc's configure.
 
