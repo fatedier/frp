@@ -16,6 +16,7 @@ package proxy
 
 import (
 	"io"
+	"net"
 	"strings"
 
 	"github.com/fatedier/frp/g"
@@ -51,6 +52,10 @@ func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
 
 	addrs := make([]string, 0)
 	for _, domain := range pxy.cfg.CustomDomains {
+		if domain == "" {
+			continue
+		}
+
 		routeConfig.Domain = domain
 		for _, location := range locations {
 			routeConfig.Location = location
@@ -93,8 +98,14 @@ func (pxy *HttpProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
 }
 
-func (pxy *HttpProxy) GetRealConn() (workConn frpNet.Conn, err error) {
-	tmpConn, errRet := pxy.GetWorkConnFromPool()
+func (pxy *HttpProxy) GetRealConn(remoteAddr string) (workConn frpNet.Conn, err error) {
+	rAddr, errRet := net.ResolveTCPAddr("tcp", remoteAddr)
+	if errRet != nil {
+		pxy.Warn("resolve TCP addr [%s] error: %v", remoteAddr, errRet)
+		// we do not return error here since remoteAddr is not necessary for proxies without proxy protocol enabled
+	}
+
+	tmpConn, errRet := pxy.GetWorkConnFromPool(rAddr, nil)
 	if errRet != nil {
 		err = errRet
 		return

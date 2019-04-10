@@ -301,6 +301,7 @@ func (ctl *Control) reader() {
 				return
 			} else {
 				ctl.conn.Warn("read error: %v", err)
+				ctl.conn.Close()
 				return
 			}
 		} else {

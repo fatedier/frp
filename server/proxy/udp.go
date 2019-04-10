@@ -160,7 +160,7 @@ func (pxy *UdpProxy) Run() (remoteAddr string, err error) {
 		// Sleep a while for waiting control send the NewProxyResp to client.
 		time.Sleep(500 * time.Millisecond)
 		for {
-			workConn, err := pxy.GetWorkConnFromPool()
+			workConn, err := pxy.GetWorkConnFromPool(nil, nil)
 			if err != nil {
 				time.Sleep(1 * time.Second)
 				// check if proxy is closed
