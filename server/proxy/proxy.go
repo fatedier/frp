@@ -17,6 +17,8 @@ package proxy
 import (
 	"fmt"
 	"io"
+	"net"
+	"strconv"
 	"sync"
 
 	"github.com/fatedier/frp/g"
@@ -36,7 +38,7 @@ type Proxy interface {
 	Run() (remoteAddr string, err error)
 	GetName() string
 	GetConf() config.ProxyConf
-	GetWorkConnFromPool() (workConn frpNet.Conn, err error)
+	GetWorkConnFromPool(src, dst net.Addr) (workConn frpNet.Conn, err error)
 	GetUsedPortsNum() int
 	Close()
 	log.Logger
@@ -70,7 +72,7 @@ func (pxy *BaseProxy) Close() {
 	}
 }
 
-func (pxy *BaseProxy) GetWorkConnFromPool() (workConn frpNet.Conn, err error) {
+func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn frpNet.Conn, err error) {
 	// try all connections from the pool
 	for i := 0; i < pxy.poolCount+1; i++ {
 		if workConn, err = pxy.getWorkConnFn(); err != nil {
@@ -80,8 +82,29 @@ func (pxy *BaseProxy) GetWorkConnFromPool() (workConn frpNet.Conn, err error) {
 		pxy.Info("get a new work connection: [%s]", workConn.RemoteAddr().String())
 		workConn.AddLogPrefix(pxy.GetName())
 
+		var (
+			srcAddr    string
+			dstAddr    string
+			srcPortStr string
+			dstPortStr string
+			srcPort    int
+			dstPort    int
+		)
+
+		if src != nil {
+			srcAddr, srcPortStr, _ = net.SplitHostPort(src.String())
+			srcPort, _ = strconv.Atoi(srcPortStr)
+		}
+		if dst != nil {
+			dstAddr, dstPortStr, _ = net.SplitHostPort(dst.String())
+			dstPort, _ = strconv.Atoi(dstPortStr)
+		}
 		err := msg.WriteMsg(workConn, &msg.StartWorkConn{
 			ProxyName: pxy.GetName(),
+			SrcAddr:   srcAddr,
+			SrcPort:   uint16(srcPort),
+			DstAddr:   dstAddr,
+			DstPort:   uint16(dstPort),
 		})
 		if err != nil {
 			workConn.Warn("failed to send message to work connection from pool: %v, times: %d", err, i)
@@ -177,7 +200,7 @@ func HandleUserTcpConnection(pxy Proxy, userConn frpNet.Conn, statsCollector sta
 	defer userConn.Close()
 
 	// try all connections from the pool
-	workConn, err := pxy.GetWorkConnFromPool()
+	workConn, err := pxy.GetWorkConnFromPool(userConn.RemoteAddr(), userConn.LocalAddr())
 	if err != nil {
 		return
 	}

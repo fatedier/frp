@@ -58,12 +58,12 @@ func (pm *ProxyManager) Close() {
 	pm.proxies = make(map[string]*ProxyWrapper)
 }
 
-func (pm *ProxyManager) HandleWorkConn(name string, workConn frpNet.Conn) {
+func (pm *ProxyManager) HandleWorkConn(name string, workConn frpNet.Conn, m *msg.StartWorkConn) {
 	pm.mu.RLock()
 	pw, ok := pm.proxies[name]
 	pm.mu.RUnlock()
 	if ok {
-		pw.InWorkConn(workConn)
+		pw.InWorkConn(workConn, m)
 	} else {
 		workConn.Close()
 	}

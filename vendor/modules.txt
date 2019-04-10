@@ -31,6 +31,8 @@ github.com/inconshreveable/mousetrap
 github.com/klauspost/cpuid
 # github.com/klauspost/reedsolomon v1.9.1
 github.com/klauspost/reedsolomon
+# github.com/pires/go-proxyproto v0.0.0-20190111085350-4d51b51e3bfc
+github.com/pires/go-proxyproto
 # github.com/pkg/errors v0.8.0
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
