@@ -22,6 +22,7 @@ Now it also try to support p2p connect.
     * [Forward DNS query request](#forward-dns-query-request)
     * [Forward unix domain socket](#forward-unix-domain-socket)
     * [Expose a simple http file server](#expose-a-simple-http-file-server)
+    * [Enable HTTPS for local HTTP service](#enable-https-for-local-http-service)
     * [Expose your service in security](#expose-your-service-in-security)
     * [P2P Mode](#p2p-mode)
 * [Features](#features)
@@ -44,6 +45,8 @@ Now it also try to support p2p connect.
     * [Rewriting the Host Header](#rewriting-the-host-header)
     * [Set Headers In HTTP Request](#set-headers-in-http-request)
     * [Get Real IP](#get-real-ip)
+        * [HTTP X-Forwarded-For](#http-x-forwarded-for)
+        * [Proxy Protocol](#proxy-protocol)
     * [Password protecting your web service](#password-protecting-your-web-service)
     * [Custom subdomain names](#custom-subdomain-names)
     * [URL routing](#url-routing)
@@ -243,11 +246,34 @@ Configure frps same as above.
 
 2. Visit `http://x.x.x.x:6000/static/` by your browser, set correct user and password, so you can see files in `/tmp/file`.
 
+### Enable HTTPS for local HTTP service
+
+1. Start frpc with configurations:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [test_htts2http]
+  type = https
+  custom_domains = test.yourdomain.com
+
+  plugin = https2http
+  plugin_local_addr = 127.0.0.1:80
+  plugin_crt_path = ./server.crt
+  plugin_key_path = ./server.key
+  plugin_host_header_rewrite = 127.0.0.1
+  ```
+
+2. Visit `https://test.yourdomain.com`.
+
 ### Expose your service in security
 
 For some services, if expose them to the public network directly will be a security risk.
 
-**stcp(secret tcp)** help you create a proxy avoiding any one can access it.
+**stcp(secret tcp)** helps you create a proxy avoiding any one can access it.
 
 Configure frps same as above.
 
@@ -484,8 +510,6 @@ tcp_mux = false
 
 ### Support KCP Protocol
 
-frp support kcp protocol since v0.12.0.
-
 KCP is a fast and reliable protocol that can achieve the transmission effect of a reduction of the average latency by 30% to 40% and reduction of the maximum delay by a factor of three, at the cost of 10% to 20% more bandwidth wasted than TCP.
 
 Using kcp in frp:
@@ -639,9 +663,32 @@ In this example, it will set header `X-From-Where: frp` to http request.
 
 ### Get Real IP
 
+#### HTTP X-Forwarded-For
+
 Features for http proxy only.
 
-You can get user's real IP from http request header `X-Forwarded-For` and `X-Real-IP`.
+You can get user's real IP from HTTP request header `X-Forwarded-For` and `X-Real-IP`.
+
+#### Proxy Protocol
+
+frp support Proxy Protocol to send user's real IP to local service. It support all types without UDP.
+
+Here is an example for https service:
+
+```ini
+# frpc.ini
+[web]
+type = https
+local_port = 443
+custom_domains = test.yourdomain.com
+
+# now v1 and v2 is supported
+proxy_protocol_version = v2
+```
+
+You can enable Proxy Protocol support in nginx to parse user's real IP to http header `X-Real-IP`.
+
+Then you can get it from HTTP request header in your local service.
 
 ### Password protecting your web service
 
