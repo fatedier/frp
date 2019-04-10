@@ -523,6 +523,9 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 		// check if we need to send proxy protocol info
 		if baseInfo.ProxyProtocolVersion != "" {
 			if m.SrcAddr != "" && m.SrcPort != 0 {
+				if m.DstAddr == "" {
+					m.DstAddr = "127.0.0.1"
+				}
 				h := &pp.Header{
 					Command:            pp.PROXY,
 					SourceAddress:      net.ParseIP(m.SrcAddr),

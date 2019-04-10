@@ -51,7 +51,7 @@ func NewVhostMuxer(listener frpNet.Listener, vhostFunc muxFunc, authFunc httpAut
 	return mux, nil
 }
 
-type CreateConnFunc func() (frpNet.Conn, error)
+type CreateConnFunc func(remoteAddr string) (frpNet.Conn, error)
 
 type VhostRouteConfig struct {
 	Domain      string
