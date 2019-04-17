@@ -126,6 +126,10 @@ type ReqWorkConn struct {
 
 type StartWorkConn struct {
 	ProxyName string `json:"proxy_name"`
+	SrcAddr   string `json:"src_addr"`
+	DstAddr   string `json:"dst_addr"`
+	SrcPort   uint16 `json:"src_port"`
+	DstPort   uint16 `json:"dst_port"`
 }
 
 type NewVisitorConn struct {

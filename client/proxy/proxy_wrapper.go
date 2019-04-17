@@ -217,13 +217,13 @@ func (pw *ProxyWrapper) statusFailedCallback() {
 	pw.Info("health check failed")
 }
 
-func (pw *ProxyWrapper) InWorkConn(workConn frpNet.Conn) {
+func (pw *ProxyWrapper) InWorkConn(workConn frpNet.Conn, m *msg.StartWorkConn) {
 	pw.mu.RLock()
 	pxy := pw.pxy
 	pw.mu.RUnlock()
 	if pxy != nil {
 		workConn.Debug("start a new work connection, localAddr: %s remoteAddr: %s", workConn.LocalAddr().String(), workConn.RemoteAddr().String())
-		go pxy.InWorkConn(workConn)
+		go pxy.InWorkConn(workConn, m)
 	} else {
 		workConn.Close()
 	}

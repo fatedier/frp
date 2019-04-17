@@ -130,7 +130,7 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	workConn.AddLogPrefix(startMsg.ProxyName)
 
 	// dispatch this work connection to related proxy
-	ctl.pm.HandleWorkConn(startMsg.ProxyName, workConn)
+	ctl.pm.HandleWorkConn(startMsg.ProxyName, workConn, &startMsg)
 }
 
 func (ctl *Control) HandleNewProxyResp(inMsg *msg.NewProxyResp) {
@@ -145,6 +145,10 @@ func (ctl *Control) HandleNewProxyResp(inMsg *msg.NewProxyResp) {
 }
 
 func (ctl *Control) Close() error {
+	if ctl.session != nil {
+		ctl.session.Close()
+	}
+
 	if ctl.conn != nil {
 		_ = ctl.conn.Close()
 		ctl.conn = nil
@@ -153,6 +157,7 @@ func (ctl *Control) Close() error {
 		ctl.session = nil
 		log.Info("conn closed")
 	}
+
 	if ctl.pm != nil {
 		ctl.pm.Close()
 	}
@@ -210,6 +215,7 @@ func (ctl *Control) reader() {
 				return
 			} else {
 				ctl.Warn("read error: %v", err)
+				ctl.conn.Close()
 				return
 			}
 		} else {
@@ -315,6 +321,9 @@ func (ctl *Control) worker() {
 		ctl.vm.Close()
 
 		close(ctl.closedDoneCh)
+		if ctl.session != nil {
+			ctl.session.Close()
+		}
 		return
 	}
 }
