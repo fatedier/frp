@@ -6,7 +6,7 @@ After=network.target
 
 [Service]
 Type=simle
-#User=root #使用 root 可能会导致安全问题，不过可以使用前 1024 端口
+#User=root # 使用 root 可能会导致安全问题，不过可以使用前 1024 端口
 User=nobody
 Restart=on-failure
 RestartSec=3s
