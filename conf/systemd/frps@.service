@@ -1,13 +1,18 @@
 [Unit]
 Description=Frp Server Service
+#README.md
+Documentation=https://github.com/fatedier/frp/blob/master/README.md
 After=network.target
 
 [Service]
 Type=simple
+#User=root #使用 root 可能会导致安全问题，不过可以使用前 1024 端口
 User=nobody
 Restart=on-failure
-RestartSec=5s
+RestartSec=3s
 ExecStart=/usr/bin/frps -c /etc/frp/%i.ini
 
 [Install]
+Alias=frpd.service
+Alias=frp-server.service
 WantedBy=multi-user.target
