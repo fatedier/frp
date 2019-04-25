@@ -254,7 +254,8 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		p.logf("http: proxy error: %v", err)
 		rw.WriteHeader(http.StatusNotFound)
-		rw.Write([]byte(NotFound))
+
+		rw.Write(getNotFoundPageContent())
 		return
 	}
 
