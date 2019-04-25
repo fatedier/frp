@@ -108,6 +108,9 @@ func NewService() (svr *Service, err error) {
 		return
 	}
 
+	// Init 404 not found page
+	vhost.NotFoundPagePath = cfg.Custom404Page
+
 	var (
 		httpMuxOn  bool
 		httpsMuxOn bool

@@ -72,7 +72,7 @@ func NewStaticFilePlugin(params map[string]string) (Plugin, error) {
 	return sp, nil
 }
 
-func (sp *StaticFilePlugin) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn) {
+func (sp *StaticFilePlugin) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn, extraBufToLocal []byte) {
 	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
 	sp.l.PutConn(wrapConn)
 }
