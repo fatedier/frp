@@ -53,10 +53,13 @@ func NewUnixDomainSocketPlugin(params map[string]string) (p Plugin, err error) {
 	return
 }
 
-func (uds *UnixDomainSocketPlugin) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn) {
+func (uds *UnixDomainSocketPlugin) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn, extraBufToLocal []byte) {
 	localConn, err := net.DialUnix("unix", nil, uds.UnixAddr)
 	if err != nil {
 		return
+	}
+	if len(extraBufToLocal) > 0 {
+		localConn.Write(extraBufToLocal)
 	}
 
 	frpIo.Join(localConn, conn)

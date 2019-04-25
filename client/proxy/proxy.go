@@ -503,10 +503,43 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 		remote = frpIo.WithCompression(remote)
 	}
 
+	// check if we need to send proxy protocol info
+	var extraInfo []byte
+	if baseInfo.ProxyProtocolVersion != "" {
+		if m.SrcAddr != "" && m.SrcPort != 0 {
+			if m.DstAddr == "" {
+				m.DstAddr = "127.0.0.1"
+			}
+			h := &pp.Header{
+				Command:            pp.PROXY,
+				SourceAddress:      net.ParseIP(m.SrcAddr),
+				SourcePort:         m.SrcPort,
+				DestinationAddress: net.ParseIP(m.DstAddr),
+				DestinationPort:    m.DstPort,
+			}
+
+			if h.SourceAddress.To16() == nil {
+				h.TransportProtocol = pp.TCPv4
+			} else {
+				h.TransportProtocol = pp.TCPv6
+			}
+
+			if baseInfo.ProxyProtocolVersion == "v1" {
+				h.Version = 1
+			} else if baseInfo.ProxyProtocolVersion == "v2" {
+				h.Version = 2
+			}
+
+			buf := bytes.NewBuffer(nil)
+			h.WriteTo(buf)
+			extraInfo = buf.Bytes()
+		}
+	}
+
 	if proxyPlugin != nil {
 		// if plugin is set, let plugin handle connections first
 		workConn.Debug("handle by plugin: %s", proxyPlugin.Name())
-		proxyPlugin.Handle(remote, workConn)
+		proxyPlugin.Handle(remote, workConn, extraInfo)
 		workConn.Debug("handle by plugin finished")
 		return
 	} else {
@@ -520,34 +553,8 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 		workConn.Debug("join connections, localConn(l[%s] r[%s]) workConn(l[%s] r[%s])", localConn.LocalAddr().String(),
 			localConn.RemoteAddr().String(), workConn.LocalAddr().String(), workConn.RemoteAddr().String())
 
-		// check if we need to send proxy protocol info
-		if baseInfo.ProxyProtocolVersion != "" {
-			if m.SrcAddr != "" && m.SrcPort != 0 {
-				if m.DstAddr == "" {
-					m.DstAddr = "127.0.0.1"
-				}
-				h := &pp.Header{
-					Command:            pp.PROXY,
-					SourceAddress:      net.ParseIP(m.SrcAddr),
-					SourcePort:         m.SrcPort,
-					DestinationAddress: net.ParseIP(m.DstAddr),
-					DestinationPort:    m.DstPort,
-				}
-
-				if h.SourceAddress.To16() == nil {
-					h.TransportProtocol = pp.TCPv4
-				} else {
-					h.TransportProtocol = pp.TCPv6
-				}
-
-				if baseInfo.ProxyProtocolVersion == "v1" {
-					h.Version = 1
-				} else if baseInfo.ProxyProtocolVersion == "v2" {
-					h.Version = 2
-				}
-
-				h.WriteTo(localConn)
-			}
+		if len(extraInfo) > 0 {
+			localConn.Write(extraInfo)
 		}
 
 		frpIo.Join(localConn, remote)
