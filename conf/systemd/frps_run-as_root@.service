@@ -6,12 +6,12 @@ After=network.target
 
 [Service]
 Type=simple
-User=nobody
+User=root
 Restart=on-failure
 RestartSec=3s
 ExecStart=/usr/bin/frps -c /etc/frp/%i.ini
 
 [Install]
-Alias=frpd%i.service
-Alias=frp-server%i.service
+Alias=sfrpd%i.service
+Alias=sfrp-server%i.service
 WantedBy=multi-user.target
