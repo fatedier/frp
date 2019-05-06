@@ -1,5 +1,5 @@
 [Unit]
-Description=Frp Server Service
+Description=Frp run-as Root Server Service
 #README.md
 Documentation=https://github.com/fatedier/frp/blob/master/README.md
 After=network.target
