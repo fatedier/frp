@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kardianos/service"
 	"github.com/spf13/cobra"
 
 	"github.com/fatedier/frp/g"
@@ -92,6 +93,14 @@ var rootCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if showVersion {
 			fmt.Println(version.Full())
+			return nil
+		}
+
+		if !service.Interactive() {
+			if err := srvCmd.Execute(); err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
 			return nil
 		}
 

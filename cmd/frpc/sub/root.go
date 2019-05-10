@@ -25,6 +25,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/kardianos/service"
 	"github.com/spf13/cobra"
 
 	"github.com/fatedier/frp/client"
@@ -88,7 +89,24 @@ var rootCmd = &cobra.Command{
 			return nil
 		}
 
-		// Do not show command usage here.
+		if !service.Interactive() {
+			var err error
+			srv, err = service.New(&serviceFRP{}, &service.Config{
+				Name:        srvName,
+				DisplayName: srvDName,
+				Description: srvDesc,
+			})
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			if err = srv.Run(); err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			return nil
+		}
+
 		err := runClient(cfgFile)
 		if err != nil {
 			fmt.Println(err)
