@@ -27,6 +27,8 @@ github.com/gorilla/websocket
 github.com/hashicorp/yamux
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
+# github.com/kardianos/service v1.0.0
+github.com/kardianos/service
 # github.com/klauspost/cpuid v1.2.0
 github.com/klauspost/cpuid
 # github.com/klauspost/reedsolomon v1.9.1
@@ -55,7 +57,7 @@ github.com/templexxx/xor
 github.com/tjfoc/gmsm/sm4
 # github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec
 github.com/vaughan0/go-ini
-# golang.org/x/crypto v0.0.0-20180505025534-4ec37c66abab
+# golang.org/x/crypto v0.0.0-20190510104115-cbcb75029529
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
@@ -63,8 +65,9 @@ golang.org/x/crypto/salsa20
 golang.org/x/crypto/tea
 golang.org/x/crypto/twofish
 golang.org/x/crypto/xtea
+golang.org/x/crypto/internal/subtle
 golang.org/x/crypto/salsa20/salsa
-# golang.org/x/net v0.0.0-20180524181706-dfa909b99c79
+# golang.org/x/net v0.0.0-20190509222800-a4d6f7feada5
 golang.org/x/net/websocket
 golang.org/x/net/context
 golang.org/x/net/proxy
@@ -74,3 +77,9 @@ golang.org/x/net/internal/socks
 golang.org/x/net/bpf
 golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
+# golang.org/x/sys v0.0.0-20190412213103-97732733099d
+golang.org/x/sys/windows/registry
+golang.org/x/sys/windows/svc
+golang.org/x/sys/windows/svc/eventlog
+golang.org/x/sys/windows/svc/mgr
+golang.org/x/sys/windows

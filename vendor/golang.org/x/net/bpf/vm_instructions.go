@@ -55,34 +55,41 @@ func aluOpCommon(op ALUOp, regA uint32, value uint32) uint32 {
 	}
 }
 
-func jumpIf(ins JumpIf, value uint32) int {
-	var ok bool
-	inV := uint32(ins.Val)
+func jumpIf(ins JumpIf, regA uint32) int {
+	return jumpIfCommon(ins.Cond, ins.SkipTrue, ins.SkipFalse, regA, ins.Val)
+}
 
-	switch ins.Cond {
+func jumpIfX(ins JumpIfX, regA uint32, regX uint32) int {
+	return jumpIfCommon(ins.Cond, ins.SkipTrue, ins.SkipFalse, regA, regX)
+}
+
+func jumpIfCommon(cond JumpTest, skipTrue, skipFalse uint8, regA uint32, value uint32) int {
+	var ok bool
+
+	switch cond {
 	case JumpEqual:
-		ok = value == inV
+		ok = regA == value
 	case JumpNotEqual:
-		ok = value != inV
+		ok = regA != value
 	case JumpGreaterThan:
-		ok = value > inV
+		ok = regA > value
 	case JumpLessThan:
-		ok = value < inV
+		ok = regA < value
 	case JumpGreaterOrEqual:
-		ok = value >= inV
+		ok = regA >= value
 	case JumpLessOrEqual:
-		ok = value <= inV
+		ok = regA <= value
 	case JumpBitsSet:
-		ok = (value & inV) != 0
+		ok = (regA & value) != 0
 	case JumpBitsNotSet:
-		ok = (value & inV) == 0
+		ok = (regA & value) == 0
 	}
 
 	if ok {
-		return int(ins.SkipTrue)
+		return int(skipTrue)
 	}
 
-	return int(ins.SkipFalse)
+	return int(skipFalse)
 }
 
 func loadAbsolute(ins LoadAbsolute, in []byte) (uint32, bool) {

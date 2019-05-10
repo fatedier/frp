@@ -32,15 +32,11 @@ var registries = []struct {
 		parseDSCPRegistry,
 	},
 	{
-		"https://www.iana.org/assignments/ipv4-tos-byte/ipv4-tos-byte.xml",
-		parseTOSTCByte,
-	},
-	{
 		"https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xml",
 		parseProtocolNumbers,
 	},
 	{
-		"http://www.iana.org/assignments/address-family-numbers/address-family-numbers.xml",
+		"https://www.iana.org/assignments/address-family-numbers/address-family-numbers.xml",
 		parseAddrFamilyNumbers,
 	},
 }
@@ -85,31 +81,39 @@ func parseDSCPRegistry(w io.Writer, r io.Reader) error {
 	if err := dec.Decode(&dr); err != nil {
 		return err
 	}
-	drs := dr.escape()
 	fmt.Fprintf(w, "// %s, Updated: %s\n", dr.Title, dr.Updated)
 	fmt.Fprintf(w, "const (\n")
-	for _, dr := range drs {
-		fmt.Fprintf(w, "DiffServ%s = %#x", dr.Name, dr.Value)
+	for _, dr := range dr.escapeDSCP() {
+		fmt.Fprintf(w, "DiffServ%s = %#02x", dr.Name, dr.Value)
 		fmt.Fprintf(w, "// %s\n", dr.OrigName)
+	}
+	for _, er := range dr.escapeECN() {
+		fmt.Fprintf(w, "%s = %#02x", er.Descr, er.Value)
+		fmt.Fprintf(w, "// %s\n", er.OrigDescr)
 	}
 	fmt.Fprintf(w, ")\n")
 	return nil
 }
 
 type dscpRegistry struct {
-	XMLName     xml.Name `xml:"registry"`
-	Title       string   `xml:"title"`
-	Updated     string   `xml:"updated"`
-	Note        string   `xml:"note"`
-	RegTitle    string   `xml:"registry>title"`
-	PoolRecords []struct {
-		Name  string `xml:"name"`
-		Space string `xml:"space"`
-	} `xml:"registry>record"`
-	Records []struct {
-		Name  string `xml:"name"`
-		Space string `xml:"space"`
-	} `xml:"registry>registry>record"`
+	XMLName    xml.Name `xml:"registry"`
+	Title      string   `xml:"title"`
+	Updated    string   `xml:"updated"`
+	Note       string   `xml:"note"`
+	Registries []struct {
+		Title      string `xml:"title"`
+		Registries []struct {
+			Title   string `xml:"title"`
+			Records []struct {
+				Name  string `xml:"name"`
+				Space string `xml:"space"`
+			} `xml:"record"`
+		} `xml:"registry"`
+		Records []struct {
+			Value string `xml:"value"`
+			Descr string `xml:"description"`
+		} `xml:"record"`
+	} `xml:"registry"`
 }
 
 type canonDSCPRecord struct {
@@ -118,92 +122,84 @@ type canonDSCPRecord struct {
 	Value    int
 }
 
-func (drr *dscpRegistry) escape() []canonDSCPRecord {
-	drs := make([]canonDSCPRecord, len(drr.Records))
-	sr := strings.NewReplacer(
-		"+", "",
-		"-", "",
-		"/", "",
-		".", "",
-		" ", "",
-	)
-	for i, dr := range drr.Records {
-		s := strings.TrimSpace(dr.Name)
-		drs[i].OrigName = s
-		drs[i].Name = sr.Replace(s)
-		n, err := strconv.ParseUint(dr.Space, 2, 8)
-		if err != nil {
+func (drr *dscpRegistry) escapeDSCP() []canonDSCPRecord {
+	var drs []canonDSCPRecord
+	for _, preg := range drr.Registries {
+		if !strings.Contains(preg.Title, "Differentiated Services Field Codepoints") {
 			continue
 		}
-		drs[i].Value = int(n) << 2
+		for _, reg := range preg.Registries {
+			if !strings.Contains(reg.Title, "Pool 1 Codepoints") {
+				continue
+			}
+			drs = make([]canonDSCPRecord, len(reg.Records))
+			sr := strings.NewReplacer(
+				"+", "",
+				"-", "",
+				"/", "",
+				".", "",
+				" ", "",
+			)
+			for i, dr := range reg.Records {
+				s := strings.TrimSpace(dr.Name)
+				drs[i].OrigName = s
+				drs[i].Name = sr.Replace(s)
+				n, err := strconv.ParseUint(dr.Space, 2, 8)
+				if err != nil {
+					continue
+				}
+				drs[i].Value = int(n) << 2
+			}
+		}
 	}
 	return drs
 }
 
-func parseTOSTCByte(w io.Writer, r io.Reader) error {
-	dec := xml.NewDecoder(r)
-	var ttb tosTCByte
-	if err := dec.Decode(&ttb); err != nil {
-		return err
-	}
-	trs := ttb.escape()
-	fmt.Fprintf(w, "// %s, Updated: %s\n", ttb.Title, ttb.Updated)
-	fmt.Fprintf(w, "const (\n")
-	for _, tr := range trs {
-		fmt.Fprintf(w, "%s = %#x", tr.Keyword, tr.Value)
-		fmt.Fprintf(w, "// %s\n", tr.OrigKeyword)
-	}
-	fmt.Fprintf(w, ")\n")
-	return nil
+type canonECNRecord struct {
+	OrigDescr string
+	Descr     string
+	Value     int
 }
 
-type tosTCByte struct {
-	XMLName  xml.Name `xml:"registry"`
-	Title    string   `xml:"title"`
-	Updated  string   `xml:"updated"`
-	Note     string   `xml:"note"`
-	RegTitle string   `xml:"registry>title"`
-	Records  []struct {
-		Binary  string `xml:"binary"`
-		Keyword string `xml:"keyword"`
-	} `xml:"registry>record"`
-}
-
-type canonTOSTCByteRecord struct {
-	OrigKeyword string
-	Keyword     string
-	Value       int
-}
-
-func (ttb *tosTCByte) escape() []canonTOSTCByteRecord {
-	trs := make([]canonTOSTCByteRecord, len(ttb.Records))
-	sr := strings.NewReplacer(
-		"Capable", "",
-		"(", "",
-		")", "",
-		"+", "",
-		"-", "",
-		"/", "",
-		".", "",
-		" ", "",
-	)
-	for i, tr := range ttb.Records {
-		s := strings.TrimSpace(tr.Keyword)
-		trs[i].OrigKeyword = s
-		ss := strings.Split(s, " ")
-		if len(ss) > 1 {
-			trs[i].Keyword = strings.Join(ss[1:], " ")
-		} else {
-			trs[i].Keyword = ss[0]
-		}
-		trs[i].Keyword = sr.Replace(trs[i].Keyword)
-		n, err := strconv.ParseUint(tr.Binary, 2, 8)
-		if err != nil {
+func (drr *dscpRegistry) escapeECN() []canonECNRecord {
+	var ers []canonECNRecord
+	for _, reg := range drr.Registries {
+		if !strings.Contains(reg.Title, "ECN Field") {
 			continue
 		}
-		trs[i].Value = int(n)
+		ers = make([]canonECNRecord, len(reg.Records))
+		sr := strings.NewReplacer(
+			"Capable", "",
+			"Not-ECT", "",
+			"ECT(1)", "",
+			"ECT(0)", "",
+			"CE", "",
+			"(", "",
+			")", "",
+			"+", "",
+			"-", "",
+			"/", "",
+			".", "",
+			" ", "",
+		)
+		for i, er := range reg.Records {
+			s := strings.TrimSpace(er.Descr)
+			ers[i].OrigDescr = s
+			ss := strings.Split(s, " ")
+			if len(ss) > 1 {
+				ers[i].Descr = strings.Join(ss[1:], " ")
+			} else {
+				ers[i].Descr = ss[0]
+			}
+			ers[i].Descr = sr.Replace(er.Descr)
+			n, err := strconv.ParseUint(er.Value, 2, 8)
+			if err != nil {
+				continue
+			}
+			ers[i].Value = int(n)
+		}
 	}
-	return trs
+	return ers
 }
 
 func parseProtocolNumbers(w io.Writer, r io.Reader) error {

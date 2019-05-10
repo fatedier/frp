@@ -1,0 +1,21 @@
+version: "{build}"
+
+platform:
+  - x86
+  - x64
+
+clone_folder: c:\gopath\src\github.com\kardianos\service
+
+environment:
+  GOPATH: c:\gopath
+
+install:
+  - go version
+  - go env
+  - go get -v -t ./...
+
+build_script:
+  - go install -v ./...
+
+test_script:
+  - go test -v -tags su ./...
