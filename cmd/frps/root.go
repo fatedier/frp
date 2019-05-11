@@ -97,7 +97,17 @@ var rootCmd = &cobra.Command{
 		}
 
 		if !service.Interactive() {
-			if err := srvCmd.Execute(); err != nil {
+			var err error
+			srv, err = service.New(&serviceFRP{}, &service.Config{
+				Name:        srvName,
+				DisplayName: srvDName,
+				Description: srvDesc,
+			})
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			if err = srv.Run(); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}

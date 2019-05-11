@@ -38,12 +38,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&srvDName, "display_name", "frps", "Service display name")
 	rootCmd.PersistentFlags().StringVar(&srvDesc, "description", "frps service", "Service description")
 
-	if !service.Interactive() {
-		srvCmd.RunE = func(cmd *cobra.Command, args []string) error {
-			return srv.Run()
-		}
-	}
-
 	srvCmd.AddCommand(installSrvCmd, uninstallSrvCmd, startSrvCmd, stopSrvCmd, restartSrvCmd)
 	rootCmd.AddCommand(srvCmd)
 }
