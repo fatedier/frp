@@ -15,6 +15,7 @@
 package client
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"runtime/debug"
@@ -130,7 +131,7 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	workConn.AddLogPrefix(startMsg.ProxyName)
 
 	// dispatch this work connection to related proxy
-	ctl.pm.HandleWorkConn(startMsg.ProxyName, workConn)
+	ctl.pm.HandleWorkConn(startMsg.ProxyName, workConn, &startMsg)
 }
 
 func (ctl *Control) HandleNewProxyResp(inMsg *msg.NewProxyResp) {
@@ -145,7 +146,11 @@ func (ctl *Control) HandleNewProxyResp(inMsg *msg.NewProxyResp) {
 }
 
 func (ctl *Control) Close() error {
+	ctl.pm.Close()
 	ctl.conn.Close()
+	if ctl.session != nil {
+		ctl.session.Close()
+	}
 	return nil
 }
 
@@ -165,8 +170,14 @@ func (ctl *Control) connectServer() (conn frpNet.Conn, err error) {
 		}
 		conn = frpNet.WrapConn(stream)
 	} else {
-		conn, err = frpNet.ConnectServerByProxy(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
-			fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort))
+		var tlsConfig *tls.Config
+		if g.GlbClientCfg.TLSEnable {
+			tlsConfig = &tls.Config{
+				InsecureSkipVerify: true,
+			}
+		}
+		conn, err = frpNet.ConnectServerByProxyWithTLS(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
+			fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort), tlsConfig)
 		if err != nil {
 			ctl.Warn("start new connection to server error: %v", err)
 			return
@@ -194,6 +205,7 @@ func (ctl *Control) reader() {
 				return
 			} else {
 				ctl.Warn("read error: %v", err)
+				ctl.conn.Close()
 				return
 			}
 		} else {
@@ -292,6 +304,9 @@ func (ctl *Control) worker() {
 		ctl.vm.Close()
 
 		close(ctl.closedDoneCh)
+		if ctl.session != nil {
+			ctl.session.Close()
+		}
 		return
 	}
 }

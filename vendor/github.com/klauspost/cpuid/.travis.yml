@@ -1,0 +1,23 @@
+language: go
+
+sudo: false
+
+os:
+  - linux
+  - osx  
+go:
+  - 1.8.x
+  - 1.9.x
+  - 1.10.x
+  - master
+
+script: 
+ - go vet ./...
+ - go test -v ./...
+ - go test -race ./...
+ - diff <(gofmt -d .) <("") 
+
+matrix:
+  allow_failures:
+    - go: 'master'
+  fast_finish: true 

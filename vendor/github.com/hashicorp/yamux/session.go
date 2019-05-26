@@ -86,9 +86,14 @@ type sendReady struct {
 
 // newSession is used to construct a new session
 func newSession(config *Config, conn io.ReadWriteCloser, client bool) *Session {
+	logger := config.Logger
+	if logger == nil {
+		logger = log.New(config.LogOutput, "", log.LstdFlags)
+	}
+
 	s := &Session{
 		config:     config,
-		logger:     log.New(config.LogOutput, "", log.LstdFlags),
+		logger:     logger,
 		conn:       conn,
 		bufRead:    bufio.NewReader(conn),
 		pings:      make(map[uint32]chan struct{}),
@@ -309,8 +314,10 @@ func (s *Session) keepalive() {
 		case <-time.After(s.config.KeepAliveInterval):
 			_, err := s.Ping()
 			if err != nil {
-				s.logger.Printf("[ERR] yamux: keepalive failed: %v", err)
-				s.exitErr(ErrKeepAliveTimeout)
+				if err != ErrSessionShutdown {
+					s.logger.Printf("[ERR] yamux: keepalive failed: %v", err)
+					s.exitErr(ErrKeepAliveTimeout)
+				}
 				return
 			}
 		case <-s.shutdownCh:

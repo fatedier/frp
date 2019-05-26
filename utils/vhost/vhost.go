@@ -51,7 +51,7 @@ func NewVhostMuxer(listener frpNet.Listener, vhostFunc muxFunc, authFunc httpAut
 	return mux, nil
 }
 
-type CreateConnFunc func() (frpNet.Conn, error)
+type CreateConnFunc func(remoteAddr string) (frpNet.Conn, error)
 
 type VhostRouteConfig struct {
 	Domain      string
@@ -102,17 +102,24 @@ func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
 
 	domainSplit := strings.Split(name, ".")
 	if len(domainSplit) < 3 {
-		return l, false
-	}
-	domainSplit[0] = "*"
-	name = strings.Join(domainSplit, ".")
-
-	vr, found = v.registryRouter.Get(name, path)
-	if !found {
 		return
 	}
 
-	return vr.payload.(*Listener), true
+	for {
+		if len(domainSplit) < 3 {
+			return
+		}
+
+		domainSplit[0] = "*"
+		name = strings.Join(domainSplit, ".")
+
+		vr, found = v.registryRouter.Get(name, path)
+		if found {
+			return vr.payload.(*Listener), true
+		}
+		domainSplit = domainSplit[1:]
+	}
+	return
 }
 
 func (v *VhostMuxer) run() {

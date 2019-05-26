@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -55,7 +54,6 @@ var (
 	logLevel          string
 	logMaxDays        int64
 	token             string
-	authTimeout       int64
 	subDomainHost     string
 	tcpMux            bool
 	allowPorts        string
@@ -64,7 +62,7 @@ var (
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "", "c", "", "config file of frps")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file of frps")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
 
 	rootCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "", "0.0.0.0", "bind address")
@@ -83,7 +81,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	rootCmd.PersistentFlags().Int64VarP(&logMaxDays, "log_max_days", "", 3, "log_max_days")
 	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
-	rootCmd.PersistentFlags().Int64VarP(&authTimeout, "auth_timeout", "", 900, "auth timeout")
 	rootCmd.PersistentFlags().StringVarP(&subDomainHost, "subdomain_host", "", "", "subdomain host")
 	rootCmd.PersistentFlags().StringVarP(&allowPorts, "allow_ports", "", "", "allow ports")
 	rootCmd.PersistentFlags().Int64VarP(&maxPortsPerClient, "max_ports_per_client", "", 0, "max ports per client")
@@ -100,7 +97,13 @@ var rootCmd = &cobra.Command{
 
 		var err error
 		if cfgFile != "" {
-			err = parseServerCommonCfg(CfgFileTypeIni, cfgFile)
+			var content string
+			content, err = config.GetRenderedConfFromFile(cfgFile)
+			if err != nil {
+				return err
+			}
+			g.GlbServerCfg.CfgFile = cfgFile
+			err = parseServerCommonCfg(CfgFileTypeIni, content)
 		} else {
 			err = parseServerCommonCfg(CfgFileTypeCmd, "")
 		}
@@ -123,17 +126,15 @@ func Execute() {
 	}
 }
 
-func parseServerCommonCfg(fileType int, filePath string) (err error) {
+func parseServerCommonCfg(fileType int, content string) (err error) {
 	if fileType == CfgFileTypeIni {
-		err = parseServerCommonCfgFromIni(filePath)
+		err = parseServerCommonCfgFromIni(content)
 	} else if fileType == CfgFileTypeCmd {
 		err = parseServerCommonCfgFromCmd()
 	}
 	if err != nil {
 		return
 	}
-
-	g.GlbServerCfg.CfgFile = filePath
 
 	err = g.GlbServerCfg.ServerCommonConf.Check()
 	if err != nil {
@@ -144,13 +145,7 @@ func parseServerCommonCfg(fileType int, filePath string) (err error) {
 	return
 }
 
-func parseServerCommonCfgFromIni(filePath string) (err error) {
-	b, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return err
-	}
-	content := string(b)
-
+func parseServerCommonCfgFromIni(content string) (err error) {
 	cfg, err := config.UnmarshalServerConfFromIni(&g.GlbServerCfg.ServerCommonConf, content)
 	if err != nil {
 		return err
@@ -176,7 +171,6 @@ func parseServerCommonCfgFromCmd() (err error) {
 	g.GlbServerCfg.LogLevel = logLevel
 	g.GlbServerCfg.LogMaxDays = logMaxDays
 	g.GlbServerCfg.Token = token
-	g.GlbServerCfg.AuthTimeout = authTimeout
 	g.GlbServerCfg.SubDomainHost = subDomainHost
 	if len(allowPorts) > 0 {
 		// e.g. 1000-2000,2001,2002,3000-4000
@@ -193,9 +187,9 @@ func parseServerCommonCfgFromCmd() (err error) {
 	g.GlbServerCfg.MaxPortsPerClient = maxPortsPerClient
 
 	if logFile == "console" {
-		g.GlbClientCfg.LogWay = "console"
+		g.GlbServerCfg.LogWay = "console"
 	} else {
-		g.GlbClientCfg.LogWay = "file"
+		g.GlbServerCfg.LogWay = "file"
 	}
 	return
 }

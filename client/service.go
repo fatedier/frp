@@ -15,6 +15,7 @@
 package client
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"runtime"
@@ -22,6 +23,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/fatedier/frp/assets"
 	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
@@ -49,7 +51,14 @@ type Service struct {
 	closedCh chan int
 }
 
-func NewService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) (svr *Service) {
+func NewService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) (svr *Service, err error) {
+	// Init assets
+	err = assets.Load("")
+	if err != nil {
+		err = fmt.Errorf("Load assets error: %v", err)
+		return
+	}
+
 	svr = &Service{
 		pxyCfgs:     pxyCfgs,
 		visitorCfgs: visitorCfgs,
@@ -143,8 +152,14 @@ func (svr *Service) keepControllerWorking() {
 // conn: control connection
 // session: if it's not nil, using tcp mux
 func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error) {
-	conn, err = frpNet.ConnectServerByProxy(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
-		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort))
+	var tlsConfig *tls.Config
+	if g.GlbClientCfg.TLSEnable {
+		tlsConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
+	conn, err = frpNet.ConnectServerByProxyWithTLS(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
+		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort), tlsConfig)
 	if err != nil {
 		return
 	}
@@ -157,6 +172,7 @@ func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error)
 
 	if g.GlbClientCfg.TcpMux {
 		fmuxCfg := fmux.DefaultConfig()
+		fmuxCfg.KeepAliveInterval = 20 * time.Second
 		fmuxCfg.LogOutput = ioutil.Discard
 		session, err = fmux.Client(conn, fmuxCfg)
 		if err != nil {

@@ -158,6 +158,7 @@ func (p *ReverseProxy) serveWebSocket(rw http.ResponseWriter, req *http.Request)
 
 	req = req.WithContext(context.WithValue(req.Context(), "url", req.URL.Path))
 	req = req.WithContext(context.WithValue(req.Context(), "host", req.Host))
+	req = req.WithContext(context.WithValue(req.Context(), "remote", req.RemoteAddr))
 
 	targetConn, err := p.WebSocketDialContext(req.Context(), "tcp", "")
 	if err != nil {
@@ -215,6 +216,7 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 	// Modify for frp
 	outreq = outreq.WithContext(context.WithValue(outreq.Context(), "url", req.URL.Path))
 	outreq = outreq.WithContext(context.WithValue(outreq.Context(), "host", req.Host))
+	outreq = outreq.WithContext(context.WithValue(outreq.Context(), "remote", req.RemoteAddr))
 
 	p.Director(outreq)
 	outreq.Close = false
@@ -252,7 +254,8 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		p.logf("http: proxy error: %v", err)
 		rw.WriteHeader(http.StatusNotFound)
-		rw.Write([]byte(NotFound))
+
+		rw.Write(getNotFoundPageContent())
 		return
 	}
 
