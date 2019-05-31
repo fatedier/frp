@@ -29,10 +29,10 @@ func GetProxyStatus(statusAddr string, user string, passwd string, name string) 
 	if err != nil {
 		return status, err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		return status, fmt.Errorf("admin api status code [%d]", resp.StatusCode)
 	}
-	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return status, err
