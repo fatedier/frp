@@ -79,7 +79,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&dashboardPwd, "dashboard_pwd", "", "admin", "dashboard password")
 	rootCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "log file")
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
-	rootCmd.PersistentFlags().Int64VarP(&logMaxDays, "log_max_days", "", 3, "log_max_days")
+	rootCmd.PersistentFlags().Int64VarP(&logMaxDays, "log_max_days", "", 3, "log max days")
 	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
 	rootCmd.PersistentFlags().StringVarP(&subDomainHost, "subdomain_host", "", "", "subdomain host")
 	rootCmd.PersistentFlags().StringVarP(&allowPorts, "allow_ports", "", "", "allow ports")
