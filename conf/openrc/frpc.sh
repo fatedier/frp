@@ -15,9 +15,9 @@ depend() {
 start() {
     ebegin "Starting frpc"
     start-stop-daemon --start --background \
+    --make-pidfile --pidfile $pidfile \
     --exec $command \
-    -- $command_opts \
-    --make-pidfile --pidfile $pidfile
+    -- $command_opts
     eend $?
 }
 
