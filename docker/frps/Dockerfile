@@ -12,6 +12,7 @@ RUN apk add --no-cache openrc \
     &&  cp frps /usr/bin/ \
     &&  mkdir -p /etc/frp \
     &&  cp frps.ini /etc/frp \
+    &&  cd root \
     &&  rm frp_${FRP_VERSION}_linux_amd64.tar.gz \
     &&  rm -rf frp_${FRP_VERSION}_linux_amd64/ 
 
