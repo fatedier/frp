@@ -88,5 +88,4 @@ func reload() error {
 		}
 		return fmt.Errorf("code [%d], %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
-	return nil
 }
