@@ -13,6 +13,6 @@ ExecStart=/usr/bin/frpc -c /etc/frp/%i.ini
 ExecReload=/usr/bin/frpc reload -c /etc/frp/%i.ini
 
 [Install]
-Alias=sfrp%i.service
-Alias=sfrp-client%i.service
+Alias=sfrp@.service
+Alias=sfrp-client@.service
 WantedBy=multi-user.target

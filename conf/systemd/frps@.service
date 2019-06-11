@@ -12,6 +12,6 @@ RestartSec=3s
 ExecStart=/usr/bin/frps -c /etc/frp/%i.ini
 
 [Install]
-Alias=frpd%i.service
-Alias=frp-server%i.service
+Alias=frpd@.service
+Alias=frp-server@.service
 WantedBy=multi-user.target
