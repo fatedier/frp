@@ -1,5 +1,5 @@
 [Unit]
-Description=Frp run-as Root Client Service
+Description=Frp run-as Root Server Service
 #README.md
 Documentation=https://github.com/fatedier/frp/blob/master/README.md
 After=network.target
@@ -9,10 +9,10 @@ Type=simple
 User=root
 Restart=on-failure
 RestartSec=3s
-ExecStart=/usr/bin/frpc -c /etc/frp/%i.ini
-ExecReload=/usr/bin/frpc reload -c /etc/frp/%i.ini
+ExecStart=/usr/bin/frps -c /etc/frp/%i.ini
 
 [Install]
-Alias=sfrp%i.service
-Alias=sfrp-client%i.service
+Alias=sfrpd@.service
+Alias=sfrp-server@.service
+Alias=frps_run-as_root@.service
 WantedBy=multi-user.target

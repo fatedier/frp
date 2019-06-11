@@ -9,9 +9,10 @@ Type=simple
 User=root
 Restart=on-failure
 RestartSec=3s
-ExecStart=/usr/bin/frps -c /etc/frp/%i.ini
+ExecStart=/usr/bin/frps -c /etc/frp/sfrps.ini
 
 [Install]
-Alias=sfrpd%i.service
-Alias=sfrp-server%i.service
+Alias=sfrpd.service
+Alias=sfrp-server.service
+Alias=frps_run-as_root.service
 WantedBy=multi-user.target
