@@ -8,8 +8,9 @@ After=network.target
 Type=simple
 User=root
 Restart=on-failure
-RestartSec=3s
 ExecStart=/usr/bin/frps -c /etc/frp/%i.ini
+StandardOutput=syslog
+
 
 [Install]
 Alias=sfrpd@.service
