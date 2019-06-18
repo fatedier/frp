@@ -11,7 +11,6 @@ Restart=on-failure
 ExecStart=/usr/bin/frps -c /etc/frp/%i.ini
 StandardOutput=syslog
 
-
 [Install]
 Alias=sfrpd@.service
 Alias=sfrp-server@.service

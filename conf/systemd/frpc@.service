@@ -5,7 +5,7 @@ Documentation=https://github.com/fatedier/frp/blob/master/README.md
 After=network.target
 
 [Service]
-Type=simle
+Type=simple
 User=nobody
 Restart=on-failure
 ExecStart=/usr/bin/frpc -c /etc/frp/%i.ini
