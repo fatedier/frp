@@ -79,8 +79,6 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn frpNet.Co
 			pxy.Warn("failed to get work connection: %v", err)
 			return
 		}
-		pxy.Info("get a new work connection: [%s]", workConn.RemoteAddr().String())
-		workConn.AddLogPrefix(pxy.GetName())
 
 		var (
 			srcAddr    string
@@ -99,6 +97,13 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn frpNet.Co
 			dstAddr, dstPortStr, _ = net.SplitHostPort(dst.String())
 			dstPort, _ = strconv.Atoi(dstPortStr)
 		}
+
+		pxy.Info("get a new work connection: from [%s] via [%s] to [%s]",
+			src.String(),
+			dst.String(),
+			workConn.RemoteAddr().String())
+		workConn.AddLogPrefix(pxy.GetName())
+
 		err := msg.WriteMsg(workConn, &msg.StartWorkConn{
 			ProxyName: pxy.GetName(),
 			SrcAddr:   srcAddr,
