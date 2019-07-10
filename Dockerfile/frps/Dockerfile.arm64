@@ -1,11 +1,14 @@
 FROM golang AS builder
 WORKDIR /frp
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
 COPY . .
-RUN make
+RUN make frps-arm64
 
-FROM golang
+FROM arm64v8/golang:alpine
 WORKDIR /
-COPY --from=builder /frp/bin/frps /usr/local/bin/frps
+COPY --from=builder /frp/bin/arm64/frps /usr/local/bin/frps
 COPY --from=builder /frp/conf/frps.ini /etc/frps.ini
 EXPOSE 7000 7500
 CMD ["frps", "--config", "/etc/frps.ini"]

@@ -1,0 +1,13 @@
+FROM golang AS builder
+WORKDIR /frp
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+COPY . .
+RUN make frpc-arm
+
+FROM arm32v7/golang:alpine
+WORKDIR /
+COPY --from=builder /frp/bin/arm/frpc /usr/local/bin/frpc
+COPY --from=builder /frp/conf/frpc.ini /etc/frpc.ini
+CMD ["frpc", "--config", "/etc/frpc.ini"]
