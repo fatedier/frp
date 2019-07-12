@@ -259,7 +259,16 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 			log.Warn("Listener for incoming connections from client closed")
 			return
 		}
-		c = frpNet.CheckAndEnableTLSServerConn(c, svr.tlsConfig)
+
+		log.Trace("start check TLS connection...")
+		originConn := c
+		c, err = frpNet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, connReadTimeout)
+		if err != nil {
+			log.Warn("CheckAndEnableTLSServerConnWithTimeout error: %v", err)
+			originConn.Close()
+			continue
+		}
+		log.Trace("success check TLS connection")
 
 		// Start a new goroutine for dealing connections.
 		go func(frpConn frpNet.Conn) {
