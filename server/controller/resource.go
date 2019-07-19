@@ -38,7 +38,7 @@ type ResourceController struct {
 	// For http proxies, forwarding http requests
 	HttpReverseProxy *vhost.HttpReverseProxy
 
-	// For https proxies, route requests to different clients by hostname and other infomation
+	// For https proxies, route requests to different clients by hostname and other information
 	VhostHttpsMuxer *vhost.HttpsMuxer
 
 	// Controller for nat hole connections
