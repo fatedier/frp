@@ -560,7 +560,8 @@ This feature is fit for a large number of short connections.
 ### Load balancing
 
 Load balancing is supported by `group`.
-This feature is available only for type `tcp` now.
+
+This feature is available only for type `tcp` and `http` now.
 
 ```ini
 # frpc.ini
@@ -582,6 +583,10 @@ group_key = 123
 `group_key` is used for authentication.
 
 Proxies in same group will accept connections from port 80 randomly.
+
+For `tcp` type, `remote_port` in one group shoud be same.
+
+For `http` type, `custom_domains, subdomain, locations` shoud be same.
 
 ### Health Check
 

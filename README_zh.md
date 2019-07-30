@@ -16,7 +16,7 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
     * [通过 ssh 访问公司内网机器](#通过-ssh-访问公司内网机器)
     * [通过自定义域名访问部署于内网的 web 服务](#通过自定义域名访问部署于内网的-web-服务)
     * [转发 DNS 查询请求](#转发-dns-查询请求)
-    * [转发 Unix域套接字](#转发-unix域套接字)
+    * [转发 Unix 域套接字](#转发-unix-域套接字)
     * [对外提供简单的文件访问服务](#对外提供简单的文件访问服务)
     * [为本地 HTTP 服务启用 HTTPS](#为本地-http-服务启用-https)
     * [安全地暴露内网服务](#安全地暴露内网服务)
@@ -194,7 +194,7 @@ DNS 查询请求通常使用 UDP 协议，frp 支持对内网 UDP 服务的穿�
 
   `dig @x.x.x.x -p 6000 www.google.com`
 
-### 转发 Unix域套接字
+### 转发 Unix 域套接字
 
 通过 tcp 端口访问内网的 unix域套接字(例如和 docker daemon 通信)。
 
@@ -597,7 +597,7 @@ tcp_mux = false
 
 可以将多个相同类型的 proxy 加入到同一个 group 中，从而实现负载均衡的功能。
 
-目前只支持 tcp 类型的 proxy。
+目前只支持 TCP 和 HTTP 类型的 proxy。
 
 ```ini
 # frpc.ini
@@ -618,7 +618,9 @@ group_key = 123
 
 用户连接 frps 服务器的 80 端口，frps 会将接收到的用户连接随机分发给其中一个存活的 proxy。这样可以在一台 frpc 机器挂掉后仍然有其他节点能够提供服务。
 
-要求 `group_key` 相同，做权限验证，且 `remote_port` 相同。
+TCP 类型代理要求 `group_key` 相同，做权限验证，且 `remote_port` 相同。
+
+HTTP 类型代理要求 `group_key, custom_domains 或 subdomain 和 locations` 相同。
 
 ### 健康检查
 
