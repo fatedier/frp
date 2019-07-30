@@ -1,9 +1,14 @@
 package vhost
 
 import (
+	"errors"
 	"sort"
 	"strings"
 	"sync"
+)
+
+var (
+	ErrRouterConfigConflict = errors.New("router config conflict")
 )
 
 type VhostRouters struct {
@@ -24,9 +29,13 @@ func NewVhostRouters() *VhostRouters {
 	}
 }
 
-func (r *VhostRouters) Add(domain, location string, payload interface{}) {
+func (r *VhostRouters) Add(domain, location string, payload interface{}) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
+
+	if _, exist := r.exist(domain, location); exist {
+		return ErrRouterConfigConflict
+	}
 
 	vrs, found := r.RouterByDomain[domain]
 	if !found {
@@ -42,6 +51,7 @@ func (r *VhostRouters) Add(domain, location string, payload interface{}) {
 
 	sort.Sort(sort.Reverse(ByLocation(vrs)))
 	r.RouterByDomain[domain] = vrs
+	return nil
 }
 
 func (r *VhostRouters) Del(domain, location string) {
@@ -80,10 +90,7 @@ func (r *VhostRouters) Get(host, path string) (vr *VhostRouter, exist bool) {
 	return
 }
 
-func (r *VhostRouters) Exist(host, path string) (vr *VhostRouter, exist bool) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-
+func (r *VhostRouters) exist(host, path string) (vr *VhostRouter, exist bool) {
 	vrs, found := r.RouterByDomain[host]
 	if !found {
 		return
