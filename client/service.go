@@ -86,6 +86,8 @@ func (svr *Service) Run() error {
 			if g.GlbClientCfg.LoginFailExit {
 				return err
 			} else {
+				conn.Close()
+				session.Close()
 				time.Sleep(10 * time.Second)
 			}
 		} else {
