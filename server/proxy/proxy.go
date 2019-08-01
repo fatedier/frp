@@ -72,6 +72,8 @@ func (pxy *BaseProxy) Close() {
 	}
 }
 
+// GetWorkConnFromPool try to get a new work connections from pool
+// for quickly response, we immediately send the StartWorkConn message to frpc after take out one from pool
 func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn frpNet.Conn, err error) {
 	// try all connections from the pool
 	for i := 0; i < pxy.poolCount+1; i++ {
