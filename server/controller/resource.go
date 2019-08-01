@@ -29,6 +29,9 @@ type ResourceController struct {
 	// Tcp Group Controller
 	TcpGroupCtl *group.TcpGroupCtl
 
+	// HTTP Group Controller
+	HTTPGroupCtl *group.HTTPGroupController
+
 	// Manage all tcp ports
 	TcpPortManager *ports.PortManager
 
