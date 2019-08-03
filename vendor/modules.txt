@@ -17,9 +17,7 @@ github.com/fatedier/golib/pool
 github.com/fatedier/kcp-go
 # github.com/golang/snappy v0.0.0-20170215233205-553a64147049
 github.com/golang/snappy
-# github.com/gorilla/context v1.1.1
-github.com/gorilla/context
-# github.com/gorilla/mux v1.6.2
+# github.com/gorilla/mux v1.7.3
 github.com/gorilla/mux
 # github.com/gorilla/websocket v1.2.0
 github.com/gorilla/websocket

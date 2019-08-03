@@ -1,5 +1,3 @@
-// +build go1.7
-
 package mux
 
 import (
@@ -17,8 +15,4 @@ func contextSet(r *http.Request, key, val interface{}) *http.Request {
 	}
 
 	return r.WithContext(context.WithValue(r.Context(), key, val))
-}
-
-func contextClear(r *http.Request) {
-	return
 }
