@@ -35,6 +35,10 @@ import (
 	fmux "github.com/hashicorp/yamux"
 )
 
+type ServiceClosedListener interface {
+	OnClosed(msg string)
+}
+
 type Service struct {
 	// uniq id got from frps, attach it in loginMsg
 	runId string
@@ -50,7 +54,20 @@ type Service struct {
 	exit     uint32 // 0 means not exit
 	closedCh chan bool
 
-	closed bool
+	closed           bool
+	ReConnectByCount bool
+	reConnectCount   int
+	onClosedListener ServiceClosedListener
+}
+
+func (svr *Service) SetProxyFailedFunc(proxyFailedFunc func(err error)) {
+	if svr.ctl != nil {
+		svr.ctl.ProxyFunc = proxyFailedFunc
+	}
+}
+
+func (svr *Service) SetOnCloseListener(listener ServiceClosedListener) {
+	svr.onClosedListener = listener
 }
 
 func NewService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) (svr *Service, err error) {
@@ -62,11 +79,12 @@ func NewService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]conf
 	}
 
 	svr = &Service{
-		pxyCfgs:     pxyCfgs,
-		visitorCfgs: visitorCfgs,
-		exit:        0,
-		closedCh:    make(chan bool),
-		closed:      true,
+		pxyCfgs:        pxyCfgs,
+		visitorCfgs:    visitorCfgs,
+		exit:           0,
+		closedCh:       make(chan bool),
+		closed:         true,
+		reConnectCount: 0,
 	}
 	return
 }
@@ -120,6 +138,10 @@ func (svr *Service) Run(cmd bool) error {
 		go func() {
 			svr.closed = <-svr.closedCh
 			log.Info("svr closed")
+
+			if svr.onClosedListener != nil {
+				svr.onClosedListener.OnClosed("")
+			}
 		}()
 	}
 	return nil
@@ -144,6 +166,13 @@ func (svr *Service) keepControllerWorking() {
 				delayTime = delayTime * 2
 				if delayTime > maxDelayTime {
 					delayTime = maxDelayTime
+				}
+				if svr.ReConnectByCount {
+					svr.reConnectCount++
+					if svr.reConnectCount == 3 {
+						svr.Close()
+						return
+					}
 				}
 				continue
 			}

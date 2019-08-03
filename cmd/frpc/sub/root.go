@@ -117,6 +117,12 @@ func RunFrpc(cfgFilePath string) (err error) {
 	return runClient(cfgFilePath)
 }
 
+func NewService(cfgFilePath string) (ser *client.Service, err error) {
+	cmd = false
+	crypto.DefaultSalt = "frp"
+	return returnClient(cfgFilePath, false)
+}
+
 func StopFrp() (err error) {
 	if service == nil {
 		return fmt.Errorf("frp not start")
@@ -214,8 +220,28 @@ func runClient(cfgFilePath string) (err error) {
 		return err
 	}
 
-	err = startService(pxyCfgs, visitorCfgs)
-	return
+	return startService(pxyCfgs, visitorCfgs)
+}
+
+func returnClient(cfgFilePath string, run bool) (svr *client.Service, err error) {
+	var content string
+	content, err = config.GetRenderedConfFromFile(cfgFilePath)
+	if err != nil {
+		return
+	}
+	g.GlbClientCfg.CfgFile = cfgFilePath
+
+	err = parseClientCommonCfg(CfgFileTypeIni, content)
+	if err != nil {
+		return
+	}
+
+	pxyCfgs, visitorCfgs, err := config.LoadAllConfFromIni(g.GlbClientCfg.User, content, g.GlbClientCfg.Start)
+	if err != nil {
+		return nil, err
+	}
+
+	return returnService(pxyCfgs, visitorCfgs)
 }
 
 func startService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) (err error) {
@@ -250,4 +276,33 @@ func startService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]co
 		<-kcpDoneCh
 	}
 	return
+}
+
+func returnService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) (svr *client.Service, err error) {
+	log.InitLog(g.GlbClientCfg.LogWay, g.GlbClientCfg.LogFile, g.GlbClientCfg.LogLevel, g.GlbClientCfg.LogMaxDays)
+	if g.GlbClientCfg.DnsServer != "" {
+		s := g.GlbClientCfg.DnsServer
+		if !strings.Contains(s, ":") {
+			s += ":53"
+		}
+		// Change default dns server for frpc
+		net.DefaultResolver = &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				return net.Dial("udp", s)
+			},
+		}
+	}
+	svr, errRet := client.NewService(pxyCfgs, visitorCfgs)
+	if errRet != nil {
+		err = errRet
+		return
+	}
+
+	// Capture the exit signal if we use kcp.
+	if g.GlbClientCfg.Protocol == "kcp" {
+		go handleSignal(svr)
+	}
+
+	return svr, err
 }

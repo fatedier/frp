@@ -71,6 +71,7 @@ type Control struct {
 	mu sync.RWMutex
 
 	log.Logger
+	ProxyFunc func(err error)
 }
 
 func NewControl(runId string, conn frpNet.Conn, session *fmux.Session, pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) *Control {
@@ -139,6 +140,9 @@ func (ctl *Control) HandleNewProxyResp(inMsg *msg.NewProxyResp) {
 	err := ctl.pm.StartProxy(inMsg.ProxyName, inMsg.RemoteAddr, inMsg.Error)
 	if err != nil {
 		ctl.Warn("[%s] start error: %v", inMsg.ProxyName, err)
+		if ctl.ProxyFunc != nil {
+			ctl.ProxyFunc(err)
+		}
 	} else {
 		ctl.Info("[%s] start proxy success", inMsg.ProxyName)
 	}
