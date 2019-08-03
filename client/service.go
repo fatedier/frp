@@ -86,8 +86,6 @@ func (svr *Service) Run() error {
 			if g.GlbClientCfg.LoginFailExit {
 				return err
 			} else {
-				conn.Close()
-				session.Close()
 				time.Sleep(10 * time.Second)
 			}
 		} else {
@@ -169,6 +167,9 @@ func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error)
 	defer func() {
 		if err != nil {
 			conn.Close()
+			if session != nil {
+				session.Close()
+			}
 		}
 	}()
 
