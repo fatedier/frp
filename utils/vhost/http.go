@@ -89,14 +89,18 @@ func NewHttpReverseProxy(option HttpReverseProxyOptions, vhostRouter *VhostRoute
 				return rp.CreateConnection(host, url, remote)
 			},
 		},
-		WebSocketDialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			url := ctx.Value("url").(string)
-			host := getHostFromAddr(ctx.Value("host").(string))
-			remote := ctx.Value("remote").(string)
-			return rp.CreateConnection(host, url, remote)
-		},
+		//WebSocketDialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+		//url := ctx.Value("url").(string)
+		//host := getHostFromAddr(ctx.Value("host").(string))
+		//remote := ctx.Value("remote").(string)
+		//return rp.CreateConnection(host, url, remote)
+		//},
 		BufferPool: newWrapPool(),
 		ErrorLog:   log.New(newWrapLogger(), "", 0),
+		ErrorHandler: func(rw http.ResponseWriter, req *http.Request, err error) {
+			rw.WriteHeader(http.StatusNotFound)
+			rw.Write(getNotFoundPageContent())
+		},
 	}
 	rp.proxy = proxy
 	return rp
