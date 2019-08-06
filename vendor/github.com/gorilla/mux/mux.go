@@ -22,7 +22,7 @@ var (
 
 // NewRouter returns a new router instance.
 func NewRouter() *Router {
-	return &Router{namedRoutes: make(map[string]*Route), KeepContext: false}
+	return &Router{namedRoutes: make(map[string]*Route)}
 }
 
 // Router registers routes to be matched and dispatches a handler.
@@ -50,24 +50,78 @@ type Router struct {
 	// Configurable Handler to be used when the request method does not match the route.
 	MethodNotAllowedHandler http.Handler
 
-	// Parent route, if this is a subrouter.
-	parent parentRoute
 	// Routes to be matched, in order.
 	routes []*Route
+
 	// Routes by name for URL building.
 	namedRoutes map[string]*Route
-	// See Router.StrictSlash(). This defines the flag for new routes.
-	strictSlash bool
-	// See Router.SkipClean(). This defines the flag for new routes.
-	skipClean bool
+
 	// If true, do not clear the request context after handling the request.
-	// This has no effect when go1.7+ is used, since the context is stored
+	//
+	// Deprecated: No effect when go1.7+ is used, since the context is stored
 	// on the request itself.
 	KeepContext bool
-	// see Router.UseEncodedPath(). This defines a flag for all routes.
-	useEncodedPath bool
+
 	// Slice of middlewares to be called after a match is found
 	middlewares []middleware
+
+	// configuration shared with `Route`
+	routeConf
+}
+
+// common route configuration shared between `Router` and `Route`
+type routeConf struct {
+	// If true, "/path/foo%2Fbar/to" will match the path "/path/{var}/to"
+	useEncodedPath bool
+
+	// If true, when the path pattern is "/path/", accessing "/path" will
+	// redirect to the former and vice versa.
+	strictSlash bool
+
+	// If true, when the path pattern is "/path//to", accessing "/path//to"
+	// will not redirect
+	skipClean bool
+
+	// Manager for the variables from host and path.
+	regexp routeRegexpGroup
+
+	// List of matchers.
+	matchers []matcher
+
+	// The scheme used when building URLs.
+	buildScheme string
+
+	buildVarsFunc BuildVarsFunc
+}
+
+// returns an effective deep copy of `routeConf`
+func copyRouteConf(r routeConf) routeConf {
+	c := r
+
+	if r.regexp.path != nil {
+		c.regexp.path = copyRouteRegexp(r.regexp.path)
+	}
+
+	if r.regexp.host != nil {
+		c.regexp.host = copyRouteRegexp(r.regexp.host)
+	}
+
+	c.regexp.queries = make([]*routeRegexp, 0, len(r.regexp.queries))
+	for _, q := range r.regexp.queries {
+		c.regexp.queries = append(c.regexp.queries, copyRouteRegexp(q))
+	}
+
+	c.matchers = make([]matcher, 0, len(r.matchers))
+	for _, m := range r.matchers {
+		c.matchers = append(c.matchers, m)
+	}
+
+	return c
+}
+
+func copyRouteRegexp(r *routeRegexp) *routeRegexp {
+	c := *r
+	return &c
 }
 
 // Match attempts to match the given request against the router's registered routes.
@@ -155,22 +209,18 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		handler = http.NotFoundHandler()
 	}
 
-	if !r.KeepContext {
-		defer contextClear(req)
-	}
-
 	handler.ServeHTTP(w, req)
 }
 
 // Get returns a route registered with the given name.
 func (r *Router) Get(name string) *Route {
-	return r.getNamedRoutes()[name]
+	return r.namedRoutes[name]
 }
 
 // GetRoute returns a route registered with the given name. This method
 // was renamed to Get() and remains here for backwards compatibility.
 func (r *Router) GetRoute(name string) *Route {
-	return r.getNamedRoutes()[name]
+	return r.namedRoutes[name]
 }
 
 // StrictSlash defines the trailing slash behavior for new routes. The initial
@@ -222,52 +272,21 @@ func (r *Router) UseEncodedPath() *Router {
 }
 
 // ----------------------------------------------------------------------------
-// parentRoute
-// ----------------------------------------------------------------------------
-
-func (r *Router) getBuildScheme() string {
-	if r.parent != nil {
-		return r.parent.getBuildScheme()
-	}
-	return ""
-}
-
-// getNamedRoutes returns the map where named routes are registered.
-func (r *Router) getNamedRoutes() map[string]*Route {
-	if r.namedRoutes == nil {
-		if r.parent != nil {
-			r.namedRoutes = r.parent.getNamedRoutes()
-		} else {
-			r.namedRoutes = make(map[string]*Route)
-		}
-	}
-	return r.namedRoutes
-}
-
-// getRegexpGroup returns regexp definitions from the parent route, if any.
-func (r *Router) getRegexpGroup() *routeRegexpGroup {
-	if r.parent != nil {
-		return r.parent.getRegexpGroup()
-	}
-	return nil
-}
-
-func (r *Router) buildVars(m map[string]string) map[string]string {
-	if r.parent != nil {
-		m = r.parent.buildVars(m)
-	}
-	return m
-}
-
-// ----------------------------------------------------------------------------
 // Route factories
 // ----------------------------------------------------------------------------
 
 // NewRoute registers an empty route.
 func (r *Router) NewRoute() *Route {
-	route := &Route{parent: r, strictSlash: r.strictSlash, skipClean: r.skipClean, useEncodedPath: r.useEncodedPath}
+	// initialize a route with a copy of the parent router's configuration
+	route := &Route{routeConf: copyRouteConf(r.routeConf), namedRoutes: r.namedRoutes}
 	r.routes = append(r.routes, route)
 	return route
+}
+
+// Name registers a new route with a name.
+// See Route.Name().
+func (r *Router) Name(name string) *Route {
+	return r.NewRoute().Name(name)
 }
 
 // Handle registers a new route with a matcher for the URL path.

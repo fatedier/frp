@@ -2,11 +2,12 @@
 
 [![GoDoc](https://godoc.org/github.com/gorilla/mux?status.svg)](https://godoc.org/github.com/gorilla/mux)
 [![Build Status](https://travis-ci.org/gorilla/mux.svg?branch=master)](https://travis-ci.org/gorilla/mux)
+[![CircleCI](https://circleci.com/gh/gorilla/mux.svg?style=svg)](https://circleci.com/gh/gorilla/mux)
 [![Sourcegraph](https://sourcegraph.com/github.com/gorilla/mux/-/badge.svg)](https://sourcegraph.com/github.com/gorilla/mux?badge)
 
 ![Gorilla Logo](http://www.gorillatoolkit.org/static/images/gorilla-icon-64.png)
 
-http://www.gorillatoolkit.org/pkg/mux
+https://www.gorillatoolkit.org/pkg/mux
 
 Package `gorilla/mux` implements a request router and dispatcher for matching incoming requests to
 their respective handler.
@@ -29,6 +30,7 @@ The name mux stands for "HTTP request multiplexer". Like the standard `http.Serv
 * [Walking Routes](#walking-routes)
 * [Graceful Shutdown](#graceful-shutdown)
 * [Middleware](#middleware)
+* [Handling CORS Requests](#handling-cors-requests)
 * [Testing Handlers](#testing-handlers)
 * [Full Example](#full-example)
 
@@ -88,7 +90,7 @@ r := mux.NewRouter()
 // Only matches if domain is "www.example.com".
 r.Host("www.example.com")
 // Matches a dynamic subdomain.
-r.Host("{subdomain:[a-z]+}.domain.com")
+r.Host("{subdomain:[a-z]+}.example.com")
 ```
 
 There are several other matchers that can be added. To match path prefixes:
@@ -238,13 +240,13 @@ This also works for host and query value variables:
 
 ```go
 r := mux.NewRouter()
-r.Host("{subdomain}.domain.com").
+r.Host("{subdomain}.example.com").
   Path("/articles/{category}/{id:[0-9]+}").
   Queries("filter", "{filter}").
   HandlerFunc(ArticleHandler).
   Name("article")
 
-// url.String() will be "http://news.domain.com/articles/technology/42?filter=gorilla"
+// url.String() will be "http://news.example.com/articles/technology/42?filter=gorilla"
 url, err := r.Get("article").URL("subdomain", "news",
                                  "category", "technology",
                                  "id", "42",
@@ -264,7 +266,7 @@ r.HeadersRegexp("Content-Type", "application/(text|json)")
 There's also a way to build only the URL host or path for a route: use the methods `URLHost()` or `URLPath()` instead. For the previous route, we would do:
 
 ```go
-// "http://news.domain.com/"
+// "http://news.example.com/"
 host, err := r.Get("article").URLHost("subdomain", "news")
 
 // "/articles/technology/42"
@@ -275,12 +277,12 @@ And if you use subrouters, host and path defined separately can be built as well
 
 ```go
 r := mux.NewRouter()
-s := r.Host("{subdomain}.domain.com").Subrouter()
+s := r.Host("{subdomain}.example.com").Subrouter()
 s.Path("/articles/{category}/{id:[0-9]+}").
   HandlerFunc(ArticleHandler).
   Name("article")
 
-// "http://news.domain.com/articles/technology/42"
+// "http://news.example.com/articles/technology/42"
 url, err := r.Get("article").URL("subdomain", "news",
                                  "category", "technology",
                                  "id", "42")
@@ -491,6 +493,73 @@ r.Use(amw.Middleware)
 
 Note: The handler chain will be stopped if your middleware doesn't call `next.ServeHTTP()` with the corresponding parameters. This can be used to abort a request if the middleware writer wants to. Middlewares _should_ write to `ResponseWriter` if they _are_ going to terminate the request, and they _should not_ write to `ResponseWriter` if they _are not_ going to terminate it.
 
+### Handling CORS Requests
+
+[CORSMethodMiddleware](https://godoc.org/github.com/gorilla/mux#CORSMethodMiddleware) intends to make it easier to strictly set the `Access-Control-Allow-Methods` response header.
+
+* You will still need to use your own CORS handler to set the other CORS headers such as `Access-Control-Allow-Origin`
+* The middleware will set the `Access-Control-Allow-Methods` header to all the method matchers (e.g. `r.Methods(http.MethodGet, http.MethodPut, http.MethodOptions)` -> `Access-Control-Allow-Methods: GET,PUT,OPTIONS`) on a route
+* If you do not specify any methods, then:
+> _Important_: there must be an `OPTIONS` method matcher for the middleware to set the headers.
+
+Here is an example of using `CORSMethodMiddleware` along with a custom `OPTIONS` handler to set all the required CORS headers:
+
+```go
+package main
+
+import (
+	"net/http"
+	"github.com/gorilla/mux"
+)
+
+func main() {
+    r := mux.NewRouter()
+
+    // IMPORTANT: you must specify an OPTIONS method matcher for the middleware to set CORS headers
+    r.HandleFunc("/foo", fooHandler).Methods(http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodOptions)
+    r.Use(mux.CORSMethodMiddleware(r))
+    
+    http.ListenAndServe(":8080", r)
+}
+
+func fooHandler(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Access-Control-Allow-Origin", "*")
+    if r.Method == http.MethodOptions {
+        return
+    }
+
+    w.Write([]byte("foo"))
+}
+```
+
+And an request to `/foo` using something like:
+
+```bash
+curl localhost:8080/foo -v
+```
+
+Would look like:
+
+```bash
+*   Trying ::1...
+* TCP_NODELAY set
+* Connected to localhost (::1) port 8080 (#0)
+> GET /foo HTTP/1.1
+> Host: localhost:8080
+> User-Agent: curl/7.59.0
+> Accept: */*
+> 
+< HTTP/1.1 200 OK
+< Access-Control-Allow-Methods: GET,PUT,PATCH,OPTIONS
+< Access-Control-Allow-Origin: *
+< Date: Fri, 28 Jun 2019 20:13:30 GMT
+< Content-Length: 3
+< Content-Type: text/plain; charset=utf-8
+< 
+* Connection #0 to host localhost left intact
+foo
+```
+
 ### Testing Handlers
 
 Testing handlers in a Go web application is straightforward, and _mux_ doesn't complicate this any further. Given two files: `endpoints.go` and `endpoints_test.go`, here's how we'd test an application using _mux_.
@@ -503,8 +572,8 @@ package main
 
 func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
     // A very simple health check.
-    w.WriteHeader(http.StatusOK)
     w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
 
     // In the future we could report back on the status of our DB, or our cache
     // (e.g. Redis) by performing a simple PING, and include them in the response.
