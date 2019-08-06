@@ -65,6 +65,8 @@ golang.org/x/crypto/xtea
 # golang.org/x/net v0.0.0-20180524181706-dfa909b99c79
 golang.org/x/net/bpf
 golang.org/x/net/context
+golang.org/x/net/http/httpguts
+golang.org/x/net/idna
 golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
 golang.org/x/net/internal/socks
@@ -72,3 +74,8 @@ golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 golang.org/x/net/proxy
 golang.org/x/net/websocket
+# golang.org/x/text v0.3.2
+golang.org/x/text/secure/bidirule
+golang.org/x/text/transform
+golang.org/x/text/unicode/bidi
+golang.org/x/text/unicode/norm

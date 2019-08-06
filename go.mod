@@ -27,7 +27,6 @@ require (
 	github.com/tjfoc/gmsm v0.0.0-20171124023159-98aa888b79d8 // indirect
 	github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec
 	github.com/xtaci/lossyconn v0.0.0-20190602105132-8df528c0c9ae // indirect
-	golang.org/x/crypto v0.0.0-20180505025534-4ec37c66abab // indirect
-	golang.org/x/net v0.0.0-20180524181706-dfa909b99c79
+	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	golang.org/x/text v0.3.2 // indirect
 )
