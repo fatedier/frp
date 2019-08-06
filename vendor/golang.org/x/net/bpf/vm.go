@@ -35,6 +35,13 @@ func NewVM(filter []Instruction) (*VM, error) {
 			if check <= int(ins.SkipFalse) {
 				return nil, fmt.Errorf("cannot jump %d instructions in false case; jumping past program bounds", ins.SkipFalse)
 			}
+		case JumpIfX:
+			if check <= int(ins.SkipTrue) {
+				return nil, fmt.Errorf("cannot jump %d instructions in true case; jumping past program bounds", ins.SkipTrue)
+			}
+			if check <= int(ins.SkipFalse) {
+				return nil, fmt.Errorf("cannot jump %d instructions in false case; jumping past program bounds", ins.SkipFalse)
+			}
 		// Check for division or modulus by zero
 		case ALUOpConstant:
 			if ins.Val != 0 {
@@ -108,6 +115,9 @@ func (v *VM) Run(in []byte) (int, error) {
 			i += int(ins.Skip)
 		case JumpIf:
 			jump := jumpIf(ins, regA)
+			i += jump
+		case JumpIfX:
+			jump := jumpIfX(ins, regA, regX)
 			i += jump
 		case LoadAbsolute:
 			regA, ok = loadAbsolute(ins, in)

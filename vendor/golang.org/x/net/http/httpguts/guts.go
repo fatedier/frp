@@ -14,21 +14,6 @@ import (
 	"strings"
 )
 
-// SniffedContentType reports whether ct is a Content-Type that is known
-// to cause client-side content sniffing.
-//
-// This provides just a partial implementation of mime.ParseMediaType
-// with the assumption that the Content-Type is not attacker controlled.
-func SniffedContentType(ct string) bool {
-	if i := strings.Index(ct, ";"); i != -1 {
-		ct = ct[:i]
-	}
-	ct = strings.ToLower(strings.TrimSpace(ct))
-	return ct == "text/plain" || ct == "application/octet-stream" ||
-		ct == "application/unknown" || ct == "unknown/unknown" || ct == "*/*" ||
-		!strings.Contains(ct, "/")
-}
-
 // ValidTrailerHeader reports whether name is a valid header field name to appear
 // in trailers.
 // See RFC 7230, Section 4.1.2
