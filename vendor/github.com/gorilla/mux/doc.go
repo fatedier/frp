@@ -295,7 +295,7 @@ A more complex authentication middleware, which maps session token to users, cou
 	r := mux.NewRouter()
 	r.HandleFunc("/", handler)
 
-	amw := authenticationMiddleware{}
+	amw := authenticationMiddleware{tokenUsers: make(map[string]string)}
 	amw.Populate()
 
 	r.Use(amw.Middleware)

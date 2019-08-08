@@ -24,6 +24,7 @@ package salsa20 // import "golang.org/x/crypto/salsa20"
 // TODO(agl): implement XORKeyStream12 and XORKeyStream8 - the reduced round variants of Salsa20.
 
 import (
+	"golang.org/x/crypto/internal/subtle"
 	"golang.org/x/crypto/salsa20/salsa"
 )
 
@@ -32,7 +33,10 @@ import (
 // be either 8 or 24 bytes long.
 func XORKeyStream(out, in []byte, nonce []byte, key *[32]byte) {
 	if len(out) < len(in) {
-		in = in[:len(out)]
+		panic("salsa20: output smaller than input")
+	}
+	if subtle.InexactOverlap(out[:len(in)], in) {
+		panic("salsa20: invalid buffer overlap")
 	}
 
 	var subNonce [16]byte

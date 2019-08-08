@@ -3,6 +3,12 @@
 // license that can be found in the LICENSE file.
 
 // Package twofish implements Bruce Schneier's Twofish encryption algorithm.
+//
+// Deprecated: Twofish is a legacy cipher and should not be used for new
+// applications. Also, this package does not and will not provide an optimized
+// implementation. Instead, use AES (from crypto/aes, if necessary in an AEAD
+// mode like crypto/cipher.NewGCM) or XChaCha20-Poly1305 (from
+// golang.org/x/crypto/chacha20poly1305).
 package twofish // import "golang.org/x/crypto/twofish"
 
 // Twofish is defined in https://www.schneier.com/paper-twofish-paper.pdf [TWOFISH]

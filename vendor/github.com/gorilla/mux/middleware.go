@@ -32,41 +32,48 @@ func (r *Router) useInterface(mw middleware) {
 	r.middlewares = append(r.middlewares, mw)
 }
 
-// CORSMethodMiddleware sets the Access-Control-Allow-Methods response header
-// on a request, by matching routes based only on paths. It also handles
-// OPTIONS requests, by settings Access-Control-Allow-Methods, and then
-// returning without calling the next http handler.
+// CORSMethodMiddleware automatically sets the Access-Control-Allow-Methods response header
+// on requests for routes that have an OPTIONS method matcher to all the method matchers on
+// the route. Routes that do not explicitly handle OPTIONS requests will not be processed
+// by the middleware. See examples for usage.
 func CORSMethodMiddleware(r *Router) MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			var allMethods []string
-
-			err := r.Walk(func(route *Route, _ *Router, _ []*Route) error {
-				for _, m := range route.matchers {
-					if _, ok := m.(*routeRegexp); ok {
-						if m.Match(req, &RouteMatch{}) {
-							methods, err := route.GetMethods()
-							if err != nil {
-								return err
-							}
-
-							allMethods = append(allMethods, methods...)
-						}
-						break
-					}
-				}
-				return nil
-			})
-
+			allMethods, err := getAllMethodsForRoute(r, req)
 			if err == nil {
-				w.Header().Set("Access-Control-Allow-Methods", strings.Join(append(allMethods, "OPTIONS"), ","))
-
-				if req.Method == "OPTIONS" {
-					return
+				for _, v := range allMethods {
+					if v == http.MethodOptions {
+						w.Header().Set("Access-Control-Allow-Methods", strings.Join(allMethods, ","))
+					}
 				}
 			}
 
 			next.ServeHTTP(w, req)
 		})
 	}
+}
+
+// getAllMethodsForRoute returns all the methods from method matchers matching a given
+// request.
+func getAllMethodsForRoute(r *Router, req *http.Request) ([]string, error) {
+	var allMethods []string
+
+	err := r.Walk(func(route *Route, _ *Router, _ []*Route) error {
+		for _, m := range route.matchers {
+			if _, ok := m.(*routeRegexp); ok {
+				if m.Match(req, &RouteMatch{}) {
+					methods, err := route.GetMethods()
+					if err != nil {
+						return err
+					}
+
+					allMethods = append(allMethods, methods...)
+				}
+				break
+			}
+		}
+		return nil
+	})
+
+	return allMethods, err
 }
