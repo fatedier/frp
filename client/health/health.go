@@ -96,12 +96,12 @@ func (monitor *HealthCheckMonitor) Stop() {
 
 func (monitor *HealthCheckMonitor) checkWorker() {
 	for {
-		ctx, cancel := context.WithDeadline(monitor.ctx, time.Now().Add(monitor.timeout))
-		err := monitor.doCheck(ctx)
+		doCtx, cancel := context.WithDeadline(monitor.ctx, time.Now().Add(monitor.timeout))
+		err := monitor.doCheck(doCtx)
 
 		// check if this monitor has been closed
 		select {
-		case <-ctx.Done():
+		case <-monitor.ctx.Done():
 			cancel()
 			return
 		default:
