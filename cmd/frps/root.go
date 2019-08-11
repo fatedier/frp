@@ -53,6 +53,7 @@ var (
 	logFile           string
 	logLevel          string
 	logMaxDays        int64
+	disableLogColor   bool
 	token             string
 	subDomainHost     string
 	tcpMux            bool
@@ -80,6 +81,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "log file")
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	rootCmd.PersistentFlags().Int64VarP(&logMaxDays, "log_max_days", "", 3, "log max days")
+	rootCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
+
 	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
 	rootCmd.PersistentFlags().StringVarP(&subDomainHost, "subdomain_host", "", "", "subdomain host")
 	rootCmd.PersistentFlags().StringVarP(&allowPorts, "allow_ports", "", "", "allow ports")
@@ -191,12 +194,13 @@ func parseServerCommonCfgFromCmd() (err error) {
 	} else {
 		g.GlbServerCfg.LogWay = "file"
 	}
+	g.GlbServerCfg.DisableLogColor = disableLogColor
 	return
 }
 
 func runServer() (err error) {
 	log.InitLog(g.GlbServerCfg.LogWay, g.GlbServerCfg.LogFile, g.GlbServerCfg.LogLevel,
-		g.GlbServerCfg.LogMaxDays)
+		g.GlbServerCfg.LogMaxDays, g.GlbServerCfg.DisableLogColor)
 	svr, err := server.NewService()
 	if err != nil {
 		return err

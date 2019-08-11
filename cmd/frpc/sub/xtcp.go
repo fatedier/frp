@@ -32,6 +32,7 @@ func init() {
 	xtcpCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	xtcpCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
 	xtcpCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
+	xtcpCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
 
 	xtcpCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
 	xtcpCmd.PersistentFlags().StringVarP(&role, "role", "", "server", "role")
