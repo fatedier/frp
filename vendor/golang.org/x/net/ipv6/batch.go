@@ -2,14 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build go1.9
-
 package ipv6
 
 import (
 	"net"
 	"runtime"
-	"syscall"
 
 	"golang.org/x/net/internal/socket"
 )
@@ -67,7 +64,7 @@ type Message = socket.Message
 // On other platforms, this method will read only a single message.
 func (c *payloadHandler) ReadBatch(ms []Message, flags int) (int, error) {
 	if !c.ok() {
-		return 0, syscall.EINVAL
+		return 0, errInvalidConn
 	}
 	switch runtime.GOOS {
 	case "linux":
@@ -98,7 +95,7 @@ func (c *payloadHandler) ReadBatch(ms []Message, flags int) (int, error) {
 // On other platforms, this method will write only a single message.
 func (c *payloadHandler) WriteBatch(ms []Message, flags int) (int, error) {
 	if !c.ok() {
-		return 0, syscall.EINVAL
+		return 0, errInvalidConn
 	}
 	switch runtime.GOOS {
 	case "linux":

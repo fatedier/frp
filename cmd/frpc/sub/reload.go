@@ -76,17 +76,16 @@ func reload() error {
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
-	} else {
-		if resp.StatusCode == 200 {
-			return nil
-		}
-
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("code [%d], %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
-	return nil
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 200 {
+		return nil
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	return fmt.Errorf("code [%d], %s", resp.StatusCode, strings.TrimSpace(string(body)))
 }

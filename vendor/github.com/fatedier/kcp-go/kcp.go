@@ -1,9 +1,9 @@
-// Package kcp - A Fast and Reliable ARQ Protocol
 package kcp
 
 import (
 	"encoding/binary"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -29,6 +29,12 @@ const (
 	IKCP_PROBE_INIT  = 7000   // 7 secs to probe window size
 	IKCP_PROBE_LIMIT = 120000 // up to 120 secs to probe window
 )
+
+// monotonic reference time point
+var refTime time.Time = time.Now()
+
+// currentMs returns current elasped monotonic milliseconds since program startup
+func currentMs() uint32 { return uint32(time.Now().Sub(refTime) / time.Millisecond) }
 
 // output_callback is a prototype which ought capture conn and call conn.Write
 type output_callback func(buf []byte, size int)
@@ -145,8 +151,9 @@ type KCP struct {
 
 	acklist []ackItem
 
-	buffer []byte
-	output output_callback
+	buffer   []byte
+	reserved int
+	output   output_callback
 }
 
 type ackItem struct {
@@ -154,8 +161,11 @@ type ackItem struct {
 	ts uint32
 }
 
-// NewKCP create a new kcp control object, 'conv' must equal in two endpoint
-// from the same connection.
+// NewKCP create a new kcp state machine
+//
+// 'conv' must be equal in the connection peers, or else data will be silently rejected.
+//
+// 'output' function will be called whenever these is data to be sent on wire.
 func NewKCP(conv uint32, output output_callback) *KCP {
 	kcp := new(KCP)
 	kcp.conv = conv
@@ -164,7 +174,7 @@ func NewKCP(conv uint32, output output_callback) *KCP {
 	kcp.rmt_wnd = IKCP_WND_RCV
 	kcp.mtu = IKCP_MTU_DEF
 	kcp.mss = kcp.mtu - IKCP_OVERHEAD
-	kcp.buffer = make([]byte, (kcp.mtu+IKCP_OVERHEAD)*3)
+	kcp.buffer = make([]byte, kcp.mtu)
 	kcp.rx_rto = IKCP_RTO_DEF
 	kcp.rx_minrto = IKCP_RTO_MIN
 	kcp.interval = IKCP_INTERVAL
@@ -187,6 +197,19 @@ func (kcp *KCP) delSegment(seg *segment) {
 		xmitBuf.Put(seg.data)
 		seg.data = nil
 	}
+}
+
+// ReserveBytes keeps n bytes untouched from the beginning of the buffer,
+// the output_callback function should be aware of this.
+//
+// Return false if n >= mss
+func (kcp *KCP) ReserveBytes(n int) bool {
+	if n >= int(kcp.mtu-IKCP_OVERHEAD) || n < 0 {
+		return false
+	}
+	kcp.reserved = n
+	kcp.mss = kcp.mtu - IKCP_OVERHEAD - uint32(n)
+	return true
 }
 
 // PeekSize checks the size of next message in the recv queue
@@ -214,19 +237,21 @@ func (kcp *KCP) PeekSize() (length int) {
 	return
 }
 
-// Recv is user/upper level recv: returns size, returns below zero for EAGAIN
+// Receive data from kcp state machine
+//
+// Return number of bytes read.
+//
+// Return -1 when there is no readable data.
+//
+// Return -2 if len(buffer) is smaller than kcp.PeekSize().
 func (kcp *KCP) Recv(buffer []byte) (n int) {
-	if len(kcp.rcv_queue) == 0 {
+	peeksize := kcp.PeekSize()
+	if peeksize < 0 {
 		return -1
 	}
 
-	peeksize := kcp.PeekSize()
-	if peeksize < 0 {
-		return -2
-	}
-
 	if peeksize > len(buffer) {
-		return -3
+		return -2
 	}
 
 	var fast_recover bool
@@ -255,7 +280,7 @@ func (kcp *KCP) Recv(buffer []byte) (n int) {
 	count = 0
 	for k := range kcp.rcv_buf {
 		seg := &kcp.rcv_buf[k]
-		if seg.sn == kcp.rcv_nxt && len(kcp.rcv_queue) < int(kcp.rcv_wnd) {
+		if seg.sn == kcp.rcv_nxt && len(kcp.rcv_queue)+count < int(kcp.rcv_wnd) {
 			kcp.rcv_nxt++
 			count++
 		} else {
@@ -386,6 +411,10 @@ func (kcp *KCP) parse_ack(sn uint32) {
 	for k := range kcp.snd_buf {
 		seg := &kcp.snd_buf[k]
 		if sn == seg.sn {
+			// mark and free space, but leave the segment here,
+			// and wait until `una` to delete this, then we don't
+			// have to shift the segments behind forward,
+			// which is an expensive operation for large window
 			seg.acked = 1
 			kcp.delSegment(seg)
 			break
@@ -474,7 +503,7 @@ func (kcp *KCP) parse_data(newseg segment) bool {
 	count := 0
 	for k := range kcp.rcv_buf {
 		seg := &kcp.rcv_buf[k]
-		if seg.sn == kcp.rcv_nxt && len(kcp.rcv_queue) < int(kcp.rcv_wnd) {
+		if seg.sn == kcp.rcv_nxt && len(kcp.rcv_queue)+count < int(kcp.rcv_wnd) {
 			kcp.rcv_nxt++
 			count++
 		} else {
@@ -489,8 +518,12 @@ func (kcp *KCP) parse_data(newseg segment) bool {
 	return repeat
 }
 
-// Input when you received a low level packet (eg. UDP packet), call it
-// regular indicates a regular packet has received(not from FEC)
+// Input a packet into kcp state machine.
+//
+// 'regular' indicates it's a real data packet from remote, and it means it's not generated from ReedSolomon
+// codecs.
+//
+// 'ackNoDelay' will trigger immediate ACK, but surely it will not be efficient in bandwidth
 func (kcp *KCP) Input(data []byte, regular, ackNoDelay bool) int {
 	snd_una := kcp.snd_una
 	if len(data) < IKCP_OVERHEAD {
@@ -634,14 +667,28 @@ func (kcp *KCP) flush(ackOnly bool) uint32 {
 	seg.una = kcp.rcv_nxt
 
 	buffer := kcp.buffer
-	// flush acknowledges
-	ptr := buffer
-	for i, ack := range kcp.acklist {
+	ptr := buffer[kcp.reserved:] // keep n bytes untouched
+
+	// makeSpace makes room for writing
+	makeSpace := func(space int) {
 		size := len(buffer) - len(ptr)
-		if size+IKCP_OVERHEAD > int(kcp.mtu) {
+		if size+space > int(kcp.mtu) {
 			kcp.output(buffer, size)
-			ptr = buffer
+			ptr = buffer[kcp.reserved:]
 		}
+	}
+
+	// flush bytes in buffer if there is any
+	flushBuffer := func() {
+		size := len(buffer) - len(ptr)
+		if size > kcp.reserved {
+			kcp.output(buffer, size)
+		}
+	}
+
+	// flush acknowledges
+	for i, ack := range kcp.acklist {
+		makeSpace(IKCP_OVERHEAD)
 		// filter jitters caused by bufferbloat
 		if ack.sn >= kcp.rcv_nxt || len(kcp.acklist)-1 == i {
 			seg.sn, seg.ts = ack.sn, ack.ts
@@ -651,10 +698,7 @@ func (kcp *KCP) flush(ackOnly bool) uint32 {
 	kcp.acklist = kcp.acklist[0:0]
 
 	if ackOnly { // flash remain ack segments
-		size := len(buffer) - len(ptr)
-		if size > 0 {
-			kcp.output(buffer, size)
-		}
+		flushBuffer()
 		return kcp.interval
 	}
 
@@ -685,22 +729,14 @@ func (kcp *KCP) flush(ackOnly bool) uint32 {
 	// flush window probing commands
 	if (kcp.probe & IKCP_ASK_SEND) != 0 {
 		seg.cmd = IKCP_CMD_WASK
-		size := len(buffer) - len(ptr)
-		if size+IKCP_OVERHEAD > int(kcp.mtu) {
-			kcp.output(buffer, size)
-			ptr = buffer
-		}
+		makeSpace(IKCP_OVERHEAD)
 		ptr = seg.encode(ptr)
 	}
 
 	// flush window probing commands
 	if (kcp.probe & IKCP_ASK_TELL) != 0 {
 		seg.cmd = IKCP_CMD_WINS
-		size := len(buffer) - len(ptr)
-		if size+IKCP_OVERHEAD > int(kcp.mtu) {
-			kcp.output(buffer, size)
-			ptr = buffer
-		}
+		makeSpace(IKCP_OVERHEAD)
 		ptr = seg.encode(ptr)
 	}
 
@@ -779,20 +815,14 @@ func (kcp *KCP) flush(ackOnly bool) uint32 {
 		}
 
 		if needsend {
-			current = currentMs() // time update for a blocking call
+			current = currentMs()
 			segment.xmit++
 			segment.ts = current
 			segment.wnd = seg.wnd
 			segment.una = seg.una
 
-			size := len(buffer) - len(ptr)
 			need := IKCP_OVERHEAD + len(segment.data)
-
-			if size+need > int(kcp.mtu) {
-				kcp.output(buffer, size)
-				ptr = buffer
-			}
-
+			makeSpace(need)
 			ptr = segment.encode(ptr)
 			copy(ptr, segment.data)
 			ptr = ptr[len(segment.data):]
@@ -809,10 +839,7 @@ func (kcp *KCP) flush(ackOnly bool) uint32 {
 	}
 
 	// flash remain segments
-	size := len(buffer) - len(ptr)
-	if size > 0 {
-		kcp.output(buffer, size)
-	}
+	flushBuffer()
 
 	// counter updates
 	sum := lostSegs
@@ -864,6 +891,8 @@ func (kcp *KCP) flush(ackOnly bool) uint32 {
 	return uint32(minrto)
 }
 
+// (deprecated)
+//
 // Update updates state (call it repeatedly, every 10ms-100ms), or you can ask
 // ikcp_check when to call it again (without ikcp_input/_send calling).
 // 'current' - current timestamp in millisec.
@@ -892,6 +921,8 @@ func (kcp *KCP) Update() {
 	}
 }
 
+// (deprecated)
+//
 // Check determines when should you invoke ikcp_update:
 // returns when you should invoke ikcp_update in millisec, if there
 // is no ikcp_input/_send calling. you can call ikcp_update in that
@@ -947,12 +978,16 @@ func (kcp *KCP) SetMtu(mtu int) int {
 	if mtu < 50 || mtu < IKCP_OVERHEAD {
 		return -1
 	}
-	buffer := make([]byte, (mtu+IKCP_OVERHEAD)*3)
+	if kcp.reserved >= int(kcp.mtu-IKCP_OVERHEAD) || kcp.reserved < 0 {
+		return -1
+	}
+
+	buffer := make([]byte, mtu)
 	if buffer == nil {
 		return -2
 	}
 	kcp.mtu = uint32(mtu)
-	kcp.mss = kcp.mtu - IKCP_OVERHEAD
+	kcp.mss = kcp.mtu - IKCP_OVERHEAD - uint32(kcp.reserved)
 	kcp.buffer = buffer
 	return 0
 }
@@ -1006,7 +1041,13 @@ func (kcp *KCP) WaitSnd() int {
 }
 
 // remove front n elements from queue
+// if the number of elements to remove is more than half of the size.
+// just shift the rear elements to front, otherwise just reslice q to q[n:]
+// then the cost of runtime.growslice can always be less than n/2
 func (kcp *KCP) remove_front(q []segment, n int) []segment {
-	newn := copy(q, q[n:])
-	return q[:newn]
+	if n > cap(q)/2 {
+		newn := copy(q, q[n:])
+		return q[:newn]
+	}
+	return q[n:]
 }

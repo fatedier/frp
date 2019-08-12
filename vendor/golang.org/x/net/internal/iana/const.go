@@ -4,38 +4,34 @@
 // Package iana provides protocol number resources managed by the Internet Assigned Numbers Authority (IANA).
 package iana // import "golang.org/x/net/internal/iana"
 
-// Differentiated Services Field Codepoints (DSCP), Updated: 2017-05-12
+// Differentiated Services Field Codepoints (DSCP), Updated: 2018-05-04
 const (
-	DiffServCS0        = 0x0  // CS0
-	DiffServCS1        = 0x20 // CS1
-	DiffServCS2        = 0x40 // CS2
-	DiffServCS3        = 0x60 // CS3
-	DiffServCS4        = 0x80 // CS4
-	DiffServCS5        = 0xa0 // CS5
-	DiffServCS6        = 0xc0 // CS6
-	DiffServCS7        = 0xe0 // CS7
-	DiffServAF11       = 0x28 // AF11
-	DiffServAF12       = 0x30 // AF12
-	DiffServAF13       = 0x38 // AF13
-	DiffServAF21       = 0x48 // AF21
-	DiffServAF22       = 0x50 // AF22
-	DiffServAF23       = 0x58 // AF23
-	DiffServAF31       = 0x68 // AF31
-	DiffServAF32       = 0x70 // AF32
-	DiffServAF33       = 0x78 // AF33
-	DiffServAF41       = 0x88 // AF41
-	DiffServAF42       = 0x90 // AF42
-	DiffServAF43       = 0x98 // AF43
-	DiffServEF         = 0xb8 // EF
-	DiffServVOICEADMIT = 0xb0 // VOICE-ADMIT
-)
-
-// IPv4 TOS Byte and IPv6 Traffic Class Octet, Updated: 2001-09-06
-const (
-	NotECNTransport       = 0x0 // Not-ECT (Not ECN-Capable Transport)
-	ECNTransport1         = 0x1 // ECT(1) (ECN-Capable Transport(1))
-	ECNTransport0         = 0x2 // ECT(0) (ECN-Capable Transport(0))
-	CongestionExperienced = 0x3 // CE (Congestion Experienced)
+	DiffServCS0           = 0x00 // CS0
+	DiffServCS1           = 0x20 // CS1
+	DiffServCS2           = 0x40 // CS2
+	DiffServCS3           = 0x60 // CS3
+	DiffServCS4           = 0x80 // CS4
+	DiffServCS5           = 0xa0 // CS5
+	DiffServCS6           = 0xc0 // CS6
+	DiffServCS7           = 0xe0 // CS7
+	DiffServAF11          = 0x28 // AF11
+	DiffServAF12          = 0x30 // AF12
+	DiffServAF13          = 0x38 // AF13
+	DiffServAF21          = 0x48 // AF21
+	DiffServAF22          = 0x50 // AF22
+	DiffServAF23          = 0x58 // AF23
+	DiffServAF31          = 0x68 // AF31
+	DiffServAF32          = 0x70 // AF32
+	DiffServAF33          = 0x78 // AF33
+	DiffServAF41          = 0x88 // AF41
+	DiffServAF42          = 0x90 // AF42
+	DiffServAF43          = 0x98 // AF43
+	DiffServEF            = 0xb8 // EF
+	DiffServVOICEADMIT    = 0xb0 // VOICE-ADMIT
+	NotECNTransport       = 0x00 // Not-ECT (Not ECN-Capable Transport)
+	ECNTransport1         = 0x01 // ECT(1) (ECN-Capable Transport(1))
+	ECNTransport0         = 0x02 // ECT(0) (ECN-Capable Transport(0))
+	CongestionExperienced = 0x03 // CE (Congestion Experienced)
 )
 
 // Protocol Numbers, Updated: 2017-10-13
@@ -179,7 +175,7 @@ const (
 	ProtocolReserved       = 255 // Reserved
 )
 
-// Address Family Numbers, Updated: 2016-10-25
+// Address Family Numbers, Updated: 2018-04-02
 const (
 	AddrFamilyIPv4                          = 1     // IP (IP version 4)
 	AddrFamilyIPv6                          = 2     // IP6 (IP version 6)

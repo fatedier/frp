@@ -75,7 +75,7 @@ const (
 
 	AuthMethodNotRequired         AuthMethod = 0x00 // no authentication required
 	AuthMethodUsernamePassword    AuthMethod = 0x02 // use username/password
-	AuthMethodNoAcceptableMethods AuthMethod = 0xff // no acceptable authetication methods
+	AuthMethodNoAcceptableMethods AuthMethod = 0xff // no acceptable authentication methods
 
 	StatusSucceeded Reply = 0x00
 )
@@ -149,20 +149,13 @@ type Dialer struct {
 // See func Dial of the net package of standard library for a
 // description of the network and address parameters.
 func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
-	switch network {
-	case "tcp", "tcp6", "tcp4":
-	default:
+	if err := d.validateTarget(network, address); err != nil {
 		proxy, dst, _ := d.pathAddrs(address)
-		return nil, &net.OpError{Op: d.cmd.String(), Net: network, Source: proxy, Addr: dst, Err: errors.New("network not implemented")}
-	}
-	switch d.cmd {
-	case CmdConnect, cmdBind:
-	default:
-		proxy, dst, _ := d.pathAddrs(address)
-		return nil, &net.OpError{Op: d.cmd.String(), Net: network, Source: proxy, Addr: dst, Err: errors.New("command not implemented")}
+		return nil, &net.OpError{Op: d.cmd.String(), Net: network, Source: proxy, Addr: dst, Err: err}
 	}
 	if ctx == nil {
-		ctx = context.Background()
+		proxy, dst, _ := d.pathAddrs(address)
+		return nil, &net.OpError{Op: d.cmd.String(), Net: network, Source: proxy, Addr: dst, Err: errors.New("nil context")}
 	}
 	var err error
 	var c net.Conn
@@ -185,11 +178,70 @@ func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.
 	return &Conn{Conn: c, boundAddr: a}, nil
 }
 
+// DialWithConn initiates a connection from SOCKS server to the target
+// network and address using the connection c that is already
+// connected to the SOCKS server.
+//
+// It returns the connection's local address assigned by the SOCKS
+// server.
+func (d *Dialer) DialWithConn(ctx context.Context, c net.Conn, network, address string) (net.Addr, error) {
+	if err := d.validateTarget(network, address); err != nil {
+		proxy, dst, _ := d.pathAddrs(address)
+		return nil, &net.OpError{Op: d.cmd.String(), Net: network, Source: proxy, Addr: dst, Err: err}
+	}
+	if ctx == nil {
+		proxy, dst, _ := d.pathAddrs(address)
+		return nil, &net.OpError{Op: d.cmd.String(), Net: network, Source: proxy, Addr: dst, Err: errors.New("nil context")}
+	}
+	a, err := d.connect(ctx, c, address)
+	if err != nil {
+		proxy, dst, _ := d.pathAddrs(address)
+		return nil, &net.OpError{Op: d.cmd.String(), Net: network, Source: proxy, Addr: dst, Err: err}
+	}
+	return a, nil
+}
+
 // Dial connects to the provided address on the provided network.
 //
-// Deprecated: Use DialContext instead.
+// Unlike DialContext, it returns a raw transport connection instead
+// of a forward proxy connection.
+//
+// Deprecated: Use DialContext or DialWithConn instead.
 func (d *Dialer) Dial(network, address string) (net.Conn, error) {
-	return d.DialContext(context.Background(), network, address)
+	if err := d.validateTarget(network, address); err != nil {
+		proxy, dst, _ := d.pathAddrs(address)
+		return nil, &net.OpError{Op: d.cmd.String(), Net: network, Source: proxy, Addr: dst, Err: err}
+	}
+	var err error
+	var c net.Conn
+	if d.ProxyDial != nil {
+		c, err = d.ProxyDial(context.Background(), d.proxyNetwork, d.proxyAddress)
+	} else {
+		c, err = net.Dial(d.proxyNetwork, d.proxyAddress)
+	}
+	if err != nil {
+		proxy, dst, _ := d.pathAddrs(address)
+		return nil, &net.OpError{Op: d.cmd.String(), Net: network, Source: proxy, Addr: dst, Err: err}
+	}
+	if _, err := d.DialWithConn(context.Background(), c, network, address); err != nil {
+		c.Close()
+		return nil, err
+	}
+	return c, nil
+}
+
+func (d *Dialer) validateTarget(network, address string) error {
+	switch network {
+	case "tcp", "tcp6", "tcp4":
+	default:
+		return errors.New("network not implemented")
+	}
+	switch d.cmd {
+	case CmdConnect, cmdBind:
+	default:
+		return errors.New("command not implemented")
+	}
+	return nil
 }
 
 func (d *Dialer) pathAddrs(address string) (proxy, dst net.Addr, err error) {

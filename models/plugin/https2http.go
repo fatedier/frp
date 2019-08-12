@@ -100,14 +100,9 @@ func (p *HTTPS2HTTPPlugin) genTLSConfig() (*tls.Config, error) {
 	return config, nil
 }
 
-func (p *HTTPS2HTTPPlugin) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn) {
+func (p *HTTPS2HTTPPlugin) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn, extraBufToLocal []byte) {
 	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
 	p.l.PutConn(wrapConn)
-}
-
-func (p *HTTPS2HTTPPlugin) handleRequest(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("hello"))
-	return
 }
 
 func (p *HTTPS2HTTPPlugin) Name() string {
