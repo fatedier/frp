@@ -6,10 +6,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=nobody
+User=nobody #root can use 1~1024 ports
 Restart=on-failure
-ExecStart=/usr/bin/frpc -c /etc/frp/frpc.ini
-ExecReload=/usr/bin/frpc reload -c /etc/frp/frpc.ini
+ExecStart=/usr/bin/frpc -c /etc/frp/client/frpc.ini
+ExecReload=/usr/bin/frpc reload -c /etc/frp/client/frpc.ini
 StandardOutput=syslog
 
 [Install]
