@@ -2,14 +2,11 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build go1.9
-
 package ipv4
 
 import (
 	"net"
 	"runtime"
-	"syscall"
 
 	"golang.org/x/net/internal/socket"
 )
@@ -76,7 +73,7 @@ type Message = socket.Message
 // headers.
 func (c *payloadHandler) ReadBatch(ms []Message, flags int) (int, error) {
 	if !c.ok() {
-		return 0, syscall.EINVAL
+		return 0, errInvalidConn
 	}
 	switch runtime.GOOS {
 	case "linux":
@@ -91,6 +88,9 @@ func (c *payloadHandler) ReadBatch(ms []Message, flags int) (int, error) {
 		if err != nil {
 			n = 0
 			err = &net.OpError{Op: "read", Net: c.PacketConn.LocalAddr().Network(), Source: c.PacketConn.LocalAddr(), Err: err}
+		}
+		if compatFreeBSD32 && ms[0].NN > 0 {
+			adjustFreeBSD32(&ms[0])
 		}
 		return n, err
 	}
@@ -107,7 +107,7 @@ func (c *payloadHandler) ReadBatch(ms []Message, flags int) (int, error) {
 // On other platforms, this method will write only a single message.
 func (c *payloadHandler) WriteBatch(ms []Message, flags int) (int, error) {
 	if !c.ok() {
-		return 0, syscall.EINVAL
+		return 0, errInvalidConn
 	}
 	switch runtime.GOOS {
 	case "linux":
@@ -139,7 +139,7 @@ func (c *payloadHandler) WriteBatch(ms []Message, flags int) (int, error) {
 // On other platforms, this method will read only a single message.
 func (c *packetHandler) ReadBatch(ms []Message, flags int) (int, error) {
 	if !c.ok() {
-		return 0, syscall.EINVAL
+		return 0, errInvalidConn
 	}
 	switch runtime.GOOS {
 	case "linux":
@@ -154,6 +154,9 @@ func (c *packetHandler) ReadBatch(ms []Message, flags int) (int, error) {
 		if err != nil {
 			n = 0
 			err = &net.OpError{Op: "read", Net: c.IPConn.LocalAddr().Network(), Source: c.IPConn.LocalAddr(), Err: err}
+		}
+		if compatFreeBSD32 && ms[0].NN > 0 {
+			adjustFreeBSD32(&ms[0])
 		}
 		return n, err
 	}
@@ -170,7 +173,7 @@ func (c *packetHandler) ReadBatch(ms []Message, flags int) (int, error) {
 // On other platforms, this method will write only a single message.
 func (c *packetHandler) WriteBatch(ms []Message, flags int) (int, error) {
 	if !c.ok() {
-		return 0, syscall.EINVAL
+		return 0, errInvalidConn
 	}
 	switch runtime.GOOS {
 	case "linux":

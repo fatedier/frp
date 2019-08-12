@@ -37,6 +37,7 @@ import (
 	frpIo "github.com/fatedier/golib/io"
 	"github.com/fatedier/golib/pool"
 	fmux "github.com/hashicorp/yamux"
+	pp "github.com/pires/go-proxyproto"
 )
 
 // Proxy defines how to handle work connections for different proxy type.
@@ -44,7 +45,7 @@ type Proxy interface {
 	Run() error
 
 	// InWorkConn accept work connections registered to server.
-	InWorkConn(conn frpNet.Conn)
+	InWorkConn(frpNet.Conn, *msg.StartWorkConn)
 
 	Close()
 	log.Logger
@@ -119,9 +120,9 @@ func (pxy *TcpProxy) Close() {
 	}
 }
 
-func (pxy *TcpProxy) InWorkConn(conn frpNet.Conn) {
+func (pxy *TcpProxy) InWorkConn(conn frpNet.Conn, m *msg.StartWorkConn) {
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
-		[]byte(g.GlbClientCfg.Token))
+		[]byte(g.GlbClientCfg.Token), m)
 }
 
 // HTTP
@@ -148,9 +149,9 @@ func (pxy *HttpProxy) Close() {
 	}
 }
 
-func (pxy *HttpProxy) InWorkConn(conn frpNet.Conn) {
+func (pxy *HttpProxy) InWorkConn(conn frpNet.Conn, m *msg.StartWorkConn) {
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
-		[]byte(g.GlbClientCfg.Token))
+		[]byte(g.GlbClientCfg.Token), m)
 }
 
 // HTTPS
@@ -177,9 +178,9 @@ func (pxy *HttpsProxy) Close() {
 	}
 }
 
-func (pxy *HttpsProxy) InWorkConn(conn frpNet.Conn) {
+func (pxy *HttpsProxy) InWorkConn(conn frpNet.Conn, m *msg.StartWorkConn) {
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
-		[]byte(g.GlbClientCfg.Token))
+		[]byte(g.GlbClientCfg.Token), m)
 }
 
 // STCP
@@ -206,9 +207,9 @@ func (pxy *StcpProxy) Close() {
 	}
 }
 
-func (pxy *StcpProxy) InWorkConn(conn frpNet.Conn) {
+func (pxy *StcpProxy) InWorkConn(conn frpNet.Conn, m *msg.StartWorkConn) {
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
-		[]byte(g.GlbClientCfg.Token))
+		[]byte(g.GlbClientCfg.Token), m)
 }
 
 // XTCP
@@ -235,7 +236,7 @@ func (pxy *XtcpProxy) Close() {
 	}
 }
 
-func (pxy *XtcpProxy) InWorkConn(conn frpNet.Conn) {
+func (pxy *XtcpProxy) InWorkConn(conn frpNet.Conn, m *msg.StartWorkConn) {
 	defer conn.Close()
 	var natHoleSidMsg msg.NatHoleSid
 	err := msg.ReadMsgInto(conn, &natHoleSidMsg)
@@ -353,7 +354,7 @@ func (pxy *XtcpProxy) InWorkConn(conn frpNet.Conn) {
 	}
 
 	HandleTcpWorkConnection(&pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf,
-		frpNet.WrapConn(muxConn), []byte(pxy.cfg.Sk))
+		frpNet.WrapConn(muxConn), []byte(pxy.cfg.Sk), m)
 }
 
 func (pxy *XtcpProxy) sendDetectMsg(addr string, port int, laddr *net.UDPAddr, content []byte) (err error) {
@@ -415,7 +416,7 @@ func (pxy *UdpProxy) Close() {
 	}
 }
 
-func (pxy *UdpProxy) InWorkConn(conn frpNet.Conn) {
+func (pxy *UdpProxy) InWorkConn(conn frpNet.Conn, m *msg.StartWorkConn) {
 	pxy.Info("incoming a new work connection for udp proxy, %s", conn.RemoteAddr().String())
 	// close resources releated with old workConn
 	pxy.Close()
@@ -482,7 +483,7 @@ func (pxy *UdpProxy) InWorkConn(conn frpNet.Conn) {
 
 // Common handler for tcp work connections.
 func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.Plugin,
-	baseInfo *config.BaseProxyConf, workConn frpNet.Conn, encKey []byte) {
+	baseInfo *config.BaseProxyConf, workConn frpNet.Conn, encKey []byte, m *msg.StartWorkConn) {
 
 	var (
 		remote io.ReadWriteCloser
@@ -502,10 +503,43 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 		remote = frpIo.WithCompression(remote)
 	}
 
+	// check if we need to send proxy protocol info
+	var extraInfo []byte
+	if baseInfo.ProxyProtocolVersion != "" {
+		if m.SrcAddr != "" && m.SrcPort != 0 {
+			if m.DstAddr == "" {
+				m.DstAddr = "127.0.0.1"
+			}
+			h := &pp.Header{
+				Command:            pp.PROXY,
+				SourceAddress:      net.ParseIP(m.SrcAddr),
+				SourcePort:         m.SrcPort,
+				DestinationAddress: net.ParseIP(m.DstAddr),
+				DestinationPort:    m.DstPort,
+			}
+
+			if h.SourceAddress.To16() == nil {
+				h.TransportProtocol = pp.TCPv4
+			} else {
+				h.TransportProtocol = pp.TCPv6
+			}
+
+			if baseInfo.ProxyProtocolVersion == "v1" {
+				h.Version = 1
+			} else if baseInfo.ProxyProtocolVersion == "v2" {
+				h.Version = 2
+			}
+
+			buf := bytes.NewBuffer(nil)
+			h.WriteTo(buf)
+			extraInfo = buf.Bytes()
+		}
+	}
+
 	if proxyPlugin != nil {
 		// if plugin is set, let plugin handle connections first
 		workConn.Debug("handle by plugin: %s", proxyPlugin.Name())
-		proxyPlugin.Handle(remote, workConn)
+		proxyPlugin.Handle(remote, workConn, extraInfo)
 		workConn.Debug("handle by plugin finished")
 		return
 	} else {
@@ -518,6 +552,11 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 
 		workConn.Debug("join connections, localConn(l[%s] r[%s]) workConn(l[%s] r[%s])", localConn.LocalAddr().String(),
 			localConn.RemoteAddr().String(), workConn.LocalAddr().String(), workConn.RemoteAddr().String())
+
+		if len(extraInfo) > 0 {
+			localConn.Write(extraInfo)
+		}
+
 		frpIo.Join(localConn, remote)
 		workConn.Debug("join connections closed")
 	}

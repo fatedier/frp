@@ -15,7 +15,6 @@ package vhost
 import (
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/fatedier/frp/utils/log"
@@ -35,7 +34,6 @@ type VhostMuxer struct {
 	authFunc       httpAuthFunc
 	rewriteFunc    hostRewriteFunc
 	registryRouter *VhostRouters
-	mutex          sync.RWMutex
 }
 
 func NewVhostMuxer(listener frpNet.Listener, vhostFunc muxFunc, authFunc httpAuthFunc, rewriteFunc hostRewriteFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
@@ -51,8 +49,9 @@ func NewVhostMuxer(listener frpNet.Listener, vhostFunc muxFunc, authFunc httpAut
 	return mux, nil
 }
 
-type CreateConnFunc func() (frpNet.Conn, error)
+type CreateConnFunc func(remoteAddr string) (frpNet.Conn, error)
 
+// VhostRouteConfig is the params used to match HTTP requests
 type VhostRouteConfig struct {
 	Domain      string
 	Location    string
@@ -67,14 +66,6 @@ type VhostRouteConfig struct {
 // listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil
 // then rewrite the host header to rewriteHost
 func (v *VhostMuxer) Listen(cfg *VhostRouteConfig) (l *Listener, err error) {
-	v.mutex.Lock()
-	defer v.mutex.Unlock()
-
-	_, ok := v.registryRouter.Exist(cfg.Domain, cfg.Location)
-	if ok {
-		return nil, fmt.Errorf("hostname [%s] location [%s] is already registered", cfg.Domain, cfg.Location)
-	}
-
 	l = &Listener{
 		name:        cfg.Domain,
 		location:    cfg.Location,
@@ -85,14 +76,14 @@ func (v *VhostMuxer) Listen(cfg *VhostRouteConfig) (l *Listener, err error) {
 		accept:      make(chan frpNet.Conn),
 		Logger:      log.NewPrefixLogger(""),
 	}
-	v.registryRouter.Add(cfg.Domain, cfg.Location, l)
+	err = v.registryRouter.Add(cfg.Domain, cfg.Location, l)
+	if err != nil {
+		return
+	}
 	return l, nil
 }
 
 func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
-	v.mutex.RLock()
-	defer v.mutex.RUnlock()
-
 	// first we check the full hostname
 	// if not exist, then check the wildcard_domain such as *.example.com
 	vr, found := v.registryRouter.Get(name, path)

@@ -2,8 +2,15 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package cast5 implements CAST5, as defined in RFC 2144. CAST5 is a common
-// OpenPGP cipher.
+// Package cast5 implements CAST5, as defined in RFC 2144.
+//
+// CAST5 is a legacy cipher and its short block size makes it vulnerable to
+// birthday bound attacks (see https://sweet32.info). It should only be used
+// where compatibility with legacy systems, not security, is the goal.
+//
+// Deprecated: any new system should use AES (from crypto/aes, if necessary in
+// an AEAD mode like crypto/cipher.NewGCM) or XChaCha20-Poly1305 (from
+// golang.org/x/crypto/chacha20poly1305).
 package cast5 // import "golang.org/x/crypto/cast5"
 
 import "errors"

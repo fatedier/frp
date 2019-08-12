@@ -167,6 +167,9 @@ func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error)
 	defer func() {
 		if err != nil {
 			conn.Close()
+			if session != nil {
+				session.Close()
+			}
 		}
 	}()
 

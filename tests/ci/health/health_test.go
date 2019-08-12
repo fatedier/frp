@@ -72,7 +72,7 @@ health_check_url = /health
 func TestHealthCheck(t *testing.T) {
 	assert := assert.New(t)
 
-	// ****** start backgroud services ******
+	// ****** start background services ******
 	echoSvc1 := mock.NewEchoServer(15001, 1, "echo1")
 	err := echoSvc1.Start()
 	if assert.NoError(err) {

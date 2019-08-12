@@ -44,7 +44,7 @@ func (pxy *XtcpProxy) Run() (remoteAddr string, err error) {
 				break
 			case sidRequest := <-sidCh:
 				sr := sidRequest
-				workConn, errRet := pxy.GetWorkConnFromPool()
+				workConn, errRet := pxy.GetWorkConnFromPool(nil, nil)
 				if errRet != nil {
 					continue
 				}

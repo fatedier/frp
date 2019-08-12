@@ -107,8 +107,10 @@ type BaseProxyConf struct {
 	Group          string `json:"group"`
 	GroupKey       string `json:"group_key"`
 
+	// only used for client
+	ProxyProtocolVersion string `json:"proxy_protocol_version"`
 	LocalSvrConf
-	HealthCheckConf // only used for client
+	HealthCheckConf
 }
 
 func (cfg *BaseProxyConf) GetBaseInfo() *BaseProxyConf {
@@ -121,7 +123,8 @@ func (cfg *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
 		cfg.UseEncryption != cmp.UseEncryption ||
 		cfg.UseCompression != cmp.UseCompression ||
 		cfg.Group != cmp.Group ||
-		cfg.GroupKey != cmp.GroupKey {
+		cfg.GroupKey != cmp.GroupKey ||
+		cfg.ProxyProtocolVersion != cmp.ProxyProtocolVersion {
 		return false
 	}
 	if !cfg.LocalSvrConf.compare(&cmp.LocalSvrConf) {
@@ -162,6 +165,7 @@ func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section i
 
 	cfg.Group = section["group"]
 	cfg.GroupKey = section["group_key"]
+	cfg.ProxyProtocolVersion = section["proxy_protocol_version"]
 
 	if err := cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
 		return err
@@ -194,6 +198,12 @@ func (cfg *BaseProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 }
 
 func (cfg *BaseProxyConf) checkForCli() (err error) {
+	if cfg.ProxyProtocolVersion != "" {
+		if cfg.ProxyProtocolVersion != "v1" && cfg.ProxyProtocolVersion != "v2" {
+			return fmt.Errorf("no support proxy protocol version: %s", cfg.ProxyProtocolVersion)
+		}
+	}
+
 	if err = cfg.LocalSvrConf.checkForCli(); err != nil {
 		return
 	}

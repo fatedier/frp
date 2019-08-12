@@ -53,7 +53,7 @@ func NewSocks5Plugin(params map[string]string) (p Plugin, err error) {
 	return
 }
 
-func (sp *Socks5Plugin) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn) {
+func (sp *Socks5Plugin) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn, extraBufToLocal []byte) {
 	defer conn.Close()
 	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
 	sp.Server.ServeConn(wrapConn)

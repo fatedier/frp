@@ -4,16 +4,14 @@
 
 package ipv4
 
-import "syscall"
-
 // TOS returns the type-of-service field value for outgoing packets.
 func (c *genericOpt) TOS() (int, error) {
 	if !c.ok() {
-		return 0, syscall.EINVAL
+		return 0, errInvalidConn
 	}
 	so, ok := sockOpts[ssoTOS]
 	if !ok {
-		return 0, errOpNoSupport
+		return 0, errNotImplemented
 	}
 	return so.GetInt(c.Conn)
 }
@@ -22,11 +20,11 @@ func (c *genericOpt) TOS() (int, error) {
 // packets.
 func (c *genericOpt) SetTOS(tos int) error {
 	if !c.ok() {
-		return syscall.EINVAL
+		return errInvalidConn
 	}
 	so, ok := sockOpts[ssoTOS]
 	if !ok {
-		return errOpNoSupport
+		return errNotImplemented
 	}
 	return so.SetInt(c.Conn, tos)
 }
@@ -34,11 +32,11 @@ func (c *genericOpt) SetTOS(tos int) error {
 // TTL returns the time-to-live field value for outgoing packets.
 func (c *genericOpt) TTL() (int, error) {
 	if !c.ok() {
-		return 0, syscall.EINVAL
+		return 0, errInvalidConn
 	}
 	so, ok := sockOpts[ssoTTL]
 	if !ok {
-		return 0, errOpNoSupport
+		return 0, errNotImplemented
 	}
 	return so.GetInt(c.Conn)
 }
@@ -47,11 +45,11 @@ func (c *genericOpt) TTL() (int, error) {
 // packets.
 func (c *genericOpt) SetTTL(ttl int) error {
 	if !c.ok() {
-		return syscall.EINVAL
+		return errInvalidConn
 	}
 	so, ok := sockOpts[ssoTTL]
 	if !ok {
-		return errOpNoSupport
+		return errNotImplemented
 	}
 	return so.SetInt(c.Conn, ttl)
 }

@@ -76,6 +76,9 @@ type Service struct {
 	// Manage all proxies
 	pxyManager *proxy.ProxyManager
 
+	// HTTP vhost router
+	httpVhostRouter *vhost.VhostRouters
+
 	// All resource managers and controllers
 	rc *controller.ResourceController
 
@@ -95,11 +98,15 @@ func NewService() (svr *Service, err error) {
 			TcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
 			UdpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 		},
-		tlsConfig: generateTLSConfig(),
+		httpVhostRouter: vhost.NewVhostRouters(),
+		tlsConfig:       generateTLSConfig(),
 	}
 
 	// Init group controller
 	svr.rc.TcpGroupCtl = group.NewTcpGroupCtl(svr.rc.TcpPortManager)
+
+	// Init HTTP group controller
+	svr.rc.HTTPGroupCtl = group.NewHTTPGroupController(svr.httpVhostRouter)
 
 	// Init assets
 	err = assets.Load(cfg.AssetsDir)
@@ -107,6 +114,9 @@ func NewService() (svr *Service, err error) {
 		err = fmt.Errorf("Load assets error: %v", err)
 		return
 	}
+
+	// Init 404 not found page
+	vhost.NotFoundPagePath = cfg.Custom404Page
 
 	var (
 		httpMuxOn  bool
@@ -156,7 +166,7 @@ func NewService() (svr *Service, err error) {
 	if cfg.VhostHttpPort > 0 {
 		rp := vhost.NewHttpReverseProxy(vhost.HttpReverseProxyOptions{
 			ResponseHeaderTimeoutS: cfg.VhostHttpTimeout,
-		})
+		}, svr.httpVhostRouter)
 		svr.rc.HttpReverseProxy = rp
 
 		address := fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHttpPort)
@@ -256,7 +266,16 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 			log.Warn("Listener for incoming connections from client closed")
 			return
 		}
-		c = frpNet.CheckAndEnableTLSServerConn(c, svr.tlsConfig)
+
+		log.Trace("start check TLS connection...")
+		originConn := c
+		c, err = frpNet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, connReadTimeout)
+		if err != nil {
+			log.Warn("CheckAndEnableTLSServerConnWithTimeout error: %v", err)
+			originConn.Close()
+			continue
+		}
+		log.Trace("success check TLS connection")
 
 		// Start a new goroutine for dealing connections.
 		go func(frpConn frpNet.Conn) {
