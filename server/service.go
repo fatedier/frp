@@ -113,9 +113,8 @@ func NewService() (svr *Service, err error) {
 			TcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
 			UdpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 		},
-		Closed:   true,
-		closedCh: make(chan bool),
-		tlsConfig: generateTLSConfig(),
+		Closed:          true,
+		closedCh:        make(chan bool),
 		httpVhostRouter: vhost.NewVhostRouters(),
 		tlsConfig:       generateTLSConfig(),
 	}
