@@ -7,21 +7,19 @@ github.com/fatedier/beego/logs
 # github.com/fatedier/golib v0.0.0-20181107124048-ff8cd814b049
 github.com/fatedier/golib/control/shutdown
 github.com/fatedier/golib/crypto
-github.com/fatedier/golib/io
-github.com/fatedier/golib/pool
 github.com/fatedier/golib/errors
+github.com/fatedier/golib/io
 github.com/fatedier/golib/msg/json
 github.com/fatedier/golib/net
 github.com/fatedier/golib/net/mux
-# github.com/fatedier/kcp-go v2.0.4-0.20190317085623-2063a803e6fe+incompatible
+github.com/fatedier/golib/pool
+# github.com/fatedier/kcp-go v2.0.4-0.20190803094908-fe8645b0a904+incompatible
 github.com/fatedier/kcp-go
 # github.com/golang/snappy v0.0.0-20170215233205-553a64147049
 github.com/golang/snappy
-# github.com/gorilla/context v1.1.1
-github.com/gorilla/context
-# github.com/gorilla/mux v1.6.2
+# github.com/gorilla/mux v1.7.3
 github.com/gorilla/mux
-# github.com/gorilla/websocket v1.2.0
+# github.com/gorilla/websocket v1.4.0
 github.com/gorilla/websocket
 # github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
 github.com/hashicorp/yamux
@@ -45,7 +43,7 @@ github.com/rodaine/table
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.1
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.2.1
+# github.com/stretchr/testify v1.3.0
 github.com/stretchr/testify/assert
 # github.com/templexxx/cpufeat v0.0.0-20170927014610-3794dfbfb047
 github.com/templexxx/cpufeat
@@ -55,22 +53,33 @@ github.com/templexxx/xor
 github.com/tjfoc/gmsm/sm4
 # github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec
 github.com/vaughan0/go-ini
-# golang.org/x/crypto v0.0.0-20180505025534-4ec37c66abab
-golang.org/x/crypto/pbkdf2
+# golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
+golang.org/x/crypto/internal/subtle
+golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/salsa20
+golang.org/x/crypto/salsa20/salsa
 golang.org/x/crypto/tea
 golang.org/x/crypto/twofish
 golang.org/x/crypto/xtea
-golang.org/x/crypto/salsa20/salsa
-# golang.org/x/net v0.0.0-20180524181706-dfa909b99c79
-golang.org/x/net/websocket
-golang.org/x/net/context
-golang.org/x/net/proxy
-golang.org/x/net/ipv4
-golang.org/x/net/ipv6
-golang.org/x/net/internal/socks
+# golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 golang.org/x/net/bpf
+golang.org/x/net/context
+golang.org/x/net/http/httpguts
+golang.org/x/net/idna
 golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
+golang.org/x/net/internal/socks
+golang.org/x/net/ipv4
+golang.org/x/net/ipv6
+golang.org/x/net/proxy
+golang.org/x/net/websocket
+# golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a
+golang.org/x/sys/unix
+golang.org/x/sys/windows
+# golang.org/x/text v0.3.2
+golang.org/x/text/secure/bidirule
+golang.org/x/text/transform
+golang.org/x/text/unicode/bidi
+golang.org/x/text/unicode/norm

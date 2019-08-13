@@ -77,6 +77,9 @@ type Service struct {
 	// Manage all proxies
 	pxyManager *proxy.ProxyManager
 
+	// HTTP vhost router
+	httpVhostRouter *vhost.VhostRouters
+
 	// All resource managers and controllers
 	rc *controller.ResourceController
 
@@ -113,10 +116,15 @@ func NewService() (svr *Service, err error) {
 		Closed:   true,
 		closedCh: make(chan bool),
 		tlsConfig: generateTLSConfig(),
+		httpVhostRouter: vhost.NewVhostRouters(),
+		tlsConfig:       generateTLSConfig(),
 	}
 
 	// Init group controller
 	svr.rc.TcpGroupCtl = group.NewTcpGroupCtl(svr.rc.TcpPortManager)
+
+	// Init HTTP group controller
+	svr.rc.HTTPGroupCtl = group.NewHTTPGroupController(svr.httpVhostRouter)
 
 	// Init assets
 	err = assets.Load(cfg.AssetsDir, assets.Frps)
@@ -176,7 +184,7 @@ func NewService() (svr *Service, err error) {
 	if cfg.VhostHttpPort > 0 {
 		rp := vhost.NewHttpReverseProxy(vhost.HttpReverseProxyOptions{
 			ResponseHeaderTimeoutS: cfg.VhostHttpTimeout,
-		})
+		}, svr.httpVhostRouter)
 		svr.rc.HttpReverseProxy = rp
 
 		address := newAddress(cfg.ProxyBindAddr, cfg.VhostHttpPort)
