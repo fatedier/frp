@@ -161,10 +161,10 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	svr.websocketListener = frpNet.NewWebsocketListener(websocketLn)
 
 	// frp wss listener
-	wssListener := svr.muxer.Listen(1, 1, func(data []byte) bool {
+	wssLn := svr.muxer.Listen(1, 1, func(data []byte) bool {
 		return int(data[0]) == 0x16
 	})
-	svr.wssListener = frpNet.NewWssListener(wssListener)
+	svr.wssListener = frpNet.NewWssListener(wssLn)
 
 	// Create http vhost muxer.
 	if cfg.VhostHttpPort > 0 {

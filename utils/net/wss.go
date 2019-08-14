@@ -1,6 +1,7 @@
 package net
 
 import (
+	// "crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -9,7 +10,7 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/utils/log"
-
+	
 	"golang.org/x/net/websocket"
 )
 
@@ -50,9 +51,8 @@ func NewWssListener(ln net.Listener) (wl *WssListener) {
 		Addr:    ln.Addr().String(),
 		Handler: muxer,
 	}
-
-	certFile := "a.cert"
-	keyFile := "a.key"
+	certFile := "a_cert.pem"
+	keyFile := "a_key.pem"
 
 	go wl.server.ServeTLS(ln, certFile, keyFile)
 	return
@@ -95,6 +95,10 @@ func ConnectWssServer(addr string, httpProtocol string, wsProtocol string) (Conn
 	cfg.Dialer = &net.Dialer{
 		Timeout: 10 * time.Second,
 	}
+
+	// cfg.TlsConfig = &tls.Config{
+	// 	InsecureSkipVerify: true,
+	// }
 
 	conn, err := websocket.DialConfig(cfg)
 	if err != nil {
