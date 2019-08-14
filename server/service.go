@@ -67,6 +67,9 @@ type Service struct {
 	// Accept connections using websocket
 	websocketListener net.Listener
 
+	// Accept connections using wss
+	wssListener frpNet.Listener
+
 	// Accept frp tls connections
 	tlsListener net.Listener
 
@@ -156,6 +159,12 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		return bytes.Equal(data, websocketPrefix)
 	})
 	svr.websocketListener = frpNet.NewWebsocketListener(websocketLn)
+
+	// frp wss listener
+	wssListener := svr.muxer.Listen(1, 1, func(data []byte) bool {
+		return int(data[0]) == 0x16
+	})
+	svr.wssListener = frpNet.NewWssListener(wssListener)
 
 	// Create http vhost muxer.
 	if cfg.VhostHttpPort > 0 {
