@@ -81,14 +81,14 @@ func (p *WebsocketListener) Close() error {
 }
 
 // addr: domain:port
-func ConnectWebsocketServer(addr string) (Conn, error) {
-	addr = "ws://" + addr + FrpWebsocketPath
+func ConnectWebsocketServer(addr string, httpProtocol string, wsProtocol string) (Conn, error) {
+	addr = wsProtocol +"://" + addr + FrpWebsocketPath
 	uri, err := url.Parse(addr)
 	if err != nil {
 		return nil, err
 	}
 
-	origin := "http://" + uri.Host
+	origin := httpProtocol + "://" + uri.Host
 	cfg, err := websocket.NewConfig(addr, origin)
 	if err != nil {
 		return nil, err
