@@ -221,7 +221,9 @@ func ConnectServerByProxy(proxyURL string, protocol string, addr string) (c net.
 		// http proxy is not supported for kcp
 		return ConnectServer(protocol, addr)
 	case "websocket":
-		return ConnectWebsocketServer(addr)
+		return ConnectWebsocketServer(addr, "http", "ws")
+	case "wss":
+		return ConnectWebsocketServer(addr, "https", "wss")
 	default:
 		return nil, fmt.Errorf("unsupport protocol: %s", protocol)
 	}
