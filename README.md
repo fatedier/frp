@@ -265,6 +265,7 @@ Configure frps same as above.
   plugin_crt_path = ./server.crt
   plugin_key_path = ./server.key
   plugin_host_header_rewrite = 127.0.0.1
+  plugin_header_X-From-Where = frp
   ```
 
 2. Visit `https://test.yourdomain.com`.
