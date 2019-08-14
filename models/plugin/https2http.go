@@ -86,7 +86,7 @@ func NewHTTPS2HTTPPlugin(params map[string]string) (Plugin, error) {
 				req.Host = p.hostHeaderRewrite
 			}
 			for k, v := range p.headers {
-				req.Header.Add(k, v)
+				req.Header.Set(k, v)
 			}
 		},
 	}
