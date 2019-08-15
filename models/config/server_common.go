@@ -58,18 +58,19 @@ type ServerCommonConf struct {
 	DashboardAddr string `json:"dashboard_addr"`
 
 	// if DashboardPort equals 0, dashboard is not available
-	DashboardPort int    `json:"dashboard_port"`
-	DashboardUser string `json:"dashboard_user"`
-	DashboardPwd  string `json:"dashboard_pwd"`
-	AssetsDir     string `json:"asserts_dir"`
-	LogFile       string `json:"log_file"`
-	LogWay        string `json:"log_way"` // console or file
-	LogLevel      string `json:"log_level"`
-	LogMaxDays    int64  `json:"log_max_days"`
-	Token         string `json:"token"`
-	SubDomainHost string `json:"subdomain_host"`
-	TcpMux        bool   `json:"tcp_mux"`
-	Custom404Page string `json:"custom_404_page"`
+	DashboardPort   int    `json:"dashboard_port"`
+	DashboardUser   string `json:"dashboard_user"`
+	DashboardPwd    string `json:"dashboard_pwd"`
+	AssetsDir       string `json:"asserts_dir"`
+	LogFile         string `json:"log_file"`
+	LogWay          string `json:"log_way"` // console or file
+	LogLevel        string `json:"log_level"`
+	LogMaxDays      int64  `json:"log_max_days"`
+	DisableLogColor bool   `json:"disable_log_color"`
+	Token           string `json:"token"`
+	SubDomainHost   string `json:"subdomain_host"`
+	TcpMux          bool   `json:"tcp_mux"`
+	Custom404Page   string `json:"custom_404_page"`
 
 	AllowPorts        map[int]struct{}
 	MaxPoolCount      int64 `json:"max_pool_count"`
@@ -97,6 +98,7 @@ func GetDefaultServerConf() *ServerCommonConf {
 		LogWay:            "console",
 		LogLevel:          "info",
 		LogMaxDays:        3,
+		DisableLogColor:   false,
 		Token:             "",
 		SubDomainHost:     "",
 		TcpMux:            true,
@@ -242,6 +244,10 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (c
 		if err == nil {
 			cfg.LogMaxDays = v
 		}
+	}
+
+	if tmpStr, ok = conf.Get("common", "disable_log_color"); ok && tmpStr == "true" {
+		cfg.DisableLogColor = true
 	}
 
 	cfg.Token, _ = conf.Get("common", "token")

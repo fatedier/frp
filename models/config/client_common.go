@@ -32,6 +32,7 @@ type ClientCommonConf struct {
 	LogWay            string              `json:"log_way"`
 	LogLevel          string              `json:"log_level"`
 	LogMaxDays        int64               `json:"log_max_days"`
+	DisableLogColor   bool                `json:"disable_log_color"`
 	Token             string              `json:"token"`
 	AdminAddr         string              `json:"admin_addr"`
 	AdminPort         int                 `json:"admin_port"`
@@ -58,6 +59,7 @@ func GetDefaultClientConf() *ClientCommonConf {
 		LogWay:            "console",
 		LogLevel:          "info",
 		LogMaxDays:        3,
+		DisableLogColor:   false,
 		Token:             "",
 		AdminAddr:         "127.0.0.1",
 		AdminPort:         0,
@@ -104,6 +106,10 @@ func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (c
 			return
 		}
 		cfg.ServerPort = int(v)
+	}
+
+	if tmpStr, ok = conf.Get("common", "disable_log_color"); ok && tmpStr == "true" {
+		cfg.DisableLogColor = true
 	}
 
 	if tmpStr, ok = conf.Get("common", "http_proxy"); ok {

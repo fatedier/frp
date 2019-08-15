@@ -43,13 +43,14 @@ var (
 	cfgFile     string
 	showVersion bool
 
-	serverAddr string
-	user       string
-	protocol   string
-	token      string
-	logLevel   string
-	logFile    string
-	logMaxDays int
+	serverAddr      string
+	user            string
+	protocol        string
+	token           string
+	logLevel        string
+	logFile         string
+	logMaxDays      int
+	disableLogColor bool
 
 	proxyName         string
 	localIp           string
@@ -165,6 +166,7 @@ func parseClientCommonCfgFromCmd() (err error) {
 	} else {
 		g.GlbClientCfg.LogWay = "file"
 	}
+	g.GlbClientCfg.DisableLogColor = disableLogColor
 	return nil
 }
 
@@ -191,7 +193,9 @@ func runClient(cfgFilePath string) (err error) {
 }
 
 func startService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) (err error) {
-	log.InitLog(g.GlbClientCfg.LogWay, g.GlbClientCfg.LogFile, g.GlbClientCfg.LogLevel, g.GlbClientCfg.LogMaxDays)
+	log.InitLog(g.GlbClientCfg.LogWay, g.GlbClientCfg.LogFile, g.GlbClientCfg.LogLevel,
+		g.GlbClientCfg.LogMaxDays, g.GlbClientCfg.DisableLogColor)
+
 	if g.GlbClientCfg.DnsServer != "" {
 		s := g.GlbClientCfg.DnsServer
 		if !strings.Contains(s, ":") {
