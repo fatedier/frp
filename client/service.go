@@ -52,13 +52,6 @@ type Service struct {
 }
 
 func NewService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) (svr *Service, err error) {
-	// Init assets
-	err = assets.Load("")
-	if err != nil {
-		err = fmt.Errorf("Load assets error: %v", err)
-		return
-	}
-
 	svr = &Service{
 		pxyCfgs:     pxyCfgs,
 		visitorCfgs: visitorCfgs,
@@ -102,7 +95,13 @@ func (svr *Service) Run() error {
 	go svr.keepControllerWorking()
 
 	if g.GlbClientCfg.AdminPort != 0 {
-		err := svr.RunAdminServer(g.GlbClientCfg.AdminAddr, g.GlbClientCfg.AdminPort)
+		// Init admin server assets
+		err := assets.Load("")
+		if err != nil {
+			return fmt.Errorf("Load assets error: %v", err)
+		}
+
+		err = svr.RunAdminServer(g.GlbClientCfg.AdminAddr, g.GlbClientCfg.AdminPort)
 		if err != nil {
 			log.Warn("run admin server error: %v", err)
 		}
