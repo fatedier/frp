@@ -203,7 +203,6 @@ func runServer(cfg config.ServerCommonConf) (err error) {
 		return err
 	}
 	log.Info("Start frps success")
-	server.ServerService = svr
 	svr.Run()
 	return
 }

@@ -51,8 +51,6 @@ const (
 	connReadTimeout time.Duration = 10 * time.Second
 )
 
-var ServerService *Service
-
 // Server service
 type Service struct {
 	// Dispatch connections to different handlers listen on same port
