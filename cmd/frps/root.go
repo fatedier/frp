@@ -20,7 +20,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/server"
 	"github.com/fatedier/frp/utils/log"
@@ -98,6 +97,7 @@ var rootCmd = &cobra.Command{
 			return nil
 		}
 
+		var cfg config.ServerCommonConf
 		var err error
 		if cfgFile != "" {
 			var content string
@@ -105,16 +105,15 @@ var rootCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			g.GlbServerCfg.CfgFile = cfgFile
-			err = parseServerCommonCfg(CfgFileTypeIni, content)
+			cfg, err = parseServerCommonCfg(CfgFileTypeIni, content)
 		} else {
-			err = parseServerCommonCfg(CfgFileTypeCmd, "")
+			cfg, err = parseServerCommonCfg(CfgFileTypeCmd, "")
 		}
 		if err != nil {
 			return err
 		}
 
-		err = runServer()
+		err = runServer(cfg)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -129,52 +128,51 @@ func Execute() {
 	}
 }
 
-func parseServerCommonCfg(fileType int, content string) (err error) {
+func parseServerCommonCfg(fileType int, content string) (cfg config.ServerCommonConf, err error) {
 	if fileType == CfgFileTypeIni {
-		err = parseServerCommonCfgFromIni(content)
+		cfg, err = parseServerCommonCfgFromIni(content)
 	} else if fileType == CfgFileTypeCmd {
-		err = parseServerCommonCfgFromCmd()
+		cfg, err = parseServerCommonCfgFromCmd()
 	}
 	if err != nil {
 		return
 	}
 
-	err = g.GlbServerCfg.ServerCommonConf.Check()
+	err = cfg.Check()
 	if err != nil {
 		return
 	}
-
-	config.InitServerCfg(&g.GlbServerCfg.ServerCommonConf)
 	return
 }
 
-func parseServerCommonCfgFromIni(content string) (err error) {
-	cfg, err := config.UnmarshalServerConfFromIni(&g.GlbServerCfg.ServerCommonConf, content)
+func parseServerCommonCfgFromIni(content string) (config.ServerCommonConf, error) {
+	cfg, err := config.UnmarshalServerConfFromIni(content)
 	if err != nil {
-		return err
+		return config.ServerCommonConf{}, err
 	}
-	g.GlbServerCfg.ServerCommonConf = *cfg
-	return
+	return cfg, nil
 }
 
-func parseServerCommonCfgFromCmd() (err error) {
-	g.GlbServerCfg.BindAddr = bindAddr
-	g.GlbServerCfg.BindPort = bindPort
-	g.GlbServerCfg.BindUdpPort = bindUdpPort
-	g.GlbServerCfg.KcpBindPort = kcpBindPort
-	g.GlbServerCfg.ProxyBindAddr = proxyBindAddr
-	g.GlbServerCfg.VhostHttpPort = vhostHttpPort
-	g.GlbServerCfg.VhostHttpsPort = vhostHttpsPort
-	g.GlbServerCfg.VhostHttpTimeout = vhostHttpTimeout
-	g.GlbServerCfg.DashboardAddr = dashboardAddr
-	g.GlbServerCfg.DashboardPort = dashboardPort
-	g.GlbServerCfg.DashboardUser = dashboardUser
-	g.GlbServerCfg.DashboardPwd = dashboardPwd
-	g.GlbServerCfg.LogFile = logFile
-	g.GlbServerCfg.LogLevel = logLevel
-	g.GlbServerCfg.LogMaxDays = logMaxDays
-	g.GlbServerCfg.Token = token
-	g.GlbServerCfg.SubDomainHost = subDomainHost
+func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
+	cfg = config.GetDefaultServerConf()
+
+	cfg.BindAddr = bindAddr
+	cfg.BindPort = bindPort
+	cfg.BindUdpPort = bindUdpPort
+	cfg.KcpBindPort = kcpBindPort
+	cfg.ProxyBindAddr = proxyBindAddr
+	cfg.VhostHttpPort = vhostHttpPort
+	cfg.VhostHttpsPort = vhostHttpsPort
+	cfg.VhostHttpTimeout = vhostHttpTimeout
+	cfg.DashboardAddr = dashboardAddr
+	cfg.DashboardPort = dashboardPort
+	cfg.DashboardUser = dashboardUser
+	cfg.DashboardPwd = dashboardPwd
+	cfg.LogFile = logFile
+	cfg.LogLevel = logLevel
+	cfg.LogMaxDays = logMaxDays
+	cfg.Token = token
+	cfg.SubDomainHost = subDomainHost
 	if len(allowPorts) > 0 {
 		// e.g. 1000-2000,2001,2002,3000-4000
 		ports, errRet := util.ParseRangeNumbers(allowPorts)
@@ -184,24 +182,23 @@ func parseServerCommonCfgFromCmd() (err error) {
 		}
 
 		for _, port := range ports {
-			g.GlbServerCfg.AllowPorts[int(port)] = struct{}{}
+			cfg.AllowPorts[int(port)] = struct{}{}
 		}
 	}
-	g.GlbServerCfg.MaxPortsPerClient = maxPortsPerClient
+	cfg.MaxPortsPerClient = maxPortsPerClient
 
 	if logFile == "console" {
-		g.GlbServerCfg.LogWay = "console"
+		cfg.LogWay = "console"
 	} else {
-		g.GlbServerCfg.LogWay = "file"
+		cfg.LogWay = "file"
 	}
-	g.GlbServerCfg.DisableLogColor = disableLogColor
+	cfg.DisableLogColor = disableLogColor
 	return
 }
 
-func runServer() (err error) {
-	log.InitLog(g.GlbServerCfg.LogWay, g.GlbServerCfg.LogFile, g.GlbServerCfg.LogLevel,
-		g.GlbServerCfg.LogMaxDays, g.GlbServerCfg.DisableLogColor)
-	svr, err := server.NewService()
+func runServer(cfg config.ServerCommonConf) (err error) {
+	log.InitLog(cfg.LogWay, cfg.LogFile, cfg.LogLevel, cfg.LogMaxDays, cfg.DisableLogColor)
+	svr, err := server.NewService(cfg)
 	if err != nil {
 		return err
 	}

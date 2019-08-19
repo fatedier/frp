@@ -21,7 +21,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/consts"
 	frpErr "github.com/fatedier/frp/models/errors"
@@ -129,10 +128,14 @@ type Control struct {
 	allShutdown     *shutdown.Shutdown
 
 	mu sync.RWMutex
+
+	// Server configuration information
+	serverCfg config.ServerCommonConf
 }
 
 func NewControl(rc *controller.ResourceController, pxyManager *proxy.ProxyManager,
-	statsCollector stats.Collector, ctlConn net.Conn, loginMsg *msg.Login) *Control {
+	statsCollector stats.Collector, ctlConn net.Conn, loginMsg *msg.Login,
+	serverCfg config.ServerCommonConf) *Control {
 
 	return &Control{
 		rc:              rc,
@@ -153,6 +156,7 @@ func NewControl(rc *controller.ResourceController, pxyManager *proxy.ProxyManage
 		writerShutdown:  shutdown.New(),
 		managerShutdown: shutdown.New(),
 		allShutdown:     shutdown.New(),
+		serverCfg:       serverCfg,
 	}
 }
 
@@ -161,7 +165,7 @@ func (ctl *Control) Start() {
 	loginRespMsg := &msg.LoginResp{
 		Version:       version.Full(),
 		RunId:         ctl.runId,
-		ServerUdpPort: g.GlbServerCfg.BindUdpPort,
+		ServerUdpPort: ctl.serverCfg.BindUdpPort,
 		Error:         "",
 	}
 	msg.WriteMsg(ctl.conn, loginRespMsg)
@@ -232,7 +236,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 				return
 			}
 
-		case <-time.After(time.Duration(g.GlbServerCfg.UserConnTimeout) * time.Second):
+		case <-time.After(time.Duration(ctl.serverCfg.UserConnTimeout) * time.Second):
 			err = fmt.Errorf("timeout trying to get work connection")
 			ctl.conn.Warn("%v", err)
 			return
@@ -263,7 +267,7 @@ func (ctl *Control) writer() {
 	defer ctl.allShutdown.Start()
 	defer ctl.writerShutdown.Done()
 
-	encWriter, err := crypto.NewWriter(ctl.conn, []byte(g.GlbServerCfg.Token))
+	encWriter, err := crypto.NewWriter(ctl.conn, []byte(ctl.serverCfg.Token))
 	if err != nil {
 		ctl.conn.Error("crypto new writer error: %v", err)
 		ctl.allShutdown.Start()
@@ -293,7 +297,7 @@ func (ctl *Control) reader() {
 	defer ctl.allShutdown.Start()
 	defer ctl.readerShutdown.Done()
 
-	encReader := crypto.NewReader(ctl.conn, []byte(g.GlbServerCfg.Token))
+	encReader := crypto.NewReader(ctl.conn, []byte(ctl.serverCfg.Token))
 	for {
 		if m, err := msg.ReadMsg(encReader); err != nil {
 			if err == io.EOF {
@@ -374,7 +378,7 @@ func (ctl *Control) manager() {
 	for {
 		select {
 		case <-heartbeat.C:
-			if time.Since(ctl.lastPing) > time.Duration(g.GlbServerCfg.HeartBeatTimeout)*time.Second {
+			if time.Since(ctl.lastPing) > time.Duration(ctl.serverCfg.HeartBeatTimeout)*time.Second {
 				ctl.conn.Warn("heartbeat timeout")
 				return
 			}
@@ -417,22 +421,22 @@ func (ctl *Control) manager() {
 func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err error) {
 	var pxyConf config.ProxyConf
 	// Load configures from NewProxy message and check.
-	pxyConf, err = config.NewProxyConfFromMsg(pxyMsg)
+	pxyConf, err = config.NewProxyConfFromMsg(pxyMsg, ctl.serverCfg)
 	if err != nil {
 		return
 	}
 
 	// NewProxy will return a interface Proxy.
 	// In fact it create different proxies by different proxy type, we just call run() here.
-	pxy, err := proxy.NewProxy(ctl.runId, ctl.rc, ctl.statsCollector, ctl.poolCount, ctl.GetWorkConn, pxyConf)
+	pxy, err := proxy.NewProxy(ctl.runId, ctl.rc, ctl.statsCollector, ctl.poolCount, ctl.GetWorkConn, pxyConf, ctl.serverCfg)
 	if err != nil {
 		return remoteAddr, err
 	}
 
 	// Check ports used number in each client
-	if g.GlbServerCfg.MaxPortsPerClient > 0 {
+	if ctl.serverCfg.MaxPortsPerClient > 0 {
 		ctl.mu.Lock()
-		if ctl.portsUsedNum+pxy.GetUsedPortsNum() > int(g.GlbServerCfg.MaxPortsPerClient) {
+		if ctl.portsUsedNum+pxy.GetUsedPortsNum() > int(ctl.serverCfg.MaxPortsPerClient) {
 			ctl.mu.Unlock()
 			err = fmt.Errorf("exceed the max_ports_per_client")
 			return
@@ -478,7 +482,7 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 		return
 	}
 
-	if g.GlbServerCfg.MaxPortsPerClient > 0 {
+	if ctl.serverCfg.MaxPortsPerClient > 0 {
 		ctl.portsUsedNum = ctl.portsUsedNum - pxy.GetUsedPortsNum()
 	}
 	pxy.Close()

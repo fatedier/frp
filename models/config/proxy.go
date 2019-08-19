@@ -58,11 +58,11 @@ type ProxyConf interface {
 	UnmarshalFromIni(prefix string, name string, conf ini.Section) error
 	MarshalToMsg(pMsg *msg.NewProxy)
 	CheckForCli() error
-	CheckForSvr() error
+	CheckForSvr(serverCfg ServerCommonConf) error
 	Compare(conf ProxyConf) bool
 }
 
-func NewProxyConfFromMsg(pMsg *msg.NewProxy) (cfg ProxyConf, err error) {
+func NewProxyConfFromMsg(pMsg *msg.NewProxy, serverCfg ServerCommonConf) (cfg ProxyConf, err error) {
 	if pMsg.ProxyType == "" {
 		pMsg.ProxyType = consts.TcpProxy
 	}
@@ -73,7 +73,7 @@ func NewProxyConfFromMsg(pMsg *msg.NewProxy) (cfg ProxyConf, err error) {
 		return
 	}
 	cfg.UnmarshalFromMsg(pMsg)
-	err = cfg.CheckForSvr()
+	err = cfg.CheckForSvr(serverCfg)
 	return
 }
 
@@ -308,21 +308,21 @@ func (cfg *DomainConf) checkForCli() (err error) {
 	return
 }
 
-func (cfg *DomainConf) checkForSvr() (err error) {
+func (cfg *DomainConf) checkForSvr(serverCfg ServerCommonConf) (err error) {
 	if err = cfg.check(); err != nil {
 		return
 	}
 
 	for _, domain := range cfg.CustomDomains {
-		if subDomainHost != "" && len(strings.Split(subDomainHost, ".")) < len(strings.Split(domain, ".")) {
-			if strings.Contains(domain, subDomainHost) {
-				return fmt.Errorf("custom domain [%s] should not belong to subdomain_host [%s]", domain, subDomainHost)
+		if serverCfg.SubDomainHost != "" && len(strings.Split(serverCfg.SubDomainHost, ".")) < len(strings.Split(domain, ".")) {
+			if strings.Contains(domain, serverCfg.SubDomainHost) {
+				return fmt.Errorf("custom domain [%s] should not belong to subdomain_host [%s]", domain, serverCfg.SubDomainHost)
 			}
 		}
 	}
 
 	if cfg.SubDomain != "" {
-		if subDomainHost == "" {
+		if serverCfg.SubDomainHost == "" {
 			return fmt.Errorf("subdomain is not supported because this feature is not enabled in remote frps")
 		}
 		if strings.Contains(cfg.SubDomain, ".") || strings.Contains(cfg.SubDomain, "*") {
@@ -504,7 +504,7 @@ func (cfg *TcpProxyConf) CheckForCli() (err error) {
 	return
 }
 
-func (cfg *TcpProxyConf) CheckForSvr() error { return nil }
+func (cfg *TcpProxyConf) CheckForSvr(serverCfg ServerCommonConf) error { return nil }
 
 // UDP
 type UdpProxyConf struct {
@@ -552,7 +552,7 @@ func (cfg *UdpProxyConf) CheckForCli() (err error) {
 	return
 }
 
-func (cfg *UdpProxyConf) CheckForSvr() error { return nil }
+func (cfg *UdpProxyConf) CheckForSvr(serverCfg ServerCommonConf) error { return nil }
 
 // HTTP
 type HttpProxyConf struct {
@@ -657,11 +657,11 @@ func (cfg *HttpProxyConf) CheckForCli() (err error) {
 	return
 }
 
-func (cfg *HttpProxyConf) CheckForSvr() (err error) {
-	if vhostHttpPort == 0 {
+func (cfg *HttpProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
+	if serverCfg.VhostHttpPort == 0 {
 		return fmt.Errorf("type [http] not support when vhost_http_port is not set")
 	}
-	if err = cfg.DomainConf.checkForSvr(); err != nil {
+	if err = cfg.DomainConf.checkForSvr(serverCfg); err != nil {
 		err = fmt.Errorf("proxy [%s] domain conf check error: %v", cfg.ProxyName, err)
 		return
 	}
@@ -717,11 +717,11 @@ func (cfg *HttpsProxyConf) CheckForCli() (err error) {
 	return
 }
 
-func (cfg *HttpsProxyConf) CheckForSvr() (err error) {
-	if vhostHttpsPort == 0 {
+func (cfg *HttpsProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
+	if serverCfg.VhostHttpsPort == 0 {
 		return fmt.Errorf("type [https] not support when vhost_https_port is not set")
 	}
-	if err = cfg.DomainConf.checkForSvr(); err != nil {
+	if err = cfg.DomainConf.checkForSvr(serverCfg); err != nil {
 		err = fmt.Errorf("proxy [%s] domain conf check error: %v", cfg.ProxyName, err)
 		return
 	}
@@ -790,7 +790,7 @@ func (cfg *StcpProxyConf) CheckForCli() (err error) {
 	return
 }
 
-func (cfg *StcpProxyConf) CheckForSvr() (err error) {
+func (cfg *StcpProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
 	return
 }
 
@@ -857,7 +857,7 @@ func (cfg *XtcpProxyConf) CheckForCli() (err error) {
 	return
 }
 
-func (cfg *XtcpProxyConf) CheckForSvr() (err error) {
+func (cfg *XtcpProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
 	return
 }
 

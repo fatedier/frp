@@ -24,21 +24,6 @@ import (
 	"github.com/fatedier/frp/utils/util"
 )
 
-var (
-	// server global configure used for generate proxy conf used in frps
-	proxyBindAddr  string
-	subDomainHost  string
-	vhostHttpPort  int
-	vhostHttpsPort int
-)
-
-func InitServerCfg(cfg *ServerCommonConf) {
-	proxyBindAddr = cfg.ProxyBindAddr
-	subDomainHost = cfg.SubDomainHost
-	vhostHttpPort = cfg.VhostHttpPort
-	vhostHttpsPort = cfg.VhostHttpsPort
-}
-
 // common config
 type ServerCommonConf struct {
 	BindAddr      string `json:"bind_addr"`
@@ -79,8 +64,8 @@ type ServerCommonConf struct {
 	UserConnTimeout   int64 `json:"user_conn_timeout"`
 }
 
-func GetDefaultServerConf() *ServerCommonConf {
-	return &ServerCommonConf{
+func GetDefaultServerConf() ServerCommonConf {
+	return ServerCommonConf{
 		BindAddr:          "0.0.0.0",
 		BindPort:          7000,
 		BindUdpPort:       0,
@@ -111,16 +96,13 @@ func GetDefaultServerConf() *ServerCommonConf {
 	}
 }
 
-func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (cfg *ServerCommonConf, err error) {
-	cfg = defaultCfg
-	if cfg == nil {
-		cfg = GetDefaultServerConf()
-	}
+func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error) {
+	cfg = GetDefaultServerConf()
 
 	conf, err := ini.Load(strings.NewReader(content))
 	if err != nil {
 		err = fmt.Errorf("parse ini conf file error: %v", err)
-		return nil, err
+		return ServerCommonConf{}, err
 	}
 
 	var (
