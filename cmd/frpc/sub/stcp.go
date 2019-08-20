@@ -52,7 +52,7 @@ var stcpCmd = &cobra.Command{
 	Use:   "stcp",
 	Short: "Run frpc with a single stcp proxy",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := parseClientCommonCfg(CfgFileTypeCmd, "")
+		clientCfg, err := parseClientCommonCfg(CfgFileTypeCmd, "")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -104,7 +104,7 @@ var stcpCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		err = startService(proxyConfs, visitorConfs)
+		err = startService(clientCfg, proxyConfs, visitorConfs, "")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
