@@ -129,7 +129,7 @@ master 分支用于发布稳定版本，dev 分支用于开发，您可以尝试
   vhost_http_port = 8080
   ```
 
-2. 启动 frps；
+2. 启动 frps：
 
   `./frps -c ./frps.ini`
 
