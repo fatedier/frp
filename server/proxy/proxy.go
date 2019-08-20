@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/server/controller"
@@ -52,6 +51,7 @@ type BaseProxy struct {
 	usedPortsNum   int
 	poolCount      int
 	getWorkConnFn  GetWorkConnFn
+	serverCfg      config.ServerCommonConf
 
 	mu sync.RWMutex
 	log.Logger
@@ -126,7 +126,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn frpNet.Co
 // startListenHandler start a goroutine handler for each listener.
 // p: p will just be passed to handler(Proxy, frpNet.Conn).
 // handler: each proxy type can set different handler function to deal with connections accepted from listeners.
-func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, frpNet.Conn, stats.Collector)) {
+func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, frpNet.Conn, stats.Collector, config.ServerCommonConf)) {
 	for _, listener := range pxy.listeners {
 		go func(l frpNet.Listener) {
 			for {
@@ -138,14 +138,14 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, frpNet.Con
 					return
 				}
 				pxy.Debug("get a user connection [%s]", c.RemoteAddr().String())
-				go handler(p, c, pxy.statsCollector)
+				go handler(p, c, pxy.statsCollector, pxy.serverCfg)
 			}
 		}(listener)
 	}
 }
 
 func NewProxy(runId string, rc *controller.ResourceController, statsCollector stats.Collector, poolCount int,
-	getWorkConnFn GetWorkConnFn, pxyConf config.ProxyConf) (pxy Proxy, err error) {
+	getWorkConnFn GetWorkConnFn, pxyConf config.ProxyConf, serverCfg config.ServerCommonConf) (pxy Proxy, err error) {
 
 	basePxy := BaseProxy{
 		name:           pxyConf.GetBaseInfo().ProxyName,
@@ -155,6 +155,7 @@ func NewProxy(runId string, rc *controller.ResourceController, statsCollector st
 		poolCount:      poolCount,
 		getWorkConnFn:  getWorkConnFn,
 		Logger:         log.NewPrefixLogger(runId),
+		serverCfg:      serverCfg,
 	}
 	switch cfg := pxyConf.(type) {
 	case *config.TcpProxyConf:
@@ -198,7 +199,7 @@ func NewProxy(runId string, rc *controller.ResourceController, statsCollector st
 
 // HandleUserTcpConnection is used for incoming tcp user connections.
 // It can be used for tcp, http, https type.
-func HandleUserTcpConnection(pxy Proxy, userConn frpNet.Conn, statsCollector stats.Collector) {
+func HandleUserTcpConnection(pxy Proxy, userConn frpNet.Conn, statsCollector stats.Collector, serverCfg config.ServerCommonConf) {
 	defer userConn.Close()
 
 	// try all connections from the pool
@@ -211,7 +212,7 @@ func HandleUserTcpConnection(pxy Proxy, userConn frpNet.Conn, statsCollector sta
 	var local io.ReadWriteCloser = workConn
 	cfg := pxy.GetConf().GetBaseInfo()
 	if cfg.UseEncryption {
-		local, err = frpIo.WithEncryption(local, []byte(g.GlbServerCfg.Token))
+		local, err = frpIo.WithEncryption(local, []byte(serverCfg.Token))
 		if err != nil {
 			pxy.Error("create encryption stream error: %v", err)
 			return
