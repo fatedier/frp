@@ -108,13 +108,6 @@ func NewService() (svr *Service, err error) {
 	// Init HTTP group controller
 	svr.rc.HTTPGroupCtl = group.NewHTTPGroupController(svr.httpVhostRouter)
 
-	// Init assets
-	err = assets.Load(cfg.AssetsDir)
-	if err != nil {
-		err = fmt.Errorf("Load assets error: %v", err)
-		return
-	}
-
 	// Init 404 not found page
 	vhost.NotFoundPagePath = cfg.Custom404Page
 
@@ -231,6 +224,13 @@ func NewService() (svr *Service, err error) {
 	var statsEnable bool
 	// Create dashboard web server.
 	if cfg.DashboardPort > 0 {
+		// Init dashboard assets
+		err = assets.Load(cfg.AssetsDir)
+		if err != nil {
+			err = fmt.Errorf("Load assets error: %v", err)
+			return
+		}
+
 		err = svr.RunDashboardServer(cfg.DashboardAddr, cfg.DashboardPort)
 		if err != nil {
 			err = fmt.Errorf("Create dashboard web server error, %v", err)
