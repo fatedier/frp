@@ -96,7 +96,7 @@ func (svr *Service) Run() error {
 
 	if g.GlbClientCfg.AdminPort != 0 {
 		// Init admin server assets
-		err := assets.Load("")
+		err := assets.Load(g.GlbClientCfg.AssetsDir)
 		if err != nil {
 			return fmt.Errorf("Load assets error: %v", err)
 		}

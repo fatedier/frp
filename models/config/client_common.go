@@ -38,6 +38,7 @@ type ClientCommonConf struct {
 	AdminPort         int                 `json:"admin_port"`
 	AdminUser         string              `json:"admin_user"`
 	AdminPwd          string              `json:"admin_pwd"`
+	AssetsDir         string              `json:"assets_dir"`
 	PoolCount         int                 `json:"pool_count"`
 	TcpMux            bool                `json:"tcp_mux"`
 	User              string              `json:"user"`
@@ -65,6 +66,7 @@ func GetDefaultClientConf() *ClientCommonConf {
 		AdminPort:         0,
 		AdminUser:         "",
 		AdminPwd:          "",
+		AssetsDir:         "",
 		PoolCount:         1,
 		TcpMux:            true,
 		User:              "",
@@ -158,6 +160,10 @@ func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (c
 
 	if tmpStr, ok = conf.Get("common", "admin_pwd"); ok {
 		cfg.AdminPwd = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "assets_dir"); ok {
+		cfg.AssetsDir = tmpStr
 	}
 
 	if tmpStr, ok = conf.Get("common", "pool_count"); ok {
