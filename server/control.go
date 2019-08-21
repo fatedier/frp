@@ -35,6 +35,8 @@ import (
 	"github.com/fatedier/golib/control/shutdown"
 	"github.com/fatedier/golib/crypto"
 	"github.com/fatedier/golib/errors"
+	
+	"github.com/fatedier/frp/extend/api"
 )
 
 type ControlManager struct {
@@ -416,6 +418,27 @@ func (ctl *Control) manager() {
 
 func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err error) {
 	var pxyConf config.ProxyConf
+	
+	s, err := api.NewService(g.GlbServerCfg.ApiBaseUrl)
+	
+	if err != nil {
+		return remoteAddr, err
+	}
+	
+	if g.GlbServerCfg.EnableApi {
+	
+		nowTime := time.Now().Unix()
+		ok, err := s.CheckProxy(ctl.loginMsg.User, pxyMsg, nowTime, g.GlbServerCfg.ApiToken)
+		
+		if err != nil {
+			return remoteAddr, err
+		}
+		
+		if !ok {
+			return remoteAddr, fmt.Errorf("invalid proxy configuration")
+		}
+	}
+	
 	// Load configures from NewProxy message and check.
 	pxyConf, err = config.NewProxyConfFromMsg(pxyMsg)
 	if err != nil {

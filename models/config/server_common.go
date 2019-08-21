@@ -76,6 +76,12 @@ type ServerCommonConf struct {
 	MaxPortsPerClient int64 `json:"max_ports_per_client"`
 	HeartBeatTimeout  int64 `json:"heart_beat_timeout"`
 	UserConnTimeout   int64 `json:"user_conn_timeout"`
+	
+	// API
+	EnableApi     bool   `json:"api_enable"`
+	ApiBaseUrl    string `json:"api_baseurl"`
+	ApiToken      string `json:"api_token"`
+	
 }
 
 func GetDefaultServerConf() *ServerCommonConf {
@@ -106,6 +112,9 @@ func GetDefaultServerConf() *ServerCommonConf {
 		HeartBeatTimeout:  90,
 		UserConnTimeout:   10,
 		Custom404Page:     "",
+		EnableApi:         false,
+		ApiBaseUrl:        "",
+		ApiToken:          "",
 	}
 }
 
@@ -308,6 +317,21 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (c
 			cfg.HeartBeatTimeout = v
 		}
 	}
+	
+	if tmpStr, ok = conf.Get("common", "api_enable"); ok && tmpStr == "false" {
+		cfg.EnableApi = false
+	} else {
+		cfg.EnableApi = true
+	}
+	
+	if tmpStr, ok = conf.Get("common", "api_baseurl"); ok {
+		cfg.ApiBaseUrl = tmpStr
+	}
+	
+	if tmpStr, ok = conf.Get("common", "api_token"); ok {
+		cfg.ApiToken = tmpStr
+	}
+	
 	return
 }
 
