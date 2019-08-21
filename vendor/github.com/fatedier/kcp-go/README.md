@@ -20,24 +20,21 @@
 
 **kcp-go** is a **Production-Grade Reliable-UDP** library for [golang](https://golang.org/). 
 
-It provides **fast, ordered and error-checked** delivery of streams over **UDP** packets, has been well tested with opensource project [kcptun](https://github.com/xtaci/kcptun). Millions of devices(from low-end MIPS routers to high-end servers) are running with **kcp-go** at present, including applications like **online games, live broadcasting, file synchronization and network acceleration**.
+This library intents to provide a **smooth, resilient, ordered, error-checked and anonymous** delivery of streams over **UDP** packets, it has been battle-tested with opensource project [kcptun](https://github.com/xtaci/kcptun). Millions of devices(from low-end MIPS routers to high-end servers) have deployed **kcp-go** powered program in a variety of forms like **online games, live broadcasting, file synchronization and network acceleration**.
 
 [Lastest Release](https://github.com/xtaci/kcp-go/releases)
 
 ## Features
 
-1. Optimized for **Realtime Online Games, Audio/Video Streaming and Latency-Sensitive Distributed Consensus**.
-1. Compatible with [skywind3000's](https://github.com/skywind3000) C version with language specific optimizations.
+1. Designed for **Latency-sensitive** scenarios.
 1. **Cache friendly** and **Memory optimized** design, offers extremely **High Performance** core.
 1. Handles **>5K concurrent connections** on a single commodity server.
 1. Compatible with [net.Conn](https://golang.org/pkg/net/#Conn) and [net.Listener](https://golang.org/pkg/net/#Listener), a drop-in replacement for [net.TCPConn](https://golang.org/pkg/net/#TCPConn).
 1. [FEC(Forward Error Correction)](https://en.wikipedia.org/wiki/Forward_error_correction) Support with [Reed-Solomon Codes](https://en.wikipedia.org/wiki/Reed%E2%80%93Solomon_error_correction)
-1. Packet level encryption support with [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard), [TEA](https://en.wikipedia.org/wiki/Tiny_Encryption_Algorithm), [3DES](https://en.wikipedia.org/wiki/Triple_DES), [Blowfish](https://en.wikipedia.org/wiki/Blowfish_(cipher)), [Cast5](https://en.wikipedia.org/wiki/CAST-128), [Salsa20]( https://en.wikipedia.org/wiki/Salsa20), etc. in [CFB](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_Feedback_.28CFB.29) mode.
-1. **Fixed number of goroutines** created for the entire server application, minimized goroutine context switch.
-
-## Conventions
-
-Control messages like **SYN/FIN/RST** in TCP **are not defined** in KCP, you need some **keepalive/heartbeat mechanism** in the application-level. A real world example is to use some **multiplexing** protocol over session, such as [smux](https://github.com/xtaci/smux)(with embedded keepalive mechanism), see [kcptun](https://github.com/xtaci/kcptun) for example.
+1. Packet level encryption support with [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard), [TEA](https://en.wikipedia.org/wiki/Tiny_Encryption_Algorithm), [3DES](https://en.wikipedia.org/wiki/Triple_DES), [Blowfish](https://en.wikipedia.org/wiki/Blowfish_(cipher)), [Cast5](https://en.wikipedia.org/wiki/CAST-128), [Salsa20]( https://en.wikipedia.org/wiki/Salsa20), etc. in [CFB](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_Feedback_.28CFB.29) mode, which generates completely anonymous packet.
+1. Only **A fixed number of goroutines** will be created for the entire server application, costs in **context switch** between goroutines have been taken into consideration.
+1. Compatible with [skywind3000's](https://github.com/skywind3000) C version with various improvements.
+1. Platform-dependent optimizations: [sendmmsg](http://man7.org/linux/man-pages/man2/sendmmsg.2.html) and [recvmmsg](http://man7.org/linux/man-pages/man2/recvmmsg.2.html) were expoloited for linux.
 
 ## Documentation
 
@@ -46,6 +43,24 @@ For complete documentation, see the associated [Godoc](https://godoc.org/github.
 ## Specification
 
 <img src="frame.png" alt="Frame Format" height="109px" />
+
+```
+NONCE:
+  16bytes cryptographically secure random number, nonce changes for every packet.
+  
+CRC32:
+  CRC-32 checksum of data using the IEEE polynomial
+ 
+FEC TYPE:
+  typeData = 0xF1
+  typeParity = 0xF2
+  
+FEC SEQID:
+  monotonically increasing in range: [0, (0xffffffff/shardSize) * shardSize - 1]
+  
+SIZE:
+  The size of KCP frame plus 2
+```
 
 ```
 +-----------------+
@@ -69,58 +84,69 @@ For complete documentation, see the associated [Godoc](https://godoc.org/github.
 ```
 
 
-## Usage
+## Examples
 
-Client:   [full demo](https://github.com/xtaci/kcptun/blob/master/client/main.go)
-```go
-kcpconn, err := kcp.DialWithOptions("192.168.0.1:10000", nil, 10, 3)
-```
-Server:   [full demo](https://github.com/xtaci/kcptun/blob/master/server/main.go)
-```go
-lis, err := kcp.ListenWithOptions(":10000", nil, 10, 3)
-```
+1. [simple examples](https://github.com/xtaci/kcp-go/tree/master/examples)
+2. [kcptun client](https://github.com/xtaci/kcptun/blob/master/client/main.go)
+3. [kcptun server](https://github.com/xtaci/kcptun/blob/master/server/main.go)
 
-## Performance
+## Benchmark
 ```
   Model Name:	MacBook Pro
-  Model Identifier:	MacBookPro12,1
+  Model Identifier:	MacBookPro14,1
   Processor Name:	Intel Core i5
-  Processor Speed:	2.7 GHz
+  Processor Speed:	3.1 GHz
   Number of Processors:	1
   Total Number of Cores:	2
   L2 Cache (per Core):	256 KB
-  L3 Cache:	3 MB
+  L3 Cache:	4 MB
   Memory:	8 GB
 ```
 ```
 $ go test -v -run=^$ -bench .
 beginning tests, encryption:salsa20, fec:10/3
-BenchmarkAES128-4          	  200000	      8256 ns/op	 363.33 MB/s	       0 B/op	       0 allocs/op
-BenchmarkAES192-4          	  200000	      9153 ns/op	 327.74 MB/s	       0 B/op	       0 allocs/op
-BenchmarkAES256-4          	  200000	     10079 ns/op	 297.64 MB/s	       0 B/op	       0 allocs/op
-BenchmarkTEA-4             	  100000	     18643 ns/op	 160.91 MB/s	       0 B/op	       0 allocs/op
-BenchmarkXOR-4             	 5000000	       316 ns/op	9486.46 MB/s	       0 B/op	       0 allocs/op
-BenchmarkBlowfish-4        	   50000	     35643 ns/op	  84.17 MB/s	       0 B/op	       0 allocs/op
-BenchmarkNone-4            	30000000	        56.2 ns/op	53371.83 MB/s	       0 B/op	       0 allocs/op
-BenchmarkCast5-4           	   30000	     44744 ns/op	  67.05 MB/s	       0 B/op	       0 allocs/op
-Benchmark3DES-4            	    2000	    639839 ns/op	   4.69 MB/s	       2 B/op	       0 allocs/op
-BenchmarkTwofish-4         	   30000	     43368 ns/op	  69.17 MB/s	       0 B/op	       0 allocs/op
-BenchmarkXTEA-4            	   30000	     57673 ns/op	  52.02 MB/s	       0 B/op	       0 allocs/op
-BenchmarkSalsa20-4         	  300000	      3917 ns/op	 765.80 MB/s	       0 B/op	       0 allocs/op
-BenchmarkFlush-4           	10000000	       226 ns/op	       0 B/op	       0 allocs/op
-BenchmarkEchoSpeed4K-4     	    5000	    300030 ns/op	  13.65 MB/s	    5672 B/op	     177 allocs/op
-BenchmarkEchoSpeed64K-4    	     500	   3202335 ns/op	  20.47 MB/s	   73295 B/op	    2198 allocs/op
-BenchmarkEchoSpeed512K-4   	      50	  24926924 ns/op	  21.03 MB/s	  659339 B/op	   17602 allocs/op
-BenchmarkEchoSpeed1M-4     	      20	  64857821 ns/op	  16.17 MB/s	 1772437 B/op	   42869 allocs/op
-BenchmarkSinkSpeed4K-4     	   30000	     50230 ns/op	  81.54 MB/s	    2058 B/op	      48 allocs/op
-BenchmarkSinkSpeed64K-4    	    2000	    648718 ns/op	 101.02 MB/s	   31165 B/op	     687 allocs/op
-BenchmarkSinkSpeed256K-4   	     300	   4635905 ns/op	 113.09 MB/s	  286229 B/op	    5516 allocs/op
-BenchmarkSinkSpeed1M-4     	     200	   9566933 ns/op	 109.60 MB/s	  463771 B/op	   10701 allocs/op
+goos: darwin
+goarch: amd64
+pkg: github.com/xtaci/kcp-go
+BenchmarkSM4-4                 	   50000	     32180 ns/op	  93.23 MB/s	       0 B/op	       0 allocs/op
+BenchmarkAES128-4              	  500000	      3285 ns/op	 913.21 MB/s	       0 B/op	       0 allocs/op
+BenchmarkAES192-4              	  300000	      3623 ns/op	 827.85 MB/s	       0 B/op	       0 allocs/op
+BenchmarkAES256-4              	  300000	      3874 ns/op	 774.20 MB/s	       0 B/op	       0 allocs/op
+BenchmarkTEA-4                 	  100000	     15384 ns/op	 195.00 MB/s	       0 B/op	       0 allocs/op
+BenchmarkXOR-4                 	20000000	        89.9 ns/op	33372.00 MB/s	       0 B/op	       0 allocs/op
+BenchmarkBlowfish-4            	   50000	     26927 ns/op	 111.41 MB/s	       0 B/op	       0 allocs/op
+BenchmarkNone-4                	30000000	        45.7 ns/op	65597.94 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCast5-4               	   50000	     34258 ns/op	  87.57 MB/s	       0 B/op	       0 allocs/op
+Benchmark3DES-4                	   10000	    117149 ns/op	  25.61 MB/s	       0 B/op	       0 allocs/op
+BenchmarkTwofish-4             	   50000	     33538 ns/op	  89.45 MB/s	       0 B/op	       0 allocs/op
+BenchmarkXTEA-4                	   30000	     45666 ns/op	  65.69 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSalsa20-4             	  500000	      3308 ns/op	 906.76 MB/s	       0 B/op	       0 allocs/op
+BenchmarkCRC32-4               	20000000	        65.2 ns/op	15712.43 MB/s
+BenchmarkCsprngSystem-4        	 1000000	      1150 ns/op	  13.91 MB/s
+BenchmarkCsprngMD5-4           	10000000	       145 ns/op	 110.26 MB/s
+BenchmarkCsprngSHA1-4          	10000000	       158 ns/op	 126.54 MB/s
+BenchmarkCsprngNonceMD5-4      	10000000	       153 ns/op	 104.22 MB/s
+BenchmarkCsprngNonceAES128-4   	100000000	        19.1 ns/op	 837.81 MB/s
+BenchmarkFECDecode-4           	 1000000	      1119 ns/op	1339.61 MB/s	    1606 B/op	       2 allocs/op
+BenchmarkFECEncode-4           	 2000000	       832 ns/op	1801.83 MB/s	      17 B/op	       0 allocs/op
+BenchmarkFlush-4               	 5000000	       272 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEchoSpeed4K-4         	    5000	    259617 ns/op	  15.78 MB/s	    5451 B/op	     149 allocs/op
+BenchmarkEchoSpeed64K-4        	    1000	   1706084 ns/op	  38.41 MB/s	   56002 B/op	    1604 allocs/op
+BenchmarkEchoSpeed512K-4       	     100	  14345505 ns/op	  36.55 MB/s	  482597 B/op	   13045 allocs/op
+BenchmarkEchoSpeed1M-4         	      30	  34859104 ns/op	  30.08 MB/s	 1143773 B/op	   27186 allocs/op
+BenchmarkSinkSpeed4K-4         	   50000	     31369 ns/op	 130.57 MB/s	    1566 B/op	      30 allocs/op
+BenchmarkSinkSpeed64K-4        	    5000	    329065 ns/op	 199.16 MB/s	   21529 B/op	     453 allocs/op
+BenchmarkSinkSpeed256K-4       	     500	   2373354 ns/op	 220.91 MB/s	  166332 B/op	    3554 allocs/op
+BenchmarkSinkSpeed1M-4         	     300	   5117927 ns/op	 204.88 MB/s	  310378 B/op	    6988 allocs/op
 PASS
-ok  	_/Users/xtaci/.godeps/src/github.com/xtaci/kcp-go	39.689s
+ok  	github.com/xtaci/kcp-go	50.349s
 ```
 
-## Design Considerations
+
+## Typical Flame Graph
+![Flame Graph in kcptun](flame.png)
+
+## Key Design Considerations
 
 1. slice vs. container/list
 
@@ -139,7 +165,9 @@ List structure introduces **heavy cache misses** compared to slice which owns be
 
 2. Timing accuracy vs. syscall clock_gettime
 
-Timing is **critical** to **RTT estimator**, inaccurate timing introduces false retransmissions in KCP, but calling `time.Now()` costs 42 cycles(10.5ns on 4GHz CPU, 15.6ns on my MacBook Pro 2.7GHz), the benchmark for time.Now():
+Timing is **critical** to **RTT estimator**, inaccurate timing leads to false retransmissions in KCP, but calling `time.Now()` costs 42 cycles(10.5ns on 4GHz CPU, 15.6ns on my MacBook Pro 2.7GHz). 
+
+The benchmark for time.Now() lies here:
 
 https://github.com/xtaci/notes/blob/master/golang/benchmark2/syscall_test.go
 
@@ -147,14 +175,37 @@ https://github.com/xtaci/notes/blob/master/golang/benchmark2/syscall_test.go
 BenchmarkNow-4         	100000000	        15.6 ns/op
 ```
 
-In kcp-go, after each `kcp.output()` function call, current time will be updated upon return, and each `kcp.flush()` will get current time once. For most of the time, 5000 connections costs 5000 * 15.6ns = 78us(no packet needs to be sent by `kcp.output()`), as for 10MB/s data transfering with 1400 MTU, `kcp.output()` will be called around 7500 times and costs 117us for `time.Now()` in **every second**.
+In kcp-go, after each `kcp.output()` function call, current clock time will be updated upon return, and for a single `kcp.flush()` operation, current time will be queried from system once. For most of the time, 5000 connections costs 5000 * 15.6ns = 78us(a fixed cost while no packet needs to be sent), as for 10MB/s data transfering with 1400 MTU, `kcp.output()` will be called around 7500 times and costs 117us for `time.Now()` in **every second**.
 
+3. Memory management
 
-## Tuning
+Primary memory allocation are done from a global buffer pool xmit.Buf, in kcp-go, when we need to allocate some bytes, we can get from that pool, and a fixed-capacity 1500 bytes(mtuLimit) will be returned, the rx queue, tx queue and fec queue all receive bytes from there, and they will return the bytes to the pool after using to prevent unnecessary zer0ing of bytes. The pool mechanism maintained a high watermark for slice objects, these in-flight objects from the pool will survive from the perodical garbage collection, meanwhile the pool kept the ability to return the memory to runtime if in idle.
 
-Q: I'm handling >5K connections on my server. the CPU utilization is high.
+4. Information security
 
-A: A standalone `agent` or `gate` server for kcp-go is suggested, not only for CPU utilization, but also important to the **precision** of RTT measurements which indirectly affects retransmission. By increasing update `interval` with `SetNoDelay` like `conn.SetNoDelay(1, 40, 1, 1)` will dramatically reduce system load.
+kcp-go is shipped with builtin packet encryption powered by various block encryption algorithms and works in [Cipher Feedback Mode](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_Feedback_(CFB)), for each packet to be sent, the encryption process will start from encrypting a [nonce](https://en.wikipedia.org/wiki/Cryptographic_nonce) from the [system entropy](https://en.wikipedia.org/wiki//dev/random), so encryption to same plaintexts never leads to a same ciphertexts thereafter.
+
+The contents of the packets are completely anonymous with encryption, including the headers(FEC,KCP), checksums and contents. Note that, no matter which encryption method you choose on you upper layer, if you disable encryption, the transmit will be insecure somehow, since the header is ***PLAINTEXT*** to everyone it would be susceptible to header tampering, such as jamming the *sliding window size*, *round-trip time*, *FEC property* and *checksums*. ```AES-128``` is suggested for minimal encryption since modern CPUs are shipped with [AES-NI](https://en.wikipedia.org/wiki/AES_instruction_set) instructions and performs even better than `salsa20`(check the table above).
+
+Other possible attacks to kcp-go includes: a) [traffic analysis](https://en.wikipedia.org/wiki/Traffic_analysis), dataflow on specific websites may have pattern while interchanging data, but this type of eavesdropping has been mitigated by adapting [smux](https://github.com/xtaci/smux) to mix data streams so as to introduce noises, perfect solution to this has not appeared yet, theroretically by shuffling/mixing messages on larger scale network may mitigate this problem.  b) [replay attack](https://en.wikipedia.org/wiki/Replay_attack), since the asymmetrical encryption has not been introduced into kcp-go for some reason, capturing the packets and replay them on a different machine is possible, (notice: hijacking the session and decrypting the contents is still *impossible*), so upper layers should contain a asymmetrical encryption system to guarantee the authenticity of each message(to process message exactly once), such as HTTPS/OpenSSL/LibreSSL, only by signing the requests with private keys can eliminate this type of attack. 
+
+## Connection Termination
+
+Control messages like **SYN/FIN/RST** in TCP **are not defined** in KCP, you need some **keepalive/heartbeat mechanism** in the application-level. A real world example is to use some **multiplexing** protocol over session, such as [smux](https://github.com/xtaci/smux)(with embedded keepalive mechanism), see [kcptun](https://github.com/xtaci/kcptun) for example.
+
+## FAQ
+
+Q: I'm handling >5K connections on my server, the CPU utilization is so high.
+
+A: A standalone `agent` or `gate` server for running kcp-go is suggested, not only for CPU utilization, but also important to the **precision** of RTT measurements(timing) which indirectly affects retransmission. By increasing update `interval` with `SetNoDelay` like `conn.SetNoDelay(1, 40, 1, 1)` will dramatically reduce system load, but lower the performance.
+
+Q: When should I enable FEC?
+
+A: Forward error correction is critical to long-distance transmission, because a packet loss will lead to a huge penalty in time. And for the complicated packet routing network in modern world, round-trip time based loss check will not always be efficient, the big deviation of RTT samples in the long way usually leads to a larger RTO value in typical rtt estimator, which in other words, slows down the transmission.
+  
+Q: Should I enable encryption?
+
+A: Yes, for the safety of protocol, even if the upper layer has encrypted.
 
 ## Who is using this?
 
@@ -163,10 +214,9 @@ A: A standalone `agent` or `gate` server for kcp-go is suggested, not only for C
 3. https://github.com/smallnest/rpcx -- A RPC service framework based on net/rpc like alibaba Dubbo and weibo Motan.
 4. https://github.com/gonet2/agent -- A gateway for games with stream multiplexing.
 5. https://github.com/syncthing/syncthing -- Open Source Continuous File Synchronization.
-6. https://play.google.com/store/apps/details?id=com.k17game.k3 -- Battle Zone - Earth 2048, a world-wide strategy game.
 
 ## Links
 
 1. https://github.com/xtaci/libkcp -- FEC enhanced KCP session library for iOS/Android in C++
 2. https://github.com/skywind3000/kcp -- A Fast and Reliable ARQ Protocol
-3. https://github.com/templexxx/reedsolomon -- Reed-Solomon Erasure Coding in Go
+3. https://github.com/klauspost/reedsolomon -- Reed-Solomon Erasure Coding in Go

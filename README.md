@@ -22,14 +22,17 @@ Now it also try to support p2p connect.
     * [Forward DNS query request](#forward-dns-query-request)
     * [Forward unix domain socket](#forward-unix-domain-socket)
     * [Expose a simple http file server](#expose-a-simple-http-file-server)
+    * [Enable HTTPS for local HTTP service](#enable-https-for-local-http-service)
     * [Expose your service in security](#expose-your-service-in-security)
     * [P2P Mode](#p2p-mode)
 * [Features](#features)
     * [Configuration File](#configuration-file)
     * [Configuration file template](#configuration-file-template)
     * [Dashboard](#dashboard)
+    * [Admin UI](#admin-ui)
     * [Authentication](#authentication)
     * [Encryption and Compression](#encryption-and-compression)
+        * [TLS](#tls)
     * [Hot-Reload frpc configuration](#hot-reload-frpc-configuration)
     * [Get proxy status from client](#get-proxy-status-from-client)
     * [Port White List](#port-white-list)
@@ -42,6 +45,8 @@ Now it also try to support p2p connect.
     * [Rewriting the Host Header](#rewriting-the-host-header)
     * [Set Headers In HTTP Request](#set-headers-in-http-request)
     * [Get Real IP](#get-real-ip)
+        * [HTTP X-Forwarded-For](#http-x-forwarded-for)
+        * [Proxy Protocol](#proxy-protocol)
     * [Password protecting your web service](#password-protecting-your-web-service)
     * [Custom subdomain names](#custom-subdomain-names)
     * [URL routing](#url-routing)
@@ -241,11 +246,34 @@ Configure frps same as above.
 
 2. Visit `http://x.x.x.x:6000/static/` by your browser, set correct user and password, so you can see files in `/tmp/file`.
 
+### Enable HTTPS for local HTTP service
+
+1. Start frpc with configurations:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [test_htts2http]
+  type = https
+  custom_domains = test.yourdomain.com
+
+  plugin = https2http
+  plugin_local_addr = 127.0.0.1:80
+  plugin_crt_path = ./server.crt
+  plugin_key_path = ./server.key
+  plugin_host_header_rewrite = 127.0.0.1
+  ```
+
+2. Visit `https://test.yourdomain.com`.
+
 ### Expose your service in security
 
 For some services, if expose them to the public network directly will be a security risk.
 
-**stcp(secret tcp)** help you create a proxy avoiding any one can access it.
+**stcp(secret tcp)** helps you create a proxy avoiding any one can access it.
 
 Configure frps same as above.
 
@@ -389,6 +417,22 @@ Then visit `http://[server_addr]:7500` to see dashboard, default username and pa
 
 ![dashboard](/doc/pic/dashboard.png)
 
+### Admin UI
+
+Admin UI help you check and manage frpc's configure.
+
+Configure a address for admin UI to enable this feature:
+
+```ini
+[common]
+admin_addr = 127.0.0.1
+admin_port = 7400
+admin_user = admin
+admin_pwd = admin
+```
+
+Then visit `http://127.0.0.1:7400` to see admin UI, default username and password are both `admin`.
+
 ### Authentication
 
 `token` in frps.ini and frpc.ini should be same.
@@ -406,6 +450,14 @@ remote_port = 6000
 use_encryption = true
 use_compression = true
 ```
+
+#### TLS
+
+frp support TLS protocol between frpc and frps since v0.25.0.
+
+Config `tls_enable = true` in `common` section to frpc.ini to enable this feature.
+
+For port multiplexing, frp send a first byte 0x17 to dial a TLS connection.
 
 ### Hot-Reload frpc configuration
 
@@ -458,8 +510,6 @@ tcp_mux = false
 
 ### Support KCP Protocol
 
-frp support kcp protocol since v0.12.0.
-
 KCP is a fast and reliable protocol that can achieve the transmission effect of a reduction of the average latency by 30% to 40% and reduction of the maximum delay by a factor of three, at the cost of 10% to 20% more bandwidth wasted than TCP.
 
 Using kcp in frp:
@@ -510,7 +560,8 @@ This feature is fit for a large number of short connections.
 ### Load balancing
 
 Load balancing is supported by `group`.
-This feature is available only for type `tcp` now.
+
+This feature is available only for type `tcp` and `http` now.
 
 ```ini
 # frpc.ini
@@ -532,6 +583,10 @@ group_key = 123
 `group_key` is used for authentication.
 
 Proxies in same group will accept connections from port 80 randomly.
+
+For `tcp` type, `remote_port` in one group shoud be same.
+
+For `http` type, `custom_domains, subdomain, locations` shoud be same.
 
 ### Health Check
 
@@ -592,7 +647,7 @@ custom_domains = test.yourdomain.com
 host_header_rewrite = dev.yourdomain.com
 ```
 
-If `host_header_rewrite` is specified, the host header will be rewritten to match the hostname portion of the forwarding address.
+The `Host` request header will be rewritten to `Host: dev.yourdomain.com` before it reach your local http server.
 
 ### Set Headers In HTTP Request
 
@@ -613,9 +668,32 @@ In this example, it will set header `X-From-Where: frp` to http request.
 
 ### Get Real IP
 
+#### HTTP X-Forwarded-For
+
 Features for http proxy only.
 
-You can get user's real IP from http request header `X-Forwarded-For` and `X-Real-IP`.
+You can get user's real IP from HTTP request header `X-Forwarded-For` and `X-Real-IP`.
+
+#### Proxy Protocol
+
+frp support Proxy Protocol to send user's real IP to local service. It support all types without UDP.
+
+Here is an example for https service:
+
+```ini
+# frpc.ini
+[web]
+type = https
+local_port = 443
+custom_domains = test.yourdomain.com
+
+# now v1 and v2 is supported
+proxy_protocol_version = v2
+```
+
+You can enable Proxy Protocol support in nginx to parse user's real IP to http header `X-Real-IP`.
+
+Then you can get it from HTTP request header in your local service.
 
 ### Password protecting your web service
 
@@ -736,8 +814,6 @@ plugin_http_passwd = abc
 ## Development Plan
 
 * Log http request information in frps.
-* Direct reverse proxy, like haproxy.
-* kubernetes ingress support.
 
 ## Contributing
 

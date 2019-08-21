@@ -16,8 +16,14 @@ package server
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net"
 	"net/http"
 	"time"
@@ -61,17 +67,25 @@ type Service struct {
 	// Accept connections using websocket
 	websocketListener frpNet.Listener
 
+	// Accept frp tls connections
+	tlsListener frpNet.Listener
+
 	// Manage all controllers
 	ctlManager *ControlManager
 
 	// Manage all proxies
 	pxyManager *proxy.ProxyManager
 
+	// HTTP vhost router
+	httpVhostRouter *vhost.VhostRouters
+
 	// All resource managers and controllers
 	rc *controller.ResourceController
 
 	// stats collector to store server and proxies stats info
 	statsCollector stats.Collector
+
+	tlsConfig *tls.Config
 }
 
 func NewService() (svr *Service, err error) {
@@ -84,10 +98,15 @@ func NewService() (svr *Service, err error) {
 			TcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
 			UdpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 		},
+		httpVhostRouter: vhost.NewVhostRouters(),
+		tlsConfig:       generateTLSConfig(),
 	}
 
 	// Init group controller
 	svr.rc.TcpGroupCtl = group.NewTcpGroupCtl(svr.rc.TcpPortManager)
+
+	// Init HTTP group controller
+	svr.rc.HTTPGroupCtl = group.NewHTTPGroupController(svr.httpVhostRouter)
 
 	// Init assets
 	err = assets.Load(cfg.AssetsDir)
@@ -95,6 +114,9 @@ func NewService() (svr *Service, err error) {
 		err = fmt.Errorf("Load assets error: %v", err)
 		return
 	}
+
+	// Init 404 not found page
+	vhost.NotFoundPagePath = cfg.Custom404Page
 
 	var (
 		httpMuxOn  bool
@@ -144,7 +166,7 @@ func NewService() (svr *Service, err error) {
 	if cfg.VhostHttpPort > 0 {
 		rp := vhost.NewHttpReverseProxy(vhost.HttpReverseProxyOptions{
 			ResponseHeaderTimeoutS: cfg.VhostHttpTimeout,
-		})
+		}, svr.httpVhostRouter)
 		svr.rc.HttpReverseProxy = rp
 
 		address := fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHttpPort)
@@ -187,6 +209,12 @@ func NewService() (svr *Service, err error) {
 		log.Info("https service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHttpsPort)
 	}
 
+	// frp tls listener
+	tlsListener := svr.muxer.Listen(1, 1, func(data []byte) bool {
+		return int(data[0]) == frpNet.FRP_TLS_HEAD_BYTE
+	})
+	svr.tlsListener = frpNet.WrapLogListener(tlsListener)
+
 	// Create nat hole controller.
 	if cfg.BindUdpPort > 0 {
 		var nc *nathole.NatHoleController
@@ -225,6 +253,7 @@ func (svr *Service) Run() {
 	}
 
 	go svr.HandleListener(svr.websocketListener)
+	go svr.HandleListener(svr.tlsListener)
 
 	svr.HandleListener(svr.listener)
 }
@@ -237,6 +266,16 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 			log.Warn("Listener for incoming connections from client closed")
 			return
 		}
+
+		log.Trace("start check TLS connection...")
+		originConn := c
+		c, err = frpNet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, connReadTimeout)
+		if err != nil {
+			log.Warn("CheckAndEnableTLSServerConnWithTimeout error: %v", err)
+			originConn.Close()
+			continue
+		}
+		log.Trace("success check TLS connection")
 
 		// Start a new goroutine for dealing connections.
 		go func(frpConn frpNet.Conn) {
@@ -372,4 +411,25 @@ func (svr *Service) RegisterWorkConn(workConn frpNet.Conn, newMsg *msg.NewWorkCo
 func (svr *Service) RegisterVisitorConn(visitorConn frpNet.Conn, newMsg *msg.NewVisitorConn) error {
 	return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
 		newMsg.UseEncryption, newMsg.UseCompression)
+}
+
+// Setup a bare-bones TLS config for the server
+func generateTLSConfig() *tls.Config {
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		panic(err)
+	}
+	template := x509.Certificate{SerialNumber: big.NewInt(1)}
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	if err != nil {
+		panic(err)
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+
+	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		panic(err)
+	}
+	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}
 }

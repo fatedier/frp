@@ -279,6 +279,7 @@ func (svr *Service) getProxyStatsByTypeAndName(proxyType string, proxyName strin
 		proxyInfo.CurConns = ps.CurConns
 		proxyInfo.LastStartTime = ps.LastStartTime
 		proxyInfo.LastCloseTime = ps.LastCloseTime
+		code = 200
 	}
 
 	return

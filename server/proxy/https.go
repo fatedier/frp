@@ -31,8 +31,17 @@ type HttpsProxy struct {
 func (pxy *HttpsProxy) Run() (remoteAddr string, err error) {
 	routeConfig := &vhost.VhostRouteConfig{}
 
+	defer func() {
+		if err != nil {
+			pxy.Close()
+		}
+	}()
 	addrs := make([]string, 0)
 	for _, domain := range pxy.cfg.CustomDomains {
+		if domain == "" {
+			continue
+		}
+
 		routeConfig.Domain = domain
 		l, errRet := pxy.rc.VhostHttpsMuxer.Listen(routeConfig)
 		if errRet != nil {

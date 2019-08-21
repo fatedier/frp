@@ -15,6 +15,7 @@
 package net
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -206,4 +207,18 @@ func ConnectServerByProxy(proxyUrl string, protocol string, addr string) (c Conn
 	default:
 		return nil, fmt.Errorf("unsupport protocol: %s", protocol)
 	}
+}
+
+func ConnectServerByProxyWithTLS(proxyUrl string, protocol string, addr string, tlsConfig *tls.Config) (c Conn, err error) {
+	c, err = ConnectServerByProxy(proxyUrl, protocol, addr)
+	if err != nil {
+		return
+	}
+
+	if tlsConfig == nil {
+		return
+	}
+
+	c = WrapTLSClientConn(c, tlsConfig)
+	return
 }

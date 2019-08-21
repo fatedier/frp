@@ -46,7 +46,7 @@ func Create(name string, params map[string]string) (p Plugin, err error) {
 
 type Plugin interface {
 	Name() string
-	Handle(conn io.ReadWriteCloser, realConn frpNet.Conn)
+	Handle(conn io.ReadWriteCloser, realConn frpNet.Conn, extraBufToLocal []byte)
 	Close() error
 }
 
