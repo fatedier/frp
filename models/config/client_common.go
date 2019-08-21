@@ -51,8 +51,8 @@ type ClientCommonConf struct {
 	HeartBeatTimeout  int64               `json:"heartbeat_timeout"`
 }
 
-func GetDefaultClientConf() *ClientCommonConf {
-	return &ClientCommonConf{
+func GetDefaultClientConf() ClientCommonConf {
+	return ClientCommonConf{
 		ServerAddr:        "0.0.0.0",
 		ServerPort:        7000,
 		HttpProxy:         os.Getenv("http_proxy"),
@@ -80,16 +80,13 @@ func GetDefaultClientConf() *ClientCommonConf {
 	}
 }
 
-func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (cfg *ClientCommonConf, err error) {
-	cfg = defaultCfg
-	if cfg == nil {
-		cfg = GetDefaultClientConf()
-	}
+func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error) {
+	cfg = GetDefaultClientConf()
 
 	conf, err := ini.Load(strings.NewReader(content))
 	if err != nil {
 		err = fmt.Errorf("parse ini conf file error: %v", err)
-		return nil, err
+		return ClientCommonConf{}, err
 	}
 
 	var (
