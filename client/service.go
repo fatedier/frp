@@ -34,6 +34,7 @@ import (
 	fmux "github.com/hashicorp/yamux"
 )
 
+// Service is a client service.
 type Service struct {
 	// uniq id got from frps, attach it in loginMsg
 	runId string
@@ -58,6 +59,7 @@ type Service struct {
 	closedCh chan int
 }
 
+// NewService creates a new client service with the given configuration.
 func NewService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf, cfgFile string) (svr *Service, err error) {
 	svr = &Service{
 		cfg:         cfg,
