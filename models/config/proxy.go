@@ -97,17 +97,33 @@ func NewProxyConfFromIni(prefix string, name string, section ini.Section) (cfg P
 	return
 }
 
-// BaseProxy info
+// BaseProxyConf provides configuration info that is common to all proxy types.
 type BaseProxyConf struct {
+	// ProxyName is the name of this proxy.
 	ProxyName string `json:"proxy_name"`
+	// ProxyType specifies the type of this proxy. Valid values include "tcp",
+	// "udp", "http", "https", "stcp", and "xtcp". By default, this value is
+	// "tcp".
 	ProxyType string `json:"proxy_type"`
 
-	UseEncryption  bool   `json:"use_encryption"`
-	UseCompression bool   `json:"use_compression"`
-	Group          string `json:"group"`
-	GroupKey       string `json:"group_key"`
+	// UseEncryption controls whether or not communication with the server will
+	// be encrypted. Encryption is done using the tokens supplied in the server
+	// and client configuration. By default, this value is false.
+	UseEncryption bool `json:"use_encryption"`
+	// UseCompression controls whether or not communication with the server
+	// will be compressed. By default, this value is false.
+	UseCompression bool `json:"use_compression"`
+	// Group specifies which group the proxy is a part of. The server will use
+	// this information to load balance proxies in the same group. If the value
+	// is "", this proxy will not be in a group. By default, this value is "".
+	Group string `json:"group"`
+	// GroupKey specifies a group key, which should be the same among proxies
+	// of the same group. By default, this value is "".
+	GroupKey string `json:"group_key"`
 
-	// only used for client
+	// ProxyProtocolVersion specifies which protocol version to use. Valid
+	// values include "v1", "v2", and "". If the value is "", a protocol
+	// version will be automatically selected. By default, this value is "".
 	ProxyProtocolVersion string `json:"proxy_protocol_version"`
 	LocalSvrConf
 	HealthCheckConf
@@ -332,12 +348,20 @@ func (cfg *DomainConf) checkForSvr(serverCfg ServerCommonConf) (err error) {
 	return
 }
 
-// Local service info
+// LocalSvrConf configures what location the client will proxy to, or what
+// plugin will be used.
 type LocalSvrConf struct {
-	LocalIp   string `json:"local_ip"`
-	LocalPort int    `json:"local_port"`
+	// LocalIp specifies the IP address or host name to proxy to.
+	LocalIp string `json:"local_ip"`
+	// LocalPort specifies the port to proxy to.
+	LocalPort int `json:"local_port"`
 
-	Plugin       string            `json:"plugin"`
+	// Plugin specifies what plugin should be used for proxying. If this value
+	// is set, the LocalIp and LocalPort values will be ignored. By default,
+	// this value is "".
+	Plugin string `json:"plugin"`
+	// PluginParams specify parameters to be passed to the plugin, if one is
+	// being used. By default, this value is an empty map.
 	PluginParams map[string]string `json:"plugin_params"`
 }
 
@@ -399,15 +423,35 @@ func (cfg *LocalSvrConf) checkForCli() (err error) {
 	return
 }
 
-// Health check info
+// HealthCheckConf configures health checking. This can be useful for load
+// balancing purposes to detect and remove proxies to failing services.
 type HealthCheckConf struct {
-	HealthCheckType      string `json:"health_check_type"` // tcp | http
-	HealthCheckTimeoutS  int    `json:"health_check_timeout_s"`
-	HealthCheckMaxFailed int    `json:"health_check_max_failed"`
-	HealthCheckIntervalS int    `json:"health_check_interval_s"`
-	HealthCheckUrl       string `json:"health_check_url"`
-
-	// local_ip + local_port
+	// HealthCheckType specifies what protocol to use for health checking.
+	// Valid values include "tcp", "http", and "". If this value is "", health
+	// checking will not be performed. By default, this value is "".
+	//
+	// If the type is "tcp", a connection will be attempted to the target
+	// server. If a connection cannot be established, the health check fails.
+	//
+	// If the type is "http", a GET request will be made to the endpoint
+	// specified by HealthCheckUrl. If the response is not a 200, the health
+	// check fails.
+	HealthCheckType string `json:"health_check_type"` // tcp | http
+	// HealthCheckTimeoutS specifies the number of seconds to wait for a health
+	// check attempt to connect. If the timeout is reached, this counts as a
+	// health check failure. By default, this value is 3.
+	HealthCheckTimeoutS int `json:"health_check_timeout_s"`
+	// HealthCheckMaxFailed specifies the number of allowed failures before the
+	// proxy is stopped. By default, this value is 1.
+	HealthCheckMaxFailed int `json:"health_check_max_failed"`
+	// HealthCheckIntervalS specifies the time in seconds between health
+	// checks. By default, this value is 10.
+	HealthCheckIntervalS int `json:"health_check_interval_s"`
+	// HealthCheckUrl specifies the address to send health checks to if the
+	// health check type is "http".
+	HealthCheckUrl string `json:"health_check_url"`
+	// HealthCheckAddr specifies the address to connect to if the health check
+	// type is "tcp".
 	HealthCheckAddr string `json:"-"`
 }
 
