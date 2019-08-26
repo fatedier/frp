@@ -521,7 +521,7 @@ func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.
 				DestinationPort:    m.DstPort,
 			}
 
-			if h.SourceAddress.To16() == nil {
+			if strings.Contains(m.SrcAddr, ".") {
 				h.TransportProtocol = pp.TCPv4
 			} else {
 				h.TransportProtocol = pp.TCPv6
