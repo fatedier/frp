@@ -66,7 +66,7 @@ Now it also try to support p2p connect.
 
 frp is under development and you can try it with latest release version. Master branch for releasing stable version when dev branch for developing.
 
-**We may change any protocol and can't promise backward compatible. Please check the release log when upgrading.**
+**We may change any protocol and can't promise backward compatibility. Please check the release log when upgrading.**
 
 ## Architecture
 
