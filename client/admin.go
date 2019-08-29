@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/assets"
-	"github.com/fatedier/frp/g"
 	frpNet "github.com/fatedier/frp/utils/net"
 
 	"github.com/gorilla/mux"
@@ -36,7 +35,7 @@ func (svr *Service) RunAdminServer(addr string, port int) (err error) {
 	// url router
 	router := mux.NewRouter()
 
-	user, passwd := g.GlbClientCfg.AdminUser, g.GlbClientCfg.AdminPwd
+	user, passwd := svr.cfg.AdminUser, svr.cfg.AdminPwd
 	router.Use(frpNet.NewHttpAuthMiddleware(user, passwd).Middleware)
 
 	// api, see dashboard_api.go

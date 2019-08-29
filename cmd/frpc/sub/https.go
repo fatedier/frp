@@ -33,6 +33,7 @@ func init() {
 	httpsCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	httpsCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
 	httpsCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
+	httpsCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
 
 	httpsCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
 	httpsCmd.PersistentFlags().StringVarP(&localIp, "local_ip", "i", "127.0.0.1", "local ip")
@@ -49,7 +50,7 @@ var httpsCmd = &cobra.Command{
 	Use:   "https",
 	Short: "Run frpc with a single https proxy",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := parseClientCommonCfg(CfgFileTypeCmd, "")
+		clientCfg, err := parseClientCommonCfg(CfgFileTypeCmd, "")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -78,7 +79,7 @@ var httpsCmd = &cobra.Command{
 		proxyConfs := map[string]config.ProxyConf{
 			cfg.ProxyName: cfg,
 		}
-		err = startService(proxyConfs, nil)
+		err = startService(clientCfg, proxyConfs, nil, "")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

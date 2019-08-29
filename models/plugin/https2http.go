@@ -20,6 +20,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 
 	frpNet "github.com/fatedier/frp/utils/net"
 )
@@ -35,6 +36,7 @@ type HTTPS2HTTPPlugin struct {
 	keyPath           string
 	hostHeaderRewrite string
 	localAddr         string
+	headers           map[string]string
 
 	l *Listener
 	s *http.Server
@@ -45,6 +47,15 @@ func NewHTTPS2HTTPPlugin(params map[string]string) (Plugin, error) {
 	keyPath := params["plugin_key_path"]
 	localAddr := params["plugin_local_addr"]
 	hostHeaderRewrite := params["plugin_host_header_rewrite"]
+	headers := make(map[string]string)
+	for k, v := range params {
+		if !strings.HasPrefix(k, "plugin_header_") {
+			continue
+		}
+		if k = strings.TrimPrefix(k, "plugin_header_"); k != "" {
+			headers[k] = v
+		}
+	}
 
 	if crtPath == "" {
 		return nil, fmt.Errorf("plugin_crt_path is required")
@@ -63,6 +74,7 @@ func NewHTTPS2HTTPPlugin(params map[string]string) (Plugin, error) {
 		keyPath:           keyPath,
 		localAddr:         localAddr,
 		hostHeaderRewrite: hostHeaderRewrite,
+		headers:           headers,
 		l:                 listener,
 	}
 
@@ -72,6 +84,9 @@ func NewHTTPS2HTTPPlugin(params map[string]string) (Plugin, error) {
 			req.URL.Host = p.localAddr
 			if p.hostHeaderRewrite != "" {
 				req.Host = p.hostHeaderRewrite
+			}
+			for k, v := range p.headers {
+				req.Header.Set(k, v)
 			}
 		},
 	}

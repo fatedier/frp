@@ -23,34 +23,103 @@ import (
 	ini "github.com/vaughan0/go-ini"
 )
 
-// client common config
+// ClientCommonConf contains information for a client service. It is
+// recommended to use GetDefaultClientConf instead of creating this object
+// directly, so that all unspecified fields have reasonable default values.
 type ClientCommonConf struct {
-	ServerAddr        string              `json:"server_addr"`
-	ServerPort        int                 `json:"server_port"`
-	HttpProxy         string              `json:"http_proxy"`
-	LogFile           string              `json:"log_file"`
-	LogWay            string              `json:"log_way"`
-	LogLevel          string              `json:"log_level"`
-	LogMaxDays        int64               `json:"log_max_days"`
-	Token             string              `json:"token"`
-	AdminAddr         string              `json:"admin_addr"`
-	AdminPort         int                 `json:"admin_port"`
-	AdminUser         string              `json:"admin_user"`
-	AdminPwd          string              `json:"admin_pwd"`
-	PoolCount         int                 `json:"pool_count"`
-	TcpMux            bool                `json:"tcp_mux"`
-	User              string              `json:"user"`
-	DnsServer         string              `json:"dns_server"`
-	LoginFailExit     bool                `json:"login_fail_exit"`
-	Start             map[string]struct{} `json:"start"`
-	Protocol          string              `json:"protocol"`
-	TLSEnable         bool                `json:"tls_enable"`
-	HeartBeatInterval int64               `json:"heartbeat_interval"`
-	HeartBeatTimeout  int64               `json:"heartbeat_timeout"`
+	// ServerAddr specifies the address of the server to connect to. By
+	// default, this value is "0.0.0.0".
+	ServerAddr string `json:"server_addr"`
+	// ServerPort specifies the port to connect to the server on. By default,
+	// this value is 7000.
+	ServerPort int `json:"server_port"`
+	// HttpProxy specifies a proxy address to connect to the server through. If
+	// this value is "", the server will be connected to directly. By default,
+	// this value is read from the "http_proxy" environment variable.
+	HttpProxy string `json:"http_proxy"`
+	// LogFile specifies a file where logs will be written to. This value will
+	// only be used if LogWay is set appropriately. By default, this value is
+	// "console".
+	LogFile string `json:"log_file"`
+	// LogWay specifies the way logging is managed. Valid values are "console"
+	// or "file". If "console" is used, logs will be printed to stdout. If
+	// "file" is used, logs will be printed to LogFile. By default, this value
+	// is "console".
+	LogWay string `json:"log_way"`
+	// LogLevel specifies the minimum log level. Valid values are "trace",
+	// "debug", "info", "warn", and "error". By default, this value is "info".
+	LogLevel string `json:"log_level"`
+	// LogMaxDays specifies the maximum number of days to store log information
+	// before deletion. This is only used if LogWay == "file". By default, this
+	// value is 0.
+	LogMaxDays int64 `json:"log_max_days"`
+	// DisableLogColor disables log colors when LogWay == "console" when set to
+	// true. By default, this value is false.
+	DisableLogColor bool `json:"disable_log_color"`
+	// Token specifies the authorization token used to create keys to be sent
+	// to the server. The server must have a matching token for authorization
+	// to succeed.  By default, this value is "".
+	Token string `json:"token"`
+	// AdminAddr specifies the address that the admin server binds to. By
+	// default, this value is "127.0.0.1".
+	AdminAddr string `json:"admin_addr"`
+	// AdminPort specifies the port for the admin server to listen on. If this
+	// value is 0, the admin server will not be started. By default, this value
+	// is 0.
+	AdminPort int `json:"admin_port"`
+	// AdminUser specifies the username that the admin server will use for
+	// login. By default, this value is "admin".
+	AdminUser string `json:"admin_user"`
+	// AdminPwd specifies the password that the admin server will use for
+	// login. By default, this value is "admin".
+	AdminPwd string `json:"admin_pwd"`
+	// AssetsDir specifies the local directory that the admin server will load
+	// resources from. If this value is "", assets will be loaded from the
+	// bundled executable using statik. By default, this value is "".
+	AssetsDir string `json:"assets_dir"`
+	// PoolCount specifies the number of connections the client will make to
+	// the server in advance. By default, this value is 0.
+	PoolCount int `json:"pool_count"`
+	// TcpMux toggles TCP stream multiplexing. This allows multiple requests
+	// from a client to share a single TCP connection. If this value is true,
+	// the server must have TCP multiplexing enabled as well. By default, this
+	// value is true.
+	TcpMux bool `json:"tcp_mux"`
+	// User specifies a prefix for proxy names to distinguish them from other
+	// clients. If this value is not "", proxy names will automatically be
+	// changed to "{user}.{proxy_name}". By default, this value is "".
+	User string `json:"user"`
+	// DnsServer specifies a DNS server address for FRPC to use. If this value
+	// is "", the default DNS will be used. By default, this value is "".
+	DnsServer string `json:"dns_server"`
+	// LoginFailExit controls whether or not the client should exit after a
+	// failed login attempt. If false, the client will retry until a login
+	// attempt succeeds. By default, this value is true.
+	LoginFailExit bool `json:"login_fail_exit"`
+	// Start specifies a set of enabled proxies by name. If this set is empty,
+	// all supplied proxies are enabled. By default, this value is an empty
+	// set.
+	Start map[string]struct{} `json:"start"`
+	// Protocol specifies the protocol to use when interacting with the server.
+	// Valid values are "tcp", "kcp", and "websocket". By default, this value
+	// is "tcp".
+	Protocol string `json:"protocol"`
+	// TLSEnable specifies whether or not TLS should be used when communicating
+	// with the server.
+	TLSEnable bool `json:"tls_enable"`
+	// HeartBeatInterval specifies at what interval heartbeats are sent to the
+	// server, in seconds. It is not recommended to change this value. By
+	// default, this value is 30.
+	HeartBeatInterval int64 `json:"heartbeat_interval"`
+	// HeartBeatTimeout specifies the maximum allowed heartbeat response delay
+	// before the connection is terminated, in seconds. It is not recommended
+	// to change this value. By default, this value is 90.
+	HeartBeatTimeout int64 `json:"heartbeat_timeout"`
 }
 
-func GetDefaultClientConf() *ClientCommonConf {
-	return &ClientCommonConf{
+// GetDefaultClientConf returns a client configuration with default values.
+func GetDefaultClientConf() ClientCommonConf {
+	return ClientCommonConf{
 		ServerAddr:        "0.0.0.0",
 		ServerPort:        7000,
 		HttpProxy:         os.Getenv("http_proxy"),
@@ -58,11 +127,13 @@ func GetDefaultClientConf() *ClientCommonConf {
 		LogWay:            "console",
 		LogLevel:          "info",
 		LogMaxDays:        3,
+		DisableLogColor:   false,
 		Token:             "",
 		AdminAddr:         "127.0.0.1",
 		AdminPort:         0,
 		AdminUser:         "",
 		AdminPwd:          "",
+		AssetsDir:         "",
 		PoolCount:         1,
 		TcpMux:            true,
 		User:              "",
@@ -76,16 +147,12 @@ func GetDefaultClientConf() *ClientCommonConf {
 	}
 }
 
-func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (cfg *ClientCommonConf, err error) {
-	cfg = defaultCfg
-	if cfg == nil {
-		cfg = GetDefaultClientConf()
-	}
+func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error) {
+	cfg = GetDefaultClientConf()
 
 	conf, err := ini.Load(strings.NewReader(content))
 	if err != nil {
-		err = fmt.Errorf("parse ini conf file error: %v", err)
-		return nil, err
+		return ClientCommonConf{}, fmt.Errorf("parse ini conf file error: %v", err)
 	}
 
 	var (
@@ -104,6 +171,10 @@ func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (c
 			return
 		}
 		cfg.ServerPort = int(v)
+	}
+
+	if tmpStr, ok = conf.Get("common", "disable_log_color"); ok && tmpStr == "true" {
+		cfg.DisableLogColor = true
 	}
 
 	if tmpStr, ok = conf.Get("common", "http_proxy"); ok {
@@ -152,6 +223,10 @@ func UnmarshalClientConfFromIni(defaultCfg *ClientCommonConf, content string) (c
 
 	if tmpStr, ok = conf.Get("common", "admin_pwd"); ok {
 		cfg.AdminPwd = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "assets_dir"); ok {
+		cfg.AssetsDir = tmpStr
 	}
 
 	if tmpStr, ok = conf.Get("common", "pool_count"); ok {

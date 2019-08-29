@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/assets"
-	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/utils/log"
@@ -35,6 +34,7 @@ import (
 	fmux "github.com/hashicorp/yamux"
 )
 
+// Service is a client service.
 type Service struct {
 	// uniq id got from frps, attach it in loginMsg
 	runId string
@@ -43,23 +43,27 @@ type Service struct {
 	ctl   *Control
 	ctlMu sync.RWMutex
 
+	cfg         config.ClientCommonConf
 	pxyCfgs     map[string]config.ProxyConf
 	visitorCfgs map[string]config.VisitorConf
 	cfgMu       sync.RWMutex
+
+	// The configuration file used to initialize this client, or an empty
+	// string if no configuration file was used.
+	cfgFile string
+
+	// This is configured by the login response from frps
+	serverUDPPort int
 
 	exit     uint32 // 0 means not exit
 	closedCh chan int
 }
 
-func NewService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) (svr *Service, err error) {
-	// Init assets
-	err = assets.Load("")
-	if err != nil {
-		err = fmt.Errorf("Load assets error: %v", err)
-		return
-	}
-
+// NewService creates a new client service with the given configuration.
+func NewService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf, cfgFile string) (svr *Service, err error) {
 	svr = &Service{
+		cfg:         cfg,
+		cfgFile:     cfgFile,
 		pxyCfgs:     pxyCfgs,
 		visitorCfgs: visitorCfgs,
 		exit:        0,
@@ -83,14 +87,14 @@ func (svr *Service) Run() error {
 
 			// if login_fail_exit is true, just exit this program
 			// otherwise sleep a while and try again to connect to server
-			if g.GlbClientCfg.LoginFailExit {
+			if svr.cfg.LoginFailExit {
 				return err
 			} else {
 				time.Sleep(10 * time.Second)
 			}
 		} else {
 			// login success
-			ctl := NewControl(svr.runId, conn, session, svr.pxyCfgs, svr.visitorCfgs)
+			ctl := NewControl(svr.runId, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort)
 			ctl.Run()
 			svr.ctlMu.Lock()
 			svr.ctl = ctl
@@ -101,12 +105,18 @@ func (svr *Service) Run() error {
 
 	go svr.keepControllerWorking()
 
-	if g.GlbClientCfg.AdminPort != 0 {
-		err := svr.RunAdminServer(g.GlbClientCfg.AdminAddr, g.GlbClientCfg.AdminPort)
+	if svr.cfg.AdminPort != 0 {
+		// Init admin server assets
+		err := assets.Load(svr.cfg.AssetsDir)
+		if err != nil {
+			return fmt.Errorf("Load assets error: %v", err)
+		}
+
+		err = svr.RunAdminServer(svr.cfg.AdminAddr, svr.cfg.AdminPort)
 		if err != nil {
 			log.Warn("run admin server error: %v", err)
 		}
-		log.Info("admin server listen on %s:%d", g.GlbClientCfg.AdminAddr, g.GlbClientCfg.AdminPort)
+		log.Info("admin server listen on %s:%d", svr.cfg.AdminAddr, svr.cfg.AdminPort)
 	}
 
 	<-svr.closedCh
@@ -138,7 +148,7 @@ func (svr *Service) keepControllerWorking() {
 			// reconnect success, init delayTime
 			delayTime = time.Second
 
-			ctl := NewControl(svr.runId, conn, session, svr.pxyCfgs, svr.visitorCfgs)
+			ctl := NewControl(svr.runId, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort)
 			ctl.Run()
 			svr.ctlMu.Lock()
 			svr.ctl = ctl
@@ -153,13 +163,13 @@ func (svr *Service) keepControllerWorking() {
 // session: if it's not nil, using tcp mux
 func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error) {
 	var tlsConfig *tls.Config
-	if g.GlbClientCfg.TLSEnable {
+	if svr.cfg.TLSEnable {
 		tlsConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
 	}
-	conn, err = frpNet.ConnectServerByProxyWithTLS(g.GlbClientCfg.HttpProxy, g.GlbClientCfg.Protocol,
-		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerPort), tlsConfig)
+	conn, err = frpNet.ConnectServerByProxyWithTLS(svr.cfg.HttpProxy, svr.cfg.Protocol,
+		fmt.Sprintf("%s:%d", svr.cfg.ServerAddr, svr.cfg.ServerPort), tlsConfig)
 	if err != nil {
 		return
 	}
@@ -173,7 +183,7 @@ func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error)
 		}
 	}()
 
-	if g.GlbClientCfg.TcpMux {
+	if svr.cfg.TcpMux {
 		fmuxCfg := fmux.DefaultConfig()
 		fmuxCfg.KeepAliveInterval = 20 * time.Second
 		fmuxCfg.LogOutput = ioutil.Discard
@@ -194,10 +204,10 @@ func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error)
 	loginMsg := &msg.Login{
 		Arch:         runtime.GOARCH,
 		Os:           runtime.GOOS,
-		PoolCount:    g.GlbClientCfg.PoolCount,
-		User:         g.GlbClientCfg.User,
+		PoolCount:    svr.cfg.PoolCount,
+		User:         svr.cfg.User,
 		Version:      version.Full(),
-		PrivilegeKey: util.GetAuthKey(g.GlbClientCfg.Token, now),
+		PrivilegeKey: util.GetAuthKey(svr.cfg.Token, now),
 		Timestamp:    now,
 		RunId:        svr.runId,
 	}
@@ -220,7 +230,7 @@ func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error)
 	}
 
 	svr.runId = loginRespMsg.RunId
-	g.GlbClientCfg.ServerUdpPort = loginRespMsg.ServerUdpPort
+	svr.serverUDPPort = loginRespMsg.ServerUdpPort
 	log.Info("login to server success, get run id [%s], server udp port [%d]", loginRespMsg.RunId, loginRespMsg.ServerUdpPort)
 	return
 }
