@@ -137,6 +137,10 @@ func NewControl(rc *controller.ResourceController, pxyManager *proxy.ProxyManage
 	statsCollector stats.Collector, ctlConn net.Conn, loginMsg *msg.Login,
 	serverCfg config.ServerCommonConf) *Control {
 
+	poolCount := loginMsg.PoolCount
+	if poolCount > int(serverCfg.MaxPoolCount) {
+		poolCount = int(serverCfg.MaxPoolCount)
+	}
 	return &Control{
 		rc:              rc,
 		pxyManager:      pxyManager,
@@ -145,9 +149,9 @@ func NewControl(rc *controller.ResourceController, pxyManager *proxy.ProxyManage
 		loginMsg:        loginMsg,
 		sendCh:          make(chan msg.Message, 10),
 		readCh:          make(chan msg.Message, 10),
-		workConnCh:      make(chan net.Conn, loginMsg.PoolCount+10),
+		workConnCh:      make(chan net.Conn, poolCount+10),
 		proxies:         make(map[string]proxy.Proxy),
-		poolCount:       loginMsg.PoolCount,
+		poolCount:       poolCount,
 		portsUsedNum:    0,
 		lastPing:        time.Now(),
 		runId:           loginMsg.RunId,
