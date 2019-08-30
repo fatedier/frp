@@ -12,6 +12,10 @@ frp 是一个可用于内网穿透的高性能的反向代理应用，支持 tcp
 
 * [开发状态](#开发状态)
 * [架构](#架构)
+* [安装指南](#安装指南)
+    * [从源码构建](#从源码构建)
+    * [使用包管理器](#使用包管理器)
+    * [Docker](docker)
 * [使用示例](#使用示例)
     * [通过 ssh 访问公司内网机器](#通过-ssh-访问公司内网机器)
     * [通过自定义域名访问部署于内网的 web 服务](#通过自定义域名访问部署于内网的-web-服务)
@@ -70,6 +74,62 @@ master 分支用于发布稳定版本，dev 分支用于开发，您可以尝试
 ## 架构
 
 ![architecture](/doc/pic/architecture.png)
+
+## 安装指南
+
+### 从源码构建
+
+- 编译时依赖
+
+Golang 1.9+, GNU Make, Git
+
+- Go版本 >= 1.12
+
+```bash
+# If you're outside China GFW
+GO111MODULE=on make
+# If you're inside China GFW
+GOPROXY=https://goproxy.io GO111MODULE=on make
+```
+
+- Go版本 < 1.12 (不被支持)
+
+```bash
+GOPATH="$HOME/go"
+mkdir -p "$GOPATH/src/github.com/fatedier" &&
+git clone https://github.com/fatedier/frp "$GOPATH/src/github.com/fatedier/frp" &&
+cd "$GOPATH/src/github.com/fatedier/frp" &&
+make # Use graftcp or VPN if you are in China.
+```
+
+- 安装
+
+```bash
+cp bin/frp* /usr/bin/ &&
+mkdir -p /etc/frp &&
+cp conf/*.ini /etc/frp/ &&
+cp conf/systemd/*.service /etc/systemd/system/
+```
+
+### 使用包管理器
+
+- Arch Linux
+
+使用你喜欢的包管理器来直接安装此软件. [AUR:frps](https://aur.archlinux.org/packages/frps), [AUR:frpc](https://aur.archlinux.org/packages/frpc). 举例:
+
+```bash
+pakku -S frpc frps
+```
+
+- Linuxbrew
+
+```bash
+brew install frpc frps
+```
+
+### Docker
+
+请查阅[Docker HUB](https://hub.docker.com/r/fatedier/frp).
 
 ## 使用示例
 
@@ -859,6 +919,12 @@ plugin_http_passwd = abc
 ```
 
 `plugin_http_user` 和 `plugin_http_passwd` 即为 `http_proxy` 插件可选的配置参数。
+
+## FAQ
+
+- read error: message type error
+
+编译时依赖`github.com/fatedier/golib`的版本不正确。最新版本的这个库看起来并不兼容frp。请尝试清理你的GOHOME并重新编译。或者建议从RELEASE中直接下载预编译的二进制文件。
 
 ## 开发计划
 

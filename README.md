@@ -16,6 +16,10 @@ Now it also try to support p2p connect.
 
 * [Status](#status)
 * [Architecture](#architecture)
+* [Installation](#installation)
+    * [Build from source](#build-from-source)
+    * [Package Manager](#package-manager)
+    * [Docker](#docker)
 * [Example Usage](#example-usage)
     * [Access your computer in LAN by SSH](#access-your-computer-in-lan-by-ssh)
     * [Visit your web service in LAN by custom domains](#visit-your-web-service-in-lan-by-custom-domains)
@@ -53,6 +57,7 @@ Now it also try to support p2p connect.
     * [Connect frps by HTTP PROXY](#connect-frps-by-http-proxy)
     * [Range ports mapping](#range-ports-mapping)
     * [Plugin](#plugin)
+* [FAQ](#faq)
 * [Development Plan](#development-plan)
 * [Contributing](#contributing)
 * [Donation](#donation)
@@ -71,6 +76,62 @@ frp is under development and you can try it with latest release version. Master 
 ## Architecture
 
 ![architecture](/doc/pic/architecture.png)
+
+## Installation
+
+### Build from source
+
+- Build Dependency
+
+Golang 1.9+, GNU Make, Git
+
+- Build with Go >= 1.12
+
+```bash
+# If you're outside China GFW
+GO111MODULE=on make
+# If you're inside China GFW
+GOPROXY=https://goproxy.io GO111MODULE=on make
+```
+
+- Bulid with Go < 1.12 (Not maintained)
+
+```bash
+GOPATH="$HOME/go"
+mkdir -p "$GOPATH/src/github.com/fatedier" &&
+git clone https://github.com/fatedier/frp "$GOPATH/src/github.com/fatedier/frp" &&
+cd "$GOPATH/src/github.com/fatedier/frp" &&
+make # Use graftcp or VPN if you are in China.
+```
+
+- Install
+
+```bash
+cp bin/frp* /usr/bin/ &&
+mkdir -p /etc/frp &&
+cp conf/*.ini /etc/frp/ &&
+cp conf/systemd/*.service /etc/systemd/system/
+```
+
+### Package Manager
+
+- Arch Linux
+
+Use your favorite package manager to install the package directly. [AUR:frps](https://aur.archlinux.org/packages/frps), [AUR:frpc](https://aur.archlinux.org/packages/frpc). For example:
+
+```bash
+pakku -S frpc frps
+```
+
+- Linuxbrew
+
+```bash
+brew install frpc frps
+```
+
+### Docker
+
+Please refer to [Docker HUB](https://hub.docker.com/r/fatedier/frp).
 
 ## Example Usage
 
@@ -810,6 +871,13 @@ plugin_http_passwd = abc
 ```
 
 `plugin_http_user` and `plugin_http_passwd` are configuration parameters used in `http_proxy` plugin.
+
+## FAQ
+
+- read error: message type error
+
+The version of build-time dependency `github.com/fatedier/golib` is incorrect. Latest version of this library is incompatible with frp. Try to clean your GOHOME (Both system-wide and user-wide) and re-build the program. You can also download a pre-built binary for your platform directly.
+
 
 ## Development Plan
 
