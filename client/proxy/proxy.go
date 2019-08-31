@@ -332,10 +332,22 @@ func (pxy *XtcpProxy) InWorkConn(conn frpNet.Conn, m *msg.StartWorkConn) {
 
 	lConn.WriteToUDP(sidBuf[:n], uAddr)
 
-	kcpConn, err := frpNet.NewKcpConnFromUdp(lConn, false, natHoleRespMsg.VisitorAddr)
+	var kcpConn io.ReadWriteCloser
+	kcpConn, err = frpNet.NewKcpConnFromUdp(lConn, false, natHoleRespMsg.VisitorAddr)
 	if err != nil {
 		pxy.Error("create kcp connection from udp connection error: %v", err)
 		return
+	}
+
+	if pxy.cfg.UseEncryption {
+		kcpConn, err = frpIo.WithEncryption(kcpConn, []byte(pxy.cfg.Sk))
+		if err != nil {
+			pxy.Error("create decryption stream error: %v", err)
+			return
+		}
+	}
+	if pxy.cfg.UseCompression {
+		kcpConn = frpIo.WithCompression(kcpConn)
 	}
 
 	fmuxCfg := fmux.DefaultConfig()
@@ -485,23 +497,7 @@ func (pxy *UdpProxy) InWorkConn(conn frpNet.Conn, m *msg.StartWorkConn) {
 func HandleTcpWorkConnection(localInfo *config.LocalSvrConf, proxyPlugin plugin.Plugin,
 	baseInfo *config.BaseProxyConf, workConn frpNet.Conn, encKey []byte, m *msg.StartWorkConn) {
 
-	var (
-		remote io.ReadWriteCloser
-		err    error
-	)
-	remote = workConn
-
-	if baseInfo.UseEncryption {
-		remote, err = frpIo.WithEncryption(remote, encKey)
-		if err != nil {
-			workConn.Close()
-			workConn.Error("create encryption stream error: %v", err)
-			return
-		}
-	}
-	if baseInfo.UseCompression {
-		remote = frpIo.WithCompression(remote)
-	}
+	var remote io.ReadWriteCloser = workConn
 
 	// check if we need to send proxy protocol info
 	var extraInfo []byte
