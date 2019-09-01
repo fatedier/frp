@@ -292,18 +292,6 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 		return
 	}
 
-	if sv.cfg.UseEncryption {
-		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk))
-		if err != nil {
-			sv.Error("create encryption stream error: %v", err)
-			return
-		}
-	}
-
-	if sv.cfg.UseCompression {
-		remote = frpIo.WithCompression(remote)
-	}
-
 	fmuxCfg := fmux.DefaultConfig()
 	fmuxCfg.KeepAliveInterval = 5 * time.Second
 	fmuxCfg.LogOutput = ioutil.Discard
@@ -319,6 +307,18 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 		return
 	}
 
-	frpIo.Join(userConn, muxConn)
+	var muxConnRWCloser io.ReadWriteCloser = muxConn
+	if sv.cfg.UseEncryption {
+		muxConnRWCloser, err = frpIo.WithEncryption(muxConnRWCloser, []byte(sv.cfg.Sk))
+		if err != nil {
+			sv.Error("create encryption stream error: %v", err)
+			return
+		}
+	}
+	if sv.cfg.UseCompression {
+		muxConnRWCloser = frpIo.WithCompression(muxConnRWCloser)
+	}
+
+	frpIo.Join(userConn, muxConnRWCloser)
 	sv.Debug("join connections closed")
 }
