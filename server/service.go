@@ -231,12 +231,12 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			return
 		}
 
-		err = svr.RunDashboardServer(cfg.DashboardAddr, cfg.DashboardPort)
+		err = svr.RunDashboardServer(cfg.DashboardUrl, cfg.DashboardAddr, cfg.DashboardPort)
 		if err != nil {
 			err = fmt.Errorf("Create dashboard web server error, %v", err)
 			return
 		}
-		log.Info("Dashboard listen on %s:%d", cfg.DashboardAddr, cfg.DashboardPort)
+		log.Info("Dashboard listen on %s:%d%s", cfg.DashboardAddr, cfg.DashboardPort, cfg.DashboardUrl)
 		statsEnable = true
 	}
 

@@ -44,6 +44,7 @@ var (
 	vhostHttpPort     int
 	vhostHttpsPort    int
 	vhostHttpTimeout  int64
+	dashboardUrl      string
 	dashboardAddr     string
 	dashboardPort     int
 	dashboardUser     string
@@ -73,6 +74,7 @@ func init() {
 	rootCmd.PersistentFlags().IntVarP(&vhostHttpPort, "vhost_http_port", "", 0, "vhost http port")
 	rootCmd.PersistentFlags().IntVarP(&vhostHttpsPort, "vhost_https_port", "", 0, "vhost https port")
 	rootCmd.PersistentFlags().Int64VarP(&vhostHttpTimeout, "vhost_http_timeout", "", 60, "vhost http response header timeout")
+	rootCmd.PersistentFlags().StringVarP(&dashboardUrl, "dashboard_url", "", "/", "dasboard root url")
 	rootCmd.PersistentFlags().StringVarP(&dashboardAddr, "dashboard_addr", "", "0.0.0.0", "dasboard address")
 	rootCmd.PersistentFlags().IntVarP(&dashboardPort, "dashboard_port", "", 0, "dashboard port")
 	rootCmd.PersistentFlags().StringVarP(&dashboardUser, "dashboard_user", "", "admin", "dashboard user")
@@ -164,6 +166,7 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 	cfg.VhostHttpPort = vhostHttpPort
 	cfg.VhostHttpsPort = vhostHttpsPort
 	cfg.VhostHttpTimeout = vhostHttpTimeout
+	cfg.DashboardUrl = dashboardUrl
 	cfg.DashboardAddr = dashboardAddr
 	cfg.DashboardPort = dashboardPort
 	cfg.DashboardUser = dashboardUser

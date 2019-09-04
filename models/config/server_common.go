@@ -60,6 +60,10 @@ type ServerCommonConf struct {
 	// HTTP server, in seconds. By default, this value is 60.
 	VhostHttpTimeout int64 `json:"vhost_http_timeout"`
 
+	// DashboardUrl specifies the root path of the dashboard url. By
+	// default, this value is "/".
+	DashboardUrl string `json:"dashboard_url"`
+
 	// DashboardAddr specifies the address that the dashboard binds to. By
 	// default, this value is "0.0.0.0".
 	DashboardAddr string `json:"dashboard_addr"`
@@ -148,6 +152,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		VhostHttpPort:     0,
 		VhostHttpsPort:    0,
 		VhostHttpTimeout:  60,
+		DashboardUrl:      "/",
 		DashboardAddr:     "0.0.0.0",
 		DashboardPort:     0,
 		DashboardUser:     "admin",
@@ -253,6 +258,12 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 		} else {
 			cfg.VhostHttpTimeout = v
 		}
+	}
+
+	if tmpStr, ok = conf.Get("common", "dashboard_url"); ok {
+		cfg.DashboardUrl = tmpStr
+	} else {
+		cfg.DashboardUrl = "/"
 	}
 
 	if tmpStr, ok = conf.Get("common", "dashboard_addr"); ok {

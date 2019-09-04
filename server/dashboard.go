@@ -31,9 +31,11 @@ var (
 	httpServerWriteTimeout = 10 * time.Second
 )
 
-func (svr *Service) RunDashboardServer(addr string, port int) (err error) {
+func (svr *Service) RunDashboardServer(url string, addr string, port int) (err error) {
 	// url router
-	router := mux.NewRouter()
+	r := mux.NewRouter()
+	r.Host(url)
+	router := r.PathPrefix(url).Subrouter()
 
 	user, passwd := svr.cfg.DashboardUser, svr.cfg.DashboardPwd
 	router.Use(frpNet.NewHttpAuthMiddleware(user, passwd).Middleware)
