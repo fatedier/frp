@@ -105,7 +105,7 @@
         return Humanize.fileSize(row.traffic_out)
       },
       fetchData() {
-        fetch('/api/proxy/udp', {credentials: 'include'})
+        fetch( window.base_path+'/api/proxy/udp', {credentials: 'include'})
           .then(res => {
             return res.json()
           }).then(json => {

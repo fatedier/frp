@@ -78,7 +78,9 @@
         },
         methods: {
             fetchData() {
-                fetch('/api/serverinfo', {credentials: 'include'})
+             console.log(this.$route.query); 
+              
+                fetch( window.base_path+'/api/serverinfo', {credentials: 'include'})
               .then(res => {
                 return res.json()
               }).then(json => {

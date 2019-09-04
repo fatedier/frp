@@ -116,7 +116,10 @@
         return Humanize.fileSize(row.traffic_out)
       },
       fetchData() {
-        fetch('/api/serverinfo', {credentials: 'include'})
+
+        console.log(this.$route.query); 
+        
+        fetch( window.base_path+'/api/serverinfo', {credentials: 'include'})
           .then(res => {
             return res.json()
           }).then(json => {
@@ -125,7 +128,7 @@
             if (this.vhost_http_port == null || this.vhost_http_port == 0) {
               return
             } else {
-              fetch('/api/proxy/http', {credentials: 'include'})
+              fetch( window.base_path+ '/api/proxy/http', {credentials: 'include'})
                 .then(res => {
                   return res.json()
                 }).then(json => {

@@ -95,7 +95,7 @@
         return Humanize.fileSize(row.traffic_out)
       },
       fetchData() {
-        fetch('/api/proxy/stcp', {credentials: 'include'})
+        fetch( window.base_path+'/api/proxy/stcp', {credentials: 'include'})
           .then(res => {
             return res.json()
           }).then(json => {

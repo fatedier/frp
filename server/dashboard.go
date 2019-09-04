@@ -22,7 +22,6 @@ import (
 
 	"github.com/fatedier/frp/assets"
 	frpNet "github.com/fatedier/frp/utils/net"
-
 	"github.com/gorilla/mux"
 )
 
@@ -33,9 +32,8 @@ var (
 
 func (svr *Service) RunDashboardServer(url string, addr string, port int) (err error) {
 	// url router
-	r := mux.NewRouter()
-	r.Host(url)
-	router := r.PathPrefix(url).Subrouter()
+	router := mux.NewRouter()
+	//r.Host(url)
 
 	user, passwd := svr.cfg.DashboardUser, svr.cfg.DashboardPwd
 	router.Use(frpNet.NewHttpAuthMiddleware(user, passwd).Middleware)
@@ -47,11 +45,11 @@ func (svr *Service) RunDashboardServer(url string, addr string, port int) (err e
 	router.HandleFunc("/api/traffic/{name}", svr.ApiProxyTraffic).Methods("GET")
 
 	// view
-	router.Handle("/favicon.ico", http.FileServer(assets.FileSystem)).Methods("GET")
+	router.Handle(url+"/favicon.ico", http.FileServer(assets.FileSystem)).Methods("GET")
 	router.PathPrefix("/static/").Handler(frpNet.MakeHttpGzipHandler(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))).Methods("GET")
 
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
+		http.Redirect(w, r, url+"/static/", http.StatusMovedPermanently)
 	})
 
 	address := fmt.Sprintf("%s:%d", addr, port)
