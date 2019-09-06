@@ -30,13 +30,15 @@ import (
 	"github.com/fatedier/frp/server/proxy"
 	"github.com/fatedier/frp/server/stats"
 	"github.com/fatedier/frp/utils/net"
+	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/version"
 
 	"github.com/fatedier/golib/control/shutdown"
 	"github.com/fatedier/golib/crypto"
 	"github.com/fatedier/golib/errors"
-	
+
 	"github.com/fatedier/frp/extend/api"
+	"github.com/fatedier/frp/extend/limit"
 )
 
 type ControlManager struct {
@@ -418,27 +420,40 @@ func (ctl *Control) manager() {
 
 func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err error) {
 	var pxyConf config.ProxyConf
-	
+
 	s, err := api.NewService(g.GlbServerCfg.ApiBaseUrl)
-	
+	var workConn proxy.GetWorkConnFn = ctl.GetWorkConn
+
 	if err != nil {
 		return remoteAddr, err
 	}
-	
+
 	if g.GlbServerCfg.EnableApi {
-	
+
 		nowTime := time.Now().Unix()
 		ok, err := s.CheckProxy(ctl.loginMsg.User, pxyMsg, nowTime, g.GlbServerCfg.ApiToken)
-		
+
 		if err != nil {
 			return remoteAddr, err
 		}
-		
+
 		if !ok {
 			return remoteAddr, fmt.Errorf("invalid proxy configuration")
 		}
+
+		in, out, err := s.GetProxyLimit(pxyConf.GetBaseInfo())
+		if err != nil {
+			return remoteAddr, err
+		}
+		workConn = func() (frpNet.Conn, error) {
+			fconn, err := ctl.GetWorkConn()
+			if err != nil {
+				return nil, err
+			}
+			return limit.NewLimitConn(in, out, fconn), nil
+		}
 	}
-	
+
 	// Load configures from NewProxy message and check.
 	pxyConf, err = config.NewProxyConfFromMsg(pxyMsg)
 	if err != nil {
@@ -447,7 +462,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 
 	// NewProxy will return a interface Proxy.
 	// In fact it create different proxies by different proxy type, we just call run() here.
-	pxy, err := proxy.NewProxy(ctl.runId, ctl.rc, ctl.statsCollector, ctl.poolCount, ctl.GetWorkConn, pxyConf)
+	pxy, err := proxy.NewProxy(ctl.runId, ctl.rc, ctl.statsCollector, ctl.poolCount, workConn, pxyConf)
 	if err != nil {
 		return remoteAddr, err
 	}

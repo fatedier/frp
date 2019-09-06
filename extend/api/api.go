@@ -7,14 +7,18 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	
+
+	"github.com/fatedier/frp/extend/limit"
+	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 )
 
+// Service sakurafrp api servie
 type Service struct {
 	Host url.URL
 }
 
+// NewService crate sakurafrp api servie
 func NewService(host string) (s *Service, err error) {
 	u, err := url.Parse(host)
 	if err != nil {
@@ -67,52 +71,52 @@ func (s Service) CheckProxy(user string, pMsg *msg.NewProxy, timestamp int64, st
 	if err != nil {
 		return false, err
 	}
-	
+
 	headers, err := json.Marshal(pMsg.Headers)
 	if err != nil {
 		return false, err
 	}
-	
+
 	locations, err := json.Marshal(pMsg.Locations)
 	if err != nil {
 		return false, err
 	}
-	
+
 	values := url.Values{}
-	
+
 	// API Basic
 	values.Set("action", "checkproxy")
 	values.Set("user", user)
 	values.Set("timestamp", fmt.Sprintf("%d", timestamp))
 	values.Set("apitoken", stk)
-	
+
 	// Proxies basic info
 	values.Set("proxy_name", pMsg.ProxyName)
 	values.Set("proxy_type", pMsg.ProxyType)
 	values.Set("use_encryption", BoolToString(pMsg.UseEncryption))
 	values.Set("use_compression", BoolToString(pMsg.UseCompression))
-	
+
 	// Http Proxies
 	values.Set("domain", string(domains))
 	values.Set("subdomain", pMsg.SubDomain)
-	
+
 	// Headers
 	values.Set("locations", string(locations))
 	values.Set("http_user", pMsg.HttpUser)
 	values.Set("http_pwd", pMsg.HttpPwd)
 	values.Set("host_header_rewrite", pMsg.HostHeaderRewrite)
 	values.Set("headers", string(headers))
-	
+
 	// Tcp & Udp & Stcp
 	values.Set("remote_port", strconv.Itoa(pMsg.RemotePort))
-	
+
 	// Stcp & Xtcp
 	values.Set("sk", pMsg.Sk)
-	
+
 	// Load balance
 	values.Set("group", pMsg.Group)
 	values.Set("group_key", pMsg.GroupKey)
-	
+
 	s.Host.RawQuery = values.Encode()
 	defer func(u *url.URL) {
 		u.RawQuery = ""
@@ -142,12 +146,17 @@ func (s Service) CheckProxy(user string, pMsg *msg.NewProxy, timestamp int64, st
 	return true, nil
 }
 
+// GetProxyLimit 获取隧道限速信息
+func (s Service) GetProxyLimit(pxyConf *config.BaseProxyConf) (inLimit, outLimit uint64, err error) {
+	return 1 * limit.MB, 1 * limit.MB, nil
+}
+
 func BoolToString(val bool) (str string) {
 	if val {
 		return "true"
-	} else {
-		return "false"
 	}
+	return "false"
+
 }
 
 type ErrHTTPStatus struct {
