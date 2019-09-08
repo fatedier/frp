@@ -428,6 +428,12 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		return remoteAddr, err
 	}
 
+	// Load configures from NewProxy message and check.
+	pxyConf, err = config.NewProxyConfFromMsg(pxyMsg)
+	if err != nil {
+		return
+	}
+	
 	if g.GlbServerCfg.EnableApi {
 
 		nowTime := time.Now().Unix()
@@ -454,17 +460,16 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		}
 	}
 
-	// Load configures from NewProxy message and check.
-	pxyConf, err = config.NewProxyConfFromMsg(pxyMsg)
-	if err != nil {
-		return
-	}
-
 	// NewProxy will return a interface Proxy.
 	// In fact it create different proxies by different proxy type, we just call run() here.
 	pxy, err := proxy.NewProxy(ctl.runId, ctl.rc, ctl.statsCollector, ctl.poolCount, workConn, pxyConf)
 	if err != nil {
 		return remoteAddr, err
+	}
+	
+	err = ctl.pxyManager.Add(pxyMsg.ProxyName, pxy)
+	if err != nil {
+		return
 	}
 
 	// Check ports used number in each client
@@ -496,11 +501,6 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 			pxy.Close()
 		}
 	}()
-
-	err = ctl.pxyManager.Add(pxyMsg.ProxyName, pxy)
-	if err != nil {
-		return
-	}
 
 	ctl.mu.Lock()
 	ctl.proxies[pxy.GetName()] = pxy
