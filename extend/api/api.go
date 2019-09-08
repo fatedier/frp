@@ -148,7 +148,38 @@ func (s Service) CheckProxy(user string, pMsg *msg.NewProxy, timestamp int64, st
 
 // GetProxyLimit 获取隧道限速信息
 func (s Service) GetProxyLimit(pxyConf *config.BaseProxyConf) (inLimit, outLimit uint64, err error) {
-	return 1 * limit.MB, 1 * limit.MB, nil
+	// 这部分就照之前的搬过去了，能跑就行x
+	values := url.Values{}
+	values.Set("do", "getlimit")
+	values.Set("user", user)
+	values.Set("frpstoken", stk)
+	s.Host.RawQuery = values.Encode()
+	defer func(u *url.URL) {
+		u.RawQuery = ""
+	}(&s.Host)
+	resp, err := http.Get(s.Host.String())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	er := &ErrHTTPStatus{}
+	if err = json.Unmarshal(body, er); err != nil {
+		return nil, err
+	}
+	if er.Status != 200 {
+		return nil, er
+	}
+
+	r = &ResponseGetLimit{}
+	if err = json.Unmarshal(body, r); err != nil {
+		return nil, err
+	}
+	return r.MaxIn, r.MaxOut, nil
 }
 
 func BoolToString(val bool) (str string) {
@@ -166,6 +197,11 @@ type ErrHTTPStatus struct {
 
 func (e ErrHTTPStatus) Error() string {
 	return fmt.Sprintf("%s", e.Text)
+}
+
+type ResponseGetLimit struct {
+	MaxIn  uint64 `json:"max-in"`
+	MaxOut uint64 `json:"max-out"`
 }
 
 type ResponseCheckToken struct {
