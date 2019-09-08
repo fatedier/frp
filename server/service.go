@@ -46,7 +46,7 @@ import (
 
 	"github.com/fatedier/golib/net/mux"
 	fmux "github.com/hashicorp/yamux"
-	
+
 	"github.com/fatedier/frp/extend/api"
 )
 
@@ -370,11 +370,11 @@ func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (e
 		err = fmt.Errorf("authorization failed")
 		return
 	}
-	
+
 	if g.GlbServerCfg.EnableApi {
-	
+
 		nowTime := time.Now().Unix()
-		
+
 		s, err := api.NewService(g.GlbServerCfg.ApiBaseUrl)
 		if err != nil {
 			return err
@@ -382,23 +382,23 @@ func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (e
 
 		r := regexp.MustCompile(`^[A-Za-z0-9]{1,32}$`)
 		mm := r.FindAllStringSubmatch(loginMsg.User, -1)
-		
+
 		if len(mm) < 1 {
 			return fmt.Errorf("invalid username")
 		}
 
 		// Connect to API server and verify the user.
 		valid, err := s.CheckToken(loginMsg.User, loginMsg.PrivilegeKey, nowTime, g.GlbServerCfg.ApiToken)
-		
+
 		if err != nil {
 			return err
 		}
-		
+
 		if !valid {
 			return fmt.Errorf("authorization failed")
 		}
 	}
-	
+
 	// If client's RunId is empty, it's a new client, we just create a new controller.
 	// Otherwise, we check if there is one controller has the same run id. If so, we release previous controller and start new one.
 	if loginMsg.RunId == "" {

@@ -433,7 +433,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 	if err != nil {
 		return
 	}
-	
+
 	if g.GlbServerCfg.EnableApi {
 
 		nowTime := time.Now().Unix()
@@ -447,7 +447,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 			return remoteAddr, fmt.Errorf("invalid proxy configuration")
 		}
 
-		in, out, err := s.GetProxyLimit(pxyConf.GetBaseInfo())
+		in, out, err := s.GetProxyLimit(ctl.loginMsg.User, pxyConf.GetBaseInfo(), nowTime, g.GlbServerCfg.ApiToken)
 		if err != nil {
 			return remoteAddr, err
 		}
@@ -466,7 +466,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 	if err != nil {
 		return remoteAddr, err
 	}
-	
+
 	err = ctl.pxyManager.Add(pxyMsg.ProxyName, pxy)
 	if err != nil {
 		return
