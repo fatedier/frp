@@ -431,7 +431,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 	// Load configures from NewProxy message and check.
 	pxyConf, err = config.NewProxyConfFromMsg(pxyMsg)
 	if err != nil {
-		return
+		return remoteAddr, err
 	}
 
 	if g.GlbServerCfg.EnableApi {
@@ -451,6 +451,10 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		if err != nil {
 			return remoteAddr, err
 		}
+		
+		// 测试用
+		ctl.conn.Debug("client speed limit: %dKB/s (Inbound) / %dKB/s (Outbound)", in, out)
+		
 		workConn = func() (frpNet.Conn, error) {
 			fconn, err := ctl.GetWorkConn()
 			if err != nil {

@@ -119,7 +119,7 @@ func NewService() (svr *Service, err error) {
 	}
 
 	// Init 404 not found page
-	vhost.NotFoundPagePath = cfg.Custom404Page
+	vhost.ServiceUnavailablePagePath = cfg.Custom503Page
 
 	var (
 		httpMuxOn  bool

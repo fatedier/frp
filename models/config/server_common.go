@@ -69,7 +69,7 @@ type ServerCommonConf struct {
 	Token         string `json:"token"`
 	SubDomainHost string `json:"subdomain_host"`
 	TcpMux        bool   `json:"tcp_mux"`
-	Custom404Page string `json:"custom_404_page"`
+	Custom503Page string `json:"custom_503_page"`
 
 	AllowPorts        map[int]struct{}
 	MaxPoolCount      int64 `json:"max_pool_count"`
@@ -110,7 +110,7 @@ func GetDefaultServerConf() *ServerCommonConf {
 		MaxPortsPerClient: 0,
 		HeartBeatTimeout:  90,
 		UserConnTimeout:   10,
-		Custom404Page:     "",
+		Custom503Page:     "",
 		EnableApi:         false,
 		ApiBaseUrl:        "",
 		ApiToken:          "",
@@ -303,8 +303,8 @@ func UnmarshalServerConfFromIni(defaultCfg *ServerCommonConf, content string) (c
 		cfg.TcpMux = true
 	}
 
-	if tmpStr, ok = conf.Get("common", "custom_404_page"); ok {
-		cfg.Custom404Page = tmpStr
+	if tmpStr, ok = conf.Get("common", "custom_503_page"); ok {
+		cfg.Custom503Page = tmpStr
 	}
 
 	if tmpStr, ok = conf.Get("common", "heartbeat_timeout"); ok {

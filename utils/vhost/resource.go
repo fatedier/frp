@@ -24,63 +24,86 @@ import (
 )
 
 var (
-	NotFoundPagePath = ""
+	ServiceUnavailablePagePath = ""
 )
 
 const (
-	NotFound = `<!DOCTYPE html>
+	ServiceUnavailable = `<!DOCTYPE html>
 <html>
-<head>
-<title>Not Found</title>
-<style>
-    body {
-        width: 35em;
-        margin: 0 auto;
-        font-family: Tahoma, Verdana, Arial, sans-serif;
-    }
-</style>
-</head>
-<body>
-<h1>The page you visit not found.</h1>
-<p>Sorry, the page you are looking for is currently unavailable.<br/>
-Please try again later.</p>
-<p>The server is powered by <a href="https://github.com/fatedier/frp">frp</a>.</p>
-<p><em>Faithfully yours, frp.</em></p>
-</body>
+	<head>
+		<title>503 Service Unavailable</title>
+		<style>
+			body {
+				background: #F1F1F1;
+			}
+			.box {
+				width: 35em;
+				margin: 0 auto;
+				font-family: Tahoma, Verdana, Arial, sans-serif;
+				background: #FFF;
+				padding: 8px 32px;
+				box-shadow: 0px 0px 16px rgba(0,0,0,0.1);
+				margin-top: 80px;
+				font-weight: 300;
+			}
+			.box h1 {
+				font-weight: 300;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="box">
+			<h1>503 Service Unavailable</h1>
+			<p>您访问的网站或服务暂时不可用</p>
+			<p>如果您是隧道所有者，造成无法访问的原因可能有：</p>
+			<ul>
+				<li>您访问的网站使用了内网穿透，但是对应的客户端没有运行。</li>
+				<li>该网站或隧道已被管理员临时或永久禁止连接。</li>
+				<li>域名解析更改还未生效或解析错误，请检查设置是否正确。</li>
+			</ul>
+			<p>如果您是普通访问者，您可以：</p>
+			<ul>
+				<li>稍等一段时间后再次尝试访问此站点。</li>
+				<li>尝试与该网站的所有者取得联系。</li>
+				<li>刷新您的 DNS 缓存或在其他网络环境访问。</li>
+			</ul>
+			<p align="right"><em>Powered by Sakura Panel | Based on Frp</em></p>
+		</div>
+	</body>
 </html>
 `
 )
 
-func getNotFoundPageContent() []byte {
+func getServiceUnavailablePageContent() []byte {
 	var (
 		buf []byte
 		err error
 	)
-	if NotFoundPagePath != "" {
-		buf, err = ioutil.ReadFile(NotFoundPagePath)
+	if ServiceUnavailablePagePath != "" {
+		buf, err = ioutil.ReadFile(ServiceUnavailablePagePath)
 		if err != nil {
-			frpLog.Warn("read custom 404 page error: %v", err)
-			buf = []byte(NotFound)
+			frpLog.Warn("read custom 503 page error: %v", err)
+			buf = []byte(ServiceUnavailable)
 		}
 	} else {
-		buf = []byte(NotFound)
+		buf = []byte(ServiceUnavailable)
 	}
 	return buf
 }
 
 func notFoundResponse() *http.Response {
 	header := make(http.Header)
-	header.Set("server", "frp/"+version.Full())
+	header.Set("server", "frp/" + version.Full() + "-sakurapanel")
 	header.Set("Content-Type", "text/html")
 
 	res := &http.Response{
-		Status:     "Not Found",
-		StatusCode: 404,
+		Status:     "Service Unavailable",
+		StatusCode: 503,
 		Proto:      "HTTP/1.0",
 		ProtoMajor: 1,
 		ProtoMinor: 0,
 		Header:     header,
-		Body:       ioutil.NopCloser(bytes.NewReader(getNotFoundPageContent())),
+		Body:       ioutil.NopCloser(bytes.NewReader(getServiceUnavailablePageContent())),
 	}
 	return res
 }

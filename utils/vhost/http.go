@@ -93,8 +93,8 @@ func NewHttpReverseProxy(option HttpReverseProxyOptions, vhostRouter *VhostRoute
 		ErrorLog:   log.New(newWrapLogger(), "", 0),
 		ErrorHandler: func(rw http.ResponseWriter, req *http.Request, err error) {
 			frpLog.Warn("do http proxy request error: %v", err)
-			rw.WriteHeader(http.StatusNotFound)
-			rw.Write(getNotFoundPageContent())
+			rw.WriteHeader(http.StatusServiceUnavailable)
+			rw.Write(getServiceUnavailablePageContent())
 		},
 	}
 	rp.proxy = proxy

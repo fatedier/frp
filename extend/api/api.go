@@ -150,10 +150,10 @@ func (s Service) CheckProxy(user string, pMsg *msg.NewProxy, timestamp int64, st
 func (s Service) GetProxyLimit(user string, pxyConf *config.BaseProxyConf, timestamp int64, stk string) (inLimit, outLimit uint64, err error) {
 	// 这部分就照之前的搬过去了，能跑就行x
 	values := url.Values{}
-	values.Set("do", "getlimit")
+	values.Set("action", "getlimit")
 	values.Set("user", user)
 	values.Set("timestamp", fmt.Sprintf("%d", timestamp))
-	values.Set("frpstoken", stk)
+	values.Set("apitoken", stk)
 	s.Host.RawQuery = values.Encode()
 	defer func(u *url.URL) {
 		u.RawQuery = ""
@@ -180,6 +180,8 @@ func (s Service) GetProxyLimit(user string, pxyConf *config.BaseProxyConf, times
 	if err = json.Unmarshal(body, response); err != nil {
 		return 0, 0, err
 	}
+	
+	// 这里直接返回 uint64 应该问题不大
 	return response.MaxIn, response.MaxOut, nil
 }
 
@@ -193,11 +195,11 @@ func BoolToString(val bool) (str string) {
 
 type ErrHTTPStatus struct {
 	Status int    `json:"status"`
-	Text   string `json:"massage"`
+	Text   string `json:"message"`
 }
 
 func (e ErrHTTPStatus) Error() string {
-	return fmt.Sprintf("%s", e.Text)
+	return fmt.Sprintf("SakuraFrp API Error (Status: %d, Text: %s)", e.Status, e.Text)
 }
 
 type ResponseGetLimit struct {
