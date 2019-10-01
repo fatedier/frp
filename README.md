@@ -8,7 +8,7 @@
 
 frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet. As of now, it supports tcp & udp, as well as http and https protocols, where requests can be forwarded to internal services by domain name.
 
-Now it also try to support p2p connect.
+Now it also tries to support p2p connect.
 
 ## Table of Contents
 
@@ -64,7 +64,7 @@ Now it also try to support p2p connect.
 
 ## Status
 
-frp is under development and you can try it with latest release version. Master branch for releasing stable version when dev branch for developing.
+frp is under development and you can try it with the latest release version. 'master' branch is for releasing stable version, 'dev' branch is for development.
 
 **We may change any protocol and can't promise backward compatibility. Please check the release log when upgrading.**
 
@@ -172,7 +172,7 @@ However, we can expose a http or https service using frp.
 
   `./frps -c ./frps.ini`
 
-3. Modify frpc.ini, set remote frps's server IP as x.x.x.x, forward dns query request to google dns server `8.8.8.8:53`:
+3. Modify frpc.ini, set remote frps's server IP as x.x.x.x, forward dns query request to Google's dns server `8.8.8.8:53`:
 
   ```ini
   # frpc.ini
@@ -197,7 +197,7 @@ However, we can expose a http or https service using frp.
 
 ### Forward unix domain socket
 
-Using tcp port to connect unix domain socket like docker daemon.
+Use tcp port to connect to a unix domain socket (e.g. Docker daemon's socket).
 
 Configure frps same as above.
 
@@ -222,7 +222,7 @@ Configure frps same as above.
 
 ### Expose a simple http file server
 
-A simple way to visit files in the LAN.
+A simple way to browse files in the LAN.
 
 Configure frps same as above.
 
@@ -244,7 +244,7 @@ Configure frps same as above.
   plugin_http_passwd = abc
   ```
 
-2. Visit `http://x.x.x.x:6000/static/` by your browser, set correct user and password, so you can see files in `/tmp/file`.
+2. Visit `http://x.x.x.x:6000/static/` by your browser, specify correct user and password, so you can see files in `/tmp/file`.
 
 ### Enable HTTPS for local HTTP service
 
@@ -272,13 +272,13 @@ Configure frps same as above.
 
 ### Expose your service in security
 
-For some services, if expose them to the public network directly will be a security risk.
+Some services will be at risk if exposed directly to the public network.
 
-**stcp(secret tcp)** helps you create a proxy avoiding any one can access it.
+**stcp(secret tcp)** helps you create a proxy while keeping the service secure.
 
 Configure frps same as above.
 
-1. Start frpc, forward ssh port and `remote_port` is useless:
+1. Start frpc, forward ssh port and `remote_port` are useless:
 
   ```ini
   # frpc.ini
@@ -310,7 +310,7 @@ Configure frps same as above.
   bind_port = 6000
   ```
 
-3. Connect to server in LAN by ssh assuming that username is test:
+3. Connect to server in LAN using ssh assuming that username is test:
 
   `ssh -oPort=6000 test@127.0.0.1`
 
@@ -318,7 +318,7 @@ Configure frps same as above.
 
 **xtcp** is designed for transmitting a large amount of data directly between two client.
 
-Now it can't penetrate all types of NAT devices. You can try **stcp** if **xtcp** doesn't work.
+It can't penetrate all types of NAT devices. You can try **stcp** if **xtcp** doesn't work.
 
 1. Configure a udp port for xtcp:
 
@@ -326,7 +326,7 @@ Now it can't penetrate all types of NAT devices. You can try **stcp** if **xtcp*
   bind_udp_port = 7001
   ```
 
-2. Start frpc, forward ssh port and `remote_port` is useless:
+2. Start frpc, forward ssh port and `remote_port` are useless:
 
   ```ini
   # frpc.ini
@@ -358,7 +358,7 @@ Now it can't penetrate all types of NAT devices. You can try **stcp** if **xtcp*
   bind_port = 6000
   ```
 
-4. Connect to server in LAN by ssh assuming that username is test:
+4. Connect to server in LAN using ssh assuming that username is test:
 
   `ssh -oPort=6000 test@127.0.0.1`
 
@@ -366,7 +366,7 @@ Now it can't penetrate all types of NAT devices. You can try **stcp** if **xtcp*
 
 ### Configuration File
 
-You can find features which this document not metioned from full example configuration files.
+You can find features not mentioned in this document from the full example configuration files.
 
 [frps full configuration file](./conf/frps_full.ini)
 
@@ -374,7 +374,7 @@ You can find features which this document not metioned from full example configu
 
 ### Configuration file template
 
-Configuration file tempalte can be rendered using os environments. Template uses Go's standard format.
+Configuration file template can be rendered using os environments. Template uses Go's standard format.
 
 ```ini
 # frpc.ini
@@ -402,7 +402,7 @@ All environments has prefix `.Envs`.
 
 ### Dashboard
 
-Check frp's status and proxies's statistics information by Dashboard.
+Check frp's status and proxies' statistics information by Dashboard.
 
 Configure a port for dashboard to enable this feature:
 
@@ -414,15 +414,15 @@ dashboard_user = admin
 dashboard_pwd = admin
 ```
 
-Then visit `http://[server_addr]:7500` to see dashboard, default username and password are both `admin`.
+Then visit `http://[server_addr]:7500` to see the dashboard, default username and password are both `admin`.
 
 ![dashboard](/doc/pic/dashboard.png)
 
 ### Admin UI
 
-Admin UI help you check and manage frpc's configure.
+Admin UI help you check and manage frpc's configuration.
 
-Configure a address for admin UI to enable this feature:
+Configure an address for admin UI to enable this feature:
 
 ```ini
 [common]
@@ -436,11 +436,11 @@ Then visit `http://127.0.0.1:7400` to see admin UI, default username and passwor
 
 ### Authentication
 
-`token` in frps.ini and frpc.ini should be same.
+`token` in frps.ini and frpc.ini should be equal.
 
 ### Encryption and Compression
 
-Defalut value is false, you could decide if the proxy will use encryption or compression:
+Default value is false, you could decide if the proxy will use encryption or compression:
 
 ```ini
 # frpc.ini
@@ -454,11 +454,11 @@ use_compression = true
 
 #### TLS
 
-frp support TLS protocol between frpc and frps since v0.25.0.
+frp supports TLS protocol between frpc and frps since v0.25.0.
 
 Config `tls_enable = true` in `common` section to frpc.ini to enable this feature.
 
-For port multiplexing, frp send a first byte 0x17 to dial a TLS connection.
+For port multiplexing, frp sends a first byte 0x17 to dial a TLS connection.
 
 ### Hot-Reload frpc configuration
 
@@ -473,15 +473,15 @@ admin_port = 7400
 
 Then run command `frpc reload -c ./frpc.ini` and wait for about 10 seconds to let frpc create or update or delete proxies.
 
-**Note that parameters in [common] section won't be modified except 'start' now.**
+**Note that parameters in [common] section won't be modified except 'start'.**
 
 ### Get proxy status from client
 
-Use `frpc status -c ./frpc.ini` to get status of all proxies. You need to set admin port in frpc's configure file.
+Use `frpc status -c ./frpc.ini` to get status of all proxies. You need to set admin port in frpc's configuration file.
 
 ### Port White List
 
-`allow_ports` in frps.ini is used for preventing abuse of ports:
+`allow_ports` in frps.ini is used to prevent abuse of ports:
 
 ```ini
 # frps.ini
@@ -493,7 +493,7 @@ allow_ports = 2000-3000,3001,3003,4000-50000
 
 ### Port Reuse
 
-Now `vhost_http_port` and `vhost_https_port` in frps can use same port with `bind_port`. frps will detect connection's protocol and handle it correspondingly.
+`vhost_http_port` and `vhost_https_port` in frps can use same port with `bind_port`. frps will detect the connection's protocol and handle it correspondingly.
 
 We would like to try to allow multiple proxies bind a same remote port with different protocols in the future.
 
@@ -525,7 +525,7 @@ Using kcp in frp:
   kcp_bind_port = 7000
   ```
 
-2. Configure the protocol used in frpc to connect frps:
+2. Configure the protocol used in frpc to connect to frps:
 
   ```ini
   # frpc.ini
@@ -538,7 +538,7 @@ Using kcp in frp:
 
 ### Connection Pool
 
-By default, frps send message to frpc for create a new connection to backward service when getting an user request.If a proxy's connection pool is enabled, there will be a specified number of connections pre-established.
+By default, frps sends a message to frpc to create a new connection to the backward service when getting a user request. If a proxy's connection pool is enabled, there will be a specified number of connections pre-established.
 
 This feature is fit for a large number of short connections.
 
@@ -585,9 +585,9 @@ group_key = 123
 
 Proxies in same group will accept connections from port 80 randomly.
 
-For `tcp` type, `remote_port` in one group shoud be same.
+For `tcp` type, `remote_port` in the same group should be same.
 
-For `http` type, `custom_domains, subdomain, locations` shoud be same.
+For `http` type, `custom_domains, subdomain, locations` should be same.
 
 ### Health Check
 
@@ -597,7 +597,7 @@ Add `health_check_type = {type}` to enable health check.
 
 **type** can be tcp or http.
 
-Type tcp will dial the service port and type http will send a http rquest to service and require a 200 response.
+Type tcp will dial the service port and type http will send a http request to the service and require a HTTP 200 response.
 
 Type tcp configuration:
 
@@ -611,9 +611,9 @@ remote_port = 6000
 health_check_type = tcp
 # dial timeout seconds
 health_check_timeout_s = 3
-# if continuous failed in 3 times, the proxy will be removed from frps
+# if health check failed 3 times in a row, the proxy will be removed from frps
 health_check_max_failed = 3
-# every 10 seconds will do a health check
+# health check every 10 seconds
 health_check_interval_s = 10
 ```
 
@@ -664,20 +664,20 @@ host_header_rewrite = dev.yourdomain.com
 header_X-From-Where = frp
 ```
 
-Note that params which have prefix `header_` will be added to http request headers.
+Note that parameters that have `header_` prefix will be added to http request headers.
 In this example, it will set header `X-From-Where: frp` to http request.
 
 ### Get Real IP
 
 #### HTTP X-Forwarded-For
 
-Features for http proxy only.
+These features are for http proxy only.
 
-You can get user's real IP from HTTP request header `X-Forwarded-For` and `X-Real-IP`.
+You can get the user's real IP from HTTP request header `X-Forwarded-For` and `X-Real-IP`.
 
 #### Proxy Protocol
 
-frp support Proxy Protocol to send user's real IP to local service. It support all types without UDP.
+frp support Proxy Protocol to send user's real IP to local service. It support all types except UDP.
 
 Here is an example for https service:
 
@@ -777,7 +777,7 @@ http_proxy = http://user:pwd@192.168.1.128:8080
 
 ### Range ports mapping
 
-Proxy name has prefix `range:` will support mapping range ports.
+Proxy name that has starts with `range:` will support mapping range ports.
 
 ```ini
 # frpc.ini
@@ -792,9 +792,9 @@ frpc will generate 8 proxies like `test_tcp_0, test_tcp_1 ... test_tcp_7`.
 
 ### Plugin
 
-frpc only forward request to local tcp or udp port by default.
+frpc only forwards request to local tcp or udp port by default.
 
-Plugin is used for providing rich features. There are built-in plugins such as `unix_domain_socket`, `http_proxy`, `socks5`, `static_file` and you can see [example usage](#example-usage).
+Plugins are used for providing rich features. There are built-in plugins such as `unix_domain_socket`, `http_proxy`, `socks5`, `static_file` and you can see [example usage](#example-usage).
 
 Specify which plugin to use by `plugin` parameter. Configuration parameters of plugin should be started with `plugin_`. `local_ip` and `local_port` is useless for plugin.
 
@@ -822,14 +822,14 @@ Interested in getting involved? We would like to help you!
 
 * Take a look at our [issues list](https://github.com/fatedier/frp/issues) and consider sending a Pull Request to **dev branch**.
 * If you want to add a new feature, please create an issue first to describe the new feature, as well as the implementation approach. Once a proposal is accepted, create an implementation of the new features and submit it as a pull request.
-* Sorry for my poor english and improvement for this document is welcome even some typo fix.
-* If you have some wonderful ideas, send email to fatedier@gmail.com.
+* Sorry for my poor English. Improvements for this document are welcome, even some typo fixes.
+* If you have great ideas, send an email to fatedier@gmail.com.
 
-**Note: We prefer you to give your advise in [issues](https://github.com/fatedier/frp/issues), so others with a same question can search it quickly and we don't need to answer them repeatly.**
+**Note: We prefer you to give your advise in [issues](https://github.com/fatedier/frp/issues), so others with a same question can search it quickly and we don't need to answer them repeatedly.**
 
 ## Donation
 
-If frp help you a lot, you can support us by:
+If frp helps you a lot, you can support us by:
 
 frp QQ group: 606194980
 
