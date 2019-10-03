@@ -65,7 +65,7 @@ type ProxyWrapper struct {
 	log.Logger
 }
 
-func NewProxyWrapper(cfg config.ProxyConf, eventHandler event.EventHandler, logPrefix string) *ProxyWrapper {
+func NewProxyWrapper(cfg config.ProxyConf, clientCfg config.ClientCommonConf, eventHandler event.EventHandler, logPrefix string, serverUDPPort int) *ProxyWrapper {
 	baseInfo := cfg.GetBaseInfo()
 	pw := &ProxyWrapper{
 		ProxyStatus: ProxyStatus{
@@ -90,7 +90,7 @@ func NewProxyWrapper(cfg config.ProxyConf, eventHandler event.EventHandler, logP
 		pw.Trace("enable health check monitor")
 	}
 
-	pw.pxy = NewProxy(pw.Cfg)
+	pw.pxy = NewProxy(pw.Cfg, clientCfg, serverUDPPort)
 	return pw
 }
 

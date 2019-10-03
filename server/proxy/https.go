@@ -17,7 +17,6 @@ package proxy
 import (
 	"strings"
 
-	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/vhost"
@@ -51,11 +50,11 @@ func (pxy *HttpsProxy) Run() (remoteAddr string, err error) {
 		l.AddLogPrefix(pxy.name)
 		pxy.Info("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
-		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, g.GlbServerCfg.VhostHttpsPort))
+		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.VhostHttpsPort))
 	}
 
 	if pxy.cfg.SubDomain != "" {
-		routeConfig.Domain = pxy.cfg.SubDomain + "." + g.GlbServerCfg.SubDomainHost
+		routeConfig.Domain = pxy.cfg.SubDomain + "." + pxy.serverCfg.SubDomainHost
 		l, errRet := pxy.rc.VhostHttpsMuxer.Listen(routeConfig)
 		if errRet != nil {
 			err = errRet
@@ -64,7 +63,7 @@ func (pxy *HttpsProxy) Run() (remoteAddr string, err error) {
 		l.AddLogPrefix(pxy.name)
 		pxy.Info("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
-		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(g.GlbServerCfg.VhostHttpsPort)))
+		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(pxy.serverCfg.VhostHttpsPort)))
 	}
 
 	pxy.startListenHandler(pxy, HandleUserTcpConnection)

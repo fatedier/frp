@@ -32,6 +32,7 @@ func init() {
 	xtcpCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	xtcpCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
 	xtcpCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
+	xtcpCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
 
 	xtcpCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
 	xtcpCmd.PersistentFlags().StringVarP(&role, "role", "", "server", "role")
@@ -51,7 +52,7 @@ var xtcpCmd = &cobra.Command{
 	Use:   "xtcp",
 	Short: "Run frpc with a single xtcp proxy",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := parseClientCommonCfg(CfgFileTypeCmd, "")
+		clientCfg, err := parseClientCommonCfg(CfgFileTypeCmd, "")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -103,7 +104,7 @@ var xtcpCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		err = startService(proxyConfs, visitorConfs)
+		err = startService(clientCfg, proxyConfs, visitorConfs, "")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

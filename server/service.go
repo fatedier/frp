@@ -30,7 +30,7 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/assets"
-	"github.com/fatedier/frp/g"
+	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/models/nathole"
 	"github.com/fatedier/frp/server/controller"
@@ -51,8 +51,6 @@ import (
 const (
 	connReadTimeout time.Duration = 10 * time.Second
 )
-
-var ServerService *Service
 
 // Server service
 type Service struct {
@@ -93,6 +91,8 @@ type Service struct {
 	closedCh chan bool
 
 	tlsConfig *tls.Config
+
+	cfg config.ServerCommonConf
 }
 
 func newAddress(addr string, port int) string {
@@ -103,8 +103,7 @@ func newAddress(addr string, port int) string {
 	}
 }
 
-func NewService() (svr *Service, err error) {
-	cfg := &g.GlbServerCfg.ServerCommonConf
+func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	svr = &Service{
 		ctlManager: NewControlManager(),
 		pxyManager: proxy.NewProxyManager(),
@@ -117,6 +116,7 @@ func NewService() (svr *Service, err error) {
 		closedCh:        make(chan bool),
 		httpVhostRouter: vhost.NewVhostRouters(),
 		tlsConfig:       generateTLSConfig(),
+		cfg:             cfg,
 	}
 
 	// Init group controller
@@ -124,13 +124,6 @@ func NewService() (svr *Service, err error) {
 
 	// Init HTTP group controller
 	svr.rc.HTTPGroupCtl = group.NewHTTPGroupController(svr.httpVhostRouter)
-
-	// Init assets
-	err = assets.Load(cfg.AssetsDir, assets.Frps)
-	if err != nil {
-		err = fmt.Errorf("Load assets error: %v", err)
-		return
-	}
 
 	// Init 404 not found page
 	vhost.NotFoundPagePath = cfg.Custom404Page
@@ -248,6 +241,13 @@ func NewService() (svr *Service, err error) {
 	var statsEnable bool
 	// Create dashboard web server.
 	if cfg.DashboardPort > 0 {
+		// Init dashboard assets
+		err = assets.Load(cfg.AssetsDir)
+		if err != nil {
+			err = fmt.Errorf("Load assets error: %v", err)
+			return
+		}
+
 		err = svr.RunDashboardServer(cfg.DashboardAddr, cfg.DashboardPort)
 		if err != nil {
 			err = fmt.Errorf("Create dashboard web server error, %v", err)
@@ -265,7 +265,7 @@ func (svr *Service) Run() {
 	if svr.rc.NatHoleController != nil {
 		go svr.rc.NatHoleController.Run()
 	}
-	if g.GlbServerCfg.KcpBindPort > 0 {
+	if svr.cfg.KcpBindPort > 0 {
 		go svr.HandleListener(svr.kcpListener)
 	}
 
@@ -365,7 +365,7 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 				}
 			}
 
-			if g.GlbServerCfg.TcpMux {
+			if svr.cfg.TcpMux {
 				fmuxCfg := fmux.DefaultConfig()
 				fmuxCfg.KeepAliveInterval = 20 * time.Second
 				fmuxCfg.LogOutput = ioutil.Discard
@@ -404,7 +404,7 @@ func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (e
 	}
 
 	// Check auth.
-	if util.GetAuthKey(g.GlbServerCfg.Token, loginMsg.Timestamp) != loginMsg.PrivilegeKey {
+	if util.GetAuthKey(svr.cfg.Token, loginMsg.Timestamp) != loginMsg.PrivilegeKey {
 		err = fmt.Errorf("authorization failed")
 		return
 	}
@@ -418,7 +418,7 @@ func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (e
 		}
 	}
 
-	ctl := NewControl(svr.rc, svr.pxyManager, svr.statsCollector, ctlConn, loginMsg)
+	ctl := NewControl(svr.rc, svr.pxyManager, svr.statsCollector, ctlConn, loginMsg, svr.cfg)
 
 	if oldCtl := svr.ctlManager.Add(loginMsg.RunId, ctl); oldCtl != nil {
 		oldCtl.allShutdown.WaitDone()

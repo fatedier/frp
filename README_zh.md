@@ -129,7 +129,7 @@ master 分支用于发布稳定版本，dev 分支用于开发，您可以尝试
   vhost_http_port = 8080
   ```
 
-2. 启动 frps；
+2. 启动 frps：
 
   `./frps -c ./frps.ini`
 
@@ -270,6 +270,7 @@ frps 的部署步骤同上。
   plugin_crt_path = ./server.crt
   plugin_key_path = ./server.key
   plugin_host_header_rewrite = 127.0.0.1
+  plugin_header_X-From-Where = frp
   ```
 
 2. 通过浏览器访问 `https://test.yourdomain.com` 即可。

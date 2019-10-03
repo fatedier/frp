@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/g"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/utils/log"
@@ -192,12 +191,12 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	defer userConn.Close()
 
 	sv.Debug("get a new xtcp user connection")
-	if g.GlbClientCfg.ServerUdpPort == 0 {
+	if sv.ctl.serverUDPPort == 0 {
 		sv.Error("xtcp is not supported by server")
 		return
 	}
 
-	raddr, err := net.ResolveUDPAddr("udp", newAddress(g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerUdpPort))
+	raddr, err := net.ResolveUDPAddr("udp", newAddress(sv.ctl.clientCfg.ServerAddr, sv.ctl.ServerUdpPort))
 	if err != nil {
 		sv.Error("resolve server UDP addr error")
 		return
