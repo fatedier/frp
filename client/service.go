@@ -95,7 +95,7 @@ func (svr *Service) GetController() *Control {
 	return svr.ctl
 }
 
-func (svr *Service) Run(cmd bool) error {
+func (svr *Service) Run(isCmd bool) error {
 	// first login
 	for {
 		conn, session, err := svr.login()
@@ -131,7 +131,7 @@ func (svr *Service) Run(cmd bool) error {
 	}
 
 	svr.closed = false
-	if cmd {
+	if isCmd {
 		svr.closed = <-svr.closedCh
 		log.Info("svr closed")
 	} else {
