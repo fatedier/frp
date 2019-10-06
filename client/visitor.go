@@ -196,7 +196,7 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 		return
 	}
 
-	raddr, err := net.ResolveUDPAddr("udp", newAddress(sv.ctl.clientCfg.ServerAddr, sv.ctl.ServerUdpPort))
+	raddr, err := net.ResolveUDPAddr("udp", newAddress(sv.ctl.clientCfg.ServerAddr, sv.ctl.serverUDPPort))
 	if err != nil {
 		sv.Error("resolve server UDP addr error")
 		return

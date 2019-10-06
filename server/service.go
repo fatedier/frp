@@ -242,7 +242,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	// Create dashboard web server.
 	if cfg.DashboardPort > 0 {
 		// Init dashboard assets
-		err = assets.Load(cfg.AssetsDir)
+		err = assets.Load(cfg.AssetsDir, assets.Frps)
 		if err != nil {
 			err = fmt.Errorf("Load assets error: %v", err)
 			return

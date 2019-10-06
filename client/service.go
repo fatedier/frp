@@ -86,7 +86,7 @@ func NewService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf
 		pxyCfgs:     pxyCfgs,
 		visitorCfgs: visitorCfgs,
 		exit:        0,
-		closedCh:    make(chan int),
+		closedCh:    make(chan bool),
 	}
 	return
 }
@@ -126,7 +126,7 @@ func (svr *Service) Run(isCmd bool) error {
 
 	if svr.cfg.AdminPort != 0 {
 		// Init admin server assets
-		err := assets.Load(svr.cfg.AssetsDir)
+		err := assets.Load(svr.cfg.AssetsDir, assets.Frpc)
 		if err != nil {
 			return fmt.Errorf("Load assets error: %v", err)
 		}

@@ -123,6 +123,26 @@ func NewService(cfgFilePath string) (ser *client.Service, err error) {
 	return returnClient(cfgFilePath, false)
 }
 
+func returnClient(cfgFilePath string, run bool) (svr *client.Service, err error) {
+	var content string
+	content, err = config.GetRenderedConfFromFile(cfgFilePath)
+	if err != nil {
+		return
+	}
+
+	cfg, err := parseClientCommonCfg(CfgFileTypeIni, content)
+	if err != nil {
+		return
+	}
+
+	pxyCfgs, visitorCfgs, err := config.LoadAllConfFromIni(cfg.User, content, cfg.Start)
+	if err != nil {
+		return nil, err
+	}
+
+	return returnService(cfg, pxyCfgs, visitorCfgs, cfgFile)
+}
+
 func StopFrp() (err error) {
 	if service == nil {
 		return fmt.Errorf("frp not start")
@@ -262,10 +282,10 @@ func startService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyCo
 	return
 }
 
-func returnService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) (svr *client.Service, err error) {
-	log.InitLog(g.GlbClientCfg.LogWay, g.GlbClientCfg.LogFile, g.GlbClientCfg.LogLevel, g.GlbClientCfg.LogMaxDays)
-	if g.GlbClientCfg.DnsServer != "" {
-		s := g.GlbClientCfg.DnsServer
+func returnService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf, cfgFile string) (svr *client.Service, err error) {
+	log.InitLog(cfg.LogWay, cfg.LogFile, cfg.LogLevel, cfg.LogMaxDays, cfg.DisableLogColor)
+	if cfg.DnsServer != "" {
+		s := cfg.DnsServer
 		if !strings.Contains(s, ":") {
 			s += ":53"
 		}
@@ -277,14 +297,14 @@ func returnService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]c
 			},
 		}
 	}
-	svr, errRet := client.NewService(pxyCfgs, visitorCfgs)
+	svr, errRet := client.NewService(cfg, pxyCfgs, visitorCfgs, cfgFile)
 	if errRet != nil {
 		err = errRet
 		return
 	}
 
 	// Capture the exit signal if we use kcp.
-	if g.GlbClientCfg.Protocol == "kcp" {
+	if cfg.Protocol == "kcp" {
 		go handleSignal(svr)
 	}
 

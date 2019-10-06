@@ -261,7 +261,7 @@ func (pxy *XtcpProxy) InWorkConn(conn frpNet.Conn, m *msg.StartWorkConn) {
 		Sid:       natHoleSidMsg.Sid,
 	}
 
-	raddr, _ := net.ResolveUDPAddr("udp", newAddress(pxy.clientCfg.ServerAddr, pxy.clientCfg.ServerUdpPort))
+	raddr, _ := net.ResolveUDPAddr("udp", newAddress(pxy.clientCfg.ServerAddr, pxy.serverUDPPort))
 	clientConn, err := net.DialUDP("udp", nil, raddr)
 	defer clientConn.Close()
 
