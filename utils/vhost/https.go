@@ -119,8 +119,8 @@ func readHandshake(rd io.Reader) (host string, err error) {
 
 	extensionsLength := int(data[0])<<8 | int(data[1])
 	data = data[2:]
-	if extensionsLength != len(data) {
-		err = fmt.Errorf("readHandshake: extensionsLen[%d] is not equal to dataLen[%d]", extensionsLength, len(data))
+	if extensionsLength < len(data) {
+		err = fmt.Errorf("readHandshake: extensionsLen[%d] less than dataLen[%d]", extensionsLength, len(data))
 		return
 	}
 	for len(data) != 0 {
