@@ -64,7 +64,7 @@ Now it also tries to support p2p connect.
 
 ## Status
 
-frp is under development and you can try it with the latest release version. 'master' branch is for releasing stable version, 'dev' branch is for development.
+frp is under development, you can try by using the latest release version under the 'master' branch. You can use the 'dev' branch instead for the version in development.
 
 **We may change any protocol and can't promise backward compatibility. Please check the release log when upgrading.**
 
