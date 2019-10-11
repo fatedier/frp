@@ -5,6 +5,9 @@ After=network.target
 [Service]
 Type=simple
 User=nobody
+LimitCORE=infinity
+LimitNOFILE=65535
+LimitNPROC=65535
 Restart=on-failure
 RestartSec=5s
 ExecStart=/usr/bin/frpc -c /etc/frp/frpc.ini
