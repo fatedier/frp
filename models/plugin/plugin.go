@@ -20,8 +20,6 @@ import (
 	"net"
 	"sync"
 
-	frpNet "github.com/fatedier/frp/utils/net"
-
 	"github.com/fatedier/golib/errors"
 )
 
@@ -46,7 +44,9 @@ func Create(name string, params map[string]string) (p Plugin, err error) {
 
 type Plugin interface {
 	Name() string
-	Handle(conn io.ReadWriteCloser, realConn frpNet.Conn, extraBufToLocal []byte)
+
+	// extraBufToLocal will send to local connection first, then join conn with local connection
+	Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte)
 	Close() error
 }
 

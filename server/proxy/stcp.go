@@ -24,14 +24,14 @@ type StcpProxy struct {
 }
 
 func (pxy *StcpProxy) Run() (remoteAddr string, err error) {
+	xl := pxy.xl
 	listener, errRet := pxy.rc.VisitorManager.Listen(pxy.GetName(), pxy.cfg.Sk)
 	if errRet != nil {
 		err = errRet
 		return
 	}
-	listener.AddLogPrefix(pxy.name)
 	pxy.listeners = append(pxy.listeners, listener)
-	pxy.Info("stcp proxy custom listen success")
+	xl.Info("stcp proxy custom listen success")
 
 	pxy.startListenHandler(pxy, HandleUserTcpConnection)
 	return

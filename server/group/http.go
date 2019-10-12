@@ -2,10 +2,9 @@ package group
 
 import (
 	"fmt"
+	"net"
 	"sync"
 	"sync/atomic"
-
-	frpNet "github.com/fatedier/frp/utils/net"
 
 	"github.com/fatedier/frp/utils/vhost"
 )
@@ -131,7 +130,7 @@ func (g *HTTPGroup) UnRegister(proxyName string) (isEmpty bool) {
 	return
 }
 
-func (g *HTTPGroup) createConn(remoteAddr string) (frpNet.Conn, error) {
+func (g *HTTPGroup) createConn(remoteAddr string) (net.Conn, error) {
 	var f vhost.CreateConnFunc
 	newIndex := atomic.AddUint64(&g.index, 1)
 
