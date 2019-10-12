@@ -64,7 +64,7 @@ func (hp *HttpProxy) Name() string {
 	return PluginHttpProxy
 }
 
-func (hp *HttpProxy) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn, extraBufToLocal []byte) {
+func (hp *HttpProxy) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
 	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
 
 	sc, rd := gnet.NewSharedConn(wrapConn)

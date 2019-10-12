@@ -15,9 +15,11 @@
 package client
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -30,6 +32,7 @@ import (
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
+	"github.com/fatedier/frp/utils/xlog"
 
 	fmux "github.com/hashicorp/yamux"
 )
@@ -55,19 +58,25 @@ type Service struct {
 	// This is configured by the login response from frps
 	serverUDPPort int
 
-	exit     uint32 // 0 means not exit
-	closedCh chan int
+	exit uint32 // 0 means not exit
+
+	// service context
+	ctx context.Context
+	// call cancel to stop service
+	cancel context.CancelFunc
 }
 
-// NewService creates a new client service with the given configuration.
 func NewService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf, cfgFile string) (svr *Service, err error) {
+
+	ctx, cancel := context.WithCancel(context.Background())
 	svr = &Service{
 		cfg:         cfg,
 		cfgFile:     cfgFile,
 		pxyCfgs:     pxyCfgs,
 		visitorCfgs: visitorCfgs,
 		exit:        0,
-		closedCh:    make(chan int),
+		ctx:         xlog.NewContext(ctx, xlog.New()),
+		cancel:      cancel,
 	}
 	return
 }
@@ -79,11 +88,13 @@ func (svr *Service) GetController() *Control {
 }
 
 func (svr *Service) Run() error {
-	// first login
+	xl := xlog.FromContextSafe(svr.ctx)
+
+	// login to frps
 	for {
 		conn, session, err := svr.login()
 		if err != nil {
-			log.Warn("login to server failed: %v", err)
+			xl.Warn("login to server failed: %v", err)
 
 			// if login_fail_exit is true, just exit this program
 			// otherwise sleep a while and try again to connect to server
@@ -94,7 +105,7 @@ func (svr *Service) Run() error {
 			}
 		} else {
 			// login success
-			ctl := NewControl(svr.runId, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort)
+			ctl := NewControl(svr.ctx, svr.runId, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort)
 			ctl.Run()
 			svr.ctlMu.Lock()
 			svr.ctl = ctl
@@ -118,12 +129,12 @@ func (svr *Service) Run() error {
 		}
 		log.Info("admin server listen on %s:%d", svr.cfg.AdminAddr, svr.cfg.AdminPort)
 	}
-
-	<-svr.closedCh
+	<-svr.ctx.Done()
 	return nil
 }
 
 func (svr *Service) keepControllerWorking() {
+	xl := xlog.FromContextSafe(svr.ctx)
 	maxDelayTime := 20 * time.Second
 	delayTime := time.Second
 
@@ -134,10 +145,10 @@ func (svr *Service) keepControllerWorking() {
 		}
 
 		for {
-			log.Info("try to reconnect to server...")
+			xl.Info("try to reconnect to server...")
 			conn, session, err := svr.login()
 			if err != nil {
-				log.Warn("reconnect to server error: %v", err)
+				xl.Warn("reconnect to server error: %v", err)
 				time.Sleep(delayTime)
 				delayTime = delayTime * 2
 				if delayTime > maxDelayTime {
@@ -148,7 +159,7 @@ func (svr *Service) keepControllerWorking() {
 			// reconnect success, init delayTime
 			delayTime = time.Second
 
-			ctl := NewControl(svr.runId, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort)
+			ctl := NewControl(svr.ctx, svr.runId, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort)
 			ctl.Run()
 			svr.ctlMu.Lock()
 			svr.ctl = ctl
@@ -161,7 +172,8 @@ func (svr *Service) keepControllerWorking() {
 // login creates a connection to frps and registers it self as a client
 // conn: control connection
 // session: if it's not nil, using tcp mux
-func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error) {
+func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
+	xl := xlog.FromContextSafe(svr.ctx)
 	var tlsConfig *tls.Config
 	if svr.cfg.TLSEnable {
 		tlsConfig = &tls.Config{
@@ -197,7 +209,7 @@ func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error)
 			err = errRet
 			return
 		}
-		conn = frpNet.WrapConn(stream)
+		conn = stream
 	}
 
 	now := time.Now().Unix()
@@ -225,13 +237,16 @@ func (svr *Service) login() (conn frpNet.Conn, session *fmux.Session, err error)
 
 	if loginRespMsg.Error != "" {
 		err = fmt.Errorf("%s", loginRespMsg.Error)
-		log.Error("%s", loginRespMsg.Error)
+		xl.Error("%s", loginRespMsg.Error)
 		return
 	}
 
 	svr.runId = loginRespMsg.RunId
+	xl.ResetPrefixes()
+	xl.AppendPrefix(svr.runId)
+
 	svr.serverUDPPort = loginRespMsg.ServerUdpPort
-	log.Info("login to server success, get run id [%s], server udp port [%d]", loginRespMsg.RunId, loginRespMsg.ServerUdpPort)
+	xl.Info("login to server success, get run id [%s], server udp port [%d]", loginRespMsg.RunId, loginRespMsg.ServerUdpPort)
 	return
 }
 
@@ -247,5 +262,5 @@ func (svr *Service) ReloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs 
 func (svr *Service) Close() {
 	atomic.StoreUint32(&svr.exit, 1)
 	svr.ctl.Close()
-	close(svr.closedCh)
+	svr.cancel()
 }

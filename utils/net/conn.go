@@ -15,6 +15,7 @@
 package net
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -23,41 +24,64 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/fatedier/frp/utils/log"
-
+	"github.com/fatedier/frp/utils/xlog"
 	gnet "github.com/fatedier/golib/net"
 	kcp "github.com/fatedier/kcp-go"
 )
 
-// Conn is the interface of connections used in frp.
-type Conn interface {
-	net.Conn
-	log.Logger
+type ContextGetter interface {
+	Context() context.Context
 }
 
-type WrapLogConn struct {
-	net.Conn
-	log.Logger
+type ContextSetter interface {
+	WithContext(ctx context.Context)
 }
 
-func WrapConn(c net.Conn) Conn {
-	return &WrapLogConn{
-		Conn:   c,
-		Logger: log.NewPrefixLogger(""),
+func NewLogFromConn(conn net.Conn) *xlog.Logger {
+	if c, ok := conn.(ContextGetter); ok {
+		return xlog.FromContextSafe(c.Context())
 	}
+	return xlog.New()
+}
+
+func NewContextFromConn(conn net.Conn) context.Context {
+	if c, ok := conn.(ContextGetter); ok {
+		return c.Context()
+	}
+	return context.Background()
+}
+
+// ContextConn is the connection with context
+type ContextConn struct {
+	net.Conn
+
+	ctx context.Context
+}
+
+func NewContextConn(c net.Conn, ctx context.Context) *ContextConn {
+	return &ContextConn{
+		Conn: c,
+		ctx:  ctx,
+	}
+}
+
+func (c *ContextConn) WithContext(ctx context.Context) {
+	c.ctx = ctx
+}
+
+func (c *ContextConn) Context() context.Context {
+	return c.ctx
 }
 
 type WrapReadWriteCloserConn struct {
 	io.ReadWriteCloser
-	log.Logger
 
 	underConn net.Conn
 }
 
-func WrapReadWriteCloserToConn(rwc io.ReadWriteCloser, underConn net.Conn) Conn {
+func WrapReadWriteCloserToConn(rwc io.ReadWriteCloser, underConn net.Conn) net.Conn {
 	return &WrapReadWriteCloserConn{
 		ReadWriteCloser: rwc,
-		Logger:          log.NewPrefixLogger(""),
 		underConn:       underConn,
 	}
 }
@@ -99,7 +123,6 @@ func (conn *WrapReadWriteCloserConn) SetWriteDeadline(t time.Time) error {
 
 type CloseNotifyConn struct {
 	net.Conn
-	log.Logger
 
 	// 1 means closed
 	closeFlag int32
@@ -108,10 +131,9 @@ type CloseNotifyConn struct {
 }
 
 // closeFn will be only called once
-func WrapCloseNotifyConn(c net.Conn, closeFn func()) Conn {
+func WrapCloseNotifyConn(c net.Conn, closeFn func()) net.Conn {
 	return &CloseNotifyConn{
 		Conn:    c,
-		Logger:  log.NewPrefixLogger(""),
 		closeFn: closeFn,
 	}
 }
@@ -128,7 +150,7 @@ func (cc *CloseNotifyConn) Close() (err error) {
 }
 
 type StatsConn struct {
-	Conn
+	net.Conn
 
 	closed     int64 // 1 means closed
 	totalRead  int64
@@ -136,7 +158,7 @@ type StatsConn struct {
 	statsFunc  func(totalRead, totalWrite int64)
 }
 
-func WrapStatsConn(conn Conn, statsFunc func(total, totalWrite int64)) *StatsConn {
+func WrapStatsConn(conn net.Conn, statsFunc func(total, totalWrite int64)) *StatsConn {
 	return &StatsConn{
 		Conn:      conn,
 		statsFunc: statsFunc,
@@ -166,10 +188,10 @@ func (statsConn *StatsConn) Close() (err error) {
 	return
 }
 
-func ConnectServer(protocol string, addr string) (c Conn, err error) {
+func ConnectServer(protocol string, addr string) (c net.Conn, err error) {
 	switch protocol {
 	case "tcp":
-		return ConnectTcpServer(addr)
+		return net.Dial("tcp", addr)
 	case "kcp":
 		kcpConn, errRet := kcp.DialWithOptions(addr, nil, 10, 3)
 		if errRet != nil {
@@ -184,21 +206,17 @@ func ConnectServer(protocol string, addr string) (c Conn, err error) {
 		kcpConn.SetACKNoDelay(false)
 		kcpConn.SetReadBuffer(4194304)
 		kcpConn.SetWriteBuffer(4194304)
-		c = WrapConn(kcpConn)
+		c = kcpConn
 		return
 	default:
 		return nil, fmt.Errorf("unsupport protocol: %s", protocol)
 	}
 }
 
-func ConnectServerByProxy(proxyUrl string, protocol string, addr string) (c Conn, err error) {
+func ConnectServerByProxy(proxyURL string, protocol string, addr string) (c net.Conn, err error) {
 	switch protocol {
 	case "tcp":
-		var conn net.Conn
-		if conn, err = gnet.DialTcpByProxy(proxyUrl, addr); err != nil {
-			return
-		}
-		return WrapConn(conn), nil
+		return gnet.DialTcpByProxy(proxyURL, addr)
 	case "kcp":
 		// http proxy is not supported for kcp
 		return ConnectServer(protocol, addr)
@@ -209,7 +227,7 @@ func ConnectServerByProxy(proxyUrl string, protocol string, addr string) (c Conn
 	}
 }
 
-func ConnectServerByProxyWithTLS(proxyUrl string, protocol string, addr string, tlsConfig *tls.Config) (c Conn, err error) {
+func ConnectServerByProxyWithTLS(proxyUrl string, protocol string, addr string, tlsConfig *tls.Config) (c net.Conn, err error) {
 	c, err = ConnectServerByProxy(proxyUrl, protocol, addr)
 	if err != nil {
 		return

@@ -1,7 +1,9 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -10,8 +12,7 @@ import (
 	"github.com/fatedier/frp/client/health"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/log"
-	frpNet "github.com/fatedier/frp/utils/net"
+	"github.com/fatedier/frp/utils/xlog"
 
 	"github.com/fatedier/golib/errors"
 )
@@ -62,11 +63,13 @@ type ProxyWrapper struct {
 	healthNotifyCh   chan struct{}
 	mu               sync.RWMutex
 
-	log.Logger
+	xl  *xlog.Logger
+	ctx context.Context
 }
 
-func NewProxyWrapper(cfg config.ProxyConf, clientCfg config.ClientCommonConf, eventHandler event.EventHandler, logPrefix string, serverUDPPort int) *ProxyWrapper {
+func NewProxyWrapper(ctx context.Context, cfg config.ProxyConf, clientCfg config.ClientCommonConf, eventHandler event.EventHandler, serverUDPPort int) *ProxyWrapper {
 	baseInfo := cfg.GetBaseInfo()
+	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(baseInfo.ProxyName)
 	pw := &ProxyWrapper{
 		ProxyStatus: ProxyStatus{
 			Name:   baseInfo.ProxyName,
@@ -77,20 +80,19 @@ func NewProxyWrapper(cfg config.ProxyConf, clientCfg config.ClientCommonConf, ev
 		closeCh:        make(chan struct{}),
 		healthNotifyCh: make(chan struct{}),
 		handler:        eventHandler,
-		Logger:         log.NewPrefixLogger(logPrefix),
+		xl:             xl,
+		ctx:            xlog.NewContext(ctx, xl),
 	}
-	pw.AddLogPrefix(pw.Name)
 
 	if baseInfo.HealthCheckType != "" {
 		pw.health = 1 // means failed
-		pw.monitor = health.NewHealthCheckMonitor(baseInfo.HealthCheckType, baseInfo.HealthCheckIntervalS,
+		pw.monitor = health.NewHealthCheckMonitor(pw.ctx, baseInfo.HealthCheckType, baseInfo.HealthCheckIntervalS,
 			baseInfo.HealthCheckTimeoutS, baseInfo.HealthCheckMaxFailed, baseInfo.HealthCheckAddr,
 			baseInfo.HealthCheckUrl, pw.statusNormalCallback, pw.statusFailedCallback)
-		pw.monitor.SetLogger(pw.Logger)
-		pw.Trace("enable health check monitor")
+		xl.Trace("enable health check monitor")
 	}
 
-	pw.pxy = NewProxy(pw.Cfg, clientCfg, serverUDPPort)
+	pw.pxy = NewProxy(pw.ctx, pw.Cfg, clientCfg, serverUDPPort)
 	return pw
 }
 
@@ -147,6 +149,7 @@ func (pw *ProxyWrapper) Stop() {
 }
 
 func (pw *ProxyWrapper) checkWorker() {
+	xl := pw.xl
 	if pw.monitor != nil {
 		// let monitor do check request first
 		time.Sleep(500 * time.Millisecond)
@@ -161,7 +164,7 @@ func (pw *ProxyWrapper) checkWorker() {
 				(pw.Status == ProxyStatusWaitStart && now.After(pw.lastSendStartMsg.Add(waitResponseTimeout))) ||
 				(pw.Status == ProxyStatusStartErr && now.After(pw.lastStartErr.Add(startErrTimeout))) {
 
-				pw.Trace("change status from [%s] to [%s]", pw.Status, ProxyStatusWaitStart)
+				xl.Trace("change status from [%s] to [%s]", pw.Status, ProxyStatusWaitStart)
 				pw.Status = ProxyStatusWaitStart
 
 				var newProxyMsg msg.NewProxy
@@ -180,7 +183,7 @@ func (pw *ProxyWrapper) checkWorker() {
 						ProxyName: pw.Name,
 					},
 				})
-				pw.Trace("change status from [%s] to [%s]", pw.Status, ProxyStatusCheckFailed)
+				xl.Trace("change status from [%s] to [%s]", pw.Status, ProxyStatusCheckFailed)
 				pw.Status = ProxyStatusCheckFailed
 			}
 			pw.mu.Unlock()
@@ -196,6 +199,7 @@ func (pw *ProxyWrapper) checkWorker() {
 }
 
 func (pw *ProxyWrapper) statusNormalCallback() {
+	xl := pw.xl
 	atomic.StoreUint32(&pw.health, 0)
 	errors.PanicToError(func() {
 		select {
@@ -203,10 +207,11 @@ func (pw *ProxyWrapper) statusNormalCallback() {
 		default:
 		}
 	})
-	pw.Info("health check success")
+	xl.Info("health check success")
 }
 
 func (pw *ProxyWrapper) statusFailedCallback() {
+	xl := pw.xl
 	atomic.StoreUint32(&pw.health, 1)
 	errors.PanicToError(func() {
 		select {
@@ -214,15 +219,16 @@ func (pw *ProxyWrapper) statusFailedCallback() {
 		default:
 		}
 	})
-	pw.Info("health check failed")
+	xl.Info("health check failed")
 }
 
-func (pw *ProxyWrapper) InWorkConn(workConn frpNet.Conn, m *msg.StartWorkConn) {
+func (pw *ProxyWrapper) InWorkConn(workConn net.Conn, m *msg.StartWorkConn) {
+	xl := pw.xl
 	pw.mu.RLock()
 	pxy := pw.pxy
 	pw.mu.RUnlock()
 	if pxy != nil {
-		workConn.Debug("start a new work connection, localAddr: %s remoteAddr: %s", workConn.LocalAddr().String(), workConn.RemoteAddr().String())
+		xl.Debug("start a new work connection, localAddr: %s remoteAddr: %s", workConn.LocalAddr().String(), workConn.RemoteAddr().String())
 		go pxy.InWorkConn(workConn, m)
 	} else {
 		workConn.Close()

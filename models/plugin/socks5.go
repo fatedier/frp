@@ -18,6 +18,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 
 	frpNet "github.com/fatedier/frp/utils/net"
 
@@ -53,7 +54,7 @@ func NewSocks5Plugin(params map[string]string) (p Plugin, err error) {
 	return
 }
 
-func (sp *Socks5Plugin) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn, extraBufToLocal []byte) {
+func (sp *Socks5Plugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
 	defer conn.Close()
 	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
 	sp.Server.ServeConn(wrapConn)
