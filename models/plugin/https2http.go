@@ -18,6 +18,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"strings"
@@ -115,7 +116,7 @@ func (p *HTTPS2HTTPPlugin) genTLSConfig() (*tls.Config, error) {
 	return config, nil
 }
 
-func (p *HTTPS2HTTPPlugin) Handle(conn io.ReadWriteCloser, realConn frpNet.Conn, extraBufToLocal []byte) {
+func (p *HTTPS2HTTPPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
 	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
 	p.l.PutConn(wrapConn)
 }

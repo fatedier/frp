@@ -17,6 +17,7 @@ package controller
 import (
 	"fmt"
 	"io"
+	"net"
 	"sync"
 
 	frpNet "github.com/fatedier/frp/utils/net"
@@ -55,7 +56,7 @@ func (vm *VisitorManager) Listen(name string, sk string) (l *frpNet.CustomListen
 	return
 }
 
-func (vm *VisitorManager) NewConn(name string, conn frpNet.Conn, timestamp int64, signKey string,
+func (vm *VisitorManager) NewConn(name string, conn net.Conn, timestamp int64, signKey string,
 	useEncryption bool, useCompression bool) (err error) {
 
 	vm.mu.RLock()
