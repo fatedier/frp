@@ -117,6 +117,7 @@ func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UdpPacket, sendCh chan<-
 			if !ok {
 				udpConn, err = net.DialUDP("udp", nil, dstAddr)
 				if err != nil {
+					mu.Unlock()
 					continue
 				}
 				udpConnMap[udpMsg.RemoteAddr.String()] = udpConn
