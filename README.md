@@ -440,7 +440,7 @@ Then visit `http://127.0.0.1:7400` to see admin UI, default username and passwor
 
 ### Encryption and Compression
 
-Defalut value is false, you could decide if the proxy will use encryption or compression:
+Default value is false, you could decide if the proxy will use encryption or compression:
 
 ```ini
 # frpc.ini
