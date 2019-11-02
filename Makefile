@@ -16,7 +16,7 @@ file:
 
 fmt:
 	go fmt ./...
-	
+
 frps:
 	go build -o bin/frps ./cmd/frps
 

@@ -1,14 +1,15 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/fatedier/frp/client/event"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/log"
-	frpNet "github.com/fatedier/frp/utils/net"
+	"github.com/fatedier/frp/utils/xlog"
 
 	"github.com/fatedier/golib/errors"
 )
@@ -25,19 +26,17 @@ type ProxyManager struct {
 	// The UDP port that the server is listening on
 	serverUDPPort int
 
-	logPrefix string
-	log.Logger
+	ctx context.Context
 }
 
-func NewProxyManager(msgSendCh chan (msg.Message), logPrefix string, clientCfg config.ClientCommonConf, serverUDPPort int) *ProxyManager {
+func NewProxyManager(ctx context.Context, msgSendCh chan (msg.Message), clientCfg config.ClientCommonConf, serverUDPPort int) *ProxyManager {
 	return &ProxyManager{
-		proxies:       make(map[string]*ProxyWrapper),
 		sendCh:        msgSendCh,
+		proxies:       make(map[string]*ProxyWrapper),
 		closed:        false,
 		clientCfg:     clientCfg,
 		serverUDPPort: serverUDPPort,
-		logPrefix:     logPrefix,
-		Logger:        log.NewPrefixLogger(logPrefix),
+		ctx:           ctx,
 	}
 }
 
@@ -65,7 +64,7 @@ func (pm *ProxyManager) Close() {
 	pm.proxies = make(map[string]*ProxyWrapper)
 }
 
-func (pm *ProxyManager) HandleWorkConn(name string, workConn frpNet.Conn, m *msg.StartWorkConn) {
+func (pm *ProxyManager) HandleWorkConn(name string, workConn net.Conn, m *msg.StartWorkConn) {
 	pm.mu.RLock()
 	pw, ok := pm.proxies[name]
 	pm.mu.RUnlock()
@@ -104,6 +103,7 @@ func (pm *ProxyManager) GetAllProxyStatus() []*ProxyStatus {
 }
 
 func (pm *ProxyManager) Reload(pxyCfgs map[string]config.ProxyConf) {
+	xl := xlog.FromContextSafe(pm.ctx)
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
@@ -127,13 +127,13 @@ func (pm *ProxyManager) Reload(pxyCfgs map[string]config.ProxyConf) {
 		}
 	}
 	if len(delPxyNames) > 0 {
-		pm.Info("proxy removed: %v", delPxyNames)
+		xl.Info("proxy removed: %v", delPxyNames)
 	}
 
 	addPxyNames := make([]string, 0)
 	for name, cfg := range pxyCfgs {
 		if _, ok := pm.proxies[name]; !ok {
-			pxy := NewProxyWrapper(cfg, pm.clientCfg, pm.HandleEvent, pm.logPrefix, pm.serverUDPPort)
+			pxy := NewProxyWrapper(pm.ctx, cfg, pm.clientCfg, pm.HandleEvent, pm.serverUDPPort)
 			pm.proxies[name] = pxy
 			addPxyNames = append(addPxyNames, name)
 
@@ -141,6 +141,6 @@ func (pm *ProxyManager) Reload(pxyCfgs map[string]config.ProxyConf) {
 		}
 	}
 	if len(addPxyNames) > 0 {
-		pm.Info("proxy added: %v", addPxyNames)
+		xl.Info("proxy added: %v", addPxyNames)
 	}
 }
