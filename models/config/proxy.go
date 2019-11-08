@@ -125,6 +125,11 @@ type BaseProxyConf struct {
 	// values include "v1", "v2", and "". If the value is "", a protocol
 	// version will be automatically selected. By default, this value is "".
 	ProxyProtocolVersion string `json:"proxy_protocol_version"`
+
+	// BandwithLimit limit the proxy bandwith
+	// 0 means no limit
+	BandwithLimit BandwithQuantity `json:"bandwith_limit"`
+
 	LocalSvrConf
 	HealthCheckConf
 }
@@ -140,7 +145,8 @@ func (cfg *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
 		cfg.UseCompression != cmp.UseCompression ||
 		cfg.Group != cmp.Group ||
 		cfg.GroupKey != cmp.GroupKey ||
-		cfg.ProxyProtocolVersion != cmp.ProxyProtocolVersion {
+		cfg.ProxyProtocolVersion != cmp.ProxyProtocolVersion ||
+		cfg.BandwithLimit.Equal(&cmp.BandwithLimit) {
 		return false
 	}
 	if !cfg.LocalSvrConf.compare(&cmp.LocalSvrConf) {
@@ -165,6 +171,7 @@ func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section i
 	var (
 		tmpStr string
 		ok     bool
+		err    error
 	)
 	cfg.ProxyName = prefix + name
 	cfg.ProxyType = section["type"]
@@ -183,11 +190,15 @@ func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section i
 	cfg.GroupKey = section["group_key"]
 	cfg.ProxyProtocolVersion = section["proxy_protocol_version"]
 
-	if err := cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
+	if cfg.BandwithLimit, err = NewBandwithQuantity(section["bandwidth_limit"]); err != nil {
 		return err
 	}
 
-	if err := cfg.HealthCheckConf.UnmarshalFromIni(prefix, name, section); err != nil {
+	if err = cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return err
+	}
+
+	if err = cfg.HealthCheckConf.UnmarshalFromIni(prefix, name, section); err != nil {
 		return err
 	}
 

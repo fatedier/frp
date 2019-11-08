@@ -30,6 +30,7 @@ import (
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/models/plugin"
 	"github.com/fatedier/frp/models/proto/udp"
+	"github.com/fatedier/frp/utils/limit"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/xlog"
 
@@ -38,6 +39,7 @@ import (
 	"github.com/fatedier/golib/pool"
 	fmux "github.com/hashicorp/yamux"
 	pp "github.com/pires/go-proxyproto"
+	"golang.org/x/time/rate"
 )
 
 // Proxy defines how to handle work connections for different proxy type.
@@ -51,9 +53,16 @@ type Proxy interface {
 }
 
 func NewProxy(ctx context.Context, pxyConf config.ProxyConf, clientCfg config.ClientCommonConf, serverUDPPort int) (pxy Proxy) {
+	var limiter *rate.Limiter
+	limitBytes := pxyConf.GetBaseInfo().BandwithLimit.Bytes()
+	if limitBytes > 0 {
+		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
+	}
+
 	baseProxy := BaseProxy{
 		clientCfg:     clientCfg,
 		serverUDPPort: serverUDPPort,
+		limiter:       limiter,
 		xl:            xlog.FromContextSafe(ctx),
 		ctx:           ctx,
 	}
@@ -96,6 +105,7 @@ type BaseProxy struct {
 	closed        bool
 	clientCfg     config.ClientCommonConf
 	serverUDPPort int
+	limiter       *rate.Limiter
 
 	mu  sync.RWMutex
 	xl  *xlog.Logger
@@ -127,8 +137,8 @@ func (pxy *TcpProxy) Close() {
 }
 
 func (pxy *TcpProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	HandleTcpWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
-		[]byte(pxy.clientCfg.Token), m)
+	HandleTcpWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, pxy.limiter,
+		conn, []byte(pxy.clientCfg.Token), m)
 }
 
 // HTTP
@@ -156,8 +166,8 @@ func (pxy *HttpProxy) Close() {
 }
 
 func (pxy *HttpProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	HandleTcpWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
-		[]byte(pxy.clientCfg.Token), m)
+	HandleTcpWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, pxy.limiter,
+		conn, []byte(pxy.clientCfg.Token), m)
 }
 
 // HTTPS
@@ -185,8 +195,8 @@ func (pxy *HttpsProxy) Close() {
 }
 
 func (pxy *HttpsProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	HandleTcpWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
-		[]byte(pxy.clientCfg.Token), m)
+	HandleTcpWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, pxy.limiter,
+		conn, []byte(pxy.clientCfg.Token), m)
 }
 
 // STCP
@@ -214,8 +224,8 @@ func (pxy *StcpProxy) Close() {
 }
 
 func (pxy *StcpProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	HandleTcpWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, conn,
-		[]byte(pxy.clientCfg.Token), m)
+	HandleTcpWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, pxy.limiter,
+		conn, []byte(pxy.clientCfg.Token), m)
 }
 
 // XTCP
@@ -360,7 +370,7 @@ func (pxy *XtcpProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 		return
 	}
 
-	HandleTcpWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf,
+	HandleTcpWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, pxy.limiter,
 		muxConn, []byte(pxy.cfg.Sk), m)
 }
 
@@ -429,6 +439,13 @@ func (pxy *UdpProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	// close resources releated with old workConn
 	pxy.Close()
 
+	if pxy.limiter != nil {
+		rwc := frpIo.WrapReadWriteCloser(limit.NewReader(conn, pxy.limiter), limit.NewWriter(conn, pxy.limiter), func() error {
+			return conn.Close()
+		})
+		conn = frpNet.WrapReadWriteCloserToConn(rwc, conn)
+	}
+
 	pxy.mu.Lock()
 	pxy.workConn = conn
 	pxy.readCh = make(chan *msg.UdpPacket, 1024)
@@ -491,13 +508,18 @@ func (pxy *UdpProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 
 // Common handler for tcp work connections.
 func HandleTcpWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf, proxyPlugin plugin.Plugin,
-	baseInfo *config.BaseProxyConf, workConn net.Conn, encKey []byte, m *msg.StartWorkConn) {
+	baseInfo *config.BaseProxyConf, limiter *rate.Limiter, workConn net.Conn, encKey []byte, m *msg.StartWorkConn) {
 	xl := xlog.FromContextSafe(ctx)
 	var (
 		remote io.ReadWriteCloser
 		err    error
 	)
 	remote = workConn
+	if limiter != nil {
+		remote = frpIo.WrapReadWriteCloser(limit.NewReader(workConn, limiter), limit.NewWriter(workConn, limiter), func() error {
+			return workConn.Close()
+		})
+	}
 
 	xl.Trace("handle tcp work connection, use_encryption: %t, use_compression: %t",
 		baseInfo.UseEncryption, baseInfo.UseCompression)
