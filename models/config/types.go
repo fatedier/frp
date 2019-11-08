@@ -15,6 +15,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -25,14 +26,14 @@ const (
 	KB = 1024
 )
 
-type BandwithQuantity struct {
+type BandwidthQuantity struct {
 	s string // MB or KB
 
 	i int64 // bytes
 }
 
-func NewBandwithQuantity(s string) (BandwithQuantity, error) {
-	q := BandwithQuantity{}
+func NewBandwidthQuantity(s string) (BandwidthQuantity, error) {
+	q := BandwidthQuantity{}
 	err := q.UnmarshalString(s)
 	if err != nil {
 		return q, err
@@ -40,7 +41,7 @@ func NewBandwithQuantity(s string) (BandwithQuantity, error) {
 	return q, nil
 }
 
-func (q *BandwithQuantity) Equal(u *BandwithQuantity) bool {
+func (q *BandwidthQuantity) Equal(u *BandwidthQuantity) bool {
 	if q == nil && u == nil {
 		return true
 	}
@@ -50,13 +51,13 @@ func (q *BandwithQuantity) Equal(u *BandwithQuantity) bool {
 	return false
 }
 
-func (q *BandwithQuantity) String() string {
+func (q *BandwidthQuantity) String() string {
 	return q.s
 }
 
-func (q *BandwithQuantity) UnmarshalString(s string) error {
-	q.s = strings.TrimSpace(s)
-	if q.s == "" {
+func (q *BandwidthQuantity) UnmarshalString(s string) error {
+	s = strings.TrimSpace(s)
+	if s == "" {
 		return nil
 	}
 
@@ -67,15 +68,15 @@ func (q *BandwithQuantity) UnmarshalString(s string) error {
 	)
 	if strings.HasSuffix(s, "MB") {
 		base = MB
-		s = strings.TrimSuffix(s, "MB")
-		f, err = strconv.ParseFloat(s, 64)
+		fstr := strings.TrimSuffix(s, "MB")
+		f, err = strconv.ParseFloat(fstr, 64)
 		if err != nil {
 			return err
 		}
 	} else if strings.HasSuffix(s, "KB") {
 		base = KB
-		s = strings.TrimSuffix(s, "KB")
-		f, err = strconv.ParseFloat(s, 64)
+		fstr := strings.TrimSuffix(s, "KB")
+		f, err = strconv.ParseFloat(fstr, 64)
 		if err != nil {
 			return err
 		}
@@ -83,18 +84,29 @@ func (q *BandwithQuantity) UnmarshalString(s string) error {
 		return errors.New("unit not support")
 	}
 
+	q.s = s
 	q.i = int64(f * float64(base))
 	return nil
 }
 
-func (q *BandwithQuantity) UnmarshalJSON(b []byte) error {
-	return q.UnmarshalString(string(b))
+func (q *BandwidthQuantity) UnmarshalJSON(b []byte) error {
+	if len(b) == 4 && string(b) == "null" {
+		return nil
+	}
+
+	var str string
+	err := json.Unmarshal(b, &str)
+	if err != nil {
+		return err
+	}
+
+	return q.UnmarshalString(str)
 }
 
-func (q *BandwithQuantity) MarshalJSON() ([]byte, error) {
-	return []byte(q.s), nil
+func (q *BandwidthQuantity) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + q.s + "\""), nil
 }
 
-func (q *BandwithQuantity) Bytes() int64 {
+func (q *BandwidthQuantity) Bytes() int64 {
 	return q.i
 }

@@ -126,9 +126,9 @@ type BaseProxyConf struct {
 	// version will be automatically selected. By default, this value is "".
 	ProxyProtocolVersion string `json:"proxy_protocol_version"`
 
-	// BandwithLimit limit the proxy bandwith
+	// BandwidthLimit limit the proxy bandwidth
 	// 0 means no limit
-	BandwithLimit BandwithQuantity `json:"bandwith_limit"`
+	BandwidthLimit BandwidthQuantity `json:"bandwidth_limit"`
 
 	LocalSvrConf
 	HealthCheckConf
@@ -146,7 +146,7 @@ func (cfg *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
 		cfg.Group != cmp.Group ||
 		cfg.GroupKey != cmp.GroupKey ||
 		cfg.ProxyProtocolVersion != cmp.ProxyProtocolVersion ||
-		cfg.BandwithLimit.Equal(&cmp.BandwithLimit) {
+		cfg.BandwidthLimit.Equal(&cmp.BandwidthLimit) {
 		return false
 	}
 	if !cfg.LocalSvrConf.compare(&cmp.LocalSvrConf) {
@@ -190,7 +190,7 @@ func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section i
 	cfg.GroupKey = section["group_key"]
 	cfg.ProxyProtocolVersion = section["proxy_protocol_version"]
 
-	if cfg.BandwithLimit, err = NewBandwithQuantity(section["bandwidth_limit"]); err != nil {
+	if cfg.BandwidthLimit, err = NewBandwidthQuantity(section["bandwidth_limit"]); err != nil {
 		return err
 	}
 

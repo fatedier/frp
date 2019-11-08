@@ -54,7 +54,7 @@ type Proxy interface {
 
 func NewProxy(ctx context.Context, pxyConf config.ProxyConf, clientCfg config.ClientCommonConf, serverUDPPort int) (pxy Proxy) {
 	var limiter *rate.Limiter
-	limitBytes := pxyConf.GetBaseInfo().BandwithLimit.Bytes()
+	limitBytes := pxyConf.GetBaseInfo().BandwidthLimit.Bytes()
 	if limitBytes > 0 {
 		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
 	}
