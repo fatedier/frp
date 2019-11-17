@@ -1,9 +1,10 @@
 [Unit]
 Description=Frp Client Service
 After=network.target
+StartLimitIntervalSec=3
 
 [Service]
-Type=simple
+Type=idle
 User=nobody
 Restart=on-failure
 RestartSec=5s

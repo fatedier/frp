@@ -1,12 +1,14 @@
 [Unit]
 Description=Frp Server Service
 After=network.target
+StartLimitIntervalSec=3
 
 [Service]
 Type=simple
 User=nobody
 Restart=on-failure
 RestartSec=5s
+ExecStartPre=/bin/test -s /etc/frp/frps.ini
 ExecStart=/usr/bin/frps -c /etc/frp/frps.ini
 
 [Install]
