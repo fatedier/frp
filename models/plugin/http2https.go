@@ -105,5 +105,8 @@ func (p *HTTP2HTTPSPlugin) Name() string {
 }
 
 func (p *HTTP2HTTPSPlugin) Close() error {
+	if err := p.s.Close();err != nil {
+		return err
+	}
 	return nil
 }
