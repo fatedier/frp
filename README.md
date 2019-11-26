@@ -37,6 +37,8 @@ frp also has a P2P connect mode.
     * [Get proxy status from client](#get-proxy-status-from-client)
     * [Only allowing certain ports on the server](#only-allowing-certain-ports-on-the-server)
     * [Port Reuse](#port-reuse)
+    * [Bandwidth Limit](#bandwidth-limit)
+        * [For Each Proxy](#for-each-proxy)
     * [TCP Stream Multiplexing](#tcp-stream-multiplexing)
     * [Support KCP Protocol](#support-kcp-protocol)
     * [Connection Pooling](#connection-pooling)
@@ -494,6 +496,21 @@ allow_ports = 2000-3000,3001,3003,4000-50000
 `vhost_http_port` and `vhost_https_port` in frps can use same port with `bind_port`. frps will detect the connection's protocol and handle it correspondingly.
 
 We would like to try to allow multiple proxies bind a same remote port with different protocols in the future.
+
+### Bandwidth Limit
+
+#### For Each Proxy
+
+```ini
+# frpc.ini
+[ssh]
+type = tcp
+local_port = 22
+remote_port = 6000
+bandwidth_limit = 1MB
+```
+
+Set `bandwidth_limit` in each proxy's configure to enable this feature. Supported units are `MB` and `KB`.
 
 ### TCP Stream Multiplexing
 
