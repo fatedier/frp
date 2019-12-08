@@ -59,6 +59,8 @@ var (
 	allowPorts        string
 	maxPoolCount      int64
 	maxPortsPerClient int64
+	promesAddr        string
+	promesPort        int
 )
 
 func init() {
@@ -81,6 +83,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	rootCmd.PersistentFlags().Int64VarP(&logMaxDays, "log_max_days", "", 3, "log max days")
 	rootCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
+	rootCmd.PersistentFlags().StringVarP(&promesAddr, "promes_addr", "", "0.0.0.0", "prometheus exporter address")
+	rootCmd.PersistentFlags().IntVarP(&promesPort, "promes_port", "", 0, "prometheus exporter port")
 
 	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
 	rootCmd.PersistentFlags().StringVarP(&subDomainHost, "subdomain_host", "", "", "subdomain host")
@@ -193,6 +197,11 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 		cfg.LogWay = "file"
 	}
 	cfg.DisableLogColor = disableLogColor
+
+	//prometheus exporter
+	cfg.PromesAddr = promesAddr
+	cfg.DashboardPort = promesPort
+
 	return
 }
 

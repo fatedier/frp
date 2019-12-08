@@ -23,6 +23,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"github.com/fatedier/frp/server/monitor"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -88,6 +89,9 @@ type Service struct {
 	tlsConfig *tls.Config
 
 	cfg config.ServerCommonConf
+
+	//monitor in prometheus
+	promes *monitor.Prometheus
 }
 
 func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
@@ -241,7 +245,18 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		statsEnable = true
 	}
 
+	//start monitor server in prometheus
+	if cfg.PromesPort > 0 {
+		statsEnable = true
+	}
 	svr.statsCollector = stats.NewInternalCollector(statsEnable)
+
+	//start monitor server in prometheus
+	if cfg.PromesPort > 0 {
+		svr.promes = monitor.NewPrometheus(svr.statsCollector, cfg)
+		go svr.promes.Start()
+	}
+
 	return
 }
 

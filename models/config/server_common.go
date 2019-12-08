@@ -134,6 +134,13 @@ type ServerCommonConf struct {
 	// UserConnTimeout specifies the maximum time to wait for a work
 	// connection. By default, this value is 10.
 	UserConnTimeout int64 `json:"user_conn_timeout"`
+	// PromesAddr specifies the address that the prometheus binds to. By default,
+	// this value is "0.0.0.0".
+	PromesAddr string `json:"bind_addr"`
+	// PromesPort specifies the port that the prometueus exporter listens on. If this
+	// value is 0, the dashboard will not be started. By default, this value is
+	// 0.
+	PromesPort int `json:"bind_port"`
 }
 
 // GetDefaultServerConf returns a server configuration with reasonable
@@ -167,6 +174,8 @@ func GetDefaultServerConf() ServerCommonConf {
 		HeartBeatTimeout:  90,
 		UserConnTimeout:   10,
 		Custom404Page:     "",
+		PromesAddr:        "0.0.0.0",
+		PromesPort:        0,
 	}
 }
 
@@ -372,6 +381,25 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 			cfg.HeartBeatTimeout = v
 		}
 	}
+
+	//prometheus exporter
+	if tmpStr, ok = conf.Get("common", "promes_addr"); ok {
+		cfg.PromesAddr = tmpStr
+	} else {
+		cfg.PromesAddr = cfg.BindAddr
+	}
+
+	if tmpStr, ok = conf.Get("common", "promes_port"); ok {
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid promes_port")
+			return
+		} else {
+			cfg.PromesPort = int(v)
+		}
+	} else {
+		cfg.PromesPort = 0
+	}
+
 	return
 }
 
