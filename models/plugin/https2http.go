@@ -126,7 +126,7 @@ func (p *HTTPS2HTTPPlugin) Name() string {
 }
 
 func (p *HTTPS2HTTPPlugin) Close() error {
-	if err := p.s.Close();err != nil {
+	if err := p.s.Close(); err != nil {
 		return err
 	}
 	return nil
