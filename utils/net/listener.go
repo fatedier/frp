@@ -19,8 +19,6 @@ import (
 	"net"
 	"sync"
 
-	"github.com/fatedier/frp/utils/log"
-
 	"github.com/fatedier/golib/errors"
 )
 
@@ -58,33 +56,29 @@ func (logL *LogListener) Close() error {
 
 // Custom listener
 type CustomListener struct {
-	conns  chan Conn
-	closed bool
-	mu     sync.Mutex
-
-	log.Logger
+	acceptCh chan net.Conn
+	closed   bool
+	mu       sync.Mutex
 }
 
 func NewCustomListener() *CustomListener {
 	return &CustomListener{
-		conns:  make(chan Conn, 64),
-		Logger: log.NewPrefixLogger(""),
+		acceptCh: make(chan net.Conn, 64),
 	}
 }
 
-func (l *CustomListener) Accept() (Conn, error) {
-	conn, ok := <-l.conns
+func (l *CustomListener) Accept() (net.Conn, error) {
+	conn, ok := <-l.acceptCh
 	if !ok {
 		return nil, fmt.Errorf("listener closed")
 	}
-	conn.AddLogPrefix(l.GetPrefixStr())
 	return conn, nil
 }
 
-func (l *CustomListener) PutConn(conn Conn) error {
+func (l *CustomListener) PutConn(conn net.Conn) error {
 	err := errors.PanicToError(func() {
 		select {
-		case l.conns <- conn:
+		case l.acceptCh <- conn:
 		default:
 			conn.Close()
 		}
@@ -96,7 +90,7 @@ func (l *CustomListener) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if !l.closed {
-		close(l.conns)
+		close(l.acceptCh)
 		l.closed = true
 	}
 	return nil

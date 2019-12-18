@@ -65,6 +65,7 @@ func ReadFile(file string) (content string, err error) {
 		if err != nil {
 			return content, err
 		}
+		defer file.Close()
 		buf, err := ioutil.ReadAll(file)
 		if err != nil {
 			return content, err
@@ -75,6 +76,7 @@ func ReadFile(file string) (content string, err error) {
 		if err != nil {
 			return content, err
 		}
+		defer file.Close()
 		buf, err := ioutil.ReadAll(file)
 		if err != nil {
 			return content, err

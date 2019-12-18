@@ -15,11 +15,12 @@
 package client
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/utils/log"
+	"github.com/fatedier/frp/utils/xlog"
 )
 
 type VisitorManager struct {
@@ -30,26 +31,29 @@ type VisitorManager struct {
 
 	checkInterval time.Duration
 
-	mu sync.Mutex
+	mu  sync.Mutex
+	ctx context.Context
 }
 
-func NewVisitorManager(ctl *Control) *VisitorManager {
+func NewVisitorManager(ctx context.Context, ctl *Control) *VisitorManager {
 	return &VisitorManager{
 		ctl:           ctl,
 		cfgs:          make(map[string]config.VisitorConf),
 		visitors:      make(map[string]Visitor),
 		checkInterval: 10 * time.Second,
+		ctx:           ctx,
 	}
 }
 
 func (vm *VisitorManager) Run() {
+	xl := xlog.FromContextSafe(vm.ctx)
 	for {
 		time.Sleep(vm.checkInterval)
 		vm.mu.Lock()
 		for _, cfg := range vm.cfgs {
 			name := cfg.GetBaseInfo().ProxyName
 			if _, exist := vm.visitors[name]; !exist {
-				log.Info("try to start visitor [%s]", name)
+				xl.Info("try to start visitor [%s]", name)
 				vm.startVisitor(cfg)
 			}
 		}
@@ -59,19 +63,21 @@ func (vm *VisitorManager) Run() {
 
 // Hold lock before calling this function.
 func (vm *VisitorManager) startVisitor(cfg config.VisitorConf) (err error) {
+	xl := xlog.FromContextSafe(vm.ctx)
 	name := cfg.GetBaseInfo().ProxyName
-	visitor := NewVisitor(vm.ctl, cfg)
+	visitor := NewVisitor(vm.ctx, vm.ctl, cfg)
 	err = visitor.Run()
 	if err != nil {
-		visitor.Warn("start error: %v", err)
+		xl.Warn("start error: %v", err)
 	} else {
 		vm.visitors[name] = visitor
-		visitor.Info("start visitor success")
+		xl.Info("start visitor success")
 	}
 	return
 }
 
 func (vm *VisitorManager) Reload(cfgs map[string]config.VisitorConf) {
+	xl := xlog.FromContextSafe(vm.ctx)
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
@@ -97,7 +103,7 @@ func (vm *VisitorManager) Reload(cfgs map[string]config.VisitorConf) {
 		}
 	}
 	if len(delNames) > 0 {
-		log.Info("visitor removed: %v", delNames)
+		xl.Info("visitor removed: %v", delNames)
 	}
 
 	addNames := make([]string, 0)
@@ -109,7 +115,7 @@ func (vm *VisitorManager) Reload(cfgs map[string]config.VisitorConf) {
 		}
 	}
 	if len(addNames) > 0 {
-		log.Info("visitor added: %v", addNames)
+		xl.Info("visitor added: %v", addNames)
 	}
 	return
 }
