@@ -27,6 +27,7 @@ import (
 	"github.com/fatedier/frp/models/consts"
 	frpErr "github.com/fatedier/frp/models/errors"
 	"github.com/fatedier/frp/models/msg"
+	plugin "github.com/fatedier/frp/models/plugin/server"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/proxy"
 	"github.com/fatedier/frp/server/stats"
@@ -86,6 +87,9 @@ type Control struct {
 	// proxy manager
 	pxyManager *proxy.ProxyManager
 
+	// plugin manager
+	pluginManager *plugin.Manager
+
 	// stats collector to store stats info of clients and proxies
 	statsCollector stats.Collector
 
@@ -138,9 +142,16 @@ type Control struct {
 	ctx context.Context
 }
 
-func NewControl(ctx context.Context, rc *controller.ResourceController, pxyManager *proxy.ProxyManager,
-	statsCollector stats.Collector, ctlConn net.Conn, loginMsg *msg.Login,
-	serverCfg config.ServerCommonConf) *Control {
+func NewControl(
+	ctx context.Context,
+	rc *controller.ResourceController,
+	pxyManager *proxy.ProxyManager,
+	pluginManager *plugin.Manager,
+	statsCollector stats.Collector,
+	ctlConn net.Conn,
+	loginMsg *msg.Login,
+	serverCfg config.ServerCommonConf,
+) *Control {
 
 	poolCount := loginMsg.PoolCount
 	if poolCount > int(serverCfg.MaxPoolCount) {
@@ -149,6 +160,7 @@ func NewControl(ctx context.Context, rc *controller.ResourceController, pxyManag
 	return &Control{
 		rc:              rc,
 		pxyManager:      pxyManager,
+		pluginManager:   pluginManager,
 		statsCollector:  statsCollector,
 		conn:            ctlConn,
 		loginMsg:        loginMsg,
@@ -407,8 +419,21 @@ func (ctl *Control) manager() {
 
 			switch m := rawMsg.(type) {
 			case *msg.NewProxy:
+				content := &plugin.NewProxyContent{
+					User: plugin.UserInfo{
+						User:  ctl.loginMsg.User,
+						Metas: ctl.loginMsg.Metas,
+					},
+					NewProxy: *m,
+				}
+				var remoteAddr string
+				retContent, err := ctl.pluginManager.NewProxy(content)
+				if err == nil {
+					m = &retContent.NewProxy
+					remoteAddr, err = ctl.RegisterProxy(m)
+				}
+
 				// register proxy in this control
-				remoteAddr, err := ctl.RegisterProxy(m)
 				resp := &msg.NewProxyResp{
 					ProxyName: m.ProxyName,
 				}

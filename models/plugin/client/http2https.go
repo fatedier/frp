@@ -26,15 +26,13 @@ import (
 	frpNet "github.com/fatedier/frp/utils/net"
 )
 
-const PluginHTTPS2HTTP = "https2http"
+const PluginHTTP2HTTPS = "http2https"
 
 func init() {
-	Register(PluginHTTPS2HTTP, NewHTTPS2HTTPPlugin)
+	Register(PluginHTTP2HTTPS, NewHTTP2HTTPSPlugin)
 }
 
-type HTTPS2HTTPPlugin struct {
-	crtPath           string
-	keyPath           string
+type HTTP2HTTPSPlugin struct {
 	hostHeaderRewrite string
 	localAddr         string
 	headers           map[string]string
@@ -43,9 +41,7 @@ type HTTPS2HTTPPlugin struct {
 	s *http.Server
 }
 
-func NewHTTPS2HTTPPlugin(params map[string]string) (Plugin, error) {
-	crtPath := params["plugin_crt_path"]
-	keyPath := params["plugin_key_path"]
+func NewHTTP2HTTPSPlugin(params map[string]string) (Plugin, error) {
 	localAddr := params["plugin_local_addr"]
 	hostHeaderRewrite := params["plugin_host_header_rewrite"]
 	headers := make(map[string]string)
@@ -58,12 +54,6 @@ func NewHTTPS2HTTPPlugin(params map[string]string) (Plugin, error) {
 		}
 	}
 
-	if crtPath == "" {
-		return nil, fmt.Errorf("plugin_crt_path is required")
-	}
-	if keyPath == "" {
-		return nil, fmt.Errorf("plugin_key_path is required")
-	}
 	if localAddr == "" {
 		return nil, fmt.Errorf("plugin_local_addr is required")
 	}
@@ -71,17 +61,19 @@ func NewHTTPS2HTTPPlugin(params map[string]string) (Plugin, error) {
 	listener := NewProxyListener()
 
 	p := &HTTPS2HTTPPlugin{
-		crtPath:           crtPath,
-		keyPath:           keyPath,
 		localAddr:         localAddr,
 		hostHeaderRewrite: hostHeaderRewrite,
 		headers:           headers,
 		l:                 listener,
 	}
 
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
 	rp := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
-			req.URL.Scheme = "http"
+			req.URL.Scheme = "https"
 			req.URL.Host = p.localAddr
 			if p.hostHeaderRewrite != "" {
 				req.Host = p.hostHeaderRewrite
@@ -90,43 +82,29 @@ func NewHTTPS2HTTPPlugin(params map[string]string) (Plugin, error) {
 				req.Header.Set(k, v)
 			}
 		},
+		Transport: tr,
 	}
 
 	p.s = &http.Server{
 		Handler: rp,
 	}
 
-	tlsConfig, err := p.genTLSConfig()
-	if err != nil {
-		return nil, fmt.Errorf("gen TLS config error: %v", err)
-	}
-	ln := tls.NewListener(listener, tlsConfig)
+	go p.s.Serve(listener)
 
-	go p.s.Serve(ln)
 	return p, nil
 }
 
-func (p *HTTPS2HTTPPlugin) genTLSConfig() (*tls.Config, error) {
-	cert, err := tls.LoadX509KeyPair(p.crtPath, p.keyPath)
-	if err != nil {
-		return nil, err
-	}
-
-	config := &tls.Config{Certificates: []tls.Certificate{cert}}
-	return config, nil
-}
-
-func (p *HTTPS2HTTPPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
+func (p *HTTP2HTTPSPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
 	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
 	p.l.PutConn(wrapConn)
 }
 
-func (p *HTTPS2HTTPPlugin) Name() string {
-	return PluginHTTPS2HTTP
+func (p *HTTP2HTTPSPlugin) Name() string {
+	return PluginHTTP2HTTPS
 }
 
-func (p *HTTPS2HTTPPlugin) Close() error {
-	if err := p.s.Close();err != nil {
+func (p *HTTP2HTTPSPlugin) Close() error {
+	if err := p.s.Close(); err != nil {
 		return err
 	}
 	return nil

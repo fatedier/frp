@@ -28,7 +28,7 @@ import (
 
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/models/plugin"
+	plugin "github.com/fatedier/frp/models/plugin/client"
 	"github.com/fatedier/frp/models/proto/udp"
 	"github.com/fatedier/frp/utils/limit"
 	frpNet "github.com/fatedier/frp/utils/net"
