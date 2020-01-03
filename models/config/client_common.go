@@ -115,6 +115,8 @@ type ClientCommonConf struct {
 	// before the connection is terminated, in seconds. It is not recommended
 	// to change this value. By default, this value is 90.
 	HeartBeatTimeout int64 `json:"heartbeat_timeout"`
+	// Client meta info
+	Metas map[string]string `json:"metas"`
 }
 
 // GetDefaultClientConf returns a client configuration with default values.
@@ -144,6 +146,7 @@ func GetDefaultClientConf() ClientCommonConf {
 		TLSEnable:         false,
 		HeartBeatInterval: 30,
 		HeartBeatTimeout:  90,
+		Metas:             make(map[string]string),
 	}
 }
 
@@ -292,6 +295,11 @@ func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error
 			return
 		} else {
 			cfg.HeartBeatInterval = v
+		}
+	}
+	for k, v := range conf.Section("common") {
+		if strings.HasPrefix(k, "meta_") {
+			cfg.Metas[strings.TrimPrefix(k, "meta_")] = v
 		}
 	}
 	return

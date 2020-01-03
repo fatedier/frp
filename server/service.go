@@ -33,6 +33,7 @@ import (
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/models/nathole"
+	plugin "github.com/fatedier/frp/models/plugin/server"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/group"
 	"github.com/fatedier/frp/server/ports"
@@ -76,6 +77,9 @@ type Service struct {
 	// Manage all proxies
 	pxyManager *proxy.ProxyManager
 
+	// Manage all plugins
+	pluginManager *plugin.Manager
+
 	// HTTP vhost router
 	httpVhostRouter *vhost.VhostRouters
 
@@ -92,8 +96,9 @@ type Service struct {
 
 func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	svr = &Service{
-		ctlManager: NewControlManager(),
-		pxyManager: proxy.NewProxyManager(),
+		ctlManager:    NewControlManager(),
+		pxyManager:    proxy.NewProxyManager(),
+		pluginManager: plugin.NewManager(),
 		rc: &controller.ResourceController{
 			VisitorManager: controller.NewVisitorManager(),
 			TcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
@@ -102,6 +107,12 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		httpVhostRouter: vhost.NewVhostRouters(),
 		tlsConfig:       generateTLSConfig(),
 		cfg:             cfg,
+	}
+
+	// Init all plugins
+	for name, options := range cfg.HTTPPlugins {
+		svr.pluginManager.Register(plugin.NewHTTPPluginOptions(options))
+		log.Info("plugin [%s] has been registered", name)
 	}
 
 	// Init group controller
@@ -295,7 +306,16 @@ func (svr *Service) HandleListener(l net.Listener) {
 
 				switch m := rawMsg.(type) {
 				case *msg.Login:
-					err = svr.RegisterControl(conn, m)
+					// server plugin hook
+					content := &plugin.LoginContent{
+						Login: *m,
+					}
+					retContent, err := svr.pluginManager.Login(content)
+					if err == nil {
+						m = &retContent.Login
+						err = svr.RegisterControl(conn, m)
+					}
+
 					// If login failed, send error message there.
 					// Otherwise send success message in control's work goroutine.
 					if err != nil {
@@ -384,7 +404,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 		return
 	}
 
-	ctl := NewControl(ctx, svr.rc, svr.pxyManager, svr.statsCollector, ctlConn, loginMsg, svr.cfg)
+	ctl := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, svr.statsCollector, ctlConn, loginMsg, svr.cfg)
 
 	if oldCtl := svr.ctlManager.Add(loginMsg.RunId, ctl); oldCtl != nil {
 		oldCtl.allShutdown.WaitDone()

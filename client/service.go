@@ -222,6 +222,7 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 		PrivilegeKey: util.GetAuthKey(svr.cfg.Token, now),
 		Timestamp:    now,
 		RunId:        svr.runId,
+		Metas:        svr.cfg.Metas,
 	}
 
 	if err = msg.WriteMsg(conn, loginMsg); err != nil {
