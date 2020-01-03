@@ -135,6 +135,8 @@ type ServerCommonConf struct {
 	// UserConnTimeout specifies the maximum time to wait for a work
 	// connection. By default, this value is 10.
 	UserConnTimeout int64 `json:"user_conn_timeout"`
+	// if true, a /metrics API will be exposed for Prometheus
+	EnableMetrics bool `json:"enable_metrics"`
 	// HTTPPlugins specify the server plugins support HTTP protocol.
 	HTTPPlugins map[string]plugin.HTTPPluginOptions `json:"http_plugins"`
 }
@@ -170,6 +172,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		HeartBeatTimeout:  90,
 		UserConnTimeout:   10,
 		Custom404Page:     "",
+		EnableMetrics:     false,
 		HTTPPlugins:       make(map[string]plugin.HTTPPluginOptions),
 	}
 }
@@ -367,6 +370,10 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 
 	if tmpStr, ok = conf.Get("common", "custom_404_page"); ok {
 		cfg.Custom404Page = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "enable_metrics"); ok && tmpStr == "true" {
+		cfg.EnableMetrics = true
 	}
 
 	if tmpStr, ok = conf.Get("common", "heartbeat_timeout"); ok {

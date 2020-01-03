@@ -253,6 +253,12 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	}
 
 	svr.statsCollector = stats.NewInternalCollector(statsEnable)
+
+	if cfg.EnableMetrics {
+		ms := stats.NewMetricsServer(svr.statsCollector)
+		go ms.Serve()
+		log.Info("Metrics server listen on %s", "8080")
+	}
 	return
 }
 

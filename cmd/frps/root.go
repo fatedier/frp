@@ -59,6 +59,7 @@ var (
 	allowPorts        string
 	maxPoolCount      int64
 	maxPortsPerClient int64
+	enableMetrics     bool
 )
 
 func init() {
@@ -86,6 +87,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&subDomainHost, "subdomain_host", "", "", "subdomain host")
 	rootCmd.PersistentFlags().StringVarP(&allowPorts, "allow_ports", "", "", "allow ports")
 	rootCmd.PersistentFlags().Int64VarP(&maxPortsPerClient, "max_ports_per_client", "", 0, "max ports per client")
+	rootCmd.PersistentFlags().BoolVarP(&enableMetrics, "enable_metrics", "", false, "enable metrics api for prometheus")
 }
 
 var rootCmd = &cobra.Command{
@@ -173,6 +175,7 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 	cfg.LogMaxDays = logMaxDays
 	cfg.Token = token
 	cfg.SubDomainHost = subDomainHost
+	cfg.EnableMetrics = enableMetrics
 	if len(allowPorts) > 0 {
 		// e.g. 1000-2000,2001,2002,3000-4000
 		ports, errRet := util.ParseRangeNumbers(allowPorts)
