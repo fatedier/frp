@@ -21,6 +21,7 @@ import (
 
 	ini "github.com/vaughan0/go-ini"
 
+	plugin "github.com/fatedier/frp/models/plugin/server"
 	"github.com/fatedier/frp/utils/util"
 )
 
@@ -134,6 +135,8 @@ type ServerCommonConf struct {
 	// UserConnTimeout specifies the maximum time to wait for a work
 	// connection. By default, this value is 10.
 	UserConnTimeout int64 `json:"user_conn_timeout"`
+	// HTTPPlugins specify the server plugins support HTTP protocol.
+	HTTPPlugins map[string]plugin.HTTPPluginOptions `json:"http_plugins"`
 }
 
 // GetDefaultServerConf returns a server configuration with reasonable
@@ -167,6 +170,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		HeartBeatTimeout:  90,
 		UserConnTimeout:   10,
 		Custom404Page:     "",
+		HTTPPlugins:       make(map[string]plugin.HTTPPluginOptions),
 	}
 }
 
@@ -180,6 +184,8 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 		err = fmt.Errorf("parse ini conf file error: %v", err)
 		return ServerCommonConf{}, err
 	}
+
+	UnmarshalPluginsFromIni(conf, &cfg)
 
 	var (
 		tmpStr string
@@ -373,6 +379,24 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 		}
 	}
 	return
+}
+
+func UnmarshalPluginsFromIni(sections ini.File, cfg *ServerCommonConf) {
+	for name, section := range sections {
+		if strings.HasPrefix(name, "plugin.") {
+			name = strings.TrimSpace(strings.TrimPrefix(name, "plugin."))
+			options := plugin.HTTPPluginOptions{
+				Name: name,
+				Addr: section["addr"],
+				Path: section["path"],
+				Ops:  strings.Split(section["ops"], ","),
+			}
+			for i, _ := range options.Ops {
+				options.Ops[i] = strings.TrimSpace(options.Ops[i])
+			}
+			cfg.HTTPPlugins[name] = options
+		}
+	}
 }
 
 func (cfg *ServerCommonConf) Check() (err error) {

@@ -28,7 +28,7 @@ import (
 
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/models/plugin"
+	plugin "github.com/fatedier/frp/models/plugin/client"
 	"github.com/fatedier/frp/models/proto/udp"
 	"github.com/fatedier/frp/utils/limit"
 	frpNet "github.com/fatedier/frp/utils/net"
@@ -349,7 +349,7 @@ func (pxy *XtcpProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 
 	lConn.WriteToUDP(sidBuf[:n], uAddr)
 
-	kcpConn, err := frpNet.NewKcpConnFromUdp(lConn, false, natHoleRespMsg.VisitorAddr)
+	kcpConn, err := frpNet.NewKcpConnFromUdp(lConn, false, uAddr.String())
 	if err != nil {
 		xl.Error("create kcp connection from udp connection error: %v", err)
 		return

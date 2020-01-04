@@ -54,7 +54,8 @@ frp also has a P2P connect mode.
     * [URL routing](#url-routing)
     * [Connecting to frps via HTTP PROXY](#connecting-to-frps-via-http-proxy)
     * [Range ports mapping](#range-ports-mapping)
-    * [Plugins](#plugins)
+    * [Client Plugins](#client-plugins)
+    * [Server Manage Plugins](#server-manage-plugins)
 * [Development Plan](#development-plan)
 * [Contributing](#contributing)
 * [Donation](#donation)
@@ -806,7 +807,7 @@ remote_port = 6000-6006,6007
 
 frpc will generate 8 proxies like `test_tcp_0`, `test_tcp_1`, ..., `test_tcp_7`.
 
-### Plugins
+### Client Plugins
 
 frpc only forwards requests to local TCP or UDP ports by default.
 
@@ -827,6 +828,10 @@ plugin_http_passwd = abc
 ```
 
 `plugin_http_user` and `plugin_http_passwd` are configuration parameters used in `http_proxy` plugin.
+
+### Server Manage Plugins
+
+Read the [document](/doc/server_plugin.md).
 
 ## Development Plan
 
