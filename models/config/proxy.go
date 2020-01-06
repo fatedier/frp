@@ -218,6 +218,7 @@ func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section i
 		cfg.HealthCheckUrl = s + cfg.HealthCheckUrl
 	}
 
+	cfg.Metas = make(map[string]string)
 	for k, v := range section {
 		if strings.HasPrefix(k, "meta_") {
 			cfg.Metas[strings.TrimPrefix(k, "meta_")] = v
