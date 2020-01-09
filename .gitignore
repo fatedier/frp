@@ -30,3 +30,6 @@ test/bin/
 
 # Cache
 *.swp
+
+.idea
+.DS_Store
