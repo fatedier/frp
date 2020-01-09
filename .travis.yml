@@ -9,3 +9,5 @@ install:
 
 script:
     - make alltest
+env:
+    - GO111MODULE=on
