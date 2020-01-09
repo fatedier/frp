@@ -52,8 +52,9 @@
 </template>
 
 <script>
-    import {DrawTrafficChart, DrawProxyChart} from '../utils/chart.js'
-    export default {
+  import {DrawProxyChart, DrawTrafficChart} from "../utils/chart.js"
+
+  export default {
         data() {
             return {
                 version: '',

@@ -11,9 +11,9 @@
             trigger="click">
             <my-traffic-chart :proxy_name="props.row.name"></my-traffic-chart>
           </el-popover>
-  
+
           <el-button v-popover:popover4 type="primary" size="small" icon="view" :name="props.row.name" style="margin-bottom:10px" @click="fetchData2">Traffic Statistics</el-button>
-  
+
           <el-form label-position="left" inline class="demo-table-expand">
             <el-form-item label="Name">
               <span>{{ props.row.name }}</span>
@@ -72,9 +72,10 @@
 </template>
 
 <script>
-  import Humanize from 'humanize-plus'
-  import Traffic from './Traffic.vue'
-  import { StcpProxy } from '../utils/proxy.js'
+  import Humanize from "humanize-plus"
+  import Traffic from "./Traffic.vue"
+  import {StcpProxy} from "../utils/proxy.js"
+
   export default {
     data() {
       return {

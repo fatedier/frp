@@ -3,8 +3,9 @@
 </template>
 
 <script>
-import {DrawProxyTrafficChart} from '../utils/chart.js'
-export default {
+  import {DrawProxyTrafficChart} from "../utils/chart.js"
+
+  export default {
     props: ['proxy_name'],
     created() {
         this.fetchData()

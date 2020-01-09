@@ -1,27 +1,13 @@
-import Vue from 'vue'
-//import ElementUI from 'element-ui'
-import {
-    Button,
-    Form,
-    FormItem,
-    Row,
-    Col,
-    Table,
-    TableColumn,
-    Popover,
-    Menu,
-    Submenu,
-    MenuItem,
-    Tag
-} from 'element-ui'
-import lang from 'element-ui/lib/locale/lang/en'
-import locale from 'element-ui/lib/locale'
-import 'element-ui/lib/theme-chalk/index.css'
-import './utils/less/custom.less'
+import Vue from "vue"
+import {Button, Col, Form, FormItem, Menu, MenuItem, Popover, Row, Submenu, Table, TableColumn, Tag} from "element-ui"
+import lang from "element-ui/lib/locale/lang/en"
+import locale from "element-ui/lib/locale"
+import "element-ui/lib/theme-chalk/index.css"
+import "./utils/less/custom.less"
 
-import App from './App.vue'
-import router from './router'
-import 'whatwg-fetch'
+import App from "./App.vue"
+import router from "./router"
+import "whatwg-fetch"
 
 locale.use(lang)
 
@@ -39,10 +25,7 @@ Vue.use(MenuItem)
 Vue.use(Tag)
 
 Vue.config.productionTip = false
-
 new Vue({
-    el: '#app',
-    router,
-    template: '<App/>',
-    components: { App }
-})
+  router,
+  render: h => h(App),
+}).$mount('#app')

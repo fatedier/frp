@@ -4,4 +4,4 @@ build:
 	@npm run build
 
 dev: install
-	@npm run dev
+	@npm run serve

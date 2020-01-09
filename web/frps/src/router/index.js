@@ -1,11 +1,11 @@
-import Vue from 'vue'
-import Router from 'vue-router'
-import Overview from '../components/Overview.vue'
-import ProxiesTcp from '../components/ProxiesTcp.vue'
-import ProxiesUdp from '../components/ProxiesUdp.vue'
-import ProxiesHttp from '../components/ProxiesHttp.vue'
-import ProxiesHttps from '../components/ProxiesHttps.vue'
-import ProxiesStcp from '../components/ProxiesStcp.vue'
+import Vue from "vue"
+import Router from "vue-router"
+import Overview from "../components/Overview.vue"
+import ProxiesTcp from "../components/ProxiesTcp.vue"
+import ProxiesUdp from "../components/ProxiesUdp.vue"
+import ProxiesHttp from "../components/ProxiesHttp.vue"
+import ProxiesHttps from "../components/ProxiesHttps.vue"
+import ProxiesStcp from "../components/ProxiesStcp.vue"
 
 Vue.use(Router)
 
