@@ -1,0 +1,87 @@
+# github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
+github.com/armon/go-socks5
+# github.com/davecgh/go-spew v1.1.0
+github.com/davecgh/go-spew/spew
+# github.com/fatedier/beego v0.0.0-20171024143340-6c6a4f5bd5eb
+github.com/fatedier/beego/logs
+# github.com/fatedier/golib v0.0.0-20181107124048-ff8cd814b049
+github.com/fatedier/golib/control/shutdown
+github.com/fatedier/golib/crypto
+github.com/fatedier/golib/errors
+github.com/fatedier/golib/io
+github.com/fatedier/golib/msg/json
+github.com/fatedier/golib/net
+github.com/fatedier/golib/net/mux
+github.com/fatedier/golib/pool
+# github.com/fatedier/kcp-go v2.0.4-0.20190803094908-fe8645b0a904+incompatible
+github.com/fatedier/kcp-go
+# github.com/golang/snappy v0.0.0-20170215233205-553a64147049
+github.com/golang/snappy
+# github.com/gorilla/mux v1.7.3
+github.com/gorilla/mux
+# github.com/gorilla/websocket v1.4.0
+github.com/gorilla/websocket
+# github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
+github.com/hashicorp/yamux
+# github.com/inconshreveable/mousetrap v1.0.0
+github.com/inconshreveable/mousetrap
+# github.com/klauspost/cpuid v1.2.0
+github.com/klauspost/cpuid
+# github.com/klauspost/reedsolomon v1.9.1
+github.com/klauspost/reedsolomon
+# github.com/pires/go-proxyproto v0.0.0-20190111085350-4d51b51e3bfc
+github.com/pires/go-proxyproto
+# github.com/pkg/errors v0.8.0
+github.com/pkg/errors
+# github.com/pmezard/go-difflib v1.0.0
+github.com/pmezard/go-difflib/difflib
+# github.com/rakyll/statik v0.1.1
+github.com/rakyll/statik/fs
+# github.com/rodaine/table v1.0.0
+github.com/rodaine/table
+# github.com/spf13/cobra v0.0.3
+github.com/spf13/cobra
+# github.com/spf13/pflag v1.0.1
+github.com/spf13/pflag
+# github.com/stretchr/testify v1.3.0
+github.com/stretchr/testify/assert
+# github.com/templexxx/cpufeat v0.0.0-20170927014610-3794dfbfb047
+github.com/templexxx/cpufeat
+# github.com/templexxx/xor v0.0.0-20170926022130-0af8e873c554
+github.com/templexxx/xor
+# github.com/tjfoc/gmsm v0.0.0-20171124023159-98aa888b79d8
+github.com/tjfoc/gmsm/sm4
+# github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec
+github.com/vaughan0/go-ini
+# golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
+golang.org/x/crypto/blowfish
+golang.org/x/crypto/cast5
+golang.org/x/crypto/internal/subtle
+golang.org/x/crypto/pbkdf2
+golang.org/x/crypto/salsa20
+golang.org/x/crypto/salsa20/salsa
+golang.org/x/crypto/tea
+golang.org/x/crypto/twofish
+golang.org/x/crypto/xtea
+# golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
+golang.org/x/net/bpf
+golang.org/x/net/context
+golang.org/x/net/http/httpguts
+golang.org/x/net/idna
+golang.org/x/net/internal/iana
+golang.org/x/net/internal/socket
+golang.org/x/net/internal/socks
+golang.org/x/net/ipv4
+golang.org/x/net/ipv6
+golang.org/x/net/proxy
+golang.org/x/net/websocket
+# golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a
+golang.org/x/sys/unix
+golang.org/x/sys/windows
+# golang.org/x/text v0.3.2
+golang.org/x/text/secure/bidirule
+golang.org/x/text/transform
+golang.org/x/text/unicode/bidi
+golang.org/x/text/unicode/norm
+# golang.org/x/time v0.0.0-20191024005414-555d28b269f0
+golang.org/x/time/rate

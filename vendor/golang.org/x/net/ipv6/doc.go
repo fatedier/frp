@@ -8,7 +8,7 @@
 // The package provides IP-level socket options that allow
 // manipulation of IPv6 facilities.
 //
-// The IPv6 protocol is defined in RFC 2460.
+// The IPv6 protocol is defined in RFC 8200.
 // Socket interface extensions are defined in RFC 3493, RFC 3542 and
 // RFC 3678.
 // MLDv1 and MLDv2 are defined in RFC 2710 and RFC 3810.
@@ -56,7 +56,7 @@
 // Multicasting
 //
 // The options for multicasting are available for net.UDPConn and
-// net.IPconn which are created as network connections that use the
+// net.IPConn which are created as network connections that use the
 // IPv6 transport. A few network facilities must be prepared before
 // you begin multicasting, at a minimum joining network interfaces and
 // multicast groups.
@@ -240,4 +240,4 @@
 // IncludeSourceSpecificGroup may return an error.
 package ipv6 // import "golang.org/x/net/ipv6"
 
-// BUG(mikio): This package is not implemented on NaCl and Plan 9.
+// BUG(mikio): This package is not implemented on JS, NaCl and Plan 9.

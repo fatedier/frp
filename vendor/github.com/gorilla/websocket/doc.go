@@ -144,15 +144,8 @@
 // method fails the WebSocket handshake with HTTP status 403.
 //
 // If the CheckOrigin field is nil, then the Upgrader uses a safe default: fail
-// the handshake if the Origin request header is present and not equal to the
-// Host request header.
-//
-// An application can allow connections from any origin by specifying a
-// function that always returns true:
-//
-//  var upgrader = websocket.Upgrader{
-//      CheckOrigin: func(r *http.Request) bool { return true },
-//  }
+// the handshake if the Origin request header is present and the Origin host is
+// not equal to the Host request header.
 //
 // The deprecated package-level Upgrade function does not perform origin
 // checking. The application is responsible for checking the Origin header

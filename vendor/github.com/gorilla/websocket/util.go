@@ -178,7 +178,7 @@ headers:
 	return false
 }
 
-// parseExtensiosn parses WebSocket extensions from a header.
+// parseExtensions parses WebSocket extensions from a header.
 func parseExtensions(header http.Header) []map[string]string {
 	// From RFC 6455:
 	//

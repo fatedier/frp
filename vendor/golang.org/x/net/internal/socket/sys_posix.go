@@ -2,8 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build go1.9
-// +build darwin dragonfly freebsd linux netbsd openbsd solaris windows
+// +build aix darwin dragonfly freebsd linux netbsd openbsd solaris windows
 
 package socket
 
@@ -34,7 +33,7 @@ func marshalSockaddr(ip net.IP, port int, zone string) []byte {
 	if ip4 := ip.To4(); ip4 != nil {
 		b := make([]byte, sizeofSockaddrInet)
 		switch runtime.GOOS {
-		case "linux", "solaris", "windows":
+		case "android", "illumos", "linux", "solaris", "windows":
 			NativeEndian.PutUint16(b[:2], uint16(sysAF_INET))
 		default:
 			b[0] = sizeofSockaddrInet
@@ -47,7 +46,7 @@ func marshalSockaddr(ip net.IP, port int, zone string) []byte {
 	if ip6 := ip.To16(); ip6 != nil && ip.To4() == nil {
 		b := make([]byte, sizeofSockaddrInet6)
 		switch runtime.GOOS {
-		case "linux", "solaris", "windows":
+		case "android", "illumos", "linux", "solaris", "windows":
 			NativeEndian.PutUint16(b[:2], uint16(sysAF_INET6))
 		default:
 			b[0] = sizeofSockaddrInet6
@@ -69,7 +68,7 @@ func parseInetAddr(b []byte, network string) (net.Addr, error) {
 	}
 	var af int
 	switch runtime.GOOS {
-	case "linux", "solaris", "windows":
+	case "android", "illumos", "linux", "solaris", "windows":
 		af = int(NativeEndian.Uint16(b[:2]))
 	default:
 		af = int(b[1])
@@ -121,18 +120,21 @@ var zoneCache = ipv6ZoneCache{
 	toName:  make(map[int]string),
 }
 
-func (zc *ipv6ZoneCache) update(ift []net.Interface) {
+// update refreshes the network interface information if the cache was last
+// updated more than 1 minute ago, or if force is set. It returns whether the
+// cache was updated.
+func (zc *ipv6ZoneCache) update(ift []net.Interface, force bool) (updated bool) {
 	zc.Lock()
 	defer zc.Unlock()
 	now := time.Now()
-	if zc.lastFetched.After(now.Add(-60 * time.Second)) {
-		return
+	if !force && zc.lastFetched.After(now.Add(-60*time.Second)) {
+		return false
 	}
 	zc.lastFetched = now
 	if len(ift) == 0 {
 		var err error
 		if ift, err = net.Interfaces(); err != nil {
-			return
+			return false
 		}
 	}
 	zc.toIndex = make(map[string]int, len(ift))
@@ -143,25 +145,38 @@ func (zc *ipv6ZoneCache) update(ift []net.Interface) {
 			zc.toName[ifi.Index] = ifi.Name
 		}
 	}
+	return true
 }
 
 func (zc *ipv6ZoneCache) name(zone int) string {
-	zoneCache.update(nil)
+	updated := zoneCache.update(nil, false)
 	zoneCache.RLock()
-	defer zoneCache.RUnlock()
 	name, ok := zoneCache.toName[zone]
-	if !ok {
+	zoneCache.RUnlock()
+	if !ok && !updated {
+		zoneCache.update(nil, true)
+		zoneCache.RLock()
+		name, ok = zoneCache.toName[zone]
+		zoneCache.RUnlock()
+	}
+	if !ok { // last resort
 		name = strconv.Itoa(zone)
 	}
 	return name
 }
 
 func (zc *ipv6ZoneCache) index(zone string) int {
-	zoneCache.update(nil)
+	updated := zoneCache.update(nil, false)
 	zoneCache.RLock()
-	defer zoneCache.RUnlock()
 	index, ok := zoneCache.toIndex[zone]
-	if !ok {
+	zoneCache.RUnlock()
+	if !ok && !updated {
+		zoneCache.update(nil, true)
+		zoneCache.RLock()
+		index, ok = zoneCache.toIndex[zone]
+		zoneCache.RUnlock()
+	}
+	if !ok { // last resort
 		index, _ = strconv.Atoi(zone)
 	}
 	return index

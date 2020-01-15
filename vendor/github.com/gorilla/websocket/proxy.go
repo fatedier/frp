@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-type netDialerFunc func(netowrk, addr string) (net.Conn, error)
+type netDialerFunc func(network, addr string) (net.Conn, error)
 
 func (fn netDialerFunc) Dial(network, addr string) (net.Conn, error) {
 	return fn(network, addr)

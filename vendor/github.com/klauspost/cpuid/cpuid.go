@@ -76,6 +76,8 @@ const (
 	RDTSCP                  // RDTSCP Instruction
 	CX16                    // CMPXCHG16B Instruction
 	SGX                     // Software Guard Extensions
+	IBPB                    // Indirect Branch Restricted Speculation (IBRS) and Indirect Branch Predictor Barrier (IBPB)
+	STIBP                   // Single Thread Indirect Branch Predictors
 
 	// Performance indicators
 	SSE2SLOW // SSE2 is supported, but usually not faster
@@ -131,6 +133,8 @@ var flagNames = map[Flags]string{
 	RDTSCP:      "RDTSCP",      // RDTSCP Instruction
 	CX16:        "CX16",        // CMPXCHG16B Instruction
 	SGX:         "SGX",         // Software Guard Extensions
+	IBPB:        "IBPB",        // Indirect Branch Restricted Speculation and Indirect Branch Predictor Barrier
+	STIBP:       "STIBP",       // Single Thread Indirect Branch Predictors
 
 	// Performance indicators
 	SSE2SLOW: "SSE2SLOW", // SSE2 supported, but usually not faster
@@ -192,7 +196,7 @@ func Detect() {
 	CPU.CacheLine = cacheLine()
 	CPU.Family, CPU.Model = familyModel()
 	CPU.Features = support()
-	CPU.SGX = sgx(CPU.Features&SGX != 0)
+	CPU.SGX = hasSGX(CPU.Features&SGX != 0)
 	CPU.ThreadsPerCore = threadsPerCore()
 	CPU.LogicalCores = logicalCores()
 	CPU.PhysicalCores = physicalCores()
@@ -437,12 +441,20 @@ func (c CPUInfo) ERMS() bool {
 	return c.Features&ERMS != 0
 }
 
+// RDTSCP Instruction is available.
 func (c CPUInfo) RDTSCP() bool {
 	return c.Features&RDTSCP != 0
 }
 
+// CX16 indicates if CMPXCHG16B instruction is available.
 func (c CPUInfo) CX16() bool {
 	return c.Features&CX16 != 0
+}
+
+// TSX is split into HLE (Hardware Lock Elision) and RTM (Restricted Transactional Memory) detection.
+// So TSX simply checks that.
+func (c CPUInfo) TSX() bool {
+	return c.Features&(HLE|RTM) == HLE|RTM
 }
 
 // Atom indicates an Atom processor
@@ -757,7 +769,7 @@ type SGXSupport struct {
 	MaxEnclaveSize64    int64
 }
 
-func sgx(available bool) (rval SGXSupport) {
+func hasSGX(available bool) (rval SGXSupport) {
 	rval.Available = available
 
 	if !available {
@@ -846,7 +858,7 @@ func support() Flags {
 
 	// Check AVX2, AVX2 requires OS support, but BMI1/2 don't.
 	if mfi >= 7 {
-		_, ebx, ecx, _ := cpuidex(7, 0)
+		_, ebx, ecx, edx := cpuidex(7, 0)
 		if (rval&AVX) != 0 && (ebx&0x00000020) != 0 {
 			rval |= AVX2
 		}
@@ -879,6 +891,12 @@ func support() Flags {
 		}
 		if ebx&(1<<29) != 0 {
 			rval |= SHA
+		}
+		if edx&(1<<26) != 0 {
+			rval |= IBPB
+		}
+		if edx&(1<<27) != 0 {
+			rval |= STIBP
 		}
 
 		// Only detect AVX-512 features if XGETBV is supported

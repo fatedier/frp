@@ -76,29 +76,28 @@ func (h *updateHeap) wakeup() {
 }
 
 func (h *updateHeap) updateTask() {
-	var timer <-chan time.Time
+	timer := time.NewTimer(0)
 	for {
 		select {
-		case <-timer:
+		case <-timer.C:
 		case <-h.chWakeUp:
 		}
 
 		h.mu.Lock()
 		hlen := h.Len()
-		now := time.Now()
 		for i := 0; i < hlen; i++ {
-			entry := heap.Pop(h).(entry)
-			if now.After(entry.ts) {
-				entry.ts = now.Add(entry.s.update())
-				heap.Push(h, entry)
+			entry := &h.entries[0]
+			if !time.Now().Before(entry.ts) {
+				interval := entry.s.update()
+				entry.ts = time.Now().Add(interval)
+				heap.Fix(h, 0)
 			} else {
-				heap.Push(h, entry)
 				break
 			}
 		}
 
 		if hlen > 0 {
-			timer = time.After(h.entries[0].ts.Sub(now))
+			timer.Reset(h.entries[0].ts.Sub(time.Now()))
 		}
 		h.mu.Unlock()
 	}

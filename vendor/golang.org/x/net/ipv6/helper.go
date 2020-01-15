@@ -5,31 +5,19 @@
 package ipv6
 
 import (
-	"encoding/binary"
 	"errors"
 	"net"
-	"unsafe"
+	"runtime"
 )
 
 var (
+	errInvalidConn     = errors.New("invalid connection")
 	errMissingAddress  = errors.New("missing address")
 	errHeaderTooShort  = errors.New("header too short")
 	errInvalidConnType = errors.New("invalid conn type")
-	errOpNoSupport     = errors.New("operation not supported")
 	errNoSuchInterface = errors.New("no such interface")
-
-	nativeEndian binary.ByteOrder
+	errNotImplemented  = errors.New("not implemented on " + runtime.GOOS + "/" + runtime.GOARCH)
 )
-
-func init() {
-	i := uint32(1)
-	b := (*[4]byte)(unsafe.Pointer(&i))
-	if b[0] == 1 {
-		nativeEndian = binary.LittleEndian
-	} else {
-		nativeEndian = binary.BigEndian
-	}
-}
 
 func boolint(b bool) int {
 	if b {
@@ -50,4 +38,22 @@ func netAddrToIP16(a net.Addr) net.IP {
 		}
 	}
 	return nil
+}
+
+func opAddr(a net.Addr) net.Addr {
+	switch a.(type) {
+	case *net.TCPAddr:
+		if a == nil {
+			return nil
+		}
+	case *net.UDPAddr:
+		if a == nil {
+			return nil
+		}
+	case *net.IPAddr:
+		if a == nil {
+			return nil
+		}
+	}
+	return a
 }

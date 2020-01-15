@@ -8,16 +8,17 @@ import (
 	"strings"
 )
 
-// httpCode is a helper that returns HTTP code of the response. It returns -1
-// if building a new request fails.
-func httpCode(handler http.HandlerFunc, method, url string, values url.Values) int {
+// httpCode is a helper that returns HTTP code of the response. It returns -1 and
+// an error if building a new request fails.
+func httpCode(handler http.HandlerFunc, method, url string, values url.Values) (int, error) {
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest(method, url+"?"+values.Encode(), nil)
+	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
-		return -1
+		return -1, err
 	}
+	req.URL.RawQuery = values.Encode()
 	handler(w, req)
-	return w.Code
+	return w.Code, nil
 }
 
 // HTTPSuccess asserts that a specified handler returns a success status code.
@@ -25,12 +26,22 @@ func httpCode(handler http.HandlerFunc, method, url string, values url.Values) i
 //  assert.HTTPSuccess(t, myHandler, "POST", "http://www.google.com", nil)
 //
 // Returns whether the assertion was successful (true) or not (false).
-func HTTPSuccess(t TestingT, handler http.HandlerFunc, method, url string, values url.Values) bool {
-	code := httpCode(handler, method, url, values)
-	if code == -1 {
+func HTTPSuccess(t TestingT, handler http.HandlerFunc, method, url string, values url.Values, msgAndArgs ...interface{}) bool {
+	if h, ok := t.(tHelper); ok {
+		h.Helper()
+	}
+	code, err := httpCode(handler, method, url, values)
+	if err != nil {
+		Fail(t, fmt.Sprintf("Failed to build test request, got error: %s", err))
 		return false
 	}
-	return code >= http.StatusOK && code <= http.StatusPartialContent
+
+	isSuccessCode := code >= http.StatusOK && code <= http.StatusPartialContent
+	if !isSuccessCode {
+		Fail(t, fmt.Sprintf("Expected HTTP success status code for %q but received %d", url+"?"+values.Encode(), code))
+	}
+
+	return isSuccessCode
 }
 
 // HTTPRedirect asserts that a specified handler returns a redirect status code.
@@ -38,12 +49,22 @@ func HTTPSuccess(t TestingT, handler http.HandlerFunc, method, url string, value
 //  assert.HTTPRedirect(t, myHandler, "GET", "/a/b/c", url.Values{"a": []string{"b", "c"}}
 //
 // Returns whether the assertion was successful (true) or not (false).
-func HTTPRedirect(t TestingT, handler http.HandlerFunc, method, url string, values url.Values) bool {
-	code := httpCode(handler, method, url, values)
-	if code == -1 {
+func HTTPRedirect(t TestingT, handler http.HandlerFunc, method, url string, values url.Values, msgAndArgs ...interface{}) bool {
+	if h, ok := t.(tHelper); ok {
+		h.Helper()
+	}
+	code, err := httpCode(handler, method, url, values)
+	if err != nil {
+		Fail(t, fmt.Sprintf("Failed to build test request, got error: %s", err))
 		return false
 	}
-	return code >= http.StatusMultipleChoices && code <= http.StatusTemporaryRedirect
+
+	isRedirectCode := code >= http.StatusMultipleChoices && code <= http.StatusTemporaryRedirect
+	if !isRedirectCode {
+		Fail(t, fmt.Sprintf("Expected HTTP redirect status code for %q but received %d", url+"?"+values.Encode(), code))
+	}
+
+	return isRedirectCode
 }
 
 // HTTPError asserts that a specified handler returns an error status code.
@@ -51,12 +72,22 @@ func HTTPRedirect(t TestingT, handler http.HandlerFunc, method, url string, valu
 //  assert.HTTPError(t, myHandler, "POST", "/a/b/c", url.Values{"a": []string{"b", "c"}}
 //
 // Returns whether the assertion was successful (true) or not (false).
-func HTTPError(t TestingT, handler http.HandlerFunc, method, url string, values url.Values) bool {
-	code := httpCode(handler, method, url, values)
-	if code == -1 {
+func HTTPError(t TestingT, handler http.HandlerFunc, method, url string, values url.Values, msgAndArgs ...interface{}) bool {
+	if h, ok := t.(tHelper); ok {
+		h.Helper()
+	}
+	code, err := httpCode(handler, method, url, values)
+	if err != nil {
+		Fail(t, fmt.Sprintf("Failed to build test request, got error: %s", err))
 		return false
 	}
-	return code >= http.StatusBadRequest
+
+	isErrorCode := code >= http.StatusBadRequest
+	if !isErrorCode {
+		Fail(t, fmt.Sprintf("Expected HTTP error status code for %q but received %d", url+"?"+values.Encode(), code))
+	}
+
+	return isErrorCode
 }
 
 // HTTPBody is a helper that returns HTTP body of the response. It returns
@@ -74,10 +105,13 @@ func HTTPBody(handler http.HandlerFunc, method, url string, values url.Values) s
 // HTTPBodyContains asserts that a specified handler returns a
 // body that contains a string.
 //
-//  assert.HTTPBodyContains(t, myHandler, "www.google.com", nil, "I'm Feeling Lucky")
+//  assert.HTTPBodyContains(t, myHandler, "GET", "www.google.com", nil, "I'm Feeling Lucky")
 //
 // Returns whether the assertion was successful (true) or not (false).
-func HTTPBodyContains(t TestingT, handler http.HandlerFunc, method, url string, values url.Values, str interface{}) bool {
+func HTTPBodyContains(t TestingT, handler http.HandlerFunc, method, url string, values url.Values, str interface{}, msgAndArgs ...interface{}) bool {
+	if h, ok := t.(tHelper); ok {
+		h.Helper()
+	}
 	body := HTTPBody(handler, method, url, values)
 
 	contains := strings.Contains(body, fmt.Sprint(str))
@@ -91,10 +125,13 @@ func HTTPBodyContains(t TestingT, handler http.HandlerFunc, method, url string, 
 // HTTPBodyNotContains asserts that a specified handler returns a
 // body that does not contain a string.
 //
-//  assert.HTTPBodyNotContains(t, myHandler, "www.google.com", nil, "I'm Feeling Lucky")
+//  assert.HTTPBodyNotContains(t, myHandler, "GET", "www.google.com", nil, "I'm Feeling Lucky")
 //
 // Returns whether the assertion was successful (true) or not (false).
-func HTTPBodyNotContains(t TestingT, handler http.HandlerFunc, method, url string, values url.Values, str interface{}) bool {
+func HTTPBodyNotContains(t TestingT, handler http.HandlerFunc, method, url string, values url.Values, str interface{}, msgAndArgs ...interface{}) bool {
+	if h, ok := t.(tHelper); ok {
+		h.Helper()
+	}
 	body := HTTPBody(handler, method, url, values)
 
 	contains := strings.Contains(body, fmt.Sprint(str))

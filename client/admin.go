@@ -20,10 +20,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fatedier/frp/models/config"
+	"github.com/fatedier/frp/assets"
 	frpNet "github.com/fatedier/frp/utils/net"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/gorilla/mux"
 )
 
 var (
@@ -33,13 +33,23 @@ var (
 
 func (svr *Service) RunAdminServer(addr string, port int) (err error) {
 	// url router
-	router := httprouter.New()
+	router := mux.NewRouter()
 
-	user, passwd := config.ClientCommonCfg.AdminUser, config.ClientCommonCfg.AdminPwd
+	user, passwd := svr.cfg.AdminUser, svr.cfg.AdminPwd
+	router.Use(frpNet.NewHttpAuthMiddleware(user, passwd).Middleware)
 
 	// api, see dashboard_api.go
-	router.GET("/api/reload", frpNet.HttprouterBasicAuth(svr.apiReload, user, passwd))
-	router.GET("/api/status", frpNet.HttprouterBasicAuth(svr.apiStatus, user, passwd))
+	router.HandleFunc("/api/reload", svr.apiReload).Methods("GET")
+	router.HandleFunc("/api/status", svr.apiStatus).Methods("GET")
+	router.HandleFunc("/api/config", svr.apiGetConfig).Methods("GET")
+	router.HandleFunc("/api/config", svr.apiPutConfig).Methods("PUT")
+
+	// view
+	router.Handle("/favicon.ico", http.FileServer(assets.FileSystem)).Methods("GET")
+	router.PathPrefix("/static/").Handler(frpNet.MakeHttpGzipHandler(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))).Methods("GET")
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
+	})
 
 	address := fmt.Sprintf("%s:%d", addr, port)
 	server := &http.Server{
