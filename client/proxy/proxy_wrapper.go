@@ -112,6 +112,7 @@ func (pw *ProxyWrapper) SetRunningStatus(remoteAddr string, respErr string) erro
 	}
 
 	if err := pw.pxy.Run(); err != nil {
+		pw.close()
 		pw.Status = ProxyStatusStartErr
 		pw.Err = err.Error()
 		pw.lastStartErr = time.Now()
@@ -140,7 +141,10 @@ func (pw *ProxyWrapper) Stop() {
 		pw.monitor.Stop()
 	}
 	pw.Status = ProxyStatusClosed
+	pw.close()
+}
 
+func (pw *ProxyWrapper) close() {
 	pw.handler(event.EvCloseProxy, &event.CloseProxyPayload{
 		CloseProxyMsg: &msg.CloseProxy{
 			ProxyName: pw.Name,
@@ -178,11 +182,7 @@ func (pw *ProxyWrapper) checkWorker() {
 		} else {
 			pw.mu.Lock()
 			if pw.Status == ProxyStatusRunning || pw.Status == ProxyStatusWaitStart {
-				pw.handler(event.EvCloseProxy, &event.CloseProxyPayload{
-					CloseProxyMsg: &msg.CloseProxy{
-						ProxyName: pw.Name,
-					},
-				})
+				pw.close()
 				xl.Trace("change status from [%s] to [%s]", pw.Status, ProxyStatusCheckFailed)
 				pw.Status = ProxyStatusCheckFailed
 			}
