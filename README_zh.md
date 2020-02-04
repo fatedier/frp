@@ -546,10 +546,10 @@ allow_ports = 2000-3000,3001,3003,4000-50000
 type = tcp
 local_port = 22
 remote_port = 6000
-bandwith_limit = 1MB
+bandwidth_limit = 1MB
 ```
 
-在代理配置中增加 `bandwith_limit` 字段启用此功能，目前仅支持 `MB` 和 `KB` 单位。
+在代理配置中增加 `bandwidth_limit` 字段启用此功能，目前仅支持 `MB` 和 `KB` 单位。
 
 ### TCP 多路复用
 
