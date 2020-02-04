@@ -41,7 +41,7 @@ const (
 </style>
 </head>
 <body>
-<h1>The page you visit not found.</h1>
+<h1>The page you requested was not found.</h1>
 <p>Sorry, the page you are looking for is currently unavailable.<br/>
 Please try again later.</p>
 <p>The server is powered by <a href="https://github.com/fatedier/frp">frp</a>.</p>
