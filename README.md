@@ -461,6 +461,8 @@ Config `tls_enable = true` in the `[common]` section to `frpc.ini` to enable thi
 
 For port multiplexing, frp sends a first byte `0x17` to dial a TLS connection.
 
+To enforce `frps` to only accept TLS connections - configure `tls_only = true` in the `[common]` section in `frps.ini`.
+
 ### Hot-Reloading frpc configuration
 
 The `admin_addr` and `admin_port` fields are required for enabling HTTP API:
