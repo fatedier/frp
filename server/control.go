@@ -438,7 +438,11 @@ func (ctl *Control) manager() {
 					ProxyName: m.ProxyName,
 				}
 				if err != nil {
-					resp.Error = err.Error()
+					if ctl.serverCfg.DetailedErrorsToClient {
+						resp.Error = err.Error()
+					} else {
+						resp.Error = fmt.Sprintf("new proxy [%s] error", m.ProxyName)
+					}
 					xl.Warn("new proxy [%s] error: %v", m.ProxyName, err)
 				} else {
 					resp.RemoteAddr = remoteAddr

@@ -320,9 +320,13 @@ func (svr *Service) HandleListener(l net.Listener) {
 					// Otherwise send success message in control's work goroutine.
 					if err != nil {
 						xl.Warn("register control error: %v", err)
+						errStr := "register control error"
+						if svr.cfg.DetailedErrorsToClient {
+							errStr = err.Error()
+						}
 						msg.WriteMsg(conn, &msg.LoginResp{
 							Version: version.Full(),
-							Error:   err.Error(),
+							Error:   errStr,
 						})
 						conn.Close()
 					}
@@ -331,9 +335,13 @@ func (svr *Service) HandleListener(l net.Listener) {
 				case *msg.NewVisitorConn:
 					if err = svr.RegisterVisitorConn(conn, m); err != nil {
 						xl.Warn("register visitor conn error: %v", err)
+						errStr := "register visitor conn error"
+						if svr.cfg.DetailedErrorsToClient {
+							errStr = err.Error()
+						}
 						msg.WriteMsg(conn, &msg.NewVisitorConnResp{
 							ProxyName: m.ProxyName,
-							Error:     err.Error(),
+							Error:     errStr,
 						})
 						conn.Close()
 					} else {
