@@ -131,6 +131,9 @@ type ServerCommonConf struct {
 	// may proxy to. If this value is 0, no limit will be applied. By default,
 	// this value is 0.
 	MaxPortsPerClient int64 `json:"max_ports_per_client"`
+	// TlsOnly specifies whether to only accept TLS-encrypted connections. By
+	// default, the value is false.
+	TlsOnly bool `json:"tls_only"`
 	// HeartBeatTimeout specifies the maximum time to wait for a heartbeat
 	// before terminating the connection. It is not recommended to change this
 	// value. By default, this value is 90.
@@ -171,6 +174,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		AllowPorts:             make(map[int]struct{}),
 		MaxPoolCount:           5,
 		MaxPortsPerClient:      0,
+		TlsOnly:           false,
 		HeartBeatTimeout:       90,
 		UserConnTimeout:        10,
 		Custom404Page:          "",
@@ -387,6 +391,12 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 		} else {
 			cfg.HeartBeatTimeout = v
 		}
+	}
+
+	if tmpStr, ok = conf.Get("common", "tls_only"); ok && tmpStr == "true" {
+		cfg.TlsOnly = true
+	} else {
+		cfg.TlsOnly = false
 	}
 	return
 }
