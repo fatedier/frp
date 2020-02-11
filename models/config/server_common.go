@@ -174,7 +174,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		AllowPorts:             make(map[int]struct{}),
 		MaxPoolCount:           5,
 		MaxPortsPerClient:      0,
-		TlsOnly:           false,
+		TlsOnly:                false,
 		HeartBeatTimeout:       90,
 		UserConnTimeout:        10,
 		Custom404Page:          "",
