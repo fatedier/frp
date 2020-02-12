@@ -98,6 +98,9 @@ type ServerCommonConf struct {
 	// DisableLogColor disables log colors when LogWay == "console" when set to
 	// true. By default, this value is false.
 	DisableLogColor bool `json:"disable_log_color"`
+	// DetailedErrorsToClient defines whether to send the specific error (with
+	// debug info) to frpc. By default, this value is true.
+	DetailedErrorsToClient bool `json:"detailed_errors_to_client"`
 	// Token specifies the authorization token used to authenticate keys
 	// received from clients. Clients must have a matching token to be
 	// authorized to use the server. By default, this value is "".
@@ -146,35 +149,36 @@ type ServerCommonConf struct {
 // defaults.
 func GetDefaultServerConf() ServerCommonConf {
 	return ServerCommonConf{
-		BindAddr:          "0.0.0.0",
-		BindPort:          7000,
-		BindUdpPort:       0,
-		KcpBindPort:       0,
-		ProxyBindAddr:     "0.0.0.0",
-		VhostHttpPort:     0,
-		VhostHttpsPort:    0,
-		VhostHttpTimeout:  60,
-		DashboardAddr:     "0.0.0.0",
-		DashboardPort:     0,
-		DashboardUser:     "admin",
-		DashboardPwd:      "admin",
-		AssetsDir:         "",
-		LogFile:           "console",
-		LogWay:            "console",
-		LogLevel:          "info",
-		LogMaxDays:        3,
-		DisableLogColor:   false,
-		Token:             "",
-		SubDomainHost:     "",
-		TcpMux:            true,
-		AllowPorts:        make(map[int]struct{}),
-		MaxPoolCount:      5,
-		MaxPortsPerClient: 0,
-		TlsOnly:           false,
-		HeartBeatTimeout:  90,
-		UserConnTimeout:   10,
-		Custom404Page:     "",
-		HTTPPlugins:       make(map[string]plugin.HTTPPluginOptions),
+		BindAddr:               "0.0.0.0",
+		BindPort:               7000,
+		BindUdpPort:            0,
+		KcpBindPort:            0,
+		ProxyBindAddr:          "0.0.0.0",
+		VhostHttpPort:          0,
+		VhostHttpsPort:         0,
+		VhostHttpTimeout:       60,
+		DashboardAddr:          "0.0.0.0",
+		DashboardPort:          0,
+		DashboardUser:          "admin",
+		DashboardPwd:           "admin",
+		AssetsDir:              "",
+		LogFile:                "console",
+		LogWay:                 "console",
+		LogLevel:               "info",
+		LogMaxDays:             3,
+		DisableLogColor:        false,
+		DetailedErrorsToClient: true,
+		Token:                  "",
+		SubDomainHost:          "",
+		TcpMux:                 true,
+		AllowPorts:             make(map[int]struct{}),
+		MaxPoolCount:           5,
+		MaxPortsPerClient:      0,
+		TlsOnly:                false,
+		HeartBeatTimeout:       90,
+		UserConnTimeout:        10,
+		Custom404Page:          "",
+		HTTPPlugins:            make(map[string]plugin.HTTPPluginOptions),
 	}
 }
 
@@ -316,6 +320,12 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 
 	if tmpStr, ok = conf.Get("common", "disable_log_color"); ok && tmpStr == "true" {
 		cfg.DisableLogColor = true
+	}
+
+	if tmpStr, ok = conf.Get("common", "detailed_errors_to_client"); ok && tmpStr == "false" {
+		cfg.DetailedErrorsToClient = false
+	} else {
+		cfg.DetailedErrorsToClient = true
 	}
 
 	cfg.Token, _ = conf.Get("common", "token")

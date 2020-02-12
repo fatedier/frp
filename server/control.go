@@ -31,6 +31,7 @@ import (
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/proxy"
 	"github.com/fatedier/frp/server/stats"
+	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
 	"github.com/fatedier/frp/utils/xlog"
 
@@ -438,8 +439,8 @@ func (ctl *Control) manager() {
 					ProxyName: m.ProxyName,
 				}
 				if err != nil {
-					resp.Error = err.Error()
 					xl.Warn("new proxy [%s] error: %v", m.ProxyName, err)
+					resp.Error = util.GenerateResponseErrorString(fmt.Sprintf("new proxy [%s] error", m.ProxyName), err, ctl.serverCfg.DetailedErrorsToClient)
 				} else {
 					resp.RemoteAddr = remoteAddr
 					xl.Info("new proxy [%s] success", m.ProxyName)

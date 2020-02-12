@@ -322,7 +322,7 @@ func (svr *Service) HandleListener(l net.Listener) {
 						xl.Warn("register control error: %v", err)
 						msg.WriteMsg(conn, &msg.LoginResp{
 							Version: version.Full(),
-							Error:   err.Error(),
+							Error:   util.GenerateResponseErrorString("register control error", err, svr.cfg.DetailedErrorsToClient),
 						})
 						conn.Close()
 					}
@@ -333,7 +333,7 @@ func (svr *Service) HandleListener(l net.Listener) {
 						xl.Warn("register visitor conn error: %v", err)
 						msg.WriteMsg(conn, &msg.NewVisitorConnResp{
 							ProxyName: m.ProxyName,
-							Error:     err.Error(),
+							Error:     util.GenerateResponseErrorString("register visitor conn error", err, svr.cfg.DetailedErrorsToClient),
 						})
 						conn.Close()
 					} else {
