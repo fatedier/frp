@@ -46,7 +46,7 @@ func (pxy *TcpProxy) Run() (remoteAddr string, err error) {
 		pxy.listeners = append(pxy.listeners, l)
 		xl.Info("tcp proxy listen port [%d] in group [%s]", pxy.cfg.RemotePort, pxy.cfg.Group)
 	} else {
-		if pxy.serverCfg.VhostTcpPort > 0 {
+		if pxy.serverCfg.VhostTcpPort > 0 && (len(pxy.cfg.CustomDomains) > 0 || pxy.cfg.SubDomain != "") {
 			pxy.realPort = pxy.serverCfg.VhostTcpPort
 			routeConfig := &vhost.VhostRouteConfig{}
 			for _, domain := range pxy.cfg.CustomDomains {

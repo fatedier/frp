@@ -580,8 +580,8 @@ func (cfg *TcpProxyConf) CheckForCli() (err error) {
 }
 
 func (cfg *TcpProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
-	if len(cfg.CustomDomains) == 0 && cfg.SubDomain == "" && serverCfg.VhostTcpPort != 0 {
-		return fmt.Errorf("type [tcp] not support when vhost_http_port is on but no custom domain or subdomain configured")
+	if (len(cfg.CustomDomains) > 0 || cfg.SubDomain != "") && serverCfg.VhostTcpPort == 0 {
+		return fmt.Errorf("custom domain or subdomain can't be configured on type [tcp] without vhost_http_port")
 	}
 	return
 }
