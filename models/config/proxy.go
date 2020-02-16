@@ -130,6 +130,9 @@ type BaseProxyConf struct {
 	// 0 means no limit
 	BandwidthLimit BandwidthQuantity `json:"bandwidth_limit"`
 
+	// meta info for each proxy
+	Metas map[string]string `json:"metas"`
+
 	LocalSvrConf
 	HealthCheckConf
 }
@@ -146,7 +149,8 @@ func (cfg *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
 		cfg.Group != cmp.Group ||
 		cfg.GroupKey != cmp.GroupKey ||
 		cfg.ProxyProtocolVersion != cmp.ProxyProtocolVersion ||
-		cfg.BandwidthLimit.Equal(&cmp.BandwidthLimit) {
+		cfg.BandwidthLimit.Equal(&cmp.BandwidthLimit) ||
+		!reflect.DeepEqual(cfg.Metas, cmp.Metas) {
 		return false
 	}
 	if !cfg.LocalSvrConf.compare(&cmp.LocalSvrConf) {
@@ -165,6 +169,7 @@ func (cfg *BaseProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.UseCompression = pMsg.UseCompression
 	cfg.Group = pMsg.Group
 	cfg.GroupKey = pMsg.GroupKey
+	cfg.Metas = pMsg.Metas
 }
 
 func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section ini.Section) error {
@@ -212,6 +217,13 @@ func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section i
 		}
 		cfg.HealthCheckUrl = s + cfg.HealthCheckUrl
 	}
+
+	cfg.Metas = make(map[string]string)
+	for k, v := range section {
+		if strings.HasPrefix(k, "meta_") {
+			cfg.Metas[strings.TrimPrefix(k, "meta_")] = v
+		}
+	}
 	return nil
 }
 
@@ -222,6 +234,7 @@ func (cfg *BaseProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.UseCompression = cfg.UseCompression
 	pMsg.Group = cfg.Group
 	pMsg.GroupKey = cfg.GroupKey
+	pMsg.Metas = cfg.Metas
 }
 
 func (cfg *BaseProxyConf) checkForCli() (err error) {
