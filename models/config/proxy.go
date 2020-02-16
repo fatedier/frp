@@ -530,6 +530,7 @@ func (cfg *HealthCheckConf) checkForCli() error {
 type TcpProxyConf struct {
 	BaseProxyConf
 	BindInfoConf
+	DomainConf
 }
 
 func (cfg *TcpProxyConf) Compare(cmp ProxyConf) bool {
@@ -539,7 +540,8 @@ func (cfg *TcpProxyConf) Compare(cmp ProxyConf) bool {
 	}
 
 	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
-		!cfg.BindInfoConf.compare(&cmpConf.BindInfoConf) {
+		!cfg.BindInfoConf.compare(&cmpConf.BindInfoConf) ||
+		!cfg.DomainConf.compare(&cmpConf.DomainConf) {
 		return false
 	}
 	return true
@@ -548,6 +550,7 @@ func (cfg *TcpProxyConf) Compare(cmp ProxyConf) bool {
 func (cfg *TcpProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.BaseProxyConf.UnmarshalFromMsg(pMsg)
 	cfg.BindInfoConf.UnmarshalFromMsg(pMsg)
+	cfg.DomainConf.UnmarshalFromMsg(pMsg)
 }
 
 func (cfg *TcpProxyConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
@@ -557,12 +560,16 @@ func (cfg *TcpProxyConf) UnmarshalFromIni(prefix string, name string, section in
 	if err = cfg.BindInfoConf.UnmarshalFromIni(prefix, name, section); err != nil {
 		return
 	}
+	if err = cfg.DomainConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return
+	}
 	return
 }
 
 func (cfg *TcpProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 	cfg.BaseProxyConf.MarshalToMsg(pMsg)
 	cfg.BindInfoConf.MarshalToMsg(pMsg)
+	cfg.DomainConf.MarshalToMsg(pMsg)
 }
 
 func (cfg *TcpProxyConf) CheckForCli() (err error) {
@@ -572,7 +579,12 @@ func (cfg *TcpProxyConf) CheckForCli() (err error) {
 	return
 }
 
-func (cfg *TcpProxyConf) CheckForSvr(serverCfg ServerCommonConf) error { return nil }
+func (cfg *TcpProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
+	if len(cfg.CustomDomains) == 0 && cfg.SubDomain == "" && serverCfg.VhostTcpPort != 0 {
+		return fmt.Errorf("type [tcp] not support when vhost_http_port is on but no custom domain or subdomain configured")
+	}
+	return
+}
 
 // UDP
 type UdpProxyConf struct {

@@ -98,3 +98,17 @@ func noAuthResponse() *http.Response {
 	}
 	return res
 }
+
+func okResponse() *http.Response {
+	header := make(http.Header)
+
+	res := &http.Response{
+		Status:     "OK",
+		StatusCode: 200,
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Header:     header,
+	}
+	return res
+}

@@ -44,6 +44,9 @@ type ResourceController struct {
 	// For https proxies, route requests to different clients by hostname and other information
 	VhostHttpsMuxer *vhost.HttpsMuxer
 
+	// For tcp proxies, route requests to different proxies based on HTTP CONNECT header
+	VhostTcpMuxer *vhost.TcpMuxer
+
 	// Controller for nat hole connections
 	NatHoleController *nathole.NatHoleController
 }

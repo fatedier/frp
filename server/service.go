@@ -215,6 +215,23 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		log.Info("https service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHttpsPort)
 	}
 
+	// Create tcp vhost muxer.
+	if cfg.VhostTcpPort > 0 {
+		var l net.Listener
+		l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostTcpPort))
+		if err != nil {
+			err = fmt.Errorf("Create server listener error, %v", err)
+			return
+		}
+
+		svr.rc.VhostTcpMuxer, err = vhost.NewTcpMuxer(l, 30*time.Second)
+		if err != nil {
+			err = fmt.Errorf("Create vhost tcpMuxer error, %v", err)
+			return
+		}
+		log.Info("tcp service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostTcpPort)
+	}
+
 	// frp tls listener
 	svr.tlsListener = svr.muxer.Listen(1, 1, func(data []byte) bool {
 		return int(data[0]) == frpNet.FRP_TLS_HEAD_BYTE

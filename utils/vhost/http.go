@@ -34,16 +34,6 @@ var (
 	ErrNoDomain = errors.New("no such domain")
 )
 
-func getHostFromAddr(addr string) (host string) {
-	strs := strings.Split(addr, ":")
-	if len(strs) > 1 {
-		host = strs[0]
-	} else {
-		host = addr
-	}
-	return
-}
-
 type HttpReverseProxyOptions struct {
 	ResponseHeaderTimeoutS int64
 }
