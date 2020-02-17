@@ -22,38 +22,6 @@ import (
 	"github.com/fatedier/golib/errors"
 )
 
-type Listener interface {
-	Accept() (Conn, error)
-	Close() error
-	log.Logger
-}
-
-type LogListener struct {
-	l net.Listener
-	net.Listener
-	log.Logger
-}
-
-func WrapLogListener(l net.Listener) Listener {
-	return &LogListener{
-		l:        l,
-		Listener: l,
-		Logger:   log.NewPrefixLogger(""),
-	}
-}
-
-func (logL *LogListener) Accept() (Conn, error) {
-	log.Info("call Accept")
-	c, err := logL.l.Accept()
-	log.Info("Accept new conn: ", c)
-	return WrapConn(c), err
-}
-
-// Close 关闭listener
-func (logL *LogListener) Close() error {
-	return logL.l.Close()
-}
-
 // Custom listener
 type CustomListener struct {
 	acceptCh chan net.Conn

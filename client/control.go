@@ -17,6 +17,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"github.com/fatedier/frp/utils/log"
 	"io"
 	"net"
 	"runtime/debug"
@@ -78,7 +79,7 @@ type Control struct {
 	mu sync.RWMutex
 
 	ProxyFunc func(err error)
-	xl *xlog.Logger
+	xl        *xlog.Logger
 
 	// service context
 	ctx context.Context
