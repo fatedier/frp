@@ -23,13 +23,13 @@ import (
 	"time"
 )
 
-type TcpMuxer struct {
+type TcpHttpTunnelMuxer struct {
 	*VhostMuxer
 }
 
-func NewTcpMuxer(listener net.Listener, timeout time.Duration) (*TcpMuxer, error) {
-	mux, err := NewVhostMuxer(listener, getTcpServiceName, nil, sendHttpOk, timeout)
-	return &TcpMuxer{mux}, err
+func NewTcpHttpTunnelMuxer(listener net.Listener, timeout time.Duration) (*TcpHttpTunnelMuxer, error) {
+	mux, err := NewVhostMuxer(listener, getHostFromHttpConnect, nil, sendHttpOk, timeout)
+	return &TcpHttpTunnelMuxer{mux}, err
 }
 
 func readHttpConnectRequest(rd io.Reader) (host string, err error) {
@@ -55,7 +55,7 @@ func sendHttpOk(c net.Conn, _ string) (_ net.Conn, err error) {
 	return c, err
 }
 
-func getTcpServiceName(c net.Conn) (_ net.Conn, _ map[string]string, err error) {
+func getHostFromHttpConnect(c net.Conn) (_ net.Conn, _ map[string]string, err error) {
 	reqInfoMap := make(map[string]string, 0)
 	host, err := readHttpConnectRequest(c)
 	if err != nil {

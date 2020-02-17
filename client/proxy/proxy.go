@@ -72,6 +72,11 @@ func NewProxy(ctx context.Context, pxyConf config.ProxyConf, clientCfg config.Cl
 			BaseProxy: &baseProxy,
 			cfg:       cfg,
 		}
+	case *config.TcpHttpTunnelProxyConf:
+		pxy = &TcpHttpTunnelProxy{
+			BaseProxy: &baseProxy,
+			cfg:       cfg,
+		}
 	case *config.UdpProxyConf:
 		pxy = &UdpProxy{
 			BaseProxy: &baseProxy,
@@ -137,6 +142,35 @@ func (pxy *TcpProxy) Close() {
 }
 
 func (pxy *TcpProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
+	HandleTcpWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, pxy.limiter,
+		conn, []byte(pxy.clientCfg.Token), m)
+}
+
+// TCP HTTP Tunnel
+type TcpHttpTunnelProxy struct {
+	*BaseProxy
+
+	cfg         *config.TcpHttpTunnelProxyConf
+	proxyPlugin plugin.Plugin
+}
+
+func (pxy *TcpHttpTunnelProxy) Run() (err error) {
+	if pxy.cfg.Plugin != "" {
+		pxy.proxyPlugin, err = plugin.Create(pxy.cfg.Plugin, pxy.cfg.PluginParams)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func (pxy *TcpHttpTunnelProxy) Close() {
+	if pxy.proxyPlugin != nil {
+		pxy.proxyPlugin.Close()
+	}
+}
+
+func (pxy *TcpHttpTunnelProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	HandleTcpWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, pxy.limiter,
 		conn, []byte(pxy.clientCfg.Token), m)
 }

@@ -215,21 +215,21 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		log.Info("https service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHttpsPort)
 	}
 
-	// Create tcp vhost muxer.
-	if cfg.VhostTcpPort > 0 {
+	// Create tcp http tunnel muxer.
+	if cfg.TcpHttpTunnelPort > 0 {
 		var l net.Listener
-		l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostTcpPort))
+		l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.TcpHttpTunnelPort))
 		if err != nil {
 			err = fmt.Errorf("Create server listener error, %v", err)
 			return
 		}
 
-		svr.rc.VhostTcpMuxer, err = vhost.NewTcpMuxer(l, 30*time.Second)
+		svr.rc.VhostTcpMuxer, err = vhost.NewTcpHttpTunnelMuxer(l, 30*time.Second)
 		if err != nil {
 			err = fmt.Errorf("Create vhost tcpMuxer error, %v", err)
 			return
 		}
-		log.Info("tcp service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostTcpPort)
+		log.Info("tcp http tunnel service listen on %s:%d", cfg.ProxyBindAddr, cfg.TcpHttpTunnelPort)
 	}
 
 	// frp tls listener

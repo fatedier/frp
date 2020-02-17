@@ -95,6 +95,11 @@ type TcpOutConf struct {
 	RemotePort int `json:"remote_port"`
 }
 
+type TcpHttpTunnelOutConf struct {
+	BaseOutConf
+	config.DomainConf
+}
+
 type UdpOutConf struct {
 	BaseOutConf
 	RemotePort int `json:"remote_port"`
@@ -124,6 +129,8 @@ func getConfByType(proxyType string) interface{} {
 	switch proxyType {
 	case consts.TcpProxy:
 		return &TcpOutConf{}
+	case consts.TcpHttpTunnelProxy:
+		return &TcpHttpTunnelOutConf{}
 	case consts.UdpProxy:
 		return &UdpOutConf{}
 	case consts.HttpProxy:

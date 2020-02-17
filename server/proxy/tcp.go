@@ -19,7 +19,6 @@ import (
 	"net"
 
 	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/utils/vhost"
 )
 
 type TcpProxy struct {
@@ -46,52 +45,22 @@ func (pxy *TcpProxy) Run() (remoteAddr string, err error) {
 		pxy.listeners = append(pxy.listeners, l)
 		xl.Info("tcp proxy listen port [%d] in group [%s]", pxy.cfg.RemotePort, pxy.cfg.Group)
 	} else {
-		if pxy.serverCfg.VhostTcpPort > 0 && (len(pxy.cfg.CustomDomains) > 0 || pxy.cfg.SubDomain != "") {
-			pxy.realPort = pxy.serverCfg.VhostTcpPort
-			routeConfig := &vhost.VhostRouteConfig{}
-			for _, domain := range pxy.cfg.CustomDomains {
-				if domain == "" {
-					continue
-				}
-
-				routeConfig.Domain = domain
-				l, errRet := pxy.rc.VhostTcpMuxer.Listen(pxy.ctx, routeConfig)
-				if errRet != nil {
-					err = errRet
-					return
-				}
-				xl.Info("http tunnel server (tcp proxy) listen for host [%s]", routeConfig.Domain)
-				pxy.listeners = append(pxy.listeners, l)
-			}
-
-			if pxy.cfg.SubDomain != "" {
-				routeConfig.Domain = pxy.cfg.SubDomain + "." + pxy.serverCfg.SubDomainHost
-				l, errRet := pxy.rc.VhostTcpMuxer.Listen(pxy.ctx, routeConfig)
-				if errRet != nil {
-					err = errRet
-					return
-				}
-				xl.Info("http tunnel server (tcp proxy) listen for host [%s]", routeConfig.Domain)
-				pxy.listeners = append(pxy.listeners, l)
-			}
-		} else {
-			pxy.realPort, err = pxy.rc.TcpPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
-			if err != nil {
-				return
-			}
-			defer func() {
-				if err != nil {
-					pxy.rc.TcpPortManager.Release(pxy.realPort)
-				}
-			}()
-			listener, errRet := net.Listen("tcp", fmt.Sprintf("%s:%d", pxy.serverCfg.ProxyBindAddr, pxy.realPort))
-			if errRet != nil {
-				err = errRet
-				return
-			}
-			pxy.listeners = append(pxy.listeners, listener)
-			xl.Info("tcp proxy listen port [%d]", pxy.cfg.RemotePort)
+		pxy.realPort, err = pxy.rc.TcpPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
+		if err != nil {
+			return
 		}
+		defer func() {
+			if err != nil {
+				pxy.rc.TcpPortManager.Release(pxy.realPort)
+			}
+		}()
+		listener, errRet := net.Listen("tcp", fmt.Sprintf("%s:%d", pxy.serverCfg.ProxyBindAddr, pxy.realPort))
+		if errRet != nil {
+			err = errRet
+			return
+		}
+		pxy.listeners = append(pxy.listeners, listener)
+		xl.Info("tcp proxy listen port [%d]", pxy.cfg.RemotePort)
 	}
 
 	pxy.cfg.RemotePort = pxy.realPort
