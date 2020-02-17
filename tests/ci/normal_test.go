@@ -212,10 +212,10 @@ func TestHttp(t *testing.T) {
 	}
 }
 
-func TestTcpMultiplexing(t *testing.T) {
+func TestTcpHttpTunnel(t *testing.T) {
 	assert := assert.New(t)
 
-	conn, err := gnet.DialTcpByProxy(fmt.Sprintf("http://%s:%d", "127.0.0.1", consts.TEST_TCP_VHOST_FRP_PORT), "tcpmulti1")
+	conn, err := gnet.DialTcpByProxy(fmt.Sprintf("http://%s:%d", "127.0.0.1", consts.TEST_TCP_HTTP_TUNNEL_FRP_PORT), "tunnel1")
 	if assert.NoError(err) {
 		res, err := util.SendTcpMsgByConn(conn, consts.TEST_TCP_ECHO_STR)
 		assert.NoError(err)
