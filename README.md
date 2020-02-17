@@ -780,13 +780,13 @@ locations = /news,/about
 
 HTTP requests with URL prefix `/news` or `/about` will be forwarded to **web02** and other requests to **web01**.
 
-### TCP Multiplexing
+### TCP HTTP Tunnel
 
 frp supports receiving TCP sockets directed to different proxies on a single port on frps, similar to `vhost_http_port` and `vhost_https_port`.
 
-When setting `vhost_tcp_port` to anything other than 0 in frps under `[common]`, frps will listen on this port for HTTP CONNECT requests.
+When setting `tcp_http_tunnel_port` to anything other than 0 in frps under `[common]`, frps will listen on this port for HTTP CONNECT requests.
 
-The host of the HTTP CONNECT request will be used to match the proxy in frps. Proxy hosts can be configured in frpc by configuring `custom_domain` and / or `subdomain` under tcp proxies.
+The host of the HTTP CONNECT request will be used to match the proxy in frps. Proxy hosts can be configured in frpc by configuring `custom_domain` and / or `subdomain` under `[tcphttptunnel]` proxies.
 
 For example:
 
@@ -794,7 +794,7 @@ For example:
 # frps.ini
 [common]
 bind_port = 7000
-vhost_tcp_port = 1337
+tcp_http_tunnel_port = 1337
 ```
 
 ```ini
@@ -804,15 +804,11 @@ server_addr = x.x.x.x
 server_port = 7000
 
 [proxy1]
-type = tcp
-# Ignored since vhost_tcp_port is set - that's the only port that'll be used
-remote_port = 0
+type = tcphttptunnel
 custom_domains = test1
 
 [proxy2]
-type = tcp
-# Ignored since vhost_tcp_port is set - that's the only port that'll be used
-remote_port = 0
+type = tcphttptunnel
 custom_domains = test2
 ```
 
@@ -821,7 +817,7 @@ In the above configuration - frps can be contacted on port 1337 with a HTTP CONN
 ```
 CONNECT test1 HTTP/1.1\r\n\r\n
 ```
-and the connection will be transferred to `proxy1`.
+and the connection will be routed to `proxy1`.
 
 ### Connecting to frps via HTTP PROXY
 
