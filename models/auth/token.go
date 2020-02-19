@@ -21,22 +21,22 @@ import (
 	"github.com/fatedier/frp/utils/util"
 )
 
-type TokenAuthProviderConsumer struct {
+type TokenAuthSetterVerifier struct {
 	Token string
 }
 
-func NewTokenAuth(token string) *TokenAuthProviderConsumer {
-	return &TokenAuthProviderConsumer{
+func NewTokenAuth(token string) *TokenAuthSetterVerifier {
+	return &TokenAuthSetterVerifier{
 		Token: token,
 	}
 }
 
-func (auth *TokenAuthProviderConsumer) SetLogin(loginMsg *msg.Login) (err error) {
+func (auth *TokenAuthSetterVerifier) SetLogin(loginMsg *msg.Login) (err error) {
 	loginMsg.PrivilegeKey = util.GetAuthKey(auth.Token, loginMsg.Timestamp)
 	return nil
 }
 
-func (auth *TokenAuthProviderConsumer) SetPing(*msg.Ping) error {
+func (auth *TokenAuthSetterVerifier) SetPing(*msg.Ping) error {
 	// ping doesn't include authentication in token method
 	return nil
 }
@@ -45,14 +45,14 @@ type TokenAuthConsumer struct {
 	Token string
 }
 
-func (auth *TokenAuthProviderConsumer) VerifyLogin(loginMsg *msg.Login) error {
+func (auth *TokenAuthSetterVerifier) VerifyLogin(loginMsg *msg.Login) error {
 	if util.GetAuthKey(auth.Token, loginMsg.Timestamp) != loginMsg.PrivilegeKey {
 		return fmt.Errorf("token in login doesn't match token from configuration")
 	}
 	return nil
 }
 
-func (auth *TokenAuthProviderConsumer) VerifyPing(*msg.Ping) error {
+func (auth *TokenAuthSetterVerifier) VerifyPing(*msg.Ping) error {
 	// ping doesn't include authentication in token method
 	return nil
 }
