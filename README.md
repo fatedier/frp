@@ -437,7 +437,43 @@ Then visit `http://127.0.0.1:7400` to see admin UI, with username and password b
 
 ### Authenticating the Client
 
-Always use the same `token` in the `[common]` section in `frps.ini` and `frpc.ini`.
+There are 2 authentication methods to authenticate frpc with frps. 
+
+You can decide which one to use by configuring `authentication_method` under `[common]` in `frpc.ini` and `frps.ini`.
+
+Configuring `authenticate_heartbeats = true` under `[common]` will use the configured authentication method to add and validate authentication on every heartbeat between frpc and frps.
+
+#### Token Authentication
+
+When specifying `authentication_method = token` under `[common]` in `frpc.ini` and `frps.ini` - token based authentication will be used.
+
+Make sure to specify the same `token` in the `[common]` section in `frps.ini` and `frpc.ini` for frpc to pass frps validation
+
+#### OIDC Authentication
+
+When specifying `authentication_method = oidc` under `[common]` in `frpc.ini` and `frps.ini` - OIDC based authentication will be used.
+
+OIDC stands for OpenID Connect, and the flow used is called [Client Credentials Grant](https://tools.ietf.org/html/rfc6749#section-4.4).
+
+To use this authentication type - configure `frpc.ini` and `frps.ini` as follows:
+
+```ini
+# frps.ini
+[common]
+authentication_method = oidc
+oidc_issuer = https://example-oidc-issuer.com/
+oidc_audience = https://oidc-audience.com/.default
+```
+
+```ini
+# frpc.ini
+[common]
+authentication_method = oidc
+oidc_client_id = 98692467-37de-409a-9fac-bb2585826f18 # Replace with OIDC client ID
+oidc_client_secret = oidc_secret
+oidc_audience = https://oidc-audience.com/.default
+oidc_token_endpoint_url = https://example-oidc-endpoint.com/oauth2/v2.0/token
+```
 
 ### Encryption and Compression
 
