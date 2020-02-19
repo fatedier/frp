@@ -462,6 +462,7 @@ func (ctl *Control) manager() {
 			case *msg.Ping:
 				if err := ctl.authVerifier.VerifyPing(m); err != nil {
 					xl.Warn("received invalid ping: %v", err)
+					return
 				}
 				ctl.lastPing = time.Now()
 				xl.Debug("receive heartbeat")
