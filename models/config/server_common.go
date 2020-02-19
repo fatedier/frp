@@ -105,6 +105,34 @@ type ServerCommonConf struct {
 	// received from clients. Clients must have a matching token to be
 	// authorized to use the server. By default, this value is "".
 	Token string `json:"token"`
+	// AuthenticationMethod specifies what authentication method to use to
+	// authenticate frpc with frps. If "token" is specified - token comparison
+	// will be used. If "oidc" is specified - OIDC (Open ID Connect) will be
+	// used. By default, this value is "token".
+	AuthenticationMethod string `json:"authentication_method"`
+	// AuthenticateHeartBeats specifies whether to expect and verify authentication
+	// token in heartbeats sent from frpc. By default, this value is false.
+	AuthenticateHeartBeats bool `json:"authenticate_heartbeats"`
+
+	// OidcIssuer specifies the issuer to verify OIDC tokens with. This issuer
+	// will be used to load public keys to verify signature and will be compared
+	// with the issuer claim in the OIDC token. It will be used if
+	// AuthenticationMethod == "oidc". By default, this value is "".
+	OidcIssuer string `json:"oidc_issuer"`
+	// OidcAudience specifies the audience OIDC tokens should contain when validated.
+	// If this value is empty, audience ("client ID") verification will be skipped.
+	// It will be used when AuthenticationMethod == "oidc". By default, this
+	// value is "".
+	OidcAudience string `json:"oidc_audience"`
+	// OidcSkipExpiryCheck specifies whether to skip checking if the OIDC token is
+	// expired. It will be used when AuthenticationMethod == "oidc". By default, this
+	// value is false.
+	OidcSkipExpiryCheck bool `json:"oidc_skip_expiry_check"`
+	// OidcSkipIssuerCheck specifies whether to skip checking if the OIDC token's
+	// issuer claim matches the issuer specified in OidcIssuer. It will be used when
+	// AuthenticationMethod == "oidc". By default, this value is false.
+	OidcSkipIssuerCheck bool `json:"oidc_skip_issuer_check"`
+
 	// SubDomainHost specifies the domain that will be attached to sub-domains
 	// requested by the client when using Vhost proxying. For example, if this
 	// value is set to "frps.com" and the client requested the subdomain
@@ -169,6 +197,12 @@ func GetDefaultServerConf() ServerCommonConf {
 		DisableLogColor:        false,
 		DetailedErrorsToClient: true,
 		Token:                  "",
+		AuthenticationMethod:   "token",
+		AuthenticateHeartBeats: false,
+		OidcIssuer:             "",
+		OidcAudience:           "",
+		OidcSkipExpiryCheck:    false,
+		OidcSkipIssuerCheck:    false,
 		SubDomainHost:          "",
 		TcpMux:                 true,
 		AllowPorts:             make(map[int]struct{}),
@@ -329,6 +363,36 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 	}
 
 	cfg.Token, _ = conf.Get("common", "token")
+
+	if tmpStr, ok = conf.Get("common", "authentication_method"); ok {
+		cfg.AuthenticationMethod = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "authenticate_heartbeats"); ok && tmpStr == "true" {
+		cfg.AuthenticateHeartBeats = true
+	} else {
+		cfg.AuthenticateHeartBeats = false
+	}
+
+	if tmpStr, ok = conf.Get("common", "oidc_issuer"); ok {
+		cfg.OidcIssuer = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "oidc_audience"); ok {
+		cfg.OidcAudience = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "oidc_skip_expiry_check"); ok && tmpStr == "true" {
+		cfg.OidcSkipExpiryCheck = true
+	} else {
+		cfg.OidcSkipExpiryCheck = false
+	}
+
+	if tmpStr, ok = conf.Get("common", "oidc_skip_issuer_check"); ok && tmpStr == "true" {
+		cfg.OidcSkipIssuerCheck = true
+	} else {
+		cfg.OidcSkipIssuerCheck = false
+	}
 
 	if allowPortsStr, ok := conf.Get("common", "allow_ports"); ok {
 		// e.g. 1000-2000,2001,2002,3000-4000

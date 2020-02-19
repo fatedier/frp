@@ -60,6 +60,31 @@ type ClientCommonConf struct {
 	// to the server. The server must have a matching token for authorization
 	// to succeed.  By default, this value is "".
 	Token string `json:"token"`
+	// AuthenticationMethod specifies what authentication method to use to
+	// authenticate frpc with frps. If "token" is specified - token will be
+	// read into login message. If "oidc" is specified - OIDC (Open ID Connect)
+	// token will be issued using OIDC settings. By default, this value is "token".
+	AuthenticationMethod string `json:"authentication_method"`
+	// AuthenticateHeartBeats specifies whether to include authentication token in
+	// heartbeats sent to frps. By default, this value is false.
+	AuthenticateHeartBeats bool `json:"authenticate_heartbeats"`
+
+	// OidcClientId specifies the client ID to use to get a token in OIDC
+	// authentication if AuthenticationMethod == "oidc". By default, this value
+	// is "".
+	OidcClientId string `json:"oidc_client_id"`
+	// OidcClientSecret specifies the client secret to use to get a token in OIDC
+	// authentication if AuthenticationMethod == "oidc". By default, this value
+	// is "".
+	OidcClientSecret string `json:"oidc_client_secret"`
+	// OidcAudience specifies the audience of the token in OIDC authentication
+	//if AuthenticationMethod == "oidc". By default, this value is "".
+	OidcAudience string `json:"oidc_audience"`
+	// OidcTokenEndpointUrl specifies the URL which implements OIDC Token Endpoint.
+	// It will be used to get an OIDC token if AuthenticationMethod == "oidc".
+	// By default, this value is "".
+	OidcTokenEndpointUrl string `json:"oidc_token_endpoint_url"`
+
 	// AdminAddr specifies the address that the admin server binds to. By
 	// default, this value is "127.0.0.1".
 	AdminAddr string `json:"admin_addr"`
@@ -122,31 +147,37 @@ type ClientCommonConf struct {
 // GetDefaultClientConf returns a client configuration with default values.
 func GetDefaultClientConf() ClientCommonConf {
 	return ClientCommonConf{
-		ServerAddr:        "0.0.0.0",
-		ServerPort:        7000,
-		HttpProxy:         os.Getenv("http_proxy"),
-		LogFile:           "console",
-		LogWay:            "console",
-		LogLevel:          "info",
-		LogMaxDays:        3,
-		DisableLogColor:   false,
-		Token:             "",
-		AdminAddr:         "127.0.0.1",
-		AdminPort:         0,
-		AdminUser:         "",
-		AdminPwd:          "",
-		AssetsDir:         "",
-		PoolCount:         1,
-		TcpMux:            true,
-		User:              "",
-		DnsServer:         "",
-		LoginFailExit:     true,
-		Start:             make(map[string]struct{}),
-		Protocol:          "tcp",
-		TLSEnable:         false,
-		HeartBeatInterval: 30,
-		HeartBeatTimeout:  90,
-		Metas:             make(map[string]string),
+		ServerAddr:             "0.0.0.0",
+		ServerPort:             7000,
+		HttpProxy:              os.Getenv("http_proxy"),
+		LogFile:                "console",
+		LogWay:                 "console",
+		LogLevel:               "info",
+		LogMaxDays:             3,
+		DisableLogColor:        false,
+		Token:                  "",
+		AuthenticationMethod:   "token",
+		AuthenticateHeartBeats: false,
+		OidcClientId:           "",
+		OidcClientSecret:       "",
+		OidcAudience:           "",
+		OidcTokenEndpointUrl:   "",
+		AdminAddr:              "127.0.0.1",
+		AdminPort:              0,
+		AdminUser:              "",
+		AdminPwd:               "",
+		AssetsDir:              "",
+		PoolCount:              1,
+		TcpMux:                 true,
+		User:                   "",
+		DnsServer:              "",
+		LoginFailExit:          true,
+		Start:                  make(map[string]struct{}),
+		Protocol:               "tcp",
+		TLSEnable:              false,
+		HeartBeatInterval:      30,
+		HeartBeatTimeout:       90,
+		Metas:                  make(map[string]string),
 	}
 }
 
@@ -205,6 +236,32 @@ func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error
 
 	if tmpStr, ok = conf.Get("common", "token"); ok {
 		cfg.Token = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "authentication_method"); ok {
+		cfg.AuthenticationMethod = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "authenticate_heartbeats"); ok && tmpStr == "true" {
+		cfg.AuthenticateHeartBeats = true
+	} else {
+		cfg.AuthenticateHeartBeats = false
+	}
+
+	if tmpStr, ok = conf.Get("common", "oidc_client_id"); ok {
+		cfg.OidcClientId = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "oidc_client_secret"); ok {
+		cfg.OidcClientSecret = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "oidc_audience"); ok {
+		cfg.OidcAudience = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "oidc_token_endpoint_url"); ok {
+		cfg.OidcTokenEndpointUrl = tmpStr
 	}
 
 	if tmpStr, ok = conf.Get("common", "admin_addr"); ok {

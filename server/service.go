@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/assets"
+	"github.com/fatedier/frp/models/auth"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/models/nathole"
@@ -86,6 +87,9 @@ type Service struct {
 	// All resource managers and controllers
 	rc *controller.ResourceController
 
+	// Verifies authentication based on selected method
+	authVerifier auth.Verifier
+
 	// stats collector to store server and proxies stats info
 	statsCollector stats.Collector
 
@@ -105,6 +109,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			UdpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 		},
 		httpVhostRouter: vhost.NewVhostRouters(),
+		authVerifier:    auth.NewAuthVerifier(cfg),
 		tlsConfig:       generateTLSConfig(),
 		cfg:             cfg,
 	}
@@ -399,12 +404,11 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 	}
 
 	// Check auth.
-	if util.GetAuthKey(svr.cfg.Token, loginMsg.Timestamp) != loginMsg.PrivilegeKey {
-		err = fmt.Errorf("authorization failed")
+	if err = svr.authVerifier.VerifyLogin(loginMsg); err != nil {
 		return
 	}
 
-	ctl := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, svr.statsCollector, ctlConn, loginMsg, svr.cfg)
+	ctl := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, svr.statsCollector, svr.authVerifier, ctlConn, loginMsg, svr.cfg)
 
 	if oldCtl := svr.ctlManager.Add(loginMsg.RunId, ctl); oldCtl != nil {
 		oldCtl.allShutdown.WaitDone()

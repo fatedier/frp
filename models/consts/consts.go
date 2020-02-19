@@ -29,4 +29,8 @@ var (
 	HttpsProxy string = "https"
 	StcpProxy  string = "stcp"
 	XtcpProxy  string = "xtcp"
+
+	// authentication method
+	TokenAuthMethod string = "token"
+	OidcAuthMethod  string = "oidc"
 )

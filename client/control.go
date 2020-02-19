@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/client/proxy"
+	"github.com/fatedier/frp/models/auth"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	frpNet "github.com/fatedier/frp/utils/net"
@@ -82,13 +83,17 @@ type Control struct {
 
 	// service context
 	ctx context.Context
+
+	// sets authentication based on selected method
+	authSetter auth.Setter
 }
 
 func NewControl(ctx context.Context, runId string, conn net.Conn, session *fmux.Session,
 	clientCfg config.ClientCommonConf,
 	pxyCfgs map[string]config.ProxyConf,
 	visitorCfgs map[string]config.VisitorConf,
-	serverUDPPort int) *Control {
+	serverUDPPort int,
+	authSetter auth.Setter) *Control {
 
 	// new xlog instance
 	ctl := &Control{
@@ -107,6 +112,7 @@ func NewControl(ctx context.Context, runId string, conn net.Conn, session *fmux.
 		serverUDPPort:      serverUDPPort,
 		xl:                 xlog.FromContextSafe(ctx),
 		ctx:                ctx,
+		authSetter:         authSetter,
 	}
 	ctl.pm = proxy.NewProxyManager(ctl.ctx, ctl.sendCh, clientCfg, serverUDPPort)
 
@@ -282,7 +288,12 @@ func (ctl *Control) msgHandler() {
 		case <-hbSend.C:
 			// send heartbeat to server
 			xl.Debug("send heartbeat to server")
-			ctl.sendCh <- &msg.Ping{}
+			pingMsg := &msg.Ping{}
+			if err := ctl.authSetter.SetPing(pingMsg); err != nil {
+				xl.Warn("error during ping authentication: %v", err)
+				return
+			}
+			ctl.sendCh <- pingMsg
 		case <-hbCheck.C:
 			if time.Since(ctl.lastPong) > time.Duration(ctl.clientCfg.HeartBeatTimeout)*time.Second {
 				xl.Warn("heartbeat timeout")

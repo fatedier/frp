@@ -148,6 +148,7 @@ type NewVisitorConnResp struct {
 }
 
 type Ping struct {
+	PrivilegeKey string `json:"privilege_key"`
 }
 
 type Pong struct {
