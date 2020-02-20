@@ -48,31 +48,25 @@ type ServerCommonConf struct {
 	// ProxyBindAddr specifies the address that the proxy binds to. This value
 	// may be the same as BindAddr. By default, this value is "0.0.0.0".
 	ProxyBindAddr string `json:"proxy_bind_addr"`
-
 	// VhostHttpPort specifies the port that the server listens for HTTP Vhost
 	// requests. If this value is 0, the server will not listen for HTTP
 	// requests. By default, this value is 0.
 	VhostHttpPort int `json:"vhost_http_port"`
-
 	// VhostHttpsPort specifies the port that the server listens for HTTPS
 	// Vhost requests. If this value is 0, the server will not listen for HTTPS
 	// requests. By default, this value is 0.
 	VhostHttpsPort int `json:"vhost_https_port"`
-
 	// TcpMuxHttpConnectPort specifies the port that the server listens for TCP
 	// HTTP CONNECT requests. If the value is 0, the server will not multiplex TCP
 	// requests on one single port. If it's not - it will listen on this value for
 	// HTTP CONNECT requests. By default, this value is 0.
 	TcpMuxHttpConnectPort int `json:"tcpmux_httpconnect_port"`
-
 	// VhostHttpTimeout specifies the response header timeout for the Vhost
 	// HTTP server, in seconds. By default, this value is 60.
 	VhostHttpTimeout int64 `json:"vhost_http_timeout"`
-
 	// DashboardAddr specifies the address that the dashboard binds to. By
 	// default, this value is "0.0.0.0".
 	DashboardAddr string `json:"dashboard_addr"`
-
 	// DashboardPort specifies the port that the dashboard listens on. If this
 	// value is 0, the dashboard will not be started. By default, this value is
 	// 0.
@@ -83,6 +77,9 @@ type ServerCommonConf struct {
 	// DashboardUser specifies the password that the dashboard will use for
 	// login. By default, this value is "admin".
 	DashboardPwd string `json:"dashboard_pwd"`
+	// EnablePrometheus will export prometheus metrics on {dashboard_addr}:{dashboard_port}
+	// in /metrics api.
+	EnablePrometheus bool `json:"enable_prometheus"`
 	// AssetsDir specifies the local directory that the dashboard will load
 	// resources from. If this value is "", assets will be loaded from the
 	// bundled executable using statik. By default, this value is "".
@@ -167,6 +164,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		DashboardPort:          0,
 		DashboardUser:          "admin",
 		DashboardPwd:           "admin",
+		EnablePrometheus:       false,
 		AssetsDir:              "",
 		LogFile:                "console",
 		LogWay:                 "console",
@@ -310,6 +308,10 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 
 	if tmpStr, ok = conf.Get("common", "dashboard_pwd"); ok {
 		cfg.DashboardPwd = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "enable_prometheus"); ok && tmpStr == "true" {
+		cfg.EnablePrometheus = true
 	}
 
 	if tmpStr, ok = conf.Get("common", "assets_dir"); ok {

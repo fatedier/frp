@@ -23,7 +23,7 @@ import (
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/models/proto/udp"
-	"github.com/fatedier/frp/server/stats"
+	"github.com/fatedier/frp/server/metrics"
 
 	"github.com/fatedier/golib/errors"
 )
@@ -114,10 +114,11 @@ func (pxy *UdpProxy) Run() (remoteAddr string, err error) {
 				if errRet := errors.PanicToError(func() {
 					xl.Trace("get udp message from workConn: %s", m.Content)
 					pxy.readCh <- m
-					pxy.statsCollector.Mark(stats.TypeAddTrafficOut, &stats.AddTrafficOutPayload{
-						ProxyName:    pxy.GetName(),
-						TrafficBytes: int64(len(m.Content)),
-					})
+					metrics.Server.AddTrafficOut(
+						pxy.GetName(),
+						pxy.GetConf().GetBaseInfo().ProxyType,
+						int64(len(m.Content)),
+					)
 				}); errRet != nil {
 					conn.Close()
 					xl.Info("reader goroutine for udp work connection closed")
@@ -143,10 +144,11 @@ func (pxy *UdpProxy) Run() (remoteAddr string, err error) {
 					return
 				} else {
 					xl.Trace("send message to udp workConn: %s", udpMsg.Content)
-					pxy.statsCollector.Mark(stats.TypeAddTrafficIn, &stats.AddTrafficInPayload{
-						ProxyName:    pxy.GetName(),
-						TrafficBytes: int64(len(udpMsg.Content)),
-					})
+					metrics.Server.AddTrafficIn(
+						pxy.GetName(),
+						pxy.GetConf().GetBaseInfo().ProxyType,
+						int64(len(udpMsg.Content)),
+					)
 					continue
 				}
 			case <-ctx.Done():

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package stats
+package mem
 
 import (
 	"time"
@@ -22,19 +22,6 @@ import (
 
 const (
 	ReserveDays = 7
-)
-
-type StatsType int
-
-const (
-	TypeNewClient StatsType = iota
-	TypeCloseClient
-	TypeNewProxy
-	TypeCloseProxy
-	TypeOpenConnection
-	TypeCloseConnection
-	TypeAddTrafficIn
-	TypeAddTrafficOut
 )
 
 type ServerStats struct {
@@ -88,42 +75,8 @@ type ServerStatistics struct {
 }
 
 type Collector interface {
-	Mark(statsType StatsType, payload interface{})
-	Run() error
 	GetServer() *ServerStats
 	GetProxiesByType(proxyType string) []*ProxyStats
 	GetProxiesByTypeAndName(proxyType string, proxyName string) *ProxyStats
 	GetProxyTraffic(name string) *ProxyTrafficInfo
-}
-
-type NewClientPayload struct{}
-
-type CloseClientPayload struct{}
-
-type NewProxyPayload struct {
-	Name      string
-	ProxyType string
-}
-
-type CloseProxyPayload struct {
-	Name      string
-	ProxyType string
-}
-
-type OpenConnectionPayload struct {
-	ProxyName string
-}
-
-type CloseConnectionPayload struct {
-	ProxyName string
-}
-
-type AddTrafficInPayload struct {
-	ProxyName    string
-	TrafficBytes int64
-}
-
-type AddTrafficOutPayload struct {
-	ProxyName    string
-	TrafficBytes int64
 }
