@@ -43,13 +43,17 @@ func NewOidcAuthSetter(clientId string, clientSecret string, audience string, to
 	}
 }
 
-func (auth *OidcAuthProvider) SetLogin(loginMsg *msg.Login) (err error) {
+func (auth *OidcAuthProvider) generateAccessToken() (accessToken string, err error) {
 	tokenObj, err := auth.tokenGenerator.Token(context.Background())
 	if err != nil {
-		return fmt.Errorf("couldn't generate OIDC token for login: %v", err)
+		return "", fmt.Errorf("couldn't generate OIDC token for login: %v", err)
 	}
-	loginMsg.PrivilegeKey = tokenObj.AccessToken
-	return nil
+	return tokenObj.AccessToken, nil
+}
+
+func (auth *OidcAuthProvider) SetLogin(loginMsg *msg.Login) (err error) {
+	loginMsg.PrivilegeKey, err = auth.generateAccessToken()
+	return err
 }
 
 func (auth *OidcAuthProvider) SetPing(pingMsg *msg.Ping) (err error) {
@@ -57,12 +61,8 @@ func (auth *OidcAuthProvider) SetPing(pingMsg *msg.Ping) (err error) {
 		return nil
 	}
 
-	tokenObj, err := auth.tokenGenerator.Token(context.Background())
-	if err != nil {
-		return fmt.Errorf("couldn't generate OIDC token for ping: %v", err)
-	}
-	pingMsg.PrivilegeKey = tokenObj.AccessToken
-	return nil
+	pingMsg.PrivilegeKey, err = auth.generateAccessToken()
+	return err
 }
 
 type OidcAuthConsumer struct {
