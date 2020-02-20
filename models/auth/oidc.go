@@ -45,25 +45,24 @@ func NewOidcAuthSetter(clientId string, clientSecret string, audience string, to
 
 func (auth *OidcAuthProvider) SetLogin(loginMsg *msg.Login) (err error) {
 	tokenObj, err := auth.tokenGenerator.Token(context.Background())
-	if tokenObj == nil {
-		return fmt.Errorf("couldn't generate OIDC token for login: %s", err)
+	if err != nil {
+		return fmt.Errorf("couldn't generate OIDC token for login: %v", err)
 	}
 	loginMsg.PrivilegeKey = tokenObj.AccessToken
-	return
+	return nil
 }
 
 func (auth *OidcAuthProvider) SetPing(pingMsg *msg.Ping) (err error) {
 	if !auth.authenticateHeartBeats {
-		// if heartbeat authentication is disabled - don't set
 		return nil
 	}
 
 	tokenObj, err := auth.tokenGenerator.Token(context.Background())
-	if tokenObj == nil {
-		return fmt.Errorf("couldn't generate OIDC token for ping: %s", err)
+	if err != nil {
+		return fmt.Errorf("couldn't generate OIDC token for ping: %v", err)
 	}
 	pingMsg.PrivilegeKey = tokenObj.AccessToken
-	return
+	return nil
 }
 
 type OidcAuthConsumer struct {
@@ -91,21 +90,20 @@ func NewOidcAuthVerifier(issuer string, audience string, skipExpiryCheck bool, s
 
 func (auth *OidcAuthConsumer) VerifyLogin(loginMsg *msg.Login) (err error) {
 	token, err := auth.verifier.Verify(context.Background(), loginMsg.PrivilegeKey)
-	if token != nil {
-		auth.subjectFromLogin = token.Subject
-		return
+	if err != nil {
+		return fmt.Errorf("invalid OIDC token in login: %v", err)
 	}
-	return fmt.Errorf("invalid OIDC token in login: %v", err)
+	auth.subjectFromLogin = token.Subject
+	return nil
 }
 
 func (auth *OidcAuthConsumer) VerifyPing(pingMsg *msg.Ping) (err error) {
 	if !auth.authenticateHeartBeats {
-		// if heartbeat authentication is disabled - don't verify
 		return nil
 	}
 
 	token, err := auth.verifier.Verify(context.Background(), pingMsg.PrivilegeKey)
-	if token == nil {
+	if err != nil {
 		return fmt.Errorf("invalid OIDC token in ping: %v", err)
 	}
 	if token.Subject != auth.subjectFromLogin {
@@ -114,5 +112,5 @@ func (auth *OidcAuthConsumer) VerifyPing(pingMsg *msg.Ping) (err error) {
 			"new subject: %s",
 			auth.subjectFromLogin, token.Subject)
 	}
-	return
+	return nil
 }
