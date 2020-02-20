@@ -1,5 +1,7 @@
 # github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
 github.com/armon/go-socks5
+# github.com/coreos/go-oidc v2.2.1+incompatible
+github.com/coreos/go-oidc
 # github.com/davecgh/go-spew v1.1.0
 github.com/davecgh/go-spew/spew
 # github.com/fatedier/beego v0.0.0-20171024143340-6c6a4f5bd5eb
@@ -7,14 +9,16 @@ github.com/fatedier/beego/logs
 # github.com/fatedier/golib v0.0.0-20181107124048-ff8cd814b049
 github.com/fatedier/golib/control/shutdown
 github.com/fatedier/golib/crypto
-github.com/fatedier/golib/errors
 github.com/fatedier/golib/io
+github.com/fatedier/golib/pool
+github.com/fatedier/golib/errors
 github.com/fatedier/golib/msg/json
 github.com/fatedier/golib/net
 github.com/fatedier/golib/net/mux
-github.com/fatedier/golib/pool
 # github.com/fatedier/kcp-go v2.0.4-0.20190803094908-fe8645b0a904+incompatible
 github.com/fatedier/kcp-go
+# github.com/golang/protobuf v1.2.0
+github.com/golang/protobuf/proto
 # github.com/golang/snappy v0.0.0-20170215233205-553a64147049
 github.com/golang/snappy
 # github.com/gorilla/mux v1.7.3
@@ -35,6 +39,9 @@ github.com/pires/go-proxyproto
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
+# github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35
+github.com/pquerna/cachecontrol
+github.com/pquerna/cachecontrol/cacheobject
 # github.com/rakyll/statik v0.1.1
 github.com/rakyll/statik/fs
 # github.com/rodaine/table v1.0.0
@@ -54,34 +61,53 @@ github.com/tjfoc/gmsm/sm4
 # github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec
 github.com/vaughan0/go-ini
 # golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
+golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
-golang.org/x/crypto/internal/subtle
-golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/salsa20
-golang.org/x/crypto/salsa20/salsa
 golang.org/x/crypto/tea
 golang.org/x/crypto/twofish
 golang.org/x/crypto/xtea
+golang.org/x/crypto/ed25519
+golang.org/x/crypto/internal/subtle
+golang.org/x/crypto/salsa20/salsa
+golang.org/x/crypto/ed25519/internal/edwards25519
 # golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
-golang.org/x/net/bpf
-golang.org/x/net/context
+golang.org/x/net/websocket
 golang.org/x/net/http/httpguts
-golang.org/x/net/idna
-golang.org/x/net/internal/iana
-golang.org/x/net/internal/socket
-golang.org/x/net/internal/socks
+golang.org/x/net/context
+golang.org/x/net/proxy
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
-golang.org/x/net/proxy
-golang.org/x/net/websocket
+golang.org/x/net/idna
+golang.org/x/net/context/ctxhttp
+golang.org/x/net/internal/socks
+golang.org/x/net/bpf
+golang.org/x/net/internal/iana
+golang.org/x/net/internal/socket
+# golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+golang.org/x/oauth2/clientcredentials
+golang.org/x/oauth2
+golang.org/x/oauth2/internal
 # golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/text v0.3.2
 golang.org/x/text/secure/bidirule
-golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
+golang.org/x/text/transform
 # golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 golang.org/x/time/rate
+# google.golang.org/appengine v1.4.0
+google.golang.org/appengine/urlfetch
+google.golang.org/appengine/internal
+google.golang.org/appengine/internal/urlfetch
+google.golang.org/appengine/internal/base
+google.golang.org/appengine/internal/datastore
+google.golang.org/appengine/internal/log
+google.golang.org/appengine/internal/remote_api
+# gopkg.in/square/go-jose.v2 v2.4.1
+gopkg.in/square/go-jose.v2
+gopkg.in/square/go-jose.v2/cipher
+gopkg.in/square/go-jose.v2/json
