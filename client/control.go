@@ -142,6 +142,10 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	m := &msg.NewWorkConn{
 		RunId: ctl.runId,
 	}
+	if err = ctl.authSetter.SetNewWorkConn(m); err != nil {
+		xl.Warn("error during NewWorkConn authentication: %v", err)
+		return
+	}
 	if err = msg.WriteMsg(workConn, m); err != nil {
 		xl.Warn("work connection write to server error: %v", err)
 		workConn.Close()

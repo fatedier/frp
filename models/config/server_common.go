@@ -113,6 +113,9 @@ type ServerCommonConf struct {
 	// AuthenticateHeartBeats specifies whether to expect and verify authentication
 	// token in heartbeats sent from frpc. By default, this value is false.
 	AuthenticateHeartBeats bool `json:"authenticate_heartbeats"`
+	// AuthenticateNewWorkConns specifies whether to expect and verify authentication
+	// token in new work connections sent from frpc. By default, this value is false.
+	AuthenticateNewWorkConns bool `json:"authenticate_new_work_conns"`
 
 	// OidcIssuer specifies the issuer to verify OIDC tokens with. This issuer
 	// will be used to load public keys to verify signature and will be compared
@@ -177,42 +180,43 @@ type ServerCommonConf struct {
 // defaults.
 func GetDefaultServerConf() ServerCommonConf {
 	return ServerCommonConf{
-		BindAddr:               "0.0.0.0",
-		BindPort:               7000,
-		BindUdpPort:            0,
-		KcpBindPort:            0,
-		ProxyBindAddr:          "0.0.0.0",
-		VhostHttpPort:          0,
-		VhostHttpsPort:         0,
-		VhostHttpTimeout:       60,
-		DashboardAddr:          "0.0.0.0",
-		DashboardPort:          0,
-		DashboardUser:          "admin",
-		DashboardPwd:           "admin",
-		AssetsDir:              "",
-		LogFile:                "console",
-		LogWay:                 "console",
-		LogLevel:               "info",
-		LogMaxDays:             3,
-		DisableLogColor:        false,
-		DetailedErrorsToClient: true,
-		Token:                  "",
-		AuthenticationMethod:   "token",
-		AuthenticateHeartBeats: false,
-		OidcIssuer:             "",
-		OidcAudience:           "",
-		OidcSkipExpiryCheck:    false,
-		OidcSkipIssuerCheck:    false,
-		SubDomainHost:          "",
-		TcpMux:                 true,
-		AllowPorts:             make(map[int]struct{}),
-		MaxPoolCount:           5,
-		MaxPortsPerClient:      0,
-		TlsOnly:                false,
-		HeartBeatTimeout:       90,
-		UserConnTimeout:        10,
-		Custom404Page:          "",
-		HTTPPlugins:            make(map[string]plugin.HTTPPluginOptions),
+		BindAddr:                 "0.0.0.0",
+		BindPort:                 7000,
+		BindUdpPort:              0,
+		KcpBindPort:              0,
+		ProxyBindAddr:            "0.0.0.0",
+		VhostHttpPort:            0,
+		VhostHttpsPort:           0,
+		VhostHttpTimeout:         60,
+		DashboardAddr:            "0.0.0.0",
+		DashboardPort:            0,
+		DashboardUser:            "admin",
+		DashboardPwd:             "admin",
+		AssetsDir:                "",
+		LogFile:                  "console",
+		LogWay:                   "console",
+		LogLevel:                 "info",
+		LogMaxDays:               3,
+		DisableLogColor:          false,
+		DetailedErrorsToClient:   true,
+		Token:                    "",
+		AuthenticationMethod:     "token",
+		AuthenticateHeartBeats:   false,
+		AuthenticateNewWorkConns: false,
+		OidcIssuer:               "",
+		OidcAudience:             "",
+		OidcSkipExpiryCheck:      false,
+		OidcSkipIssuerCheck:      false,
+		SubDomainHost:            "",
+		TcpMux:                   true,
+		AllowPorts:               make(map[int]struct{}),
+		MaxPoolCount:             5,
+		MaxPortsPerClient:        0,
+		TlsOnly:                  false,
+		HeartBeatTimeout:         90,
+		UserConnTimeout:          10,
+		Custom404Page:            "",
+		HTTPPlugins:              make(map[string]plugin.HTTPPluginOptions),
 	}
 }
 
@@ -372,6 +376,12 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 		cfg.AuthenticateHeartBeats = true
 	} else {
 		cfg.AuthenticateHeartBeats = false
+	}
+
+	if tmpStr, ok = conf.Get("common", "authenticate_new_work_conns"); ok && tmpStr == "true" {
+		cfg.AuthenticateNewWorkConns = true
+	} else {
+		cfg.AuthenticateNewWorkConns = false
 	}
 
 	if tmpStr, ok = conf.Get("common", "oidc_issuer"); ok {

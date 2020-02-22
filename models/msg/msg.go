@@ -120,7 +120,8 @@ type CloseProxy struct {
 }
 
 type NewWorkConn struct {
-	RunId string `json:"run_id"`
+	RunId        string `json:"run_id"`
+	PrivilegeKey string `json:"privilege_key"`
 }
 
 type ReqWorkConn struct {

@@ -25,11 +25,12 @@ import (
 )
 
 type OidcAuthProvider struct {
-	tokenGenerator         *clientcredentials.Config
-	authenticateHeartBeats bool
+	BaseAuth
+
+	tokenGenerator *clientcredentials.Config
 }
 
-func NewOidcAuthSetter(clientId string, clientSecret string, audience string, tokenEndpointUrl string, authenticateHeartBeats bool) *OidcAuthProvider {
+func NewOidcAuthSetter(baseAuth BaseAuth, clientId string, clientSecret string, audience string, tokenEndpointUrl string) *OidcAuthProvider {
 	tokenGenerator := &clientcredentials.Config{
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
@@ -38,8 +39,8 @@ func NewOidcAuthSetter(clientId string, clientSecret string, audience string, to
 	}
 
 	return &OidcAuthProvider{
-		tokenGenerator:         tokenGenerator,
-		authenticateHeartBeats: authenticateHeartBeats,
+		BaseAuth:       baseAuth,
+		tokenGenerator: tokenGenerator,
 	}
 }
 
@@ -65,13 +66,23 @@ func (auth *OidcAuthProvider) SetPing(pingMsg *msg.Ping) (err error) {
 	return err
 }
 
-type OidcAuthConsumer struct {
-	verifier               *oidc.IDTokenVerifier
-	authenticateHeartBeats bool
-	subjectFromLogin       string
+func (auth *OidcAuthProvider) SetNewWorkConn(newWorkConnMsg *msg.NewWorkConn) (err error) {
+	if !auth.authenticateNewWorkConns {
+		return nil
+	}
+
+	newWorkConnMsg.PrivilegeKey, err = auth.generateAccessToken()
+	return err
 }
 
-func NewOidcAuthVerifier(issuer string, audience string, skipExpiryCheck bool, skipIssuerCheck bool, authenticateHeartBeats bool) *OidcAuthConsumer {
+type OidcAuthConsumer struct {
+	BaseAuth
+
+	verifier         *oidc.IDTokenVerifier
+	subjectFromLogin string
+}
+
+func NewOidcAuthVerifier(baseAuth BaseAuth, issuer string, audience string, skipExpiryCheck bool, skipIssuerCheck bool) *OidcAuthConsumer {
 	provider, err := oidc.NewProvider(context.Background(), issuer)
 	if err != nil {
 		panic(err)
@@ -83,8 +94,8 @@ func NewOidcAuthVerifier(issuer string, audience string, skipExpiryCheck bool, s
 		SkipIssuerCheck:   skipIssuerCheck,
 	}
 	return &OidcAuthConsumer{
-		verifier:               provider.Verifier(&verifierConf),
-		authenticateHeartBeats: authenticateHeartBeats,
+		BaseAuth: baseAuth,
+		verifier: provider.Verifier(&verifierConf),
 	}
 }
 
@@ -97,12 +108,8 @@ func (auth *OidcAuthConsumer) VerifyLogin(loginMsg *msg.Login) (err error) {
 	return nil
 }
 
-func (auth *OidcAuthConsumer) VerifyPing(pingMsg *msg.Ping) (err error) {
-	if !auth.authenticateHeartBeats {
-		return nil
-	}
-
-	token, err := auth.verifier.Verify(context.Background(), pingMsg.PrivilegeKey)
+func (auth *OidcAuthConsumer) verifyPostLoginToken(privilegeKey string) (err error) {
+	token, err := auth.verifier.Verify(context.Background(), privilegeKey)
 	if err != nil {
 		return fmt.Errorf("invalid OIDC token in ping: %v", err)
 	}
@@ -113,4 +120,20 @@ func (auth *OidcAuthConsumer) VerifyPing(pingMsg *msg.Ping) (err error) {
 			auth.subjectFromLogin, token.Subject)
 	}
 	return nil
+}
+
+func (auth *OidcAuthConsumer) VerifyPing(pingMsg *msg.Ping) (err error) {
+	if !auth.authenticateHeartBeats {
+		return nil
+	}
+
+	return auth.verifyPostLoginToken(pingMsg.PrivilegeKey)
+}
+
+func (auth *OidcAuthConsumer) VerifyNewWorkConn(newWorkConnMsg *msg.NewWorkConn) (err error) {
+	if !auth.authenticateNewWorkConns {
+		return nil
+	}
+
+	return auth.verifyPostLoginToken(newWorkConnMsg.PrivilegeKey)
 }

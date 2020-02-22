@@ -68,6 +68,9 @@ type ClientCommonConf struct {
 	// AuthenticateHeartBeats specifies whether to include authentication token in
 	// heartbeats sent to frps. By default, this value is false.
 	AuthenticateHeartBeats bool `json:"authenticate_heartbeats"`
+	// AuthenticateNewWorkConns specifies whether to include authentication token in
+	// new work connections sent to frps. By default, this value is false.
+	AuthenticateNewWorkConns bool `json:"authenticate_new_work_conns"`
 
 	// OidcClientId specifies the client ID to use to get a token in OIDC
 	// authentication if AuthenticationMethod == "oidc". By default, this value
@@ -147,37 +150,38 @@ type ClientCommonConf struct {
 // GetDefaultClientConf returns a client configuration with default values.
 func GetDefaultClientConf() ClientCommonConf {
 	return ClientCommonConf{
-		ServerAddr:             "0.0.0.0",
-		ServerPort:             7000,
-		HttpProxy:              os.Getenv("http_proxy"),
-		LogFile:                "console",
-		LogWay:                 "console",
-		LogLevel:               "info",
-		LogMaxDays:             3,
-		DisableLogColor:        false,
-		Token:                  "",
-		AuthenticationMethod:   "token",
-		AuthenticateHeartBeats: false,
-		OidcClientId:           "",
-		OidcClientSecret:       "",
-		OidcAudience:           "",
-		OidcTokenEndpointUrl:   "",
-		AdminAddr:              "127.0.0.1",
-		AdminPort:              0,
-		AdminUser:              "",
-		AdminPwd:               "",
-		AssetsDir:              "",
-		PoolCount:              1,
-		TcpMux:                 true,
-		User:                   "",
-		DnsServer:              "",
-		LoginFailExit:          true,
-		Start:                  make(map[string]struct{}),
-		Protocol:               "tcp",
-		TLSEnable:              false,
-		HeartBeatInterval:      30,
-		HeartBeatTimeout:       90,
-		Metas:                  make(map[string]string),
+		ServerAddr:               "0.0.0.0",
+		ServerPort:               7000,
+		HttpProxy:                os.Getenv("http_proxy"),
+		LogFile:                  "console",
+		LogWay:                   "console",
+		LogLevel:                 "info",
+		LogMaxDays:               3,
+		DisableLogColor:          false,
+		Token:                    "",
+		AuthenticationMethod:     "token",
+		AuthenticateHeartBeats:   false,
+		AuthenticateNewWorkConns: false,
+		OidcClientId:             "",
+		OidcClientSecret:         "",
+		OidcAudience:             "",
+		OidcTokenEndpointUrl:     "",
+		AdminAddr:                "127.0.0.1",
+		AdminPort:                0,
+		AdminUser:                "",
+		AdminPwd:                 "",
+		AssetsDir:                "",
+		PoolCount:                1,
+		TcpMux:                   true,
+		User:                     "",
+		DnsServer:                "",
+		LoginFailExit:            true,
+		Start:                    make(map[string]struct{}),
+		Protocol:                 "tcp",
+		TLSEnable:                false,
+		HeartBeatInterval:        30,
+		HeartBeatTimeout:         90,
+		Metas:                    make(map[string]string),
 	}
 }
 
@@ -246,6 +250,12 @@ func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error
 		cfg.AuthenticateHeartBeats = true
 	} else {
 		cfg.AuthenticateHeartBeats = false
+	}
+
+	if tmpStr, ok = conf.Get("common", "authenticate_new_work_conns"); ok && tmpStr == "true" {
+		cfg.AuthenticateNewWorkConns = true
+	} else {
+		cfg.AuthenticateNewWorkConns = false
 	}
 
 	if tmpStr, ok = conf.Get("common", "oidc_client_id"); ok {

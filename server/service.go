@@ -435,6 +435,11 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 		xl.Warn("No client control found for run id [%s]", newMsg.RunId)
 		return
 	}
+	// Check auth.
+	if err := svr.authVerifier.VerifyNewWorkConn(newMsg); err != nil {
+		xl.Warn("Invalid authentication in NewWorkConn message on run id [%s]", newMsg.RunId)
+		return
+	}
 	ctl.RegisterWorkConn(workConn)
 	return
 }

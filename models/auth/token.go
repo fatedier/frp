@@ -22,37 +22,46 @@ import (
 )
 
 type TokenAuthSetterVerifier struct {
-	Token string
+	BaseAuth
+
+	token string
 }
 
-func NewTokenAuth(token string) *TokenAuthSetterVerifier {
+func NewTokenAuth(baseAuth BaseAuth, token string) *TokenAuthSetterVerifier {
 	return &TokenAuthSetterVerifier{
-		Token: token,
+		BaseAuth: baseAuth,
+		token:    token,
 	}
 }
 
 func (auth *TokenAuthSetterVerifier) SetLogin(loginMsg *msg.Login) (err error) {
-	loginMsg.PrivilegeKey = util.GetAuthKey(auth.Token, loginMsg.Timestamp)
+	loginMsg.PrivilegeKey = util.GetAuthKey(auth.token, loginMsg.Timestamp)
 	return nil
 }
 
 func (auth *TokenAuthSetterVerifier) SetPing(*msg.Ping) error {
-	// ping doesn't include authentication in token method
+	// Ping doesn't include authentication in token method
 	return nil
 }
 
-type TokenAuthConsumer struct {
-	Token string
+func (auth *TokenAuthSetterVerifier) SetNewWorkConn(*msg.NewWorkConn) error {
+	// NewWorkConn doesn't include authentication in token method
+	return nil
 }
 
 func (auth *TokenAuthSetterVerifier) VerifyLogin(loginMsg *msg.Login) error {
-	if util.GetAuthKey(auth.Token, loginMsg.Timestamp) != loginMsg.PrivilegeKey {
+	if util.GetAuthKey(auth.token, loginMsg.Timestamp) != loginMsg.PrivilegeKey {
 		return fmt.Errorf("token in login doesn't match token from configuration")
 	}
 	return nil
 }
 
 func (auth *TokenAuthSetterVerifier) VerifyPing(*msg.Ping) error {
-	// ping doesn't include authentication in token method
+	// Ping doesn't include authentication in token method
+	return nil
+}
+
+func (auth *TokenAuthSetterVerifier) VerifyNewWorkConn(*msg.NewWorkConn) error {
+	// NewWorkConn doesn't include authentication in token method
 	return nil
 }

@@ -20,46 +20,63 @@ import (
 	"github.com/fatedier/frp/models/msg"
 )
 
+type BaseAuth struct {
+	authenticateHeartBeats   bool
+	authenticateNewWorkConns bool
+}
+
 type Setter interface {
 	SetLogin(*msg.Login) error
 	SetPing(*msg.Ping) error
+	SetNewWorkConn(*msg.NewWorkConn) error
 }
 
 func NewAuthSetter(cfg config.ClientCommonConf) (authProvider Setter) {
+	baseAuth := BaseAuth{
+		authenticateHeartBeats:   cfg.AuthenticateHeartBeats,
+		authenticateNewWorkConns: cfg.AuthenticateNewWorkConns,
+	}
+
 	switch cfg.AuthenticationMethod {
 	case consts.TokenAuthMethod:
-		authProvider = NewTokenAuth(cfg.Token)
+		authProvider = NewTokenAuth(baseAuth, cfg.Token)
 	case consts.OidcAuthMethod:
 		authProvider = NewOidcAuthSetter(
+			baseAuth,
 			cfg.OidcClientId,
 			cfg.OidcClientSecret,
 			cfg.OidcAudience,
 			cfg.OidcTokenEndpointUrl,
-			cfg.AuthenticateHeartBeats,
 		)
 	}
 
-	return
+	return authProvider
 }
 
 type Verifier interface {
 	VerifyLogin(*msg.Login) error
 	VerifyPing(*msg.Ping) error
+	VerifyNewWorkConn(*msg.NewWorkConn) error
 }
 
 func NewAuthVerifier(cfg config.ServerCommonConf) (authVerifier Verifier) {
+	baseAuth := BaseAuth{
+		authenticateHeartBeats:   cfg.AuthenticateHeartBeats,
+		authenticateNewWorkConns: cfg.AuthenticateNewWorkConns,
+	}
+
 	switch cfg.AuthenticationMethod {
 	case consts.TokenAuthMethod:
-		authVerifier = NewTokenAuth(cfg.Token)
+		authVerifier = NewTokenAuth(baseAuth, cfg.Token)
 	case consts.OidcAuthMethod:
 		authVerifier = NewOidcAuthVerifier(
+			baseAuth,
 			cfg.OidcIssuer,
 			cfg.OidcAudience,
 			cfg.OidcSkipExpiryCheck,
 			cfg.OidcSkipIssuerCheck,
-			cfg.AuthenticateHeartBeats,
 		)
 	}
 
-	return
+	return authVerifier
 }
