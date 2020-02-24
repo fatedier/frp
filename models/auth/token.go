@@ -22,14 +22,14 @@ import (
 )
 
 type TokenAuthSetterVerifier struct {
-	BaseAuth
+	baseAuth
 
 	token string
 }
 
-func NewTokenAuth(baseAuth BaseAuth, token string) *TokenAuthSetterVerifier {
+func NewTokenAuth(base baseAuth, token string) *TokenAuthSetterVerifier {
 	return &TokenAuthSetterVerifier{
-		BaseAuth: baseAuth,
+		baseAuth: base,
 		token:    token,
 	}
 }

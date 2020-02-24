@@ -25,12 +25,12 @@ import (
 )
 
 type OidcAuthProvider struct {
-	BaseAuth
+	baseAuth
 
 	tokenGenerator *clientcredentials.Config
 }
 
-func NewOidcAuthSetter(baseAuth BaseAuth, clientId string, clientSecret string, audience string, tokenEndpointUrl string) *OidcAuthProvider {
+func NewOidcAuthSetter(base baseAuth, clientId string, clientSecret string, audience string, tokenEndpointUrl string) *OidcAuthProvider {
 	tokenGenerator := &clientcredentials.Config{
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
@@ -39,7 +39,7 @@ func NewOidcAuthSetter(baseAuth BaseAuth, clientId string, clientSecret string, 
 	}
 
 	return &OidcAuthProvider{
-		BaseAuth:       baseAuth,
+		baseAuth:       base,
 		tokenGenerator: tokenGenerator,
 	}
 }
@@ -76,13 +76,13 @@ func (auth *OidcAuthProvider) SetNewWorkConn(newWorkConnMsg *msg.NewWorkConn) (e
 }
 
 type OidcAuthConsumer struct {
-	BaseAuth
+	baseAuth
 
 	verifier         *oidc.IDTokenVerifier
 	subjectFromLogin string
 }
 
-func NewOidcAuthVerifier(baseAuth BaseAuth, issuer string, audience string, skipExpiryCheck bool, skipIssuerCheck bool) *OidcAuthConsumer {
+func NewOidcAuthVerifier(base baseAuth, issuer string, audience string, skipExpiryCheck bool, skipIssuerCheck bool) *OidcAuthConsumer {
 	provider, err := oidc.NewProvider(context.Background(), issuer)
 	if err != nil {
 		panic(err)
@@ -94,7 +94,7 @@ func NewOidcAuthVerifier(baseAuth BaseAuth, issuer string, audience string, skip
 		SkipIssuerCheck:   skipIssuerCheck,
 	}
 	return &OidcAuthConsumer{
-		BaseAuth: baseAuth,
+		baseAuth: base,
 		verifier: provider.Verifier(&verifierConf),
 	}
 }

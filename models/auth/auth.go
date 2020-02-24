@@ -20,7 +20,7 @@ import (
 	"github.com/fatedier/frp/models/msg"
 )
 
-type BaseAuth struct {
+type baseAuth struct {
 	authenticateHeartBeats   bool
 	authenticateNewWorkConns bool
 }
@@ -32,17 +32,17 @@ type Setter interface {
 }
 
 func NewAuthSetter(cfg config.ClientCommonConf) (authProvider Setter) {
-	baseAuth := BaseAuth{
+	base := baseAuth{
 		authenticateHeartBeats:   cfg.AuthenticateHeartBeats,
 		authenticateNewWorkConns: cfg.AuthenticateNewWorkConns,
 	}
 
 	switch cfg.AuthenticationMethod {
 	case consts.TokenAuthMethod:
-		authProvider = NewTokenAuth(baseAuth, cfg.Token)
+		authProvider = NewTokenAuth(base, cfg.Token)
 	case consts.OidcAuthMethod:
 		authProvider = NewOidcAuthSetter(
-			baseAuth,
+			base,
 			cfg.OidcClientId,
 			cfg.OidcClientSecret,
 			cfg.OidcAudience,
@@ -60,17 +60,17 @@ type Verifier interface {
 }
 
 func NewAuthVerifier(cfg config.ServerCommonConf) (authVerifier Verifier) {
-	baseAuth := BaseAuth{
+	base := baseAuth{
 		authenticateHeartBeats:   cfg.AuthenticateHeartBeats,
 		authenticateNewWorkConns: cfg.AuthenticateNewWorkConns,
 	}
 
 	switch cfg.AuthenticationMethod {
 	case consts.TokenAuthMethod:
-		authVerifier = NewTokenAuth(baseAuth, cfg.Token)
+		authVerifier = NewTokenAuth(base, cfg.Token)
 	case consts.OidcAuthMethod:
 		authVerifier = NewOidcAuthVerifier(
-			baseAuth,
+			base,
 			cfg.OidcIssuer,
 			cfg.OidcAudience,
 			cfg.OidcSkipExpiryCheck,
