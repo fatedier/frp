@@ -443,6 +443,8 @@ You can decide which one to use by configuring `authentication_method` under `[c
 
 Configuring `authenticate_heartbeats = true` under `[common]` will use the configured authentication method to add and validate authentication on every heartbeat between frpc and frps.
 
+Configuring `authenticate_new_work_conns = true` under `[common]` will do the same for every new work connection between frpc and frps.
+
 #### Token Authentication
 
 When specifying `authentication_method = token` under `[common]` in `frpc.ini` and `frps.ini` - token based authentication will be used.
