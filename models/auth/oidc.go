@@ -24,22 +24,79 @@ import (
 	"golang.org/x/oauth2/clientcredentials"
 )
 
+type oidcClientConfig struct {
+	// OidcClientId specifies the client ID to use to get a token in OIDC
+	// authentication if AuthenticationMethod == "oidc". By default, this value
+	// is "".
+	OidcClientId string `json:"oidc_client_id"`
+	// OidcClientSecret specifies the client secret to use to get a token in OIDC
+	// authentication if AuthenticationMethod == "oidc". By default, this value
+	// is "".
+	OidcClientSecret string `json:"oidc_client_secret"`
+	// OidcAudience specifies the audience of the token in OIDC authentication
+	//if AuthenticationMethod == "oidc". By default, this value is "".
+	OidcAudience string `json:"oidc_audience"`
+	// OidcTokenEndpointUrl specifies the URL which implements OIDC Token Endpoint.
+	// It will be used to get an OIDC token if AuthenticationMethod == "oidc".
+	// By default, this value is "".
+	OidcTokenEndpointUrl string `json:"oidc_token_endpoint_url"`
+}
+
+func getDefaultOidcClientConf() oidcClientConfig {
+	return oidcClientConfig{
+		OidcClientId:         "",
+		OidcClientSecret:     "",
+		OidcAudience:         "",
+		OidcTokenEndpointUrl: "",
+	}
+}
+
+type oidcServerConfig struct {
+	// OidcIssuer specifies the issuer to verify OIDC tokens with. This issuer
+	// will be used to load public keys to verify signature and will be compared
+	// with the issuer claim in the OIDC token. It will be used if
+	// AuthenticationMethod == "oidc". By default, this value is "".
+	OidcIssuer string `json:"oidc_issuer"`
+	// OidcAudience specifies the audience OIDC tokens should contain when validated.
+	// If this value is empty, audience ("client ID") verification will be skipped.
+	// It will be used when AuthenticationMethod == "oidc". By default, this
+	// value is "".
+	OidcAudience string `json:"oidc_audience"`
+	// OidcSkipExpiryCheck specifies whether to skip checking if the OIDC token is
+	// expired. It will be used when AuthenticationMethod == "oidc". By default, this
+	// value is false.
+	OidcSkipExpiryCheck bool `json:"oidc_skip_expiry_check"`
+	// OidcSkipIssuerCheck specifies whether to skip checking if the OIDC token's
+	// issuer claim matches the issuer specified in OidcIssuer. It will be used when
+	// AuthenticationMethod == "oidc". By default, this value is false.
+	OidcSkipIssuerCheck bool `json:"oidc_skip_issuer_check"`
+}
+
+func getDefaultOidcServerConf() oidcServerConfig {
+	return oidcServerConfig{
+		OidcIssuer:          "",
+		OidcAudience:        "",
+		OidcSkipExpiryCheck: false,
+		OidcSkipIssuerCheck: false,
+	}
+}
+
 type OidcAuthProvider struct {
-	baseAuth
+	baseConfig
 
 	tokenGenerator *clientcredentials.Config
 }
 
-func NewOidcAuthSetter(base baseAuth, clientId string, clientSecret string, audience string, tokenEndpointUrl string) *OidcAuthProvider {
+func NewOidcAuthSetter(baseCfg baseConfig, cfg oidcClientConfig) *OidcAuthProvider {
 	tokenGenerator := &clientcredentials.Config{
-		ClientID:     clientId,
-		ClientSecret: clientSecret,
-		Scopes:       []string{audience},
-		TokenURL:     tokenEndpointUrl,
+		ClientID:     cfg.OidcClientId,
+		ClientSecret: cfg.OidcClientSecret,
+		Scopes:       []string{cfg.OidcAudience},
+		TokenURL:     cfg.OidcTokenEndpointUrl,
 	}
 
 	return &OidcAuthProvider{
-		baseAuth:       base,
+		baseConfig:     baseCfg,
 		tokenGenerator: tokenGenerator,
 	}
 }
@@ -58,7 +115,7 @@ func (auth *OidcAuthProvider) SetLogin(loginMsg *msg.Login) (err error) {
 }
 
 func (auth *OidcAuthProvider) SetPing(pingMsg *msg.Ping) (err error) {
-	if !auth.authenticateHeartBeats {
+	if !auth.AuthenticateHeartBeats {
 		return nil
 	}
 
@@ -67,7 +124,7 @@ func (auth *OidcAuthProvider) SetPing(pingMsg *msg.Ping) (err error) {
 }
 
 func (auth *OidcAuthProvider) SetNewWorkConn(newWorkConnMsg *msg.NewWorkConn) (err error) {
-	if !auth.authenticateNewWorkConns {
+	if !auth.AuthenticateNewWorkConns {
 		return nil
 	}
 
@@ -76,26 +133,26 @@ func (auth *OidcAuthProvider) SetNewWorkConn(newWorkConnMsg *msg.NewWorkConn) (e
 }
 
 type OidcAuthConsumer struct {
-	baseAuth
+	baseConfig
 
 	verifier         *oidc.IDTokenVerifier
 	subjectFromLogin string
 }
 
-func NewOidcAuthVerifier(base baseAuth, issuer string, audience string, skipExpiryCheck bool, skipIssuerCheck bool) *OidcAuthConsumer {
-	provider, err := oidc.NewProvider(context.Background(), issuer)
+func NewOidcAuthVerifier(baseCfg baseConfig, cfg oidcServerConfig) *OidcAuthConsumer {
+	provider, err := oidc.NewProvider(context.Background(), cfg.OidcIssuer)
 	if err != nil {
 		panic(err)
 	}
 	verifierConf := oidc.Config{
-		ClientID:          audience,
-		SkipClientIDCheck: audience == "",
-		SkipExpiryCheck:   skipExpiryCheck,
-		SkipIssuerCheck:   skipIssuerCheck,
+		ClientID:          cfg.OidcAudience,
+		SkipClientIDCheck: cfg.OidcAudience == "",
+		SkipExpiryCheck:   cfg.OidcSkipExpiryCheck,
+		SkipIssuerCheck:   cfg.OidcSkipIssuerCheck,
 	}
 	return &OidcAuthConsumer{
-		baseAuth: base,
-		verifier: provider.Verifier(&verifierConf),
+		baseConfig: baseCfg,
+		verifier:   provider.Verifier(&verifierConf),
 	}
 }
 
@@ -123,7 +180,7 @@ func (auth *OidcAuthConsumer) verifyPostLoginToken(privilegeKey string) (err err
 }
 
 func (auth *OidcAuthConsumer) VerifyPing(pingMsg *msg.Ping) (err error) {
-	if !auth.authenticateHeartBeats {
+	if !auth.AuthenticateHeartBeats {
 		return nil
 	}
 
@@ -131,7 +188,7 @@ func (auth *OidcAuthConsumer) VerifyPing(pingMsg *msg.Ping) (err error) {
 }
 
 func (auth *OidcAuthConsumer) VerifyNewWorkConn(newWorkConnMsg *msg.NewWorkConn) (err error) {
-	if !auth.authenticateNewWorkConns {
+	if !auth.AuthenticateNewWorkConns {
 		return nil
 	}
 

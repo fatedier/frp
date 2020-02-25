@@ -21,12 +21,15 @@ import (
 	"strings"
 
 	ini "github.com/vaughan0/go-ini"
+
+	"github.com/fatedier/frp/models/auth"
 )
 
 // ClientCommonConf contains information for a client service. It is
 // recommended to use GetDefaultClientConf instead of creating this object
 // directly, so that all unspecified fields have reasonable default values.
 type ClientCommonConf struct {
+	auth.AuthClientConfig
 	// ServerAddr specifies the address of the server to connect to. By
 	// default, this value is "0.0.0.0".
 	ServerAddr string `json:"server_addr"`
@@ -56,38 +59,6 @@ type ClientCommonConf struct {
 	// DisableLogColor disables log colors when LogWay == "console" when set to
 	// true. By default, this value is false.
 	DisableLogColor bool `json:"disable_log_color"`
-	// Token specifies the authorization token used to create keys to be sent
-	// to the server. The server must have a matching token for authorization
-	// to succeed.  By default, this value is "".
-	Token string `json:"token"`
-	// AuthenticationMethod specifies what authentication method to use to
-	// authenticate frpc with frps. If "token" is specified - token will be
-	// read into login message. If "oidc" is specified - OIDC (Open ID Connect)
-	// token will be issued using OIDC settings. By default, this value is "token".
-	AuthenticationMethod string `json:"authentication_method"`
-	// AuthenticateHeartBeats specifies whether to include authentication token in
-	// heartbeats sent to frps. By default, this value is false.
-	AuthenticateHeartBeats bool `json:"authenticate_heartbeats"`
-	// AuthenticateNewWorkConns specifies whether to include authentication token in
-	// new work connections sent to frps. By default, this value is false.
-	AuthenticateNewWorkConns bool `json:"authenticate_new_work_conns"`
-
-	// OidcClientId specifies the client ID to use to get a token in OIDC
-	// authentication if AuthenticationMethod == "oidc". By default, this value
-	// is "".
-	OidcClientId string `json:"oidc_client_id"`
-	// OidcClientSecret specifies the client secret to use to get a token in OIDC
-	// authentication if AuthenticationMethod == "oidc". By default, this value
-	// is "".
-	OidcClientSecret string `json:"oidc_client_secret"`
-	// OidcAudience specifies the audience of the token in OIDC authentication
-	//if AuthenticationMethod == "oidc". By default, this value is "".
-	OidcAudience string `json:"oidc_audience"`
-	// OidcTokenEndpointUrl specifies the URL which implements OIDC Token Endpoint.
-	// It will be used to get an OIDC token if AuthenticationMethod == "oidc".
-	// By default, this value is "".
-	OidcTokenEndpointUrl string `json:"oidc_token_endpoint_url"`
-
 	// AdminAddr specifies the address that the admin server binds to. By
 	// default, this value is "127.0.0.1".
 	AdminAddr string `json:"admin_addr"`
@@ -150,38 +121,31 @@ type ClientCommonConf struct {
 // GetDefaultClientConf returns a client configuration with default values.
 func GetDefaultClientConf() ClientCommonConf {
 	return ClientCommonConf{
-		ServerAddr:               "0.0.0.0",
-		ServerPort:               7000,
-		HttpProxy:                os.Getenv("http_proxy"),
-		LogFile:                  "console",
-		LogWay:                   "console",
-		LogLevel:                 "info",
-		LogMaxDays:               3,
-		DisableLogColor:          false,
-		Token:                    "",
-		AuthenticationMethod:     "token",
-		AuthenticateHeartBeats:   false,
-		AuthenticateNewWorkConns: false,
-		OidcClientId:             "",
-		OidcClientSecret:         "",
-		OidcAudience:             "",
-		OidcTokenEndpointUrl:     "",
-		AdminAddr:                "127.0.0.1",
-		AdminPort:                0,
-		AdminUser:                "",
-		AdminPwd:                 "",
-		AssetsDir:                "",
-		PoolCount:                1,
-		TcpMux:                   true,
-		User:                     "",
-		DnsServer:                "",
-		LoginFailExit:            true,
-		Start:                    make(map[string]struct{}),
-		Protocol:                 "tcp",
-		TLSEnable:                false,
-		HeartBeatInterval:        30,
-		HeartBeatTimeout:         90,
-		Metas:                    make(map[string]string),
+		AuthClientConfig:  auth.GetDefaultClientConf(),
+		ServerAddr:        "0.0.0.0",
+		ServerPort:        7000,
+		HttpProxy:         os.Getenv("http_proxy"),
+		LogFile:           "console",
+		LogWay:            "console",
+		LogLevel:          "info",
+		LogMaxDays:        3,
+		DisableLogColor:   false,
+		AdminAddr:         "127.0.0.1",
+		AdminPort:         0,
+		AdminUser:         "",
+		AdminPwd:          "",
+		AssetsDir:         "",
+		PoolCount:         1,
+		TcpMux:            true,
+		User:              "",
+		DnsServer:         "",
+		LoginFailExit:     true,
+		Start:             make(map[string]struct{}),
+		Protocol:          "tcp",
+		TLSEnable:         false,
+		HeartBeatInterval: 30,
+		HeartBeatTimeout:  90,
+		Metas:             make(map[string]string),
 	}
 }
 

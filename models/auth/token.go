@@ -21,16 +21,29 @@ import (
 	"github.com/fatedier/frp/utils/util"
 )
 
+type tokenConfig struct {
+	// Token specifies the authorization token used to create keys to be sent
+	// to the server. The server must have a matching token for authorization
+	// to succeed.  By default, this value is "".
+	Token string `json:"token"`
+}
+
+func getDefaultTokenConf() tokenConfig {
+	return tokenConfig{
+		Token: "",
+	}
+}
+
 type TokenAuthSetterVerifier struct {
-	baseAuth
+	baseConfig
 
 	token string
 }
 
-func NewTokenAuth(base baseAuth, token string) *TokenAuthSetterVerifier {
+func NewTokenAuth(baseCfg baseConfig, cfg tokenConfig) *TokenAuthSetterVerifier {
 	return &TokenAuthSetterVerifier{
-		baseAuth: base,
-		token:    token,
+		baseConfig: baseCfg,
+		token:      cfg.Token,
 	}
 }
 

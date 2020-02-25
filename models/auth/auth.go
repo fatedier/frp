@@ -15,14 +15,58 @@
 package auth
 
 import (
-	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/consts"
 	"github.com/fatedier/frp/models/msg"
 )
 
-type baseAuth struct {
-	authenticateHeartBeats   bool
-	authenticateNewWorkConns bool
+type baseConfig struct {
+	// AuthenticationMethod specifies what authentication method to use to
+	// authenticate frpc with frps. If "token" is specified - token will be
+	// read into login message. If "oidc" is specified - OIDC (Open ID Connect)
+	// token will be issued using OIDC settings. By default, this value is "token".
+	AuthenticationMethod string `json:"authentication_method"`
+	// AuthenticateHeartBeats specifies whether to include authentication token in
+	// heartbeats sent to frps. By default, this value is false.
+	AuthenticateHeartBeats bool `json:"authenticate_heartbeats"`
+	// AuthenticateNewWorkConns specifies whether to include authentication token in
+	// new work connections sent to frps. By default, this value is false.
+	AuthenticateNewWorkConns bool `json:"authenticate_new_work_conns"`
+}
+
+type AuthClientConfig struct {
+	baseConfig
+	oidcClientConfig
+	tokenConfig
+}
+
+func GetDefaultClientConf() AuthClientConfig {
+	return AuthClientConfig{
+		baseConfig: baseConfig{
+			AuthenticationMethod:     "token",
+			AuthenticateHeartBeats:   false,
+			AuthenticateNewWorkConns: false,
+		},
+		oidcClientConfig: getDefaultOidcClientConf(),
+		tokenConfig:      getDefaultTokenConf(),
+	}
+}
+
+type AuthServerConfig struct {
+	baseConfig
+	oidcServerConfig
+	tokenConfig
+}
+
+func GetDefaultServerConf() AuthServerConfig {
+	return AuthServerConfig{
+		baseConfig: baseConfig{
+			AuthenticationMethod:     "token",
+			AuthenticateHeartBeats:   false,
+			AuthenticateNewWorkConns: false,
+		},
+		oidcServerConfig: getDefaultOidcServerConf(),
+		tokenConfig:      getDefaultTokenConf(),
+	}
 }
 
 type Setter interface {
@@ -31,23 +75,12 @@ type Setter interface {
 	SetNewWorkConn(*msg.NewWorkConn) error
 }
 
-func NewAuthSetter(cfg config.ClientCommonConf) (authProvider Setter) {
-	base := baseAuth{
-		authenticateHeartBeats:   cfg.AuthenticateHeartBeats,
-		authenticateNewWorkConns: cfg.AuthenticateNewWorkConns,
-	}
-
+func NewAuthSetter(cfg AuthClientConfig) (authProvider Setter) {
 	switch cfg.AuthenticationMethod {
 	case consts.TokenAuthMethod:
-		authProvider = NewTokenAuth(base, cfg.Token)
+		authProvider = NewTokenAuth(cfg.baseConfig, cfg.tokenConfig)
 	case consts.OidcAuthMethod:
-		authProvider = NewOidcAuthSetter(
-			base,
-			cfg.OidcClientId,
-			cfg.OidcClientSecret,
-			cfg.OidcAudience,
-			cfg.OidcTokenEndpointUrl,
-		)
+		authProvider = NewOidcAuthSetter(cfg.baseConfig, cfg.oidcClientConfig)
 	}
 
 	return authProvider
@@ -59,23 +92,12 @@ type Verifier interface {
 	VerifyNewWorkConn(*msg.NewWorkConn) error
 }
 
-func NewAuthVerifier(cfg config.ServerCommonConf) (authVerifier Verifier) {
-	base := baseAuth{
-		authenticateHeartBeats:   cfg.AuthenticateHeartBeats,
-		authenticateNewWorkConns: cfg.AuthenticateNewWorkConns,
-	}
-
+func NewAuthVerifier(cfg AuthServerConfig) (authVerifier Verifier) {
 	switch cfg.AuthenticationMethod {
 	case consts.TokenAuthMethod:
-		authVerifier = NewTokenAuth(base, cfg.Token)
+		authVerifier = NewTokenAuth(cfg.baseConfig, cfg.tokenConfig)
 	case consts.OidcAuthMethod:
-		authVerifier = NewOidcAuthVerifier(
-			base,
-			cfg.OidcIssuer,
-			cfg.OidcAudience,
-			cfg.OidcSkipExpiryCheck,
-			cfg.OidcSkipIssuerCheck,
-		)
+		authVerifier = NewOidcAuthVerifier(cfg.baseConfig, cfg.oidcServerConfig)
 	}
 
 	return authVerifier

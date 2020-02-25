@@ -21,6 +21,7 @@ import (
 
 	ini "github.com/vaughan0/go-ini"
 
+	"github.com/fatedier/frp/models/auth"
 	plugin "github.com/fatedier/frp/models/plugin/server"
 	"github.com/fatedier/frp/utils/util"
 )
@@ -29,6 +30,7 @@ import (
 // recommended to use GetDefaultServerConf instead of creating this object
 // directly, so that all unspecified fields have reasonable default values.
 type ServerCommonConf struct {
+	auth.AuthServerConfig
 	// BindAddr specifies the address that the server binds to. By default,
 	// this value is "0.0.0.0".
 	BindAddr string `json:"bind_addr"`
@@ -101,40 +103,6 @@ type ServerCommonConf struct {
 	// DetailedErrorsToClient defines whether to send the specific error (with
 	// debug info) to frpc. By default, this value is true.
 	DetailedErrorsToClient bool `json:"detailed_errors_to_client"`
-	// Token specifies the authorization token used to authenticate keys
-	// received from clients. Clients must have a matching token to be
-	// authorized to use the server. By default, this value is "".
-	Token string `json:"token"`
-	// AuthenticationMethod specifies what authentication method to use to
-	// authenticate frpc with frps. If "token" is specified - token comparison
-	// will be used. If "oidc" is specified - OIDC (Open ID Connect) will be
-	// used. By default, this value is "token".
-	AuthenticationMethod string `json:"authentication_method"`
-	// AuthenticateHeartBeats specifies whether to expect and verify authentication
-	// token in heartbeats sent from frpc. By default, this value is false.
-	AuthenticateHeartBeats bool `json:"authenticate_heartbeats"`
-	// AuthenticateNewWorkConns specifies whether to expect and verify authentication
-	// token in new work connections sent from frpc. By default, this value is false.
-	AuthenticateNewWorkConns bool `json:"authenticate_new_work_conns"`
-
-	// OidcIssuer specifies the issuer to verify OIDC tokens with. This issuer
-	// will be used to load public keys to verify signature and will be compared
-	// with the issuer claim in the OIDC token. It will be used if
-	// AuthenticationMethod == "oidc". By default, this value is "".
-	OidcIssuer string `json:"oidc_issuer"`
-	// OidcAudience specifies the audience OIDC tokens should contain when validated.
-	// If this value is empty, audience ("client ID") verification will be skipped.
-	// It will be used when AuthenticationMethod == "oidc". By default, this
-	// value is "".
-	OidcAudience string `json:"oidc_audience"`
-	// OidcSkipExpiryCheck specifies whether to skip checking if the OIDC token is
-	// expired. It will be used when AuthenticationMethod == "oidc". By default, this
-	// value is false.
-	OidcSkipExpiryCheck bool `json:"oidc_skip_expiry_check"`
-	// OidcSkipIssuerCheck specifies whether to skip checking if the OIDC token's
-	// issuer claim matches the issuer specified in OidcIssuer. It will be used when
-	// AuthenticationMethod == "oidc". By default, this value is false.
-	OidcSkipIssuerCheck bool `json:"oidc_skip_issuer_check"`
 
 	// SubDomainHost specifies the domain that will be attached to sub-domains
 	// requested by the client when using Vhost proxying. For example, if this
@@ -180,43 +148,36 @@ type ServerCommonConf struct {
 // defaults.
 func GetDefaultServerConf() ServerCommonConf {
 	return ServerCommonConf{
-		BindAddr:                 "0.0.0.0",
-		BindPort:                 7000,
-		BindUdpPort:              0,
-		KcpBindPort:              0,
-		ProxyBindAddr:            "0.0.0.0",
-		VhostHttpPort:            0,
-		VhostHttpsPort:           0,
-		VhostHttpTimeout:         60,
-		DashboardAddr:            "0.0.0.0",
-		DashboardPort:            0,
-		DashboardUser:            "admin",
-		DashboardPwd:             "admin",
-		AssetsDir:                "",
-		LogFile:                  "console",
-		LogWay:                   "console",
-		LogLevel:                 "info",
-		LogMaxDays:               3,
-		DisableLogColor:          false,
-		DetailedErrorsToClient:   true,
-		Token:                    "",
-		AuthenticationMethod:     "token",
-		AuthenticateHeartBeats:   false,
-		AuthenticateNewWorkConns: false,
-		OidcIssuer:               "",
-		OidcAudience:             "",
-		OidcSkipExpiryCheck:      false,
-		OidcSkipIssuerCheck:      false,
-		SubDomainHost:            "",
-		TcpMux:                   true,
-		AllowPorts:               make(map[int]struct{}),
-		MaxPoolCount:             5,
-		MaxPortsPerClient:        0,
-		TlsOnly:                  false,
-		HeartBeatTimeout:         90,
-		UserConnTimeout:          10,
-		Custom404Page:            "",
-		HTTPPlugins:              make(map[string]plugin.HTTPPluginOptions),
+		AuthServerConfig:       auth.GetDefaultServerConf(),
+		BindAddr:               "0.0.0.0",
+		BindPort:               7000,
+		BindUdpPort:            0,
+		KcpBindPort:            0,
+		ProxyBindAddr:          "0.0.0.0",
+		VhostHttpPort:          0,
+		VhostHttpsPort:         0,
+		VhostHttpTimeout:       60,
+		DashboardAddr:          "0.0.0.0",
+		DashboardPort:          0,
+		DashboardUser:          "admin",
+		DashboardPwd:           "admin",
+		AssetsDir:              "",
+		LogFile:                "console",
+		LogWay:                 "console",
+		LogLevel:               "info",
+		LogMaxDays:             3,
+		DisableLogColor:        false,
+		DetailedErrorsToClient: true,
+		SubDomainHost:          "",
+		TcpMux:                 true,
+		AllowPorts:             make(map[int]struct{}),
+		MaxPoolCount:           5,
+		MaxPortsPerClient:      0,
+		TlsOnly:                false,
+		HeartBeatTimeout:       90,
+		UserConnTimeout:        10,
+		Custom404Page:          "",
+		HTTPPlugins:            make(map[string]plugin.HTTPPluginOptions),
 	}
 }
 

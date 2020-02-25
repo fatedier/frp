@@ -73,7 +73,7 @@ func NewService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf
 
 	ctx, cancel := context.WithCancel(context.Background())
 	svr = &Service{
-		authSetter:  auth.NewAuthSetter(cfg),
+		authSetter:  auth.NewAuthSetter(cfg.AuthClientConfig),
 		cfg:         cfg,
 		cfgFile:     cfgFile,
 		pxyCfgs:     pxyCfgs,
