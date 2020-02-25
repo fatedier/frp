@@ -159,6 +159,11 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 		workConn.Close()
 		return
 	}
+	if startMsg.Error != "" {
+		xl.Error("StartWorkConn contains error: %s", startMsg.Error)
+		workConn.Close()
+		return
+	}
 
 	// dispatch this work connection to related proxy
 	ctl.pm.HandleWorkConn(startMsg.ProxyName, workConn, &startMsg)
@@ -319,6 +324,11 @@ func (ctl *Control) msgHandler() {
 			case *msg.NewProxyResp:
 				ctl.HandleNewProxyResp(m)
 			case *msg.Pong:
+				if m.Error != "" {
+					xl.Error("Pong contains error: %s", m.Error)
+					ctl.conn.Close()
+					return
+				}
 				ctl.lastPong = time.Now()
 				xl.Debug("receive heartbeat from server")
 			}

@@ -438,6 +438,9 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 	// Check auth.
 	if err := svr.authVerifier.VerifyNewWorkConn(newMsg); err != nil {
 		xl.Warn("Invalid authentication in NewWorkConn message on run id [%s]", newMsg.RunId)
+		msg.WriteMsg(workConn, &msg.StartWorkConn{
+			Error: "invalid authentication in NewWorkConn",
+		})
 		return
 	}
 	ctl.RegisterWorkConn(workConn)
