@@ -15,8 +15,12 @@
 package auth
 
 import (
+	"fmt"
+
 	"github.com/fatedier/frp/models/consts"
 	"github.com/fatedier/frp/models/msg"
+
+	"github.com/vaughan0/go-ini"
 )
 
 type baseConfig struct {
@@ -33,22 +37,60 @@ type baseConfig struct {
 	AuthenticateNewWorkConns bool `json:"authenticate_new_work_conns"`
 }
 
+func getDefaultBaseConf() baseConfig {
+	return baseConfig{
+		AuthenticationMethod:     "token",
+		AuthenticateHeartBeats:   false,
+		AuthenticateNewWorkConns: false,
+	}
+}
+
+func unmarshalBaseConfFromIni(conf ini.File) baseConfig {
+	var (
+		tmpStr string
+		ok     bool
+	)
+
+	cfg := getDefaultBaseConf()
+
+	if tmpStr, ok = conf.Get("common", "authentication_method"); ok {
+		cfg.AuthenticationMethod = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "authenticate_heartbeats"); ok && tmpStr == "true" {
+		cfg.AuthenticateHeartBeats = true
+	} else {
+		cfg.AuthenticateHeartBeats = false
+	}
+
+	if tmpStr, ok = conf.Get("common", "authenticate_new_work_conns"); ok && tmpStr == "true" {
+		cfg.AuthenticateNewWorkConns = true
+	} else {
+		cfg.AuthenticateNewWorkConns = false
+	}
+
+	return cfg
+}
+
 type AuthClientConfig struct {
 	baseConfig
 	oidcClientConfig
 	tokenConfig
 }
 
-func GetDefaultClientConf() AuthClientConfig {
+func GetDefaultAuthClientConf() AuthClientConfig {
 	return AuthClientConfig{
-		baseConfig: baseConfig{
-			AuthenticationMethod:     "token",
-			AuthenticateHeartBeats:   false,
-			AuthenticateNewWorkConns: false,
-		},
+		baseConfig:       getDefaultBaseConf(),
 		oidcClientConfig: getDefaultOidcClientConf(),
 		tokenConfig:      getDefaultTokenConf(),
 	}
+}
+
+func UnmarshalAuthClientConfFromIni(conf ini.File) (cfg AuthClientConfig) {
+	cfg.baseConfig = unmarshalBaseConfFromIni(conf)
+	cfg.oidcClientConfig = unmarshalOidcClientConfFromIni(conf)
+	cfg.tokenConfig = unmarshalTokenConfFromIni(conf)
+	return cfg
 }
 
 type AuthServerConfig struct {
@@ -57,16 +99,19 @@ type AuthServerConfig struct {
 	tokenConfig
 }
 
-func GetDefaultServerConf() AuthServerConfig {
+func GetDefaultAuthServerConf() AuthServerConfig {
 	return AuthServerConfig{
-		baseConfig: baseConfig{
-			AuthenticationMethod:     "token",
-			AuthenticateHeartBeats:   false,
-			AuthenticateNewWorkConns: false,
-		},
+		baseConfig:       getDefaultBaseConf(),
 		oidcServerConfig: getDefaultOidcServerConf(),
 		tokenConfig:      getDefaultTokenConf(),
 	}
+}
+
+func UnmarshalAuthServerConfFromIni(conf ini.File) (cfg AuthServerConfig) {
+	cfg.baseConfig = unmarshalBaseConfFromIni(conf)
+	cfg.oidcServerConfig = unmarshalOidcServerConfFromIni(conf)
+	cfg.tokenConfig = unmarshalTokenConfFromIni(conf)
+	return cfg
 }
 
 type Setter interface {
@@ -81,6 +126,8 @@ func NewAuthSetter(cfg AuthClientConfig) (authProvider Setter) {
 		authProvider = NewTokenAuth(cfg.baseConfig, cfg.tokenConfig)
 	case consts.OidcAuthMethod:
 		authProvider = NewOidcAuthSetter(cfg.baseConfig, cfg.oidcClientConfig)
+	default:
+		panic(fmt.Sprintf("wrong authentication method: '%s'", cfg.AuthenticationMethod))
 	}
 
 	return authProvider

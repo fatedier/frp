@@ -121,7 +121,6 @@ type ClientCommonConf struct {
 // GetDefaultClientConf returns a client configuration with default values.
 func GetDefaultClientConf() ClientCommonConf {
 	return ClientCommonConf{
-		AuthClientConfig:  auth.GetDefaultClientConf(),
 		ServerAddr:        "0.0.0.0",
 		ServerPort:        7000,
 		HttpProxy:         os.Getenv("http_proxy"),
@@ -156,6 +155,8 @@ func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error
 	if err != nil {
 		return ClientCommonConf{}, fmt.Errorf("parse ini conf file error: %v", err)
 	}
+
+	cfg.AuthClientConfig = auth.UnmarshalAuthClientConfFromIni(conf)
 
 	var (
 		tmpStr string
@@ -200,42 +201,6 @@ func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err == nil {
 			cfg.LogMaxDays = v
 		}
-	}
-
-	if tmpStr, ok = conf.Get("common", "token"); ok {
-		cfg.Token = tmpStr
-	}
-
-	if tmpStr, ok = conf.Get("common", "authentication_method"); ok {
-		cfg.AuthenticationMethod = tmpStr
-	}
-
-	if tmpStr, ok = conf.Get("common", "authenticate_heartbeats"); ok && tmpStr == "true" {
-		cfg.AuthenticateHeartBeats = true
-	} else {
-		cfg.AuthenticateHeartBeats = false
-	}
-
-	if tmpStr, ok = conf.Get("common", "authenticate_new_work_conns"); ok && tmpStr == "true" {
-		cfg.AuthenticateNewWorkConns = true
-	} else {
-		cfg.AuthenticateNewWorkConns = false
-	}
-
-	if tmpStr, ok = conf.Get("common", "oidc_client_id"); ok {
-		cfg.OidcClientId = tmpStr
-	}
-
-	if tmpStr, ok = conf.Get("common", "oidc_client_secret"); ok {
-		cfg.OidcClientSecret = tmpStr
-	}
-
-	if tmpStr, ok = conf.Get("common", "oidc_audience"); ok {
-		cfg.OidcAudience = tmpStr
-	}
-
-	if tmpStr, ok = conf.Get("common", "oidc_token_endpoint_url"); ok {
-		cfg.OidcTokenEndpointUrl = tmpStr
 	}
 
 	if tmpStr, ok = conf.Get("common", "admin_addr"); ok {

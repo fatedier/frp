@@ -21,6 +21,7 @@ import (
 	"github.com/fatedier/frp/models/msg"
 
 	"github.com/coreos/go-oidc"
+	"github.com/vaughan0/go-ini"
 	"golang.org/x/oauth2/clientcredentials"
 )
 
@@ -51,6 +52,33 @@ func getDefaultOidcClientConf() oidcClientConfig {
 	}
 }
 
+func unmarshalOidcClientConfFromIni(conf ini.File) oidcClientConfig {
+	var (
+		tmpStr string
+		ok     bool
+	)
+
+	cfg := getDefaultOidcClientConf()
+
+	if tmpStr, ok = conf.Get("common", "oidc_client_id"); ok {
+		cfg.OidcClientId = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "oidc_client_secret"); ok {
+		cfg.OidcClientSecret = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "oidc_audience"); ok {
+		cfg.OidcAudience = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "oidc_token_endpoint_url"); ok {
+		cfg.OidcTokenEndpointUrl = tmpStr
+	}
+
+	return cfg
+}
+
 type oidcServerConfig struct {
 	// OidcIssuer specifies the issuer to verify OIDC tokens with. This issuer
 	// will be used to load public keys to verify signature and will be compared
@@ -79,6 +107,37 @@ func getDefaultOidcServerConf() oidcServerConfig {
 		OidcSkipExpiryCheck: false,
 		OidcSkipIssuerCheck: false,
 	}
+}
+
+func unmarshalOidcServerConfFromIni(conf ini.File) oidcServerConfig {
+	var (
+		tmpStr string
+		ok     bool
+	)
+
+	cfg := getDefaultOidcServerConf()
+
+	if tmpStr, ok = conf.Get("common", "oidc_issuer"); ok {
+		cfg.OidcIssuer = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "oidc_audience"); ok {
+		cfg.OidcAudience = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "oidc_skip_expiry_check"); ok && tmpStr == "true" {
+		cfg.OidcSkipExpiryCheck = true
+	} else {
+		cfg.OidcSkipExpiryCheck = false
+	}
+
+	if tmpStr, ok = conf.Get("common", "oidc_skip_issuer_check"); ok && tmpStr == "true" {
+		cfg.OidcSkipIssuerCheck = true
+	} else {
+		cfg.OidcSkipIssuerCheck = false
+	}
+
+	return cfg
 }
 
 type OidcAuthProvider struct {

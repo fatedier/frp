@@ -19,6 +19,8 @@ import (
 
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/utils/util"
+
+	"github.com/vaughan0/go-ini"
 )
 
 type tokenConfig struct {
@@ -32,6 +34,21 @@ func getDefaultTokenConf() tokenConfig {
 	return tokenConfig{
 		Token: "",
 	}
+}
+
+func unmarshalTokenConfFromIni(conf ini.File) tokenConfig {
+	var (
+		tmpStr string
+		ok     bool
+	)
+
+	cfg := getDefaultTokenConf()
+
+	if tmpStr, ok = conf.Get("common", "token"); ok {
+		cfg.Token = tmpStr
+	}
+
+	return cfg
 }
 
 type TokenAuthSetterVerifier struct {

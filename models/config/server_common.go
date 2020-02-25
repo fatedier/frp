@@ -148,7 +148,6 @@ type ServerCommonConf struct {
 // defaults.
 func GetDefaultServerConf() ServerCommonConf {
 	return ServerCommonConf{
-		AuthServerConfig:       auth.GetDefaultServerConf(),
 		BindAddr:               "0.0.0.0",
 		BindPort:               7000,
 		BindUdpPort:            0,
@@ -193,6 +192,8 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 	}
 
 	UnmarshalPluginsFromIni(conf, &cfg)
+
+	cfg.AuthServerConfig = auth.UnmarshalAuthServerConfFromIni(conf)
 
 	var (
 		tmpStr string
@@ -325,44 +326,6 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 		cfg.DetailedErrorsToClient = false
 	} else {
 		cfg.DetailedErrorsToClient = true
-	}
-
-	cfg.Token, _ = conf.Get("common", "token")
-
-	if tmpStr, ok = conf.Get("common", "authentication_method"); ok {
-		cfg.AuthenticationMethod = tmpStr
-	}
-
-	if tmpStr, ok = conf.Get("common", "authenticate_heartbeats"); ok && tmpStr == "true" {
-		cfg.AuthenticateHeartBeats = true
-	} else {
-		cfg.AuthenticateHeartBeats = false
-	}
-
-	if tmpStr, ok = conf.Get("common", "authenticate_new_work_conns"); ok && tmpStr == "true" {
-		cfg.AuthenticateNewWorkConns = true
-	} else {
-		cfg.AuthenticateNewWorkConns = false
-	}
-
-	if tmpStr, ok = conf.Get("common", "oidc_issuer"); ok {
-		cfg.OidcIssuer = tmpStr
-	}
-
-	if tmpStr, ok = conf.Get("common", "oidc_audience"); ok {
-		cfg.OidcAudience = tmpStr
-	}
-
-	if tmpStr, ok = conf.Get("common", "oidc_skip_expiry_check"); ok && tmpStr == "true" {
-		cfg.OidcSkipExpiryCheck = true
-	} else {
-		cfg.OidcSkipExpiryCheck = false
-	}
-
-	if tmpStr, ok = conf.Get("common", "oidc_skip_issuer_check"); ok && tmpStr == "true" {
-		cfg.OidcSkipIssuerCheck = true
-	} else {
-		cfg.OidcSkipIssuerCheck = false
 	}
 
 	if allowPortsStr, ok := conf.Get("common", "allow_ports"); ok {
