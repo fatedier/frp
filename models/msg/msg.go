@@ -122,6 +122,7 @@ type CloseProxy struct {
 type NewWorkConn struct {
 	RunId        string `json:"run_id"`
 	PrivilegeKey string `json:"privilege_key"`
+	Timestamp    int64  `json:"timestamp"`
 }
 
 type ReqWorkConn struct {
@@ -133,6 +134,7 @@ type StartWorkConn struct {
 	DstAddr   string `json:"dst_addr"`
 	SrcPort   uint16 `json:"src_port"`
 	DstPort   uint16 `json:"dst_port"`
+	Error     string `json:"error"`
 }
 
 type NewVisitorConn struct {
@@ -150,9 +152,11 @@ type NewVisitorConnResp struct {
 
 type Ping struct {
 	PrivilegeKey string `json:"privilege_key"`
+	Timestamp    int64  `json:"timestamp"`
 }
 
 type Pong struct {
+	Error string `json:"error"`
 }
 
 type UdpPacket struct {

@@ -69,13 +69,21 @@ func (auth *TokenAuthSetterVerifier) SetLogin(loginMsg *msg.Login) (err error) {
 	return nil
 }
 
-func (auth *TokenAuthSetterVerifier) SetPing(*msg.Ping) error {
-	// Ping doesn't include authentication in token method
+func (auth *TokenAuthSetterVerifier) SetPing(pingMsg *msg.Ping) error {
+	if !auth.AuthenticateHeartBeats {
+		return nil
+	}
+
+	pingMsg.PrivilegeKey = util.GetAuthKey(auth.token, pingMsg.Timestamp)
 	return nil
 }
 
-func (auth *TokenAuthSetterVerifier) SetNewWorkConn(*msg.NewWorkConn) error {
-	// NewWorkConn doesn't include authentication in token method
+func (auth *TokenAuthSetterVerifier) SetNewWorkConn(newWorkConnMsg *msg.NewWorkConn) error {
+	if !auth.AuthenticateHeartBeats {
+		return nil
+	}
+
+	newWorkConnMsg.PrivilegeKey = util.GetAuthKey(auth.token, newWorkConnMsg.Timestamp)
 	return nil
 }
 
@@ -86,12 +94,24 @@ func (auth *TokenAuthSetterVerifier) VerifyLogin(loginMsg *msg.Login) error {
 	return nil
 }
 
-func (auth *TokenAuthSetterVerifier) VerifyPing(*msg.Ping) error {
-	// Ping doesn't include authentication in token method
+func (auth *TokenAuthSetterVerifier) VerifyPing(pingMsg *msg.Ping) error {
+	if !auth.AuthenticateHeartBeats {
+		return nil
+	}
+
+	if util.GetAuthKey(auth.token, pingMsg.Timestamp) != pingMsg.PrivilegeKey {
+		return fmt.Errorf("token in heartbeat doesn't match token from configuration")
+	}
 	return nil
 }
 
-func (auth *TokenAuthSetterVerifier) VerifyNewWorkConn(*msg.NewWorkConn) error {
-	// NewWorkConn doesn't include authentication in token method
+func (auth *TokenAuthSetterVerifier) VerifyNewWorkConn(newWorkConnMsg *msg.NewWorkConn) error {
+	if !auth.AuthenticateNewWorkConns {
+		return nil
+	}
+
+	if util.GetAuthKey(auth.token, newWorkConnMsg.Timestamp) != newWorkConnMsg.PrivilegeKey {
+		return fmt.Errorf("token in NewWorkConn doesn't match token from configuration")
+	}
 	return nil
 }

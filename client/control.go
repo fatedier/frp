@@ -140,7 +140,8 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	}
 
 	m := &msg.NewWorkConn{
-		RunId: ctl.runId,
+		RunId:     ctl.runId,
+		Timestamp: time.Now().Unix(),
 	}
 	if err = ctl.authSetter.SetNewWorkConn(m); err != nil {
 		xl.Warn("error during NewWorkConn authentication: %v", err)
@@ -292,7 +293,9 @@ func (ctl *Control) msgHandler() {
 		case <-hbSend.C:
 			// send heartbeat to server
 			xl.Debug("send heartbeat to server")
-			pingMsg := &msg.Ping{}
+			pingMsg := &msg.Ping{
+				Timestamp: time.Now().Unix(),
+			}
 			if err := ctl.authSetter.SetPing(pingMsg); err != nil {
 				xl.Warn("error during ping authentication: %v", err)
 				return
