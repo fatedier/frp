@@ -469,9 +469,7 @@ func (ctl *Control) manager() {
 				}
 				ctl.lastPing = time.Now()
 				xl.Debug("receive heartbeat")
-				ctl.sendCh <- &msg.Pong{
-					Error: "",
-				}
+				ctl.sendCh <- &msg.Pong{}
 			}
 		}
 	}
