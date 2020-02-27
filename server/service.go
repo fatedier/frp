@@ -332,7 +332,9 @@ func (svr *Service) HandleListener(l net.Listener) {
 						conn.Close()
 					}
 				case *msg.NewWorkConn:
-					svr.RegisterWorkConn(conn, m)
+					if err := svr.RegisterWorkConn(conn, m); err != nil {
+						conn.Close()
+					}
 				case *msg.NewVisitorConn:
 					if err = svr.RegisterVisitorConn(conn, m); err != nil {
 						xl.Warn("register visitor conn error: %v", err)
@@ -428,12 +430,12 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 }
 
 // RegisterWorkConn register a new work connection to control and proxies need it.
-func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn) {
+func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn) error {
 	xl := frpNet.NewLogFromConn(workConn)
 	ctl, exist := svr.ctlManager.GetById(newMsg.RunId)
 	if !exist {
 		xl.Warn("No client control found for run id [%s]", newMsg.RunId)
-		return
+		return fmt.Errorf("no client control found for run id [%s]", newMsg.RunId)
 	}
 	// Check auth.
 	if err := svr.authVerifier.VerifyNewWorkConn(newMsg); err != nil {
@@ -441,10 +443,9 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 		msg.WriteMsg(workConn, &msg.StartWorkConn{
 			Error: "invalid authentication in NewWorkConn",
 		})
-		return
+		return fmt.Errorf("invalid authentication in NewWorkConn message on run id [%s]", newMsg.RunId)
 	}
-	ctl.RegisterWorkConn(workConn)
-	return
+	return ctl.RegisterWorkConn(workConn)
 }
 
 func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVisitorConn) error {

@@ -210,7 +210,7 @@ func (ctl *Control) Start() {
 	go ctl.stoper()
 }
 
-func (ctl *Control) RegisterWorkConn(conn net.Conn) {
+func (ctl *Control) RegisterWorkConn(conn net.Conn) error {
 	xl := ctl.xl
 	defer func() {
 		if err := recover(); err != nil {
@@ -222,9 +222,10 @@ func (ctl *Control) RegisterWorkConn(conn net.Conn) {
 	select {
 	case ctl.workConnCh <- conn:
 		xl.Debug("new work connection registered")
+		return nil
 	default:
 		xl.Debug("work connection pool is full, discarding")
-		conn.Close()
+		return fmt.Errorf("work connection pool is full, discarding")
 	}
 }
 
