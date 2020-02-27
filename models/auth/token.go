@@ -16,6 +16,7 @@ package auth
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/utils/util"
@@ -74,6 +75,7 @@ func (auth *TokenAuthSetterVerifier) SetPing(pingMsg *msg.Ping) error {
 		return nil
 	}
 
+	pingMsg.Timestamp = time.Now().Unix()
 	pingMsg.PrivilegeKey = util.GetAuthKey(auth.token, pingMsg.Timestamp)
 	return nil
 }
@@ -83,6 +85,7 @@ func (auth *TokenAuthSetterVerifier) SetNewWorkConn(newWorkConnMsg *msg.NewWorkC
 		return nil
 	}
 
+	newWorkConnMsg.Timestamp = time.Now().Unix()
 	newWorkConnMsg.PrivilegeKey = util.GetAuthKey(auth.token, newWorkConnMsg.Timestamp)
 	return nil
 }
