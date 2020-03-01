@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/client/proxy"
+	"github.com/fatedier/frp/models/auth"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
 	frpNet "github.com/fatedier/frp/utils/net"
@@ -82,13 +83,17 @@ type Control struct {
 
 	// service context
 	ctx context.Context
+
+	// sets authentication based on selected method
+	authSetter auth.Setter
 }
 
 func NewControl(ctx context.Context, runId string, conn net.Conn, session *fmux.Session,
 	clientCfg config.ClientCommonConf,
 	pxyCfgs map[string]config.ProxyConf,
 	visitorCfgs map[string]config.VisitorConf,
-	serverUDPPort int) *Control {
+	serverUDPPort int,
+	authSetter auth.Setter) *Control {
 
 	// new xlog instance
 	ctl := &Control{
@@ -107,6 +112,7 @@ func NewControl(ctx context.Context, runId string, conn net.Conn, session *fmux.
 		serverUDPPort:      serverUDPPort,
 		xl:                 xlog.FromContextSafe(ctx),
 		ctx:                ctx,
+		authSetter:         authSetter,
 	}
 	ctl.pm = proxy.NewProxyManager(ctl.ctx, ctl.sendCh, clientCfg, serverUDPPort)
 
@@ -136,6 +142,10 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	m := &msg.NewWorkConn{
 		RunId: ctl.runId,
 	}
+	if err = ctl.authSetter.SetNewWorkConn(m); err != nil {
+		xl.Warn("error during NewWorkConn authentication: %v", err)
+		return
+	}
 	if err = msg.WriteMsg(workConn, m); err != nil {
 		xl.Warn("work connection write to server error: %v", err)
 		workConn.Close()
@@ -145,6 +155,11 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	var startMsg msg.StartWorkConn
 	if err = msg.ReadMsgInto(workConn, &startMsg); err != nil {
 		xl.Error("work connection closed before response StartWorkConn message: %v", err)
+		workConn.Close()
+		return
+	}
+	if startMsg.Error != "" {
+		xl.Error("StartWorkConn contains error: %s", startMsg.Error)
 		workConn.Close()
 		return
 	}
@@ -282,7 +297,12 @@ func (ctl *Control) msgHandler() {
 		case <-hbSend.C:
 			// send heartbeat to server
 			xl.Debug("send heartbeat to server")
-			ctl.sendCh <- &msg.Ping{}
+			pingMsg := &msg.Ping{}
+			if err := ctl.authSetter.SetPing(pingMsg); err != nil {
+				xl.Warn("error during ping authentication: %v", err)
+				return
+			}
+			ctl.sendCh <- pingMsg
 		case <-hbCheck.C:
 			if time.Since(ctl.lastPong) > time.Duration(ctl.clientCfg.HeartBeatTimeout)*time.Second {
 				xl.Warn("heartbeat timeout")
@@ -301,6 +321,11 @@ func (ctl *Control) msgHandler() {
 			case *msg.NewProxyResp:
 				ctl.HandleNewProxyResp(m)
 			case *msg.Pong:
+				if m.Error != "" {
+					xl.Error("Pong contains error: %s", m.Error)
+					ctl.conn.Close()
+					return
+				}
 				ctl.lastPong = time.Now()
 				xl.Debug("receive heartbeat from server")
 			}

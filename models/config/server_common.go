@@ -21,6 +21,7 @@ import (
 
 	ini "github.com/vaughan0/go-ini"
 
+	"github.com/fatedier/frp/models/auth"
 	plugin "github.com/fatedier/frp/models/plugin/server"
 	"github.com/fatedier/frp/utils/util"
 )
@@ -29,6 +30,7 @@ import (
 // recommended to use GetDefaultServerConf instead of creating this object
 // directly, so that all unspecified fields have reasonable default values.
 type ServerCommonConf struct {
+	auth.AuthServerConfig
 	// BindAddr specifies the address that the server binds to. By default,
 	// this value is "0.0.0.0".
 	BindAddr string `json:"bind_addr"`
@@ -101,10 +103,7 @@ type ServerCommonConf struct {
 	// DetailedErrorsToClient defines whether to send the specific error (with
 	// debug info) to frpc. By default, this value is true.
 	DetailedErrorsToClient bool `json:"detailed_errors_to_client"`
-	// Token specifies the authorization token used to authenticate keys
-	// received from clients. Clients must have a matching token to be
-	// authorized to use the server. By default, this value is "".
-	Token string `json:"token"`
+
 	// SubDomainHost specifies the domain that will be attached to sub-domains
 	// requested by the client when using Vhost proxying. For example, if this
 	// value is set to "frps.com" and the client requested the subdomain
@@ -168,7 +167,6 @@ func GetDefaultServerConf() ServerCommonConf {
 		LogMaxDays:             3,
 		DisableLogColor:        false,
 		DetailedErrorsToClient: true,
-		Token:                  "",
 		SubDomainHost:          "",
 		TcpMux:                 true,
 		AllowPorts:             make(map[int]struct{}),
@@ -194,6 +192,8 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 	}
 
 	UnmarshalPluginsFromIni(conf, &cfg)
+
+	cfg.AuthServerConfig = auth.UnmarshalAuthServerConfFromIni(conf)
 
 	var (
 		tmpStr string
@@ -327,8 +327,6 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 	} else {
 		cfg.DetailedErrorsToClient = true
 	}
-
-	cfg.Token, _ = conf.Get("common", "token")
 
 	if allowPortsStr, ok := conf.Get("common", "allow_ports"); ok {
 		// e.g. 1000-2000,2001,2002,3000-4000

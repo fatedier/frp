@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fatedier/frp/client"
+	"github.com/fatedier/frp/models/auth"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/utils/log"
 	"github.com/fatedier/frp/utils/version"
@@ -157,7 +158,6 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 
 	cfg.User = user
 	cfg.Protocol = protocol
-	cfg.Token = token
 	cfg.LogLevel = logLevel
 	cfg.LogFile = logFile
 	cfg.LogMaxDays = int64(logMaxDays)
@@ -167,6 +167,10 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 		cfg.LogWay = "file"
 	}
 	cfg.DisableLogColor = disableLogColor
+
+	// Only token authentication is supported in cmd mode
+	cfg.AuthClientConfig = auth.GetDefaultAuthClientConf()
+	cfg.Token = token
 
 	return
 }

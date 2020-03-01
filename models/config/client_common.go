@@ -21,12 +21,15 @@ import (
 	"strings"
 
 	ini "github.com/vaughan0/go-ini"
+
+	"github.com/fatedier/frp/models/auth"
 )
 
 // ClientCommonConf contains information for a client service. It is
 // recommended to use GetDefaultClientConf instead of creating this object
 // directly, so that all unspecified fields have reasonable default values.
 type ClientCommonConf struct {
+	auth.AuthClientConfig
 	// ServerAddr specifies the address of the server to connect to. By
 	// default, this value is "0.0.0.0".
 	ServerAddr string `json:"server_addr"`
@@ -56,10 +59,6 @@ type ClientCommonConf struct {
 	// DisableLogColor disables log colors when LogWay == "console" when set to
 	// true. By default, this value is false.
 	DisableLogColor bool `json:"disable_log_color"`
-	// Token specifies the authorization token used to create keys to be sent
-	// to the server. The server must have a matching token for authorization
-	// to succeed.  By default, this value is "".
-	Token string `json:"token"`
 	// AdminAddr specifies the address that the admin server binds to. By
 	// default, this value is "127.0.0.1".
 	AdminAddr string `json:"admin_addr"`
@@ -130,7 +129,6 @@ func GetDefaultClientConf() ClientCommonConf {
 		LogLevel:          "info",
 		LogMaxDays:        3,
 		DisableLogColor:   false,
-		Token:             "",
 		AdminAddr:         "127.0.0.1",
 		AdminPort:         0,
 		AdminUser:         "",
@@ -157,6 +155,8 @@ func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error
 	if err != nil {
 		return ClientCommonConf{}, fmt.Errorf("parse ini conf file error: %v", err)
 	}
+
+	cfg.AuthClientConfig = auth.UnmarshalAuthClientConfFromIni(conf)
 
 	var (
 		tmpStr string
@@ -201,10 +201,6 @@ func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err == nil {
 			cfg.LogMaxDays = v
 		}
-	}
-
-	if tmpStr, ok = conf.Get("common", "token"); ok {
-		cfg.Token = tmpStr
 	}
 
 	if tmpStr, ok = conf.Get("common", "admin_addr"); ok {
