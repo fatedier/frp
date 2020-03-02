@@ -116,6 +116,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 			SrcPort:   uint16(srcPort),
 			DstAddr:   dstAddr,
 			DstPort:   uint16(dstPort),
+			Error:     "",
 		})
 		if err != nil {
 			xl.Warn("failed to send message to work connection from pool: %v, times: %d", err, i)

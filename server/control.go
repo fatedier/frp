@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatedier/frp/models/auth"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/consts"
 	frpErr "github.com/fatedier/frp/models/errors"
@@ -94,6 +95,9 @@ type Control struct {
 	// stats collector to store stats info of clients and proxies
 	statsCollector stats.Collector
 
+	// verifies authentication based on selected method
+	authVerifier auth.Verifier
+
 	// login message
 	loginMsg *msg.Login
 
@@ -149,6 +153,7 @@ func NewControl(
 	pxyManager *proxy.ProxyManager,
 	pluginManager *plugin.Manager,
 	statsCollector stats.Collector,
+	authVerifier auth.Verifier,
 	ctlConn net.Conn,
 	loginMsg *msg.Login,
 	serverCfg config.ServerCommonConf,
@@ -163,6 +168,7 @@ func NewControl(
 		pxyManager:      pxyManager,
 		pluginManager:   pluginManager,
 		statsCollector:  statsCollector,
+		authVerifier:    authVerifier,
 		conn:            ctlConn,
 		loginMsg:        loginMsg,
 		sendCh:          make(chan msg.Message, 10),
@@ -204,7 +210,7 @@ func (ctl *Control) Start() {
 	go ctl.stoper()
 }
 
-func (ctl *Control) RegisterWorkConn(conn net.Conn) {
+func (ctl *Control) RegisterWorkConn(conn net.Conn) error {
 	xl := ctl.xl
 	defer func() {
 		if err := recover(); err != nil {
@@ -216,9 +222,10 @@ func (ctl *Control) RegisterWorkConn(conn net.Conn) {
 	select {
 	case ctl.workConnCh <- conn:
 		xl.Debug("new work connection registered")
+		return nil
 	default:
 		xl.Debug("work connection pool is full, discarding")
-		conn.Close()
+		return fmt.Errorf("work connection pool is full, discarding")
 	}
 }
 
@@ -454,6 +461,13 @@ func (ctl *Control) manager() {
 				ctl.CloseProxy(m)
 				xl.Info("close proxy [%s] success", m.ProxyName)
 			case *msg.Ping:
+				if err := ctl.authVerifier.VerifyPing(m); err != nil {
+					xl.Warn("received invalid ping: %v", err)
+					ctl.sendCh <- &msg.Pong{
+						Error: "invalid authentication in ping",
+					}
+					return
+				}
 				ctl.lastPing = time.Now()
 				xl.Debug("receive heartbeat")
 				ctl.sendCh <- &msg.Pong{}

@@ -150,7 +150,7 @@ func (cfg *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
 		cfg.Group != cmp.Group ||
 		cfg.GroupKey != cmp.GroupKey ||
 		cfg.ProxyProtocolVersion != cmp.ProxyProtocolVersion ||
-		cfg.BandwidthLimit.Equal(&cmp.BandwidthLimit) ||
+		!cfg.BandwidthLimit.Equal(&cmp.BandwidthLimit) ||
 		!reflect.DeepEqual(cfg.Metas, cmp.Metas) {
 		return false
 	}
