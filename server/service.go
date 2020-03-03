@@ -53,7 +53,8 @@ import (
 )
 
 const (
-	connReadTimeout time.Duration = 10 * time.Second
+	connReadTimeout       time.Duration = 10 * time.Second
+	vhostReadWriteTimeout time.Duration = 30 * time.Second
 )
 
 // Server service
@@ -213,7 +214,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			}
 		}
 
-		svr.rc.VhostHttpsMuxer, err = vhost.NewHttpsMuxer(l, 30*time.Second)
+		svr.rc.VhostHttpsMuxer, err = vhost.NewHttpsMuxer(l, vhostReadWriteTimeout)
 		if err != nil {
 			err = fmt.Errorf("Create vhost httpsMuxer error, %v", err)
 			return
@@ -230,7 +231,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			return
 		}
 
-		svr.rc.TcpMuxHttpConnectMuxer, err = tcpmux.NewHttpConnectTcpMuxer(l, 30*time.Second)
+		svr.rc.TcpMuxHttpConnectMuxer, err = tcpmux.NewHttpConnectTcpMuxer(l, vhostReadWriteTimeout)
 		if err != nil {
 			err = fmt.Errorf("Create vhost tcpMuxer error, %v", err)
 			return
