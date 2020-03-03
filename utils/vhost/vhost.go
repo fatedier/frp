@@ -225,13 +225,3 @@ func (l *Listener) Name() string {
 func (l *Listener) Addr() net.Addr {
 	return (*net.TCPAddr)(nil)
 }
-
-func getHostFromAddr(addr string) (host string) {
-	strs := strings.Split(addr, ":")
-	if len(strs) > 1 {
-		host = strs[0]
-	} else {
-		host = addr
-	}
-	return
-}

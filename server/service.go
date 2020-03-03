@@ -42,6 +42,7 @@ import (
 	"github.com/fatedier/frp/server/stats"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
+	"github.com/fatedier/frp/utils/tcpmux"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
 	"github.com/fatedier/frp/utils/vhost"
@@ -220,21 +221,21 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		log.Info("https service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHttpsPort)
 	}
 
-	// Create tcp http tunnel muxer.
-	if cfg.TcpHttpTunnelPort > 0 {
+	// Create tcpmux httpconnect multiplexer.
+	if cfg.TCPMuxHTTPConnectPort > 0 {
 		var l net.Listener
-		l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.TcpHttpTunnelPort))
+		l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.TCPMuxHTTPConnectPort))
 		if err != nil {
 			err = fmt.Errorf("Create server listener error, %v", err)
 			return
 		}
 
-		svr.rc.VhostTcpMuxer, err = vhost.NewTcpHttpTunnelMuxer(l, 30*time.Second)
+		svr.rc.TcpMuxHttpConnectMuxer, err = tcpmux.NewHttpConnectTcpMuxer(l, 30*time.Second)
 		if err != nil {
 			err = fmt.Errorf("Create vhost tcpMuxer error, %v", err)
 			return
 		}
-		log.Info("tcp http tunnel service listen on %s:%d", cfg.ProxyBindAddr, cfg.TcpHttpTunnelPort)
+		log.Info("tcpmux httpconnect multiplexer listen on %s:%d", cfg.ProxyBindAddr, cfg.TCPMuxHTTPConnectPort)
 	}
 
 	// frp tls listener

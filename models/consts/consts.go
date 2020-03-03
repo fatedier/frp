@@ -23,15 +23,18 @@ var (
 	Offline string = "offline"
 
 	// proxy type
-	TcpProxy           string = "tcp"
-	UdpProxy           string = "udp"
-	TcpHttpTunnelProxy string = "tcphttptunnel"
-	HttpProxy          string = "http"
-	HttpsProxy         string = "https"
-	StcpProxy          string = "stcp"
-	XtcpProxy          string = "xtcp"
+	TcpProxy    string = "tcp"
+	UdpProxy    string = "udp"
+	TcpMuxProxy string = "tcpmux"
+	HttpProxy   string = "http"
+	HttpsProxy  string = "https"
+	StcpProxy   string = "stcp"
+	XtcpProxy   string = "xtcp"
 
 	// authentication method
 	TokenAuthMethod string = "token"
 	OidcAuthMethod  string = "oidc"
+
+	// tcp multiplexer
+	HttpConnectTcpMultiplexer string = "httpconnect"
 )

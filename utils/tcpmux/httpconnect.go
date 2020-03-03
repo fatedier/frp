@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package vhost
+package tcpmux
 
 import (
 	"bufio"
@@ -21,15 +21,18 @@ import (
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/fatedier/frp/utils/util"
+	"github.com/fatedier/frp/utils/vhost"
 )
 
-type TcpHttpTunnelMuxer struct {
-	*VhostMuxer
+type HttpConnectTcpMuxer struct {
+	*vhost.VhostMuxer
 }
 
-func NewTcpHttpTunnelMuxer(listener net.Listener, timeout time.Duration) (*TcpHttpTunnelMuxer, error) {
-	mux, err := NewVhostMuxer(listener, getHostFromHttpConnect, nil, sendHttpOk, timeout)
-	return &TcpHttpTunnelMuxer{mux}, err
+func NewHttpConnectTcpMuxer(listener net.Listener, timeout time.Duration) (*HttpConnectTcpMuxer, error) {
+	mux, err := vhost.NewVhostMuxer(listener, getHostFromHttpConnect, nil, sendHttpOk, timeout)
+	return &HttpConnectTcpMuxer{mux}, err
 }
 
 func readHttpConnectRequest(rd io.Reader) (host string, err error) {
@@ -45,12 +48,12 @@ func readHttpConnectRequest(rd io.Reader) (host string, err error) {
 		return
 	}
 
-	host = getHostFromAddr(req.Host)
+	host = util.GetHostFromAddr(req.Host)
 	return
 }
 
 func sendHttpOk(c net.Conn, _ string) (_ net.Conn, err error) {
-	okResp := okResponse()
+	okResp := util.OkResponse()
 	err = okResp.Write(c)
 	return c, err
 }

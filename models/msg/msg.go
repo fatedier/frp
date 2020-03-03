@@ -107,6 +107,9 @@ type NewProxy struct {
 
 	// stcp
 	Sk string `json:"sk"`
+
+	// tcpmux
+	Multiplexer string `json:"multiplexer"`
 }
 
 type NewProxyResp struct {

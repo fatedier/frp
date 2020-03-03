@@ -34,7 +34,7 @@ var (
 func init() {
 	proxyConfTypeMap = make(map[string]reflect.Type)
 	proxyConfTypeMap[consts.TcpProxy] = reflect.TypeOf(TcpProxyConf{})
-	proxyConfTypeMap[consts.TcpHttpTunnelProxy] = reflect.TypeOf(TcpHttpTunnelProxyConf{})
+	proxyConfTypeMap[consts.TcpMuxProxy] = reflect.TypeOf(TcpMuxProxyConf{})
 	proxyConfTypeMap[consts.UdpProxy] = reflect.TypeOf(UdpProxyConf{})
 	proxyConfTypeMap[consts.HttpProxy] = reflect.TypeOf(HttpProxyConf{})
 	proxyConfTypeMap[consts.HttpsProxy] = reflect.TypeOf(HttpsProxyConf{})
@@ -575,59 +575,77 @@ func (cfg *TcpProxyConf) CheckForCli() (err error) {
 
 func (cfg *TcpProxyConf) CheckForSvr(serverCfg ServerCommonConf) error { return nil }
 
-// TCP HTTP Tunnel
-type TcpHttpTunnelProxyConf struct {
+// TCP Multiplexer
+type TcpMuxProxyConf struct {
 	BaseProxyConf
 	DomainConf
+
+	Multiplexer string `json:"multiplexer"`
 }
 
-func (cfg *TcpHttpTunnelProxyConf) Compare(cmp ProxyConf) bool {
-	cmpConf, ok := cmp.(*TcpHttpTunnelProxyConf)
+func (cfg *TcpMuxProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*TcpMuxProxyConf)
 	if !ok {
 		return false
 	}
 
 	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
-		!cfg.DomainConf.compare(&cmpConf.DomainConf) {
+		!cfg.DomainConf.compare(&cmpConf.DomainConf) ||
+		cfg.Multiplexer != cmpConf.Multiplexer {
 		return false
 	}
 	return true
 }
 
-func (cfg *TcpHttpTunnelProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
+func (cfg *TcpMuxProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.BaseProxyConf.UnmarshalFromMsg(pMsg)
 	cfg.DomainConf.UnmarshalFromMsg(pMsg)
+	cfg.Multiplexer = pMsg.Multiplexer
 }
 
-func (cfg *TcpHttpTunnelProxyConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
+func (cfg *TcpMuxProxyConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
 	if err = cfg.BaseProxyConf.UnmarshalFromIni(prefix, name, section); err != nil {
 		return
 	}
 	if err = cfg.DomainConf.UnmarshalFromIni(prefix, name, section); err != nil {
 		return
 	}
+
+	cfg.Multiplexer = section["multiplexer"]
+	if cfg.Multiplexer != consts.HttpConnectTcpMultiplexer {
+		return fmt.Errorf("parse conf error: proxy [%s] incorrect multiplexer [%s]", name, cfg.Multiplexer)
+	}
 	return
 }
 
-func (cfg *TcpHttpTunnelProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
+func (cfg *TcpMuxProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 	cfg.BaseProxyConf.MarshalToMsg(pMsg)
 	cfg.DomainConf.MarshalToMsg(pMsg)
+	pMsg.Multiplexer = cfg.Multiplexer
 }
 
-func (cfg *TcpHttpTunnelProxyConf) CheckForCli() (err error) {
+func (cfg *TcpMuxProxyConf) CheckForCli() (err error) {
 	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
 		return err
 	}
 	if err = cfg.DomainConf.checkForCli(); err != nil {
 		return err
 	}
+	if cfg.Multiplexer != consts.HttpConnectTcpMultiplexer {
+		return fmt.Errorf("parse conf error: incorrect multiplexer [%s]", cfg.Multiplexer)
+	}
 	return
 }
 
-func (cfg *TcpHttpTunnelProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
-	if serverCfg.TcpHttpTunnelPort == 0 {
-		return fmt.Errorf("type [tcphttptunnel] not support when tcp_http_tunnel_port is not set")
+func (cfg *TcpMuxProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
+	if cfg.Multiplexer != consts.HttpConnectTcpMultiplexer {
+		return fmt.Errorf("proxy [%s] incorrect multiplexer [%s]", cfg.ProxyName, cfg.Multiplexer)
 	}
+
+	if cfg.Multiplexer == consts.HttpConnectTcpMultiplexer && serverCfg.TCPMuxHTTPConnectPort == 0 {
+		return fmt.Errorf("proxy [%s] type [tcpmux] with multiplexer [httpconnect] requires tcpmux_httpconnect_port configuration", cfg.ProxyName)
+	}
+
 	if err = cfg.DomainConf.checkForSvr(serverCfg); err != nil {
 		err = fmt.Errorf("proxy [%s] domain conf check error: %v", cfg.ProxyName, err)
 		return

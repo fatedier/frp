@@ -59,11 +59,11 @@ type ServerCommonConf struct {
 	// requests. By default, this value is 0.
 	VhostHttpsPort int `json:"vhost_https_port"`
 
-	// TcpHttpTunnelPort specifies the port that the server listens for TCP Vhost
-	// requests. If the value is 0, the server will not multiplex TCP requests
-	// on one single port. If it's not - it will listen on this value for HTTP
-	// CONNECT requests. By default, this value is 0.
-	TcpHttpTunnelPort int `json:"tcp_http_tunnel_port"`
+	// TCPMuxHTTPConnectPort specifies the port that the server listens for TCP
+	// HTTP CONNECT requests. If the value is 0, the server will not multiplex TCP
+	// requests on one single port. If it's not - it will listen on this value for
+	// HTTP CONNECT requests. By default, this value is 0.
+	TCPMuxHTTPConnectPort int `json:"tcpmux_httpconnect_port"`
 
 	// VhostHttpTimeout specifies the response header timeout for the Vhost
 	// HTTP server, in seconds. By default, this value is 60.
@@ -161,7 +161,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		ProxyBindAddr:          "0.0.0.0",
 		VhostHttpPort:          0,
 		VhostHttpsPort:         0,
-		TcpHttpTunnelPort:      0,
+		TCPMuxHTTPConnectPort:  0,
 		VhostHttpTimeout:       60,
 		DashboardAddr:          "0.0.0.0",
 		DashboardPort:          0,
@@ -266,15 +266,15 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 		cfg.VhostHttpsPort = 0
 	}
 
-	if tmpStr, ok = conf.Get("common", "tcp_http_tunnel_port"); ok {
+	if tmpStr, ok = conf.Get("common", "tcpmux_httpconnect_port"); ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
-			err = fmt.Errorf("Parse conf error: invalid tcp_http_tunnel_port")
+			err = fmt.Errorf("Parse conf error: invalid tcpmux_httpconnect_port")
 			return
 		} else {
-			cfg.TcpHttpTunnelPort = int(v)
+			cfg.TCPMuxHTTPConnectPort = int(v)
 		}
 	} else {
-		cfg.TcpHttpTunnelPort = 0
+		cfg.TCPMuxHTTPConnectPort = 0
 	}
 
 	if tmpStr, ok = conf.Get("common", "vhost_http_timeout"); ok {

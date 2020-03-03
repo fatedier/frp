@@ -18,6 +18,7 @@ import (
 	"github.com/fatedier/frp/models/nathole"
 	"github.com/fatedier/frp/server/group"
 	"github.com/fatedier/frp/server/ports"
+	"github.com/fatedier/frp/utils/tcpmux"
 	"github.com/fatedier/frp/utils/vhost"
 )
 
@@ -44,9 +45,9 @@ type ResourceController struct {
 	// For https proxies, route requests to different clients by hostname and other information
 	VhostHttpsMuxer *vhost.HttpsMuxer
 
-	// For tcp proxies, route requests to different proxies based on HTTP CONNECT header
-	VhostTcpMuxer *vhost.TcpHttpTunnelMuxer
-
 	// Controller for nat hole connections
 	NatHoleController *nathole.NatHoleController
+
+	// TcpMux HTTP CONNECT multiplexer
+	TcpMuxHttpConnectMuxer *tcpmux.HttpConnectTcpMuxer
 }

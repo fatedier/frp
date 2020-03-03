@@ -66,6 +66,7 @@ var (
 	hostHeaderRewrite string
 	role              string
 	sk                string
+	multiplexer       string
 	serverName        string
 	bindAddr          string
 	bindPort          int

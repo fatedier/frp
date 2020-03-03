@@ -177,8 +177,8 @@ func NewProxy(ctx context.Context, runId string, rc *controller.ResourceControll
 			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
-	case *config.TcpHttpTunnelProxyConf:
-		pxy = &TcpHttpTunnelProxy{
+	case *config.TcpMuxProxyConf:
+		pxy = &TcpMuxProxy{
 			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
