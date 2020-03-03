@@ -41,7 +41,7 @@ func (pxy *TcpMuxProxy) httpConnectListen(domain string, addrs []string) ([]stri
 	}
 	pxy.xl.Info("tcpmux httpconnect multiplexer listens for host [%s]", routeConfig.Domain)
 	pxy.listeners = append(pxy.listeners, l)
-	return append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.TCPMuxHTTPConnectPort)), nil
+	return append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.TcpMuxHttpConnectPort)), nil
 }
 
 func (pxy *TcpMuxProxy) httpConnectRun() (remoteAddr string, err error) {

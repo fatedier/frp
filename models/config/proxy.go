@@ -642,7 +642,7 @@ func (cfg *TcpMuxProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) 
 		return fmt.Errorf("proxy [%s] incorrect multiplexer [%s]", cfg.ProxyName, cfg.Multiplexer)
 	}
 
-	if cfg.Multiplexer == consts.HttpConnectTcpMultiplexer && serverCfg.TCPMuxHTTPConnectPort == 0 {
+	if cfg.Multiplexer == consts.HttpConnectTcpMultiplexer && serverCfg.TcpMuxHttpConnectPort == 0 {
 		return fmt.Errorf("proxy [%s] type [tcpmux] with multiplexer [httpconnect] requires tcpmux_httpconnect_port configuration", cfg.ProxyName)
 	}
 
