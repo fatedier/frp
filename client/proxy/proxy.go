@@ -146,7 +146,7 @@ func (pxy *TcpProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 		conn, []byte(pxy.clientCfg.Token), m)
 }
 
-// TCP HTTP Tunnel
+// TCP Multiplexer
 type TcpMuxProxy struct {
 	*BaseProxy
 
