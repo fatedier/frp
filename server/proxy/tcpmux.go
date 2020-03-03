@@ -31,50 +31,56 @@ type TcpMuxProxy struct {
 	realPort int
 }
 
-func (pxy *TcpMuxProxy) Run() (remoteAddr string, err error) {
-	xl := pxy.xl
+func (pxy *TcpMuxProxy) httpConnectListen(domain string, addrs []string) ([]string, error) {
+	routeConfig := &vhost.VhostRouteConfig{
+		Domain: domain,
+	}
+	l, err := pxy.rc.TcpMuxHttpConnectMuxer.Listen(pxy.ctx, routeConfig)
+	if err != nil {
+		return nil, err
+	}
+	pxy.xl.Info("tcpmux httpconnect multiplexer listens for host [%s]", routeConfig.Domain)
+	pxy.listeners = append(pxy.listeners, l)
+	return append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.TCPMuxHTTPConnectPort)), nil
+}
 
+func (pxy *TcpMuxProxy) httpConnectRun() (remoteAddr string, err error) {
+	addrs := make([]string, 0)
+	for _, domain := range pxy.cfg.CustomDomains {
+		if domain == "" {
+			continue
+		}
+
+		addrs, err = pxy.httpConnectListen(domain, addrs)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if pxy.cfg.SubDomain != "" {
+		addrs, err = pxy.httpConnectListen(pxy.cfg.SubDomain+"."+pxy.serverCfg.SubDomainHost, addrs)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	pxy.startListenHandler(pxy, HandleUserTcpConnection)
+	remoteAddr = strings.Join(addrs, ",")
+	return remoteAddr, err
+}
+
+func (pxy *TcpMuxProxy) Run() (remoteAddr string, err error) {
 	switch pxy.cfg.Multiplexer {
 	case consts.HttpConnectTcpMultiplexer:
-		routeConfig := &vhost.VhostRouteConfig{}
-		defer func() {
-			if err != nil {
-				pxy.Close()
-			}
-		}()
-		addrs := make([]string, 0)
-		for _, domain := range pxy.cfg.CustomDomains {
-			if domain == "" {
-				continue
-			}
-
-			routeConfig.Domain = domain
-			l, err := pxy.rc.TcpMuxHttpConnectMuxer.Listen(pxy.ctx, routeConfig)
-			if err != nil {
-				return remoteAddr, err
-			}
-			xl.Info("tcpmux httpconnect multiplexer listens for host [%s]", routeConfig.Domain)
-			pxy.listeners = append(pxy.listeners, l)
-			addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.TCPMuxHTTPConnectPort))
-		}
-
-		if pxy.cfg.SubDomain != "" {
-			routeConfig.Domain = pxy.cfg.SubDomain + "." + pxy.serverCfg.SubDomainHost
-			l, err := pxy.rc.TcpMuxHttpConnectMuxer.Listen(pxy.ctx, routeConfig)
-			if err != nil {
-				return remoteAddr, err
-			}
-			xl.Info("tcpmux httpconnect multiplexer listens for host [%s]", routeConfig.Domain)
-			pxy.listeners = append(pxy.listeners, l)
-			addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.TCPMuxHTTPConnectPort))
-		}
-
-		pxy.startListenHandler(pxy, HandleUserTcpConnection)
-		remoteAddr = strings.Join(addrs, ",")
-		return remoteAddr, err
+		remoteAddr, err = pxy.httpConnectRun()
 	default:
+		err = fmt.Errorf("unknown multiplexer [%s]", pxy.cfg.Multiplexer)
 	}
-	return "", fmt.Errorf("unknown multiplexer [%s]", pxy.cfg.Multiplexer)
+
+	if err != nil {
+		pxy.Close()
+	}
+	return remoteAddr, err
 }
 
 func (pxy *TcpMuxProxy) GetConf() config.ProxyConf {
