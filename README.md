@@ -752,7 +752,7 @@ proxy_protocol_version = v2
 
 You can enable Proxy Protocol support in nginx to expose user's real IP in HTTP header `X-Real-IP`, and then read `X-Real-IP` header in your web service for the real IP.
 
-### Require HTTP Basic auth (password) for web services
+### Require HTTP Basic Auth (Password) for Web Services
 
 Anyone who can guess your tunnel URL can access your local web server unless you protect it with a password.
 
@@ -772,7 +772,7 @@ http_pwd = abc
 
 Visit `http://test.example.com` in the browser and now you are prompted to enter the username and password.
 
-### Custom subdomain names
+### Custom Subdomain Names
 
 It is convenient to use `subdomain` configure for http and https types when many people share one frps server.
 
@@ -795,7 +795,7 @@ Now you can visit your web service on `test.frps.com`.
 
 Note that if `subdomain_host` is not empty, `custom_domains` should not be the subdomain of `subdomain_host`.
 
-### URL routing
+### URL Routing
 
 frp supports forwarding HTTP requests to different backend web services by url routing.
 
@@ -817,6 +817,49 @@ locations = /news,/about
 ```
 
 HTTP requests with URL prefix `/news` or `/about` will be forwarded to **web02** and other requests to **web01**.
+
+### TCP Multiplexing
+
+frp supports receiving TCP sockets directed to different proxies on a single port on frps, similar to `vhost_http_port` and `vhost_https_port`.
+
+The only supported TCP multiplexing method available at the moment is `httpconnect` - HTTP CONNECT tunnel.
+
+When setting `tcpmux_httpconnect_port` to anything other than 0 in frps under `[common]`, frps will listen on this port for HTTP CONNECT requests.
+
+The host of the HTTP CONNECT request will be used to match the proxy in frps. Proxy hosts can be configured in frpc by configuring `custom_domain` and / or `subdomain` under `type = tcpmux` proxies, when `multiplexer = httpconnect`.
+
+For example:
+
+```ini
+# frps.ini
+[common]
+bind_port = 7000
+tcpmux_httpconnect_port = 1337
+```
+
+```ini
+# frpc.ini
+[common]
+server_addr = x.x.x.x
+server_port = 7000
+
+[proxy1]
+type = tcpmux
+multiplexer = httpconnect
+custom_domains = test1
+
+[proxy2]
+type = tcpmux
+multiplexer = httpconnect
+custom_domains = test2
+```
+
+In the above configuration - frps can be contacted on port 1337 with a HTTP CONNECT header such as:
+
+```
+CONNECT test1 HTTP/1.1\r\n\r\n
+```
+and the connection will be routed to `proxy1`.
 
 ### Connecting to frps via HTTP PROXY
 

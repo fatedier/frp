@@ -18,6 +18,7 @@ import (
 	"github.com/fatedier/frp/models/nathole"
 	"github.com/fatedier/frp/server/group"
 	"github.com/fatedier/frp/server/ports"
+	"github.com/fatedier/frp/utils/tcpmux"
 	"github.com/fatedier/frp/utils/vhost"
 )
 
@@ -46,4 +47,7 @@ type ResourceController struct {
 
 	// Controller for nat hole connections
 	NatHoleController *nathole.NatHoleController
+
+	// TcpMux HTTP CONNECT multiplexer
+	TcpMuxHttpConnectMuxer *tcpmux.HttpConnectTcpMuxer
 }
