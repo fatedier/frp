@@ -20,6 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/fatedier/frp/models/auth"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/server"
 	"github.com/fatedier/frp/utils/log"
@@ -171,8 +172,11 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 	cfg.LogFile = logFile
 	cfg.LogLevel = logLevel
 	cfg.LogMaxDays = logMaxDays
-	cfg.Token = token
 	cfg.SubDomainHost = subDomainHost
+
+	// Only token authentication is supported in cmd mode
+	cfg.AuthServerConfig = auth.GetDefaultAuthServerConf()
+	cfg.Token = token
 	if len(allowPorts) > 0 {
 		// e.g. 1000-2000,2001,2002,3000-4000
 		ports, errRet := util.ParseRangeNumbers(allowPorts)

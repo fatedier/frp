@@ -30,17 +30,20 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/assets"
+	"github.com/fatedier/frp/models/auth"
 	"github.com/fatedier/frp/models/config"
+	modelmetrics "github.com/fatedier/frp/models/metrics"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/models/nathole"
 	plugin "github.com/fatedier/frp/models/plugin/server"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/group"
+	"github.com/fatedier/frp/server/metrics"
 	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/server/proxy"
-	"github.com/fatedier/frp/server/stats"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
+	"github.com/fatedier/frp/utils/tcpmux"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/version"
 	"github.com/fatedier/frp/utils/vhost"
@@ -51,7 +54,8 @@ import (
 )
 
 const (
-	connReadTimeout time.Duration = 10 * time.Second
+	connReadTimeout       time.Duration = 10 * time.Second
+	vhostReadWriteTimeout time.Duration = 30 * time.Second
 )
 
 // Server service
@@ -86,8 +90,8 @@ type Service struct {
 	// All resource managers and controllers
 	rc *controller.ResourceController
 
-	// stats collector to store server and proxies stats info
-	statsCollector stats.Collector
+	// Verifies authentication based on selected method
+	authVerifier auth.Verifier
 
 	tlsConfig *tls.Config
 
@@ -105,6 +109,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			UdpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 		},
 		httpVhostRouter: vhost.NewVhostRouters(),
+		authVerifier:    auth.NewAuthVerifier(cfg.AuthServerConfig),
 		tlsConfig:       generateTLSConfig(),
 		cfg:             cfg,
 	}
@@ -207,12 +212,29 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			}
 		}
 
-		svr.rc.VhostHttpsMuxer, err = vhost.NewHttpsMuxer(l, 30*time.Second)
+		svr.rc.VhostHttpsMuxer, err = vhost.NewHttpsMuxer(l, vhostReadWriteTimeout)
 		if err != nil {
 			err = fmt.Errorf("Create vhost httpsMuxer error, %v", err)
 			return
 		}
 		log.Info("https service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHttpsPort)
+	}
+
+	// Create tcpmux httpconnect multiplexer.
+	if cfg.TcpMuxHttpConnectPort > 0 {
+		var l net.Listener
+		l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.TcpMuxHttpConnectPort))
+		if err != nil {
+			err = fmt.Errorf("Create server listener error, %v", err)
+			return
+		}
+
+		svr.rc.TcpMuxHttpConnectMuxer, err = tcpmux.NewHttpConnectTcpMuxer(l, vhostReadWriteTimeout)
+		if err != nil {
+			err = fmt.Errorf("Create vhost tcpMuxer error, %v", err)
+			return
+		}
+		log.Info("tcpmux httpconnect multiplexer listen on %s:%d", cfg.ProxyBindAddr, cfg.TcpMuxHttpConnectPort)
 	}
 
 	// frp tls listener
@@ -251,8 +273,12 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		log.Info("Dashboard listen on %s:%d", cfg.DashboardAddr, cfg.DashboardPort)
 		statsEnable = true
 	}
-
-	svr.statsCollector = stats.NewInternalCollector(statsEnable)
+	if statsEnable {
+		modelmetrics.EnableMem()
+		if cfg.EnablePrometheus {
+			modelmetrics.EnablePrometheus()
+		}
+	}
 	return
 }
 
@@ -284,7 +310,7 @@ func (svr *Service) HandleListener(l net.Listener) {
 
 		log.Trace("start check TLS connection...")
 		originConn := c
-		c, err = frpNet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, connReadTimeout)
+		c, err = frpNet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, svr.cfg.TlsOnly, connReadTimeout)
 		if err != nil {
 			log.Warn("CheckAndEnableTLSServerConnWithTimeout error: %v", err)
 			originConn.Close()
@@ -322,18 +348,20 @@ func (svr *Service) HandleListener(l net.Listener) {
 						xl.Warn("register control error: %v", err)
 						msg.WriteMsg(conn, &msg.LoginResp{
 							Version: version.Full(),
-							Error:   err.Error(),
+							Error:   util.GenerateResponseErrorString("register control error", err, svr.cfg.DetailedErrorsToClient),
 						})
 						conn.Close()
 					}
 				case *msg.NewWorkConn:
-					svr.RegisterWorkConn(conn, m)
+					if err := svr.RegisterWorkConn(conn, m); err != nil {
+						conn.Close()
+					}
 				case *msg.NewVisitorConn:
 					if err = svr.RegisterVisitorConn(conn, m); err != nil {
 						xl.Warn("register visitor conn error: %v", err)
 						msg.WriteMsg(conn, &msg.NewVisitorConnResp{
 							ProxyName: m.ProxyName,
-							Error:     err.Error(),
+							Error:     util.GenerateResponseErrorString("register visitor conn error", err, svr.cfg.DetailedErrorsToClient),
 						})
 						conn.Close()
 					} else {
@@ -399,13 +427,11 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 	}
 
 	// Check auth.
-	if util.GetAuthKey(svr.cfg.Token, loginMsg.Timestamp) != loginMsg.PrivilegeKey {
-		err = fmt.Errorf("authorization failed")
+	if err = svr.authVerifier.VerifyLogin(loginMsg); err != nil {
 		return
 	}
 
-	ctl := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, svr.statsCollector, ctlConn, loginMsg, svr.cfg)
-
+	ctl := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, svr.authVerifier, ctlConn, loginMsg, svr.cfg)
 	if oldCtl := svr.ctlManager.Add(loginMsg.RunId, ctl); oldCtl != nil {
 		oldCtl.allShutdown.WaitDone()
 	}
@@ -413,7 +439,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 	ctl.Start()
 
 	// for statistics
-	svr.statsCollector.Mark(stats.TypeNewClient, &stats.NewClientPayload{})
+	metrics.Server.NewClient()
 
 	go func() {
 		// block until control closed
@@ -424,15 +450,22 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 }
 
 // RegisterWorkConn register a new work connection to control and proxies need it.
-func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn) {
+func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn) error {
 	xl := frpNet.NewLogFromConn(workConn)
 	ctl, exist := svr.ctlManager.GetById(newMsg.RunId)
 	if !exist {
 		xl.Warn("No client control found for run id [%s]", newMsg.RunId)
-		return
+		return fmt.Errorf("no client control found for run id [%s]", newMsg.RunId)
 	}
-	ctl.RegisterWorkConn(workConn)
-	return
+	// Check auth.
+	if err := svr.authVerifier.VerifyNewWorkConn(newMsg); err != nil {
+		xl.Warn("Invalid authentication in NewWorkConn message on run id [%s]", newMsg.RunId)
+		msg.WriteMsg(workConn, &msg.StartWorkConn{
+			Error: "invalid authentication in NewWorkConn",
+		})
+		return fmt.Errorf("invalid authentication in NewWorkConn message on run id [%s]", newMsg.RunId)
+	}
+	return ctl.RegisterWorkConn(workConn)
 }
 
 func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVisitorConn) error {

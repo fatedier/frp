@@ -27,6 +27,7 @@ _testmain.go
 bin/
 packages/
 test/bin/
+vendor/
 
 # Cache
 *.swp
