@@ -32,14 +32,15 @@ import (
 	"github.com/fatedier/frp/assets"
 	"github.com/fatedier/frp/models/auth"
 	"github.com/fatedier/frp/models/config"
+	modelmetrics "github.com/fatedier/frp/models/metrics"
 	"github.com/fatedier/frp/models/msg"
 	"github.com/fatedier/frp/models/nathole"
 	plugin "github.com/fatedier/frp/models/plugin/server"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/group"
+	"github.com/fatedier/frp/server/metrics"
 	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/server/proxy"
-	"github.com/fatedier/frp/server/stats"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/tcpmux"
@@ -91,9 +92,6 @@ type Service struct {
 
 	// Verifies authentication based on selected method
 	authVerifier auth.Verifier
-
-	// stats collector to store server and proxies stats info
-	statsCollector stats.Collector
 
 	tlsConfig *tls.Config
 
@@ -275,8 +273,12 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		log.Info("Dashboard listen on %s:%d", cfg.DashboardAddr, cfg.DashboardPort)
 		statsEnable = true
 	}
-
-	svr.statsCollector = stats.NewInternalCollector(statsEnable)
+	if statsEnable {
+		modelmetrics.EnableMem()
+		if cfg.EnablePrometheus {
+			modelmetrics.EnablePrometheus()
+		}
+	}
 	return
 }
 
@@ -429,8 +431,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 		return
 	}
 
-	ctl := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, svr.statsCollector, svr.authVerifier, ctlConn, loginMsg, svr.cfg)
-
+	ctl := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, svr.authVerifier, ctlConn, loginMsg, svr.cfg)
 	if oldCtl := svr.ctlManager.Add(loginMsg.RunId, ctl); oldCtl != nil {
 		oldCtl.allShutdown.WaitDone()
 	}
@@ -438,7 +439,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 	ctl.Start()
 
 	// for statistics
-	svr.statsCollector.Mark(stats.TypeNewClient, &stats.NewClientPayload{})
+	metrics.Server.NewClient()
 
 	go func() {
 		// block until control closed

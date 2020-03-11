@@ -17,13 +17,13 @@ require (
 	github.com/klauspost/reedsolomon v1.9.1 // indirect
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/pires/go-proxyproto v0.0.0-20190111085350-4d51b51e3bfc
-	github.com/pkg/errors v0.8.0 // indirect
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
+	github.com/prometheus/client_golang v1.4.1
 	github.com/rakyll/statik v0.1.1
 	github.com/rodaine/table v1.0.0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.1 // indirect
-	github.com/stretchr/testify v1.3.0
+	github.com/stretchr/testify v1.4.0
 	github.com/templexxx/cpufeat v0.0.0-20170927014610-3794dfbfb047 // indirect
 	github.com/templexxx/xor v0.0.0-20170926022130-0af8e873c554 // indirect
 	github.com/tjfoc/gmsm v0.0.0-20171124023159-98aa888b79d8 // indirect

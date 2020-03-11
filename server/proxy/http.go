@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/server/stats"
+	"github.com/fatedier/frp/server/metrics"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/vhost"
@@ -159,21 +159,16 @@ func (pxy *HttpProxy) GetRealConn(remoteAddr string) (workConn net.Conn, err err
 	}
 	workConn = frpNet.WrapReadWriteCloserToConn(rwc, tmpConn)
 	workConn = frpNet.WrapStatsConn(workConn, pxy.updateStatsAfterClosedConn)
-	pxy.statsCollector.Mark(stats.TypeOpenConnection, &stats.OpenConnectionPayload{ProxyName: pxy.GetName()})
+	metrics.Server.OpenConnection(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
 	return
 }
 
 func (pxy *HttpProxy) updateStatsAfterClosedConn(totalRead, totalWrite int64) {
 	name := pxy.GetName()
-	pxy.statsCollector.Mark(stats.TypeCloseProxy, &stats.CloseConnectionPayload{ProxyName: name})
-	pxy.statsCollector.Mark(stats.TypeAddTrafficIn, &stats.AddTrafficInPayload{
-		ProxyName:    name,
-		TrafficBytes: totalWrite,
-	})
-	pxy.statsCollector.Mark(stats.TypeAddTrafficOut, &stats.AddTrafficOutPayload{
-		ProxyName:    name,
-		TrafficBytes: totalRead,
-	})
+	proxyType := pxy.GetConf().GetBaseInfo().ProxyType
+	metrics.Server.CloseConnection(name, proxyType)
+	metrics.Server.AddTrafficIn(name, proxyType, totalWrite)
+	metrics.Server.AddTrafficOut(name, proxyType, totalRead)
 }
 
 func (pxy *HttpProxy) Close() {

@@ -1,4 +1,4 @@
-// Copyright 2018 fatedier, fatedier@gmail.com
+// Copyright 2020 fatedier, fatedier@gmail.com
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,21 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package metric
 
-import (
-	"math/rand"
-	"time"
+// GaugeMetric represents a single numerical value that can arbitrarily go up
+// and down.
+type GaugeMetric interface {
+	Inc()
+	Dec()
+	Set(float64)
+}
 
-	"github.com/fatedier/golib/crypto"
+// CounterMetric represents a single numerical value that only ever
+// goes up.
+type CounterMetric interface {
+	Inc()
+}
 
-	_ "github.com/fatedier/frp/assets/frps/statik"
-	_ "github.com/fatedier/frp/models/metrics"
-)
-
-func main() {
-	crypto.DefaultSalt = "frp"
-	rand.Seed(time.Now().UnixNano())
-
-	Execute()
+// HistogramMetric counts individual observations.
+type HistogramMetric interface {
+	Observe(float64)
 }
