@@ -422,6 +422,7 @@ func (ctl *Control) manager() {
 					User: plugin.UserInfo{
 						User:  ctl.loginMsg.User,
 						Metas: ctl.loginMsg.Metas,
+						RunId: ctl.loginMsg.RunId,
 					},
 					NewProxy: *m,
 				}
