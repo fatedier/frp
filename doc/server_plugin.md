@@ -70,7 +70,7 @@ The response can look like any of the following:
 
 ### Operation
 
-Currently `Login` and `NewProxy` operations are supported.
+Currently `Login`, `NewProxy` and `Ping` operations are supported.
 
 #### Login
 
@@ -135,6 +135,24 @@ Create new proxy
 }
 ```
 
+#### Ping
+
+Heartbeat from frpc
+
+```
+{
+    "content": {
+        "user": {
+            "user": <string>,
+            "metas": map<string>string
+            "run_id": <string>
+        },
+        "timestamp": <int64>,
+        "privilege_key": <string>
+    }
+}
+```
+
 ### Server Plugin Configuration
 
 ```ini
@@ -155,7 +173,7 @@ ops = NewProxy
 
 addr: the address where the external RPC service listens on.
 path: http request url path for the POST request.
-ops: operations plugin needs to handle (e.g. "Login", "NewProxy").
+ops: operations plugin needs to handle (e.g. "Login", "NewProxy", "Ping").
 
 ### Metadata
 
