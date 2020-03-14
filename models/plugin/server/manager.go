@@ -26,6 +26,7 @@ import (
 type Manager struct {
 	loginPlugins    []Plugin
 	newProxyPlugins []Plugin
+	pingPlugins     []Plugin
 }
 
 func NewManager() *Manager {
@@ -41,6 +42,9 @@ func (m *Manager) Register(p Plugin) {
 	}
 	if p.IsSupport(OpNewProxy) {
 		m.newProxyPlugins = append(m.newProxyPlugins, p)
+	}
+	if p.IsSupport(OpPing) {
+		m.pingPlugins = append(m.pingPlugins, p)
 	}
 }
 
@@ -99,6 +103,36 @@ func (m *Manager) NewProxy(content *NewProxyContent) (*NewProxyContent, error) {
 		}
 		if !res.Unchange {
 			content = retContent.(*NewProxyContent)
+		}
+	}
+	return content, nil
+}
+
+func (m *Manager) Ping(content *PingContent) (*PingContent, error) {
+	var (
+		res = &Response{
+			Reject:   false,
+			Unchange: true,
+		}
+		retContent interface{}
+		err        error
+	)
+	reqid, _ := util.RandId()
+	xl := xlog.New().AppendPrefix("reqid: " + reqid)
+	ctx := xlog.NewContext(context.Background(), xl)
+	ctx = NewReqidContext(ctx, reqid)
+
+	for _, p := range m.pingPlugins {
+		res, retContent, err = p.Handle(ctx, OpPing, *content)
+		if err != nil {
+			xl.Warn("send Ping request to plugin [%s] error: %v", p.Name(), err)
+			return nil, errors.New("send Ping request to plugin error")
+		}
+		if res.Reject {
+			return nil, fmt.Errorf("%s", res.RejectReason)
+		}
+		if !res.Unchange {
+			content = retContent.(*PingContent)
 		}
 	}
 	return content, nil

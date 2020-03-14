@@ -450,7 +450,20 @@ func (ctl *Control) manager() {
 				ctl.CloseProxy(m)
 				xl.Info("close proxy [%s] success", m.ProxyName)
 			case *msg.Ping:
-				if err := ctl.authVerifier.VerifyPing(m); err != nil {
+				content := &plugin.PingContent{
+					User: plugin.UserInfo{
+						User:  ctl.loginMsg.User,
+						Metas: ctl.loginMsg.Metas,
+						RunId: ctl.loginMsg.RunId,
+					},
+					Ping: *m,
+				}
+				retContent, err := ctl.pluginManager.Ping(content)
+				if err == nil {
+					m = &retContent.Ping
+					err = ctl.authVerifier.VerifyPing(m)
+				}
+				if err != nil {
 					xl.Warn("received invalid ping: %v", err)
 					ctl.sendCh <- &msg.Pong{
 						Error: "invalid authentication in ping",
