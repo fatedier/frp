@@ -466,7 +466,7 @@ func (ctl *Control) manager() {
 				if err != nil {
 					xl.Warn("received invalid ping: %v", err)
 					ctl.sendCh <- &msg.Pong{
-						Error: "invalid authentication in ping",
+						Error: util.GenerateResponseErrorString("invalid ping", err, ctl.serverCfg.DetailedErrorsToClient),
 					}
 					return
 				}
