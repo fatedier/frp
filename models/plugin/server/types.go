@@ -45,3 +45,13 @@ type NewProxyContent struct {
 	User UserInfo `json:"user"`
 	msg.NewProxy
 }
+
+type PingContent struct {
+	User UserInfo `json:"user"`
+	msg.Ping
+}
+
+type NewWorkConnContent struct {
+	User UserInfo `json:"user"`
+	msg.NewWorkConn
+}
