@@ -24,15 +24,18 @@ import (
 )
 
 type Manager struct {
-	loginPlugins    []Plugin
-	newProxyPlugins []Plugin
-	pingPlugins     []Plugin
+	loginPlugins       []Plugin
+	newProxyPlugins    []Plugin
+	pingPlugins        []Plugin
+	newWorkConnPlugins []Plugin
 }
 
 func NewManager() *Manager {
 	return &Manager{
-		loginPlugins:    make([]Plugin, 0),
-		newProxyPlugins: make([]Plugin, 0),
+		loginPlugins:       make([]Plugin, 0),
+		newProxyPlugins:    make([]Plugin, 0),
+		pingPlugins:        make([]Plugin, 0),
+		newWorkConnPlugins: make([]Plugin, 0),
 	}
 }
 
@@ -44,6 +47,9 @@ func (m *Manager) Register(p Plugin) {
 		m.newProxyPlugins = append(m.newProxyPlugins, p)
 	}
 	if p.IsSupport(OpPing) {
+		m.pingPlugins = append(m.pingPlugins, p)
+	}
+	if p.IsSupport(OpNewWorkConn) {
 		m.pingPlugins = append(m.pingPlugins, p)
 	}
 }
@@ -133,6 +139,36 @@ func (m *Manager) Ping(content *PingContent) (*PingContent, error) {
 		}
 		if !res.Unchange {
 			content = retContent.(*PingContent)
+		}
+	}
+	return content, nil
+}
+
+func (m *Manager) NewWorkConn(content *NewWorkConnContent) (*NewWorkConnContent, error) {
+	var (
+		res = &Response{
+			Reject:   false,
+			Unchange: true,
+		}
+		retContent interface{}
+		err        error
+	)
+	reqid, _ := util.RandId()
+	xl := xlog.New().AppendPrefix("reqid: " + reqid)
+	ctx := xlog.NewContext(context.Background(), xl)
+	ctx = NewReqidContext(ctx, reqid)
+
+	for _, p := range m.pingPlugins {
+		res, retContent, err = p.Handle(ctx, OpPing, *content)
+		if err != nil {
+			xl.Warn("send NewWorkConn request to plugin [%s] error: %v", p.Name(), err)
+			return nil, errors.New("send NewWorkConn request to plugin error")
+		}
+		if res.Reject {
+			return nil, fmt.Errorf("%s", res.RejectReason)
+		}
+		if !res.Unchange {
+			content = retContent.(*NewWorkConnContent)
 		}
 	}
 	return content, nil

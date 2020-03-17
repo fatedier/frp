@@ -457,13 +457,27 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 		xl.Warn("No client control found for run id [%s]", newMsg.RunId)
 		return fmt.Errorf("no client control found for run id [%s]", newMsg.RunId)
 	}
-	// Check auth.
-	if err := svr.authVerifier.VerifyNewWorkConn(newMsg); err != nil {
-		xl.Warn("Invalid authentication in NewWorkConn message on run id [%s]", newMsg.RunId)
+	// server plugin hook
+	content := &plugin.NewWorkConnContent{
+		User: plugin.UserInfo{
+			User:  ctl.loginMsg.User,
+			Metas: ctl.loginMsg.Metas,
+			RunId: ctl.loginMsg.RunId,
+		},
+		NewWorkConn: *newMsg,
+	}
+	retContent, err := svr.pluginManager.NewWorkConn(content)
+	if err == nil {
+		newMsg = &retContent.NewWorkConn
+		// Check auth.
+		err = svr.authVerifier.VerifyNewWorkConn(newMsg)
+	}
+	if err != nil {
+		xl.Warn("invalid NewWorkConn with run id [%s]", newMsg.RunId)
 		msg.WriteMsg(workConn, &msg.StartWorkConn{
-			Error: "invalid authentication in NewWorkConn",
+			Error: util.GenerateResponseErrorString("invalid NewWorkConn", err, ctl.serverCfg.DetailedErrorsToClient),
 		})
-		return fmt.Errorf("invalid authentication in NewWorkConn message on run id [%s]", newMsg.RunId)
+		return fmt.Errorf("invalid NewWorkConn with run id [%s]", newMsg.RunId)
 	}
 	return ctl.RegisterWorkConn(workConn)
 }
