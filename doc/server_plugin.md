@@ -70,7 +70,7 @@ The response can look like any of the following:
 
 ### Operation
 
-Currently `Login`, `NewProxy` and `Ping` operations are supported.
+Currently `Login`, `NewProxy`, `Ping` and `NewWorkConn` operations are supported.
 
 #### Login
 
@@ -153,6 +153,25 @@ Heartbeat from frpc
 }
 ```
 
+#### NewWorkConn
+
+New work connection received from frpc (RPC sent after `run_id` is matched with an existing frp connection)
+
+```
+{
+    "content": {
+        "user": {
+            "user": <string>,
+            "metas": map<string>string
+            "run_id": <string>
+        },
+        "run_id": <string>
+        "timestamp": <int64>,
+        "privilege_key": <string>
+    }
+}
+```
+
 ### Server Plugin Configuration
 
 ```ini
@@ -173,7 +192,7 @@ ops = NewProxy
 
 addr: the address where the external RPC service listens on.
 path: http request url path for the POST request.
-ops: operations plugin needs to handle (e.g. "Login", "NewProxy", "Ping").
+ops: operations plugin needs to handle (e.g. "Login", "NewProxy", ...).
 
 ### Metadata
 
