@@ -22,7 +22,7 @@ HTTP path can be configured for each manage plugin in frps. We'll assume for thi
 A request to the RPC server will look like:
 
 ```
-POST /handler
+POST /handler?version=0.1.0&op=Login
 {
     "version": "0.1.0",
     "op": "Login",
