@@ -933,6 +933,8 @@ plugin_http_passwd = abc
 
 Read the [document](/doc/server_plugin.md).
 
+Find more plugins in [gofrp/plugin](https://github.com/gofrp/plugin).
+
 ## Development Plan
 
 * Log HTTP request information in frps.
