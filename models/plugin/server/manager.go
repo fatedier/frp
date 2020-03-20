@@ -55,6 +55,10 @@ func (m *Manager) Register(p Plugin) {
 }
 
 func (m *Manager) Login(content *LoginContent) (*LoginContent, error) {
+	if len(m.loginPlugins) == 0 {
+		return content, nil
+	}
+
 	var (
 		res = &Response{
 			Reject:   false,
@@ -85,6 +89,10 @@ func (m *Manager) Login(content *LoginContent) (*LoginContent, error) {
 }
 
 func (m *Manager) NewProxy(content *NewProxyContent) (*NewProxyContent, error) {
+	if len(m.newProxyPlugins) == 0 {
+		return content, nil
+	}
+
 	var (
 		res = &Response{
 			Reject:   false,
@@ -115,6 +123,10 @@ func (m *Manager) NewProxy(content *NewProxyContent) (*NewProxyContent, error) {
 }
 
 func (m *Manager) Ping(content *PingContent) (*PingContent, error) {
+	if len(m.pingPlugins) == 0 {
+		return content, nil
+	}
+
 	var (
 		res = &Response{
 			Reject:   false,
@@ -145,6 +157,10 @@ func (m *Manager) Ping(content *PingContent) (*PingContent, error) {
 }
 
 func (m *Manager) NewWorkConn(content *NewWorkConnContent) (*NewWorkConnContent, error) {
+	if len(m.newWorkConnPlugins) == 0 {
+		return content, nil
+	}
+
 	var (
 		res = &Response{
 			Reject:   false,
