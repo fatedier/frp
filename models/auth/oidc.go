@@ -17,6 +17,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	"github.com/fatedier/frp/models/msg"
 
@@ -148,10 +149,11 @@ type OidcAuthProvider struct {
 
 func NewOidcAuthSetter(baseCfg baseConfig, cfg oidcClientConfig) *OidcAuthProvider {
 	tokenGenerator := &clientcredentials.Config{
-		ClientID:     cfg.OidcClientId,
-		ClientSecret: cfg.OidcClientSecret,
-		Scopes:       []string{cfg.OidcAudience},
-		TokenURL:     cfg.OidcTokenEndpointUrl,
+		ClientID:       cfg.OidcClientId,
+		ClientSecret:   cfg.OidcClientSecret,
+		Scopes:         []string{cfg.OidcAudience},
+		TokenURL:       cfg.OidcTokenEndpointUrl,
+		EndpointParams: url.Values{"audience": []string{cfg.OidcAudience}},
 	}
 
 	return &OidcAuthProvider{
