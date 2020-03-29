@@ -26,6 +26,7 @@ import (
 	"time"
 
 	frpLog "github.com/fatedier/frp/utils/log"
+	"github.com/fatedier/frp/utils/util"
 
 	"github.com/fatedier/golib/pool"
 )
@@ -33,16 +34,6 @@ import (
 var (
 	ErrNoDomain = errors.New("no such domain")
 )
-
-func getHostFromAddr(addr string) (host string) {
-	strs := strings.Split(addr, ":")
-	if len(strs) > 1 {
-		host = strs[0]
-	} else {
-		host = addr
-	}
-	return
-}
 
 type HttpReverseProxyOptions struct {
 	ResponseHeaderTimeoutS int64
@@ -67,7 +58,7 @@ func NewHttpReverseProxy(option HttpReverseProxyOptions, vhostRouter *VhostRoute
 		Director: func(req *http.Request) {
 			req.URL.Scheme = "http"
 			url := req.Context().Value("url").(string)
-			oldHost := getHostFromAddr(req.Context().Value("host").(string))
+			oldHost := util.GetHostFromAddr(req.Context().Value("host").(string))
 			host := rp.GetRealHost(oldHost, url)
 			if host != "" {
 				req.Host = host
@@ -84,7 +75,7 @@ func NewHttpReverseProxy(option HttpReverseProxyOptions, vhostRouter *VhostRoute
 			DisableKeepAlives:     true,
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				url := ctx.Value("url").(string)
-				host := getHostFromAddr(ctx.Value("host").(string))
+				host := util.GetHostFromAddr(ctx.Value("host").(string))
 				remote := ctx.Value("remote").(string)
 				return rp.CreateConnection(host, url, remote)
 			},
@@ -183,11 +174,10 @@ func (rp *HttpReverseProxy) getVhost(domain string, location string) (vr *VhostR
 		}
 		domainSplit = domainSplit[1:]
 	}
-	return
 }
 
 func (rp *HttpReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	domain := getHostFromAddr(req.Host)
+	domain := util.GetHostFromAddr(req.Host)
 	location := req.URL.Path
 	user, passwd, _ := req.BasicAuth()
 	if !rp.CheckAuth(domain, location, user, passwd) {

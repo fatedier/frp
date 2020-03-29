@@ -34,6 +34,7 @@ var (
 func init() {
 	proxyConfTypeMap = make(map[string]reflect.Type)
 	proxyConfTypeMap[consts.TcpProxy] = reflect.TypeOf(TcpProxyConf{})
+	proxyConfTypeMap[consts.TcpMuxProxy] = reflect.TypeOf(TcpMuxProxyConf{})
 	proxyConfTypeMap[consts.UdpProxy] = reflect.TypeOf(UdpProxyConf{})
 	proxyConfTypeMap[consts.HttpProxy] = reflect.TypeOf(HttpProxyConf{})
 	proxyConfTypeMap[consts.HttpsProxy] = reflect.TypeOf(HttpsProxyConf{})
@@ -125,6 +126,14 @@ type BaseProxyConf struct {
 	// values include "v1", "v2", and "". If the value is "", a protocol
 	// version will be automatically selected. By default, this value is "".
 	ProxyProtocolVersion string `json:"proxy_protocol_version"`
+
+	// BandwidthLimit limit the proxy bandwidth
+	// 0 means no limit
+	BandwidthLimit BandwidthQuantity `json:"bandwidth_limit"`
+
+	// meta info for each proxy
+	Metas map[string]string `json:"metas"`
+
 	LocalSvrConf
 	HealthCheckConf
 }
@@ -140,7 +149,9 @@ func (cfg *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
 		cfg.UseCompression != cmp.UseCompression ||
 		cfg.Group != cmp.Group ||
 		cfg.GroupKey != cmp.GroupKey ||
-		cfg.ProxyProtocolVersion != cmp.ProxyProtocolVersion {
+		cfg.ProxyProtocolVersion != cmp.ProxyProtocolVersion ||
+		!cfg.BandwidthLimit.Equal(&cmp.BandwidthLimit) ||
+		!reflect.DeepEqual(cfg.Metas, cmp.Metas) {
 		return false
 	}
 	if !cfg.LocalSvrConf.compare(&cmp.LocalSvrConf) {
@@ -159,12 +170,14 @@ func (cfg *BaseProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.UseCompression = pMsg.UseCompression
 	cfg.Group = pMsg.Group
 	cfg.GroupKey = pMsg.GroupKey
+	cfg.Metas = pMsg.Metas
 }
 
 func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section ini.Section) error {
 	var (
 		tmpStr string
 		ok     bool
+		err    error
 	)
 	cfg.ProxyName = prefix + name
 	cfg.ProxyType = section["type"]
@@ -183,11 +196,15 @@ func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section i
 	cfg.GroupKey = section["group_key"]
 	cfg.ProxyProtocolVersion = section["proxy_protocol_version"]
 
-	if err := cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
+	if cfg.BandwidthLimit, err = NewBandwidthQuantity(section["bandwidth_limit"]); err != nil {
 		return err
 	}
 
-	if err := cfg.HealthCheckConf.UnmarshalFromIni(prefix, name, section); err != nil {
+	if err = cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return err
+	}
+
+	if err = cfg.HealthCheckConf.UnmarshalFromIni(prefix, name, section); err != nil {
 		return err
 	}
 
@@ -201,6 +218,13 @@ func (cfg *BaseProxyConf) UnmarshalFromIni(prefix string, name string, section i
 		}
 		cfg.HealthCheckUrl = s + cfg.HealthCheckUrl
 	}
+
+	cfg.Metas = make(map[string]string)
+	for k, v := range section {
+		if strings.HasPrefix(k, "meta_") {
+			cfg.Metas[strings.TrimPrefix(k, "meta_")] = v
+		}
+	}
 	return nil
 }
 
@@ -211,6 +235,7 @@ func (cfg *BaseProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.UseCompression = cfg.UseCompression
 	pMsg.Group = cfg.Group
 	pMsg.GroupKey = cfg.GroupKey
+	pMsg.Metas = cfg.Metas
 }
 
 func (cfg *BaseProxyConf) checkForCli() (err error) {
@@ -549,6 +574,84 @@ func (cfg *TcpProxyConf) CheckForCli() (err error) {
 }
 
 func (cfg *TcpProxyConf) CheckForSvr(serverCfg ServerCommonConf) error { return nil }
+
+// TCP Multiplexer
+type TcpMuxProxyConf struct {
+	BaseProxyConf
+	DomainConf
+
+	Multiplexer string `json:"multiplexer"`
+}
+
+func (cfg *TcpMuxProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*TcpMuxProxyConf)
+	if !ok {
+		return false
+	}
+
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
+		!cfg.DomainConf.compare(&cmpConf.DomainConf) ||
+		cfg.Multiplexer != cmpConf.Multiplexer {
+		return false
+	}
+	return true
+}
+
+func (cfg *TcpMuxProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.UnmarshalFromMsg(pMsg)
+	cfg.DomainConf.UnmarshalFromMsg(pMsg)
+	cfg.Multiplexer = pMsg.Multiplexer
+}
+
+func (cfg *TcpMuxProxyConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
+	if err = cfg.BaseProxyConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return
+	}
+	if err = cfg.DomainConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return
+	}
+
+	cfg.Multiplexer = section["multiplexer"]
+	if cfg.Multiplexer != consts.HttpConnectTcpMultiplexer {
+		return fmt.Errorf("parse conf error: proxy [%s] incorrect multiplexer [%s]", name, cfg.Multiplexer)
+	}
+	return
+}
+
+func (cfg *TcpMuxProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.MarshalToMsg(pMsg)
+	cfg.DomainConf.MarshalToMsg(pMsg)
+	pMsg.Multiplexer = cfg.Multiplexer
+}
+
+func (cfg *TcpMuxProxyConf) CheckForCli() (err error) {
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
+		return err
+	}
+	if err = cfg.DomainConf.checkForCli(); err != nil {
+		return err
+	}
+	if cfg.Multiplexer != consts.HttpConnectTcpMultiplexer {
+		return fmt.Errorf("parse conf error: incorrect multiplexer [%s]", cfg.Multiplexer)
+	}
+	return
+}
+
+func (cfg *TcpMuxProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
+	if cfg.Multiplexer != consts.HttpConnectTcpMultiplexer {
+		return fmt.Errorf("proxy [%s] incorrect multiplexer [%s]", cfg.ProxyName, cfg.Multiplexer)
+	}
+
+	if cfg.Multiplexer == consts.HttpConnectTcpMultiplexer && serverCfg.TcpMuxHttpConnectPort == 0 {
+		return fmt.Errorf("proxy [%s] type [tcpmux] with multiplexer [httpconnect] requires tcpmux_httpconnect_port configuration", cfg.ProxyName)
+	}
+
+	if err = cfg.DomainConf.checkForSvr(serverCfg); err != nil {
+		err = fmt.Errorf("proxy [%s] domain conf check error: %v", cfg.ProxyName, err)
+		return
+	}
+	return
+}
 
 // UDP
 type UdpProxyConf struct {

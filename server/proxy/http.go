@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/server/stats"
+	"github.com/fatedier/frp/server/metrics"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/util"
 	"github.com/fatedier/frp/utils/vhost"
@@ -36,6 +36,7 @@ type HttpProxy struct {
 }
 
 func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
+	xl := pxy.xl
 	routeConfig := vhost.VhostRouteConfig{
 		RewriteHost:  pxy.cfg.HostHeaderRewrite,
 		Headers:      pxy.cfg.Headers,
@@ -88,7 +89,7 @@ func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
 				})
 			}
 			addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(pxy.serverCfg.VhostHttpPort)))
-			pxy.Info("http proxy listen for host [%s] location [%s] group [%s]", routeConfig.Domain, routeConfig.Location, pxy.cfg.Group)
+			xl.Info("http proxy listen for host [%s] location [%s] group [%s]", routeConfig.Domain, routeConfig.Location, pxy.cfg.Group)
 		}
 	}
 
@@ -120,7 +121,7 @@ func (pxy *HttpProxy) Run() (remoteAddr string, err error) {
 			}
 			addrs = append(addrs, util.CanonicalAddr(tmpDomain, pxy.serverCfg.VhostHttpPort))
 
-			pxy.Info("http proxy listen for host [%s] location [%s] group [%s]", routeConfig.Domain, routeConfig.Location, pxy.cfg.Group)
+			xl.Info("http proxy listen for host [%s] location [%s] group [%s]", routeConfig.Domain, routeConfig.Location, pxy.cfg.Group)
 		}
 	}
 	remoteAddr = strings.Join(addrs, ",")
@@ -131,10 +132,11 @@ func (pxy *HttpProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
 }
 
-func (pxy *HttpProxy) GetRealConn(remoteAddr string) (workConn frpNet.Conn, err error) {
+func (pxy *HttpProxy) GetRealConn(remoteAddr string) (workConn net.Conn, err error) {
+	xl := pxy.xl
 	rAddr, errRet := net.ResolveTCPAddr("tcp", remoteAddr)
 	if errRet != nil {
-		pxy.Warn("resolve TCP addr [%s] error: %v", remoteAddr, errRet)
+		xl.Warn("resolve TCP addr [%s] error: %v", remoteAddr, errRet)
 		// we do not return error here since remoteAddr is not necessary for proxies without proxy protocol enabled
 	}
 
@@ -148,7 +150,7 @@ func (pxy *HttpProxy) GetRealConn(remoteAddr string) (workConn frpNet.Conn, err 
 	if pxy.cfg.UseEncryption {
 		rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.serverCfg.Token))
 		if err != nil {
-			pxy.Error("create encryption stream error: %v", err)
+			xl.Error("create encryption stream error: %v", err)
 			return
 		}
 	}
@@ -157,21 +159,16 @@ func (pxy *HttpProxy) GetRealConn(remoteAddr string) (workConn frpNet.Conn, err 
 	}
 	workConn = frpNet.WrapReadWriteCloserToConn(rwc, tmpConn)
 	workConn = frpNet.WrapStatsConn(workConn, pxy.updateStatsAfterClosedConn)
-	pxy.statsCollector.Mark(stats.TypeOpenConnection, &stats.OpenConnectionPayload{ProxyName: pxy.GetName()})
+	metrics.Server.OpenConnection(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
 	return
 }
 
 func (pxy *HttpProxy) updateStatsAfterClosedConn(totalRead, totalWrite int64) {
 	name := pxy.GetName()
-	pxy.statsCollector.Mark(stats.TypeCloseProxy, &stats.CloseConnectionPayload{ProxyName: name})
-	pxy.statsCollector.Mark(stats.TypeAddTrafficIn, &stats.AddTrafficInPayload{
-		ProxyName:    name,
-		TrafficBytes: totalWrite,
-	})
-	pxy.statsCollector.Mark(stats.TypeAddTrafficOut, &stats.AddTrafficOutPayload{
-		ProxyName:    name,
-		TrafficBytes: totalRead,
-	})
+	proxyType := pxy.GetConf().GetBaseInfo().ProxyType
+	metrics.Server.CloseConnection(name, proxyType)
+	metrics.Server.AddTrafficIn(name, proxyType, totalWrite)
+	metrics.Server.AddTrafficOut(name, proxyType, totalRead)
 }
 
 func (pxy *HttpProxy) Close() {

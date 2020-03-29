@@ -40,6 +40,8 @@ var (
 	TEST_HTTP_FOO_STR    string = "http foo string: " + TEST_STR
 	TEST_HTTP_BAR_STR    string = "http bar string: " + TEST_STR
 
+	TEST_TCP_MUX_FRP_PORT int = 10806
+
 	TEST_STCP_FRP_PORT    int    = 10805
 	TEST_STCP_EC_FRP_PORT int    = 10905
 	TEST_STCP_ECHO_STR    string = "stcp type:" + TEST_STR

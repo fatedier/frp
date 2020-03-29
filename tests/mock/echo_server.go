@@ -11,7 +11,7 @@ import (
 )
 
 type EchoServer struct {
-	l frpNet.Listener
+	l net.Listener
 
 	port        int
 	repeatedNum int
@@ -30,7 +30,7 @@ func NewEchoServer(port int, repeatedNum int, specifyStr string) *EchoServer {
 }
 
 func (es *EchoServer) Start() error {
-	l, err := frpNet.ListenTcp("127.0.0.1", es.port)
+	l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", es.port))
 	if err != nil {
 		fmt.Printf("echo server listen error: %v\n", err)
 		return err

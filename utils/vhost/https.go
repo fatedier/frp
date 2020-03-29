@@ -17,10 +17,9 @@ package vhost
 import (
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"time"
-
-	frpNet "github.com/fatedier/frp/utils/net"
 
 	gnet "github.com/fatedier/golib/net"
 	"github.com/fatedier/golib/pool"
@@ -48,8 +47,8 @@ type HttpsMuxer struct {
 	*VhostMuxer
 }
 
-func NewHttpsMuxer(listener frpNet.Listener, timeout time.Duration) (*HttpsMuxer, error) {
-	mux, err := NewVhostMuxer(listener, GetHttpsHostname, nil, nil, timeout)
+func NewHttpsMuxer(listener net.Listener, timeout time.Duration) (*HttpsMuxer, error) {
+	mux, err := NewVhostMuxer(listener, GetHttpsHostname, nil, nil, nil, timeout)
 	return &HttpsMuxer{mux}, err
 }
 
@@ -182,7 +181,7 @@ func readHandshake(rd io.Reader) (host string, err error) {
 	return
 }
 
-func GetHttpsHostname(c frpNet.Conn) (_ frpNet.Conn, _ map[string]string, err error) {
+func GetHttpsHostname(c net.Conn) (_ net.Conn, _ map[string]string, err error) {
 	reqInfoMap := make(map[string]string, 0)
 	sc, rd := gnet.NewSharedConn(c)
 	host, err := readHandshake(rd)
@@ -191,5 +190,5 @@ func GetHttpsHostname(c frpNet.Conn) (_ frpNet.Conn, _ map[string]string, err er
 	}
 	reqInfoMap["Host"] = host
 	reqInfoMap["Scheme"] = "https"
-	return frpNet.WrapConn(sc), reqInfoMap, nil
+	return sc, reqInfoMap, nil
 }
