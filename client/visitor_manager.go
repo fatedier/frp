@@ -33,6 +33,8 @@ type VisitorManager struct {
 
 	mu  sync.Mutex
 	ctx context.Context
+
+	stopCh chan struct{}
 }
 
 func NewVisitorManager(ctx context.Context, ctl *Control) *VisitorManager {
@@ -42,22 +44,32 @@ func NewVisitorManager(ctx context.Context, ctl *Control) *VisitorManager {
 		visitors:      make(map[string]Visitor),
 		checkInterval: 10 * time.Second,
 		ctx:           ctx,
+		stopCh:        make(chan struct{}),
 	}
 }
 
 func (vm *VisitorManager) Run() {
 	xl := xlog.FromContextSafe(vm.ctx)
+
+	ticker := time.NewTicker(vm.checkInterval)
+	defer ticker.Stop()
+
 	for {
-		time.Sleep(vm.checkInterval)
-		vm.mu.Lock()
-		for _, cfg := range vm.cfgs {
-			name := cfg.GetBaseInfo().ProxyName
-			if _, exist := vm.visitors[name]; !exist {
-				xl.Info("try to start visitor [%s]", name)
-				vm.startVisitor(cfg)
+		select {
+		case <-vm.stopCh:
+			xl.Info("gracefully shutdown visitor manager")
+			return
+		case <-ticker.C:
+			vm.mu.Lock()
+			for _, cfg := range vm.cfgs {
+				name := cfg.GetBaseInfo().ProxyName
+				if _, exist := vm.visitors[name]; !exist {
+					xl.Info("try to start visitor [%s]", name)
+					vm.startVisitor(cfg)
+				}
 			}
+			vm.mu.Unlock()
 		}
-		vm.mu.Unlock()
 	}
 }
 
@@ -125,5 +137,10 @@ func (vm *VisitorManager) Close() {
 	defer vm.mu.Unlock()
 	for _, v := range vm.visitors {
 		v.Close()
+	}
+	select {
+	case <-vm.stopCh:
+	default:
+		close(vm.stopCh)
 	}
 }
