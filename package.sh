@@ -1,5 +1,5 @@
 # compile for version
-#make
+make
 if [ $? -ne 0 ]; then
     echo "make error"
     exit 1
@@ -9,7 +9,7 @@ frp_version=`./bin/frps --version`
 echo "build version: $frp_version"
 
 # cross_compiles
-#make -f ./Makefile.cross-compiles
+make -f ./Makefile.cross-compiles
 
 rm -rf ./release/packages
 mkdir -p ./release/packages
