@@ -1,5 +1,5 @@
 # compile for version
-make
+#make
 if [ $? -ne 0 ]; then
     echo "make error"
     exit 1
@@ -9,13 +9,15 @@ frp_version=`./bin/frps --version`
 echo "build version: $frp_version"
 
 # cross_compiles
-make -f ./Makefile.cross-compiles
+#make -f ./Makefile.cross-compiles
 
-rm -rf ./packages
-mkdir ./packages
+rm -rf ./release/packages
+mkdir -p ./release/packages
 
 os_all='linux windows darwin freebsd'
 arch_all='386 amd64 arm arm64 mips64 mips64le mips mipsle'
+
+cd ./release
 
 for os in $os_all; do
     for arch in $arch_all; do
@@ -43,8 +45,8 @@ for os in $os_all; do
             mv ./frpc_${os}_${arch} ${frp_path}/frpc
             mv ./frps_${os}_${arch} ${frp_path}/frps
         fi  
-        cp ./LICENSE ${frp_path}
-        cp -rf ./conf/* ${frp_path}
+        cp ../LICENSE ${frp_path}
+        cp -rf ../conf/* ${frp_path}
 
         # packages
         cd ./packages
@@ -57,3 +59,5 @@ for os in $os_all; do
         rm -rf ${frp_path}
     done
 done
+
+cd -

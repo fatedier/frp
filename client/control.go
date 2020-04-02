@@ -183,6 +183,7 @@ func (ctl *Control) HandleNewProxyResp(inMsg *msg.NewProxyResp) {
 func (ctl *Control) Close() error {
 	ctl.pm.Close()
 	ctl.conn.Close()
+	ctl.vm.Close()
 	if ctl.session != nil {
 		ctl.session.Close()
 	}
