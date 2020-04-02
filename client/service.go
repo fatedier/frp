@@ -142,10 +142,32 @@ func (svr *Service) keepControllerWorking() {
 	maxDelayTime := 20 * time.Second
 	delayTime := time.Second
 
+	// if frpc reconnect frps, we need to limit retry times in 1min
+	// current retry logic is sleep 0s, 0s, 0s, 1s, 2s, 4s, 8s, ...
+	// when exceed 1min, we will reset delay and counts
+	cutoffTime := time.Now().Add(time.Minute)
+	reconnectDelay := time.Second
+	reconnectCounts := 1
+
 	for {
 		<-svr.ctl.ClosedDoneCh()
 		if atomic.LoadUint32(&svr.exit) != 0 {
 			return
+		}
+
+		// the first three retry with no delay
+		if reconnectCounts > 3 {
+			time.Sleep(reconnectDelay)
+			reconnectDelay *= 2
+		}
+		reconnectCounts++
+
+		now := time.Now()
+		if now.After(cutoffTime) {
+			// reset
+			cutoffTime = now.Add(time.Minute)
+			reconnectDelay = time.Second
+			reconnectCounts = 1
 		}
 
 		for {
@@ -166,6 +188,9 @@ func (svr *Service) keepControllerWorking() {
 			ctl := NewControl(svr.ctx, svr.runId, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort, svr.authSetter)
 			ctl.Run()
 			svr.ctlMu.Lock()
+			if svr.ctl != nil {
+				svr.ctl.Close()
+			}
 			svr.ctl = ctl
 			svr.ctlMu.Unlock()
 			break
