@@ -88,6 +88,7 @@ type StatusResp struct {
 	Https []ProxyStatusResp `json:"https"`
 	Stcp  []ProxyStatusResp `json:"stcp"`
 	Xtcp  []ProxyStatusResp `json:"xtcp"`
+	Sudp  []ProxyStatusResp `json:"sudp"`
 }
 
 type ProxyStatusResp struct {
@@ -155,6 +156,11 @@ func NewProxyStatusResp(status *proxy.ProxyStatus, serverAddr string) ProxyStatu
 			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
 		}
 		psr.Plugin = cfg.Plugin
+	case *config.SudpProxyConf:
+		if cfg.LocalPort != 0 {
+			psr.LocalAddr = fmt.Sprintf("%s:%d", cfg.LocalIp, cfg.LocalPort)
+		}
+		psr.Plugin = cfg.Plugin
 	}
 	return psr
 }
@@ -171,6 +177,7 @@ func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request) {
 	res.Https = make([]ProxyStatusResp, 0)
 	res.Stcp = make([]ProxyStatusResp, 0)
 	res.Xtcp = make([]ProxyStatusResp, 0)
+	res.Sudp = make([]ProxyStatusResp, 0)
 
 	log.Info("Http request [/api/status]")
 	defer func() {
@@ -194,6 +201,8 @@ func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request) {
 			res.Stcp = append(res.Stcp, NewProxyStatusResp(status, svr.cfg.ServerAddr))
 		case "xtcp":
 			res.Xtcp = append(res.Xtcp, NewProxyStatusResp(status, svr.cfg.ServerAddr))
+		case "sudp":
+			res.Sudp = append(res.Sudp, NewProxyStatusResp(status, svr.cfg.ServerAddr))
 		}
 	}
 	sort.Sort(ByProxyStatusResp(res.Tcp))
@@ -202,6 +211,7 @@ func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request) {
 	sort.Sort(ByProxyStatusResp(res.Https))
 	sort.Sort(ByProxyStatusResp(res.Stcp))
 	sort.Sort(ByProxyStatusResp(res.Xtcp))
+	sort.Sort(ByProxyStatusResp(res.Sudp))
 	return
 }
 

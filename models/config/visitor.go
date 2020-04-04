@@ -32,6 +32,7 @@ func init() {
 	visitorConfTypeMap = make(map[string]reflect.Type)
 	visitorConfTypeMap[consts.StcpProxy] = reflect.TypeOf(StcpVisitorConf{})
 	visitorConfTypeMap[consts.XtcpProxy] = reflect.TypeOf(XtcpVisitorConf{})
+	visitorConfTypeMap[consts.SudpProxy] = reflect.TypeOf(SudpVisitorConf{})
 }
 
 type VisitorConf interface {
@@ -150,6 +151,36 @@ func (cfg *BaseVisitorConf) UnmarshalFromIni(prefix string, name string, section
 		return fmt.Errorf("Parse conf error: proxy [%s] bind_port not found", name)
 	}
 	return nil
+}
+
+type SudpVisitorConf struct {
+	BaseVisitorConf
+}
+
+func (cfg *SudpVisitorConf) Compare(cmp VisitorConf) bool {
+	cmpConf, ok := cmp.(*SudpVisitorConf)
+	if !ok {
+		return false
+	}
+
+	if !cfg.BaseVisitorConf.compare(&cmpConf.BaseVisitorConf) {
+		return false
+	}
+	return true
+}
+
+func (cfg *SudpVisitorConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
+	if err = cfg.BaseVisitorConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return
+	}
+	return
+}
+
+func (cfg *SudpVisitorConf) Check() (err error) {
+	if err = cfg.BaseVisitorConf.check(); err != nil {
+		return
+	}
+	return
 }
 
 type StcpVisitorConf struct {

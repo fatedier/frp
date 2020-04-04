@@ -57,11 +57,11 @@ func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UdpPacket, sendCh 
 	for {
 		n, remoteAddr, err := udpConn.ReadFromUDP(buf)
 		if err != nil {
-			udpConn.Close()
 			return
 		}
 		// buf[:n] will be encoded to string, so the bytes can be reused
 		udpMsg := NewUdpPacket(buf[:n], nil, remoteAddr)
+
 		select {
 		case sendCh <- udpMsg:
 		default:

@@ -219,6 +219,11 @@ func NewProxy(ctx context.Context, userInfo plugin.UserInfo, rc *controller.Reso
 			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
+	case *config.SudpProxyConf:
+		pxy = &SudpProxy{
+			BaseProxy: &basePxy,
+			cfg:       cfg,
+		}
 	default:
 		return pxy, fmt.Errorf("proxy type not support")
 	}

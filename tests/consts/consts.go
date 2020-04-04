@@ -46,6 +46,9 @@ var (
 	TEST_STCP_EC_FRP_PORT int    = 10905
 	TEST_STCP_ECHO_STR    string = "stcp type:" + TEST_STR
 
+	TEST_SUDP_FRP_PORT int    = 10816
+	TEST_SUDP_ECHO_STR string = "sudp type:" + TEST_STR
+
 	ProxyTcpPortNotAllowed  string = "tcp_port_not_allowed"
 	ProxyTcpPortUnavailable string = "tcp_port_unavailable"
 	ProxyTcpPortNormal      string = "tcp_port_normal"
