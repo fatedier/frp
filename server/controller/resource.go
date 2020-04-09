@@ -16,6 +16,7 @@ package controller
 
 import (
 	"github.com/fatedier/frp/models/nathole"
+	plugin "github.com/fatedier/frp/models/plugin/server"
 	"github.com/fatedier/frp/server/group"
 	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/utils/tcpmux"
@@ -50,4 +51,7 @@ type ResourceController struct {
 
 	// TcpMux HTTP CONNECT multiplexer
 	TcpMuxHttpConnectMuxer *tcpmux.HttpConnectTcpMuxer
+
+	// All server manager plugin
+	PluginManager *plugin.Manager
 }

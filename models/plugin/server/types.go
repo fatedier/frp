@@ -55,3 +55,10 @@ type NewWorkConnContent struct {
 	User UserInfo `json:"user"`
 	msg.NewWorkConn
 }
+
+type NewUserConnContent struct {
+	User       UserInfo `json:"user"`
+	ProxyName  string   `json:"proxy_name"`
+	ProxyType  string   `json:"proxy_type"`
+	RemoteAddr string   `json:"remote_addr"`
+}
