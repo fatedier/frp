@@ -22,11 +22,40 @@ import (
 	"github.com/fatedier/frp/cmd/frpc/sub"
 
 	"github.com/fatedier/golib/crypto"
+	"github.com/kardianos/service"
+	"os"
+	"path/filepath"
 )
 
 func main() {
 	crypto.DefaultSalt = "frp"
 	rand.Seed(time.Now().UnixNano())
 
-	sub.Execute()
+	svcConfig := &service.Config{
+		Name:	"FRPC",
+	}
+	prg := &FRPC{}
+	s, err := service.New(prg, svcConfig)
+	if err != nil {
+		sub.Execute()
+		return
+	}
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	err = os.Chdir(dir)
+	_ = s.Run()
+}
+
+type FRPC struct {}
+
+func (p *FRPC) Start(s service.Service) error {
+	_, _ = s.Status()
+	go sub.Execute()
+	return nil
+}
+func (p *FRPC) Stop(s service.Service) error {
+	_, _ = s.Status()
+	if service.Interactive() {
+		os.Exit(0)
+	}
+	return nil
 }
