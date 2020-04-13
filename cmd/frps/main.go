@@ -22,11 +22,42 @@ import (
 
 	_ "github.com/fatedier/frp/assets/frps/statik"
 	_ "github.com/fatedier/frp/models/metrics"
+	"github.com/kardianos/service"
+	"os"
+	"path/filepath"
 )
 
 func main() {
 	crypto.DefaultSalt = "frp"
 	rand.Seed(time.Now().UnixNano())
 
-	Execute()
+		svcConfig := &service.Config{
+		Name:	"FRPS",
+	}
+	prg := &FRPS{}
+	s, err := service.New(prg, svcConfig)
+	if err != nil {
+		Execute()
+		return
+	}
+
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0])) //chang workdir
+	err = os.Chdir(dir)
+	_ = s.Run()
+}
+
+type FRPS struct {}
+
+func (p *FRPS) Start(s service.Service) error {
+	_, _ = s.Status()
+	go Execute()
+	return nil
+}
+
+func (p *FRPS) Stop(s service.Service) error {
+	_, _ = s.Status()
+	if service.Interactive() {
+		os.Exit(0)
+	}
+	return nil
 }
