@@ -166,7 +166,7 @@ Response
 
 #### NewUserConn
 
-新增 `proxy` 连接相关信息 (目前支持 `tcp`、`https`、`http` 协议)。
+新增 `proxy` 连接相关信息 (目前支持 `tcp` 协议)。
 
 ```
 {
