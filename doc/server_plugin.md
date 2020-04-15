@@ -174,7 +174,7 @@ New work connection received from frpc (RPC sent after `run_id` is matched with 
 
 #### NewUserConn
 
-New user connection received from proxy (only support `tcp`, `stcp`, `https` and `tcpmux`) .
+New user connection received from proxy (support `tcp`, `stcp`, `https` and `tcpmux`) .
 
 ```
 {
