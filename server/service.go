@@ -108,7 +108,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			TcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
 			UdpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 		},
-		httpVhostRouter: vhost.NewVhostRouters(),
+		httpVhostRouter: vhost.NewVhostRouters(false),
 		authVerifier:    auth.NewAuthVerifier(cfg.AuthServerConfig),
 		tlsConfig:       generateTLSConfig(),
 		cfg:             cfg,

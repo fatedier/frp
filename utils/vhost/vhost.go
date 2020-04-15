@@ -41,7 +41,7 @@ type VhostMuxer struct {
 	registryRouter *VhostRouters
 }
 
-func NewVhostMuxer(listener net.Listener, vhostFunc muxFunc, authFunc httpAuthFunc, successFunc successFunc, rewriteFunc hostRewriteFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
+func NewVhostMuxer(listener net.Listener, vhostFunc muxFunc, authFunc httpAuthFunc, successFunc successFunc, rewriteFunc hostRewriteFunc, timeout time.Duration, allowDuplicates bool) (mux *VhostMuxer, err error) {
 	mux = &VhostMuxer{
 		listener:       listener,
 		timeout:        timeout,
@@ -49,7 +49,7 @@ func NewVhostMuxer(listener net.Listener, vhostFunc muxFunc, authFunc httpAuthFu
 		authFunc:       authFunc,
 		successFunc:    successFunc,
 		rewriteFunc:    rewriteFunc,
-		registryRouter: NewVhostRouters(),
+		registryRouter: NewVhostRouters(allowDuplicates),
 	}
 	go mux.run()
 	return mux, nil
@@ -94,7 +94,7 @@ func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
 	// if not exist, then check the wildcard_domain such as *.example.com
 	vr, found := v.registryRouter.Get(name, path)
 	if found {
-		return vr.payload.(*Listener), true
+		return vr.getPayload().(*Listener), true
 	}
 
 	domainSplit := strings.Split(name, ".")
@@ -112,7 +112,7 @@ func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
 
 		vr, found = v.registryRouter.Get(name, path)
 		if found {
-			return vr.payload.(*Listener), true
+			return vr.getPayload().(*Listener), true
 		}
 		domainSplit = domainSplit[1:]
 	}
@@ -223,7 +223,7 @@ func (l *Listener) Accept() (net.Conn, error) {
 }
 
 func (l *Listener) Close() error {
-	l.mux.registryRouter.Del(l.name, l.location)
+	l.mux.registryRouter.DelPayloadFromLocation(l.name, l.location, l)
 	close(l.accept)
 	return nil
 }

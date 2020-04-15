@@ -31,7 +31,7 @@ type HttpConnectTcpMuxer struct {
 }
 
 func NewHttpConnectTcpMuxer(listener net.Listener, timeout time.Duration) (*HttpConnectTcpMuxer, error) {
-	mux, err := vhost.NewVhostMuxer(listener, getHostFromHttpConnect, nil, sendHttpOk, nil, timeout)
+	mux, err := vhost.NewVhostMuxer(listener, getHostFromHttpConnect, nil, sendHttpOk, nil, timeout, true)
 	return &HttpConnectTcpMuxer{mux}, err
 }
 

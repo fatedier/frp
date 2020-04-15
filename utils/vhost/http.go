@@ -110,7 +110,7 @@ func (rp *HttpReverseProxy) UnRegister(domain string, location string) {
 func (rp *HttpReverseProxy) GetRealHost(domain string, location string) (host string) {
 	vr, ok := rp.getVhost(domain, location)
 	if ok {
-		host = vr.payload.(*VhostRouteConfig).RewriteHost
+		host = vr.getPayload().(*VhostRouteConfig).RewriteHost
 	}
 	return
 }
@@ -118,7 +118,7 @@ func (rp *HttpReverseProxy) GetRealHost(domain string, location string) (host st
 func (rp *HttpReverseProxy) GetHeaders(domain string, location string) (headers map[string]string) {
 	vr, ok := rp.getVhost(domain, location)
 	if ok {
-		headers = vr.payload.(*VhostRouteConfig).Headers
+		headers = vr.getPayload().(*VhostRouteConfig).Headers
 	}
 	return
 }
@@ -127,7 +127,7 @@ func (rp *HttpReverseProxy) GetHeaders(domain string, location string) (headers 
 func (rp *HttpReverseProxy) CreateConnection(domain string, location string, remoteAddr string) (net.Conn, error) {
 	vr, ok := rp.getVhost(domain, location)
 	if ok {
-		fn := vr.payload.(*VhostRouteConfig).CreateConnFn
+		fn := vr.getPayload().(*VhostRouteConfig).CreateConnFn
 		if fn != nil {
 			return fn(remoteAddr)
 		}
@@ -138,8 +138,9 @@ func (rp *HttpReverseProxy) CreateConnection(domain string, location string, rem
 func (rp *HttpReverseProxy) CheckAuth(domain, location, user, passwd string) bool {
 	vr, ok := rp.getVhost(domain, location)
 	if ok {
-		checkUser := vr.payload.(*VhostRouteConfig).Username
-		checkPasswd := vr.payload.(*VhostRouteConfig).Password
+		routeCfg := vr.getPayload().(*VhostRouteConfig)
+		checkUser := routeCfg.Username
+		checkPasswd := routeCfg.Password
 		if (checkUser != "" || checkPasswd != "") && (checkUser != user || checkPasswd != passwd) {
 			return false
 		}
