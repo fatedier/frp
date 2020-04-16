@@ -81,7 +81,7 @@ func (auth *TokenAuthSetterVerifier) SetPing(pingMsg *msg.Ping) error {
 }
 
 func (auth *TokenAuthSetterVerifier) SetNewWorkConn(newWorkConnMsg *msg.NewWorkConn) error {
-	if !auth.AuthenticateHeartBeats {
+	if !auth.AuthenticateNewWorkConns {
 		return nil
 	}
 
