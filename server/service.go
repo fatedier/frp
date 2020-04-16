@@ -119,6 +119,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		svr.pluginManager.Register(plugin.NewHTTPPluginOptions(options))
 		log.Info("plugin [%s] has been registered", name)
 	}
+	svr.rc.PluginManager = svr.pluginManager
 
 	// Init group controller
 	svr.rc.TcpGroupCtl = group.NewTcpGroupCtl(svr.rc.TcpPortManager)
