@@ -114,6 +114,23 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		cfg:             cfg,
 	}
 
+	// Create tcpmux httpconnect multiplexer.
+	if cfg.TcpMuxHttpConnectPort > 0 {
+		var l net.Listener
+		l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.TcpMuxHttpConnectPort))
+		if err != nil {
+			err = fmt.Errorf("Create server listener error, %v", err)
+			return
+		}
+
+		svr.rc.TcpMuxHttpConnectMuxer, err = tcpmux.NewHttpConnectTcpMuxer(l, vhostReadWriteTimeout)
+		if err != nil {
+			err = fmt.Errorf("Create vhost tcpMuxer error, %v", err)
+			return
+		}
+		log.Info("tcpmux httpconnect multiplexer listen on %s:%d", cfg.ProxyBindAddr, cfg.TcpMuxHttpConnectPort)
+	}
+
 	// Init all plugins
 	for name, options := range cfg.HTTPPlugins {
 		svr.pluginManager.Register(plugin.NewHTTPPluginOptions(options))
@@ -126,6 +143,9 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 
 	// Init HTTP group controller
 	svr.rc.HTTPGroupCtl = group.NewHTTPGroupController(svr.httpVhostRouter)
+
+	// Init TCP mux group controller
+	svr.rc.TcpMuxGroupCtl = group.NewTcpMuxGroupCtl(svr.rc.TcpMuxHttpConnectMuxer)
 
 	// Init 404 not found page
 	vhost.NotFoundPagePath = cfg.Custom404Page
@@ -219,23 +239,6 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			return
 		}
 		log.Info("https service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHttpsPort)
-	}
-
-	// Create tcpmux httpconnect multiplexer.
-	if cfg.TcpMuxHttpConnectPort > 0 {
-		var l net.Listener
-		l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.TcpMuxHttpConnectPort))
-		if err != nil {
-			err = fmt.Errorf("Create server listener error, %v", err)
-			return
-		}
-
-		svr.rc.TcpMuxHttpConnectMuxer, err = tcpmux.NewHttpConnectTcpMuxer(l, vhostReadWriteTimeout)
-		if err != nil {
-			err = fmt.Errorf("Create vhost tcpMuxer error, %v", err)
-			return
-		}
-		log.Info("tcpmux httpconnect multiplexer listen on %s:%d", cfg.ProxyBindAddr, cfg.TcpMuxHttpConnectPort)
 	}
 
 	// frp tls listener
