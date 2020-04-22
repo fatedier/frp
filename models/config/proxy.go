@@ -40,6 +40,7 @@ func init() {
 	proxyConfTypeMap[consts.HttpsProxy] = reflect.TypeOf(HttpsProxyConf{})
 	proxyConfTypeMap[consts.StcpProxy] = reflect.TypeOf(StcpProxyConf{})
 	proxyConfTypeMap[consts.XtcpProxy] = reflect.TypeOf(XtcpProxyConf{})
+	proxyConfTypeMap[consts.SudpProxy] = reflect.TypeOf(SudpProxyConf{})
 }
 
 // NewConfByType creates a empty ProxyConf object by proxyType.
@@ -873,6 +874,72 @@ func (cfg *HttpsProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
 		return
 	}
 	return
+}
+
+// SUDP
+type SudpProxyConf struct {
+	BaseProxyConf
+
+	Role string `json:"role"`
+	Sk   string `json:"sk"`
+}
+
+func (cfg *SudpProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*SudpProxyConf)
+	if !ok {
+		return false
+	}
+
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) ||
+		cfg.Role != cmpConf.Role ||
+		cfg.Sk != cmpConf.Sk {
+		return false
+	}
+	return true
+}
+
+func (cfg *SudpProxyConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
+	if err = cfg.BaseProxyConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return
+	}
+
+	cfg.Role = section["role"]
+	if cfg.Role != "server" {
+		return fmt.Errorf("Parse conf error: proxy [%s] incorrect role [%s]", name, cfg.Role)
+	}
+
+	cfg.Sk = section["sk"]
+
+	if err = cfg.LocalSvrConf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return
+	}
+	return
+}
+
+func (cfg *SudpProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.MarshalToMsg(pMsg)
+	pMsg.Sk = cfg.Sk
+}
+
+func (cfg *SudpProxyConf) CheckForCli() (err error) {
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
+		return
+	}
+	if cfg.Role != "server" {
+		err = fmt.Errorf("role should be 'server'")
+		return
+	}
+	return
+}
+
+func (cfg *SudpProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
+	return
+}
+
+// Only for role server.
+func (cfg *SudpProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.UnmarshalFromMsg(pMsg)
+	cfg.Sk = pMsg.Sk
 }
 
 // STCP

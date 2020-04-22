@@ -71,6 +71,11 @@ func GetProxyStatus(statusAddr string, user string, passwd string, name string) 
 			return &s, nil
 		}
 	}
+	for _, s := range allStatus.Sudp {
+		if s.Name == name {
+			return &s, nil
+		}
+	}
 
 	return status, errors.New("no proxy status found")
 }
