@@ -30,6 +30,7 @@ var (
 	HttpsProxy  string = "https"
 	StcpProxy   string = "stcp"
 	XtcpProxy   string = "xtcp"
+	SudpProxy   string = "sudp"
 
 	// authentication method
 	TokenAuthMethod string = "token"

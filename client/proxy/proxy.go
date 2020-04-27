@@ -102,6 +102,12 @@ func NewProxy(ctx context.Context, pxyConf config.ProxyConf, clientCfg config.Cl
 			BaseProxy: &baseProxy,
 			cfg:       cfg,
 		}
+	case *config.SudpProxyConf:
+		pxy = &SudpProxy{
+			BaseProxy: &baseProxy,
+			cfg:       cfg,
+			closeCh:   make(chan struct{}),
+		}
 	}
 	return
 }
@@ -538,6 +544,151 @@ func (pxy *UdpProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	go workConnReaderFn(pxy.workConn, pxy.readCh)
 	go heartbeatFn(pxy.workConn, pxy.sendCh)
 	udp.Forwarder(pxy.localAddr, pxy.readCh, pxy.sendCh)
+}
+
+type SudpProxy struct {
+	*BaseProxy
+
+	cfg *config.SudpProxyConf
+
+	localAddr *net.UDPAddr
+
+	closeCh chan struct{}
+}
+
+func (pxy *SudpProxy) Run() (err error) {
+	pxy.localAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", pxy.cfg.LocalIp, pxy.cfg.LocalPort))
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (pxy *SudpProxy) Close() {
+	pxy.mu.Lock()
+	defer pxy.mu.Unlock()
+	select {
+	case <-pxy.closeCh:
+		return
+	default:
+		close(pxy.closeCh)
+	}
+}
+
+func (pxy *SudpProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
+	xl := pxy.xl
+	xl.Info("incoming a new work connection for sudp proxy, %s", conn.RemoteAddr().String())
+
+	if pxy.limiter != nil {
+		rwc := frpIo.WrapReadWriteCloser(limit.NewReader(conn, pxy.limiter), limit.NewWriter(conn, pxy.limiter), func() error {
+			return conn.Close()
+		})
+		conn = frpNet.WrapReadWriteCloserToConn(rwc, conn)
+	}
+
+	workConn := conn
+	readCh := make(chan *msg.UdpPacket, 1024)
+	sendCh := make(chan msg.Message, 1024)
+	isClose := false
+
+	mu := &sync.Mutex{}
+
+	closeFn := func() {
+		mu.Lock()
+		defer mu.Unlock()
+		if isClose {
+			return
+		}
+
+		isClose = true
+		if workConn != nil {
+			workConn.Close()
+		}
+		close(readCh)
+		close(sendCh)
+	}
+
+	// udp service <- frpc <- frps <- frpc visitor <- user
+	workConnReaderFn := func(conn net.Conn, readCh chan *msg.UdpPacket) {
+		defer closeFn()
+
+		for {
+			// first to check sudp proxy is closed or not
+			select {
+			case <-pxy.closeCh:
+				xl.Trace("frpc sudp proxy is closed")
+				return
+			default:
+			}
+
+			var udpMsg msg.UdpPacket
+			if errRet := msg.ReadMsgInto(conn, &udpMsg); errRet != nil {
+				xl.Warn("read from workConn for sudp error: %v", errRet)
+				return
+			}
+
+			if errRet := errors.PanicToError(func() {
+				readCh <- &udpMsg
+			}); errRet != nil {
+				xl.Warn("reader goroutine for sudp work connection closed: %v", errRet)
+				return
+			}
+		}
+	}
+
+	// udp service -> frpc -> frps -> frpc visitor -> user
+	workConnSenderFn := func(conn net.Conn, sendCh chan msg.Message) {
+		defer func() {
+			closeFn()
+			xl.Info("writer goroutine for sudp work connection closed")
+		}()
+
+		var errRet error
+		for rawMsg := range sendCh {
+			switch m := rawMsg.(type) {
+			case *msg.UdpPacket:
+				xl.Trace("frpc send udp package to frpc visitor, [udp local: %v, remote: %v], [tcp work conn local: %v, remote: %v]",
+					m.LocalAddr.String(), m.RemoteAddr.String(), conn.LocalAddr().String(), conn.RemoteAddr().String())
+			case *msg.Ping:
+				xl.Trace("frpc send ping message to frpc visitor")
+			}
+
+			if errRet = msg.WriteMsg(conn, rawMsg); errRet != nil {
+				xl.Error("sudp work write error: %v", errRet)
+				return
+			}
+		}
+	}
+
+	heartbeatFn := func(conn net.Conn, sendCh chan msg.Message) {
+		ticker := time.NewTicker(30 * time.Second)
+		defer func() {
+			ticker.Stop()
+			closeFn()
+		}()
+
+		var errRet error
+		for {
+			select {
+			case <-ticker.C:
+				if errRet = errors.PanicToError(func() {
+					sendCh <- &msg.Ping{}
+				}); errRet != nil {
+					xl.Warn("heartbeat goroutine for sudp work connection closed")
+					return
+				}
+			case <-pxy.closeCh:
+				xl.Trace("frpc sudp proxy is closed")
+				return
+			}
+		}
+	}
+
+	go workConnSenderFn(workConn, sendCh)
+	go workConnReaderFn(workConn, readCh)
+	go heartbeatFn(workConn, sendCh)
+
+	udp.Forwarder(pxy.localAddr, readCh, sendCh)
 }
 
 // Common handler for tcp work connections.

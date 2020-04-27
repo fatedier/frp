@@ -114,17 +114,38 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		cfg:             cfg,
 	}
 
+	// Create tcpmux httpconnect multiplexer.
+	if cfg.TcpMuxHttpConnectPort > 0 {
+		var l net.Listener
+		l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.TcpMuxHttpConnectPort))
+		if err != nil {
+			err = fmt.Errorf("Create server listener error, %v", err)
+			return
+		}
+
+		svr.rc.TcpMuxHttpConnectMuxer, err = tcpmux.NewHttpConnectTcpMuxer(l, vhostReadWriteTimeout)
+		if err != nil {
+			err = fmt.Errorf("Create vhost tcpMuxer error, %v", err)
+			return
+		}
+		log.Info("tcpmux httpconnect multiplexer listen on %s:%d", cfg.ProxyBindAddr, cfg.TcpMuxHttpConnectPort)
+	}
+
 	// Init all plugins
 	for name, options := range cfg.HTTPPlugins {
 		svr.pluginManager.Register(plugin.NewHTTPPluginOptions(options))
 		log.Info("plugin [%s] has been registered", name)
 	}
+	svr.rc.PluginManager = svr.pluginManager
 
 	// Init group controller
 	svr.rc.TcpGroupCtl = group.NewTcpGroupCtl(svr.rc.TcpPortManager)
 
 	// Init HTTP group controller
 	svr.rc.HTTPGroupCtl = group.NewHTTPGroupController(svr.httpVhostRouter)
+
+	// Init TCP mux group controller
+	svr.rc.TcpMuxGroupCtl = group.NewTcpMuxGroupCtl(svr.rc.TcpMuxHttpConnectMuxer)
 
 	// Init 404 not found page
 	vhost.NotFoundPagePath = cfg.Custom404Page
@@ -220,23 +241,6 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		log.Info("https service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHttpsPort)
 	}
 
-	// Create tcpmux httpconnect multiplexer.
-	if cfg.TcpMuxHttpConnectPort > 0 {
-		var l net.Listener
-		l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.TcpMuxHttpConnectPort))
-		if err != nil {
-			err = fmt.Errorf("Create server listener error, %v", err)
-			return
-		}
-
-		svr.rc.TcpMuxHttpConnectMuxer, err = tcpmux.NewHttpConnectTcpMuxer(l, vhostReadWriteTimeout)
-		if err != nil {
-			err = fmt.Errorf("Create vhost tcpMuxer error, %v", err)
-			return
-		}
-		log.Info("tcpmux httpconnect multiplexer listen on %s:%d", cfg.ProxyBindAddr, cfg.TcpMuxHttpConnectPort)
-	}
-
 	// frp tls listener
 	svr.tlsListener = svr.muxer.Listen(1, 1, func(data []byte) bool {
 		return int(data[0]) == frpNet.FRP_TLS_HEAD_BYTE
@@ -296,6 +300,68 @@ func (svr *Service) Run() {
 	svr.HandleListener(svr.listener)
 }
 
+func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {
+	xl := xlog.FromContextSafe(ctx)
+
+	var (
+		rawMsg msg.Message
+		err    error
+	)
+
+	conn.SetReadDeadline(time.Now().Add(connReadTimeout))
+	if rawMsg, err = msg.ReadMsg(conn); err != nil {
+		log.Trace("Failed to read message: %v", err)
+		conn.Close()
+		return
+	}
+	conn.SetReadDeadline(time.Time{})
+
+	switch m := rawMsg.(type) {
+	case *msg.Login:
+		// server plugin hook
+		content := &plugin.LoginContent{
+			Login: *m,
+		}
+		retContent, err := svr.pluginManager.Login(content)
+		if err == nil {
+			m = &retContent.Login
+			err = svr.RegisterControl(conn, m)
+		}
+
+		// If login failed, send error message there.
+		// Otherwise send success message in control's work goroutine.
+		if err != nil {
+			xl.Warn("register control error: %v", err)
+			msg.WriteMsg(conn, &msg.LoginResp{
+				Version: version.Full(),
+				Error:   util.GenerateResponseErrorString("register control error", err, svr.cfg.DetailedErrorsToClient),
+			})
+			conn.Close()
+		}
+	case *msg.NewWorkConn:
+		if err := svr.RegisterWorkConn(conn, m); err != nil {
+			conn.Close()
+		}
+	case *msg.NewVisitorConn:
+		if err = svr.RegisterVisitorConn(conn, m); err != nil {
+			xl.Warn("register visitor conn error: %v", err)
+			msg.WriteMsg(conn, &msg.NewVisitorConnResp{
+				ProxyName: m.ProxyName,
+				Error:     util.GenerateResponseErrorString("register visitor conn error", err, svr.cfg.DetailedErrorsToClient),
+			})
+			conn.Close()
+		} else {
+			msg.WriteMsg(conn, &msg.NewVisitorConnResp{
+				ProxyName: m.ProxyName,
+				Error:     "",
+			})
+		}
+	default:
+		log.Warn("Error message type for the new connection [%s]", conn.RemoteAddr().String())
+		conn.Close()
+	}
+}
+
 func (svr *Service) HandleListener(l net.Listener) {
 	// Listen for incoming connections from client.
 	for {
@@ -306,7 +372,9 @@ func (svr *Service) HandleListener(l net.Listener) {
 		}
 		// inject xlog object into net.Conn context
 		xl := xlog.New()
-		c = frpNet.NewContextConn(c, xlog.NewContext(context.Background(), xl))
+		ctx := context.Background()
+
+		c = frpNet.NewContextConn(c, xlog.NewContext(ctx, xl))
 
 		log.Trace("start check TLS connection...")
 		originConn := c
@@ -319,63 +387,7 @@ func (svr *Service) HandleListener(l net.Listener) {
 		log.Trace("success check TLS connection")
 
 		// Start a new goroutine for dealing connections.
-		go func(frpConn net.Conn) {
-			dealFn := func(conn net.Conn) {
-				var rawMsg msg.Message
-				conn.SetReadDeadline(time.Now().Add(connReadTimeout))
-				if rawMsg, err = msg.ReadMsg(conn); err != nil {
-					log.Trace("Failed to read message: %v", err)
-					conn.Close()
-					return
-				}
-				conn.SetReadDeadline(time.Time{})
-
-				switch m := rawMsg.(type) {
-				case *msg.Login:
-					// server plugin hook
-					content := &plugin.LoginContent{
-						Login: *m,
-					}
-					retContent, err := svr.pluginManager.Login(content)
-					if err == nil {
-						m = &retContent.Login
-						err = svr.RegisterControl(conn, m)
-					}
-
-					// If login failed, send error message there.
-					// Otherwise send success message in control's work goroutine.
-					if err != nil {
-						xl.Warn("register control error: %v", err)
-						msg.WriteMsg(conn, &msg.LoginResp{
-							Version: version.Full(),
-							Error:   util.GenerateResponseErrorString("register control error", err, svr.cfg.DetailedErrorsToClient),
-						})
-						conn.Close()
-					}
-				case *msg.NewWorkConn:
-					if err := svr.RegisterWorkConn(conn, m); err != nil {
-						conn.Close()
-					}
-				case *msg.NewVisitorConn:
-					if err = svr.RegisterVisitorConn(conn, m); err != nil {
-						xl.Warn("register visitor conn error: %v", err)
-						msg.WriteMsg(conn, &msg.NewVisitorConnResp{
-							ProxyName: m.ProxyName,
-							Error:     util.GenerateResponseErrorString("register visitor conn error", err, svr.cfg.DetailedErrorsToClient),
-						})
-						conn.Close()
-					} else {
-						msg.WriteMsg(conn, &msg.NewVisitorConnResp{
-							ProxyName: m.ProxyName,
-							Error:     "",
-						})
-					}
-				default:
-					log.Warn("Error message type for the new connection [%s]", conn.RemoteAddr().String())
-					conn.Close()
-				}
-			}
-
+		go func(ctx context.Context, frpConn net.Conn) {
 			if svr.cfg.TcpMux {
 				fmuxCfg := fmux.DefaultConfig()
 				fmuxCfg.KeepAliveInterval = 20 * time.Second
@@ -394,12 +406,12 @@ func (svr *Service) HandleListener(l net.Listener) {
 						session.Close()
 						return
 					}
-					go dealFn(stream)
+					go svr.handleConnection(ctx, stream)
 				}
 			} else {
-				dealFn(frpConn)
+				svr.handleConnection(ctx, frpConn)
 			}
-		}(c)
+		}(ctx, c)
 	}
 }
 

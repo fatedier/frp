@@ -16,6 +16,7 @@ package proxy
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/fatedier/frp/models/config"
@@ -27,21 +28,24 @@ import (
 type TcpMuxProxy struct {
 	*BaseProxy
 	cfg *config.TcpMuxProxyConf
-
-	realPort int
 }
 
-func (pxy *TcpMuxProxy) httpConnectListen(domain string, addrs []string) ([]string, error) {
-	routeConfig := &vhost.VhostRouteConfig{
-		Domain: domain,
+func (pxy *TcpMuxProxy) httpConnectListen(domain string, addrs []string) (_ []string, err error) {
+	var l net.Listener
+	if pxy.cfg.Group != "" {
+		l, err = pxy.rc.TcpMuxGroupCtl.Listen(pxy.cfg.Multiplexer, pxy.cfg.Group, pxy.cfg.GroupKey, domain, pxy.ctx)
+	} else {
+		routeConfig := &vhost.VhostRouteConfig{
+			Domain: domain,
+		}
+		l, err = pxy.rc.TcpMuxHttpConnectMuxer.Listen(pxy.ctx, routeConfig)
 	}
-	l, err := pxy.rc.TcpMuxHttpConnectMuxer.Listen(pxy.ctx, routeConfig)
 	if err != nil {
 		return nil, err
 	}
-	pxy.xl.Info("tcpmux httpconnect multiplexer listens for host [%s]", routeConfig.Domain)
+	pxy.xl.Info("tcpmux httpconnect multiplexer listens for host [%s]", domain)
 	pxy.listeners = append(pxy.listeners, l)
-	return append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.TcpMuxHttpConnectPort)), nil
+	return append(addrs, util.CanonicalAddr(domain, pxy.serverCfg.TcpMuxHttpConnectPort)), nil
 }
 
 func (pxy *TcpMuxProxy) httpConnectRun() (remoteAddr string, err error) {
@@ -89,7 +93,4 @@ func (pxy *TcpMuxProxy) GetConf() config.ProxyConf {
 
 func (pxy *TcpMuxProxy) Close() {
 	pxy.BaseProxy.Close()
-	if pxy.cfg.Group == "" {
-		pxy.rc.TcpPortManager.Release(pxy.realPort)
-	}
 }

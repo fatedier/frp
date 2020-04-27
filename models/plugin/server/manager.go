@@ -28,6 +28,7 @@ type Manager struct {
 	newProxyPlugins    []Plugin
 	pingPlugins        []Plugin
 	newWorkConnPlugins []Plugin
+	newUserConnPlugins []Plugin
 }
 
 func NewManager() *Manager {
@@ -36,6 +37,7 @@ func NewManager() *Manager {
 		newProxyPlugins:    make([]Plugin, 0),
 		pingPlugins:        make([]Plugin, 0),
 		newWorkConnPlugins: make([]Plugin, 0),
+		newUserConnPlugins: make([]Plugin, 0),
 	}
 }
 
@@ -51,6 +53,9 @@ func (m *Manager) Register(p Plugin) {
 	}
 	if p.IsSupport(OpNewWorkConn) {
 		m.pingPlugins = append(m.pingPlugins, p)
+	}
+	if p.IsSupport(OpNewUserConn) {
+		m.newUserConnPlugins = append(m.newUserConnPlugins, p)
 	}
 }
 
@@ -185,6 +190,40 @@ func (m *Manager) NewWorkConn(content *NewWorkConnContent) (*NewWorkConnContent,
 		}
 		if !res.Unchange {
 			content = retContent.(*NewWorkConnContent)
+		}
+	}
+	return content, nil
+}
+
+func (m *Manager) NewUserConn(content *NewUserConnContent) (*NewUserConnContent, error) {
+	if len(m.newUserConnPlugins) == 0 {
+		return content, nil
+	}
+
+	var (
+		res = &Response{
+			Reject:   false,
+			Unchange: true,
+		}
+		retContent interface{}
+		err        error
+	)
+	reqid, _ := util.RandId()
+	xl := xlog.New().AppendPrefix("reqid: " + reqid)
+	ctx := xlog.NewContext(context.Background(), xl)
+	ctx = NewReqidContext(ctx, reqid)
+
+	for _, p := range m.newUserConnPlugins {
+		res, retContent, err = p.Handle(ctx, OpNewUserConn, *content)
+		if err != nil {
+			xl.Info("send NewUserConn request to plugin [%s] error: %v", p.Name(), err)
+			return nil, errors.New("send NewUserConn request to plugin error")
+		}
+		if res.Reject {
+			return nil, fmt.Errorf("%s", res.RejectReason)
+		}
+		if !res.Unchange {
+			content = retContent.(*NewUserConnContent)
 		}
 	}
 	return content, nil

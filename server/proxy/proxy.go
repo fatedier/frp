@@ -24,6 +24,7 @@ import (
 
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
+	plugin "github.com/fatedier/frp/models/plugin/server"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/metrics"
 	frpNet "github.com/fatedier/frp/utils/net"
@@ -41,6 +42,8 @@ type Proxy interface {
 	GetConf() config.ProxyConf
 	GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn, err error)
 	GetUsedPortsNum() int
+	GetResourceController() *controller.ResourceController
+	GetUserInfo() plugin.UserInfo
 	Close()
 }
 
@@ -52,6 +55,7 @@ type BaseProxy struct {
 	poolCount     int
 	getWorkConnFn GetWorkConnFn
 	serverCfg     config.ServerCommonConf
+	userInfo      plugin.UserInfo
 
 	mu  sync.RWMutex
 	xl  *xlog.Logger
@@ -68,6 +72,14 @@ func (pxy *BaseProxy) Context() context.Context {
 
 func (pxy *BaseProxy) GetUsedPortsNum() int {
 	return pxy.usedPortsNum
+}
+
+func (pxy *BaseProxy) GetResourceController() *controller.ResourceController {
+	return pxy.rc
+}
+
+func (pxy *BaseProxy) GetUserInfo() plugin.UserInfo {
+	return pxy.userInfo
 }
 
 func (pxy *BaseProxy) Close() {
@@ -154,7 +166,7 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, 
 	}
 }
 
-func NewProxy(ctx context.Context, runId string, rc *controller.ResourceController, poolCount int,
+func NewProxy(ctx context.Context, userInfo plugin.UserInfo, rc *controller.ResourceController, poolCount int,
 	getWorkConnFn GetWorkConnFn, pxyConf config.ProxyConf, serverCfg config.ServerCommonConf) (pxy Proxy, err error) {
 
 	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(pxyConf.GetBaseInfo().ProxyName)
@@ -167,6 +179,7 @@ func NewProxy(ctx context.Context, runId string, rc *controller.ResourceControll
 		serverCfg:     serverCfg,
 		xl:            xl,
 		ctx:           xlog.NewContext(ctx, xl),
+		userInfo:      userInfo,
 	}
 	switch cfg := pxyConf.(type) {
 	case *config.TcpProxyConf:
@@ -206,6 +219,11 @@ func NewProxy(ctx context.Context, runId string, rc *controller.ResourceControll
 			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
+	case *config.SudpProxyConf:
+		pxy = &SudpProxy{
+			BaseProxy: &basePxy,
+			cfg:       cfg,
+		}
 	default:
 		return pxy, fmt.Errorf("proxy type not support")
 	}
@@ -217,6 +235,20 @@ func NewProxy(ctx context.Context, runId string, rc *controller.ResourceControll
 func HandleUserTcpConnection(pxy Proxy, userConn net.Conn, serverCfg config.ServerCommonConf) {
 	xl := xlog.FromContextSafe(pxy.Context())
 	defer userConn.Close()
+
+	// server plugin hook
+	rc := pxy.GetResourceController()
+	content := &plugin.NewUserConnContent{
+		User:       pxy.GetUserInfo(),
+		ProxyName:  pxy.GetName(),
+		ProxyType:  pxy.GetConf().GetBaseInfo().ProxyType,
+		RemoteAddr: userConn.RemoteAddr().String(),
+	}
+	_, err := rc.PluginManager.NewUserConn(content)
+	if err != nil {
+		xl.Warn("the user conn [%s] was rejected, err:%v", content.RemoteAddr, err)
+		return
+	}
 
 	// try all connections from the pool
 	workConn, err := pxy.GetWorkConnFromPool(userConn.RemoteAddr(), userConn.LocalAddr())

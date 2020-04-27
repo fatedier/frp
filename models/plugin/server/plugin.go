@@ -25,6 +25,7 @@ const (
 	OpNewProxy    = "NewProxy"
 	OpPing        = "Ping"
 	OpNewWorkConn = "NewWorkConn"
+	OpNewUserConn = "NewUserConn"
 )
 
 type Plugin interface {
