@@ -85,9 +85,14 @@ type ClientCommonConf struct {
 	// value is true.
 	TcpMux bool `json:"tcp_mux"`
 	// User specifies a prefix for proxy names to distinguish them from other
-	// clients. If this value is not "", proxy names will automatically be
-	// changed to "{user}.{proxy_name}". By default, this value is "".
+	// clients when the value of "server_user" not set. If this value is not "",
+	// proxy names will automatically be changed to "{user}.{proxy_name}". By
+	// default, this value is "".
 	User string `json:"user"`
+	// User specifies a custom prefix for proxy names. If this value is not "",
+	// proxy names will automatically be changed to "{server_user}.{proxy_name}".
+	// By default, this value is "".
+	ServerUser string `json:"server_user"`
 	// DnsServer specifies a DNS server address for FRPC to use. If this value
 	// is "", the default DNS will be used. By default, this value is "".
 	DnsServer string `json:"dns_server"`
@@ -137,6 +142,7 @@ func GetDefaultClientConf() ClientCommonConf {
 		PoolCount:         1,
 		TcpMux:            true,
 		User:              "",
+		ServerUser:        "",
 		DnsServer:         "",
 		LoginFailExit:     true,
 		Start:             make(map[string]struct{}),
@@ -242,6 +248,10 @@ func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error
 
 	if tmpStr, ok = conf.Get("common", "user"); ok {
 		cfg.User = tmpStr
+	}
+
+	if tmpStr, ok = conf.Get("common", "server_user"); ok {
+		cfg.ServerUser = tmpStr
 	}
 
 	if tmpStr, ok = conf.Get("common", "dns_server"); ok {

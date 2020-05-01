@@ -45,6 +45,7 @@ var (
 
 	serverAddr      string
 	user            string
+	serverUser      string // Used to choose custom user's service
 	protocol        string
 	token           string
 	logLevel        string
@@ -158,6 +159,7 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 	}
 
 	cfg.User = user
+	cfg.ServerUser = serverUser
 	cfg.Protocol = protocol
 	cfg.LogLevel = logLevel
 	cfg.LogFile = logFile
@@ -230,4 +232,14 @@ func startService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyCo
 		<-kcpDoneCh
 	}
 	return
+}
+
+func getProxyPrefix(customServerUser, customUser string) string{
+	if customServerUser != "" {
+		return customServerUser + "."
+	}
+	if customUser != "" {
+		return customUser + "."
+	}
+	return ""
 }

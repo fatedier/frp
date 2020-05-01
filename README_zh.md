@@ -380,6 +380,8 @@ frp 提供了一种新的代理类型 **xtcp** 用于应对在希望传输大量
   role = visitor
   # 要访问的 xtcp 代理的名字
   server_name = p2p_ssh
+  # 要访问的 xtcp 代理属于哪个用户
+  server_user = test
   sk = abcdefg
   # 绑定本地端口用于访问 ssh 服务
   bind_addr = 127.0.0.1

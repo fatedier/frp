@@ -27,6 +27,7 @@ import (
 func init() {
 	xtcpCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
 	xtcpCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
+	stcpCmd.PersistentFlags().StringVarP(&serverUser, "server_user", "", "", "server user")
 	xtcpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
 	xtcpCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
 	xtcpCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
@@ -61,12 +62,9 @@ var xtcpCmd = &cobra.Command{
 		proxyConfs := make(map[string]config.ProxyConf)
 		visitorConfs := make(map[string]config.VisitorConf)
 
-		var prefix string
-		if user != "" {
-			prefix = user + "."
-		}
-
 		if role == "server" {
+			prefix := getProxyPrefix("", user)
+
 			cfg := &config.XtcpProxyConf{}
 			cfg.ProxyName = prefix + proxyName
 			cfg.ProxyType = consts.XtcpProxy
@@ -83,6 +81,8 @@ var xtcpCmd = &cobra.Command{
 			}
 			proxyConfs[cfg.ProxyName] = cfg
 		} else if role == "visitor" {
+			prefix := getProxyPrefix(serverUser, user)
+
 			cfg := &config.XtcpVisitorConf{}
 			cfg.ProxyName = prefix + proxyName
 			cfg.ProxyType = consts.XtcpProxy
