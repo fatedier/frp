@@ -543,7 +543,7 @@ func (pxy *UdpProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	go workConnSenderFn(pxy.workConn, pxy.sendCh)
 	go workConnReaderFn(pxy.workConn, pxy.readCh)
 	go heartbeatFn(pxy.workConn, pxy.sendCh)
-	udp.Forwarder(pxy.localAddr, pxy.readCh, pxy.sendCh)
+	udp.Forwarder(pxy.localAddr, pxy.readCh, pxy.sendCh, int(pxy.clientCfg.UdpPacketSize))
 }
 
 type SudpProxy struct {
@@ -688,7 +688,7 @@ func (pxy *SudpProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	go workConnReaderFn(workConn, readCh)
 	go heartbeatFn(workConn, sendCh)
 
-	udp.Forwarder(pxy.localAddr, readCh, sendCh)
+	udp.Forwarder(pxy.localAddr, readCh, sendCh, int(pxy.clientCfg.UdpPacketSize))
 }
 
 // Common handler for tcp work connections.
