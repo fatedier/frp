@@ -39,7 +39,7 @@ func GetContent(m *msg.UdpPacket) (buf []byte, err error) {
 	return
 }
 
-func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UdpPacket, sendCh chan<- *msg.UdpPacket) {
+func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UdpPacket, sendCh chan<- *msg.UdpPacket, bufSize int) {
 	// read
 	go func() {
 		for udpMsg := range readCh {
@@ -52,7 +52,7 @@ func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UdpPacket, sendCh 
 	}()
 
 	// write
-	buf := pool.GetBuf(1500)
+	buf := pool.GetBuf(bufSize)
 	defer pool.PutBuf(buf)
 	for {
 		n, remoteAddr, err := udpConn.ReadFromUDP(buf)
@@ -69,7 +69,7 @@ func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UdpPacket, sendCh 
 	}
 }
 
-func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UdpPacket, sendCh chan<- msg.Message) {
+func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UdpPacket, sendCh chan<- msg.Message, bufSize int) {
 	var (
 		mu sync.RWMutex
 	)
@@ -85,7 +85,7 @@ func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UdpPacket, sendCh chan<-
 			udpConn.Close()
 		}()
 
-		buf := pool.GetBuf(1500)
+		buf := pool.GetBuf(bufSize)
 		for {
 			udpConn.SetReadDeadline(time.Now().Add(30 * time.Second))
 			n, _, err := udpConn.ReadFromUDP(buf)

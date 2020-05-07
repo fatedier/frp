@@ -116,6 +116,9 @@ type ClientCommonConf struct {
 	HeartBeatTimeout int64 `json:"heartbeat_timeout"`
 	// Client meta info
 	Metas map[string]string `json:"metas"`
+	// UdpPacketSize specifies the udp packet size
+	// By default, this value is 1500
+	UdpPacketSize int64 `json:"udp_packet_size"`
 }
 
 // GetDefaultClientConf returns a client configuration with default values.
@@ -145,6 +148,7 @@ func GetDefaultClientConf() ClientCommonConf {
 		HeartBeatInterval: 30,
 		HeartBeatTimeout:  90,
 		Metas:             make(map[string]string),
+		UdpPacketSize:     1500,
 	}
 }
 
@@ -296,6 +300,14 @@ func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error
 	for k, v := range conf.Section("common") {
 		if strings.HasPrefix(k, "meta_") {
 			cfg.Metas[strings.TrimPrefix(k, "meta_")] = v
+		}
+	}
+	if tmpStr, ok = conf.Get("common", "udp_packet_size"); ok {
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid udp_packet_size")
+			return
+		} else {
+			cfg.UdpPacketSize = v
 		}
 	}
 	return

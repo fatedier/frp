@@ -369,7 +369,7 @@ func (sv *SudpVisitor) Run() (err error) {
 	xl.Info("sudp start to work")
 
 	go sv.dispatcher()
-	go udp.ForwardUserConn(sv.udpConn, sv.readCh, sv.sendCh)
+	go udp.ForwardUserConn(sv.udpConn, sv.readCh, sv.sendCh, int(sv.ctl.clientCfg.UdpPacketSize))
 
 	return
 }

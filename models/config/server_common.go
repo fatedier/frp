@@ -145,6 +145,9 @@ type ServerCommonConf struct {
 	UserConnTimeout int64 `json:"user_conn_timeout"`
 	// HTTPPlugins specify the server plugins support HTTP protocol.
 	HTTPPlugins map[string]plugin.HTTPPluginOptions `json:"http_plugins"`
+	// UdpPacketSize specifies the udp packet size
+	// By default, this value is 1500
+	UdpPacketSize int64 `json:"udp_packet_size"`
 }
 
 // GetDefaultServerConf returns a server configuration with reasonable
@@ -182,6 +185,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		UserConnTimeout:        10,
 		Custom404Page:          "",
 		HTTPPlugins:            make(map[string]plugin.HTTPPluginOptions),
+		UdpPacketSize:          1500,
 	}
 }
 
@@ -415,6 +419,15 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 		cfg.TlsOnly = true
 	} else {
 		cfg.TlsOnly = false
+	}
+
+	if tmpStr, ok = conf.Get("common", "udp_packet_size"); ok {
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid udp_packet_size")
+			return
+		} else {
+			cfg.UdpPacketSize = v
+		}
 	}
 	return
 }
