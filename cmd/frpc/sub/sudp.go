@@ -44,6 +44,7 @@ func init() {
 	sudpCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "", 0, "bind port")
 	sudpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	sudpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
+	sudpCmd.PersistentFlags().BoolVarP(&tlsEnable, "tls_enable", "", false, "enable frpc tls")
 
 	rootCmd.AddCommand(sudpCmd)
 }

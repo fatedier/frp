@@ -71,6 +71,8 @@ var (
 	bindAddr          string
 	bindPort          int
 
+	tlsEnable bool
+
 	kcpDoneCh chan struct{}
 )
 
@@ -172,6 +174,7 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 	// Only token authentication is supported in cmd mode
 	cfg.AuthClientConfig = auth.GetDefaultAuthClientConf()
 	cfg.Token = token
+	cfg.TLSEnable = tlsEnable
 
 	return
 }

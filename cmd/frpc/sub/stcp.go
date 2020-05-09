@@ -44,6 +44,7 @@ func init() {
 	stcpCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "", 0, "bind port")
 	stcpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	stcpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
+	stcpCmd.PersistentFlags().BoolVarP(&tlsEnable, "tls_enable", "", false, "enable frpc tls")
 
 	rootCmd.AddCommand(stcpCmd)
 }
