@@ -19,9 +19,9 @@ import (
 )
 
 type Counter interface {
-	Count() int64
-	Inc(int64)
-	Dec(int64)
+	Count() int32
+	Inc(int32)
+	Dec(int32)
 	Snapshot() Counter
 	Clear()
 }
@@ -33,28 +33,28 @@ func NewCounter() Counter {
 }
 
 type StandardCounter struct {
-	count int64
+	count int32
 }
 
-func (c *StandardCounter) Count() int64 {
-	return atomic.LoadInt64(&c.count)
+func (c *StandardCounter) Count() int32 {
+	return atomic.LoadInt32(&c.count)
 }
 
-func (c *StandardCounter) Inc(count int64) {
-	atomic.AddInt64(&c.count, count)
+func (c *StandardCounter) Inc(count int32) {
+	atomic.AddInt32(&c.count, int32(count))
 }
 
-func (c *StandardCounter) Dec(count int64) {
-	atomic.AddInt64(&c.count, -count)
+func (c *StandardCounter) Dec(count int32) {
+	atomic.AddInt32(&c.count, -count)
 }
 
 func (c *StandardCounter) Snapshot() Counter {
 	tmp := &StandardCounter{
-		count: atomic.LoadInt64(&c.count),
+		count: atomic.LoadInt32(&c.count),
 	}
 	return tmp
 }
 
 func (c *StandardCounter) Clear() {
-	atomic.StoreInt64(&c.count, 0)
+	atomic.StoreInt32(&c.count, 0)
 }
