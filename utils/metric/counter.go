@@ -41,7 +41,7 @@ func (c *StandardCounter) Count() int32 {
 }
 
 func (c *StandardCounter) Inc(count int32) {
-	atomic.AddInt32(&c.count, int32(count))
+	atomic.AddInt32(&c.count, count)
 }
 
 func (c *StandardCounter) Dec(count int32) {
