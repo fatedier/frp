@@ -42,6 +42,7 @@ func init() {
 	httpsCmd.PersistentFlags().StringVarP(&subDomain, "sd", "", "", "sub domain")
 	httpsCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	httpsCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
+	httpsCmd.PersistentFlags().BoolVarP(&tlsEnable, "tls_enable", "", false, "enable frpc tls")
 
 	rootCmd.AddCommand(httpsCmd)
 }

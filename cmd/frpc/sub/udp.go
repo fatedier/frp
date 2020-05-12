@@ -40,6 +40,7 @@ func init() {
 	udpCmd.PersistentFlags().IntVarP(&remotePort, "remote_port", "r", 0, "remote port")
 	udpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	udpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
+	udpCmd.PersistentFlags().BoolVarP(&tlsEnable, "tls_enable", "", false, "enable frpc tls")
 
 	rootCmd.AddCommand(udpCmd)
 }
