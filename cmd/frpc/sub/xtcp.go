@@ -25,14 +25,7 @@ import (
 )
 
 func init() {
-	xtcpCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
-	xtcpCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	xtcpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
-	xtcpCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
-	xtcpCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
-	xtcpCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
-	xtcpCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
-	xtcpCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
+	RegisterCommonFlags(xtcpCmd)
 
 	xtcpCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
 	xtcpCmd.PersistentFlags().StringVarP(&role, "role", "", "server", "role")
@@ -44,7 +37,6 @@ func init() {
 	xtcpCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "", 0, "bind port")
 	xtcpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	xtcpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
-	xtcpCmd.PersistentFlags().BoolVarP(&tlsEnable, "tls_enable", "", false, "enable frpc tls")
 
 	rootCmd.AddCommand(xtcpCmd)
 }

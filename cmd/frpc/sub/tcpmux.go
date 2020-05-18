@@ -26,14 +26,7 @@ import (
 )
 
 func init() {
-	tcpMuxCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
-	tcpMuxCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	tcpMuxCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
-	tcpMuxCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
-	tcpMuxCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
-	tcpMuxCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
-	tcpMuxCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
-	tcpMuxCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
+	RegisterCommonFlags(tcpMuxCmd)
 
 	tcpMuxCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
 	tcpMuxCmd.PersistentFlags().StringVarP(&localIp, "local_ip", "i", "127.0.0.1", "local ip")
@@ -43,7 +36,6 @@ func init() {
 	tcpMuxCmd.PersistentFlags().StringVarP(&multiplexer, "mux", "", "", "multiplexer")
 	tcpMuxCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	tcpMuxCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
-	tcpMuxCmd.PersistentFlags().BoolVarP(&tlsEnable, "tls_enable", "", false, "enable frpc tls")
 
 	rootCmd.AddCommand(tcpMuxCmd)
 }

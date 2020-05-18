@@ -25,14 +25,7 @@ import (
 )
 
 func init() {
-	stcpCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
-	stcpCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	stcpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
-	stcpCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
-	stcpCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
-	stcpCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
-	stcpCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
-	stcpCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
+	RegisterCommonFlags(stcpCmd)
 
 	stcpCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
 	stcpCmd.PersistentFlags().StringVarP(&role, "role", "", "server", "role")
@@ -44,7 +37,6 @@ func init() {
 	stcpCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "", 0, "bind port")
 	stcpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	stcpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
-	stcpCmd.PersistentFlags().BoolVarP(&tlsEnable, "tls_enable", "", false, "enable frpc tls")
 
 	rootCmd.AddCommand(stcpCmd)
 }

@@ -25,14 +25,7 @@ import (
 )
 
 func init() {
-	sudpCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
-	sudpCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	sudpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
-	sudpCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
-	sudpCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
-	sudpCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
-	sudpCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
-	sudpCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
+	RegisterCommonFlags(sudpCmd)
 
 	sudpCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
 	sudpCmd.PersistentFlags().StringVarP(&role, "role", "", "server", "role")
@@ -44,7 +37,6 @@ func init() {
 	sudpCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "", 0, "bind port")
 	sudpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	sudpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
-	sudpCmd.PersistentFlags().BoolVarP(&tlsEnable, "tls_enable", "", false, "enable frpc tls")
 
 	rootCmd.AddCommand(sudpCmd)
 }
