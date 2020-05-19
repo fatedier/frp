@@ -26,14 +26,7 @@ import (
 )
 
 func init() {
-	httpsCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
-	httpsCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	httpsCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
-	httpsCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
-	httpsCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
-	httpsCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
-	httpsCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
-	httpsCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
+	RegisterCommonFlags(httpsCmd)
 
 	httpsCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
 	httpsCmd.PersistentFlags().StringVarP(&localIp, "local_ip", "i", "127.0.0.1", "local ip")
@@ -42,7 +35,6 @@ func init() {
 	httpsCmd.PersistentFlags().StringVarP(&subDomain, "sd", "", "", "sub domain")
 	httpsCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	httpsCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
-	httpsCmd.PersistentFlags().BoolVarP(&tlsEnable, "tls_enable", "", false, "enable frpc tls")
 
 	rootCmd.AddCommand(httpsCmd)
 }

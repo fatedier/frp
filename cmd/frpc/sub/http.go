@@ -26,14 +26,7 @@ import (
 )
 
 func init() {
-	httpCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
-	httpCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	httpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
-	httpCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
-	httpCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
-	httpCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
-	httpCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
-	httpCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
+	RegisterCommonFlags(httpCmd)
 
 	httpCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
 	httpCmd.PersistentFlags().StringVarP(&localIp, "local_ip", "i", "127.0.0.1", "local ip")
@@ -46,7 +39,6 @@ func init() {
 	httpCmd.PersistentFlags().StringVarP(&hostHeaderRewrite, "host_header_rewrite", "", "", "host header rewrite")
 	httpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	httpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
-	httpCmd.PersistentFlags().BoolVarP(&tlsEnable, "tls_enable", "", false, "enable frpc tls")
 
 	rootCmd.AddCommand(httpCmd)
 }
