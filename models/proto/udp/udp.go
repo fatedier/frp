@@ -26,20 +26,20 @@ import (
 	"github.com/fatedier/golib/pool"
 )
 
-func NewUdpPacket(buf []byte, laddr, raddr *net.UDPAddr) *msg.UdpPacket {
-	return &msg.UdpPacket{
+func NewUDPPacket(buf []byte, laddr, raddr *net.UDPAddr) *msg.UDPPacket {
+	return &msg.UDPPacket{
 		Content:    base64.StdEncoding.EncodeToString(buf),
 		LocalAddr:  laddr,
 		RemoteAddr: raddr,
 	}
 }
 
-func GetContent(m *msg.UdpPacket) (buf []byte, err error) {
+func GetContent(m *msg.UDPPacket) (buf []byte, err error) {
 	buf, err = base64.StdEncoding.DecodeString(m.Content)
 	return
 }
 
-func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UdpPacket, sendCh chan<- *msg.UdpPacket, bufSize int) {
+func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UDPPacket, sendCh chan<- *msg.UDPPacket, bufSize int) {
 	// read
 	go func() {
 		for udpMsg := range readCh {
@@ -60,7 +60,7 @@ func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UdpPacket, sendCh 
 			return
 		}
 		// buf[:n] will be encoded to string, so the bytes can be reused
-		udpMsg := NewUdpPacket(buf[:n], nil, remoteAddr)
+		udpMsg := NewUDPPacket(buf[:n], nil, remoteAddr)
 
 		select {
 		case sendCh <- udpMsg:
@@ -69,7 +69,7 @@ func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UdpPacket, sendCh 
 	}
 }
 
-func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UdpPacket, sendCh chan<- msg.Message, bufSize int) {
+func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UDPPacket, sendCh chan<- msg.Message, bufSize int) {
 	var (
 		mu sync.RWMutex
 	)
@@ -93,7 +93,7 @@ func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UdpPacket, sendCh chan<-
 				return
 			}
 
-			udpMsg := NewUdpPacket(buf[:n], nil, raddr)
+			udpMsg := NewUDPPacket(buf[:n], nil, raddr)
 			if err = errors.PanicToError(func() {
 				select {
 				case sendCh <- udpMsg:

@@ -53,7 +53,7 @@ var (
 	disableLogColor bool
 
 	proxyName         string
-	localIp           string
+	localIP           string
 	localPort         int
 	remotePort        int
 	useEncryption     bool
@@ -184,7 +184,7 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 	cfg.DisableLogColor = disableLogColor
 
 	// Only token authentication is supported in cmd mode
-	cfg.AuthClientConfig = auth.GetDefaultAuthClientConf()
+	cfg.ClientConfig = auth.GetDefaultClientConf()
 	cfg.Token = token
 	cfg.TLSEnable = tlsEnable
 
@@ -216,8 +216,8 @@ func startService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyCo
 	log.InitLog(cfg.LogWay, cfg.LogFile, cfg.LogLevel,
 		cfg.LogMaxDays, cfg.DisableLogColor)
 
-	if cfg.DnsServer != "" {
-		s := cfg.DnsServer
+	if cfg.DNSServer != "" {
+		s := cfg.DNSServer
 		if !strings.Contains(s, ":") {
 			s += ":53"
 		}

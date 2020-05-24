@@ -102,7 +102,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 		}
 		xl.Info("get a new work connection: [%s]", workConn.RemoteAddr().String())
 		xl.Spawn().AppendPrefix(pxy.GetName())
-		workConn = frpNet.NewContextConn(workConn, pxy.ctx)
+		workConn = frpNet.NewContextConn(pxy.ctx, workConn)
 
 		var (
 			srcAddr    string
@@ -182,45 +182,45 @@ func NewProxy(ctx context.Context, userInfo plugin.UserInfo, rc *controller.Reso
 		userInfo:      userInfo,
 	}
 	switch cfg := pxyConf.(type) {
-	case *config.TcpProxyConf:
+	case *config.TCPProxyConf:
 		basePxy.usedPortsNum = 1
-		pxy = &TcpProxy{
+		pxy = &TCPProxy{
 			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
-	case *config.TcpMuxProxyConf:
-		pxy = &TcpMuxProxy{
+	case *config.TCPMuxProxyConf:
+		pxy = &TCPMuxProxy{
 			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
-	case *config.HttpProxyConf:
-		pxy = &HttpProxy{
+	case *config.HTTPProxyConf:
+		pxy = &HTTPProxy{
 			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
-	case *config.HttpsProxyConf:
-		pxy = &HttpsProxy{
+	case *config.HTTPSProxyConf:
+		pxy = &HTTPSProxy{
 			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
-	case *config.UdpProxyConf:
+	case *config.UDPProxyConf:
 		basePxy.usedPortsNum = 1
-		pxy = &UdpProxy{
+		pxy = &UDPProxy{
 			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
-	case *config.StcpProxyConf:
-		pxy = &StcpProxy{
+	case *config.STCPProxyConf:
+		pxy = &STCPProxy{
 			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
-	case *config.XtcpProxyConf:
-		pxy = &XtcpProxy{
+	case *config.XTCPProxyConf:
+		pxy = &XTCPProxy{
 			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
-	case *config.SudpProxyConf:
-		pxy = &SudpProxy{
+	case *config.SUDPProxyConf:
+		pxy = &SUDPProxy{
 			BaseProxy: &basePxy,
 			cfg:       cfg,
 		}
@@ -230,9 +230,9 @@ func NewProxy(ctx context.Context, userInfo plugin.UserInfo, rc *controller.Reso
 	return
 }
 
-// HandleUserTcpConnection is used for incoming tcp user connections.
+// HandleUserTCPConnection is used for incoming user TCP connections.
 // It can be used for tcp, http, https type.
-func HandleUserTcpConnection(pxy Proxy, userConn net.Conn, serverCfg config.ServerCommonConf) {
+func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.ServerCommonConf) {
 	xl := xlog.FromContextSafe(pxy.Context())
 	defer userConn.Close()
 
@@ -283,20 +283,20 @@ func HandleUserTcpConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	xl.Debug("join connections closed")
 }
 
-type ProxyManager struct {
+type Manager struct {
 	// proxies indexed by proxy name
 	pxys map[string]Proxy
 
 	mu sync.RWMutex
 }
 
-func NewProxyManager() *ProxyManager {
-	return &ProxyManager{
+func NewManager() *Manager {
+	return &Manager{
 		pxys: make(map[string]Proxy),
 	}
 }
 
-func (pm *ProxyManager) Add(name string, pxy Proxy) error {
+func (pm *Manager) Add(name string, pxy Proxy) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 	if _, ok := pm.pxys[name]; ok {
@@ -307,13 +307,13 @@ func (pm *ProxyManager) Add(name string, pxy Proxy) error {
 	return nil
 }
 
-func (pm *ProxyManager) Del(name string) {
+func (pm *Manager) Del(name string) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 	delete(pm.pxys, name)
 }
 
-func (pm *ProxyManager) GetByName(name string) (pxy Proxy, ok bool) {
+func (pm *Manager) GetByName(name string) (pxy Proxy, ok bool) {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 	pxy, ok = pm.pxys[name]

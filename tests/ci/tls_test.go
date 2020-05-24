@@ -37,7 +37,7 @@ local_port = 10701
 remote_port = 20801
 `
 
-func TestTlsOverTCP(t *testing.T) {
+func TestTLSOverTCP(t *testing.T) {
 	assert := assert.New(t)
 	frpsCfgPath, err := config.GenerateConfigFile(consts.FRPS_NORMAL_CONFIG, FRPS_TLS_TCP_CONF)
 	if assert.NoError(err) {
@@ -65,7 +65,7 @@ func TestTlsOverTCP(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// test tcp
-	res, err := util.SendTcpMsg("127.0.0.1:20801", consts.TEST_TCP_ECHO_STR)
+	res, err := util.SendTCPMsg("127.0.0.1:20801", consts.TEST_TCP_ECHO_STR)
 	assert.NoError(err)
 	assert.Equal(consts.TEST_TCP_ECHO_STR, res)
 }
@@ -124,7 +124,7 @@ func TestTLSOverKCP(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// test tcp
-	res, err := util.SendTcpMsg("127.0.0.1:20801", consts.TEST_TCP_ECHO_STR)
+	res, err := util.SendTCPMsg("127.0.0.1:20801", consts.TEST_TCP_ECHO_STR)
 	assert.NoError(err)
 	assert.Equal(consts.TEST_TCP_ECHO_STR, res)
 }
@@ -182,7 +182,7 @@ func TestTLSOverWebsocket(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// test tcp
-	res, err := util.SendTcpMsg("127.0.0.1:20801", consts.TEST_TCP_ECHO_STR)
+	res, err := util.SendTCPMsg("127.0.0.1:20801", consts.TEST_TCP_ECHO_STR)
 	assert.NoError(err)
 	assert.Equal(consts.TEST_TCP_ECHO_STR, res)
 }
@@ -229,16 +229,16 @@ local_port = 10701
 remote_port = 20802
 `
 
-func TestTlsOnlyOverTCP(t *testing.T) {
+func TestTLSOnlyOverTCP(t *testing.T) {
 	assert := assert.New(t)
 	frpsCfgPath, err := config.GenerateConfigFile(consts.FRPS_NORMAL_CONFIG, FRPS_TLS_ONLY_TCP_CONF)
 	if assert.NoError(err) {
 		defer os.Remove(frpsCfgPath)
 	}
 
-	frpcWithTlsCfgPath, err := config.GenerateConfigFile(consts.FRPC_NORMAL_CONFIG, FRPC_TLS_ONLY_TCP_CONF)
+	frpcWithTLSCfgPath, err := config.GenerateConfigFile(consts.FRPC_NORMAL_CONFIG, FRPC_TLS_ONLY_TCP_CONF)
 	if assert.NoError(err) {
-		defer os.Remove(frpcWithTlsCfgPath)
+		defer os.Remove(frpcWithTLSCfgPath)
 	}
 
 	frpsProcess := util.NewProcess(consts.FRPS_BIN_PATH, []string{"-c", frpsCfgPath})
@@ -249,32 +249,32 @@ func TestTlsOnlyOverTCP(t *testing.T) {
 
 	time.Sleep(200 * time.Millisecond)
 
-	frpcProcessWithTls := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", frpcWithTlsCfgPath})
-	err = frpcProcessWithTls.Start()
+	frpcProcessWithTLS := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", frpcWithTLSCfgPath})
+	err = frpcProcessWithTLS.Start()
 	if assert.NoError(err) {
-		defer frpcProcessWithTls.Stop()
+		defer frpcProcessWithTLS.Stop()
 	}
 	time.Sleep(500 * time.Millisecond)
 
-	// test tcp over tls
-	res, err := util.SendTcpMsg("127.0.0.1:20801", consts.TEST_TCP_ECHO_STR)
+	// test tcp over TLS
+	res, err := util.SendTCPMsg("127.0.0.1:20801", consts.TEST_TCP_ECHO_STR)
 	assert.NoError(err)
 	assert.Equal(consts.TEST_TCP_ECHO_STR, res)
-	frpcProcessWithTls.Stop()
+	frpcProcessWithTLS.Stop()
 
-	frpcWithoutTlsCfgPath, err := config.GenerateConfigFile(consts.FRPC_NORMAL_CONFIG, FRPC_TLS_ONLY_NO_TLS_TCP_CONF)
+	frpcWithoutTLSCfgPath, err := config.GenerateConfigFile(consts.FRPC_NORMAL_CONFIG, FRPC_TLS_ONLY_NO_TLS_TCP_CONF)
 	if assert.NoError(err) {
-		defer os.Remove(frpcWithTlsCfgPath)
+		defer os.Remove(frpcWithTLSCfgPath)
 	}
 
-	frpcProcessWithoutTls := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", frpcWithoutTlsCfgPath})
-	err = frpcProcessWithoutTls.Start()
+	frpcProcessWithoutTLS := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", frpcWithoutTLSCfgPath})
+	err = frpcProcessWithoutTLS.Start()
 	if assert.NoError(err) {
-		defer frpcProcessWithoutTls.Stop()
+		defer frpcProcessWithoutTLS.Stop()
 	}
 	time.Sleep(500 * time.Millisecond)
 
-	// test tcp without tls
-	_, err = util.SendTcpMsg("127.0.0.1:20802", consts.TEST_TCP_ECHO_STR)
+	// test tcp without TLS
+	_, err = util.SendTCPMsg("127.0.0.1:20802", consts.TEST_TCP_ECHO_STR)
 	assert.Error(err)
 }
