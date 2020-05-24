@@ -41,6 +41,7 @@ import (
 	"github.com/fatedier/frp/server/metrics"
 	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/server/proxy"
+	"github.com/fatedier/frp/server/visitor"
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/tcpmux"
@@ -104,7 +105,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		pxyManager:    proxy.NewProxyManager(),
 		pluginManager: plugin.NewManager(),
 		rc: &controller.ResourceController{
-			VisitorManager: controller.NewVisitorManager(),
+			VisitorManager: visitor.NewVisitorManager(),
 			TcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
 			UdpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 		},
