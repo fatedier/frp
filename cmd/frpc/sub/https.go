@@ -29,7 +29,7 @@ func init() {
 	RegisterCommonFlags(httpsCmd)
 
 	httpsCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
-	httpsCmd.PersistentFlags().StringVarP(&localIp, "local_ip", "i", "127.0.0.1", "local ip")
+	httpsCmd.PersistentFlags().StringVarP(&localIP, "local_ip", "i", "127.0.0.1", "local ip")
 	httpsCmd.PersistentFlags().IntVarP(&localPort, "local_port", "l", 0, "local port")
 	httpsCmd.PersistentFlags().StringVarP(&customDomains, "custom_domain", "d", "", "custom domain")
 	httpsCmd.PersistentFlags().StringVarP(&subDomain, "sd", "", "", "sub domain")
@@ -49,14 +49,14 @@ var httpsCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		cfg := &config.HttpsProxyConf{}
+		cfg := &config.HTTPSProxyConf{}
 		var prefix string
 		if user != "" {
 			prefix = user + "."
 		}
 		cfg.ProxyName = prefix + proxyName
-		cfg.ProxyType = consts.HttpsProxy
-		cfg.LocalIp = localIp
+		cfg.ProxyType = consts.HTTPSProxy
+		cfg.LocalIP = localIP
 		cfg.LocalPort = localPort
 		cfg.CustomDomains = strings.Split(customDomains, ",")
 		cfg.SubDomain = subDomain

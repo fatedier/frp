@@ -43,42 +43,42 @@ import (
 
 type ControlManager struct {
 	// controls indexed by run id
-	ctlsByRunId map[string]*Control
+	ctlsByRunID map[string]*Control
 
 	mu sync.RWMutex
 }
 
 func NewControlManager() *ControlManager {
 	return &ControlManager{
-		ctlsByRunId: make(map[string]*Control),
+		ctlsByRunID: make(map[string]*Control),
 	}
 }
 
-func (cm *ControlManager) Add(runId string, ctl *Control) (oldCtl *Control) {
+func (cm *ControlManager) Add(runID string, ctl *Control) (oldCtl *Control) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	oldCtl, ok := cm.ctlsByRunId[runId]
+	oldCtl, ok := cm.ctlsByRunID[runID]
 	if ok {
 		oldCtl.Replaced(ctl)
 	}
-	cm.ctlsByRunId[runId] = ctl
+	cm.ctlsByRunID[runID] = ctl
 	return
 }
 
 // we should make sure if it's the same control to prevent delete a new one
-func (cm *ControlManager) Del(runId string, ctl *Control) {
+func (cm *ControlManager) Del(runID string, ctl *Control) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	if c, ok := cm.ctlsByRunId[runId]; ok && c == ctl {
-		delete(cm.ctlsByRunId, runId)
+	if c, ok := cm.ctlsByRunID[runID]; ok && c == ctl {
+		delete(cm.ctlsByRunID, runID)
 	}
 }
 
-func (cm *ControlManager) GetById(runId string) (ctl *Control, ok bool) {
+func (cm *ControlManager) GetByID(runID string) (ctl *Control, ok bool) {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	ctl, ok = cm.ctlsByRunId[runId]
+	ctl, ok = cm.ctlsByRunID[runID]
 	return
 }
 
@@ -87,7 +87,7 @@ type Control struct {
 	rc *controller.ResourceController
 
 	// proxy manager
-	pxyManager *proxy.ProxyManager
+	pxyManager *proxy.Manager
 
 	// plugin manager
 	pluginManager *plugin.Manager
@@ -125,7 +125,7 @@ type Control struct {
 	// A new run id will be generated when a new client login.
 	// If run id got from login message has same run id, it means it's the same client, so we can
 	// replace old controller instantly.
-	runId string
+	runID string
 
 	// control status
 	status string
@@ -147,7 +147,7 @@ type Control struct {
 func NewControl(
 	ctx context.Context,
 	rc *controller.ResourceController,
-	pxyManager *proxy.ProxyManager,
+	pxyManager *proxy.Manager,
 	pluginManager *plugin.Manager,
 	authVerifier auth.Verifier,
 	ctlConn net.Conn,
@@ -173,7 +173,7 @@ func NewControl(
 		poolCount:       poolCount,
 		portsUsedNum:    0,
 		lastPing:        time.Now(),
-		runId:           loginMsg.RunId,
+		runID:           loginMsg.RunID,
 		status:          consts.Working,
 		readerShutdown:  shutdown.New(),
 		writerShutdown:  shutdown.New(),
@@ -189,8 +189,8 @@ func NewControl(
 func (ctl *Control) Start() {
 	loginRespMsg := &msg.LoginResp{
 		Version:       version.Full(),
-		RunId:         ctl.runId,
-		ServerUdpPort: ctl.serverCfg.BindUdpPort,
+		RunID:         ctl.runID,
+		ServerUDPPort: ctl.serverCfg.BindUDPPort,
 		Error:         "",
 	}
 	msg.WriteMsg(ctl.conn, loginRespMsg)
@@ -280,8 +280,8 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 
 func (ctl *Control) Replaced(newCtl *Control) {
 	xl := ctl.xl
-	xl.Info("Replaced by client [%s]", newCtl.runId)
-	ctl.runId = ""
+	xl.Info("Replaced by client [%s]", newCtl.runID)
+	ctl.runID = ""
 	ctl.allShutdown.Start()
 }
 
@@ -304,14 +304,15 @@ func (ctl *Control) writer() {
 		return
 	}
 	for {
-		if m, ok := <-ctl.sendCh; !ok {
+		m, ok := <-ctl.sendCh
+		if !ok {
 			xl.Info("control writer is closing")
 			return
-		} else {
-			if err := msg.WriteMsg(encWriter, m); err != nil {
-				xl.Warn("write message to control connection error: %v", err)
-				return
-			}
+		}
+
+		if err := msg.WriteMsg(encWriter, m); err != nil {
+			xl.Warn("write message to control connection error: %v", err)
+			return
 		}
 	}
 }
@@ -330,18 +331,18 @@ func (ctl *Control) reader() {
 
 	encReader := crypto.NewReader(ctl.conn, []byte(ctl.serverCfg.Token))
 	for {
-		if m, err := msg.ReadMsg(encReader); err != nil {
+		m, err := msg.ReadMsg(encReader)
+		if err != nil {
 			if err == io.EOF {
 				xl.Debug("control connection closed")
 				return
-			} else {
-				xl.Warn("read error: %v", err)
-				ctl.conn.Close()
-				return
 			}
-		} else {
-			ctl.readCh <- m
+			xl.Warn("read error: %v", err)
+			ctl.conn.Close()
+			return
 		}
+
+		ctl.readCh <- m
 	}
 }
 
@@ -422,7 +423,7 @@ func (ctl *Control) manager() {
 					User: plugin.UserInfo{
 						User:  ctl.loginMsg.User,
 						Metas: ctl.loginMsg.Metas,
-						RunId: ctl.loginMsg.RunId,
+						RunID: ctl.loginMsg.RunID,
 					},
 					NewProxy: *m,
 				}
@@ -454,7 +455,7 @@ func (ctl *Control) manager() {
 					User: plugin.UserInfo{
 						User:  ctl.loginMsg.User,
 						Metas: ctl.loginMsg.Metas,
-						RunId: ctl.loginMsg.RunId,
+						RunID: ctl.loginMsg.RunID,
 					},
 					Ping: *m,
 				}
@@ -490,7 +491,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 	userInfo := plugin.UserInfo{
 		User:  ctl.loginMsg.User,
 		Metas: ctl.loginMsg.Metas,
-		RunId: ctl.runId,
+		RunID: ctl.runID,
 	}
 
 	// NewProxy will return a interface Proxy.

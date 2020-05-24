@@ -26,16 +26,16 @@ import (
 	"github.com/fatedier/frp/utils/vhost"
 )
 
-type HttpConnectTcpMuxer struct {
-	*vhost.VhostMuxer
+type HTTPConnectTCPMuxer struct {
+	*vhost.Muxer
 }
 
-func NewHttpConnectTcpMuxer(listener net.Listener, timeout time.Duration) (*HttpConnectTcpMuxer, error) {
-	mux, err := vhost.NewVhostMuxer(listener, getHostFromHttpConnect, nil, sendHttpOk, nil, timeout)
-	return &HttpConnectTcpMuxer{mux}, err
+func NewHTTPConnectTCPMuxer(listener net.Listener, timeout time.Duration) (*HTTPConnectTCPMuxer, error) {
+	mux, err := vhost.NewMuxer(listener, getHostFromHTTPConnect, nil, sendHTTPOk, nil, timeout)
+	return &HTTPConnectTCPMuxer{mux}, err
 }
 
-func readHttpConnectRequest(rd io.Reader) (host string, err error) {
+func readHTTPConnectRequest(rd io.Reader) (host string, err error) {
 	bufioReader := bufio.NewReader(rd)
 
 	req, err := http.ReadRequest(bufioReader)
@@ -52,13 +52,13 @@ func readHttpConnectRequest(rd io.Reader) (host string, err error) {
 	return
 }
 
-func sendHttpOk(c net.Conn) error {
+func sendHTTPOk(c net.Conn) error {
 	return util.OkResponse().Write(c)
 }
 
-func getHostFromHttpConnect(c net.Conn) (_ net.Conn, _ map[string]string, err error) {
+func getHostFromHTTPConnect(c net.Conn) (_ net.Conn, _ map[string]string, err error) {
 	reqInfoMap := make(map[string]string, 0)
-	host, err := readHttpConnectRequest(c)
+	host, err := readHTTPConnectRequest(c)
 	if err != nil {
 		return nil, reqInfoMap, err
 	}

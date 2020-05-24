@@ -21,21 +21,21 @@ import (
 	"strings"
 )
 
-type HttpAuthWraper struct {
+type HTTPAuthWraper struct {
 	h      http.Handler
 	user   string
 	passwd string
 }
 
-func NewHttpBasicAuthWraper(h http.Handler, user, passwd string) http.Handler {
-	return &HttpAuthWraper{
+func NewHTTPBasicAuthWraper(h http.Handler, user, passwd string) http.Handler {
+	return &HTTPAuthWraper{
 		h:      h,
 		user:   user,
 		passwd: passwd,
 	}
 }
 
-func (aw *HttpAuthWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (aw *HTTPAuthWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	user, passwd, hasAuth := r.BasicAuth()
 	if (aw.user == "" && aw.passwd == "") || (hasAuth && user == aw.user && passwd == aw.passwd) {
 		aw.h.ServeHTTP(w, r)
@@ -45,19 +45,19 @@ func (aw *HttpAuthWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type HttpAuthMiddleware struct {
+type HTTPAuthMiddleware struct {
 	user   string
 	passwd string
 }
 
-func NewHttpAuthMiddleware(user, passwd string) *HttpAuthMiddleware {
-	return &HttpAuthMiddleware{
+func NewHTTPAuthMiddleware(user, passwd string) *HTTPAuthMiddleware {
+	return &HTTPAuthMiddleware{
 		user:   user,
 		passwd: passwd,
 	}
 }
 
-func (authMid *HttpAuthMiddleware) Middleware(next http.Handler) http.Handler {
+func (authMid *HTTPAuthMiddleware) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqUser, reqPasswd, hasAuth := r.BasicAuth()
 		if (authMid.user == "" && authMid.passwd == "") ||
@@ -70,7 +70,7 @@ func (authMid *HttpAuthMiddleware) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-func HttpBasicAuth(h http.HandlerFunc, user, passwd string) http.HandlerFunc {
+func HTTPBasicAuth(h http.HandlerFunc, user, passwd string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		reqUser, reqPasswd, hasAuth := r.BasicAuth()
 		if (user == "" && passwd == "") ||
@@ -83,11 +83,11 @@ func HttpBasicAuth(h http.HandlerFunc, user, passwd string) http.HandlerFunc {
 	}
 }
 
-type HttpGzipWraper struct {
+type HTTPGzipWraper struct {
 	h http.Handler
 }
 
-func (gw *HttpGzipWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (gw *HTTPGzipWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		gw.h.ServeHTTP(w, r)
 		return
@@ -99,8 +99,8 @@ func (gw *HttpGzipWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	gw.h.ServeHTTP(gzr, r)
 }
 
-func MakeHttpGzipHandler(h http.Handler) http.Handler {
-	return &HttpGzipWraper{
+func MakeHTTPGzipHandler(h http.Handler) http.Handler {
+	return &HTTPGzipWraper{
 		h: h,
 	}
 }

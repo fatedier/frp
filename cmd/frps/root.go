@@ -39,12 +39,12 @@ var (
 
 	bindAddr          string
 	bindPort          int
-	bindUdpPort       int
+	bindUDPPort       int
 	kcpBindPort       int
 	proxyBindAddr     string
-	vhostHttpPort     int
-	vhostHttpsPort    int
-	vhostHttpTimeout  int64
+	vhostHTTPPort     int
+	vhostHTTPSPort    int
+	vhostHTTPTimeout  int64
 	dashboardAddr     string
 	dashboardPort     int
 	dashboardUser     string
@@ -69,12 +69,12 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "", "0.0.0.0", "bind address")
 	rootCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "p", 7000, "bind port")
-	rootCmd.PersistentFlags().IntVarP(&bindUdpPort, "bind_udp_port", "", 0, "bind udp port")
+	rootCmd.PersistentFlags().IntVarP(&bindUDPPort, "bind_udp_port", "", 0, "bind udp port")
 	rootCmd.PersistentFlags().IntVarP(&kcpBindPort, "kcp_bind_port", "", 0, "kcp bind udp port")
 	rootCmd.PersistentFlags().StringVarP(&proxyBindAddr, "proxy_bind_addr", "", "0.0.0.0", "proxy bind address")
-	rootCmd.PersistentFlags().IntVarP(&vhostHttpPort, "vhost_http_port", "", 0, "vhost http port")
-	rootCmd.PersistentFlags().IntVarP(&vhostHttpsPort, "vhost_https_port", "", 0, "vhost https port")
-	rootCmd.PersistentFlags().Int64VarP(&vhostHttpTimeout, "vhost_http_timeout", "", 60, "vhost http response header timeout")
+	rootCmd.PersistentFlags().IntVarP(&vhostHTTPPort, "vhost_http_port", "", 0, "vhost http port")
+	rootCmd.PersistentFlags().IntVarP(&vhostHTTPSPort, "vhost_https_port", "", 0, "vhost https port")
+	rootCmd.PersistentFlags().Int64VarP(&vhostHTTPTimeout, "vhost_http_timeout", "", 60, "vhost http response header timeout")
 	rootCmd.PersistentFlags().StringVarP(&dashboardAddr, "dashboard_addr", "", "0.0.0.0", "dasboard address")
 	rootCmd.PersistentFlags().IntVarP(&dashboardPort, "dashboard_port", "", 0, "dashboard port")
 	rootCmd.PersistentFlags().StringVarP(&dashboardUser, "dashboard_user", "", "admin", "dashboard user")
@@ -161,12 +161,12 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 
 	cfg.BindAddr = bindAddr
 	cfg.BindPort = bindPort
-	cfg.BindUdpPort = bindUdpPort
-	cfg.KcpBindPort = kcpBindPort
+	cfg.BindUDPPort = bindUDPPort
+	cfg.KCPBindPort = kcpBindPort
 	cfg.ProxyBindAddr = proxyBindAddr
-	cfg.VhostHttpPort = vhostHttpPort
-	cfg.VhostHttpsPort = vhostHttpsPort
-	cfg.VhostHttpTimeout = vhostHttpTimeout
+	cfg.VhostHTTPPort = vhostHTTPPort
+	cfg.VhostHTTPSPort = vhostHTTPSPort
+	cfg.VhostHTTPTimeout = vhostHTTPTimeout
 	cfg.DashboardAddr = dashboardAddr
 	cfg.DashboardPort = dashboardPort
 	cfg.DashboardUser = dashboardUser
@@ -175,10 +175,10 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 	cfg.LogLevel = logLevel
 	cfg.LogMaxDays = logMaxDays
 	cfg.SubDomainHost = subDomainHost
-	cfg.TlsOnly = tlsOnly
+	cfg.TLSOnly = tlsOnly
 
 	// Only token authentication is supported in cmd mode
-	cfg.AuthServerConfig = auth.GetDefaultAuthServerConf()
+	cfg.ServerConfig = auth.GetDefaultServerConf()
 	cfg.Token = token
 	if len(allowPorts) > 0 {
 		// e.g. 1000-2000,2001,2002,3000-4000

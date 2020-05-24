@@ -50,18 +50,18 @@ func NewVisitor(ctx context.Context, ctl *Control, cfg config.VisitorConf) (visi
 		ctx: xlog.NewContext(ctx, xl),
 	}
 	switch cfg := cfg.(type) {
-	case *config.StcpVisitorConf:
-		visitor = &StcpVisitor{
+	case *config.STCPVisitorConf:
+		visitor = &STCPVisitor{
 			BaseVisitor: &baseVisitor,
 			cfg:         cfg,
 		}
-	case *config.XtcpVisitorConf:
-		visitor = &XtcpVisitor{
+	case *config.XTCPVisitorConf:
+		visitor = &XTCPVisitor{
 			BaseVisitor: &baseVisitor,
 			cfg:         cfg,
 		}
-	case *config.SudpVisitorConf:
-		visitor = &SudpVisitor{
+	case *config.SUDPVisitorConf:
+		visitor = &SUDPVisitor{
 			BaseVisitor:  &baseVisitor,
 			cfg:          cfg,
 			checkCloseCh: make(chan struct{}),
@@ -79,13 +79,13 @@ type BaseVisitor struct {
 	ctx context.Context
 }
 
-type StcpVisitor struct {
+type STCPVisitor struct {
 	*BaseVisitor
 
-	cfg *config.StcpVisitorConf
+	cfg *config.STCPVisitorConf
 }
 
-func (sv *StcpVisitor) Run() (err error) {
+func (sv *STCPVisitor) Run() (err error) {
 	sv.l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", sv.cfg.BindAddr, sv.cfg.BindPort))
 	if err != nil {
 		return
@@ -95,11 +95,11 @@ func (sv *StcpVisitor) Run() (err error) {
 	return
 }
 
-func (sv *StcpVisitor) Close() {
+func (sv *STCPVisitor) Close() {
 	sv.l.Close()
 }
 
-func (sv *StcpVisitor) worker() {
+func (sv *STCPVisitor) worker() {
 	xl := xlog.FromContextSafe(sv.ctx)
 	for {
 		conn, err := sv.l.Accept()
@@ -112,7 +112,7 @@ func (sv *StcpVisitor) worker() {
 	}
 }
 
-func (sv *StcpVisitor) handleConn(userConn net.Conn) {
+func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	xl := xlog.FromContextSafe(sv.ctx)
 	defer userConn.Close()
 
@@ -168,13 +168,13 @@ func (sv *StcpVisitor) handleConn(userConn net.Conn) {
 	frpIo.Join(userConn, remote)
 }
 
-type XtcpVisitor struct {
+type XTCPVisitor struct {
 	*BaseVisitor
 
-	cfg *config.XtcpVisitorConf
+	cfg *config.XTCPVisitorConf
 }
 
-func (sv *XtcpVisitor) Run() (err error) {
+func (sv *XTCPVisitor) Run() (err error) {
 	sv.l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", sv.cfg.BindAddr, sv.cfg.BindPort))
 	if err != nil {
 		return
@@ -184,11 +184,11 @@ func (sv *XtcpVisitor) Run() (err error) {
 	return
 }
 
-func (sv *XtcpVisitor) Close() {
+func (sv *XTCPVisitor) Close() {
 	sv.l.Close()
 }
 
-func (sv *XtcpVisitor) worker() {
+func (sv *XTCPVisitor) worker() {
 	xl := xlog.FromContextSafe(sv.ctx)
 	for {
 		conn, err := sv.l.Accept()
@@ -201,7 +201,7 @@ func (sv *XtcpVisitor) worker() {
 	}
 }
 
-func (sv *XtcpVisitor) handleConn(userConn net.Conn) {
+func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 	xl := xlog.FromContextSafe(sv.ctx)
 	defer userConn.Close()
 
@@ -300,7 +300,7 @@ func (sv *XtcpVisitor) handleConn(userConn net.Conn) {
 
 	// wrap kcp connection
 	var remote io.ReadWriteCloser
-	remote, err = frpNet.NewKcpConnFromUdp(lConn, true, natHoleRespMsg.ClientAddr)
+	remote, err = frpNet.NewKCPConnFromUDP(lConn, true, natHoleRespMsg.ClientAddr)
 	if err != nil {
 		xl.Error("create kcp connection from udp connection error: %v", err)
 		return
@@ -337,20 +337,20 @@ func (sv *XtcpVisitor) handleConn(userConn net.Conn) {
 	xl.Debug("join connections closed")
 }
 
-type SudpVisitor struct {
+type SUDPVisitor struct {
 	*BaseVisitor
 
 	checkCloseCh chan struct{}
 	// udpConn is the listener of udp packet
 	udpConn *net.UDPConn
-	readCh  chan *msg.UdpPacket
-	sendCh  chan *msg.UdpPacket
+	readCh  chan *msg.UDPPacket
+	sendCh  chan *msg.UDPPacket
 
-	cfg *config.SudpVisitorConf
+	cfg *config.SUDPVisitorConf
 }
 
 // SUDP Run start listen a udp port
-func (sv *SudpVisitor) Run() (err error) {
+func (sv *SUDPVisitor) Run() (err error) {
 	xl := xlog.FromContextSafe(sv.ctx)
 
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", sv.cfg.BindAddr, sv.cfg.BindPort))
@@ -363,18 +363,18 @@ func (sv *SudpVisitor) Run() (err error) {
 		return fmt.Errorf("listen udp port %s error: %v", addr.String(), err)
 	}
 
-	sv.sendCh = make(chan *msg.UdpPacket, 1024)
-	sv.readCh = make(chan *msg.UdpPacket, 1024)
+	sv.sendCh = make(chan *msg.UDPPacket, 1024)
+	sv.readCh = make(chan *msg.UDPPacket, 1024)
 
 	xl.Info("sudp start to work")
 
 	go sv.dispatcher()
-	go udp.ForwardUserConn(sv.udpConn, sv.readCh, sv.sendCh, int(sv.ctl.clientCfg.UdpPacketSize))
+	go udp.ForwardUserConn(sv.udpConn, sv.readCh, sv.sendCh, int(sv.ctl.clientCfg.UDPPacketSize))
 
 	return
 }
 
-func (sv *SudpVisitor) dispatcher() {
+func (sv *SUDPVisitor) dispatcher() {
 	xl := xlog.FromContextSafe(sv.ctx)
 
 	for {
@@ -409,7 +409,7 @@ func (sv *SudpVisitor) dispatcher() {
 	}
 }
 
-func (sv *SudpVisitor) worker(workConn net.Conn) {
+func (sv *SUDPVisitor) worker(workConn net.Conn) {
 	xl := xlog.FromContextSafe(sv.ctx)
 	xl.Debug("starting sudp proxy worker")
 
@@ -443,7 +443,7 @@ func (sv *SudpVisitor) worker(workConn net.Conn) {
 			case *msg.Ping:
 				xl.Debug("frpc visitor get ping message from frpc")
 				continue
-			case *msg.UdpPacket:
+			case *msg.UDPPacket:
 				if errRet := errors.PanicToError(func() {
 					sv.readCh <- m
 					xl.Trace("frpc visitor get udp packet from frpc")
@@ -488,7 +488,7 @@ func (sv *SudpVisitor) worker(workConn net.Conn) {
 	xl.Info("sudp worker is closed")
 }
 
-func (sv *SudpVisitor) getNewVisitorConn() (visitorConn net.Conn, err error) {
+func (sv *SUDPVisitor) getNewVisitorConn() (visitorConn net.Conn, err error) {
 	visitorConn, err = sv.ctl.connectServer()
 	if err != nil {
 		return nil, fmt.Errorf("frpc connect frps error: %v", err)
@@ -521,7 +521,7 @@ func (sv *SudpVisitor) getNewVisitorConn() (visitorConn net.Conn, err error) {
 	return
 }
 
-func (sv *SudpVisitor) Close() {
+func (sv *SUDPVisitor) Close() {
 	sv.mu.Lock()
 	defer sv.mu.Unlock()
 

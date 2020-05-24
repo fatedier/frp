@@ -31,7 +31,7 @@ func init() {
 	stcpCmd.PersistentFlags().StringVarP(&role, "role", "", "server", "role")
 	stcpCmd.PersistentFlags().StringVarP(&sk, "sk", "", "", "secret key")
 	stcpCmd.PersistentFlags().StringVarP(&serverName, "server_name", "", "", "server name")
-	stcpCmd.PersistentFlags().StringVarP(&localIp, "local_ip", "i", "127.0.0.1", "local ip")
+	stcpCmd.PersistentFlags().StringVarP(&localIP, "local_ip", "i", "127.0.0.1", "local ip")
 	stcpCmd.PersistentFlags().IntVarP(&localPort, "local_port", "l", 0, "local port")
 	stcpCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "", "", "bind addr")
 	stcpCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "", 0, "bind port")
@@ -60,14 +60,14 @@ var stcpCmd = &cobra.Command{
 		}
 
 		if role == "server" {
-			cfg := &config.StcpProxyConf{}
+			cfg := &config.STCPProxyConf{}
 			cfg.ProxyName = prefix + proxyName
-			cfg.ProxyType = consts.StcpProxy
+			cfg.ProxyType = consts.STCPProxy
 			cfg.UseEncryption = useEncryption
 			cfg.UseCompression = useCompression
 			cfg.Role = role
 			cfg.Sk = sk
-			cfg.LocalIp = localIp
+			cfg.LocalIP = localIP
 			cfg.LocalPort = localPort
 			err = cfg.CheckForCli()
 			if err != nil {
@@ -76,9 +76,9 @@ var stcpCmd = &cobra.Command{
 			}
 			proxyConfs[cfg.ProxyName] = cfg
 		} else if role == "visitor" {
-			cfg := &config.StcpVisitorConf{}
+			cfg := &config.STCPVisitorConf{}
 			cfg.ProxyName = prefix + proxyName
-			cfg.ProxyType = consts.StcpProxy
+			cfg.ProxyType = consts.STCPProxy
 			cfg.UseEncryption = useEncryption
 			cfg.UseCompression = useCompression
 			cfg.Role = role
