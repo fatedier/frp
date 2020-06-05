@@ -10,31 +10,26 @@ import (
 	. "github.com/onsi/ginkgo"
 )
 
-var connTimeout = 5 * time.Second
+var connTimeout = 2 * time.Second
 
 var _ = Describe("[Feature: Example]", func() {
 	f := framework.NewDefaultFramework()
 
 	Describe("TCP", func() {
 		It("Expose a TCP echo server", func() {
-			serverConf := `
-			[common]
-			bind_port = {{ .PortServer }}
-			`
+			serverConf := consts.DefaultServerConfig
+			clientConf := consts.DefaultClientConfig
 
-			clientConf := fmt.Sprintf(`
-			[common]
-			server_port = {{ .PortServer }}
-
+			clientConf += fmt.Sprintf(`
 			[tcp]
 			type = tcp
 			local_port = {{ .%s }}
-			remote_port = {{ .PortTCP }}
-			`, framework.TCPEchoServerPort)
+			remote_port = {{ .%s }}
+			`, framework.TCPEchoServerPort, framework.GenPortName("TCP"))
 
 			f.RunProcesses([]string{serverConf}, []string{clientConf})
 
-			framework.ExpectTCPReuqest(f.UsedPorts["PortTCP"], []byte(consts.TestString), []byte(consts.TestString), connTimeout)
+			framework.ExpectTCPRequest(f.UsedPorts[framework.GenPortName("TCP")], []byte(consts.TestString), []byte(consts.TestString), connTimeout)
 		})
 	})
 })

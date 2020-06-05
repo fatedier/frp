@@ -60,10 +60,6 @@ func NewFramework(opt Options) *Framework {
 	f := &Framework{
 		portAllocator: port.NewAllocator(opt.FromPortIndex, opt.ToPortIndex, opt.TotalParallelNode, opt.CurrentNodeIndex-1),
 	}
-	f.mockServers = NewMockServers(f.portAllocator)
-	if err := f.mockServers.Run(); err != nil {
-		Failf("%v", err)
-	}
 
 	ginkgo.BeforeEach(f.BeforeEach)
 	ginkgo.AfterEach(f.AfterEach)
@@ -79,6 +75,11 @@ func (f *Framework) BeforeEach() {
 	dir, err := ioutil.TempDir(os.TempDir(), "frpe2e-test-*")
 	ExpectNoError(err)
 	f.TempDirectory = dir
+
+	f.mockServers = NewMockServers(f.portAllocator)
+	if err := f.mockServers.Run(); err != nil {
+		Failf("%v", err)
+	}
 }
 
 func (f *Framework) AfterEach() {
@@ -88,19 +89,38 @@ func (f *Framework) AfterEach() {
 
 	RemoveCleanupAction(f.cleanupHandle)
 
-	os.RemoveAll(f.TempDirectory)
-	f.TempDirectory = ""
-	f.UsedPorts = nil
-	f.serverConfPaths = nil
-	f.clientConfPaths = nil
+	// stop processor
 	for _, p := range f.serverProcesses {
 		p.Stop()
+		if TestContext.Debug {
+			fmt.Println(p.ErrorOutput())
+			fmt.Println(p.StdOutput())
+		}
 	}
 	for _, p := range f.clientProcesses {
 		p.Stop()
+		if TestContext.Debug {
+			fmt.Println(p.ErrorOutput())
+			fmt.Println(p.StdOutput())
+		}
 	}
 	f.serverProcesses = nil
 	f.clientProcesses = nil
+
+	// close mock servers
+	f.mockServers.Close()
+
+	// clean directory
+	os.RemoveAll(f.TempDirectory)
+	f.TempDirectory = ""
+	f.serverConfPaths = nil
+	f.clientConfPaths = nil
+
+	// release used ports
+	for _, port := range f.UsedPorts {
+		f.portAllocator.Release(port)
+	}
+	f.UsedPorts = nil
 }
 
 var portRegex = regexp.MustCompile(`{{ \.Port.*? }}`)
