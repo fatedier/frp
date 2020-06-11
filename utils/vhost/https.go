@@ -177,7 +177,7 @@ func readHandshake(rd io.Reader) (host string, err error) {
 		}
 		data = data[length:]
 	}
-	err = fmt.Errorf("Unknow error")
+	err = fmt.Errorf("Unknown error")
 	return
 }
 
