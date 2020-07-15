@@ -1,0 +1,14 @@
+<service>
+  <!-- ID of the service. It should be unique across the Windows system-->
+  <id>frpc</id>
+  <!-- Display name of the service -->
+  <name>frp client</name>
+  <!-- Service description -->
+  <description>Service for frp client</description>
+  <!-- frp install dir -->
+  <workingdirectory>C:\frp</workingdirectory>
+  <!-- frps.exe -->
+  <executable>C:\frp\frpc.exe</executable>
+  <!-- args -->
+  <startarguments>-c frpc.ini</startarguments>
+</service>
