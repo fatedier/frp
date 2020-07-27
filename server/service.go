@@ -17,14 +17,10 @@ package server
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
+	"github.com/fatedier/frp/models/transport"
 	"io/ioutil"
-	"math/big"
 	"net"
 	"net/http"
 	"time"
@@ -99,6 +95,19 @@ type Service struct {
 }
 
 func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
+	var tlsConfig *tls.Config
+	if cfg.TlsOnly {
+		tlsConfig, err = transport.NewServerTLSConfig(
+			cfg.TLSCertFile,
+			cfg.TLSKeyFile,
+			cfg.TLSTrustedCaFile)
+		if err != nil {
+			return
+		}
+	}
+
+	fmt.Printf("yyl-test tlsonly is %t, tlsconfig is %+v\n", cfg.TlsOnly, tlsConfig)
+
 	svr = &Service{
 		ctlManager:    NewControlManager(),
 		pxyManager:    proxy.NewProxyManager(),
@@ -110,8 +119,8 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		},
 		httpVhostRouter: vhost.NewVhostRouters(),
 		authVerifier:    auth.NewAuthVerifier(cfg.AuthServerConfig),
-		tlsConfig:       generateTLSConfig(),
-		cfg:             cfg,
+		tlsConfig: tlsConfig,
+		cfg:       cfg,
 	}
 
 	// Create tcpmux httpconnect multiplexer.
@@ -497,25 +506,4 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVisitorConn) error {
 	return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
 		newMsg.UseEncryption, newMsg.UseCompression)
-}
-
-// Setup a bare-bones TLS config for the server
-func generateTLSConfig() *tls.Config {
-	key, err := rsa.GenerateKey(rand.Reader, 1024)
-	if err != nil {
-		panic(err)
-	}
-	template := x509.Certificate{SerialNumber: big.NewInt(1)}
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
-	if err != nil {
-		panic(err)
-	}
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-
-	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
-	if err != nil {
-		panic(err)
-	}
-	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}
 }
