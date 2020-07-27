@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/fatedier/frp/models/transport"
 	"io/ioutil"
 	"net"
 	"runtime"
@@ -204,8 +205,14 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 	xl := xlog.FromContextSafe(svr.ctx)
 	var tlsConfig *tls.Config
 	if svr.cfg.TLSEnable {
-		tlsConfig = &tls.Config{
-			InsecureSkipVerify: true,
+		tlsConfig, err = transport.NewClientTLSConfig(
+			svr.cfg.TLSCertFile,
+			svr.cfg.TLSKeyFile,
+			svr.cfg.TLSTrustedCaFile,
+			svr.cfg.ServerAddr)
+		if err != nil {
+			xl.Warn("fail to build tls configuration when service login, err: %v", err)
+			return
 		}
 	}
 	conn, err = frpNet.ConnectServerByProxyWithTLS(svr.cfg.HTTPProxy, svr.cfg.Protocol,
