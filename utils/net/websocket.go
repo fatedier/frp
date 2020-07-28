@@ -79,14 +79,26 @@ func (p *WebsocketListener) Addr() net.Addr {
 }
 
 // addr: domain:port
-func ConnectWebsocketServer(addr string) (net.Conn, error) {
-	addr = "ws://" + addr + FrpWebsocketPath
+func ConnectWebsocketServer(addr string, isSecure bool) (net.Conn, error) {
+
+	if isSecure {
+		addr = "wss://" + addr + FrpWebsocketPath
+	} else {
+		addr = "ws://" + addr + FrpWebsocketPath
+	}
+
 	uri, err := url.Parse(addr)
 	if err != nil {
 		return nil, err
 	}
 
-	origin := "http://" + uri.Host
+	var origin string
+	if isSecure {
+		origin = "https://" + uri.Host
+	} else {
+		origin = "http://" + uri.Host
+	}
+
 	cfg, err := websocket.NewConfig(addr, origin)
 	if err != nil {
 		return nil, err
