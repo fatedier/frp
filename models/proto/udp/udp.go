@@ -21,8 +21,9 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/errors"
-	"github.com/fatedier/frp/utils/pool"
+
+	"github.com/fatedier/golib/errors"
+	"github.com/fatedier/golib/pool"
 )
 
 func NewUdpPacket(buf []byte, laddr, raddr *net.UDPAddr) *msg.UdpPacket {
@@ -56,17 +57,16 @@ func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UdpPacket, sendCh 
 	for {
 		n, remoteAddr, err := udpConn.ReadFromUDP(buf)
 		if err != nil {
-			udpConn.Close()
 			return
 		}
 		// buf[:n] will be encoded to string, so the bytes can be reused
 		udpMsg := NewUdpPacket(buf[:n], nil, remoteAddr)
+
 		select {
 		case sendCh <- udpMsg:
 		default:
 		}
 	}
-	return
 }
 
 func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UdpPacket, sendCh chan<- msg.Message) {
@@ -82,6 +82,7 @@ func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UdpPacket, sendCh chan<-
 			mu.Lock()
 			delete(udpConnMap, addr)
 			mu.Unlock()
+			udpConn.Close()
 		}()
 
 		buf := pool.GetBuf(1500)
@@ -116,6 +117,7 @@ func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UdpPacket, sendCh chan<-
 			if !ok {
 				udpConn, err = net.DialUDP("udp", nil, dstAddr)
 				if err != nil {
+					mu.Unlock()
 					continue
 				}
 				udpConnMap[udpMsg.RemoteAddr.String()] = udpConn

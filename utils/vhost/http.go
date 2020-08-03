@@ -1,4 +1,4 @@
-// Copyright 2016 fatedier, fatedier@gmail.com
+// Copyright 2017 fatedier, fatedier@gmail.com
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,219 +15,192 @@
 package vhost
 
 import (
-	"bufio"
 	"bytes"
-	"encoding/base64"
+	"context"
+	"errors"
 	"fmt"
-	"io"
+	"log"
+	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
-	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/pool"
+	frpLog "github.com/fatedier/frp/utils/log"
+	"github.com/fatedier/frp/utils/util"
+
+	"github.com/fatedier/golib/pool"
 )
 
-type HttpMuxer struct {
-	*VhostMuxer
+var (
+	ErrNoDomain = errors.New("no such domain")
+)
+
+type HttpReverseProxyOptions struct {
+	ResponseHeaderTimeoutS int64
 }
 
-func GetHttpRequestInfo(c frpNet.Conn) (_ frpNet.Conn, _ map[string]string, err error) {
-	reqInfoMap := make(map[string]string, 0)
-	sc, rd := frpNet.NewShareConn(c)
+type HttpReverseProxy struct {
+	proxy       *ReverseProxy
+	vhostRouter *VhostRouters
 
-	request, err := http.ReadRequest(bufio.NewReader(rd))
-	if err != nil {
-		return sc, reqInfoMap, err
-	}
-	// hostName
-	tmpArr := strings.Split(request.Host, ":")
-	reqInfoMap["Host"] = tmpArr[0]
-	reqInfoMap["Path"] = request.URL.Path
-	reqInfoMap["Scheme"] = request.URL.Scheme
-
-	// Authorization
-	authStr := request.Header.Get("Authorization")
-	if authStr != "" {
-		reqInfoMap["Authorization"] = authStr
-	}
-	request.Body.Close()
-	return sc, reqInfoMap, nil
+	responseHeaderTimeout time.Duration
 }
 
-func NewHttpMuxer(listener frpNet.Listener, timeout time.Duration) (*HttpMuxer, error) {
-	mux, err := NewVhostMuxer(listener, GetHttpRequestInfo, HttpAuthFunc, ModifyHttpRequest, timeout)
-	return &HttpMuxer{mux}, err
-}
-
-func ModifyHttpRequest(c frpNet.Conn, rewriteHost string) (_ frpNet.Conn, err error) {
-	sc, rd := frpNet.NewShareConn(c)
-	var buff []byte
-	remoteIP := strings.Split(c.RemoteAddr().String(), ":")[0]
-	if buff, err = hostNameRewrite(rd, rewriteHost, remoteIP); err != nil {
-		return sc, err
+func NewHttpReverseProxy(option HttpReverseProxyOptions, vhostRouter *VhostRouters) *HttpReverseProxy {
+	if option.ResponseHeaderTimeoutS <= 0 {
+		option.ResponseHeaderTimeoutS = 60
 	}
-	err = sc.WriteBuff(buff)
-	return sc, err
-}
-
-func hostNameRewrite(request io.Reader, rewriteHost string, remoteIP string) (_ []byte, err error) {
-	buf := pool.GetBuf(1024)
-	defer pool.PutBuf(buf)
-
-	var n int
-	n, err = request.Read(buf)
-	if err != nil {
-		return
+	rp := &HttpReverseProxy{
+		responseHeaderTimeout: time.Duration(option.ResponseHeaderTimeoutS) * time.Second,
+		vhostRouter:           vhostRouter,
 	}
-	retBuffer, err := parseRequest(buf[:n], rewriteHost, remoteIP)
-	return retBuffer, err
-}
-
-func parseRequest(org []byte, rewriteHost string, remoteIP string) (ret []byte, err error) {
-	tp := bytes.NewBuffer(org)
-	// First line: GET /index.html HTTP/1.0
-	var b []byte
-	if b, err = tp.ReadBytes('\n'); err != nil {
-		return nil, err
-	}
-	req := new(http.Request)
-	// we invoked ReadRequest in GetHttpHostname before, so we ignore error
-	req.Method, req.RequestURI, req.Proto, _ = parseRequestLine(string(b))
-	rawurl := req.RequestURI
-	// CONNECT www.google.com:443 HTTP/1.1
-	justAuthority := req.Method == "CONNECT" && !strings.HasPrefix(rawurl, "/")
-	if justAuthority {
-		rawurl = "http://" + rawurl
-	}
-	req.URL, _ = url.ParseRequestURI(rawurl)
-	if justAuthority {
-		// Strip the bogus "http://" back off.
-		req.URL.Scheme = ""
-	}
-
-	//  RFC2616: first case
-	//  GET /index.html HTTP/1.1
-	//  Host: www.google.com
-	if req.URL.Host == "" {
-		var changedBuf []byte
-		if rewriteHost != "" {
-			changedBuf, err = changeHostName(tp, rewriteHost)
-		}
-		buf := new(bytes.Buffer)
-		buf.Write(b)
-		buf.WriteString(fmt.Sprintf("X-Forwarded-For: %s\r\n", remoteIP))
-		buf.WriteString(fmt.Sprintf("X-Real-IP: %s\r\n", remoteIP))
-		if len(changedBuf) == 0 {
-			tp.WriteTo(buf)
-		} else {
-			buf.Write(changedBuf)
-		}
-		return buf.Bytes(), err
-	}
-
-	// RFC2616: second case
-	// GET http://www.google.com/index.html HTTP/1.1
-	// Host: doesntmatter
-	// In this case, any Host line is ignored.
-	if rewriteHost != "" {
-		hostPort := strings.Split(req.URL.Host, ":")
-		if len(hostPort) == 1 {
-			req.URL.Host = rewriteHost
-		} else if len(hostPort) == 2 {
-			req.URL.Host = fmt.Sprintf("%s:%s", rewriteHost, hostPort[1])
-		}
-	}
-	firstLine := req.Method + " " + req.URL.String() + " " + req.Proto
-	buf := new(bytes.Buffer)
-	buf.WriteString(firstLine)
-	buf.WriteString(fmt.Sprintf("X-Forwarded-For: %s\r\n", remoteIP))
-	buf.WriteString(fmt.Sprintf("X-Real-IP: %s\r\n", remoteIP))
-	tp.WriteTo(buf)
-	return buf.Bytes(), err
-}
-
-// parseRequestLine parses "GET /foo HTTP/1.1" into its three parts.
-func parseRequestLine(line string) (method, requestURI, proto string, ok bool) {
-	s1 := strings.Index(line, " ")
-	s2 := strings.Index(line[s1+1:], " ")
-	if s1 < 0 || s2 < 0 {
-		return
-	}
-	s2 += s1 + 1
-	return line[:s1], line[s1+1 : s2], line[s2+1:], true
-}
-
-func changeHostName(buff *bytes.Buffer, rewriteHost string) (_ []byte, err error) {
-	retBuf := new(bytes.Buffer)
-
-	peek := buff.Bytes()
-	for len(peek) > 0 {
-		i := bytes.IndexByte(peek, '\n')
-		if i < 3 {
-			// Not present (-1) or found within the next few bytes,
-			// implying we're at the end ("\r\n\r\n" or "\n\n")
-			return nil, err
-		}
-		kv := peek[:i]
-		j := bytes.IndexByte(kv, ':')
-		if j < 0 {
-			return nil, fmt.Errorf("malformed MIME header line: " + string(kv))
-		}
-		if strings.Contains(strings.ToLower(string(kv[:j])), "host") {
-			var hostHeader string
-			portPos := bytes.IndexByte(kv[j+1:], ':')
-			if portPos == -1 {
-				hostHeader = fmt.Sprintf("Host: %s\r\n", rewriteHost)
-			} else {
-				hostHeader = fmt.Sprintf("Host: %s:%s\r\n", rewriteHost, kv[j+portPos+2:])
+	proxy := &ReverseProxy{
+		Director: func(req *http.Request) {
+			req.URL.Scheme = "http"
+			url := req.Context().Value("url").(string)
+			oldHost := util.GetHostFromAddr(req.Context().Value("host").(string))
+			host := rp.GetRealHost(oldHost, url)
+			if host != "" {
+				req.Host = host
 			}
-			retBuf.WriteString(hostHeader)
-			peek = peek[i+1:]
-			break
-		} else {
-			retBuf.Write(peek[:i])
-			retBuf.WriteByte('\n')
+			req.URL.Host = req.Host
+
+			headers := rp.GetHeaders(oldHost, url)
+			for k, v := range headers {
+				req.Header.Set(k, v)
+			}
+		},
+		Transport: &http.Transport{
+			ResponseHeaderTimeout: rp.responseHeaderTimeout,
+			DisableKeepAlives:     true,
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				url := ctx.Value("url").(string)
+				host := util.GetHostFromAddr(ctx.Value("host").(string))
+				remote := ctx.Value("remote").(string)
+				return rp.CreateConnection(host, url, remote)
+			},
+		},
+		BufferPool: newWrapPool(),
+		ErrorLog:   log.New(newWrapLogger(), "", 0),
+		ErrorHandler: func(rw http.ResponseWriter, req *http.Request, err error) {
+			frpLog.Warn("do http proxy request error: %v", err)
+			rw.WriteHeader(http.StatusNotFound)
+			rw.Write(getNotFoundPageContent())
+		},
+	}
+	rp.proxy = proxy
+	return rp
+}
+
+// Register register the route config to reverse proxy
+// reverse proxy will use CreateConnFn from routeCfg to create a connection to the remote service
+func (rp *HttpReverseProxy) Register(routeCfg VhostRouteConfig) error {
+	err := rp.vhostRouter.Add(routeCfg.Domain, routeCfg.Location, &routeCfg)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// UnRegister unregister route config by domain and location
+func (rp *HttpReverseProxy) UnRegister(domain string, location string) {
+	rp.vhostRouter.Del(domain, location)
+}
+
+func (rp *HttpReverseProxy) GetRealHost(domain string, location string) (host string) {
+	vr, ok := rp.getVhost(domain, location)
+	if ok {
+		host = vr.payload.(*VhostRouteConfig).RewriteHost
+	}
+	return
+}
+
+func (rp *HttpReverseProxy) GetHeaders(domain string, location string) (headers map[string]string) {
+	vr, ok := rp.getVhost(domain, location)
+	if ok {
+		headers = vr.payload.(*VhostRouteConfig).Headers
+	}
+	return
+}
+
+// CreateConnection create a new connection by route config
+func (rp *HttpReverseProxy) CreateConnection(domain string, location string, remoteAddr string) (net.Conn, error) {
+	vr, ok := rp.getVhost(domain, location)
+	if ok {
+		fn := vr.payload.(*VhostRouteConfig).CreateConnFn
+		if fn != nil {
+			return fn(remoteAddr)
+		}
+	}
+	return nil, fmt.Errorf("%v: %s %s", ErrNoDomain, domain, location)
+}
+
+func (rp *HttpReverseProxy) CheckAuth(domain, location, user, passwd string) bool {
+	vr, ok := rp.getVhost(domain, location)
+	if ok {
+		checkUser := vr.payload.(*VhostRouteConfig).Username
+		checkPasswd := vr.payload.(*VhostRouteConfig).Password
+		if (checkUser != "" || checkPasswd != "") && (checkUser != user || checkPasswd != passwd) {
+			return false
+		}
+	}
+	return true
+}
+
+// getVhost get vhost router by domain and location
+func (rp *HttpReverseProxy) getVhost(domain string, location string) (vr *VhostRouter, ok bool) {
+	// first we check the full hostname
+	// if not exist, then check the wildcard_domain such as *.example.com
+	vr, ok = rp.vhostRouter.Get(domain, location)
+	if ok {
+		return
+	}
+
+	domainSplit := strings.Split(domain, ".")
+	if len(domainSplit) < 3 {
+		return nil, false
+	}
+
+	for {
+		if len(domainSplit) < 3 {
+			return nil, false
 		}
 
-		peek = peek[i+1:]
+		domainSplit[0] = "*"
+		domain = strings.Join(domainSplit, ".")
+		vr, ok = rp.vhostRouter.Get(domain, location)
+		if ok {
+			return vr, true
+		}
+		domainSplit = domainSplit[1:]
 	}
-	retBuf.Write(peek)
-	return retBuf.Bytes(), err
 }
 
-func HttpAuthFunc(c frpNet.Conn, userName, passWord, authorization string) (bAccess bool, err error) {
-	s := strings.SplitN(authorization, " ", 2)
-	if len(s) != 2 {
-		res := noAuthResponse()
-		res.Write(c)
+func (rp *HttpReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	domain := util.GetHostFromAddr(req.Host)
+	location := req.URL.Path
+	user, passwd, _ := req.BasicAuth()
+	if !rp.CheckAuth(domain, location, user, passwd) {
+		rw.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+		http.Error(rw, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
-	b, err := base64.StdEncoding.DecodeString(s[1])
-	if err != nil {
-		return
-	}
-	pair := strings.SplitN(string(b), ":", 2)
-	if len(pair) != 2 {
-		return
-	}
-	if pair[0] != userName || pair[1] != passWord {
-		return
-	}
-	return true, nil
+	rp.proxy.ServeHTTP(rw, req)
 }
 
-func noAuthResponse() *http.Response {
-	header := make(map[string][]string)
-	header["WWW-Authenticate"] = []string{`Basic realm="Restricted"`}
-	res := &http.Response{
-		Status:     "401 Not authorized",
-		StatusCode: 401,
-		Proto:      "HTTP/1.1",
-		ProtoMajor: 1,
-		ProtoMinor: 1,
-		Header:     header,
-	}
-	return res
+type wrapPool struct{}
+
+func newWrapPool() *wrapPool { return &wrapPool{} }
+
+func (p *wrapPool) Get() []byte { return pool.GetBuf(32 * 1024) }
+
+func (p *wrapPool) Put(buf []byte) { pool.PutBuf(buf) }
+
+type wrapLogger struct{}
+
+func newWrapLogger() *wrapLogger { return &wrapLogger{} }
+
+func (l *wrapLogger) Write(p []byte) (n int, err error) {
+	frpLog.Warn("%s", string(bytes.TrimRight(p, "\n")))
+	return len(p), nil
 }

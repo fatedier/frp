@@ -15,48 +15,73 @@
 package net
 
 import (
-	"bytes"
+	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"net"
-	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/fatedier/frp/utils/log"
-
-	kcp "github.com/xtaci/kcp-go"
+	"github.com/fatedier/frp/utils/xlog"
+	gnet "github.com/fatedier/golib/net"
+	kcp "github.com/fatedier/kcp-go"
 )
 
-// Conn is the interface of connections used in frp.
-type Conn interface {
-	net.Conn
-	log.Logger
+type ContextGetter interface {
+	Context() context.Context
 }
 
-type WrapLogConn struct {
-	net.Conn
-	log.Logger
+type ContextSetter interface {
+	WithContext(ctx context.Context)
 }
 
-func WrapConn(c net.Conn) Conn {
-	return &WrapLogConn{
-		Conn:   c,
-		Logger: log.NewPrefixLogger(""),
+func NewLogFromConn(conn net.Conn) *xlog.Logger {
+	if c, ok := conn.(ContextGetter); ok {
+		return xlog.FromContextSafe(c.Context())
 	}
+	return xlog.New()
+}
+
+func NewContextFromConn(conn net.Conn) context.Context {
+	if c, ok := conn.(ContextGetter); ok {
+		return c.Context()
+	}
+	return context.Background()
+}
+
+// ContextConn is the connection with context
+type ContextConn struct {
+	net.Conn
+
+	ctx context.Context
+}
+
+func NewContextConn(c net.Conn, ctx context.Context) *ContextConn {
+	return &ContextConn{
+		Conn: c,
+		ctx:  ctx,
+	}
+}
+
+func (c *ContextConn) WithContext(ctx context.Context) {
+	c.ctx = ctx
+}
+
+func (c *ContextConn) Context() context.Context {
+	return c.ctx
 }
 
 type WrapReadWriteCloserConn struct {
 	io.ReadWriteCloser
-	log.Logger
 
 	underConn net.Conn
 }
 
-func WrapReadWriteCloserToConn(rwc io.ReadWriteCloser, underConn net.Conn) Conn {
+func WrapReadWriteCloserToConn(rwc io.ReadWriteCloser, underConn net.Conn) net.Conn {
 	return &WrapReadWriteCloserConn{
 		ReadWriteCloser: rwc,
-		Logger:          log.NewPrefixLogger(""),
 		underConn:       underConn,
 	}
 }
@@ -96,94 +121,44 @@ func (conn *WrapReadWriteCloserConn) SetWriteDeadline(t time.Time) error {
 	return &net.OpError{Op: "set", Net: "wrap", Source: nil, Addr: nil, Err: errors.New("deadline not supported")}
 }
 
-func ConnectServer(protocol string, addr string) (c Conn, err error) {
-	switch protocol {
-	case "tcp":
-		return ConnectTcpServer(addr)
-	case "kcp":
-		kcpConn, errRet := kcp.DialWithOptions(addr, nil, 10, 3)
-		if errRet != nil {
-			err = errRet
-			return
+type CloseNotifyConn struct {
+	net.Conn
+
+	// 1 means closed
+	closeFlag int32
+
+	closeFn func()
+}
+
+// closeFn will be only called once
+func WrapCloseNotifyConn(c net.Conn, closeFn func()) net.Conn {
+	return &CloseNotifyConn{
+		Conn:    c,
+		closeFn: closeFn,
+	}
+}
+
+func (cc *CloseNotifyConn) Close() (err error) {
+	pflag := atomic.SwapInt32(&cc.closeFlag, 1)
+	if pflag == 0 {
+		err = cc.Close()
+		if cc.closeFn != nil {
+			cc.closeFn()
 		}
-		kcpConn.SetStreamMode(true)
-		kcpConn.SetWriteDelay(true)
-		kcpConn.SetNoDelay(1, 20, 2, 1)
-		kcpConn.SetWindowSize(128, 512)
-		kcpConn.SetMtu(1350)
-		kcpConn.SetACKNoDelay(false)
-		kcpConn.SetReadBuffer(4194304)
-		kcpConn.SetWriteBuffer(4194304)
-		c = WrapConn(kcpConn)
-		return
-	default:
-		return nil, fmt.Errorf("unsupport protocol: %s", protocol)
-	}
-}
-
-func ConnectServerByHttpProxy(httpProxy string, protocol string, addr string) (c Conn, err error) {
-	switch protocol {
-	case "tcp":
-		return ConnectTcpServerByHttpProxy(httpProxy, addr)
-	case "kcp":
-		// http proxy is not supported for kcp
-		return ConnectServer(protocol, addr)
-	default:
-		return nil, fmt.Errorf("unsupport protocol: %s", protocol)
-	}
-}
-
-type SharedConn struct {
-	Conn
-	sync.Mutex
-	buf *bytes.Buffer
-}
-
-// the bytes you read in io.Reader, will be reserved in SharedConn
-func NewShareConn(conn Conn) (*SharedConn, io.Reader) {
-	sc := &SharedConn{
-		Conn: conn,
-		buf:  bytes.NewBuffer(make([]byte, 0, 1024)),
-	}
-	return sc, io.TeeReader(conn, sc.buf)
-}
-
-func (sc *SharedConn) Read(p []byte) (n int, err error) {
-	sc.Lock()
-	if sc.buf == nil {
-		sc.Unlock()
-		return sc.Conn.Read(p)
-	}
-	sc.Unlock()
-	n, err = sc.buf.Read(p)
-
-	if err == io.EOF {
-		sc.Lock()
-		sc.buf = nil
-		sc.Unlock()
-		var n2 int
-		n2, err = sc.Conn.Read(p[n:])
-
-		n += n2
 	}
 	return
 }
 
-func (sc *SharedConn) WriteBuff(buffer []byte) (err error) {
-	sc.buf.Reset()
-	_, err = sc.buf.Write(buffer)
-	return err
-}
-
 type StatsConn struct {
-	Conn
+	net.Conn
 
+	closed     int64 // 1 means closed
 	totalRead  int64
 	totalWrite int64
 	statsFunc  func(totalRead, totalWrite int64)
 }
 
-func WrapStatsConn(conn Conn, statsFunc func(total, totalWrite int64)) *StatsConn {
+func WrapStatsConn(conn net.Conn, statsFunc func(total, totalWrite int64)) *StatsConn {
 	return &StatsConn{
 		Conn:      conn,
 		statsFunc: statsFunc,
@@ -203,9 +178,65 @@ func (statsConn *StatsConn) Write(p []byte) (n int, err error) {
 }
 
 func (statsConn *StatsConn) Close() (err error) {
-	err = statsConn.Conn.Close()
-	if statsConn.statsFunc != nil {
-		statsConn.statsFunc(statsConn.totalRead, statsConn.totalWrite)
+	old := atomic.SwapInt64(&statsConn.closed, 1)
+	if old != 1 {
+		err = statsConn.Conn.Close()
+		if statsConn.statsFunc != nil {
+			statsConn.statsFunc(statsConn.totalRead, statsConn.totalWrite)
+		}
 	}
+	return
+}
+
+func ConnectServer(protocol string, addr string) (c net.Conn, err error) {
+	switch protocol {
+	case "tcp":
+		return net.Dial("tcp", addr)
+	case "kcp":
+		kcpConn, errRet := kcp.DialWithOptions(addr, nil, 10, 3)
+		if errRet != nil {
+			err = errRet
+			return
+		}
+		kcpConn.SetStreamMode(true)
+		kcpConn.SetWriteDelay(true)
+		kcpConn.SetNoDelay(1, 20, 2, 1)
+		kcpConn.SetWindowSize(128, 512)
+		kcpConn.SetMtu(1350)
+		kcpConn.SetACKNoDelay(false)
+		kcpConn.SetReadBuffer(4194304)
+		kcpConn.SetWriteBuffer(4194304)
+		c = kcpConn
+		return
+	default:
+		return nil, fmt.Errorf("unsupport protocol: %s", protocol)
+	}
+}
+
+func ConnectServerByProxy(proxyURL string, protocol string, addr string) (c net.Conn, err error) {
+	switch protocol {
+	case "tcp":
+		return gnet.DialTcpByProxy(proxyURL, addr)
+	case "kcp":
+		// http proxy is not supported for kcp
+		return ConnectServer(protocol, addr)
+	case "websocket":
+		return ConnectWebsocketServer(addr)
+	default:
+		return nil, fmt.Errorf("unsupport protocol: %s", protocol)
+	}
+}
+
+func ConnectServerByProxyWithTLS(proxyUrl string, protocol string, addr string, tlsConfig *tls.Config) (c net.Conn, err error) {
+	c, err = ConnectServerByProxy(proxyUrl, protocol, addr)
+	if err != nil {
+		return
+	}
+
+	if tlsConfig == nil {
+		return
+	}
+
+	c = WrapTLSClientConn(c, tlsConfig)
 	return
 }

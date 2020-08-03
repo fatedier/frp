@@ -14,8 +14,10 @@
 
 package assets
 
-//go:generate statik -src=./static
-//go:generate go fmt statik/statik.go
+//go:generate statik -src=./frps/static -dest=./frps
+//go:generate statik -src=./frpc/static -dest=./frpc
+//go:generate go fmt ./frps/statik/statik.go
+//go:generate go fmt ./frpc/statik/statik.go
 
 import (
 	"io/ioutil"
@@ -24,8 +26,6 @@ import (
 	"path"
 
 	"github.com/rakyll/statik/fs"
-
-	_ "github.com/fatedier/frp/assets/statik"
 )
 
 var (
@@ -55,6 +55,7 @@ func ReadFile(file string) (content string, err error) {
 		if err != nil {
 			return content, err
 		}
+		defer file.Close()
 		buf, err := ioutil.ReadAll(file)
 		if err != nil {
 			return content, err
@@ -65,6 +66,7 @@ func ReadFile(file string) (content string, err error) {
 		if err != nil {
 			return content, err
 		}
+		defer file.Close()
 		buf, err := ioutil.ReadAll(file)
 		if err != nil {
 			return content, err

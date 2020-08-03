@@ -1,5 +1,5 @@
 export PATH := $(GOPATH)/bin:$(PATH)
-export GO15VENDOREXPERIMENT := 1
+export GO111MODULE=on
 LDFLAGS := -s -w
 
 all: build
@@ -7,26 +7,32 @@ all: build
 build: app
 
 app:
-	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./frpc_darwin_amd64 ./cmd/frpc
-	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./frps_darwin_amd64 ./cmd/frps
-	env CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -ldflags "$(LDFLAGS)" -o ./frpc_linux_386 ./cmd/frpc
-	env CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -ldflags "$(LDFLAGS)" -o ./frps_linux_386 ./cmd/frps
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./frpc_linux_amd64 ./cmd/frpc
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./frps_linux_amd64 ./cmd/frps
-	env CGO_ENABLED=0 GOOS=linux GOARCH=arm go build -ldflags "$(LDFLAGS)" -o ./frpc_linux_arm ./cmd/frpc
-	env CGO_ENABLED=0 GOOS=linux GOARCH=arm go build -ldflags "$(LDFLAGS)" -o ./frps_linux_arm ./cmd/frps
-	env CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -ldflags "$(LDFLAGS)" -o ./frpc_windows_386.exe ./cmd/frpc
-	env CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -ldflags "$(LDFLAGS)" -o ./frps_windows_386.exe ./cmd/frps
-	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./frpc_windows_amd64.exe ./cmd/frpc
-	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./frps_windows_amd64.exe ./cmd/frps
-	env CGO_ENABLED=0 GOOS=linux GOARCH=mips64 go build -ldflags "$(LDFLAGS)" -o ./frpc_linux_mips64 ./cmd/frpc
-	env CGO_ENABLED=0 GOOS=linux GOARCH=mips64 go build -ldflags "$(LDFLAGS)" -o ./frps_linux_mips64 ./cmd/frps
-	env CGO_ENABLED=0 GOOS=linux GOARCH=mips64le go build -ldflags "$(LDFLAGS)" -o ./frpc_linux_mips64le ./cmd/frpc
-	env CGO_ENABLED=0 GOOS=linux GOARCH=mips64le go build -ldflags "$(LDFLAGS)" -o ./frps_linux_mips64le ./cmd/frps
-	env CGO_ENABLED=0 GOOS=linux GOARCH=mips go build -ldflags "$(LDFLAGS)" -o ./frpc_linux_mips ./cmd/frpc
-	env CGO_ENABLED=0 GOOS=linux GOARCH=mips go build -ldflags "$(LDFLAGS)" -o ./frps_linux_mips ./cmd/frps
-	env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle go build -ldflags "$(LDFLAGS)" -o ./frpc_linux_mipsle ./cmd/frpc
-	env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle go build -ldflags "$(LDFLAGS)" -o ./frps_linux_mipsle ./cmd/frps
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./release/frpc_darwin_amd64 ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./release/frps_darwin_amd64 ./cmd/frps
+	env CGO_ENABLED=0 GOOS=freebsd GOARCH=386 go build -ldflags "$(LDFLAGS)" -o ./release/frpc_freebsd_386 ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=freebsd GOARCH=386 go build -ldflags "$(LDFLAGS)" -o ./release/frps_freebsd_386 ./cmd/frps
+	env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./release/frpc_freebsd_amd64 ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./release/frps_freebsd_amd64 ./cmd/frps
+	env CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -ldflags "$(LDFLAGS)" -o ./release/frpc_linux_386 ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -ldflags "$(LDFLAGS)" -o ./release/frps_linux_386 ./cmd/frps
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./release/frpc_linux_amd64 ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./release/frps_linux_amd64 ./cmd/frps
+	env CGO_ENABLED=0 GOOS=linux GOARCH=arm go build -ldflags "$(LDFLAGS)" -o ./release/frpc_linux_arm ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=linux GOARCH=arm go build -ldflags "$(LDFLAGS)" -o ./release/frps_linux_arm ./cmd/frps
+	env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o ./release/frpc_linux_arm64 ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o ./release/frps_linux_arm64 ./cmd/frps
+	env CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -ldflags "$(LDFLAGS)" -o ./release/frpc_windows_386.exe ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -ldflags "$(LDFLAGS)" -o ./release/frps_windows_386.exe ./cmd/frps
+	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./release/frpc_windows_amd64.exe ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./release/frps_windows_amd64.exe ./cmd/frps
+	env CGO_ENABLED=0 GOOS=linux GOARCH=mips64 go build -ldflags "$(LDFLAGS)" -o ./release/frpc_linux_mips64 ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=linux GOARCH=mips64 go build -ldflags "$(LDFLAGS)" -o ./release/frps_linux_mips64 ./cmd/frps
+	env CGO_ENABLED=0 GOOS=linux GOARCH=mips64le go build -ldflags "$(LDFLAGS)" -o ./release/frpc_linux_mips64le ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=linux GOARCH=mips64le go build -ldflags "$(LDFLAGS)" -o ./release/frps_linux_mips64le ./cmd/frps
+	env CGO_ENABLED=0 GOOS=linux GOARCH=mips GOMIPS=softfloat go build -ldflags "$(LDFLAGS)" -o ./release/frpc_linux_mips ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=linux GOARCH=mips GOMIPS=softfloat go build -ldflags "$(LDFLAGS)" -o ./release/frps_linux_mips ./cmd/frps
+	env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -ldflags "$(LDFLAGS)" -o ./release/frpc_linux_mipsle ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -ldflags "$(LDFLAGS)" -o ./release/frps_linux_mipsle ./cmd/frps
 
 temp:
 	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o ./frps_linux_amd64 ./cmd/frps
