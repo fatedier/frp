@@ -27,6 +27,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/fatedier/frp/assets"
@@ -133,8 +134,14 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	}
 
 	// Init all plugins
-	for name, options := range cfg.HTTPPlugins {
-		svr.pluginManager.Register(plugin.NewHTTPPluginOptions(options))
+	plugin_names := make([]string, 0, len(cfg.HTTPPlugins))
+	for n := range cfg.HTTPPlugins {
+		plugin_names = append(plugin_names, n)
+	}
+	sort.Strings(plugin_names)
+
+	for _, name := range plugin_names {
+		svr.pluginManager.Register(plugin.NewHTTPPluginOptions(cfg.HTTPPlugins[name]))
 		log.Info("plugin [%s] has been registered", name)
 	}
 	svr.rc.PluginManager = svr.pluginManager
