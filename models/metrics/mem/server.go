@@ -177,12 +177,12 @@ func (m *serverMetrics) GetServer() *ServerStats {
 	s := &ServerStats{
 		TotalTrafficIn:  m.info.TotalTrafficIn.TodayCount(),
 		TotalTrafficOut: m.info.TotalTrafficOut.TodayCount(),
-		CurConns:        m.info.CurConns.Count(),
-		ClientCounts:    m.info.ClientCounts.Count(),
+		CurConns:        int64(m.info.CurConns.Count()),
+		ClientCounts:    int64(m.info.ClientCounts.Count()),
 		ProxyTypeCounts: make(map[string]int64),
 	}
 	for k, v := range m.info.ProxyTypeCounts {
-		s.ProxyTypeCounts[k] = v.Count()
+		s.ProxyTypeCounts[k] = int64(v.Count())
 	}
 	return s
 }
@@ -202,7 +202,7 @@ func (m *serverMetrics) GetProxiesByType(proxyType string) []*ProxyStats {
 			Type:            proxyStats.ProxyType,
 			TodayTrafficIn:  proxyStats.TrafficIn.TodayCount(),
 			TodayTrafficOut: proxyStats.TrafficOut.TodayCount(),
-			CurConns:        proxyStats.CurConns.Count(),
+			CurConns:        int64(proxyStats.CurConns.Count()),
 		}
 		if !proxyStats.LastStartTime.IsZero() {
 			ps.LastStartTime = proxyStats.LastStartTime.Format("01-02 15:04:05")
@@ -233,7 +233,7 @@ func (m *serverMetrics) GetProxiesByTypeAndName(proxyType string, proxyName stri
 			Type:            proxyStats.ProxyType,
 			TodayTrafficIn:  proxyStats.TrafficIn.TodayCount(),
 			TodayTrafficOut: proxyStats.TrafficOut.TodayCount(),
-			CurConns:        proxyStats.CurConns.Count(),
+			CurConns:        int64(proxyStats.CurConns.Count()),
 		}
 		if !proxyStats.LastStartTime.IsZero() {
 			res.LastStartTime = proxyStats.LastStartTime.Format("01-02 15:04:05")

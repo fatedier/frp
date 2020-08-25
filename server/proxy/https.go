@@ -22,14 +22,14 @@ import (
 	"github.com/fatedier/frp/utils/vhost"
 )
 
-type HttpsProxy struct {
+type HTTPSProxy struct {
 	*BaseProxy
-	cfg *config.HttpsProxyConf
+	cfg *config.HTTPSProxyConf
 }
 
-func (pxy *HttpsProxy) Run() (remoteAddr string, err error) {
+func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
 	xl := pxy.xl
-	routeConfig := &vhost.VhostRouteConfig{}
+	routeConfig := &vhost.RouteConfig{}
 
 	defer func() {
 		if err != nil {
@@ -43,37 +43,37 @@ func (pxy *HttpsProxy) Run() (remoteAddr string, err error) {
 		}
 
 		routeConfig.Domain = domain
-		l, errRet := pxy.rc.VhostHttpsMuxer.Listen(pxy.ctx, routeConfig)
+		l, errRet := pxy.rc.VhostHTTPSMuxer.Listen(pxy.ctx, routeConfig)
 		if errRet != nil {
 			err = errRet
 			return
 		}
 		xl.Info("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
-		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.VhostHttpsPort))
+		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.VhostHTTPSPort))
 	}
 
 	if pxy.cfg.SubDomain != "" {
 		routeConfig.Domain = pxy.cfg.SubDomain + "." + pxy.serverCfg.SubDomainHost
-		l, errRet := pxy.rc.VhostHttpsMuxer.Listen(pxy.ctx, routeConfig)
+		l, errRet := pxy.rc.VhostHTTPSMuxer.Listen(pxy.ctx, routeConfig)
 		if errRet != nil {
 			err = errRet
 			return
 		}
 		xl.Info("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
-		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(pxy.serverCfg.VhostHttpsPort)))
+		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(pxy.serverCfg.VhostHTTPSPort)))
 	}
 
-	pxy.startListenHandler(pxy, HandleUserTcpConnection)
+	pxy.startListenHandler(pxy, HandleUserTCPConnection)
 	remoteAddr = strings.Join(addrs, ",")
 	return
 }
 
-func (pxy *HttpsProxy) GetConf() config.ProxyConf {
+func (pxy *HTTPSProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
 }
 
-func (pxy *HttpsProxy) Close() {
+func (pxy *HTTPSProxy) Close() {
 	pxy.BaseProxy.Close()
 }

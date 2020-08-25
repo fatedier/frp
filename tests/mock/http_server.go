@@ -13,21 +13,21 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type HttpServer struct {
+type HTTPServer struct {
 	l net.Listener
 
 	port    int
 	handler http.HandlerFunc
 }
 
-func NewHttpServer(port int, handler http.HandlerFunc) *HttpServer {
-	return &HttpServer{
+func NewHTTPServer(port int, handler http.HandlerFunc) *HTTPServer {
+	return &HTTPServer{
 		port:    port,
 		handler: handler,
 	}
 }
 
-func (hs *HttpServer) Start() error {
+func (hs *HTTPServer) Start() error {
 	l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", hs.port))
 	if err != nil {
 		fmt.Printf("http server listen error: %v\n", err)
@@ -39,14 +39,14 @@ func (hs *HttpServer) Start() error {
 	return nil
 }
 
-func (hs *HttpServer) Stop() {
+func (hs *HTTPServer) Stop() {
 	hs.l.Close()
 }
 
 var upgrader = websocket.Upgrader{}
 
-func StartHttpServer(port int) {
-	http.HandleFunc("/", handleHttp)
+func StartHTTPServer(port int) {
+	http.HandleFunc("/", handleHTTP)
 	http.HandleFunc("/ws", handleWebSocket)
 	http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", port), nil)
 }
@@ -71,7 +71,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleHttp(w http.ResponseWriter, r *http.Request) {
+func handleHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("X-From-Where") == "frp" {
 		w.Header().Set("X-Header-Set", "true")
 	}

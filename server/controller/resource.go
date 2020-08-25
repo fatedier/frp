@@ -19,6 +19,7 @@ import (
 	plugin "github.com/fatedier/frp/models/plugin/server"
 	"github.com/fatedier/frp/server/group"
 	"github.com/fatedier/frp/server/ports"
+	"github.com/fatedier/frp/server/visitor"
 	"github.com/fatedier/frp/utils/tcpmux"
 	"github.com/fatedier/frp/utils/vhost"
 )
@@ -26,34 +27,34 @@ import (
 // All resource managers and controllers
 type ResourceController struct {
 	// Manage all visitor listeners
-	VisitorManager *VisitorManager
+	VisitorManager *visitor.Manager
 
-	// Tcp Group Controller
-	TcpGroupCtl *group.TcpGroupCtl
+	// TCP Group Controller
+	TCPGroupCtl *group.TCPGroupCtl
 
 	// HTTP Group Controller
 	HTTPGroupCtl *group.HTTPGroupController
 
 	// TCP Mux Group Controller
-	TcpMuxGroupCtl *group.TcpMuxGroupCtl
+	TCPMuxGroupCtl *group.TCPMuxGroupCtl
 
-	// Manage all tcp ports
-	TcpPortManager *ports.PortManager
+	// Manage all TCP ports
+	TCPPortManager *ports.Manager
 
-	// Manage all udp ports
-	UdpPortManager *ports.PortManager
+	// Manage all UDP ports
+	UDPPortManager *ports.Manager
 
-	// For http proxies, forwarding http requests
-	HttpReverseProxy *vhost.HttpReverseProxy
+	// For HTTP proxies, forwarding HTTP requests
+	HTTPReverseProxy *vhost.HTTPReverseProxy
 
-	// For https proxies, route requests to different clients by hostname and other information
-	VhostHttpsMuxer *vhost.HttpsMuxer
+	// For HTTPS proxies, route requests to different clients by hostname and other information
+	VhostHTTPSMuxer *vhost.HTTPSMuxer
 
 	// Controller for nat hole connections
-	NatHoleController *nathole.NatHoleController
+	NatHoleController *nathole.Controller
 
-	// TcpMux HTTP CONNECT multiplexer
-	TcpMuxHttpConnectMuxer *tcpmux.HttpConnectTcpMuxer
+	// TCPMux HTTP CONNECT multiplexer
+	TCPMuxHTTPConnectMuxer *tcpmux.HTTPConnectTCPMuxer
 
 	// All server manager plugin
 	PluginManager *plugin.Manager

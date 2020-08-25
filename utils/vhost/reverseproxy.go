@@ -202,9 +202,9 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	// =============================
 	// Modified for frp
-	outreq = outreq.WithContext(context.WithValue(outreq.Context(), "url", req.URL.Path))
-	outreq = outreq.WithContext(context.WithValue(outreq.Context(), "host", req.Host))
-	outreq = outreq.WithContext(context.WithValue(outreq.Context(), "remote", req.RemoteAddr))
+	outreq = outreq.WithContext(context.WithValue(outreq.Context(), RouteInfoURL, req.URL.Path))
+	outreq = outreq.WithContext(context.WithValue(outreq.Context(), RouteInfoHost, req.Host))
+	outreq = outreq.WithContext(context.WithValue(outreq.Context(), RouteInfoRemote, req.RemoteAddr))
 	// =============================
 
 	p.Director(outreq)

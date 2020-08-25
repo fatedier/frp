@@ -11,25 +11,25 @@ var (
 	ErrRouterConfigConflict = errors.New("router config conflict")
 )
 
-type VhostRouters struct {
-	RouterByDomain map[string][]*VhostRouter
+type Routers struct {
+	RouterByDomain map[string][]*Router
 	mutex          sync.RWMutex
 }
 
-type VhostRouter struct {
+type Router struct {
 	domain   string
 	location string
 
 	payload interface{}
 }
 
-func NewVhostRouters() *VhostRouters {
-	return &VhostRouters{
-		RouterByDomain: make(map[string][]*VhostRouter),
+func NewRouters() *Routers {
+	return &Routers{
+		RouterByDomain: make(map[string][]*Router),
 	}
 }
 
-func (r *VhostRouters) Add(domain, location string, payload interface{}) error {
+func (r *Routers) Add(domain, location string, payload interface{}) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -39,10 +39,10 @@ func (r *VhostRouters) Add(domain, location string, payload interface{}) error {
 
 	vrs, found := r.RouterByDomain[domain]
 	if !found {
-		vrs = make([]*VhostRouter, 0, 1)
+		vrs = make([]*Router, 0, 1)
 	}
 
-	vr := &VhostRouter{
+	vr := &Router{
 		domain:   domain,
 		location: location,
 		payload:  payload,
@@ -54,7 +54,7 @@ func (r *VhostRouters) Add(domain, location string, payload interface{}) error {
 	return nil
 }
 
-func (r *VhostRouters) Del(domain, location string) {
+func (r *Routers) Del(domain, location string) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -62,7 +62,7 @@ func (r *VhostRouters) Del(domain, location string) {
 	if !found {
 		return
 	}
-	newVrs := make([]*VhostRouter, 0)
+	newVrs := make([]*Router, 0)
 	for _, vr := range vrs {
 		if vr.location != location {
 			newVrs = append(newVrs, vr)
@@ -71,7 +71,7 @@ func (r *VhostRouters) Del(domain, location string) {
 	r.RouterByDomain[domain] = newVrs
 }
 
-func (r *VhostRouters) Get(host, path string) (vr *VhostRouter, exist bool) {
+func (r *Routers) Get(host, path string) (vr *Router, exist bool) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
@@ -90,7 +90,7 @@ func (r *VhostRouters) Get(host, path string) (vr *VhostRouter, exist bool) {
 	return
 }
 
-func (r *VhostRouters) exist(host, path string) (vr *VhostRouter, exist bool) {
+func (r *Routers) exist(host, path string) (vr *Router, exist bool) {
 	vrs, found := r.RouterByDomain[host]
 	if !found {
 		return
@@ -106,7 +106,7 @@ func (r *VhostRouters) exist(host, path string) (vr *VhostRouter, exist bool) {
 }
 
 // sort by location
-type ByLocation []*VhostRouter
+type ByLocation []*Router
 
 func (a ByLocation) Len() int {
 	return len(a)

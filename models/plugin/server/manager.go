@@ -52,7 +52,7 @@ func (m *Manager) Register(p Plugin) {
 		m.pingPlugins = append(m.pingPlugins, p)
 	}
 	if p.IsSupport(OpNewWorkConn) {
-		m.pingPlugins = append(m.pingPlugins, p)
+		m.newWorkConnPlugins = append(m.newWorkConnPlugins, p)
 	}
 	if p.IsSupport(OpNewUserConn) {
 		m.newUserConnPlugins = append(m.newUserConnPlugins, p)
@@ -72,7 +72,7 @@ func (m *Manager) Login(content *LoginContent) (*LoginContent, error) {
 		retContent interface{}
 		err        error
 	)
-	reqid, _ := util.RandId()
+	reqid, _ := util.RandID()
 	xl := xlog.New().AppendPrefix("reqid: " + reqid)
 	ctx := xlog.NewContext(context.Background(), xl)
 	ctx = NewReqidContext(ctx, reqid)
@@ -106,7 +106,7 @@ func (m *Manager) NewProxy(content *NewProxyContent) (*NewProxyContent, error) {
 		retContent interface{}
 		err        error
 	)
-	reqid, _ := util.RandId()
+	reqid, _ := util.RandID()
 	xl := xlog.New().AppendPrefix("reqid: " + reqid)
 	ctx := xlog.NewContext(context.Background(), xl)
 	ctx = NewReqidContext(ctx, reqid)
@@ -140,7 +140,7 @@ func (m *Manager) Ping(content *PingContent) (*PingContent, error) {
 		retContent interface{}
 		err        error
 	)
-	reqid, _ := util.RandId()
+	reqid, _ := util.RandID()
 	xl := xlog.New().AppendPrefix("reqid: " + reqid)
 	ctx := xlog.NewContext(context.Background(), xl)
 	ctx = NewReqidContext(ctx, reqid)
@@ -174,7 +174,7 @@ func (m *Manager) NewWorkConn(content *NewWorkConnContent) (*NewWorkConnContent,
 		retContent interface{}
 		err        error
 	)
-	reqid, _ := util.RandId()
+	reqid, _ := util.RandID()
 	xl := xlog.New().AppendPrefix("reqid: " + reqid)
 	ctx := xlog.NewContext(context.Background(), xl)
 	ctx = NewReqidContext(ctx, reqid)
@@ -208,7 +208,7 @@ func (m *Manager) NewUserConn(content *NewUserConnContent) (*NewUserConnContent,
 		retContent interface{}
 		err        error
 	)
-	reqid, _ := util.RandId()
+	reqid, _ := util.RandID()
 	xl := xlog.New().AppendPrefix("reqid: " + reqid)
 	ctx := xlog.NewContext(context.Background(), xl)
 	ctx = NewReqidContext(ctx, reqid)
