@@ -488,8 +488,9 @@ func (sv *SUDPVisitor) worker(workConn net.Conn) {
 	xl.Info("sudp worker is closed")
 }
 
-func (sv *SUDPVisitor) getNewVisitorConn() (visitorConn net.Conn, err error) {
-	visitorConn, err = sv.ctl.connectServer()
+func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
+	xl := xlog.FromContextSafe(sv.ctx)
+	visitorConn, err := sv.ctl.connectServer()
 	if err != nil {
 		return nil, fmt.Errorf("frpc connect frps error: %v", err)
 	}
@@ -518,7 +519,20 @@ func (sv *SUDPVisitor) getNewVisitorConn() (visitorConn net.Conn, err error) {
 	if newVisitorConnRespMsg.Error != "" {
 		return nil, fmt.Errorf("start new visitor connection error: %s", newVisitorConnRespMsg.Error)
 	}
-	return
+
+	var remote io.ReadWriteCloser
+	remote = visitorConn
+	if sv.cfg.UseEncryption {
+		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk))
+		if err != nil {
+			xl.Error("create encryption stream error: %v", err)
+			return nil, err
+		}
+	}
+	if sv.cfg.UseCompression {
+		remote = frpIo.WithCompression(remote)
+	}
+	return frpNet.WrapReadWriteCloserToConn(remote, visitorConn), nil
 }
 
 func (sv *SUDPVisitor) Close() {

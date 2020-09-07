@@ -10,6 +10,7 @@ type Process struct {
 	cmd         *exec.Cmd
 	cancel      context.CancelFunc
 	errorOutput *bytes.Buffer
+	stdOutput   *bytes.Buffer
 
 	beforeStopHandler func()
 }
@@ -22,7 +23,9 @@ func New(path string, params []string) *Process {
 		cancel: cancel,
 	}
 	p.errorOutput = bytes.NewBufferString("")
+	p.stdOutput = bytes.NewBufferString("")
 	cmd.Stderr = p.errorOutput
+	cmd.Stdout = p.stdOutput
 	return p
 }
 
@@ -40,6 +43,10 @@ func (p *Process) Stop() error {
 
 func (p *Process) ErrorOutput() string {
 	return p.errorOutput.String()
+}
+
+func (p *Process) StdOutput() string {
+	return p.stdOutput.String()
 }
 
 func (p *Process) SetBeforeStopHandler(fn func()) {

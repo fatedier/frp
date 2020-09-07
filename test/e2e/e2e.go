@@ -33,7 +33,8 @@ var _ = ginkgo.SynchronizedAfterSuite(func() {
 func RunE2ETests(t *testing.T) {
 	gomega.RegisterFailHandler(framework.Fail)
 
-	log.Info("Starting e2e run %q on Ginkgo node %d", framework.RunID, config.GinkgoConfig.ParallelNode)
+	log.Info("Starting e2e run %q on Ginkgo node %d of total %d",
+		framework.RunID, config.GinkgoConfig.ParallelNode, config.GinkgoConfig.ParallelTotal)
 	ginkgo.RunSpecs(t, "frp e2e suite")
 }
 

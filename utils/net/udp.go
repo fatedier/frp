@@ -246,7 +246,9 @@ func (l *UDPListener) Accept() (net.Conn, error) {
 func (l *UDPListener) Close() error {
 	if !l.closeFlag {
 		l.closeFlag = true
-		l.readConn.Close()
+		if l.readConn != nil {
+			l.readConn.Close()
+		}
 	}
 	return nil
 }
