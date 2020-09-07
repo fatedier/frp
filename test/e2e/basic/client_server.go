@@ -2,6 +2,7 @@ package basic
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
@@ -75,21 +76,40 @@ var _ = Describe("[Feature: Client-Server]", func() {
 	})
 
 	Describe("Authentication", func() {
-		func() {
-			configures := &generalTestConfigures{
-				server: "token = 123456",
-				client: "token = 123456",
-			}
-			defineClientServerTest("Token Correct", f, configures)
-		}()
+		defineClientServerTest("Token Correct", f, &generalTestConfigures{
+			server: "token = 123456",
+			client: "token = 123456",
+		})
 
-		func() {
-			configures := &generalTestConfigures{
-				server:      "token = 123456",
-				client:      "token = invalid",
-				expectError: true,
-			}
-			defineClientServerTest("Token Incorrect", f, configures)
-		}()
+		defineClientServerTest("Token Incorrect", f, &generalTestConfigures{
+			server:      "token = 123456",
+			client:      "token = invalid",
+			expectError: true,
+		})
+	})
+
+	Describe("TLS", func() {
+		supportProtocols := []string{"tcp", "kcp", "websocket"}
+		for _, protocol := range supportProtocols {
+			tmp := protocol
+			defineClientServerTest("TLS over "+strings.ToUpper(tmp), f, &generalTestConfigures{
+				server: fmt.Sprintf(`
+				kcp_bind_port = {{ .%s }}
+				protocol = %s
+				`, consts.PortServerName, protocol),
+				client: fmt.Sprintf(`tls_enable = true
+				protocol = %s
+				`, protocol),
+			})
+		}
+
+		defineClientServerTest("enable tls_only, client with TLS", f, &generalTestConfigures{
+			server: "tls_only = true",
+			client: "tls_enable = true",
+		})
+		defineClientServerTest("enable tls_only, client without TLS", f, &generalTestConfigures{
+			server:      "tls_only = true",
+			expectError: true,
+		})
 	})
 })
