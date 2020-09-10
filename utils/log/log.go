@@ -20,6 +20,7 @@ import (
 	"github.com/fatedier/beego/logs"
 )
 
+// Log is the under log object
 var Log *logs.BeeLogger
 
 func init() {
@@ -28,21 +29,27 @@ func init() {
 	Log.SetLogFuncCallDepth(Log.GetLogFuncCallDepth() + 1)
 }
 
-func InitLog(logWay string, logFile string, logLevel string, maxdays int64) {
-	SetLogFile(logWay, logFile, maxdays)
+func InitLog(logWay string, logFile string, logLevel string, maxdays int64, disableLogColor bool) {
+	SetLogFile(logWay, logFile, maxdays, disableLogColor)
 	SetLogLevel(logLevel)
 }
 
+// SetLogFile to configure log params
 // logWay: file or console
-func SetLogFile(logWay string, logFile string, maxdays int64) {
+func SetLogFile(logWay string, logFile string, maxdays int64, disableLogColor bool) {
 	if logWay == "console" {
-		Log.SetLogger("console", "")
+		params := ""
+		if disableLogColor {
+			params = fmt.Sprintf(`{"color": false}`)
+		}
+		Log.SetLogger("console", params)
 	} else {
 		params := fmt.Sprintf(`{"filename": "%s", "maxdays": %d}`, logFile, maxdays)
 		Log.SetLogger("file", params)
 	}
 }
 
+// SetLogLevel set log level, default is warning
 // value: error, warning, info, debug, trace
 func SetLogLevel(logLevel string) {
 	level := 4 // warning
@@ -83,72 +90,4 @@ func Debug(format string, v ...interface{}) {
 
 func Trace(format string, v ...interface{}) {
 	Log.Trace(format, v...)
-}
-
-// Logger
-type Logger interface {
-	AddLogPrefix(string)
-	GetPrefixStr() string
-	GetAllPrefix() []string
-	ClearLogPrefix()
-	Error(string, ...interface{})
-	Warn(string, ...interface{})
-	Info(string, ...interface{})
-	Debug(string, ...interface{})
-	Trace(string, ...interface{})
-}
-
-type PrefixLogger struct {
-	prefix    string
-	allPrefix []string
-}
-
-func NewPrefixLogger(prefix string) *PrefixLogger {
-	logger := &PrefixLogger{
-		allPrefix: make([]string, 0),
-	}
-	logger.AddLogPrefix(prefix)
-	return logger
-}
-
-func (pl *PrefixLogger) AddLogPrefix(prefix string) {
-	if len(prefix) == 0 {
-		return
-	}
-
-	pl.prefix += "[" + prefix + "] "
-	pl.allPrefix = append(pl.allPrefix, prefix)
-}
-
-func (pl *PrefixLogger) GetPrefixStr() string {
-	return pl.prefix
-}
-
-func (pl *PrefixLogger) GetAllPrefix() []string {
-	return pl.allPrefix
-}
-
-func (pl *PrefixLogger) ClearLogPrefix() {
-	pl.prefix = ""
-	pl.allPrefix = make([]string, 0)
-}
-
-func (pl *PrefixLogger) Error(format string, v ...interface{}) {
-	Log.Error(pl.prefix+format, v...)
-}
-
-func (pl *PrefixLogger) Warn(format string, v ...interface{}) {
-	Log.Warn(pl.prefix+format, v...)
-}
-
-func (pl *PrefixLogger) Info(format string, v ...interface{}) {
-	Log.Info(pl.prefix+format, v...)
-}
-
-func (pl *PrefixLogger) Debug(format string, v ...interface{}) {
-	Log.Debug(pl.prefix+format, v...)
-}
-
-func (pl *PrefixLogger) Trace(format string, v ...interface{}) {
-	Log.Trace(pl.prefix+format, v...)
 }

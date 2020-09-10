@@ -21,8 +21,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/utils/log"
-
 	"github.com/fatedier/golib/pool"
 )
 
@@ -33,7 +31,6 @@ type UdpPacket struct {
 }
 
 type FakeUdpConn struct {
-	log.Logger
 	l *UdpListener
 
 	localAddr  net.Addr
@@ -47,7 +44,6 @@ type FakeUdpConn struct {
 
 func NewFakeUdpConn(l *UdpListener, laddr, raddr net.Addr) *FakeUdpConn {
 	fc := &FakeUdpConn{
-		Logger:     log.NewPrefixLogger(""),
 		l:          l,
 		localAddr:  laddr,
 		remoteAddr: raddr,
@@ -157,15 +153,13 @@ func (c *FakeUdpConn) SetWriteDeadline(t time.Time) error {
 }
 
 type UdpListener struct {
-	net.Addr
-	accept    chan Conn
+	addr      net.Addr
+	acceptCh  chan net.Conn
 	writeCh   chan *UdpPacket
 	readConn  net.Conn
 	closeFlag bool
 
 	fakeConns map[string]*FakeUdpConn
-
-	log.Logger
 }
 
 func ListenUDP(bindAddr string, bindPort int) (l *UdpListener, err error) {
@@ -176,11 +170,10 @@ func ListenUDP(bindAddr string, bindPort int) (l *UdpListener, err error) {
 	readConn, err := net.ListenUDP("udp", udpAddr)
 
 	l = &UdpListener{
-		Addr:      udpAddr,
-		accept:    make(chan Conn),
+		addr:      udpAddr,
+		acceptCh:  make(chan net.Conn),
 		writeCh:   make(chan *UdpPacket, 1000),
 		fakeConns: make(map[string]*FakeUdpConn),
-		Logger:    log.NewPrefixLogger(""),
 	}
 
 	// for reading
@@ -189,19 +182,19 @@ func ListenUDP(bindAddr string, bindPort int) (l *UdpListener, err error) {
 			buf := pool.GetBuf(1450)
 			n, remoteAddr, err := readConn.ReadFromUDP(buf)
 			if err != nil {
-				close(l.accept)
+				close(l.acceptCh)
 				close(l.writeCh)
 				return
 			}
 
 			fakeConn, exist := l.fakeConns[remoteAddr.String()]
 			if !exist || fakeConn.IsClosed() {
-				fakeConn = NewFakeUdpConn(l, l.Addr, remoteAddr)
+				fakeConn = NewFakeUdpConn(l, l.Addr(), remoteAddr)
 				l.fakeConns[remoteAddr.String()] = fakeConn
 			}
 			fakeConn.putPacket(buf[:n])
 
-			l.accept <- fakeConn
+			l.acceptCh <- fakeConn
 		}
 	}()
 
@@ -226,7 +219,6 @@ func (l *UdpListener) writeUdpPacket(packet *UdpPacket) (err error) {
 	defer func() {
 		if errRet := recover(); errRet != nil {
 			err = fmt.Errorf("udp write closed listener")
-			l.Info("udp write closed listener")
 		}
 	}()
 	l.writeCh <- packet
@@ -243,8 +235,8 @@ func (l *UdpListener) WriteMsg(buf []byte, remoteAddr *net.UDPAddr) (err error) 
 	return
 }
 
-func (l *UdpListener) Accept() (Conn, error) {
-	conn, ok := <-l.accept
+func (l *UdpListener) Accept() (net.Conn, error) {
+	conn, ok := <-l.acceptCh
 	if !ok {
 		return conn, fmt.Errorf("channel for udp listener closed")
 	}
@@ -257,4 +249,8 @@ func (l *UdpListener) Close() error {
 		l.readConn.Close()
 	}
 	return nil
+}
+
+func (l *UdpListener) Addr() net.Addr {
+	return l.addr
 }

@@ -15,11 +15,16 @@
 package vhost
 
 import (
+	"bytes"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
+	frpLog "github.com/fatedier/frp/utils/log"
 	"github.com/fatedier/frp/utils/version"
+)
+
+var (
+	NotFoundPagePath = ""
 )
 
 const (
@@ -36,7 +41,7 @@ const (
 </style>
 </head>
 <body>
-<h1>The page you visit not found.</h1>
+<h1>The page you requested was not found.</h1>
 <p>Sorry, the page you are looking for is currently unavailable.<br/>
 Please try again later.</p>
 <p>The server is powered by <a href="https://github.com/fatedier/frp">frp</a>.</p>
@@ -46,10 +51,28 @@ Please try again later.</p>
 `
 )
 
+func getNotFoundPageContent() []byte {
+	var (
+		buf []byte
+		err error
+	)
+	if NotFoundPagePath != "" {
+		buf, err = ioutil.ReadFile(NotFoundPagePath)
+		if err != nil {
+			frpLog.Warn("read custom 404 page error: %v", err)
+			buf = []byte(NotFound)
+		}
+	} else {
+		buf = []byte(NotFound)
+	}
+	return buf
+}
+
 func notFoundResponse() *http.Response {
 	header := make(http.Header)
 	header.Set("server", "frp/"+version.Full())
 	header.Set("Content-Type", "text/html")
+
 	res := &http.Response{
 		Status:     "Not Found",
 		StatusCode: 404,
@@ -57,7 +80,21 @@ func notFoundResponse() *http.Response {
 		ProtoMajor: 1,
 		ProtoMinor: 0,
 		Header:     header,
-		Body:       ioutil.NopCloser(strings.NewReader(NotFound)),
+		Body:       ioutil.NopCloser(bytes.NewReader(getNotFoundPageContent())),
+	}
+	return res
+}
+
+func noAuthResponse() *http.Response {
+	header := make(map[string][]string)
+	header["WWW-Authenticate"] = []string{`Basic realm="Restricted"`}
+	res := &http.Response{
+		Status:     "401 Not authorized",
+		StatusCode: 401,
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Header:     header,
 	}
 	return res
 }

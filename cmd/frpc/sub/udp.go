@@ -27,11 +27,12 @@ import (
 func init() {
 	udpCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
 	udpCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	udpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp")
+	udpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
 	udpCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
 	udpCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	udpCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
 	udpCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
+	udpCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
 
 	udpCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
 	udpCmd.PersistentFlags().StringVarP(&localIp, "local_ip", "i", "127.0.0.1", "local ip")
@@ -47,7 +48,7 @@ var udpCmd = &cobra.Command{
 	Use:   "udp",
 	Short: "Run frpc with a single udp proxy",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := parseClientCommonCfg(CfgFileTypeCmd, "")
+		clientCfg, err := parseClientCommonCfg(CfgFileTypeCmd, "")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -75,7 +76,7 @@ var udpCmd = &cobra.Command{
 		proxyConfs := map[string]config.ProxyConf{
 			cfg.ProxyName: cfg,
 		}
-		err = startService(proxyConfs, nil)
+		err = startService(clientCfg, proxyConfs, nil, "")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

@@ -17,57 +17,60 @@ package msg
 import "net"
 
 const (
-	TypeLogin              = 'o'
-	TypeLoginResp          = '1'
-	TypeNewProxy           = 'p'
-	TypeNewProxyResp       = '2'
-	TypeCloseProxy         = 'c'
-	TypeNewWorkConn        = 'w'
-	TypeReqWorkConn        = 'r'
-	TypeStartWorkConn      = 's'
-	TypeNewVisitorConn     = 'v'
-	TypeNewVisitorConnResp = '3'
-	TypePing               = 'h'
-	TypePong               = '4'
-	TypeUdpPacket          = 'u'
-	TypeNatHoleVisitor     = 'i'
-	TypeNatHoleClient      = 'n'
-	TypeNatHoleResp        = 'm'
-	TypeNatHoleSid         = '5'
+	TypeLogin                 = 'o'
+	TypeLoginResp             = '1'
+	TypeNewProxy              = 'p'
+	TypeNewProxyResp          = '2'
+	TypeCloseProxy            = 'c'
+	TypeNewWorkConn           = 'w'
+	TypeReqWorkConn           = 'r'
+	TypeStartWorkConn         = 's'
+	TypeNewVisitorConn        = 'v'
+	TypeNewVisitorConnResp    = '3'
+	TypePing                  = 'h'
+	TypePong                  = '4'
+	TypeUdpPacket             = 'u'
+	TypeNatHoleVisitor        = 'i'
+	TypeNatHoleClient         = 'n'
+	TypeNatHoleResp           = 'm'
+	TypeNatHoleClientDetectOK = 'd'
+	TypeNatHoleSid            = '5'
 )
 
 var (
 	msgTypeMap = map[byte]interface{}{
-		TypeLogin:              Login{},
-		TypeLoginResp:          LoginResp{},
-		TypeNewProxy:           NewProxy{},
-		TypeNewProxyResp:       NewProxyResp{},
-		TypeCloseProxy:         CloseProxy{},
-		TypeNewWorkConn:        NewWorkConn{},
-		TypeReqWorkConn:        ReqWorkConn{},
-		TypeStartWorkConn:      StartWorkConn{},
-		TypeNewVisitorConn:     NewVisitorConn{},
-		TypeNewVisitorConnResp: NewVisitorConnResp{},
-		TypePing:               Ping{},
-		TypePong:               Pong{},
-		TypeUdpPacket:          UdpPacket{},
-		TypeNatHoleVisitor:     NatHoleVisitor{},
-		TypeNatHoleClient:      NatHoleClient{},
-		TypeNatHoleResp:        NatHoleResp{},
-		TypeNatHoleSid:         NatHoleSid{},
+		TypeLogin:                 Login{},
+		TypeLoginResp:             LoginResp{},
+		TypeNewProxy:              NewProxy{},
+		TypeNewProxyResp:          NewProxyResp{},
+		TypeCloseProxy:            CloseProxy{},
+		TypeNewWorkConn:           NewWorkConn{},
+		TypeReqWorkConn:           ReqWorkConn{},
+		TypeStartWorkConn:         StartWorkConn{},
+		TypeNewVisitorConn:        NewVisitorConn{},
+		TypeNewVisitorConnResp:    NewVisitorConnResp{},
+		TypePing:                  Ping{},
+		TypePong:                  Pong{},
+		TypeUdpPacket:             UdpPacket{},
+		TypeNatHoleVisitor:        NatHoleVisitor{},
+		TypeNatHoleClient:         NatHoleClient{},
+		TypeNatHoleResp:           NatHoleResp{},
+		TypeNatHoleClientDetectOK: NatHoleClientDetectOK{},
+		TypeNatHoleSid:            NatHoleSid{},
 	}
 )
 
 // When frpc start, client send this message to login to server.
 type Login struct {
-	Version      string `json:"version"`
-	Hostname     string `json:"hostname"`
-	Os           string `json:"os"`
-	Arch         string `json:"arch"`
-	User         string `json:"user"`
-	PrivilegeKey string `json:"privilege_key"`
-	Timestamp    int64  `json:"timestamp"`
-	RunId        string `json:"run_id"`
+	Version      string            `json:"version"`
+	Hostname     string            `json:"hostname"`
+	Os           string            `json:"os"`
+	Arch         string            `json:"arch"`
+	User         string            `json:"user"`
+	PrivilegeKey string            `json:"privilege_key"`
+	Timestamp    int64             `json:"timestamp"`
+	RunId        string            `json:"run_id"`
+	Metas        map[string]string `json:"metas"`
 
 	// Some global configures.
 	PoolCount int `json:"pool_count"`
@@ -82,12 +85,13 @@ type LoginResp struct {
 
 // When frpc login success, send this message to frps for running a new proxy.
 type NewProxy struct {
-	ProxyName      string `json:"proxy_name"`
-	ProxyType      string `json:"proxy_type"`
-	UseEncryption  bool   `json:"use_encryption"`
-	UseCompression bool   `json:"use_compression"`
-	Group          string `json:"group"`
-	GroupKey       string `json:"group_key"`
+	ProxyName      string            `json:"proxy_name"`
+	ProxyType      string            `json:"proxy_type"`
+	UseEncryption  bool              `json:"use_encryption"`
+	UseCompression bool              `json:"use_compression"`
+	Group          string            `json:"group"`
+	GroupKey       string            `json:"group_key"`
+	Metas          map[string]string `json:"metas"`
 
 	// tcp and udp only
 	RemotePort int `json:"remote_port"`
@@ -103,6 +107,9 @@ type NewProxy struct {
 
 	// stcp
 	Sk string `json:"sk"`
+
+	// tcpmux
+	Multiplexer string `json:"multiplexer"`
 }
 
 type NewProxyResp struct {
@@ -116,7 +123,9 @@ type CloseProxy struct {
 }
 
 type NewWorkConn struct {
-	RunId string `json:"run_id"`
+	RunId        string `json:"run_id"`
+	PrivilegeKey string `json:"privilege_key"`
+	Timestamp    int64  `json:"timestamp"`
 }
 
 type ReqWorkConn struct {
@@ -124,6 +133,11 @@ type ReqWorkConn struct {
 
 type StartWorkConn struct {
 	ProxyName string `json:"proxy_name"`
+	SrcAddr   string `json:"src_addr"`
+	DstAddr   string `json:"dst_addr"`
+	SrcPort   uint16 `json:"src_port"`
+	DstPort   uint16 `json:"dst_port"`
+	Error     string `json:"error"`
 }
 
 type NewVisitorConn struct {
@@ -140,9 +154,12 @@ type NewVisitorConnResp struct {
 }
 
 type Ping struct {
+	PrivilegeKey string `json:"privilege_key"`
+	Timestamp    int64  `json:"timestamp"`
 }
 
 type Pong struct {
+	Error string `json:"error"`
 }
 
 type UdpPacket struct {
@@ -167,6 +184,9 @@ type NatHoleResp struct {
 	VisitorAddr string `json:"visitor_addr"`
 	ClientAddr  string `json:"client_addr"`
 	Error       string `json:"error"`
+}
+
+type NatHoleClientDetectOK struct {
 }
 
 type NatHoleSid struct {

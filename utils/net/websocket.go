@@ -8,8 +8,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/fatedier/frp/utils/log"
-
 	"golang.org/x/net/websocket"
 )
 
@@ -22,21 +20,18 @@ const (
 )
 
 type WebsocketListener struct {
-	net.Addr
-	ln     net.Listener
-	accept chan Conn
-	log.Logger
+	ln       net.Listener
+	acceptCh chan net.Conn
 
 	server    *http.Server
 	httpMutex *http.ServeMux
 }
 
+// NewWebsocketListener to handle websocket connections
 // ln: tcp listener for websocket connections
 func NewWebsocketListener(ln net.Listener) (wl *WebsocketListener) {
 	wl = &WebsocketListener{
-		Addr:   ln.Addr(),
-		accept: make(chan Conn),
-		Logger: log.NewPrefixLogger(""),
+		acceptCh: make(chan net.Conn),
 	}
 
 	muxer := http.NewServeMux()
@@ -45,7 +40,7 @@ func NewWebsocketListener(ln net.Listener) (wl *WebsocketListener) {
 		conn := WrapCloseNotifyConn(c, func() {
 			close(notifyCh)
 		})
-		wl.accept <- conn
+		wl.acceptCh <- conn
 		<-notifyCh
 	}))
 
@@ -67,8 +62,8 @@ func ListenWebsocket(bindAddr string, bindPort int) (*WebsocketListener, error) 
 	return l, nil
 }
 
-func (p *WebsocketListener) Accept() (Conn, error) {
-	c, ok := <-p.accept
+func (p *WebsocketListener) Accept() (net.Conn, error) {
+	c, ok := <-p.acceptCh
 	if !ok {
 		return nil, ErrWebsocketListenerClosed
 	}
@@ -79,8 +74,12 @@ func (p *WebsocketListener) Close() error {
 	return p.server.Close()
 }
 
+func (p *WebsocketListener) Addr() net.Addr {
+	return p.ln.Addr()
+}
+
 // addr: domain:port
-func ConnectWebsocketServer(addr string) (Conn, error) {
+func ConnectWebsocketServer(addr string) (net.Conn, error) {
 	addr = "ws://" + addr + FrpWebsocketPath
 	uri, err := url.Parse(addr)
 	if err != nil {
@@ -100,6 +99,5 @@ func ConnectWebsocketServer(addr string) (Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := WrapConn(conn)
-	return c, nil
+	return conn, nil
 }

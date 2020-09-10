@@ -13,37 +13,41 @@
 package vhost
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/fatedier/frp/utils/log"
 	frpNet "github.com/fatedier/frp/utils/net"
+	"github.com/fatedier/frp/utils/xlog"
 
 	"github.com/fatedier/golib/errors"
 )
 
-type muxFunc func(frpNet.Conn) (frpNet.Conn, map[string]string, error)
-type httpAuthFunc func(frpNet.Conn, string, string, string) (bool, error)
-type hostRewriteFunc func(frpNet.Conn, string) (frpNet.Conn, error)
+type muxFunc func(net.Conn) (net.Conn, map[string]string, error)
+type httpAuthFunc func(net.Conn, string, string, string) (bool, error)
+type hostRewriteFunc func(net.Conn, string) (net.Conn, error)
+type successFunc func(net.Conn) error
 
 type VhostMuxer struct {
-	listener       frpNet.Listener
+	listener       net.Listener
 	timeout        time.Duration
 	vhostFunc      muxFunc
 	authFunc       httpAuthFunc
+	successFunc    successFunc
 	rewriteFunc    hostRewriteFunc
 	registryRouter *VhostRouters
-	mutex          sync.RWMutex
 }
 
-func NewVhostMuxer(listener frpNet.Listener, vhostFunc muxFunc, authFunc httpAuthFunc, rewriteFunc hostRewriteFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
+func NewVhostMuxer(listener net.Listener, vhostFunc muxFunc, authFunc httpAuthFunc, successFunc successFunc, rewriteFunc hostRewriteFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
 	mux = &VhostMuxer{
 		listener:       listener,
 		timeout:        timeout,
 		vhostFunc:      vhostFunc,
 		authFunc:       authFunc,
+		successFunc:    successFunc,
 		rewriteFunc:    rewriteFunc,
 		registryRouter: NewVhostRouters(),
 	}
@@ -51,8 +55,9 @@ func NewVhostMuxer(listener frpNet.Listener, vhostFunc muxFunc, authFunc httpAut
 	return mux, nil
 }
 
-type CreateConnFunc func() (frpNet.Conn, error)
+type CreateConnFunc func(remoteAddr string) (net.Conn, error)
 
+// VhostRouteConfig is the params used to match HTTP requests
 type VhostRouteConfig struct {
 	Domain      string
 	Location    string
@@ -66,15 +71,7 @@ type VhostRouteConfig struct {
 
 // listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil
 // then rewrite the host header to rewriteHost
-func (v *VhostMuxer) Listen(cfg *VhostRouteConfig) (l *Listener, err error) {
-	v.mutex.Lock()
-	defer v.mutex.Unlock()
-
-	_, ok := v.registryRouter.Exist(cfg.Domain, cfg.Location)
-	if ok {
-		return nil, fmt.Errorf("hostname [%s] location [%s] is already registered", cfg.Domain, cfg.Location)
-	}
-
+func (v *VhostMuxer) Listen(ctx context.Context, cfg *VhostRouteConfig) (l *Listener, err error) {
 	l = &Listener{
 		name:        cfg.Domain,
 		location:    cfg.Location,
@@ -82,17 +79,17 @@ func (v *VhostMuxer) Listen(cfg *VhostRouteConfig) (l *Listener, err error) {
 		userName:    cfg.Username,
 		passWord:    cfg.Password,
 		mux:         v,
-		accept:      make(chan frpNet.Conn),
-		Logger:      log.NewPrefixLogger(""),
+		accept:      make(chan net.Conn),
+		ctx:         ctx,
 	}
-	v.registryRouter.Add(cfg.Domain, cfg.Location, l)
+	err = v.registryRouter.Add(cfg.Domain, cfg.Location, l)
+	if err != nil {
+		return
+	}
 	return l, nil
 }
 
 func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
-	v.mutex.RLock()
-	defer v.mutex.RUnlock()
-
 	// first we check the full hostname
 	// if not exist, then check the wildcard_domain such as *.example.com
 	vr, found := v.registryRouter.Get(name, path)
@@ -102,17 +99,23 @@ func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
 
 	domainSplit := strings.Split(name, ".")
 	if len(domainSplit) < 3 {
-		return l, false
-	}
-	domainSplit[0] = "*"
-	name = strings.Join(domainSplit, ".")
-
-	vr, found = v.registryRouter.Get(name, path)
-	if !found {
 		return
 	}
 
-	return vr.payload.(*Listener), true
+	for {
+		if len(domainSplit) < 3 {
+			return
+		}
+
+		domainSplit[0] = "*"
+		name = strings.Join(domainSplit, ".")
+
+		vr, found = v.registryRouter.Get(name, path)
+		if found {
+			return vr.payload.(*Listener), true
+		}
+		domainSplit = domainSplit[1:]
+	}
 }
 
 func (v *VhostMuxer) run() {
@@ -125,7 +128,7 @@ func (v *VhostMuxer) run() {
 	}
 }
 
-func (v *VhostMuxer) handle(c frpNet.Conn) {
+func (v *VhostMuxer) handle(c net.Conn) {
 	if err := c.SetDeadline(time.Now().Add(v.timeout)); err != nil {
 		c.Close()
 		return
@@ -149,12 +152,21 @@ func (v *VhostMuxer) handle(c frpNet.Conn) {
 		return
 	}
 
+	xl := xlog.FromContextSafe(l.ctx)
+	if v.successFunc != nil {
+		if err := v.successFunc(c); err != nil {
+			xl.Info("success func failure on vhost connection: %v", err)
+			c.Close()
+			return
+		}
+	}
+
 	// if authFunc is exist and userName/password is set
 	// then verify user access
 	if l.mux.authFunc != nil && l.userName != "" && l.passWord != "" {
 		bAccess, err := l.mux.authFunc(c, l.userName, l.passWord, reqInfoMap["Authorization"])
 		if bAccess == false || err != nil {
-			l.Debug("check http Authorization failed")
+			xl.Debug("check http Authorization failed")
 			res := noAuthResponse()
 			res.Write(c)
 			c.Close()
@@ -168,12 +180,12 @@ func (v *VhostMuxer) handle(c frpNet.Conn) {
 	}
 	c = sConn
 
-	l.Debug("get new http request host [%s] path [%s]", name, path)
+	xl.Debug("get new http request host [%s] path [%s]", name, path)
 	err = errors.PanicToError(func() {
 		l.accept <- c
 	})
 	if err != nil {
-		l.Warn("listener is already closed, ignore this request")
+		xl.Warn("listener is already closed, ignore this request")
 	}
 }
 
@@ -184,11 +196,12 @@ type Listener struct {
 	userName    string
 	passWord    string
 	mux         *VhostMuxer // for closing VhostMuxer
-	accept      chan frpNet.Conn
-	log.Logger
+	accept      chan net.Conn
+	ctx         context.Context
 }
 
-func (l *Listener) Accept() (frpNet.Conn, error) {
+func (l *Listener) Accept() (net.Conn, error) {
+	xl := xlog.FromContextSafe(l.ctx)
 	conn, ok := <-l.accept
 	if !ok {
 		return nil, fmt.Errorf("Listener closed")
@@ -200,17 +213,13 @@ func (l *Listener) Accept() (frpNet.Conn, error) {
 	if l.mux.rewriteFunc != nil {
 		sConn, err := l.mux.rewriteFunc(conn, l.rewriteHost)
 		if err != nil {
-			l.Warn("host header rewrite failed: %v", err)
+			xl.Warn("host header rewrite failed: %v", err)
 			return nil, fmt.Errorf("host header rewrite failed")
 		}
-		l.Debug("rewrite host to [%s] success", l.rewriteHost)
+		xl.Debug("rewrite host to [%s] success", l.rewriteHost)
 		conn = sConn
 	}
-
-	for _, prefix := range l.GetAllPrefix() {
-		conn.AddLogPrefix(prefix)
-	}
-	return conn, nil
+	return frpNet.NewContextConn(conn, l.ctx), nil
 }
 
 func (l *Listener) Close() error {
@@ -221,4 +230,8 @@ func (l *Listener) Close() error {
 
 func (l *Listener) Name() string {
 	return l.name
+}
+
+func (l *Listener) Addr() net.Addr {
+	return (*net.TCPAddr)(nil)
 }

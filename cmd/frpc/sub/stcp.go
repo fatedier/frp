@@ -27,11 +27,12 @@ import (
 func init() {
 	stcpCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
 	stcpCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	stcpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp")
+	stcpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
 	stcpCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
 	stcpCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	stcpCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
 	stcpCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
+	stcpCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
 
 	stcpCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
 	stcpCmd.PersistentFlags().StringVarP(&role, "role", "", "server", "role")
@@ -51,53 +52,62 @@ var stcpCmd = &cobra.Command{
 	Use:   "stcp",
 	Short: "Run frpc with a single stcp proxy",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := parseClientCommonCfg(CfgFileTypeCmd, "")
+		clientCfg, err := parseClientCommonCfg(CfgFileTypeCmd, "")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 
-		cfg := &config.StcpProxyConf{}
+		proxyConfs := make(map[string]config.ProxyConf)
+		visitorConfs := make(map[string]config.VisitorConf)
+
 		var prefix string
 		if user != "" {
 			prefix = user + "."
 		}
-		cfg.ProxyName = prefix + proxyName
-		cfg.ProxyType = consts.StcpProxy
-		cfg.Role = role
-		cfg.Sk = sk
-		cfg.ServerName = serverName
-		cfg.LocalIp = localIp
-		cfg.LocalPort = localPort
-		cfg.BindAddr = bindAddr
-		cfg.BindPort = bindPort
-		cfg.UseEncryption = useEncryption
-		cfg.UseCompression = useCompression
 
-		err = cfg.CheckForCli()
-		if err != nil {
-			fmt.Println(err)
+		if role == "server" {
+			cfg := &config.StcpProxyConf{}
+			cfg.ProxyName = prefix + proxyName
+			cfg.ProxyType = consts.StcpProxy
+			cfg.UseEncryption = useEncryption
+			cfg.UseCompression = useCompression
+			cfg.Role = role
+			cfg.Sk = sk
+			cfg.LocalIp = localIp
+			cfg.LocalPort = localPort
+			err = cfg.CheckForCli()
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			proxyConfs[cfg.ProxyName] = cfg
+		} else if role == "visitor" {
+			cfg := &config.StcpVisitorConf{}
+			cfg.ProxyName = prefix + proxyName
+			cfg.ProxyType = consts.StcpProxy
+			cfg.UseEncryption = useEncryption
+			cfg.UseCompression = useCompression
+			cfg.Role = role
+			cfg.Sk = sk
+			cfg.ServerName = serverName
+			cfg.BindAddr = bindAddr
+			cfg.BindPort = bindPort
+			err = cfg.Check()
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			visitorConfs[cfg.ProxyName] = cfg
+		} else {
+			fmt.Println("invalid role")
 			os.Exit(1)
 		}
 
-		if cfg.Role == "server" {
-			proxyConfs := map[string]config.ProxyConf{
-				cfg.ProxyName: cfg,
-			}
-			err = startService(proxyConfs, nil)
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-		} else {
-			visitorConfs := map[string]config.ProxyConf{
-				cfg.ProxyName: cfg,
-			}
-			err = startService(nil, visitorConfs)
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
+		err = startService(clientCfg, proxyConfs, visitorConfs, "")
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
 		}
 		return nil
 	},

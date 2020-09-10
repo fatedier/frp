@@ -27,11 +27,12 @@ import (
 func init() {
 	xtcpCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
 	xtcpCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	xtcpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp")
+	xtcpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
 	xtcpCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
 	xtcpCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	xtcpCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
 	xtcpCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
+	xtcpCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
 
 	xtcpCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
 	xtcpCmd.PersistentFlags().StringVarP(&role, "role", "", "server", "role")
@@ -51,53 +52,62 @@ var xtcpCmd = &cobra.Command{
 	Use:   "xtcp",
 	Short: "Run frpc with a single xtcp proxy",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := parseClientCommonCfg(CfgFileTypeCmd, "")
+		clientCfg, err := parseClientCommonCfg(CfgFileTypeCmd, "")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 
-		cfg := &config.XtcpProxyConf{}
+		proxyConfs := make(map[string]config.ProxyConf)
+		visitorConfs := make(map[string]config.VisitorConf)
+
 		var prefix string
 		if user != "" {
 			prefix = user + "."
 		}
-		cfg.ProxyName = prefix + proxyName
-		cfg.ProxyType = consts.XtcpProxy
-		cfg.Role = role
-		cfg.Sk = sk
-		cfg.ServerName = serverName
-		cfg.LocalIp = localIp
-		cfg.LocalPort = localPort
-		cfg.BindAddr = bindAddr
-		cfg.BindPort = bindPort
-		cfg.UseEncryption = useEncryption
-		cfg.UseCompression = useCompression
 
-		err = cfg.CheckForCli()
-		if err != nil {
-			fmt.Println(err)
+		if role == "server" {
+			cfg := &config.XtcpProxyConf{}
+			cfg.ProxyName = prefix + proxyName
+			cfg.ProxyType = consts.XtcpProxy
+			cfg.UseEncryption = useEncryption
+			cfg.UseCompression = useCompression
+			cfg.Role = role
+			cfg.Sk = sk
+			cfg.LocalIp = localIp
+			cfg.LocalPort = localPort
+			err = cfg.CheckForCli()
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			proxyConfs[cfg.ProxyName] = cfg
+		} else if role == "visitor" {
+			cfg := &config.XtcpVisitorConf{}
+			cfg.ProxyName = prefix + proxyName
+			cfg.ProxyType = consts.XtcpProxy
+			cfg.UseEncryption = useEncryption
+			cfg.UseCompression = useCompression
+			cfg.Role = role
+			cfg.Sk = sk
+			cfg.ServerName = serverName
+			cfg.BindAddr = bindAddr
+			cfg.BindPort = bindPort
+			err = cfg.Check()
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			visitorConfs[cfg.ProxyName] = cfg
+		} else {
+			fmt.Println("invalid role")
 			os.Exit(1)
 		}
 
-		if cfg.Role == "server" {
-			proxyConfs := map[string]config.ProxyConf{
-				cfg.ProxyName: cfg,
-			}
-			err = startService(proxyConfs, nil)
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-		} else {
-			visitorConfs := map[string]config.ProxyConf{
-				cfg.ProxyName: cfg,
-			}
-			err = startService(nil, visitorConfs)
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
+		err = startService(clientCfg, proxyConfs, visitorConfs, "")
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
 		}
 		return nil
 	},

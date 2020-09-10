@@ -17,7 +17,6 @@ package sub
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
@@ -27,10 +26,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	ini "github.com/vaughan0/go-ini"
 
 	"github.com/fatedier/frp/client"
-	"github.com/fatedier/frp/g"
+	"github.com/fatedier/frp/models/auth"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/utils/log"
 	"github.com/fatedier/frp/utils/version"
@@ -45,13 +43,14 @@ var (
 	cfgFile     string
 	showVersion bool
 
-	serverAddr string
-	user       string
-	protocol   string
-	token      string
-	logLevel   string
-	logFile    string
-	logMaxDays int
+	serverAddr      string
+	user            string
+	protocol        string
+	token           string
+	logLevel        string
+	logFile         string
+	logMaxDays      int
+	disableLogColor bool
 
 	proxyName         string
 	localIp           string
@@ -67,14 +66,19 @@ var (
 	hostHeaderRewrite string
 	role              string
 	sk                string
+	multiplexer       string
 	serverName        string
 	bindAddr          string
 	bindPort          int
+
+	kcpDoneCh chan struct{}
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "", "c", "./frpc.ini", "config file of frpc")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "./frpc.ini", "config file of frpc")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
+
+	kcpDoneCh = make(chan struct{})
 }
 
 var rootCmd = &cobra.Command{
@@ -108,91 +112,97 @@ func handleSignal(svr *client.Service) {
 	<-ch
 	svr.Close()
 	time.Sleep(250 * time.Millisecond)
-	os.Exit(0)
+	close(kcpDoneCh)
 }
 
-func parseClientCommonCfg(fileType int, filePath string) (err error) {
+func parseClientCommonCfg(fileType int, content string) (cfg config.ClientCommonConf, err error) {
 	if fileType == CfgFileTypeIni {
-		err = parseClientCommonCfgFromIni(filePath)
+		cfg, err = parseClientCommonCfgFromIni(content)
 	} else if fileType == CfgFileTypeCmd {
-		err = parseClientCommonCfgFromCmd()
+		cfg, err = parseClientCommonCfgFromCmd()
 	}
 	if err != nil {
 		return
 	}
 
-	g.GlbClientCfg.CfgFile = cfgFile
-
-	err = g.GlbClientCfg.ClientCommonConf.Check()
+	err = cfg.Check()
 	if err != nil {
 		return
 	}
 	return
 }
 
-func parseClientCommonCfgFromIni(filePath string) (err error) {
-	b, err := ioutil.ReadFile(filePath)
+func parseClientCommonCfgFromIni(content string) (config.ClientCommonConf, error) {
+	cfg, err := config.UnmarshalClientConfFromIni(content)
 	if err != nil {
-		return err
+		return config.ClientCommonConf{}, err
 	}
-	content := string(b)
-
-	cfg, err := config.UnmarshalClientConfFromIni(&g.GlbClientCfg.ClientCommonConf, content)
-	if err != nil {
-		return err
-	}
-	g.GlbClientCfg.ClientCommonConf = *cfg
-	return
+	return cfg, err
 }
 
-func parseClientCommonCfgFromCmd() (err error) {
+func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
+	cfg = config.GetDefaultClientConf()
+
 	strs := strings.Split(serverAddr, ":")
 	if len(strs) < 2 {
 		err = fmt.Errorf("invalid server_addr")
 		return
 	}
 	if strs[0] != "" {
-		g.GlbClientCfg.ServerAddr = strs[0]
+		cfg.ServerAddr = strs[0]
 	}
-	g.GlbClientCfg.ServerPort, err = strconv.Atoi(strs[1])
+	cfg.ServerPort, err = strconv.Atoi(strs[1])
 	if err != nil {
 		err = fmt.Errorf("invalid server_addr")
 		return
 	}
 
-	g.GlbClientCfg.User = user
-	g.GlbClientCfg.Protocol = protocol
-	g.GlbClientCfg.Token = token
-	g.GlbClientCfg.LogLevel = logLevel
-	g.GlbClientCfg.LogFile = logFile
-	g.GlbClientCfg.LogMaxDays = int64(logMaxDays)
-	return nil
+	cfg.User = user
+	cfg.Protocol = protocol
+	cfg.LogLevel = logLevel
+	cfg.LogFile = logFile
+	cfg.LogMaxDays = int64(logMaxDays)
+	if logFile == "console" {
+		cfg.LogWay = "console"
+	} else {
+		cfg.LogWay = "file"
+	}
+	cfg.DisableLogColor = disableLogColor
+
+	// Only token authentication is supported in cmd mode
+	cfg.AuthClientConfig = auth.GetDefaultAuthClientConf()
+	cfg.Token = token
+
+	return
 }
 
 func runClient(cfgFilePath string) (err error) {
-	err = parseClientCommonCfg(CfgFileTypeIni, cfgFilePath)
+	var content string
+	content, err = config.GetRenderedConfFromFile(cfgFilePath)
 	if err != nil {
 		return
 	}
 
-	conf, err := ini.LoadFile(cfgFilePath)
+	cfg, err := parseClientCommonCfg(CfgFileTypeIni, content)
+	if err != nil {
+		return
+	}
+
+	pxyCfgs, visitorCfgs, err := config.LoadAllConfFromIni(cfg.User, content, cfg.Start)
 	if err != nil {
 		return err
 	}
 
-	pxyCfgs, visitorCfgs, err := config.LoadProxyConfFromIni(g.GlbClientCfg.User, conf, g.GlbClientCfg.Start)
-	if err != nil {
-		return err
-	}
-
-	err = startService(pxyCfgs, visitorCfgs)
+	err = startService(cfg, pxyCfgs, visitorCfgs, cfgFilePath)
 	return
 }
 
-func startService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.ProxyConf) (err error) {
-	log.InitLog(g.GlbClientCfg.LogWay, g.GlbClientCfg.LogFile, g.GlbClientCfg.LogLevel, g.GlbClientCfg.LogMaxDays)
-	if g.GlbClientCfg.DnsServer != "" {
-		s := g.GlbClientCfg.DnsServer
+func startService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf, cfgFile string) (err error) {
+	log.InitLog(cfg.LogWay, cfg.LogFile, cfg.LogLevel,
+		cfg.LogMaxDays, cfg.DisableLogColor)
+
+	if cfg.DnsServer != "" {
+		s := cfg.DnsServer
 		if !strings.Contains(s, ":") {
 			s += ":53"
 		}
@@ -204,13 +214,20 @@ func startService(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]co
 			},
 		}
 	}
-	svr := client.NewService(pxyCfgs, visitorCfgs)
+	svr, errRet := client.NewService(cfg, pxyCfgs, visitorCfgs, cfgFile)
+	if errRet != nil {
+		err = errRet
+		return
+	}
 
 	// Capture the exit signal if we use kcp.
-	if g.GlbClientCfg.Protocol == "kcp" {
+	if cfg.Protocol == "kcp" {
 		go handleSignal(svr)
 	}
 
 	err = svr.Run()
+	if cfg.Protocol == "kcp" {
+		<-kcpDoneCh
+	}
 	return
 }

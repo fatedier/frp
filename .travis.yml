@@ -2,7 +2,8 @@ sudo: false
 language: go
 
 go:
-    - 1.10.x
+    - 1.13.x
+    - 1.14.x
 
 install:
     - make
