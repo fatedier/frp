@@ -1,18 +1,18 @@
-FROM golang:alpine
+FROM alpine:latest
 
-COPY . /go/src/github.com/fatedier/frp
+ENV VERSION=0.33.0
+ENV FILENAME=frp_${VERSION}_linux_amd64
 
-RUN apk update \
- && apk add make \
- && cd /go/src/github.com/fatedier/frp \
- && make \
- && mv bin/frps /frps \
- && mv conf/frps.ini /frps.ini \
- && make clean \
- && rm -r /go
+RUN set -ex; \
+    \
+    cd /tmp; \
+    wget https://github.com/fatedier/frp/releases/download/v${VERSION}/${FILENAME}.tar.gz; \
+    tar xf ${FILENAME}.tar.gz; \
+    mv ${FILENAME}/frps /usr/local/bin; \
+    mv ${FILENAME}/frps.ini /etc/frps.ini
 
 WORKDIR /
 
-EXPOSE 80 443 6000 7000 7500
+ENTRYPOINT ["frps"]
 
-ENTRYPOINT ["/frps"]
+CMD [ "-c", "/etc/frps.ini" ]
