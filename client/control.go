@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/fatedier/frp/models/transport"
 	"io"
 	"net"
 	"runtime/debug"
@@ -29,6 +28,7 @@ import (
 	"github.com/fatedier/frp/models/auth"
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/models/transport"
 	frpNet "github.com/fatedier/frp/utils/net"
 	"github.com/fatedier/frp/utils/xlog"
 

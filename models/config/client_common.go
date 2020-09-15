@@ -350,18 +350,15 @@ func (cfg *ClientCommonConf) Check() (err error) {
 
 	if cfg.TLSEnable == false {
 		if cfg.TLSCertFile != "" {
-			err = fmt.Errorf("Parse conf error: forbidden tls_cert_file, it only works when tls_enabled is true")
-			return
+			fmt.Println("WARNING! Because tls_enable is not true, so tls_cert_file will not make sense")
 		}
 
 		if cfg.TLSKeyFile != "" {
-			err = fmt.Errorf("Parse conf error: forbidden tls_key_file, it only works when tls_enabled is true")
-			return
+			fmt.Println("WARNING! Because tls_enable is not true, so tls_key_file will not make sense")
 		}
 
 		if cfg.TLSTrustedCaFile != "" {
-			err = fmt.Errorf("Parse conf error: forbidden tls_trusted_ca_file, it only works when tls_enabled is true")
-			return
+			fmt.Println("WARNING! Because tls_enable is not true, so tls_trusted_ca_file will not make sense")
 		}
 	}
 

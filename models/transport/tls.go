@@ -76,7 +76,7 @@ func newCertPool(caPath string) (*x509.CertPool, error) {
 	return pool, nil
 }
 
-func NewServerTLSConfig(certPath, keyPath, caPath string ) (*tls.Config, error) {
+func NewServerTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 	var base = &tls.Config{}
 
 	if certPath == "" || keyPath == "" {
@@ -104,7 +104,6 @@ func NewServerTLSConfig(certPath, keyPath, caPath string ) (*tls.Config, error) 
 
 	return base, nil
 }
-
 
 func NewClientTLSConfig(certPath, keyPath, caPath, servearName string) (*tls.Config, error) {
 	var base = &tls.Config{}
