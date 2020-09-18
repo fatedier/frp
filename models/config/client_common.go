@@ -104,8 +104,20 @@ type ClientCommonConf struct {
 	// is "tcp".
 	Protocol string `json:"protocol"`
 	// TLSEnable specifies whether or not TLS should be used when communicating
-	// with the server.
+	// with the server. If "tls_cert_file" and "tls_key_file" are valid,
+	// client will load the supplied tls configuration.
 	TLSEnable bool `json:"tls_enable"`
+	// ClientTLSCertPath specifies the path of the cert file that client will
+	// load. It only works when "tls_enable" is true and "tls_key_file" is valid.
+	TLSCertFile string `json:"tls_cert_file"`
+	// ClientTLSKeyPath specifies the path of the secret key file that client
+	// will load. It only works when "tls_enable" is true and "tls_cert_file"
+	// are valid.
+	TLSKeyFile string `json:"tls_key_file"`
+	// TrustedCaFile specifies the path of the trusted ca file that will load.
+	// It only works when "tls_enable" is valid and tls configuration of server
+	// has been specified.
+	TLSTrustedCaFile string `json:"tls_trusted_ca_file"`
 	// HeartBeatInterval specifies at what interval heartbeats are sent to the
 	// server, in seconds. It is not recommended to change this value. By
 	// default, this value is 30.
@@ -145,6 +157,9 @@ func GetDefaultClientConf() ClientCommonConf {
 		Start:             make(map[string]struct{}),
 		Protocol:          "tcp",
 		TLSEnable:         false,
+		TLSCertFile:       "",
+		TLSKeyFile:        "",
+		TLSTrustedCaFile:  "",
 		HeartBeatInterval: 30,
 		HeartBeatTimeout:  90,
 		Metas:             make(map[string]string),
@@ -280,6 +295,18 @@ func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error
 		cfg.TLSEnable = false
 	}
 
+	if tmpStr, ok = conf.Get("common", "tls_cert_file"); ok {
+		cfg.TLSCertFile = tmpStr
+	}
+
+	if tmpStr, ok := conf.Get("common", "tls_key_file"); ok {
+		cfg.TLSKeyFile = tmpStr
+	}
+
+	if tmpStr, ok := conf.Get("common", "tls_trusted_ca_file"); ok {
+		cfg.TLSTrustedCaFile = tmpStr
+	}
+
 	if tmpStr, ok = conf.Get("common", "heartbeat_timeout"); ok {
 		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
 			err = fmt.Errorf("Parse conf error: invalid heartbeat_timeout")
@@ -320,5 +347,20 @@ func (cfg *ClientCommonConf) Check() (err error) {
 		err = fmt.Errorf("Parse conf error: invalid heartbeat_timeout, heartbeat_timeout is less than heartbeat_interval")
 		return
 	}
+
+	if cfg.TLSEnable == false {
+		if cfg.TLSCertFile != "" {
+			fmt.Println("WARNING! Because tls_enable is not true, so tls_cert_file will not make sense")
+		}
+
+		if cfg.TLSKeyFile != "" {
+			fmt.Println("WARNING! Because tls_enable is not true, so tls_key_file will not make sense")
+		}
+
+		if cfg.TLSTrustedCaFile != "" {
+			fmt.Println("WARNING! Because tls_enable is not true, so tls_trusted_ca_file will not make sense")
+		}
+	}
+
 	return
 }
