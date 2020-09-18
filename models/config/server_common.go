@@ -448,6 +448,7 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 
 	if tmpStr, ok := conf.Get("common", "tls_trusted_ca_file"); ok {
 		cfg.TLSTrustedCaFile = tmpStr
+		cfg.TLSOnly = true
 	}
 
 	return
@@ -471,12 +472,6 @@ func UnmarshalPluginsFromIni(sections ini.File, cfg *ServerCommonConf) {
 	}
 }
 
-func (cfg *ServerCommonConf) Check() (err error) {
-	if cfg.TLSOnly == false {
-		if cfg.TLSTrustedCaFile != "" {
-			err = fmt.Errorf("Parse conf error: forbidden tls_trusted_ca_file, it only works when tls_only is true")
-			return
-		}
-	}
-	return
+func (cfg *ServerCommonConf) Check() error {
+	return nil
 }

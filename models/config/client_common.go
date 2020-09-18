@@ -350,17 +350,16 @@ func (cfg *ClientCommonConf) Check() (err error) {
 
 	if cfg.TLSEnable == false {
 		if cfg.TLSCertFile != "" {
-			fmt.Println("WARNING! Because tls_enable is not true, so tls_cert_file will not make sense")
+			fmt.Println("WARNING! tls_cert_file is invalid when tls_enable is false")
 		}
 
 		if cfg.TLSKeyFile != "" {
-			fmt.Println("WARNING! Because tls_enable is not true, so tls_key_file will not make sense")
+			fmt.Println("WARNING! tls_key_file is invalid when tls_enable is false")
 		}
 
 		if cfg.TLSTrustedCaFile != "" {
-			fmt.Println("WARNING! Because tls_enable is not true, so tls_trusted_ca_file will not make sense")
+			fmt.Println("WARNING! tls_trusted_ca_file is invalid when tls_enable is false")
 		}
 	}
-
 	return
 }
