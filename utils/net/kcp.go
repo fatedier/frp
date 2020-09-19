@@ -21,13 +21,13 @@ import (
 	kcp "github.com/fatedier/kcp-go"
 )
 
-type KcpListener struct {
+type KCPListener struct {
 	listener  net.Listener
 	acceptCh  chan net.Conn
 	closeFlag bool
 }
 
-func ListenKcp(bindAddr string, bindPort int) (l *KcpListener, err error) {
+func ListenKcp(bindAddr string, bindPort int) (l *KCPListener, err error) {
 	listener, err := kcp.ListenWithOptions(fmt.Sprintf("%s:%d", bindAddr, bindPort), nil, 10, 3)
 	if err != nil {
 		return l, err
@@ -35,7 +35,7 @@ func ListenKcp(bindAddr string, bindPort int) (l *KcpListener, err error) {
 	listener.SetReadBuffer(4194304)
 	listener.SetWriteBuffer(4194304)
 
-	l = &KcpListener{
+	l = &KCPListener{
 		listener:  listener,
 		acceptCh:  make(chan net.Conn),
 		closeFlag: false,
@@ -64,7 +64,7 @@ func ListenKcp(bindAddr string, bindPort int) (l *KcpListener, err error) {
 	return l, err
 }
 
-func (l *KcpListener) Accept() (net.Conn, error) {
+func (l *KCPListener) Accept() (net.Conn, error) {
 	conn, ok := <-l.acceptCh
 	if !ok {
 		return conn, fmt.Errorf("channel for kcp listener closed")
@@ -72,7 +72,7 @@ func (l *KcpListener) Accept() (net.Conn, error) {
 	return conn, nil
 }
 
-func (l *KcpListener) Close() error {
+func (l *KCPListener) Close() error {
 	if !l.closeFlag {
 		l.closeFlag = true
 		l.listener.Close()
@@ -80,11 +80,11 @@ func (l *KcpListener) Close() error {
 	return nil
 }
 
-func (l *KcpListener) Addr() net.Addr {
+func (l *KCPListener) Addr() net.Addr {
 	return l.listener.Addr()
 }
 
-func NewKcpConnFromUdp(conn *net.UDPConn, connected bool, raddr string) (net.Conn, error) {
+func NewKCPConnFromUDP(conn *net.UDPConn, connected bool, raddr string) (net.Conn, error) {
 	kcpConn, err := kcp.NewConnEx(1, connected, raddr, nil, 10, 3, conn)
 	if err != nil {
 		return nil, err

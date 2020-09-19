@@ -43,13 +43,13 @@ const (
 	extensionRenegotiationInfo   uint16 = 0xff01
 )
 
-type HttpsMuxer struct {
-	*VhostMuxer
+type HTTPSMuxer struct {
+	*Muxer
 }
 
-func NewHttpsMuxer(listener net.Listener, timeout time.Duration) (*HttpsMuxer, error) {
-	mux, err := NewVhostMuxer(listener, GetHttpsHostname, nil, nil, nil, timeout)
-	return &HttpsMuxer{mux}, err
+func NewHTTPSMuxer(listener net.Listener, timeout time.Duration) (*HTTPSMuxer, error) {
+	mux, err := NewMuxer(listener, GetHTTPSHostname, nil, nil, nil, timeout)
+	return &HTTPSMuxer{mux}, err
 }
 
 func readHandshake(rd io.Reader) (host string, err error) {
@@ -65,9 +65,8 @@ func readHandshake(rd io.Reader) (host string, err error) {
 	length, err := rd.Read(data[47:])
 	if err != nil {
 		return
-	} else {
-		length += 47
 	}
+	length += 47
 	data = data[:length]
 	if uint8(data[5]) != typeClientHello {
 		err = fmt.Errorf("readHandshake: type[%d] is not clientHello", uint16(data[5]))
@@ -75,12 +74,12 @@ func readHandshake(rd io.Reader) (host string, err error) {
 	}
 
 	// session
-	sessionIdLen := int(data[43])
-	if sessionIdLen > 32 || len(data) < 44+sessionIdLen {
-		err = fmt.Errorf("readHandshake: sessionIdLen[%d] is long", sessionIdLen)
+	sessionIDLen := int(data[43])
+	if sessionIDLen > 32 || len(data) < 44+sessionIDLen {
+		err = fmt.Errorf("readHandshake: sessionIdLen[%d] is long", sessionIDLen)
 		return
 	}
-	data = data[44+sessionIdLen:]
+	data = data[44+sessionIDLen:]
 	if len(data) < 2 {
 		err = fmt.Errorf("readHandshake: dataLen[%d] after session is short", len(data))
 		return
@@ -177,11 +176,11 @@ func readHandshake(rd io.Reader) (host string, err error) {
 		}
 		data = data[length:]
 	}
-	err = fmt.Errorf("Unknow error")
+	err = fmt.Errorf("Unknown error")
 	return
 }
 
-func GetHttpsHostname(c net.Conn) (_ net.Conn, _ map[string]string, err error) {
+func GetHTTPSHostname(c net.Conn) (_ net.Conn, _ map[string]string, err error) {
 	reqInfoMap := make(map[string]string, 0)
 	sc, rd := gnet.NewSharedConn(c)
 	host, err := readHandshake(rd)

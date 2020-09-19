@@ -41,37 +41,37 @@ func GetProxyStatus(statusAddr string, user string, passwd string, name string) 
 	if err != nil {
 		return status, fmt.Errorf("unmarshal http response error: %s", strings.TrimSpace(string(body)))
 	}
-	for _, s := range allStatus.Tcp {
+	for _, s := range allStatus.TCP {
 		if s.Name == name {
 			return &s, nil
 		}
 	}
-	for _, s := range allStatus.Udp {
+	for _, s := range allStatus.UDP {
 		if s.Name == name {
 			return &s, nil
 		}
 	}
-	for _, s := range allStatus.Http {
+	for _, s := range allStatus.HTTP {
 		if s.Name == name {
 			return &s, nil
 		}
 	}
-	for _, s := range allStatus.Https {
+	for _, s := range allStatus.HTTPS {
 		if s.Name == name {
 			return &s, nil
 		}
 	}
-	for _, s := range allStatus.Stcp {
+	for _, s := range allStatus.STCP {
 		if s.Name == name {
 			return &s, nil
 		}
 	}
-	for _, s := range allStatus.Xtcp {
+	for _, s := range allStatus.XTCP {
 		if s.Name == name {
 			return &s, nil
 		}
 	}
-	for _, s := range allStatus.Sudp {
+	for _, s := range allStatus.SUDP {
 		if s.Name == name {
 			return &s, nil
 		}
@@ -101,17 +101,17 @@ func ReloadConf(reloadAddr string, user string, passwd string) error {
 	return nil
 }
 
-func SendTcpMsg(addr string, msg string) (res string, err error) {
+func SendTCPMsg(addr string, msg string) (res string, err error) {
 	c, err := net.Dial("tcp", addr)
 	if err != nil {
 		err = fmt.Errorf("connect to tcp server error: %v", err)
 		return
 	}
 	defer c.Close()
-	return SendTcpMsgByConn(c, msg)
+	return SendTCPMsgByConn(c, msg)
 }
 
-func SendTcpMsgByConn(c net.Conn, msg string) (res string, err error) {
+func SendTCPMsgByConn(c net.Conn, msg string) (res string, err error) {
 	timer := time.Now().Add(5 * time.Second)
 	c.SetDeadline(timer)
 	c.Write([]byte(msg))
@@ -125,7 +125,7 @@ func SendTcpMsgByConn(c net.Conn, msg string) (res string, err error) {
 	return string(buf[:n]), nil
 }
 
-func SendUdpMsg(addr string, msg string) (res string, err error) {
+func SendUDPMsg(addr string, msg string) (res string, err error) {
 	udpAddr, errRet := net.ResolveUDPAddr("udp", addr)
 	if errRet != nil {
 		err = fmt.Errorf("resolve udp addr error: %v", err)
@@ -143,6 +143,7 @@ func SendUdpMsg(addr string, msg string) (res string, err error) {
 		return
 	}
 
+	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	buf := make([]byte, 2048)
 	n, errRet := conn.Read(buf)
 	if errRet != nil {
@@ -152,7 +153,7 @@ func SendUdpMsg(addr string, msg string) (res string, err error) {
 	return string(buf[:n]), nil
 }
 
-func SendHttpMsg(method, urlStr string, host string, headers map[string]string, proxy string) (code int, body string, header http.Header, err error) {
+func SendHTTPMsg(method, urlStr string, host string, headers map[string]string, proxy string) (code int, body string, header http.Header, err error) {
 	req, errRet := http.NewRequest(method, urlStr, nil)
 	if errRet != nil {
 		err = errRet
