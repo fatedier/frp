@@ -100,7 +100,7 @@ type ClientCommonConf struct {
 	// set.
 	Start map[string]struct{} `json:"start"`
 	// Protocol specifies the protocol to use when interacting with the server.
-	// Valid values are "tcp", "kcp", "ntlm" and "websocket". By default, this value
+	// Valid values are "tcp", "kcp" and "websocket". By default, this value
 	// is "tcp".
 	Protocol string `json:"protocol"`
 	// TLSEnable specifies whether or not TLS should be used when communicating
