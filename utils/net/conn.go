@@ -222,6 +222,8 @@ func ConnectServerByProxy(proxyURL string, protocol string, addr string) (c net.
 		return ConnectServer(protocol, addr)
 	case "websocket":
 		return ConnectWebsocketServer(addr)
+	case "ntlm":
+		return gnet.DialTcpByProxy(proxyURL, addr)
 	default:
 		return nil, fmt.Errorf("unsupport protocol: %s", protocol)
 	}
