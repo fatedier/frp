@@ -1,6 +1,6 @@
 FROM alpine:3.12.0
 
-RUN apk add --update ca-certificates
+WORKDIR /app
 
 ADD bin/frps /usr/bin
 
