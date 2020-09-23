@@ -20,8 +20,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/models/consts"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/consts"
 )
 
 func init() {

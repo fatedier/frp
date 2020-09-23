@@ -19,11 +19,11 @@ import (
 	"net"
 	"strings"
 
-	"github.com/fatedier/frp/models/config"
+	"github.com/fatedier/frp/pkg/config"
+	frpNet "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/pkg/util/util"
+	"github.com/fatedier/frp/pkg/util/vhost"
 	"github.com/fatedier/frp/server/metrics"
-	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/util"
-	"github.com/fatedier/frp/utils/vhost"
 
 	frpIo "github.com/fatedier/golib/io"
 )

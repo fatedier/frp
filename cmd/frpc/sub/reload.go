@@ -22,9 +22,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
+	"github.com/fatedier/frp/pkg/config"
 
-	"github.com/fatedier/frp/models/config"
+	"github.com/spf13/cobra"
 )
 
 func init() {
