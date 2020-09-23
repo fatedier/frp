@@ -1,5 +1,6 @@
 export PATH := $(GOPATH)/bin:$(PATH)
 export GO111MODULE=on
+LDFLAGS := -s -w
 
 all: fmt build
 
@@ -19,10 +20,10 @@ fmt:
 	go fmt ./...
 
 frps:
-	go build -o bin/frps ./cmd/frps
+	env CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/frps ./cmd/frps
 
 frpc:
-	go build -o bin/frpc ./cmd/frpc
+	env CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/frpc ./cmd/frpc
 
 test: gotest
 
