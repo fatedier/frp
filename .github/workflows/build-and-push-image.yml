@@ -1,13 +1,15 @@
 name: Build Image and Publish to Dockerhub & GPR
 
 on:
-  push:
-    branches: [ test-build ]
   release:
     types: [ created ]
-
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag'
+        required: true
+        default: 'test'
 jobs:
-
   binary:
     name: Build Golang project
     runs-on: ubuntu-latest
@@ -68,21 +70,25 @@ jobs:
         with:
           name: frps
           path: bin/frps
-      # get release name
+      # get image tag name
       -
-        name: Get Release Name
+        name: Get Image Tag Name
         run: |
-          echo ::set-env name=RELEASE_NAME::${GITHUB_REF#refs/*/}
+          if [ x${{ github.event.inputs.logLevel }} == x"" ]; then
+            echo ::set-env name=TAG_NAME::${GITHUB_REF#refs/*/}
+          else
+            echo ::set-env name=TAG_NAME::${{ github.event.inputs.tag }}
+          fi
       # prepare image tags
       -
         name: Prepare Image Tags
         run: |
           echo ::set-env name=DOCKERFILE_FRPC_PATH::dockerfiles/Dockerfile-for-frpc
           echo ::set-env name=DOCKERFILE_FRPS_PATH::dockerfiles/Dockerfile-for-frps
-          echo ::set-env name=TAG_FRPC::fatedier/frpc:$RELEASE_NAME
-          echo ::set-env name=TAG_FRPS::fatedier/frps:$RELEASE_NAME
-          echo ::set-env name=TAG_FRPC_GPR::ghcr.io/${{ github.repository}}/frpc:$RELEASE_NAME
-          echo ::set-env name=TAG_FRPS_GPR::ghcr.io/${{ github.repository}}/frps:$RELEASE_NAME
+          echo ::set-env name=TAG_FRPC::fatedier/frpc:$TAG_NAME
+          echo ::set-env name=TAG_FRPS::fatedier/frps:$TAG_NAME
+          echo ::set-env name=TAG_FRPC_GPR::ghcr.io/fatedier/frpc:$TAG_NAME
+          echo ::set-env name=TAG_FRPS_GPR::ghcr.io/fatedier/frps:$TAG_NAME
       # build images
       -
         name: Build Images
