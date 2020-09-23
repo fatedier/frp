@@ -74,7 +74,7 @@ jobs:
       -
         name: Get Image Tag Name
         run: |
-          if [ x${{ github.event.inputs.logLevel }} == x"" ]; then
+          if [ x${{ github.event.inputs.tag }} == x"" ]; then
             echo ::set-env name=TAG_NAME::${GITHUB_REF#refs/*/}
           else
             echo ::set-env name=TAG_NAME::${{ github.event.inputs.tag }}
