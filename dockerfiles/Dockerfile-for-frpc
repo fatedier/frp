@@ -1,0 +1,7 @@
+FROM alpine:edge
+
+RUN apk add --update ca-certificates
+
+ADD bin/frpc  /usr/bin
+
+ENTRYPOINT ["frpc"]
