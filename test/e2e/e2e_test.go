@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/test/e2e/framework"
-	"github.com/fatedier/frp/utils/log"
 
 	// test source
 	_ "github.com/fatedier/frp/test/e2e/basic"
