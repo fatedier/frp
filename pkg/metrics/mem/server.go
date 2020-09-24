@@ -69,7 +69,9 @@ func (m *serverMetrics) clearUselessInfo() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for name, data := range m.info.ProxyStatistics {
-		if !data.LastCloseTime.IsZero() && time.Since(data.LastCloseTime) > time.Duration(7*24)*time.Hour {
+		if !data.LastCloseTime.IsZero() &&
+			data.LastStartTime.Before(data.LastCloseTime) &&
+			time.Since(data.LastCloseTime) > time.Duration(7*24)*time.Hour {
 			delete(m.info.ProxyStatistics, name)
 			log.Trace("clear proxy [%s]'s statistics data, lastCloseTime: [%s]", name, data.LastCloseTime.String())
 		}
