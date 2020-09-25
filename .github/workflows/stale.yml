@@ -1,8 +1,13 @@
 name: "Close stale issues"
 on:
   schedule:
-  - cron: "0 0 * * *"
-
+  - cron: "20 0 * * *"
+  workflow_dispatch:
+    inputs:
+      debug-only:
+        description: 'In debug mod'
+        required: false
+        default: 'false'
 jobs:
   stale:
     runs-on: ubuntu-latest
@@ -10,10 +15,12 @@ jobs:
     - uses: actions/stale@v3
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-        stale-issue-message: 'Mark this issue stale. Thank you for your feedback.'
-        stale-pr-message: 'Mark this pr stale. Thank you for your contribution.'
-        stale-issue-label: 'no-issue-activity'
-        exempt-issue-labels: 'WIP,bug,doc,easy,enhancement,FrozenDueToAge,future,help wanted,Icebox,In Progress,need-usage-help,prososal,question,testing,todo'
-        stale-pr-label: 'no-pr-activity'
-        exempt-pr-labels: 'WIP,bug,doc,easy,enhancement,FrozenDueToAge,future,help wanted,Icebox,In Progress,need-usage-help,prososal,question,testing,todo'
-        only-labels: 'invalid,duplicate,no plan'
+        stale-issue-message: 'Issues go stale after 45d of inactivity. Stale issues rot after an additional 10d of inactivity and eventually close.'
+        stale-pr-message: 'Issues go stale after 45d of inactivity. Stale issues rot after an additional 10d of inactivity and eventually close.'
+        stale-issue-label: 'lifecycle/stale'
+        exempt-issue-labels: 'bug,doc,enhancement,future,prososal,question,testing,todo,easy,assigned'
+        stale-pr-label: 'lifecycle/stale'
+        exempt-pr-labels: 'bug,doc,enhancement,future,prososal,question,testing,todo,easy,assigned'
+        days-before-stale: 45
+        days-before-close: 10
+        debug-only: ${{ github.event.inputs.debug-only }}
