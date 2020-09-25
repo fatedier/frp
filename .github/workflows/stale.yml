@@ -1,0 +1,19 @@
+name: "Close stale issues"
+on:
+  schedule:
+  - cron: "0 0 * * *"
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/stale@v3
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        stale-issue-message: 'Mark this issue stale. Thank you for your feedback.'
+        stale-pr-message: 'Mark this pr stale. Thank you for your contribution.'
+        stale-issue-label: 'no-issue-activity'
+        exempt-issue-labels: 'WIP,bug,doc,easy,enhancement,FrozenDueToAge,future,help wanted,Icebox,In Progress,need-usage-help,prososal,question,testing,todo'
+        stale-pr-label: 'no-pr-activity'
+        exempt-pr-labels: 'WIP,bug,doc,easy,enhancement,FrozenDueToAge,future,help wanted,Icebox,In Progress,need-usage-help,prososal,question,testing,todo'
+        only-labels: 'invalid,duplicate,no plan'
