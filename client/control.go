@@ -211,10 +211,11 @@ func (ctl *Control) connectServer() (conn net.Conn, err error) {
 		var tlsConfig *tls.Config
 
 		if ctl.clientCfg.TLSEnable {
-			tlsConfig, err = transport.NewServerTLSConfig(
+			tlsConfig, err = transport.NewClientTLSConfig(
 				ctl.clientCfg.TLSCertFile,
 				ctl.clientCfg.TLSKeyFile,
-				ctl.clientCfg.TLSTrustedCaFile)
+				ctl.clientCfg.TLSTrustedCaFile,
+				ctl.clientCfg.ServerAddr)
 
 			if err != nil {
 				xl.Warn("fail to build tls configuration when connecting to server, err: %v", err)
