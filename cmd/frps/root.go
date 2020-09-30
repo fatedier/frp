@@ -18,14 +18,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
-
-	"github.com/fatedier/frp/models/auth"
-	"github.com/fatedier/frp/models/config"
+	"github.com/fatedier/frp/pkg/auth"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/util/log"
+	"github.com/fatedier/frp/pkg/util/util"
+	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/server"
-	"github.com/fatedier/frp/utils/log"
-	"github.com/fatedier/frp/utils/util"
-	"github.com/fatedier/frp/utils/version"
+
+	"github.com/spf13/cobra"
 )
 
 const (

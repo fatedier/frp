@@ -25,12 +25,12 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/client/proxy"
-	"github.com/fatedier/frp/models/auth"
-	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/models/transport"
-	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/xlog"
+	"github.com/fatedier/frp/pkg/auth"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/transport"
+	frpNet "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/pkg/util/xlog"
 
 	"github.com/fatedier/golib/control/shutdown"
 	"github.com/fatedier/golib/crypto"
@@ -211,10 +211,11 @@ func (ctl *Control) connectServer() (conn net.Conn, err error) {
 		var tlsConfig *tls.Config
 
 		if ctl.clientCfg.TLSEnable {
-			tlsConfig, err = transport.NewServerTLSConfig(
+			tlsConfig, err = transport.NewClientTLSConfig(
 				ctl.clientCfg.TLSCertFile,
 				ctl.clientCfg.TLSKeyFile,
-				ctl.clientCfg.TLSTrustedCaFile)
+				ctl.clientCfg.TLSTrustedCaFile,
+				ctl.clientCfg.ServerAddr)
 
 			if err != nil {
 				xl.Warn("fail to build tls configuration when connecting to server, err: %v", err)
