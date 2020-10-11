@@ -20,6 +20,7 @@ import (
 
 	"github.com/fatedier/frp/models/config"
 	"github.com/fatedier/frp/models/consts"
+	"github.com/fatedier/frp/models/metrics/mem"
 	"github.com/fatedier/frp/utils/log"
 	"github.com/fatedier/frp/utils/version"
 
@@ -62,7 +63,7 @@ func (svr *Service) ApiServerInfo(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	log.Info("Http request: [%s]", r.URL.Path)
-	serverStats := svr.statsCollector.GetServer()
+	serverStats := mem.StatsCollector.GetServer()
 	svrResp := ServerInfoResp{
 		Version:           version.Full(),
 		BindPort:          svr.cfg.BindPort,
@@ -95,6 +96,12 @@ type TcpOutConf struct {
 	RemotePort int `json:"remote_port"`
 }
 
+type TcpMuxOutConf struct {
+	BaseOutConf
+	config.DomainConf
+	Multiplexer string `json:"multiplexer"`
+}
+
 type UdpOutConf struct {
 	BaseOutConf
 	RemotePort int `json:"remote_port"`
@@ -124,6 +131,8 @@ func getConfByType(proxyType string) interface{} {
 	switch proxyType {
 	case consts.TcpProxy:
 		return &TcpOutConf{}
+	case consts.TcpMuxProxy:
+		return &TcpMuxOutConf{}
 	case consts.UdpProxy:
 		return &UdpOutConf{}
 	case consts.HttpProxy:
@@ -178,7 +187,7 @@ func (svr *Service) ApiProxyByType(w http.ResponseWriter, r *http.Request) {
 }
 
 func (svr *Service) getProxyStatsByType(proxyType string) (proxyInfos []*ProxyStatsInfo) {
-	proxyStats := svr.statsCollector.GetProxiesByType(proxyType)
+	proxyStats := mem.StatsCollector.GetProxiesByType(proxyType)
 	proxyInfos = make([]*ProxyStatsInfo, 0, len(proxyStats))
 	for _, ps := range proxyStats {
 		proxyInfo := &ProxyStatsInfo{}
@@ -248,7 +257,7 @@ func (svr *Service) ApiProxyByTypeAndName(w http.ResponseWriter, r *http.Request
 
 func (svr *Service) getProxyStatsByTypeAndName(proxyType string, proxyName string) (proxyInfo GetProxyStatsResp, code int, msg string) {
 	proxyInfo.Name = proxyName
-	ps := svr.statsCollector.GetProxiesByTypeAndName(proxyType, proxyName)
+	ps := mem.StatsCollector.GetProxiesByTypeAndName(proxyType, proxyName)
 	if ps == nil {
 		code = 404
 		msg = "no proxy info found"
@@ -306,7 +315,7 @@ func (svr *Service) ApiProxyTraffic(w http.ResponseWriter, r *http.Request) {
 
 	trafficResp := GetProxyTrafficResp{}
 	trafficResp.Name = name
-	proxyTrafficInfo := svr.statsCollector.GetProxyTraffic(name)
+	proxyTrafficInfo := mem.StatsCollector.GetProxyTraffic(name)
 
 	if proxyTrafficInfo == nil {
 		res.Code = 404

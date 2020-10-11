@@ -29,22 +29,25 @@ import (
 type muxFunc func(net.Conn) (net.Conn, map[string]string, error)
 type httpAuthFunc func(net.Conn, string, string, string) (bool, error)
 type hostRewriteFunc func(net.Conn, string) (net.Conn, error)
+type successFunc func(net.Conn) error
 
 type VhostMuxer struct {
 	listener       net.Listener
 	timeout        time.Duration
 	vhostFunc      muxFunc
 	authFunc       httpAuthFunc
+	successFunc    successFunc
 	rewriteFunc    hostRewriteFunc
 	registryRouter *VhostRouters
 }
 
-func NewVhostMuxer(listener net.Listener, vhostFunc muxFunc, authFunc httpAuthFunc, rewriteFunc hostRewriteFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
+func NewVhostMuxer(listener net.Listener, vhostFunc muxFunc, authFunc httpAuthFunc, successFunc successFunc, rewriteFunc hostRewriteFunc, timeout time.Duration) (mux *VhostMuxer, err error) {
 	mux = &VhostMuxer{
 		listener:       listener,
 		timeout:        timeout,
 		vhostFunc:      vhostFunc,
 		authFunc:       authFunc,
+		successFunc:    successFunc,
 		rewriteFunc:    rewriteFunc,
 		registryRouter: NewVhostRouters(),
 	}
@@ -113,7 +116,6 @@ func (v *VhostMuxer) getListener(name, path string) (l *Listener, exist bool) {
 		}
 		domainSplit = domainSplit[1:]
 	}
-	return
 }
 
 func (v *VhostMuxer) run() {
@@ -149,7 +151,15 @@ func (v *VhostMuxer) handle(c net.Conn) {
 		c.Close()
 		return
 	}
+
 	xl := xlog.FromContextSafe(l.ctx)
+	if v.successFunc != nil {
+		if err := v.successFunc(c); err != nil {
+			xl.Info("success func failure on vhost connection: %v", err)
+			c.Close()
+			return
+		}
+	}
 
 	// if authFunc is exist and userName/password is set
 	// then verify user access

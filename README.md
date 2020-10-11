@@ -30,7 +30,11 @@ frp also has a P2P connect mode.
     * [Using Environment Variables](#using-environment-variables)
     * [Dashboard](#dashboard)
     * [Admin UI](#admin-ui)
+    * [Monitor](#monitor)
+        * [Prometheus](#prometheus)
     * [Authenticating the Client](#authenticating-the-client)
+        * [Token Authentication](#token-authentication)
+        * [OIDC Authentication](#oidc-authentication)
     * [Encryption and Compression](#encryption-and-compression)
         * [TLS](#tls)
     * [Hot-Reloading frpc configuration](#hot-reloading-frpc-configuration)
@@ -49,9 +53,10 @@ frp also has a P2P connect mode.
     * [Get Real IP](#get-real-ip)
         * [HTTP X-Forwarded-For](#http-x-forwarded-for)
         * [Proxy Protocol](#proxy-protocol)
-    * [Require HTTP Basic auth (password) for web services](#require-http-basic-auth-password-for-web-services)
-    * [Custom subdomain names](#custom-subdomain-names)
-    * [URL routing](#url-routing)
+    * [Require HTTP Basic Auth (Password) for Web Services](#require-http-basic-auth-password-for-web-services)
+    * [Custom Subdomain Names](#custom-subdomain-names)
+    * [URL Routing](#url-routing)
+    * [TCP Port Multiplexing](#tcp-port-multiplexing)
     * [Connecting to frps via HTTP PROXY](#connecting-to-frps-via-http-proxy)
     * [Range ports mapping](#range-ports-mapping)
     * [Client Plugins](#client-plugins)
@@ -435,9 +440,59 @@ admin_pwd = admin
 
 Then visit `http://127.0.0.1:7400` to see admin UI, with username and password both being `admin` by default.
 
+### Monitor
+
+When dashboard is enabled, frps will save monitor data in cache. It will be cleared after process restart.
+
+Prometheus is also supported.
+
+#### Prometheus
+
+Enable dashboard first, then configure `enable_prometheus = true` in `frps.ini`.
+
+`http://{dashboard_addr}/metrics` will provide prometheus monitor data.
+
 ### Authenticating the Client
 
-Always use the same `token` in the `[common]` section in `frps.ini` and `frpc.ini`.
+There are 2 authentication methods to authenticate frpc with frps. 
+
+You can decide which one to use by configuring `authentication_method` under `[common]` in `frpc.ini` and `frps.ini`.
+
+Configuring `authenticate_heartbeats = true` under `[common]` will use the configured authentication method to add and validate authentication on every heartbeat between frpc and frps.
+
+Configuring `authenticate_new_work_conns = true` under `[common]` will do the same for every new work connection between frpc and frps.
+
+#### Token Authentication
+
+When specifying `authentication_method = token` under `[common]` in `frpc.ini` and `frps.ini` - token based authentication will be used.
+
+Make sure to specify the same `token` in the `[common]` section in `frps.ini` and `frpc.ini` for frpc to pass frps validation
+
+#### OIDC Authentication
+
+When specifying `authentication_method = oidc` under `[common]` in `frpc.ini` and `frps.ini` - OIDC based authentication will be used.
+
+OIDC stands for OpenID Connect, and the flow used is called [Client Credentials Grant](https://tools.ietf.org/html/rfc6749#section-4.4).
+
+To use this authentication type - configure `frpc.ini` and `frps.ini` as follows:
+
+```ini
+# frps.ini
+[common]
+authentication_method = oidc
+oidc_issuer = https://example-oidc-issuer.com/
+oidc_audience = https://oidc-audience.com/.default
+```
+
+```ini
+# frpc.ini
+[common]
+authentication_method = oidc
+oidc_client_id = 98692467-37de-409a-9fac-bb2585826f18 # Replace with OIDC client ID
+oidc_client_secret = oidc_secret
+oidc_audience = https://oidc-audience.com/.default
+oidc_token_endpoint_url = https://example-oidc-endpoint.com/oauth2/v2.0/token
+```
 
 ### Encryption and Compression
 
@@ -460,6 +515,8 @@ frp supports the TLS protocol between `frpc` and `frps` since v0.25.0.
 Config `tls_enable = true` in the `[common]` section to `frpc.ini` to enable this feature.
 
 For port multiplexing, frp sends a first byte `0x17` to dial a TLS connection.
+
+To enforce `frps` to only accept TLS connections - configure `tls_only = true` in the `[common]` section in `frps.ini`.
 
 ### Hot-Reloading frpc configuration
 
@@ -712,7 +769,7 @@ proxy_protocol_version = v2
 
 You can enable Proxy Protocol support in nginx to expose user's real IP in HTTP header `X-Real-IP`, and then read `X-Real-IP` header in your web service for the real IP.
 
-### Require HTTP Basic auth (password) for web services
+### Require HTTP Basic Auth (Password) for Web Services
 
 Anyone who can guess your tunnel URL can access your local web server unless you protect it with a password.
 
@@ -732,7 +789,7 @@ http_pwd = abc
 
 Visit `http://test.example.com` in the browser and now you are prompted to enter the username and password.
 
-### Custom subdomain names
+### Custom Subdomain Names
 
 It is convenient to use `subdomain` configure for http and https types when many people share one frps server.
 
@@ -755,7 +812,7 @@ Now you can visit your web service on `test.frps.com`.
 
 Note that if `subdomain_host` is not empty, `custom_domains` should not be the subdomain of `subdomain_host`.
 
-### URL routing
+### URL Routing
 
 frp supports forwarding HTTP requests to different backend web services by url routing.
 
@@ -777,6 +834,49 @@ locations = /news,/about
 ```
 
 HTTP requests with URL prefix `/news` or `/about` will be forwarded to **web02** and other requests to **web01**.
+
+### TCP Port Multiplexing
+
+frp supports receiving TCP sockets directed to different proxies on a single port on frps, similar to `vhost_http_port` and `vhost_https_port`.
+
+The only supported TCP port multiplexing method available at the moment is `httpconnect` - HTTP CONNECT tunnel.
+
+When setting `tcpmux_httpconnect_port` to anything other than 0 in frps under `[common]`, frps will listen on this port for HTTP CONNECT requests.
+
+The host of the HTTP CONNECT request will be used to match the proxy in frps. Proxy hosts can be configured in frpc by configuring `custom_domain` and / or `subdomain` under `type = tcpmux` proxies, when `multiplexer = httpconnect`.
+
+For example:
+
+```ini
+# frps.ini
+[common]
+bind_port = 7000
+tcpmux_httpconnect_port = 1337
+```
+
+```ini
+# frpc.ini
+[common]
+server_addr = x.x.x.x
+server_port = 7000
+
+[proxy1]
+type = tcpmux
+multiplexer = httpconnect
+custom_domains = test1
+
+[proxy2]
+type = tcpmux
+multiplexer = httpconnect
+custom_domains = test2
+```
+
+In the above configuration - frps can be contacted on port 1337 with a HTTP CONNECT header such as:
+
+```
+CONNECT test1 HTTP/1.1\r\n\r\n
+```
+and the connection will be routed to `proxy1`.
 
 ### Connecting to frps via HTTP PROXY
 

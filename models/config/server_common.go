@@ -21,6 +21,7 @@ import (
 
 	ini "github.com/vaughan0/go-ini"
 
+	"github.com/fatedier/frp/models/auth"
 	plugin "github.com/fatedier/frp/models/plugin/server"
 	"github.com/fatedier/frp/utils/util"
 )
@@ -29,6 +30,7 @@ import (
 // recommended to use GetDefaultServerConf instead of creating this object
 // directly, so that all unspecified fields have reasonable default values.
 type ServerCommonConf struct {
+	auth.AuthServerConfig
 	// BindAddr specifies the address that the server binds to. By default,
 	// this value is "0.0.0.0".
 	BindAddr string `json:"bind_addr"`
@@ -46,25 +48,25 @@ type ServerCommonConf struct {
 	// ProxyBindAddr specifies the address that the proxy binds to. This value
 	// may be the same as BindAddr. By default, this value is "0.0.0.0".
 	ProxyBindAddr string `json:"proxy_bind_addr"`
-
 	// VhostHttpPort specifies the port that the server listens for HTTP Vhost
 	// requests. If this value is 0, the server will not listen for HTTP
 	// requests. By default, this value is 0.
 	VhostHttpPort int `json:"vhost_http_port"`
-
 	// VhostHttpsPort specifies the port that the server listens for HTTPS
 	// Vhost requests. If this value is 0, the server will not listen for HTTPS
 	// requests. By default, this value is 0.
 	VhostHttpsPort int `json:"vhost_https_port"`
-
+	// TcpMuxHttpConnectPort specifies the port that the server listens for TCP
+	// HTTP CONNECT requests. If the value is 0, the server will not multiplex TCP
+	// requests on one single port. If it's not - it will listen on this value for
+	// HTTP CONNECT requests. By default, this value is 0.
+	TcpMuxHttpConnectPort int `json:"tcpmux_httpconnect_port"`
 	// VhostHttpTimeout specifies the response header timeout for the Vhost
 	// HTTP server, in seconds. By default, this value is 60.
 	VhostHttpTimeout int64 `json:"vhost_http_timeout"`
-
 	// DashboardAddr specifies the address that the dashboard binds to. By
 	// default, this value is "0.0.0.0".
 	DashboardAddr string `json:"dashboard_addr"`
-
 	// DashboardPort specifies the port that the dashboard listens on. If this
 	// value is 0, the dashboard will not be started. By default, this value is
 	// 0.
@@ -75,6 +77,9 @@ type ServerCommonConf struct {
 	// DashboardUser specifies the password that the dashboard will use for
 	// login. By default, this value is "admin".
 	DashboardPwd string `json:"dashboard_pwd"`
+	// EnablePrometheus will export prometheus metrics on {dashboard_addr}:{dashboard_port}
+	// in /metrics api.
+	EnablePrometheus bool `json:"enable_prometheus"`
 	// AssetsDir specifies the local directory that the dashboard will load
 	// resources from. If this value is "", assets will be loaded from the
 	// bundled executable using statik. By default, this value is "".
@@ -98,10 +103,10 @@ type ServerCommonConf struct {
 	// DisableLogColor disables log colors when LogWay == "console" when set to
 	// true. By default, this value is false.
 	DisableLogColor bool `json:"disable_log_color"`
-	// Token specifies the authorization token used to authenticate keys
-	// received from clients. Clients must have a matching token to be
-	// authorized to use the server. By default, this value is "".
-	Token string `json:"token"`
+	// DetailedErrorsToClient defines whether to send the specific error (with
+	// debug info) to frpc. By default, this value is true.
+	DetailedErrorsToClient bool `json:"detailed_errors_to_client"`
+
 	// SubDomainHost specifies the domain that will be attached to sub-domains
 	// requested by the client when using Vhost proxying. For example, if this
 	// value is set to "frps.com" and the client requested the subdomain
@@ -128,6 +133,9 @@ type ServerCommonConf struct {
 	// may proxy to. If this value is 0, no limit will be applied. By default,
 	// this value is 0.
 	MaxPortsPerClient int64 `json:"max_ports_per_client"`
+	// TlsOnly specifies whether to only accept TLS-encrypted connections. By
+	// default, the value is false.
+	TlsOnly bool `json:"tls_only"`
 	// HeartBeatTimeout specifies the maximum time to wait for a heartbeat
 	// before terminating the connection. It is not recommended to change this
 	// value. By default, this value is 90.
@@ -143,34 +151,37 @@ type ServerCommonConf struct {
 // defaults.
 func GetDefaultServerConf() ServerCommonConf {
 	return ServerCommonConf{
-		BindAddr:          "0.0.0.0",
-		BindPort:          7000,
-		BindUdpPort:       0,
-		KcpBindPort:       0,
-		ProxyBindAddr:     "0.0.0.0",
-		VhostHttpPort:     0,
-		VhostHttpsPort:    0,
-		VhostHttpTimeout:  60,
-		DashboardAddr:     "0.0.0.0",
-		DashboardPort:     0,
-		DashboardUser:     "admin",
-		DashboardPwd:      "admin",
-		AssetsDir:         "",
-		LogFile:           "console",
-		LogWay:            "console",
-		LogLevel:          "info",
-		LogMaxDays:        3,
-		DisableLogColor:   false,
-		Token:             "",
-		SubDomainHost:     "",
-		TcpMux:            true,
-		AllowPorts:        make(map[int]struct{}),
-		MaxPoolCount:      5,
-		MaxPortsPerClient: 0,
-		HeartBeatTimeout:  90,
-		UserConnTimeout:   10,
-		Custom404Page:     "",
-		HTTPPlugins:       make(map[string]plugin.HTTPPluginOptions),
+		BindAddr:               "0.0.0.0",
+		BindPort:               7000,
+		BindUdpPort:            0,
+		KcpBindPort:            0,
+		ProxyBindAddr:          "0.0.0.0",
+		VhostHttpPort:          0,
+		VhostHttpsPort:         0,
+		TcpMuxHttpConnectPort:  0,
+		VhostHttpTimeout:       60,
+		DashboardAddr:          "0.0.0.0",
+		DashboardPort:          0,
+		DashboardUser:          "admin",
+		DashboardPwd:           "admin",
+		EnablePrometheus:       false,
+		AssetsDir:              "",
+		LogFile:                "console",
+		LogWay:                 "console",
+		LogLevel:               "info",
+		LogMaxDays:             3,
+		DisableLogColor:        false,
+		DetailedErrorsToClient: true,
+		SubDomainHost:          "",
+		TcpMux:                 true,
+		AllowPorts:             make(map[int]struct{}),
+		MaxPoolCount:           5,
+		MaxPortsPerClient:      0,
+		TlsOnly:                false,
+		HeartBeatTimeout:       90,
+		UserConnTimeout:        10,
+		Custom404Page:          "",
+		HTTPPlugins:            make(map[string]plugin.HTTPPluginOptions),
 	}
 }
 
@@ -186,6 +197,8 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 	}
 
 	UnmarshalPluginsFromIni(conf, &cfg)
+
+	cfg.AuthServerConfig = auth.UnmarshalAuthServerConfFromIni(conf)
 
 	var (
 		tmpStr string
@@ -251,6 +264,17 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 		cfg.VhostHttpsPort = 0
 	}
 
+	if tmpStr, ok = conf.Get("common", "tcpmux_httpconnect_port"); ok {
+		if v, err = strconv.ParseInt(tmpStr, 10, 64); err != nil {
+			err = fmt.Errorf("Parse conf error: invalid tcpmux_httpconnect_port")
+			return
+		} else {
+			cfg.TcpMuxHttpConnectPort = int(v)
+		}
+	} else {
+		cfg.TcpMuxHttpConnectPort = 0
+	}
+
 	if tmpStr, ok = conf.Get("common", "vhost_http_timeout"); ok {
 		v, errRet := strconv.ParseInt(tmpStr, 10, 64)
 		if errRet != nil || v < 0 {
@@ -286,6 +310,10 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 		cfg.DashboardPwd = tmpStr
 	}
 
+	if tmpStr, ok = conf.Get("common", "enable_prometheus"); ok && tmpStr == "true" {
+		cfg.EnablePrometheus = true
+	}
+
 	if tmpStr, ok = conf.Get("common", "assets_dir"); ok {
 		cfg.AssetsDir = tmpStr
 	}
@@ -314,7 +342,11 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 		cfg.DisableLogColor = true
 	}
 
-	cfg.Token, _ = conf.Get("common", "token")
+	if tmpStr, ok = conf.Get("common", "detailed_errors_to_client"); ok && tmpStr == "false" {
+		cfg.DetailedErrorsToClient = false
+	} else {
+		cfg.DetailedErrorsToClient = true
+	}
 
 	if allowPortsStr, ok := conf.Get("common", "allow_ports"); ok {
 		// e.g. 1000-2000,2001,2002,3000-4000
@@ -377,6 +409,12 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 		} else {
 			cfg.HeartBeatTimeout = v
 		}
+	}
+
+	if tmpStr, ok = conf.Get("common", "tls_only"); ok && tmpStr == "true" {
+		cfg.TlsOnly = true
+	} else {
+		cfg.TlsOnly = false
 	}
 	return
 }

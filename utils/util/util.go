@@ -101,3 +101,11 @@ func ParseRangeNumbers(rangeStr string) (numbers []int64, err error) {
 	}
 	return
 }
+
+func GenerateResponseErrorString(summary string, err error, detailed bool) string {
+	if detailed {
+		return err.Error()
+	} else {
+		return summary
+	}
+}

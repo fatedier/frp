@@ -1,4 +1,4 @@
-// Copyright 2018 fatedier, fatedier@gmail.com
+// Copyright 2020 guylewin, guy@lewin.co.il
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,21 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package util
 
 import (
-	"math/rand"
-	"time"
-
-	"github.com/fatedier/golib/crypto"
-
-	_ "github.com/fatedier/frp/assets/frps/statik"
-	_ "github.com/fatedier/frp/models/metrics"
+	"net/http"
+	"strings"
 )
 
-func main() {
-	crypto.DefaultSalt = "frp"
-	rand.Seed(time.Now().UnixNano())
+func OkResponse() *http.Response {
+	header := make(http.Header)
 
-	Execute()
+	res := &http.Response{
+		Status:     "OK",
+		StatusCode: 200,
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Header:     header,
+	}
+	return res
+}
+
+func GetHostFromAddr(addr string) (host string) {
+	strs := strings.Split(addr, ":")
+	if len(strs) > 1 {
+		host = strs[0]
+	} else {
+		host = addr
+	}
+	return
 }
