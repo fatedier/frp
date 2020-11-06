@@ -90,7 +90,7 @@ Put `frpc` and `frpc.ini` onto your server B in LAN (that can't be connected fro
 
 ### Access your computer in LAN by SSH
 
-1. Modify `frps.ini` on server A:
+1. Modify `frps.ini` on server A and set the `bind_port` to be connected to frp clients:
 
   ```ini
   # frps.ini
@@ -116,6 +116,8 @@ Put `frpc` and `frpc.ini` onto your server B in LAN (that can't be connected fro
   local_port = 22
   remote_port = 6000
   ```
+
+Note that `local_port` (listened on client) and `remote_port` (exposed on server) are for traffic goes in/out the frp system, whereas `server_port` is used between frps.
 
 4. Start `frpc` on server B:
 
@@ -932,6 +934,8 @@ plugin_http_passwd = abc
 ### Server Manage Plugins
 
 Read the [document](/doc/server_plugin.md).
+
+Find more plugins in [gofrp/plugin](https://github.com/gofrp/plugin).
 
 ## Development Plan
 

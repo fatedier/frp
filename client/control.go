@@ -201,6 +201,10 @@ func (ctl *Control) Close() error {
 	if ctl.pm != nil {
 		ctl.pm.Close()
 	}
+
+	if ctl.vm != nil {
+		ctl.vm.Close()
+	}
 	return nil
 }
 

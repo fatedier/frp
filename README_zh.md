@@ -89,7 +89,7 @@ master 分支用于发布稳定版本，dev 分支用于开发，您可以尝试
 
 ### 通过 ssh 访问公司内网机器
 
-1. 修改 frps.ini 文件，这里使用了最简化的配置：
+1. 修改 frps.ini 文件，这里使用了最简化的配置，设置了 frp 服务器端接收客户端流量的端口：
 
   ```ini
   # frps.ini
@@ -101,7 +101,7 @@ master 分支用于发布稳定版本，dev 分支用于开发，您可以尝试
 
   `./frps -c ./frps.ini`
 
-3. 修改 frpc.ini 文件，假设 frps 所在服务器的公网 IP 为 x.x.x.x；
+3. 修改 frpc.ini 文件，假设 frps 所在服务器的公网 IP 为 x.x.x.x：
 
   ```ini
   # frpc.ini
@@ -115,6 +115,9 @@ master 分支用于发布稳定版本，dev 分支用于开发，您可以尝试
   local_port = 22
   remote_port = 6000
   ```
+
+注意，`local_port`（客户端侦听）和 `remote_port`（服务器端暴露）是用来出入 frp 系统的两端，`server_port` 则是服务器用来与客户端通讯的。
+
 
 4. 启动 frpc：
 
@@ -983,6 +986,8 @@ plugin_http_passwd = abc
 
 [使用说明](/doc/server_plugin_zh.md)
 
+从 [gofrp/plugin](https://github.com/gofrp/plugin) 中寻找更多插件。
+
 ## 开发计划
 
 计划在后续版本中加入的功能与优化，排名不分先后，如果有其他功能建议欢迎在 [issues](https://github.com/fatedier/frp/issues) 中反馈。
@@ -1005,8 +1010,6 @@ frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进�
 ## 捐助
 
 如果您觉得 frp 对你有帮助，欢迎给予我们一定的捐助来维持项目的长期发展。
-
-frp 交流群：606194980 (QQ 群号)
 
 ### 知识星球
 
