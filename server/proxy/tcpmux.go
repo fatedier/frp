@@ -16,35 +16,39 @@ package proxy
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
-	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/models/consts"
-	"github.com/fatedier/frp/utils/util"
-	"github.com/fatedier/frp/utils/vhost"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/consts"
+	"github.com/fatedier/frp/pkg/util/util"
+	"github.com/fatedier/frp/pkg/util/vhost"
 )
 
-type TcpMuxProxy struct {
+type TCPMuxProxy struct {
 	*BaseProxy
-	cfg *config.TcpMuxProxyConf
-
-	realPort int
+	cfg *config.TCPMuxProxyConf
 }
 
-func (pxy *TcpMuxProxy) httpConnectListen(domain string, addrs []string) ([]string, error) {
-	routeConfig := &vhost.VhostRouteConfig{
-		Domain: domain,
+func (pxy *TCPMuxProxy) httpConnectListen(domain string, addrs []string) (_ []string, err error) {
+	var l net.Listener
+	if pxy.cfg.Group != "" {
+		l, err = pxy.rc.TCPMuxGroupCtl.Listen(pxy.ctx, pxy.cfg.Multiplexer, pxy.cfg.Group, pxy.cfg.GroupKey, domain)
+	} else {
+		routeConfig := &vhost.RouteConfig{
+			Domain: domain,
+		}
+		l, err = pxy.rc.TCPMuxHTTPConnectMuxer.Listen(pxy.ctx, routeConfig)
 	}
-	l, err := pxy.rc.TcpMuxHttpConnectMuxer.Listen(pxy.ctx, routeConfig)
 	if err != nil {
 		return nil, err
 	}
-	pxy.xl.Info("tcpmux httpconnect multiplexer listens for host [%s]", routeConfig.Domain)
+	pxy.xl.Info("tcpmux httpconnect multiplexer listens for host [%s]", domain)
 	pxy.listeners = append(pxy.listeners, l)
-	return append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.TcpMuxHttpConnectPort)), nil
+	return append(addrs, util.CanonicalAddr(domain, pxy.serverCfg.TCPMuxHTTPConnectPort)), nil
 }
 
-func (pxy *TcpMuxProxy) httpConnectRun() (remoteAddr string, err error) {
+func (pxy *TCPMuxProxy) httpConnectRun() (remoteAddr string, err error) {
 	addrs := make([]string, 0)
 	for _, domain := range pxy.cfg.CustomDomains {
 		if domain == "" {
@@ -64,14 +68,14 @@ func (pxy *TcpMuxProxy) httpConnectRun() (remoteAddr string, err error) {
 		}
 	}
 
-	pxy.startListenHandler(pxy, HandleUserTcpConnection)
+	pxy.startListenHandler(pxy, HandleUserTCPConnection)
 	remoteAddr = strings.Join(addrs, ",")
 	return remoteAddr, err
 }
 
-func (pxy *TcpMuxProxy) Run() (remoteAddr string, err error) {
+func (pxy *TCPMuxProxy) Run() (remoteAddr string, err error) {
 	switch pxy.cfg.Multiplexer {
-	case consts.HttpConnectTcpMultiplexer:
+	case consts.HTTPConnectTCPMultiplexer:
 		remoteAddr, err = pxy.httpConnectRun()
 	default:
 		err = fmt.Errorf("unknown multiplexer [%s]", pxy.cfg.Multiplexer)
@@ -83,13 +87,10 @@ func (pxy *TcpMuxProxy) Run() (remoteAddr string, err error) {
 	return remoteAddr, err
 }
 
-func (pxy *TcpMuxProxy) GetConf() config.ProxyConf {
+func (pxy *TCPMuxProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
 }
 
-func (pxy *TcpMuxProxy) Close() {
+func (pxy *TCPMuxProxy) Close() {
 	pxy.BaseProxy.Close()
-	if pxy.cfg.Group == "" {
-		pxy.rc.TcpPortManager.Release(pxy.realPort)
-	}
 }

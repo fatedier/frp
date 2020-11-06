@@ -25,11 +25,12 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/client/proxy"
-	"github.com/fatedier/frp/models/auth"
-	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/models/msg"
-	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/xlog"
+	"github.com/fatedier/frp/pkg/auth"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/transport"
+	frpNet "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/pkg/util/xlog"
 
 	"github.com/fatedier/golib/control/shutdown"
 	"github.com/fatedier/golib/crypto"
@@ -38,11 +39,11 @@ import (
 
 type Control struct {
 	// uniq id got from frps, attach it in loginMsg
-	runId string
+	runID string
 
 	// manage all proxies
 	pxyCfgs map[string]config.ProxyConf
-	pm      *proxy.ProxyManager
+	pm      *proxy.Manager
 
 	// manage all visitors
 	vm *VisitorManager
@@ -89,7 +90,7 @@ type Control struct {
 	authSetter auth.Setter
 }
 
-func NewControl(ctx context.Context, runId string, conn net.Conn, session *fmux.Session,
+func NewControl(ctx context.Context, runID string, conn net.Conn, session *fmux.Session,
 	clientCfg config.ClientCommonConf,
 	pxyCfgs map[string]config.ProxyConf,
 	visitorCfgs map[string]config.VisitorConf,
@@ -98,7 +99,7 @@ func NewControl(ctx context.Context, runId string, conn net.Conn, session *fmux.
 
 	// new xlog instance
 	ctl := &Control{
-		runId:              runId,
+		runID:              runID,
 		conn:               conn,
 		session:            session,
 		pxyCfgs:            pxyCfgs,
@@ -115,7 +116,7 @@ func NewControl(ctx context.Context, runId string, conn net.Conn, session *fmux.
 		ctx:                ctx,
 		authSetter:         authSetter,
 	}
-	ctl.pm = proxy.NewProxyManager(ctl.ctx, ctl.sendCh, clientCfg, serverUDPPort)
+	ctl.pm = proxy.NewManager(ctl.ctx, ctl.sendCh, clientCfg, serverUDPPort)
 
 	ctl.vm = NewVisitorManager(ctl.ctx, ctl)
 	ctl.vm.Reload(visitorCfgs)
@@ -141,7 +142,7 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	}
 
 	m := &msg.NewWorkConn{
-		RunId: ctl.runId,
+		RunID: ctl.runID,
 	}
 	if err = ctl.authSetter.SetNewWorkConn(m); err != nil {
 		xl.Warn("error during NewWorkConn authentication: %v", err)
@@ -216,7 +217,7 @@ func (ctl *Control) ClosedDoneCh() <-chan struct{} {
 // connectServer return a new connection to frps
 func (ctl *Control) connectServer() (conn net.Conn, err error) {
 	xl := ctl.xl
-	if ctl.clientCfg.TcpMux {
+	if ctl.clientCfg.TCPMux {
 		stream, errRet := ctl.session.OpenStream()
 		if errRet != nil {
 			err = errRet
@@ -226,12 +227,20 @@ func (ctl *Control) connectServer() (conn net.Conn, err error) {
 		conn = stream
 	} else {
 		var tlsConfig *tls.Config
+
 		if ctl.clientCfg.TLSEnable {
-			tlsConfig = &tls.Config{
-				InsecureSkipVerify: true,
+			tlsConfig, err = transport.NewClientTLSConfig(
+				ctl.clientCfg.TLSCertFile,
+				ctl.clientCfg.TLSKeyFile,
+				ctl.clientCfg.TLSTrustedCaFile,
+				ctl.clientCfg.ServerAddr)
+
+			if err != nil {
+				xl.Warn("fail to build tls configuration when connecting to server, err: %v", err)
+				return
 			}
 		}
-		conn, err = frpNet.ConnectServerByProxyWithTLS(ctl.clientCfg.HttpProxy, ctl.clientCfg.Protocol,
+		conn, err = frpNet.ConnectServerByProxyWithTLS(ctl.clientCfg.HTTPProxy, ctl.clientCfg.Protocol,
 			newAddress(ctl.clientCfg.ServerAddr, ctl.clientCfg.ServerPort), tlsConfig)
 		if err != nil {
 			xl.Warn("start new connection to server error: %v", err)
@@ -255,18 +264,17 @@ func (ctl *Control) reader() {
 
 	encReader := crypto.NewReader(ctl.conn, []byte(ctl.clientCfg.Token))
 	for {
-		if m, err := msg.ReadMsg(encReader); err != nil {
+		m, err := msg.ReadMsg(encReader)
+		if err != nil {
 			if err == io.EOF {
 				xl.Debug("read from control connection EOF")
 				return
-			} else {
-				xl.Warn("read error: %v", err)
-				ctl.conn.Close()
-				return
 			}
-		} else {
-			ctl.readCh <- m
+			xl.Warn("read error: %v", err)
+			ctl.conn.Close()
+			return
 		}
+		ctl.readCh <- m
 	}
 }
 
@@ -281,14 +289,15 @@ func (ctl *Control) writer() {
 		return
 	}
 	for {
-		if m, ok := <-ctl.sendCh; !ok {
+		m, ok := <-ctl.sendCh
+		if !ok {
 			xl.Info("control writer is closing")
 			return
-		} else {
-			if err := msg.WriteMsg(encWriter, m); err != nil {
-				xl.Warn("write message to control connection error: %v", err)
-				return
-			}
+		}
+
+		if err := msg.WriteMsg(encWriter, m); err != nil {
+			xl.Warn("write message to control connection error: %v", err)
+			return
 		}
 	}
 }

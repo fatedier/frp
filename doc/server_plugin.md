@@ -70,7 +70,7 @@ The response can look like any of the following:
 
 ### Operation
 
-Currently `Login`, `NewProxy`, `Ping` and `NewWorkConn` operations are supported.
+Currently `Login`, `NewProxy`, `Ping`, `NewWorkConn` and `NewUserConn` operations are supported.
 
 #### Login
 
@@ -168,6 +168,25 @@ New work connection received from frpc (RPC sent after `run_id` is matched with 
         "run_id": <string>
         "timestamp": <int64>,
         "privilege_key": <string>
+    }
+}
+```
+
+#### NewUserConn
+
+New user connection received from proxy (support `tcp`, `stcp`, `https` and `tcpmux`) .
+
+```
+{
+    "content": {
+        "user": {
+            "user": <string>,
+            "metas": map<string>string
+            "run_id": <string>
+        },
+        "proxy_name": <string>,
+        "proxy_type": <string>,
+        "remote_addr": <string>
     }
 }
 ```

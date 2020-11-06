@@ -21,7 +21,7 @@ import (
 	"github.com/fatedier/golib/crypto"
 
 	_ "github.com/fatedier/frp/assets/frps/statik"
-	_ "github.com/fatedier/frp/models/metrics"
+	_ "github.com/fatedier/frp/pkg/metrics"
 )
 
 func main() {

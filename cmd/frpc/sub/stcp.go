@@ -18,27 +18,20 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/consts"
 
-	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/models/consts"
+	"github.com/spf13/cobra"
 )
 
 func init() {
-	stcpCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
-	stcpCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	stcpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
-	stcpCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
-	stcpCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
-	stcpCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
-	stcpCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
-	stcpCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
+	RegisterCommonFlags(stcpCmd)
 
 	stcpCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
 	stcpCmd.PersistentFlags().StringVarP(&role, "role", "", "server", "role")
 	stcpCmd.PersistentFlags().StringVarP(&sk, "sk", "", "", "secret key")
 	stcpCmd.PersistentFlags().StringVarP(&serverName, "server_name", "", "", "server name")
-	stcpCmd.PersistentFlags().StringVarP(&localIp, "local_ip", "i", "127.0.0.1", "local ip")
+	stcpCmd.PersistentFlags().StringVarP(&localIP, "local_ip", "i", "127.0.0.1", "local ip")
 	stcpCmd.PersistentFlags().IntVarP(&localPort, "local_port", "l", 0, "local port")
 	stcpCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "", "", "bind addr")
 	stcpCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "", 0, "bind port")
@@ -67,14 +60,14 @@ var stcpCmd = &cobra.Command{
 		}
 
 		if role == "server" {
-			cfg := &config.StcpProxyConf{}
+			cfg := &config.STCPProxyConf{}
 			cfg.ProxyName = prefix + proxyName
-			cfg.ProxyType = consts.StcpProxy
+			cfg.ProxyType = consts.STCPProxy
 			cfg.UseEncryption = useEncryption
 			cfg.UseCompression = useCompression
 			cfg.Role = role
 			cfg.Sk = sk
-			cfg.LocalIp = localIp
+			cfg.LocalIP = localIP
 			cfg.LocalPort = localPort
 			err = cfg.CheckForCli()
 			if err != nil {
@@ -83,9 +76,9 @@ var stcpCmd = &cobra.Command{
 			}
 			proxyConfs[cfg.ProxyName] = cfg
 		} else if role == "visitor" {
-			cfg := &config.StcpVisitorConf{}
+			cfg := &config.STCPVisitorConf{}
 			cfg.ProxyName = prefix + proxyName
-			cfg.ProxyType = consts.StcpProxy
+			cfg.ProxyType = consts.STCPProxy
 			cfg.UseEncryption = useEncryption
 			cfg.UseCompression = useCompression
 			cfg.Role = role

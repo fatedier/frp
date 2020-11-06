@@ -26,13 +26,14 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/assets"
-	"github.com/fatedier/frp/models/auth"
-	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/log"
-	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/version"
-	"github.com/fatedier/frp/utils/xlog"
+	"github.com/fatedier/frp/pkg/auth"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/transport"
+	"github.com/fatedier/frp/pkg/util/log"
+	frpNet "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/pkg/util/version"
+	"github.com/fatedier/frp/pkg/util/xlog"
 
 	fmux "github.com/hashicorp/yamux"
 )
@@ -44,7 +45,7 @@ type ServiceClosedListener interface {
 // Service is a client service.
 type Service struct {
 	// uniq id got from frps, attach it in loginMsg
-	runId string
+	runID string
 
 	// manager control connection with server
 	ctl   *Control
@@ -92,7 +93,7 @@ func NewService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf
 
 	ctx, cancel := context.WithCancel(context.Background())
 	svr = &Service{
-		authSetter:  auth.NewAuthSetter(cfg.AuthClientConfig),
+		authSetter:  auth.NewAuthSetter(cfg.ClientConfig),
 		cfg:         cfg,
 		cfgFile:     cfgFile,
 		pxyCfgs:     pxyCfgs,
@@ -123,12 +124,11 @@ func (svr *Service) Run(isCmd bool) error {
 			// otherwise sleep a while and try again to connect to server
 			if svr.cfg.LoginFailExit {
 				return err
-			} else {
-				time.Sleep(10 * time.Second)
 			}
+			time.Sleep(10 * time.Second)
 		} else {
 			// login success
-			ctl := NewControl(svr.ctx, svr.runId, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort, svr.authSetter)
+			ctl := NewControl(svr.ctx, svr.runID, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort, svr.authSetter)
 			ctl.Run()
 			svr.ctlMu.Lock()
 			svr.ctl = ctl
@@ -227,7 +227,7 @@ func (svr *Service) keepControllerWorking() {
 			// reconnect success, init delayTime
 			delayTime = time.Second
 
-			ctl := NewControl(svr.ctx, svr.runId, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort, svr.authSetter)
+			ctl := NewControl(svr.ctx, svr.runID, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort, svr.authSetter)
 			ctl.Run()
 			svr.ctlMu.Lock()
 			if svr.ctl != nil {
@@ -247,11 +247,17 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 	xl := xlog.FromContextSafe(svr.ctx)
 	var tlsConfig *tls.Config
 	if svr.cfg.TLSEnable {
-		tlsConfig = &tls.Config{
-			InsecureSkipVerify: true,
+		tlsConfig, err = transport.NewClientTLSConfig(
+			svr.cfg.TLSCertFile,
+			svr.cfg.TLSKeyFile,
+			svr.cfg.TLSTrustedCaFile,
+			svr.cfg.ServerAddr)
+		if err != nil {
+			xl.Warn("fail to build tls configuration when service login, err: %v", err)
+			return
 		}
 	}
-	conn, err = frpNet.ConnectServerByProxyWithTLS(svr.cfg.HttpProxy, svr.cfg.Protocol,
+	conn, err = frpNet.ConnectServerByProxyWithTLS(svr.cfg.HTTPProxy, svr.cfg.Protocol,
 		newAddress(svr.cfg.ServerAddr, svr.cfg.ServerPort), tlsConfig)
 	if err != nil {
 		return
@@ -266,7 +272,7 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 		}
 	}()
 
-	if svr.cfg.TcpMux {
+	if svr.cfg.TCPMux {
 		fmuxCfg := fmux.DefaultConfig()
 		fmuxCfg.KeepAliveInterval = 20 * time.Second
 		fmuxCfg.LogOutput = ioutil.Discard
@@ -290,7 +296,7 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 		User:      svr.cfg.User,
 		Version:   version.Full(),
 		Timestamp: time.Now().Unix(),
-		RunId:     svr.runId,
+		RunID:     svr.runID,
 		Metas:     svr.cfg.Metas,
 	}
 
@@ -316,12 +322,12 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 		return
 	}
 
-	svr.runId = loginRespMsg.RunId
+	svr.runID = loginRespMsg.RunID
 	xl.ResetPrefixes()
-	xl.AppendPrefix(svr.runId)
+	xl.AppendPrefix(svr.runID)
 
-	svr.serverUDPPort = loginRespMsg.ServerUdpPort
-	xl.Info("login to server success, get run id [%s], server udp port [%d]", loginRespMsg.RunId, loginRespMsg.ServerUdpPort)
+	svr.serverUDPPort = loginRespMsg.ServerUDPPort
+	xl.Info("login to server success, get run id [%s], server udp port [%d]", loginRespMsg.RunID, loginRespMsg.ServerUDPPort)
 	return
 }
 

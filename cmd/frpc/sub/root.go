@@ -25,14 +25,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"github.com/fatedier/frp/client"
-	"github.com/fatedier/frp/models/auth"
-	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/utils/log"
-	"github.com/fatedier/frp/utils/version"
+	"github.com/fatedier/frp/pkg/auth"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/util/log"
+	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/golib/crypto"
+
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -54,7 +54,7 @@ var (
 	disableLogColor bool
 
 	proxyName         string
-	localIp           string
+	localIP           string
 	localPort         int
 	remotePort        int
 	useEncryption     bool
@@ -72,6 +72,8 @@ var (
 	bindAddr          string
 	bindPort          int
 
+	tlsEnable bool
+
 	kcpDoneCh chan struct{}
 )
 
@@ -80,6 +82,18 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
 
 	kcpDoneCh = make(chan struct{})
+}
+
+func RegisterCommonFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
+	cmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
+	cmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
+	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
+	cmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
+	cmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
+	cmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
+	cmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
+	cmd.PersistentFlags().BoolVarP(&tlsEnable, "tls_enable", "", false, "enable frpc tls")
 }
 
 var rootCmd = &cobra.Command{
@@ -224,8 +238,9 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 	cfg.DisableLogColor = disableLogColor
 
 	// Only token authentication is supported in cmd mode
-	cfg.AuthClientConfig = auth.GetDefaultAuthClientConf()
+	cfg.ClientConfig = auth.GetDefaultClientConf()
 	cfg.Token = token
+	cfg.TLSEnable = tlsEnable
 
 	return
 }
@@ -251,12 +266,18 @@ func runClient(cfgFilePath string) (err error) {
 	return
 }
 
-func startService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf, cfgFile string) (err error) {
+func startService(
+	cfg config.ClientCommonConf,
+	pxyCfgs map[string]config.ProxyConf,
+	visitorCfgs map[string]config.VisitorConf,
+	cfgFile string,
+) (err error) {
+
 	log.InitLog(cfg.LogWay, cfg.LogFile, cfg.LogLevel,
 		cfg.LogMaxDays, cfg.DisableLogColor)
 
-	if cfg.DnsServer != "" {
-		s := cfg.DnsServer
+	if cfg.DNSServer != "" {
+		s := cfg.DNSServer
 		if !strings.Contains(s, ":") {
 			s += ":53"
 		}
