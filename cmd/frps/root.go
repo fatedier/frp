@@ -49,6 +49,7 @@ var (
 	dashboardPort     int
 	dashboardUser     string
 	dashboardPwd      string
+	enablePrometheus  bool
 	assetsDir         string
 	logFile           string
 	logLevel          string
@@ -79,6 +80,7 @@ func init() {
 	rootCmd.PersistentFlags().IntVarP(&dashboardPort, "dashboard_port", "", 0, "dashboard port")
 	rootCmd.PersistentFlags().StringVarP(&dashboardUser, "dashboard_user", "", "admin", "dashboard user")
 	rootCmd.PersistentFlags().StringVarP(&dashboardPwd, "dashboard_pwd", "", "admin", "dashboard password")
+	rootCmd.PersistentFlags().BoolVarP(&enablePrometheus, "enable_prometheus", "", false, "enable prometheus dashboard")
 	rootCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "log file")
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	rootCmd.PersistentFlags().Int64VarP(&logMaxDays, "log_max_days", "", 3, "log max days")
@@ -171,6 +173,7 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 	cfg.DashboardPort = dashboardPort
 	cfg.DashboardUser = dashboardUser
 	cfg.DashboardPwd = dashboardPwd
+	cfg.EnablePrometheus = enablePrometheus
 	cfg.LogFile = logFile
 	cfg.LogLevel = logLevel
 	cfg.LogMaxDays = logMaxDays
