@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: DOCS
+    url: https://gofrp.org/en/docs/
+    about: Here you can find out how to configure frp.
+  - name: 文档
+    url: https://gofrp.org/docs/
+    about: 在这里您能找到配置frp的方法。
