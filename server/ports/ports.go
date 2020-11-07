@@ -201,6 +201,6 @@ FOR:
 }
 
 // Stop Stop
-func (pm *PortManager) Stop() {
+func (pm *Manager) Stop() {
 	pm.stop <- true
 }

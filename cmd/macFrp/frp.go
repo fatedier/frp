@@ -12,7 +12,7 @@ import (
 
 	"github.com/fatedier/frp/cmd/frpc/sub"
 	"github.com/fatedier/frp/cmd/frps/frps"
-	"github.com/fatedier/frp/utils/version"
+	"github.com/fatedier/frp/pkg/util/version"
 )
 
 //export StopFrpc

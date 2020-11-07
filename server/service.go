@@ -353,8 +353,8 @@ func (svr *Service) Stop() error {
 	}
 	close(svr.closedCh)
 	svr.Closed = true
-	svr.rc.TcpPortManager.Stop()
-	svr.rc.UdpPortManager.Stop()
+	svr.rc.TCPPortManager.Stop()
+	svr.rc.UDPPortManager.Stop()
 	return err
 }
 

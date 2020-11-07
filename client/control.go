@@ -17,7 +17,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
-	"github.com/fatedier/frp/utils/log"
+	"github.com/fatedier/frp/pkg/util/log"
 	"io"
 	"net"
 	"runtime/debug"

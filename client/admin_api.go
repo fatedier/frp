@@ -117,7 +117,7 @@ func NewProxyStatusResp(status *proxy.WorkingStatus, serverAddr string) ProxySta
 	switch cfg := status.Cfg.(type) {
 	case *config.TCPProxyConf:
 		if cfg.LocalPort != 0 {
-			psr.LocalAddr = newAddress(cfg.LocalIp, cfg.LocalPort)
+			psr.LocalAddr = newAddress(cfg.LocalIP, cfg.LocalPort)
 		}
 		psr.Plugin = cfg.Plugin
 		if status.Err != "" {
@@ -127,7 +127,7 @@ func NewProxyStatusResp(status *proxy.WorkingStatus, serverAddr string) ProxySta
 		}
 	case *config.UDPProxyConf:
 		if cfg.LocalPort != 0 {
-			psr.LocalAddr = newAddress(cfg.LocalIp, cfg.LocalPort)
+			psr.LocalAddr = newAddress(cfg.LocalIP, cfg.LocalPort)
 		}
 		if status.Err != "" {
 			psr.RemoteAddr = newAddress(serverAddr, cfg.RemotePort)
@@ -136,29 +136,29 @@ func NewProxyStatusResp(status *proxy.WorkingStatus, serverAddr string) ProxySta
 		}
 	case *config.HTTPProxyConf:
 		if cfg.LocalPort != 0 {
-			psr.LocalAddr = newAddress(cfg.LocalIp, cfg.LocalPort)
+			psr.LocalAddr = newAddress(cfg.LocalIP, cfg.LocalPort)
 		}
 		psr.Plugin = cfg.Plugin
 		psr.RemoteAddr = status.RemoteAddr
 	case *config.HTTPSProxyConf:
 		if cfg.LocalPort != 0 {
-			psr.LocalAddr = newAddress(cfg.LocalIp, cfg.LocalPort)
+			psr.LocalAddr = newAddress(cfg.LocalIP, cfg.LocalPort)
 		}
 		psr.Plugin = cfg.Plugin
 		psr.RemoteAddr = status.RemoteAddr
 	case *config.STCPProxyConf:
 		if cfg.LocalPort != 0 {
-			psr.LocalAddr = newAddress(cfg.LocalIp, cfg.LocalPort)
+			psr.LocalAddr = newAddress(cfg.LocalIP, cfg.LocalPort)
 		}
 		psr.Plugin = cfg.Plugin
 	case *config.XTCPProxyConf:
 		if cfg.LocalPort != 0 {
-			psr.LocalAddr = newAddress(cfg.LocalIp, cfg.LocalPort)
+			psr.LocalAddr = newAddress(cfg.LocalIP, cfg.LocalPort)
 		}
 		psr.Plugin = cfg.Plugin
 	case *config.SUDPProxyConf:
 		if cfg.LocalPort != 0 {
-			psr.LocalAddr = newAddress(cfg.LocalIp, cfg.LocalPort)
+			psr.LocalAddr = newAddress(cfg.LocalIP, cfg.LocalPort)
 		}
 		psr.Plugin = cfg.Plugin
 	}

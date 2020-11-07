@@ -310,8 +310,8 @@ func startService(
 
 func returnService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf, cfgFile string) (svr *client.Service, err error) {
 	log.InitLog(cfg.LogWay, cfg.LogFile, cfg.LogLevel, cfg.LogMaxDays, cfg.DisableLogColor)
-	if cfg.DnsServer != "" {
-		s := cfg.DnsServer
+	if cfg.DNSServer != "" {
+		s := cfg.DNSServer
 		if !strings.Contains(s, ":") {
 			s += ":53"
 		}
