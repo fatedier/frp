@@ -23,7 +23,6 @@ import (
 	"net"
 	"net/http"
 	"sort"
-	"reflect"
 	"strings"
 	"time"
 
@@ -331,25 +330,24 @@ func (svr *Service) Run() {
 	svr.HandleListener(svr.listener)
 }
 
+func closeListener(listeners ...net.Listener) (err error) {
+	for _, l := range listeners {
+		if l == nil {
+			continue
+		}
+
+		if err = l.Close(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 // Stop 停止服务
-func (svr *Service) Stop() error {
-	var err error
-	value := reflect.ValueOf(svr.muxer)
-	lnValue := value.Elem().FieldByName("ln")
-	ln, ok := lnValue.Interface().(net.Listener)
-	if ok && ln != nil {
-		err = ln.Close()
-	}
-
-	if svr.listener != nil {
-		_ = svr.listener.Close()
-	}
-	if svr.websocketListener != nil {
-		_ = svr.websocketListener.Close()
-	}
-	if svr.kcpListener != nil {
-		_ = svr.kcpListener.Close()
+func (svr *Service) Stop() (err error) {
+	if err = closeListener(svr.listener, svr.kcpListener, svr.websocketListener, svr.listener); err != nil {
+		return err
 	}
 	close(svr.closedCh)
 	svr.Closed = true
