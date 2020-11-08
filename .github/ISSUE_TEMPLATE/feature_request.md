@@ -1,20 +1,22 @@
 ---
-name: 功能请求
-about: 为这个项目提出一个新点子
+name: Feature request
+about: Suggest an idea for this project
 title: ''
 labels: "[+] Enhancement"
 assignees: ''
 
 ---
 
-**想要的解决方案**
-<!--对您想要的解决方案的清晰而简洁的描述-->
+<!-- From Chinese to English by machine translation, welcome to revise and polish. -->
 
-**考虑过的替代方案**
-<!--对您考虑过的任何替代解决方案或功能的清晰而简明的描述-->
+**The solution you want**
+<!--A clear and concise description of the solution you want. -->
 
-**此功能该如何实现**
-<!--对您想要的解决方案的实现步骤-->
+**Alternatives considered**
+<!--A clear and concise description of any alternative solutions or features you have considered. -->
 
-**此功能的应用场景**
-<!--对您想要的解决方案的应用场景做一个清晰而简洁的描述-->
+**How to implement this function**
+<!--Implementation steps for the solution you want. -->
+
+**Application scenarios of this function**
+<!--Make a clear and concise description of the application scenario of the solution you want. -->

@@ -1,42 +1,44 @@
 ---
-name: BUG反馈
-about: 反馈BUG
+name: Bug Report
+about: Bug Report for FRP
 title: ''
 labels: Requires Testing
 assignees: ''
 
 ---
 
-<!-- ⚠️⚠️ 不完整的报告将被标记为无效，并关闭，少数例外情况除外 ⚠️⚠️ -->
-<!-- 此外，请善用搜索，如此反馈中已有能搜索到的相同的解决方案，我们将会直接关闭它-->
-<!-- 为了方便区分，请使用frps或者frpc代指frp服务端或客户端-->
+<!-- From Chinese to English by machine translation, welcome to revise and polish. -->
 
-**[必须] 您正在使用哪个版本的frp** 
-<!-- 请使用 ./frpc -v 或 ./frps -v -->
-版本:
+<!-- ⚠️⚠️ Incomplete reports will be marked as invalid, and closed, with few exceptions ⚠️⚠️ -->
+<!-- in addition, please use search well so that the same solution can be found in the feedback, we will close it directly -->
+<!-- for convenience of differentiation, use FRPS or FRPC to refer to the FRP server or client -->
 
-**[必须] 您使用什么操作系统和处理器架构**
-系统:
-架构:
+**[REQUIRED] hat version of frp are you using** 
+<!-- Use ./frpc -v or ./frps -v -->
+Version:
 
-**[必须] 对于错误的描述**
+**[REQUIRED] What operating system and processor architecture are you using**
+OS:
+CPU architecture:
 
-**配置文件**
-<!-- 请注意自行隐藏token,server_addr等隐私信息-->
+**[REQUIRED] description of errors**
 
-**log文件**
-<!-- 若文件过大，请使用pastebin，例如https://pastebin.ubuntu.com/ -->
+**confile**
+<!-- Please pay attention to hiding the token, server_addr and other privacy information -->
 
-**重现问题的步骤**
+**log file**
+<!--  If the file is too large, use Pastebin, for example https://pastebin.ubuntu.com/ -->
+
+**Steps to reproduce the issue**
 1. 
 2. 
 3. 
 
-**补充信息**
+**Supplementary information**
 
-**你认为是什么导致的此问题**
+**Can you guess what caused this issue**
 
 **Checklist**:
-<!--- 请确保已完成以下步骤 (在括号中填入 "X" 以选中): -->
-- [] 我确保我在上述各节中包含了重现问题的所有信息
-- [] 我确保此报告无重复项 [(使用搜索)](https://github.com/fatedier/frp/issues?q=is%3Aissue)
+<!--- Make sure you've completed the following steps (put an "X" between of brackets): -->
+- [] I included all information required in the sections above
+- [] I made sure there are no duplicates of this report [(Use Search)](https://github.com/fatedier/frp/issues?q=is%3Aissue)
