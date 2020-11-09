@@ -75,41 +75,41 @@ jobs:
         name: Get Image Tag Name
         run: |
           if [ x${{ github.event.inputs.tag }} == x"" ]; then
-            echo ::set-env name=TAG_NAME::${GITHUB_REF#refs/*/}
+            echo "TAG_NAME=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
           else
-            echo ::set-env name=TAG_NAME::${{ github.event.inputs.tag }}
+            echo "TAG_NAME=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
           fi
       # prepare image tags
       -
         name: Prepare Image Tags
         run: |
-          echo ::set-env name=DOCKERFILE_FRPC_PATH::dockerfiles/Dockerfile-for-frpc
-          echo ::set-env name=DOCKERFILE_FRPS_PATH::dockerfiles/Dockerfile-for-frps
-          echo ::set-env name=TAG_FRPC::fatedier/frpc:$TAG_NAME
-          echo ::set-env name=TAG_FRPS::fatedier/frps:$TAG_NAME
-          echo ::set-env name=TAG_FRPC_GPR::ghcr.io/fatedier/frpc:$TAG_NAME
-          echo ::set-env name=TAG_FRPS_GPR::ghcr.io/fatedier/frps:$TAG_NAME
+          echo "DOCKERFILE_FRPC_PATH=dockerfiles/Dockerfile-for-frpc" >> $GITHUB_ENV
+          echo "DOCKERFILE_FRPS_PATH=dockerfiles/Dockerfile-for-frps" >> $GITHUB_ENV
+          echo "TAG_FRPC=fatedier/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
+          echo "TAG_FRPS=fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
+          echo "TAG_FRPC_GPR=ghcr.io/fatedier/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
+          echo "TAG_FRPS_GPR=ghcr.io/fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
       # build images
       -
         name: Build Images
         run: |
           # for Docker hub
-          docker build --file $DOCKERFILE_FRPC_PATH --tag $TAG_FRPC .
-          docker build --file $DOCKERFILE_FRPS_PATH --tag $TAG_FRPS .
+          docker build --file ${{ env.DOCKERFILE_FRPC_PATH }} --tag ${{ env.TAG_FRPC }} .
+          docker build --file ${{ env.DOCKERFILE_FRPS_PATH }} --tag ${{ env.TAG_FRPS }} .
           # for GPR
-          docker build --file $DOCKERFILE_FRPC_PATH --tag $TAG_FRPC_GPR .
-          docker build --file $DOCKERFILE_FRPS_PATH --tag $TAG_FRPS_GPR .
+          docker build --file ${{ env.DOCKERFILE_FRPC_PATH }} --tag ${{ env.TAG_FRPC_GPR }} .
+          docker build --file ${{ env.DOCKERFILE_FRPS_PATH }} --tag ${{ env.TAG_FRPS_GPR }} .
       # push to dockerhub
       -
         name: Publish to Dockerhub
         run: |
           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-          docker push $TAG_FRPC
-          docker push $TAG_FRPS
+          docker push ${{ env.TAG_FRPC }}
+          docker push ${{ env.TAG_FRPS }}
       # push to gpr
       -
         name: Publish to GPR
         run: |
           echo ${{ secrets.GPR_TOKEN }} | docker login ghcr.io --username ${{ github.repository_owner }} --password-stdin
-          docker push $TAG_FRPC_GPR
-          docker push $TAG_FRPS_GPR
+          docker push ${{ env.TAG_FRPC_GPR }}
+          docker push ${{ env.TAG_FRPS_GPR }}
