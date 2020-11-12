@@ -9,6 +9,13 @@ assignees: ''
 
 <!-- From Chinese to English by machine translation, welcome to revise and polish. -->
 
+
+<!-- ⚠️⚠️ For those unfamiliar with Chinese, please use English! ⚠️⚠️ -->
+<!-- ⚠️⚠️ For those unfamiliar with Chinese, please use English! ⚠️⚠️ -->
+<!-- ⚠️⚠️ For those unfamiliar with Chinese, please use English! ⚠️⚠️ -->
+
+<!-- ⚠️⚠️ Incomplete reports will be marked as invalid, and closed, with few exceptions ⚠️⚠️ -->
+<!-- ⚠️⚠️ Incomplete reports will be marked as invalid, and closed, with few exceptions ⚠️⚠️ -->
 <!-- ⚠️⚠️ Incomplete reports will be marked as invalid, and closed, with few exceptions ⚠️⚠️ -->
 <!-- in addition, please use search well so that the same solution can be found in the feedback, we will close it directly -->
 <!-- for convenience of differentiation, use FRPS or FRPC to refer to the FRP server or client -->
