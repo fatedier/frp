@@ -1,0 +1,12 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/golang:1.15-node
+      - image: circleci/golang:1.14-node
+    working_directory: /go/src/github.com/fatedier/frp
+    parallelism: 2
+    steps:
+      - checkout
+      - run: make
+      - run: make alltest
