@@ -29,6 +29,7 @@ packages/
 release/
 test/bin/
 vendor/
+dist/
 
 # Cache
 *.swp
