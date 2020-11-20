@@ -7,7 +7,7 @@ release:
   # Note: it can only be one: either github, gitlab or gitea
   github:
     owner: fatedier
-    name: release-test
+    name: frp
 
   draft: false
 
