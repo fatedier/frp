@@ -121,11 +121,11 @@ type ClientCommonConf struct {
 	// HeartBeatInterval specifies at what interval heartbeats are sent to the
 	// server, in seconds. It is not recommended to change this value. By
 	// default, this value is 30.
-	HeartBeatInterval int64 `json:"heartbeat_interval"`
+	HeartbeatInterval int64 `json:"heartbeat_interval"`
 	// HeartBeatTimeout specifies the maximum allowed heartbeat response delay
 	// before the connection is terminated, in seconds. It is not recommended
 	// to change this value. By default, this value is 90.
-	HeartBeatTimeout int64 `json:"heartbeat_timeout"`
+	HeartbeatTimeout int64 `json:"heartbeat_timeout"`
 	// Client meta info
 	Metas map[string]string `json:"metas"`
 	// UDPPacketSize specifies the udp packet size
@@ -160,8 +160,8 @@ func GetDefaultClientConf() ClientCommonConf {
 		TLSCertFile:       "",
 		TLSKeyFile:        "",
 		TLSTrustedCaFile:  "",
-		HeartBeatInterval: 30,
-		HeartBeatTimeout:  90,
+		HeartbeatInterval: 30,
+		HeartbeatTimeout:  90,
 		Metas:             make(map[string]string),
 		UDPPacketSize:     1500,
 	}
@@ -312,7 +312,7 @@ func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error
 			err = fmt.Errorf("Parse conf error: invalid heartbeat_timeout")
 			return
 		}
-		cfg.HeartBeatTimeout = v
+		cfg.HeartbeatTimeout = v
 	}
 
 	if tmpStr, ok = conf.Get("common", "heartbeat_interval"); ok {
@@ -320,7 +320,7 @@ func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error
 			err = fmt.Errorf("Parse conf error: invalid heartbeat_interval")
 			return
 		}
-		cfg.HeartBeatInterval = v
+		cfg.HeartbeatInterval = v
 	}
 	for k, v := range conf.Section("common") {
 		if strings.HasPrefix(k, "meta_") {
@@ -338,12 +338,12 @@ func UnmarshalClientConfFromIni(content string) (cfg ClientCommonConf, err error
 }
 
 func (cfg *ClientCommonConf) Check() (err error) {
-	if cfg.HeartBeatInterval <= 0 {
+	if cfg.HeartbeatInterval <= 0 {
 		err = fmt.Errorf("Parse conf error: invalid heartbeat_interval")
 		return
 	}
 
-	if cfg.HeartBeatTimeout < cfg.HeartBeatInterval {
+	if cfg.HeartbeatTimeout < cfg.HeartbeatInterval {
 		err = fmt.Errorf("Parse conf error: invalid heartbeat_timeout, heartbeat_timeout is less than heartbeat_interval")
 		return
 	}
