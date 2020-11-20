@@ -104,9 +104,10 @@ var rootCmd = &cobra.Command{
 
 		var cfg config.ServerCommonConf
 		var err error
+
 		if cfgFile != "" {
 			log.Info("frps uses config file: %s", cfgFile)
-			var content string
+			var content []byte
 			content, err = config.GetRenderedConfFromFile(cfgFile)
 			if err != nil {
 				return err
@@ -135,9 +136,9 @@ func Execute() {
 	}
 }
 
-func parseServerCommonCfg(fileType int, content string) (cfg config.ServerCommonConf, err error) {
+func parseServerCommonCfg(fileType int, source interface{}) (cfg config.ServerCommonConf, err error) {
 	if fileType == CfgFileTypeIni {
-		cfg, err = parseServerCommonCfgFromIni(content)
+		cfg, err = config.LoadServerCommonConf(source)
 	} else if fileType == CfgFileTypeCmd {
 		cfg, err = parseServerCommonCfgFromCmd()
 	}
@@ -152,16 +153,8 @@ func parseServerCommonCfg(fileType int, content string) (cfg config.ServerCommon
 	return
 }
 
-func parseServerCommonCfgFromIni(content string) (config.ServerCommonConf, error) {
-	cfg, err := config.UnmarshalServerConfFromIni(content)
-	if err != nil {
-		return config.ServerCommonConf{}, err
-	}
-	return cfg, nil
-}
-
 func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
-	cfg = config.GetDefaultServerConf()
+	cfg = config.DefaultServerConf()
 
 	cfg.BindAddr = bindAddr
 	cfg.BindPort = bindPort

@@ -17,228 +17,227 @@ package config
 import (
 	"fmt"
 	"reflect"
-	"strconv"
 
-	"github.com/fatedier/frp/pkg/consts"
-
-	ini "github.com/vaughan0/go-ini"
+	"gopkg.in/ini.v1"
 )
 
-var (
-	visitorConfTypeMap map[string]reflect.Type
-)
-
-func init() {
-	visitorConfTypeMap = make(map[string]reflect.Type)
-	visitorConfTypeMap[consts.STCPProxy] = reflect.TypeOf(STCPVisitorConf{})
-	visitorConfTypeMap[consts.XTCPProxy] = reflect.TypeOf(XTCPVisitorConf{})
-	visitorConfTypeMap[consts.SUDPProxy] = reflect.TypeOf(SUDPVisitorConf{})
-}
-
-type VisitorConf interface {
-	GetBaseInfo() *BaseVisitorConf
-	Compare(cmp VisitorConf) bool
-	UnmarshalFromIni(prefix string, name string, section ini.Section) error
-	Check() error
-}
-
-func NewVisitorConfByType(cfgType string) VisitorConf {
-	v, ok := visitorConfTypeMap[cfgType]
+// Visitor Conf Loader
+// DefaultVisitorConf creates a empty VisitorConf object by visitorType.
+// If visitorType doesn't exist, return nil.
+func DefaultVisitorConf(visitorType string) VisitorConf {
+	v, ok := VisitorConfTypeMap[visitorType]
 	if !ok {
 		return nil
 	}
-	cfg := reflect.New(v).Interface().(VisitorConf)
-	return cfg
+
+	return reflect.New(v).Interface().(VisitorConf)
 }
 
-func NewVisitorConfFromIni(prefix string, name string, section ini.Section) (cfg VisitorConf, err error) {
-	cfgType := section["type"]
-	if cfgType == "" {
-		err = fmt.Errorf("visitor [%s] type shouldn't be empty", name)
-		return
+// Visitor loaded from ini
+func NewVisitorConfFromIni(prefix string, name string, section *ini.Section) (VisitorConf, error) {
+	// section.Key: if key not exists, section will set it with default value.
+	visitorType := section.Key("type").String()
+
+	if visitorType == "" {
+		return nil, fmt.Errorf("visitor [%s] type shouldn't be empty", name)
 	}
-	cfg = NewVisitorConfByType(cfgType)
-	if cfg == nil {
-		err = fmt.Errorf("visitor [%s] type [%s] error", name, cfgType)
-		return
+
+	conf := DefaultVisitorConf(visitorType)
+	if conf == nil {
+		return nil, fmt.Errorf("visitor [%s] type [%s] error", name, visitorType)
 	}
-	if err = cfg.UnmarshalFromIni(prefix, name, section); err != nil {
-		return
+
+	if err := conf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return nil, fmt.Errorf("visitor [%s] type [%s] error", name, visitorType)
 	}
-	if err = cfg.Check(); err != nil {
-		return
+
+	if err := conf.Check(); err != nil {
+		return nil, err
 	}
-	return
+
+	return conf, nil
 }
 
-type BaseVisitorConf struct {
-	ProxyName      string `json:"proxy_name"`
-	ProxyType      string `json:"proxy_type"`
-	UseEncryption  bool   `json:"use_encryption"`
-	UseCompression bool   `json:"use_compression"`
-	Role           string `json:"role"`
-	Sk             string `json:"sk"`
-	ServerName     string `json:"server_name"`
-	BindAddr       string `json:"bind_addr"`
-	BindPort       int    `json:"bind_port"`
+// Base
+func (c *BaseVisitorConf) GetBaseInfo() *BaseVisitorConf {
+	return c
 }
 
-func (cfg *BaseVisitorConf) GetBaseInfo() *BaseVisitorConf {
-	return cfg
-}
-
-func (cfg *BaseVisitorConf) compare(cmp *BaseVisitorConf) bool {
-	if cfg.ProxyName != cmp.ProxyName ||
-		cfg.ProxyType != cmp.ProxyType ||
-		cfg.UseEncryption != cmp.UseEncryption ||
-		cfg.UseCompression != cmp.UseCompression ||
-		cfg.Role != cmp.Role ||
-		cfg.Sk != cmp.Sk ||
-		cfg.ServerName != cmp.ServerName ||
-		cfg.BindAddr != cmp.BindAddr ||
-		cfg.BindPort != cmp.BindPort {
+func (c *BaseVisitorConf) compare(cmp *BaseVisitorConf) bool {
+	if c.ProxyName != cmp.ProxyName ||
+		c.ProxyType != cmp.ProxyType ||
+		c.UseEncryption != cmp.UseEncryption ||
+		c.UseCompression != cmp.UseCompression ||
+		c.Role != cmp.Role ||
+		c.Sk != cmp.Sk ||
+		c.ServerName != cmp.ServerName ||
+		c.BindAddr != cmp.BindAddr ||
+		c.BindPort != cmp.BindPort {
 		return false
 	}
 	return true
 }
 
-func (cfg *BaseVisitorConf) check() (err error) {
-	if cfg.Role != "visitor" {
+func (c *BaseVisitorConf) check() (err error) {
+	if c.Role != "visitor" {
 		err = fmt.Errorf("invalid role")
 		return
 	}
-	if cfg.BindAddr == "" {
+	if c.BindAddr == "" {
 		err = fmt.Errorf("bind_addr shouldn't be empty")
 		return
 	}
-	if cfg.BindPort <= 0 {
+	if c.BindPort <= 0 {
 		err = fmt.Errorf("bind_port is required")
 		return
 	}
 	return
 }
 
-func (cfg *BaseVisitorConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
-	var (
-		tmpStr string
-		ok     bool
-	)
-	cfg.ProxyName = prefix + name
-	cfg.ProxyType = section["type"]
+func (c *BaseVisitorConf) decorate(prefix string, name string, section *ini.Section) error {
 
-	if tmpStr, ok = section["use_encryption"]; ok && tmpStr == "true" {
-		cfg.UseEncryption = true
-	}
-	if tmpStr, ok = section["use_compression"]; ok && tmpStr == "true" {
-		cfg.UseCompression = true
+	// proxy name
+	c.ProxyName = prefix + name
+
+	// server_name
+	c.ServerName = prefix + c.ServerName
+
+	// bind_addr
+	if c.BindAddr == "" {
+		c.BindAddr = "127.0.0.1"
 	}
 
-	cfg.Role = section["role"]
-	if cfg.Role != "visitor" {
-		return fmt.Errorf("Parse conf error: proxy [%s] incorrect role [%s]", name, cfg.Role)
-	}
-	cfg.Sk = section["sk"]
-	cfg.ServerName = prefix + section["server_name"]
-	if cfg.BindAddr = section["bind_addr"]; cfg.BindAddr == "" {
-		cfg.BindAddr = "127.0.0.1"
-	}
-
-	if tmpStr, ok = section["bind_port"]; ok {
-		if cfg.BindPort, err = strconv.Atoi(tmpStr); err != nil {
-			return fmt.Errorf("Parse conf error: proxy [%s] bind_port incorrect", name)
-		}
-	} else {
-		return fmt.Errorf("Parse conf error: proxy [%s] bind_port not found", name)
-	}
 	return nil
 }
 
-type SUDPVisitorConf struct {
-	BaseVisitorConf
-}
+// STCP
+var _ VisitorConf = &STCPVisitorConf{}
 
-func (cfg *SUDPVisitorConf) Compare(cmp VisitorConf) bool {
-	cmpConf, ok := cmp.(*SUDPVisitorConf)
+func (c *STCPVisitorConf) Compare(conf VisitorConf) bool {
+	cmp, ok := conf.(*STCPVisitorConf)
 	if !ok {
 		return false
 	}
 
-	if !cfg.BaseVisitorConf.compare(&cmpConf.BaseVisitorConf) {
+	if !c.BaseVisitorConf.compare(&cmp.BaseVisitorConf) {
 		return false
 	}
+
+	// Add custom login equal, if exists
+
 	return true
 }
 
-func (cfg *SUDPVisitorConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
-	if err = cfg.BaseVisitorConf.UnmarshalFromIni(prefix, name, section); err != nil {
-		return
+func (c *STCPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
+	err := section.MapTo(c)
+	if err != nil {
+		return err
 	}
-	return
-}
 
-func (cfg *SUDPVisitorConf) Check() (err error) {
-	if err = cfg.BaseVisitorConf.check(); err != nil {
-		return
+	err = c.BaseVisitorConf.decorate(prefix, name, section)
+	if err != nil {
+		return err
 	}
-	return
+
+	// Add custom logic unmarshal, if exists
+
+	return nil
 }
 
-type STCPVisitorConf struct {
-	BaseVisitorConf
+func (cfg *STCPVisitorConf) Check() error {
+	if err := cfg.BaseVisitorConf.check(); err != nil {
+		return err
+	}
+
+	// Add custom logic validate, if exists
+
+	return nil
 }
 
-func (cfg *STCPVisitorConf) Compare(cmp VisitorConf) bool {
-	cmpConf, ok := cmp.(*STCPVisitorConf)
+// SUDP
+var _ VisitorConf = &SUDPVisitorConf{}
+
+func (c *SUDPVisitorConf) Compare(conf VisitorConf) bool {
+	cmp, ok := conf.(*SUDPVisitorConf)
 	if !ok {
 		return false
 	}
 
-	if !cfg.BaseVisitorConf.compare(&cmpConf.BaseVisitorConf) {
+	if !c.BaseVisitorConf.compare(&cmp.BaseVisitorConf) {
 		return false
 	}
+
+	// Add custom login equal, if exists
+
 	return true
 }
 
-func (cfg *STCPVisitorConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
-	if err = cfg.BaseVisitorConf.UnmarshalFromIni(prefix, name, section); err != nil {
-		return
+func (c *SUDPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
+	err := section.MapTo(c)
+	if err != nil {
+		return err
 	}
-	return
-}
 
-func (cfg *STCPVisitorConf) Check() (err error) {
-	if err = cfg.BaseVisitorConf.check(); err != nil {
-		return
+	err = c.BaseVisitorConf.decorate(prefix, name, section)
+	if err != nil {
+		return err
 	}
-	return
+
+	// Add custom logic unmarshal, if exists
+
+	return nil
 }
 
-type XTCPVisitorConf struct {
-	BaseVisitorConf
+func (cfg *SUDPVisitorConf) Check() error {
+	if err := cfg.BaseVisitorConf.check(); err != nil {
+		return err
+	}
+
+	// Add custom logic validate, if exists
+
+	return nil
 }
 
-func (cfg *XTCPVisitorConf) Compare(cmp VisitorConf) bool {
-	cmpConf, ok := cmp.(*XTCPVisitorConf)
+// XTCP
+var _ VisitorConf = &XTCPVisitorConf{}
+
+func (c *XTCPVisitorConf) Compare(conf VisitorConf) bool {
+	cmp, ok := conf.(*XTCPVisitorConf)
 	if !ok {
 		return false
 	}
 
-	if !cfg.BaseVisitorConf.compare(&cmpConf.BaseVisitorConf) {
+	if !c.BaseVisitorConf.compare(&cmp.BaseVisitorConf) {
 		return false
 	}
+
+	// Add custom login equal, if exists
+
 	return true
 }
 
-func (cfg *XTCPVisitorConf) UnmarshalFromIni(prefix string, name string, section ini.Section) (err error) {
-	if err = cfg.BaseVisitorConf.UnmarshalFromIni(prefix, name, section); err != nil {
-		return
+func (c *XTCPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
+	err := section.MapTo(c)
+	if err != nil {
+		return err
 	}
-	return
+
+	err = c.BaseVisitorConf.decorate(prefix, name, section)
+	if err != nil {
+		return err
+	}
+
+	// Add custom logic unmarshal, if exists
+
+	return nil
 }
 
-func (cfg *XTCPVisitorConf) Check() (err error) {
-	if err = cfg.BaseVisitorConf.check(); err != nil {
-		return
+func (cfg *XTCPVisitorConf) Check() error {
+	if err := cfg.BaseVisitorConf.check(); err != nil {
+		return err
 	}
-	return
+
+	// Add custom logic validate, if exists
+
+	return nil
 }

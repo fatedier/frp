@@ -129,9 +129,9 @@ func handleSignal(svr *client.Service) {
 	close(kcpDoneCh)
 }
 
-func parseClientCommonCfg(fileType int, content string) (cfg config.ClientCommonConf, err error) {
+func parseClientCommonCfg(fileType int, source interface{}) (cfg config.ClientCommonConf, err error) {
 	if fileType == CfgFileTypeIni {
-		cfg, err = parseClientCommonCfgFromIni(content)
+		cfg, err = config.LoadClientCommonConf(source)
 	} else if fileType == CfgFileTypeCmd {
 		cfg, err = parseClientCommonCfgFromCmd()
 	}
@@ -146,16 +146,8 @@ func parseClientCommonCfg(fileType int, content string) (cfg config.ClientCommon
 	return
 }
 
-func parseClientCommonCfgFromIni(content string) (config.ClientCommonConf, error) {
-	cfg, err := config.UnmarshalClientConfFromIni(content)
-	if err != nil {
-		return config.ClientCommonConf{}, err
-	}
-	return cfg, err
-}
-
 func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
-	cfg = config.GetDefaultClientConf()
+	cfg = config.DefaultClientConf()
 
 	strs := strings.Split(serverAddr, ":")
 	if len(strs) < 2 {
@@ -191,25 +183,24 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 	return
 }
 
-func runClient(cfgFilePath string) (err error) {
-	var content string
-	content, err = config.GetRenderedConfFromFile(cfgFilePath)
+func runClient(cfgFilePath string) error {
+	content, err := config.GetRenderedConfFromFile(cfgFilePath)
 	if err != nil {
-		return
+		return err
 	}
 
 	cfg, err := parseClientCommonCfg(CfgFileTypeIni, content)
 	if err != nil {
-		return
+		return err
 	}
 
-	pxyCfgs, visitorCfgs, err := config.LoadAllConfFromIni(cfg.User, content, cfg.Start)
+	pxyCfgs, visitorCfgs, err := config.LoadClientBasicConf(cfg.User, content, cfg.Start)
 	if err != nil {
 		return err
 	}
 
 	err = startService(cfg, pxyCfgs, visitorCfgs, cfgFilePath)
-	return
+	return err
 }
 
 func startService(
