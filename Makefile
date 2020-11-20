@@ -20,10 +20,10 @@ fmt:
 	go fmt ./...
 
 frps:
-	env CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/frps ./cmd/frps
+	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frps ./cmd/frps
 
 frpc:
-	env CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/frpc ./cmd/frpc
+	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frpc ./cmd/frpc
 
 test: gotest
 
