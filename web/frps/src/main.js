@@ -1,19 +1,6 @@
 import Vue from 'vue'
-//import ElementUI from 'element-ui'
-import {
-    Button,
-    Form,
-    FormItem,
-    Row,
-    Col,
-    Table,
-    TableColumn,
-    Popover,
-    Menu,
-    Submenu,
-    MenuItem,
-    Tag
-} from 'element-ui'
+// import ElementUI from 'element-ui'
+import { Button, Form, FormItem, Row, Col, Table, TableColumn, Popover, Menu, Submenu, MenuItem, Tag } from 'element-ui'
 import lang from 'element-ui/lib/locale/lang/en'
 import locale from 'element-ui/lib/locale'
 import 'element-ui/lib/theme-chalk/index.css'
@@ -41,8 +28,6 @@ Vue.use(Tag)
 Vue.config.productionTip = false
 
 new Vue({
-    el: '#app',
-    router,
-    template: '<App/>',
-    components: { App }
-})
+  router,
+  render: h => h(App)
+}).$mount('#app')
