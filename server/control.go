@@ -408,7 +408,7 @@ func (ctl *Control) manager() {
 	for {
 		select {
 		case <-heartbeat.C:
-			if time.Since(ctl.lastPing) > time.Duration(ctl.serverCfg.HeartBeatTimeout)*time.Second {
+			if time.Since(ctl.lastPing) > time.Duration(ctl.serverCfg.HeartbeatTimeout)*time.Second {
 				xl.Warn("heartbeat timeout")
 				return
 			}
