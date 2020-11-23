@@ -458,11 +458,16 @@ func UnmarshalPluginsFromIni(sections ini.File, cfg *ServerCommonConf) {
 	for name, section := range sections {
 		if strings.HasPrefix(name, "plugin.") {
 			name = strings.TrimSpace(strings.TrimPrefix(name, "plugin."))
+			var tls_verify, err = strconv.ParseBool(section["tls_verify"])
+			if err != nil {
+				tls_verify = true
+			}
 			options := plugin.HTTPPluginOptions{
-				Name: name,
-				Addr: section["addr"],
-				Path: section["path"],
-				Ops:  strings.Split(section["ops"], ","),
+				Name:      name,
+				Addr:      section["addr"],
+				Path:      section["path"],
+				Ops:       strings.Split(section["ops"], ","),
+				TlsVerify: tls_verify,
 			}
 			for i := range options.Ops {
 				options.Ops[i] = strings.TrimSpace(options.Ops[i])
