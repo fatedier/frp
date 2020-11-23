@@ -60,11 +60,8 @@ export default {
       proxies: []
     }
   },
-  watch: {
-    $route: 'fetchData'
-  },
-  created() {
-    this.fetchData()
+  mounted() {
+    this.initData()
   },
   methods: {
     formatTrafficIn(row, column) {
@@ -73,17 +70,14 @@ export default {
     formatTrafficOut(row, column) {
       return Humanize.fileSize(row.traffic_out)
     },
-    fetchData() {
-      fetch('/api/proxy/stcp', { credentials: 'include' })
-        .then(res => {
-          return res.json()
-        })
-        .then(json => {
-          this.proxies = []
-          for (const proxyStats of json.proxies) {
-            this.proxies.push(new StcpProxy(proxyStats))
-          }
-        })
+    async initData() {
+      const json = await this.$fetch('proxy/stcp')
+      if (!json) return
+
+      this.proxies = []
+      for (const proxyStats of json.proxies) {
+        this.proxies.push(new StcpProxy(proxyStats))
+      }
     }
   }
 }

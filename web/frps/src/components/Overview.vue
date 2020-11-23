@@ -70,74 +70,65 @@ export default {
       proxy_counts: ''
     }
   },
-  watch: {
-    $route: 'fetchData'
+  computed: {
+    serverInfo() {
+      return this.$store.state.serverInfo
+    }
   },
-  created() {
-    this.fetchData()
+  mounted() {
+    this.initData()
   },
   methods: {
-    fetchData() {
-      fetch('/api/serverinfo', { credentials: 'include' })
-        .then(res => {
-          return res.json()
-        })
-        .then(json => {
-          this.version = json.version
-          this.bind_port = json.bind_port
-          this.bind_udp_port = json.bind_udp_port
-          if (this.bind_udp_port === 0) {
-            this.bind_udp_port = 'disable'
-          }
-          this.vhost_http_port = json.vhost_http_port
-          if (this.vhost_http_port === 0) {
-            this.vhost_http_port = 'disable'
-          }
-          this.vhost_https_port = json.vhost_https_port
-          if (this.vhost_https_port === 0) {
-            this.vhost_https_port = 'disable'
-          }
-          this.subdomain_host = json.subdomain_host
-          this.max_pool_count = json.max_pool_count
-          this.max_ports_per_client = json.max_ports_per_client
-          if (this.max_ports_per_client === 0) {
-            this.max_ports_per_client = 'no limit'
-          }
-          this.heart_beat_timeout = json.heart_beat_timeout
-          this.client_counts = json.client_counts
-          this.cur_conns = json.cur_conns
-          this.proxy_counts = 0
-          if (json.proxy_type_count != null) {
-            if (json.proxy_type_count.tcp != null) {
-              this.proxy_counts += json.proxy_type_count.tcp
-            }
-            if (json.proxy_type_count.udp != null) {
-              this.proxy_counts += json.proxy_type_count.udp
-            }
-            if (json.proxy_type_count.http != null) {
-              this.proxy_counts += json.proxy_type_count.http
-            }
-            if (json.proxy_type_count.https != null) {
-              this.proxy_counts += json.proxy_type_count.https
-            }
-            if (json.proxy_type_count.stcp != null) {
-              this.proxy_counts += json.proxy_type_count.stcp
-            }
-            if (json.proxy_type_count.xtcp != null) {
-              this.proxy_counts += json.proxy_type_count.xtcp
-            }
-          }
-          DrawTrafficChart('traffic', json.total_traffic_in, json.total_traffic_out)
-          DrawProxyChart('proxies', json)
-        })
-        .catch(err => {
-          this.$message({
-            showClose: true,
-            message: 'Get server info from frps failed!',
-            type: 'warning'
-          })
-          return err
-        })
+    initData() {
+      console.log(!!this.serverInfo, this.serverInfo)
+      if (!this.serverInfo) return
+
+      this.version = this.serverInfo.version
+      this.bind_port = this.serverInfo.bind_port
+      this.bind_udp_port = this.serverInfo.bind_udp_port
+      if (this.bind_udp_port === 0) {
+        this.bind_udp_port = 'disable'
+      }
+      this.vhost_http_port = this.serverInfo.vhost_http_port
+      if (this.vhost_http_port === 0) {
+        this.vhost_http_port = 'disable'
+      }
+      this.vhost_https_port = this.serverInfo.vhost_https_port
+      if (this.vhost_https_port === 0) {
+        this.vhost_https_port = 'disable'
+      }
+      this.subdomain_host = this.serverInfo.subdomain_host
+      this.max_pool_count = this.serverInfo.max_pool_count
+      this.max_ports_per_client = this.serverInfo.max_ports_per_client
+      if (this.max_ports_per_client === 0) {
+        this.max_ports_per_client = 'no limit'
+      }
+      this.heart_beat_timeout = this.serverInfo.heart_beat_timeout
+      this.client_counts = this.serverInfo.client_counts
+      this.cur_conns = this.serverInfo.cur_conns
+      this.proxy_counts = 0
+      if (this.serverInfo.proxy_type_count != null) {
+        if (this.serverInfo.proxy_type_count.tcp != null) {
+          this.proxy_counts += this.serverInfo.proxy_type_count.tcp
+        }
+        if (this.serverInfo.proxy_type_count.udp != null) {
+          this.proxy_counts += this.serverInfo.proxy_type_count.udp
+        }
+        if (this.serverInfo.proxy_type_count.http != null) {
+          this.proxy_counts += this.serverInfo.proxy_type_count.http
+        }
+        if (this.serverInfo.proxy_type_count.https != null) {
+          this.proxy_counts += this.serverInfo.proxy_type_count.https
+        }
+        if (this.serverInfo.proxy_type_count.stcp != null) {
+          this.proxy_counts += this.serverInfo.proxy_type_count.stcp
+        }
+        if (this.serverInfo.proxy_type_count.xtcp != null) {
+          this.proxy_counts += this.serverInfo.proxy_type_count.xtcp
+        }
+      }
+      DrawTrafficChart('traffic', this.serverInfo.total_traffic_in, this.serverInfo.total_traffic_out)
+      DrawProxyChart('proxies', this.serverInfo)
     }
   }
 }

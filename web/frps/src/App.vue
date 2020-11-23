@@ -24,7 +24,7 @@
 
         <el-col :xs="24" :md="20">
           <div id="content">
-            <router-view />
+            <router-view v-if="serverInfo" />
           </div>
         </el-col>
       </el-row>
@@ -34,6 +34,14 @@
 
 <script>
 export default {
+  computed: {
+    serverInfo() {
+      return this.$store.state.serverInfo
+    }
+  },
+  async created() {
+    this.$store.dispatch('fetchServerInfo')
+  },
   methods: {
     handleSelect(key, path) {
       if (key === '') {

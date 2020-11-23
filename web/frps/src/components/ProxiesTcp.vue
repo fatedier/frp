@@ -3,13 +3,13 @@
     <el-table :data="proxies" :default-sort="{ prop: 'name', order: 'ascending' }" style="width: 100%">
       <el-table-column type="expand">
         <template slot-scope="props">
-          <el-popover ref="popover4" placement="right" width="600" style="margin-left: 0px" trigger="click">
+          <el-popover placement="right" width="600" style="margin-left: 0px" trigger="click">
             <my-traffic-chart :proxy-name="props.row.name" />
-          </el-popover>
 
-          <el-button v-popover:popover4 type="primary" size="small" icon="view" :name="props.row.name" style="margin-bottom: 10px" @click="fetchData2">
-            Traffic Statistics
-          </el-button>
+            <el-button slot="reference" type="primary" size="small" icon="view" :name="props.row.name" style="margin-bottom: 10px">
+              Traffic Statistics
+            </el-button>
+          </el-popover>
 
           <el-form label-position="left" inline class="demo-table-expand">
             <el-form-item label="Name">
@@ -64,11 +64,8 @@ export default {
       proxies: []
     }
   },
-  watch: {
-    $route: 'fetchData'
-  },
-  created() {
-    this.fetchData()
+  mounted() {
+    this.initData()
   },
   methods: {
     formatTrafficIn(row, column) {
@@ -77,17 +74,14 @@ export default {
     formatTrafficOut(row, column) {
       return Humanize.fileSize(row.traffic_out)
     },
-    fetchData() {
-      fetch('/api/proxy/tcp', { credentials: 'include' })
-        .then(res => {
-          return res.json()
-        })
-        .then(json => {
-          this.proxies = []
-          for (const proxyStats of json.proxies) {
-            this.proxies.push(new TcpProxy(proxyStats))
-          }
-        })
+    async initData() {
+      const json = await this.$fetch('proxy/tcp')
+      if (!json) return
+
+      this.proxies = []
+      for (const proxyStats of json.proxies) {
+        this.proxies.push(new TcpProxy(proxyStats))
+      }
     }
   }
 }

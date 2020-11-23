@@ -73,11 +73,13 @@ export default {
       subdomain_host: ''
     }
   },
-  watch: {
-    $route: 'fetchData'
+  computed: {
+    serverInfo() {
+      return this.$store.state.serverInfo
+    }
   },
-  created() {
-    this.fetchData()
+  mounted() {
+    this.initData()
   },
   methods: {
     formatTrafficIn(row, column) {
@@ -86,33 +88,20 @@ export default {
     formatTrafficOut(row, column) {
       return Humanize.fileSize(row.traffic_out)
     },
-    fetchData() {
-      fetch('/api/serverinfo', { credentials: 'include' })
-        .then(res => {
-          return res.json()
-        })
-        .then(json => {
-          this.vhost_http_port = json.vhost_http_port
-          this.subdomain_host = json.subdomain_host
-          if (this.vhost_http_port == null || this.vhost_http_port === 0) {
-            return
-          } else {
-            fetch('/api/proxy/http', { credentials: 'include' })
-              .then(res => {
-                return res.json()
-              })
-              .then(json => {
-                this.proxies = []
-                for (const proxyStats of json.proxies) {
-                  this.proxies.push(new HttpProxy(proxyStats, this.vhost_http_port, this.subdomain_host))
-                }
-              })
-          }
-        })
+    async initData() {
+      if (!this.serverInfo) return
+      this.vhost_http_port = this.serverInfo.vhost_http_port
+      this.subdomain_host = this.serverInfo.subdomain_host
+      if (this.vhost_http_port == null || this.vhost_http_port === 0) return
+
+      const json = await this.$fetch('proxy/http')
+      if (!json) return
+
+      this.proxies = []
+      for (const proxyStats of json.proxies) {
+        this.proxies.push(new HttpProxy(proxyStats, this.vhost_http_port, this.subdomain_host))
+      }
     }
   }
 }
 </script>
-
-<style>
-</style>

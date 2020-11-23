@@ -62,11 +62,8 @@ export default {
       proxies: []
     }
   },
-  watch: {
-    $route: 'fetchData'
-  },
-  created() {
-    this.fetchData()
+  mounted() {
+    this.initData()
   },
   methods: {
     formatTrafficIn(row, column) {
@@ -75,21 +72,16 @@ export default {
     formatTrafficOut(row, column) {
       return Humanize.fileSize(row.traffic_out)
     },
-    fetchData() {
-      fetch('/api/proxy/udp', { credentials: 'include' })
-        .then(res => {
-          return res.json()
-        })
-        .then(json => {
-          this.proxies = []
-          for (const proxyStats of json.proxies) {
-            this.proxies.push(new UdpProxy(proxyStats))
-          }
-        })
+    async initData() {
+      const json = await this.$fetch('proxy/udp')
+      if (!json) return
+
+      this.proxies = []
+      for (const proxyStats of json.proxies) {
+        this.proxies.push(new UdpProxy(proxyStats))
+      }
     }
   }
 }
 </script>
 
-<style>
-</style>
