@@ -32,7 +32,7 @@ type HTTPPluginOptions struct {
 	Addr      string
 	Path      string
 	Ops       []string
-	TlsVerify bool
+	TLSVerify bool
 }
 
 type httpPlugin struct {
@@ -44,7 +44,7 @@ type httpPlugin struct {
 
 func NewHTTPPluginOptions(options HTTPPluginOptions) Plugin {
 	var client *http.Client
-	if options.TlsVerify == false {
+	if options.TLSVerify == false {
 		tr := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}

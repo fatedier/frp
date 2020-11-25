@@ -467,7 +467,7 @@ func UnmarshalPluginsFromIni(sections ini.File, cfg *ServerCommonConf) {
 				Addr:      section["addr"],
 				Path:      section["path"],
 				Ops:       strings.Split(section["ops"], ","),
-				TlsVerify: tls_verify,
+				TLSVerify: tls_verify,
 			}
 			for i := range options.Ops {
 				options.Ops[i] = strings.TrimSpace(options.Ops[i])
