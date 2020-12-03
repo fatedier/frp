@@ -1,19 +1,14 @@
 <template>
   <div>
-    <el-table :data="proxies" :default-sort="{prop: 'name', order: 'ascending'}" style="width: 100%">
+    <el-table :data="proxies" :default-sort="{ prop: 'name', order: 'ascending' }" style="width: 100%">
       <el-table-column type="expand">
         <template slot-scope="props">
-          <el-popover
-            ref="popover4"
-            placement="right"
-            width="600"
-  		  style="margin-left:0px"
-            trigger="click">
-            <my-traffic-chart :proxy_name="props.row.name"></my-traffic-chart>
+          <el-popover ref="popover4" placement="right" width="600" style="margin-left: 0px" trigger="click">
+            <my-traffic-chart :proxy-name="props.row.name" />
           </el-popover>
-  
-          <el-button v-popover:popover4 type="primary" size="small" icon="view" style="margin-bottom:10px">Traffic Statistics</el-button>
-  
+
+          <el-button v-popover:popover4 type="primary" size="small" icon="view" style="margin-bottom: 10px">Traffic Statistics</el-button>
+
           <el-form label-position="left" inline class="demo-table-expand">
             <el-form-item label="Name">
               <span>{{ props.row.name }}</span>
@@ -45,104 +40,68 @@
             <el-form-item label="Last Close">
               <span>{{ props.row.last_close_time }}</span>
             </el-form-item>
-        </el-form>
-    </template>
-    </el-table-column>
-    <el-table-column
-      label="Name"
-      prop="name"
-      sortable>
-    </el-table-column>
-    <el-table-column
-      label="Port"
-      prop="port"
-      sortable>
-    </el-table-column>
-    <el-table-column
-      label="Connections"
-      prop="conns"
-      sortable>
-    </el-table-column>
-    <el-table-column
-      label="Traffic In"
-      prop="traffic_in"
-      :formatter="formatTrafficIn"
-      sortable>
-    </el-table-column>
-    <el-table-column
-      label="Traffic Out"
-      prop="traffic_out"
-      :formatter="formatTrafficOut"
-      sortable>
-    </el-table-column>
-    <el-table-column
-      label="status"
-      prop="status"
-      sortable>
-      <template slot-scope="scope">
-        <el-tag type="success" v-if="scope.row.status === 'online'">{{ scope.row.status }}</el-tag>
-        <el-tag type="danger" v-else>{{ scope.row.status }}</el-tag>
-      </template>
-    </el-table-column>
-</el-table>
-</div>
+          </el-form>
+        </template>
+      </el-table-column>
+      <el-table-column label="Name" prop="name" sortable />
+      <el-table-column label="Port" prop="port" sortable />
+      <el-table-column label="Connections" prop="conns" sortable />
+      <el-table-column label="Traffic In" prop="traffic_in" :formatter="formatTrafficIn" sortable />
+      <el-table-column label="Traffic Out" prop="traffic_out" :formatter="formatTrafficOut" sortable />
+      <el-table-column label="status" prop="status" sortable>
+        <template slot-scope="scope">
+          <el-tag v-if="scope.row.status === 'online'" type="success">{{ scope.row.status }}</el-tag>
+          <el-tag v-else type="danger">{{ scope.row.status }}</el-tag>
+        </template>
+      </el-table-column>
+    </el-table>
+  </div>
 </template>
 
 <script>
-  import Humanize from 'humanize-plus';
-  import Traffic from './Traffic.vue'
-  import {
-    HttpProxy
-  } from '../utils/proxy.js'
-  export default {
-    data() {
-      return {
-        proxies: null,
-        vhost_http_port: "",
-        subdomain_host: ""
+import Humanize from 'humanize-plus'
+import Traffic from './Traffic.vue'
+import { HttpProxy } from '../utils/proxy.js'
+export default {
+  components: {
+    'my-traffic-chart': Traffic
+  },
+  data() {
+    return {
+      proxies: [],
+      vhost_http_port: '',
+      subdomain_host: ''
+    }
+  },
+  computed: {
+    serverInfo() {
+      return this.$store.state.serverInfo
+    }
+  },
+  mounted() {
+    this.initData()
+  },
+  methods: {
+    formatTrafficIn(row, column) {
+      return Humanize.fileSize(row.traffic_in)
+    },
+    formatTrafficOut(row, column) {
+      return Humanize.fileSize(row.traffic_out)
+    },
+    async initData() {
+      if (!this.serverInfo) return
+      this.vhost_http_port = this.serverInfo.vhost_http_port
+      this.subdomain_host = this.serverInfo.subdomain_host
+      if (this.vhost_http_port == null || this.vhost_http_port === 0) return
+
+      const json = await this.$fetch('proxy/http')
+      if (!json) return
+
+      this.proxies = []
+      for (const proxyStats of json.proxies) {
+        this.proxies.push(new HttpProxy(proxyStats, this.vhost_http_port, this.subdomain_host))
       }
-    },
-    created() {
-      this.fetchData()
-    },
-    watch: {
-      '$route': 'fetchData'
-    },
-    methods: {
-      formatTrafficIn(row, column) {
-        return Humanize.fileSize(row.traffic_in)
-      },
-      formatTrafficOut(row, column) {
-        return Humanize.fileSize(row.traffic_out)
-      },
-      fetchData() {
-        fetch('/api/serverinfo', {credentials: 'include'})
-          .then(res => {
-            return res.json()
-          }).then(json => {
-            this.vhost_http_port = json.vhost_http_port
-            this.subdomain_host = json.subdomain_host
-            if (this.vhost_http_port == null || this.vhost_http_port == 0) {
-              return
-            } else {
-              fetch('/api/proxy/http', {credentials: 'include'})
-                .then(res => {
-                  return res.json()
-                }).then(json => {
-                  this.proxies = new Array()
-                  for (let proxyStats of json.proxies) {
-                    this.proxies.push(new HttpProxy(proxyStats, this.vhost_http_port, this.subdomain_host))
-                  }
-                })
-            }
-          })
-      }
-    },
-    components: {
-        'my-traffic-chart': Traffic
     }
   }
+}
 </script>
-
-<style>
-</style>

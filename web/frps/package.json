@@ -4,45 +4,43 @@
   "author": "fatedier",
   "private": true,
   "scripts": {
-    "dev": "webpack-dev-server -d --inline --hot --env.dev",
-    "build": "rimraf dist && webpack -p --progress --hide-modules"
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build",
+    "lint": "vue-cli-service lint"
   },
   "dependencies": {
-    "bootstrap": "^3.3.7",
-    "echarts": "^3.5.0",
-    "element-ui": "^2.3.8",
+    "echarts": "^4.9.0",
+    "element-ui": "^2.14.1",
     "humanize-plus": "^1.8.2",
-    "vue": "^2.5.16",
-    "vue-resource": "^1.2.1",
-    "vue-router": "^2.3.0",
-    "whatwg-fetch": "^2.0.3"
-  },
-  "engines": {
-    "node": ">=6"
+    "core-js": "^3.7.0",
+    "vue": "^2.6.12",
+    "vue-router": "^3.4.9",
+    "whatwg-fetch": "^3.5.0",
+    "vuex": "^3.5.1"
   },
   "devDependencies": {
-    "autoprefixer": "^6.6.0",
-    "babel-core": "^6.21.0",
-    "babel-eslint": "^7.1.1",
-    "babel-loader": "^6.4.0",
-    "babel-plugin-component": "^1.1.1",
-    "babel-preset-es2015": "^6.13.2",
-    "css-loader": "^0.27.0",
-    "eslint": "^3.12.2",
-    "eslint-config-enough": "^0.2.2",
-    "eslint-loader": "^1.6.3",
-    "file-loader": "^0.10.1",
-    "html-loader": "^0.4.5",
-    "html-webpack-plugin": "^2.24.1",
-    "less": "^3.0.4",
-    "less-loader": "^4.1.0",
-    "postcss-loader": "^1.3.3",
-    "rimraf": "^2.5.4",
-    "style-loader": "^0.13.2",
-    "url-loader": "^1.0.1",
-    "vue-loader": "^15.0.10",
-    "vue-template-compiler": "^2.1.8",
-    "webpack": "^2.2.0-rc.4",
-    "webpack-dev-server": "^3.1.4"
-  }
+    "@vue/cli-plugin-babel": "~4.5.9",
+    "@vue/cli-plugin-eslint": "~4.5.9",
+    "@vue/cli-plugin-router": "~4.5.9",
+    "@vue/cli-plugin-vuex": "~4.5.9",
+    "@vue/cli-service": "~4.5.9",
+    "@vue/eslint-config-standard": "^5.1.2",
+    "babel-eslint": "^10.1.0",
+    "eslint": "^7.14.0",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-standard": "^4.1.0",
+    "eslint-plugin-vue": "^7.1.0",
+    "node-sass": "^5.0.0",
+    "sass-loader": "^10.1.0",
+    "less": "^3.12.2",
+    "less-loader": "^7.1.0",
+    "vue-template-compiler": "^2.6.12"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
 }
