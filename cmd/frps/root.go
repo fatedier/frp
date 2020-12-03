@@ -105,6 +105,7 @@ var rootCmd = &cobra.Command{
 		var cfg config.ServerCommonConf
 		var err error
 		if cfgFile != "" {
+			log.Info("frps uses config file: %s", cfgFile)
 			var content string
 			content, err = config.GetRenderedConfFromFile(cfgFile)
 			if err != nil {
@@ -112,6 +113,7 @@ var rootCmd = &cobra.Command{
 			}
 			cfg, err = parseServerCommonCfg(CfgFileTypeIni, content)
 		} else {
+			log.Info("frps uses command line arguments for config")
 			cfg, err = parseServerCommonCfg(CfgFileTypeCmd, "")
 		}
 		if err != nil {
@@ -212,7 +214,7 @@ func runServer(cfg config.ServerCommonConf) (err error) {
 	if err != nil {
 		return err
 	}
-	log.Info("start frps success")
+	log.Info("frps started successfully")
 	svr.Run()
 	return
 }

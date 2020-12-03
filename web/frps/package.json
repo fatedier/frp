@@ -9,14 +9,14 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "core-js": "^3.7.0",
     "echarts": "^4.9.0",
     "element-ui": "^2.14.1",
     "humanize-plus": "^1.8.2",
-    "core-js": "^3.7.0",
     "vue": "^2.6.12",
     "vue-router": "^3.4.9",
-    "whatwg-fetch": "^3.5.0",
-    "vuex": "^3.5.1"
+    "vuex": "^3.5.1",
+    "whatwg-fetch": "^3.5.0"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "~4.5.9",
@@ -32,10 +32,10 @@
     "eslint-plugin-promise": "^4.2.1",
     "eslint-plugin-standard": "^4.1.0",
     "eslint-plugin-vue": "^7.1.0",
-    "node-sass": "^5.0.0",
-    "sass-loader": "^10.1.0",
     "less": "^3.12.2",
     "less-loader": "^7.1.0",
+    "node-sass": "^5.0.0",
+    "sass-loader": "^10.1.0",
     "vue-template-compiler": "^2.6.12"
   },
   "browserslist": [
