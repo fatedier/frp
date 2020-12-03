@@ -16,8 +16,11 @@
             <el-form-item label="Type">
               <span>{{ props.row.type }}</span>
             </el-form-item>
-            <el-form-item label="Addr">
-              <span>{{ props.row.addr }}</span>
+            <el-form-item label="Domains">
+              <span>{{ props.row.custom_domains }}</span>
+            </el-form-item>
+            <el-form-item label="SubDomain">
+              <span>{{ props.row.subdomain }}</span>
             </el-form-item>
             <el-form-item label="Encryption">
               <span>{{ props.row.encryption }}</span>
@@ -51,18 +54,26 @@
 
 <script>
 import Humanize from 'humanize-plus'
-import Traffic from './Traffic.vue'
-import { UdpProxy } from '../utils/proxy.js'
+import Traffic from '@/components/Traffic.vue'
+import { HttpsProxy } from '../utils/proxy.js'
 export default {
   components: {
     'my-traffic-chart': Traffic
   },
   data() {
     return {
-      proxies: []
+      proxies: [],
+      vhost_https_port: '',
+      subdomain_host: ''
     }
   },
-  mounted() {
+  computed: {
+    serverInfo() {
+      return this.$store.state.server.serverInfo
+    }
+  },
+  async mounted() {
+    await this.$store.dispatch('server/fetchServerInfo')
     this.initData()
   },
   methods: {
@@ -73,15 +84,20 @@ export default {
       return Humanize.fileSize(row.traffic_out)
     },
     async initData() {
-      const json = await this.$fetch('proxy/udp')
+      if (!this.serverInfo) return
+
+      this.vhost_https_port = this.serverInfo.vhost_https_port
+      this.subdomain_host = this.serverInfo.subdomain_host
+      if (this.vhost_https_port == null || this.vhost_https_port === 0) return
+
+      const json = await this.$fetch('proxy/https')
       if (!json) return
 
       this.proxies = []
       for (const proxyStats of json.proxies) {
-        this.proxies.push(new UdpProxy(proxyStats))
+        this.proxies.push(new HttpsProxy(proxyStats, this.vhost_https_port, this.subdomain_host))
       }
     }
   }
 }
 </script>
-

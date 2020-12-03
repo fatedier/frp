@@ -53,7 +53,7 @@
 
 <script>
 import Humanize from 'humanize-plus'
-import Traffic from './Traffic.vue'
+import Traffic from '@/components/Traffic.vue'
 import { TcpProxy } from '../utils/proxy.js'
 export default {
   components: {

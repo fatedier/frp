@@ -72,15 +72,15 @@ export default {
   },
   computed: {
     serverInfo() {
-      return this.$store.state.serverInfo
+      return this.$store.state.server.serverInfo
     }
   },
-  mounted() {
+  async mounted() {
+    await this.$store.dispatch('server/fetchServerInfo')
     this.initData()
   },
   methods: {
     initData() {
-      console.log(!!this.serverInfo, this.serverInfo)
       if (!this.serverInfo) return
 
       this.version = this.serverInfo.version

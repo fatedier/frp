@@ -1,24 +1,19 @@
 import Vue from 'vue'
 import Vuex from 'vuex'
-import fetch from '@/utils/fetch'
+
 Vue.use(Vuex)
 
+const modulesFiles = require.context('./modules', true, /\.js$/)
+
+const modules = modulesFiles.keys().reduce((modules, modulePath) => {
+  const moduleName = modulePath.replace(/^\.\/(.*)\.\w+$/, '$1')
+  const value = modulesFiles(modulePath)
+  modules[moduleName] = value.default
+  return modules
+}, {})
+
 const store = new Vuex.Store({
-  state: {
-    serverInfo: null
-  },
-  mutations: {
-    SET_SERVER_INFO(state, serverInfo) {
-      state.serverInfo = serverInfo
-    }
-  },
-  actions: {
-    async fetchServerInfo({ commit }) {
-      const json = await fetch('serverinfo')
-      commit('SET_SERVER_INFO', json || null)
-      return json
-    }
-  }
+  modules
 })
 
 export default store

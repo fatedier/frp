@@ -7,9 +7,7 @@
             <my-traffic-chart :proxy-name="props.row.name" />
           </el-popover>
 
-          <el-button v-popover:popover4 type="primary" size="small" icon="view" :name="props.row.name" style="margin-bottom: 10px" @click="fetchData2">
-            Traffic Statistics
-          </el-button>
+          <el-button v-popover:popover4 type="primary" size="small" icon="view" style="margin-bottom: 10px">Traffic Statistics</el-button>
 
           <el-form label-position="left" inline class="demo-table-expand">
             <el-form-item label="Name">
@@ -17,6 +15,18 @@
             </el-form-item>
             <el-form-item label="Type">
               <span>{{ props.row.type }}</span>
+            </el-form-item>
+            <el-form-item label="Domains">
+              <span>{{ props.row.custom_domains }}</span>
+            </el-form-item>
+            <el-form-item label="SubDomain">
+              <span>{{ props.row.subdomain }}</span>
+            </el-form-item>
+            <el-form-item label="locations">
+              <span>{{ props.row.locations }}</span>
+            </el-form-item>
+            <el-form-item label="HostRewrite">
+              <span>{{ props.row.host_header_rewrite }}</span>
             </el-form-item>
             <el-form-item label="Encryption">
               <span>{{ props.row.encryption }}</span>
@@ -34,6 +44,7 @@
         </template>
       </el-table-column>
       <el-table-column label="Name" prop="name" sortable />
+      <el-table-column label="Port" prop="port" sortable />
       <el-table-column label="Connections" prop="conns" sortable />
       <el-table-column label="Traffic In" prop="traffic_in" :formatter="formatTrafficIn" sortable />
       <el-table-column label="Traffic Out" prop="traffic_out" :formatter="formatTrafficOut" sortable />
@@ -49,18 +60,26 @@
 
 <script>
 import Humanize from 'humanize-plus'
-import Traffic from './Traffic.vue'
-import { StcpProxy } from '../utils/proxy.js'
+import Traffic from '@/components/Traffic.vue'
+import { HttpProxy } from '../utils/proxy.js'
 export default {
   components: {
     'my-traffic-chart': Traffic
   },
   data() {
     return {
-      proxies: []
+      proxies: [],
+      vhost_http_port: '',
+      subdomain_host: ''
     }
   },
-  mounted() {
+  computed: {
+    serverInfo() {
+      return this.$store.state.server.serverInfo
+    }
+  },
+  async mounted() {
+    await this.$store.dispatch('server/fetchServerInfo')
     this.initData()
   },
   methods: {
@@ -71,17 +90,19 @@ export default {
       return Humanize.fileSize(row.traffic_out)
     },
     async initData() {
-      const json = await this.$fetch('proxy/stcp')
+      if (!this.serverInfo) return
+      this.vhost_http_port = this.serverInfo.vhost_http_port
+      this.subdomain_host = this.serverInfo.subdomain_host
+      if (this.vhost_http_port == null || this.vhost_http_port === 0) return
+
+      const json = await this.$fetch('proxy/http')
       if (!json) return
 
       this.proxies = []
       for (const proxyStats of json.proxies) {
-        this.proxies.push(new StcpProxy(proxyStats))
+        this.proxies.push(new HttpProxy(proxyStats, this.vhost_http_port, this.subdomain_host))
       }
     }
   }
 }
 </script>
-
-<style>
-</style>

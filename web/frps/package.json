@@ -13,6 +13,7 @@
     "echarts": "^4.9.0",
     "element-ui": "^2.14.1",
     "humanize-plus": "^1.8.2",
+    "js-cookie": "^2.2.1",
     "vue": "^2.6.12",
     "vue-router": "^3.4.9",
     "vuex": "^3.5.1",
@@ -36,6 +37,7 @@
     "less-loader": "^7.1.0",
     "node-sass": "^5.0.0",
     "sass-loader": "^10.1.0",
+    "svg-sprite-loader": "^5.0.0",
     "vue-template-compiler": "^2.6.12"
   },
   "browserslist": [
