@@ -73,12 +73,11 @@ export const routes = [
     ]
   },
   {
-    path: 'help',
+    path: '/help',
     component: AdminLayout,
     children: [
       {
         path: 'https://github.com/fatedier/frp',
-        component: () => import('@/views/Overview'),
         meta: {
           title: 'Help',
           icon: 'help'
