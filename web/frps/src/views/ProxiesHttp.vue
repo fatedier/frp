@@ -95,7 +95,12 @@ export default {
       this.subdomain_host = this.serverInfo.subdomain_host
       if (this.vhost_http_port == null || this.vhost_http_port === 0) return
 
-      const json = await this.$fetch('proxy/http')
+      const res = await this.$fetch('proxy/http')
+      if (!res.ok) {
+        this.$message.warning('Get proxy info from frps failed!')
+        return
+      }
+      const json = await res.json()
       if (!json) return
 
       this.proxies = []

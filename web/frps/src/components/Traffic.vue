@@ -16,8 +16,12 @@ export default {
   },
   methods: {
     async initData() {
-      const json = await this.$fetch(`traffic/${this.proxyName}`)
-      if (!json) return
+      const res = await this.$fetch(`traffic/${this.proxyName}`)
+      if (!res.ok) {
+        this.$message.warning('Get traffic info from frps failed!')
+        return
+      }
+      const json = await res.json()
 
       DrawProxyTrafficChart(this.proxyName, json.traffic_in, json.traffic_out)
     }

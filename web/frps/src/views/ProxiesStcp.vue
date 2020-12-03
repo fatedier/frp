@@ -71,7 +71,12 @@ export default {
       return Humanize.fileSize(row.traffic_out)
     },
     async initData() {
-      const json = await this.$fetch('proxy/stcp')
+      const res = await this.$fetch('proxy/stcp')
+      if (!res.ok) {
+        this.$message.warning('Get proxy info from frps failed!')
+        return
+      }
+      const json = await res.json()
       if (!json) return
 
       this.proxies = []

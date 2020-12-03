@@ -15,9 +15,13 @@ const mutations = {
 
 const actions = {
   async fetchServerInfo({ commit }) {
-    const json = await fetch('serverinfo')
-    commit('SET_SERVER_INFO', json || null)
-    return json
+    const res = await fetch('serverinfo')
+    if (!res.ok) {
+      this.$message.warning('Get server info from frps failed!')
+      commit('SET_SERVER_INFO', null)
+    }
+
+    commit('SET_SERVER_INFO', (await res.json()) || null)
   }
 }
 
