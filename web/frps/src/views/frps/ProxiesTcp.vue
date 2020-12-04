@@ -54,7 +54,7 @@
 <script>
 import Humanize from 'humanize-plus'
 import Traffic from '@/components/Traffic.vue'
-import { TcpProxy } from '../utils/proxy.js'
+import { TcpProxy } from '@/utils/proxy.js'
 export default {
   components: {
     'my-traffic-chart': Traffic

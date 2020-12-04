@@ -22,12 +22,6 @@
             <el-form-item label="SubDomain">
               <span>{{ props.row.subdomain }}</span>
             </el-form-item>
-            <el-form-item label="locations">
-              <span>{{ props.row.locations }}</span>
-            </el-form-item>
-            <el-form-item label="HostRewrite">
-              <span>{{ props.row.host_header_rewrite }}</span>
-            </el-form-item>
             <el-form-item label="Encryption">
               <span>{{ props.row.encryption }}</span>
             </el-form-item>
@@ -61,7 +55,7 @@
 <script>
 import Humanize from 'humanize-plus'
 import Traffic from '@/components/Traffic.vue'
-import { HttpProxy } from '../utils/proxy.js'
+import { HttpsProxy } from '@/utils/proxy.js'
 export default {
   components: {
     'my-traffic-chart': Traffic
@@ -69,7 +63,7 @@ export default {
   data() {
     return {
       proxies: [],
-      vhost_http_port: '',
+      vhost_https_port: '',
       subdomain_host: ''
     }
   },
@@ -91,11 +85,12 @@ export default {
     },
     async initData() {
       if (!this.serverInfo) return
-      this.vhost_http_port = this.serverInfo.vhost_http_port
-      this.subdomain_host = this.serverInfo.subdomain_host
-      if (this.vhost_http_port == null || this.vhost_http_port === 0) return
 
-      const res = await this.$fetch('proxy/http')
+      this.vhost_https_port = this.serverInfo.vhost_https_port
+      this.subdomain_host = this.serverInfo.subdomain_host
+      if (this.vhost_https_port == null || this.vhost_https_port === 0) return
+
+      const res = await this.$fetch('proxy/https')
       if (!res.ok) {
         this.$message.warning('Get proxy info from frps failed!')
         return
@@ -105,7 +100,7 @@ export default {
 
       this.proxies = []
       for (const proxyStats of json.proxies) {
-        this.proxies.push(new HttpProxy(proxyStats, this.vhost_http_port, this.subdomain_host))
+        this.proxies.push(new HttpsProxy(proxyStats, this.vhost_https_port, this.subdomain_host))
       }
     }
   }

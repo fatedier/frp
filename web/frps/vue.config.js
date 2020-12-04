@@ -4,6 +4,17 @@ function resolve(dir) {
   return path.join(__dirname, dir)
 }
 
+function getProxyTargetPort() {
+  switch (process.env.VUE_APP_TYPE) {
+    case 'frps':
+      return 8081
+    case 'frpc':
+      return 8082
+    default:
+      return 8080
+  }
+}
+
 module.exports = {
   publicPath: './',
   devServer: {
@@ -11,7 +22,7 @@ module.exports = {
     port: 8010,
     proxy: {
       '/api/': {
-        target: 'http://127.0.0.1:8080/api',
+        target: `http://127.0.0.1:${getProxyTargetPort()}/api`,
         changeOrigin: true,
         pathRewrite: {
           '^/api': ''

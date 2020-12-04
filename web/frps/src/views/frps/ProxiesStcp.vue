@@ -7,7 +7,9 @@
             <my-traffic-chart :proxy-name="props.row.name" />
           </el-popover>
 
-          <el-button v-popover:popover4 type="primary" size="small" icon="view" style="margin-bottom: 10px">Traffic Statistics</el-button>
+          <el-button v-popover:popover4 type="primary" size="small" icon="view" :name="props.row.name" style="margin-bottom: 10px" @click="fetchData2">
+            Traffic Statistics
+          </el-button>
 
           <el-form label-position="left" inline class="demo-table-expand">
             <el-form-item label="Name">
@@ -15,12 +17,6 @@
             </el-form-item>
             <el-form-item label="Type">
               <span>{{ props.row.type }}</span>
-            </el-form-item>
-            <el-form-item label="Domains">
-              <span>{{ props.row.custom_domains }}</span>
-            </el-form-item>
-            <el-form-item label="SubDomain">
-              <span>{{ props.row.subdomain }}</span>
             </el-form-item>
             <el-form-item label="Encryption">
               <span>{{ props.row.encryption }}</span>
@@ -38,7 +34,6 @@
         </template>
       </el-table-column>
       <el-table-column label="Name" prop="name" sortable />
-      <el-table-column label="Port" prop="port" sortable />
       <el-table-column label="Connections" prop="conns" sortable />
       <el-table-column label="Traffic In" prop="traffic_in" :formatter="formatTrafficIn" sortable />
       <el-table-column label="Traffic Out" prop="traffic_out" :formatter="formatTrafficOut" sortable />
@@ -55,25 +50,17 @@
 <script>
 import Humanize from 'humanize-plus'
 import Traffic from '@/components/Traffic.vue'
-import { HttpsProxy } from '../utils/proxy.js'
+import { StcpProxy } from '@/utils/proxy.js'
 export default {
   components: {
     'my-traffic-chart': Traffic
   },
   data() {
     return {
-      proxies: [],
-      vhost_https_port: '',
-      subdomain_host: ''
+      proxies: []
     }
   },
-  computed: {
-    serverInfo() {
-      return this.$store.state.server.serverInfo
-    }
-  },
-  async mounted() {
-    await this.$store.dispatch('server/fetchServerInfo')
+  mounted() {
     this.initData()
   },
   methods: {
@@ -84,13 +71,7 @@ export default {
       return Humanize.fileSize(row.traffic_out)
     },
     async initData() {
-      if (!this.serverInfo) return
-
-      this.vhost_https_port = this.serverInfo.vhost_https_port
-      this.subdomain_host = this.serverInfo.subdomain_host
-      if (this.vhost_https_port == null || this.vhost_https_port === 0) return
-
-      const res = await this.$fetch('proxy/https')
+      const res = await this.$fetch('proxy/stcp')
       if (!res.ok) {
         this.$message.warning('Get proxy info from frps failed!')
         return
@@ -100,9 +81,12 @@ export default {
 
       this.proxies = []
       for (const proxyStats of json.proxies) {
-        this.proxies.push(new HttpsProxy(proxyStats, this.vhost_https_port, this.subdomain_host))
+        this.proxies.push(new StcpProxy(proxyStats))
       }
     }
   }
 }
 </script>
+
+<style>
+</style>

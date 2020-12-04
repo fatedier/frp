@@ -1,5 +1,5 @@
 <template>
-  <div :id="proxyName" style="width: 600px; height: 400px" />
+  <div :id="proxyName" style="width: 600px; height: 400px"></div>
 </template>
 
 <script>

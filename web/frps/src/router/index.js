@@ -4,18 +4,31 @@ import AdminLayout from '@/components/AdminLayout'
 
 Vue.use(Router)
 
-export const routes = [
+const allRoutes = [
   {
     path: '/',
     component: AdminLayout,
     meta: {
-      icon: 'dashboard'
+      hidden: true
     },
     children: [
       {
         path: '/',
-        component: () => import('@/views/Overview'),
-        name: 'Overview',
+        component: () => import('@/views/index')
+      }
+    ]
+  },
+  {
+    path: '/frps',
+    component: AdminLayout,
+    meta: {
+      icon: 'dashboard',
+      type: 'frps'
+    },
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/frps/Overview'),
         meta: {
           title: 'Overview'
         }
@@ -23,51 +36,81 @@ export const routes = [
     ]
   },
   {
-    path: '/proxies',
+    path: '/frps/proxies',
     component: AdminLayout,
     meta: {
       title: 'Proxies',
-      icon: 'proxy'
+      icon: 'proxy',
+      type: 'frps'
     },
     children: [
       {
         path: 'tcp',
-        component: () => import('@/views/ProxiesTcp'),
-        name: 'ProxiesTcp',
+        component: () => import('@/views/frps/ProxiesTcp'),
         meta: {
           title: 'TCP'
         }
       },
       {
         path: 'udp',
-        component: () => import('@/views/ProxiesUdp'),
-        name: 'ProxiesUdp',
+        component: () => import('@/views/frps/ProxiesUdp'),
         meta: {
           title: 'UDP'
         }
       },
       {
         path: 'http',
-        component: () => import('@/views/ProxiesHttp'),
-        name: 'ProxiesHttp',
+        component: () => import('@/views/frps/ProxiesHttp'),
         meta: {
           title: 'HTTP'
         }
       },
       {
         path: 'https',
-        component: () => import('@/views/ProxiesHttps'),
-        name: 'ProxiesHttps',
+        component: () => import('@/views/frps/ProxiesHttps'),
         meta: {
           title: 'HTTPS'
         }
       },
       {
         path: 'stcp',
-        component: () => import('@/views/ProxiesStcp'),
-        name: 'ProxiesStcp',
+        component: () => import('@/views/frps/ProxiesStcp'),
         meta: {
           title: 'STCP'
+        }
+      }
+    ]
+  },
+  {
+    path: '/frpc',
+    component: AdminLayout,
+    meta: {
+      icon: 'dashboard',
+      type: 'frpc'
+    },
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/frpc/Overview'),
+        meta: {
+          title: 'Overview'
+        }
+      }
+    ]
+  },
+  {
+    path: '/frpc/config',
+    component: AdminLayout,
+    meta: {
+      icon: 'config',
+      type: 'frpc'
+    },
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/frpc/Configure'),
+        meta: {
+          title: 'Configure'
         }
       }
     ]
@@ -87,4 +130,19 @@ export const routes = [
   }
 ]
 
-export default new Router({ routes })
+// filter routes recursively
+const filterRoutes = function(routes) {
+  const newRoutes = routes.filter(route => !route.meta || !route.meta.type || route.meta.type === process.env.VUE_APP_TYPE)
+  for (const route in newRoutes) {
+    if (route.children) {
+      route.children = filterRoutes(route.children)
+    }
+  }
+  return newRoutes
+}
+
+export const routes = filterRoutes(allRoutes)
+
+export default new Router({
+  routes
+})

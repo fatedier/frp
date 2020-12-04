@@ -262,6 +262,18 @@ module.exports = {
         objectsInObjects: false
       }
     ],
-    'array-bracket-spacing': [2, 'never']
+    'array-bracket-spacing': [2, 'never'],
+    'vue/html-self-closing': [
+      'error',
+      {
+        html: {
+          void: 'always',
+          normal: 'never',
+          component: 'always'
+        },
+        svg: 'always',
+        math: 'always'
+      }
+    ]
   }
 }

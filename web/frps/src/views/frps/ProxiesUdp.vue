@@ -52,7 +52,7 @@
 <script>
 import Humanize from 'humanize-plus'
 import Traffic from '@/components/Traffic.vue'
-import { UdpProxy } from '../utils/proxy.js'
+import { UdpProxy } from '@/utils/proxy.js'
 export default {
   components: {
     'my-traffic-chart': Traffic

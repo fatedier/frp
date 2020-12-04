@@ -44,15 +44,15 @@
         </div>
       </el-col>
       <el-col :md="12">
-        <div id="traffic" style="width: 400px; height: 250px; margin-bottom: 30px" />
-        <div id="proxies" style="width: 400px; height: 250px" />
+        <div id="traffic" style="width: 400px; height: 250px; margin-bottom: 30px"></div>
+        <div id="proxies" style="width: 400px; height: 250px"></div>
       </el-col>
     </el-row>
   </div>
 </template>
 
 <script>
-import { DrawTrafficChart, DrawProxyChart } from '../utils/chart.js'
+import { DrawTrafficChart, DrawProxyChart } from '@/utils/chart.js'
 export default {
   data() {
     return {

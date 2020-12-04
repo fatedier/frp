@@ -4,8 +4,10 @@
   "author": "fatedier",
   "private": true,
   "scripts": {
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build",
+    "serve:c": "vue-cli-service serve --mode dev-frpc",
+    "serve:s": "vue-cli-service serve --mode dev-frps",
+    "build:c": "vue-cli-service build --mode frpc",
+    "build:s": "vue-cli-service build --mode frps",
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
