@@ -4,7 +4,7 @@
       <el-button type="primary" @click="refresh">Refresh</el-button>
       <el-button type="primary" @click="uploadConfig">Upload</el-button>
     </el-row>
-    <el-input v-model="textarea" type="textarea" autosize placeholder="frpc configrue file, can not be empty..." />
+    <el-input v-model="textarea" type="textarea" autosize placeholder="frpc configrue file, can not be empty..." :spellcheck="false" />
   </div>
 </template>
 
