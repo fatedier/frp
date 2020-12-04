@@ -1,7 +1,7 @@
 <template>
   <div class="configure-container">
     <el-row id="head">
-      <el-button type="primary" @click="fetchData">Refresh</el-button>
+      <el-button type="primary" @click="refresh">Refresh</el-button>
       <el-button type="primary" @click="uploadConfig">Upload</el-button>
     </el-row>
     <el-input v-model="textarea" type="textarea" autosize placeholder="frpc configrue file, can not be empty..." />
@@ -31,6 +31,12 @@ export default {
       }
 
       this.textarea = await res.text()
+      return this.textarea
+    },
+    async refresh() {
+      if (await this.fetchData()) {
+        this.$message.success('Success')
+      }
     },
     uploadConfig() {
       this.$confirm('This operation will upload your frpc configure file content and hot reload it, do you want to continue?', 'Notice', {
