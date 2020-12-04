@@ -1,11 +1,12 @@
 const path = require('path')
+const appType = process.env.VUE_APP_TYPE
 
 function resolve(dir) {
   return path.join(__dirname, dir)
 }
 
 function getProxyTargetPort() {
-  switch (process.env.VUE_APP_TYPE) {
+  switch (appType) {
     case 'frps':
       return 8081
     case 'frpc':
@@ -17,6 +18,7 @@ function getProxyTargetPort() {
 
 module.exports = {
   publicPath: './',
+  outputDir: `./dist/${appType}`,
   devServer: {
     host: '127.0.0.1',
     port: 8010,
@@ -31,8 +33,8 @@ module.exports = {
     }
   },
   chainWebpack(config) {
-    config.plugins.delete('preload') // TODO: need test
-    config.plugins.delete('prefetch') // TODO: need test
+    config.plugins.delete('preload')
+    config.plugins.delete('prefetch')
 
     // set svg-sprite-loader
     config.module
