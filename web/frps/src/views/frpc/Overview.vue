@@ -22,50 +22,44 @@
 export default {
   data() {
     return {
-      status: null
+      status: []
     }
-  },
-  watch: {
-    $route: 'fetchData'
   },
   created() {
     this.fetchData()
   },
   methods: {
-    fetchData() {
-      fetch('/api/status', { credentials: 'include' })
-        .then(res => {
-          return res.json()
+    async fetchData() {
+      const res = await this.$fetch('status')
+      if (!res.ok) {
+        this.$message({
+          showClose: true,
+          message: 'Get status info from frpc failed!',
+          type: 'warning'
         })
-        .then(json => {
-          this.status = []
-          for (const s of json.tcp) {
-            this.status.push(s)
-          }
-          for (const s of json.udp) {
-            this.status.push(s)
-          }
-          for (const s of json.http) {
-            this.status.push(s)
-          }
-          for (const s of json.https) {
-            this.status.push(s)
-          }
-          for (const s of json.stcp) {
-            this.status.push(s)
-          }
-          for (const s of json.xtcp) {
-            this.status.push(s)
-          }
-        })
-        .catch(err => {
-          this.$message({
-            showClose: true,
-            message: 'Get status info from frpc failed!',
-            type: 'warning'
-          })
-          return err
-        })
+        return
+      }
+
+      const json = await res.json()
+      this.status = []
+      for (const s of json.tcp) {
+        this.status.push(s)
+      }
+      for (const s of json.udp) {
+        this.status.push(s)
+      }
+      for (const s of json.http) {
+        this.status.push(s)
+      }
+      for (const s of json.https) {
+        this.status.push(s)
+      }
+      for (const s of json.stcp) {
+        this.status.push(s)
+      }
+      for (const s of json.xtcp) {
+        this.status.push(s)
+      }
     }
   }
 }

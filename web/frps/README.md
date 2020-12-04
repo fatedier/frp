@@ -8,14 +8,22 @@ npm install
 
 ### Compiles and hot-reloads for development
 
-```
-npm run serve
+```shell
+# frps
+npm run serve:s
+
+# frpc
+npm run serve:c
 ```
 
 ### Compiles and minifies for production
 
-```
-npm run build
+```shell
+# frps
+npm run build:s
+
+# frpc
+npm run build:c
 ```
 
 ### Lints and fixes files
