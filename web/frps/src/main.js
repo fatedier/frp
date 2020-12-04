@@ -3,7 +3,6 @@ import ElementUI from 'element-ui'
 import lang from 'element-ui/lib/locale/lang/en'
 import locale from 'element-ui/lib/locale'
 import 'element-ui/lib/theme-chalk/index.css'
-import './utils/less/custom.less'
 import '@/icons'
 import '@/styles/index.scss'
 
