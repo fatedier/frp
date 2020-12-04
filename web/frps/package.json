@@ -1,5 +1,5 @@
 {
-  "name": "frps-dashboard",
+  "name": "frp-dashboard",
   "description": "A dashboard for frp server.",
   "author": "fatedier",
   "private": true,

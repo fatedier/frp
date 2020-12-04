@@ -143,6 +143,13 @@ const filterRoutes = function(routes) {
 
 export const routes = filterRoutes(allRoutes)
 
-export default new Router({
+const router = new Router({
   routes
 })
+
+router.beforeEach(async (to, from, next) => {
+  document.title = `${to.meta.title || 'dashboard'} - frp`
+  next()
+})
+
+export default router
