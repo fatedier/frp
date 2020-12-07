@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/assets"
-	frpNet "github.com/fatedier/frp/utils/net"
+	frpNet "github.com/fatedier/frp/pkg/util/net"
 
 	"github.com/gorilla/mux"
 )
@@ -36,7 +36,7 @@ func (svr *Service) RunAdminServer(addr string, port int) (err error) {
 	router := mux.NewRouter()
 
 	user, passwd := svr.cfg.AdminUser, svr.cfg.AdminPwd
-	router.Use(frpNet.NewHttpAuthMiddleware(user, passwd).Middleware)
+	router.Use(frpNet.NewHTTPAuthMiddleware(user, passwd).Middleware)
 
 	// api, see dashboard_api.go
 	router.HandleFunc("/api/reload", svr.apiReload).Methods("GET")
@@ -46,7 +46,7 @@ func (svr *Service) RunAdminServer(addr string, port int) (err error) {
 
 	// view
 	router.Handle("/favicon.ico", http.FileServer(assets.FileSystem)).Methods("GET")
-	router.PathPrefix("/static/").Handler(frpNet.MakeHttpGzipHandler(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))).Methods("GET")
+	router.PathPrefix("/static/").Handler(frpNet.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))).Methods("GET")
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
 	})

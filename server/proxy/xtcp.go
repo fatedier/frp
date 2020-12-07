@@ -17,20 +17,20 @@ package proxy
 import (
 	"fmt"
 
-	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/models/msg"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/msg"
 
 	"github.com/fatedier/golib/errors"
 )
 
-type XtcpProxy struct {
+type XTCPProxy struct {
 	*BaseProxy
-	cfg *config.XtcpProxyConf
+	cfg *config.XTCPProxyConf
 
 	closeCh chan struct{}
 }
 
-func (pxy *XtcpProxy) Run() (remoteAddr string, err error) {
+func (pxy *XTCPProxy) Run() (remoteAddr string, err error) {
 	xl := pxy.xl
 
 	if pxy.rc.NatHoleController == nil {
@@ -84,11 +84,11 @@ func (pxy *XtcpProxy) Run() (remoteAddr string, err error) {
 	return
 }
 
-func (pxy *XtcpProxy) GetConf() config.ProxyConf {
+func (pxy *XTCPProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
 }
 
-func (pxy *XtcpProxy) Close() {
+func (pxy *XTCPProxy) Close() {
 	pxy.BaseProxy.Close()
 	pxy.rc.NatHoleController.CloseClient(pxy.GetName())
 	errors.PanicToError(func() {

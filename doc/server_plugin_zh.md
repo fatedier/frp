@@ -69,7 +69,7 @@ Response
 
 ### 操作类型
 
-目前插件支持管理的操作类型有 `Login` 和 `NewProxy`。
+目前插件支持管理的操作类型有 `Login`、`NewProxy`、`Ping`、`NewWorkConn` 和 `NewUserConn`。
 
 #### Login
 
@@ -126,6 +126,63 @@ Response
     }
 }
 ```
+
+#### Ping
+
+心跳相关信息
+
+```
+{
+    "content": {
+        "user": {
+            "user": <string>,
+            "metas": map<string>string
+            "run_id": <string>
+        },
+        "timestamp": <int64>,
+        "privilege_key": <string>
+    }
+}
+```
+
+#### NewWorkConn
+
+新增 `frpc` 连接相关信息
+
+```
+{
+    "content": {
+        "user": {
+            "user": <string>,
+            "metas": map<string>string
+            "run_id": <string>
+        },
+        "run_id": <string>
+        "timestamp": <int64>,
+        "privilege_key": <string>
+    }
+}
+```
+
+#### NewUserConn
+
+新增 `proxy` 连接相关信息 (支持 `tcp`、`stcp`、`https` 和 `tcpmux` 协议)。
+
+```
+{
+    "content": {
+        "user": {
+            "user": <string>,
+            "metas": map<string>string
+            "run_id": <string>
+        },
+        "proxy_name": <string>,
+        "proxy_type": <string>,
+        "remote_addr": <string>
+    }
+}
+```
+
 
 ### frps 中插件配置
 

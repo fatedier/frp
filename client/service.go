@@ -26,13 +26,14 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/assets"
-	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/log"
-	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/util"
-	"github.com/fatedier/frp/utils/version"
-	"github.com/fatedier/frp/utils/xlog"
+	"github.com/fatedier/frp/pkg/auth"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/transport"
+	"github.com/fatedier/frp/pkg/util/log"
+	frpNet "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/pkg/util/version"
+	"github.com/fatedier/frp/pkg/util/xlog"
 
 	fmux "github.com/hashicorp/yamux"
 )
@@ -40,11 +41,14 @@ import (
 // Service is a client service.
 type Service struct {
 	// uniq id got from frps, attach it in loginMsg
-	runId string
+	runID string
 
 	// manager control connection with server
 	ctl   *Control
 	ctlMu sync.RWMutex
+
+	// Sets authentication based on selected method
+	authSetter auth.Setter
 
 	cfg         config.ClientCommonConf
 	pxyCfgs     map[string]config.ProxyConf
@@ -70,6 +74,7 @@ func NewService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf
 
 	ctx, cancel := context.WithCancel(context.Background())
 	svr = &Service{
+		authSetter:  auth.NewAuthSetter(cfg.ClientConfig),
 		cfg:         cfg,
 		cfgFile:     cfgFile,
 		pxyCfgs:     pxyCfgs,
@@ -100,12 +105,11 @@ func (svr *Service) Run() error {
 			// otherwise sleep a while and try again to connect to server
 			if svr.cfg.LoginFailExit {
 				return err
-			} else {
-				time.Sleep(10 * time.Second)
 			}
+			time.Sleep(10 * time.Second)
 		} else {
 			// login success
-			ctl := NewControl(svr.ctx, svr.runId, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort)
+			ctl := NewControl(svr.ctx, svr.runID, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort, svr.authSetter)
 			ctl.Run()
 			svr.ctlMu.Lock()
 			svr.ctl = ctl
@@ -138,10 +142,32 @@ func (svr *Service) keepControllerWorking() {
 	maxDelayTime := 20 * time.Second
 	delayTime := time.Second
 
+	// if frpc reconnect frps, we need to limit retry times in 1min
+	// current retry logic is sleep 0s, 0s, 0s, 1s, 2s, 4s, 8s, ...
+	// when exceed 1min, we will reset delay and counts
+	cutoffTime := time.Now().Add(time.Minute)
+	reconnectDelay := time.Second
+	reconnectCounts := 1
+
 	for {
 		<-svr.ctl.ClosedDoneCh()
 		if atomic.LoadUint32(&svr.exit) != 0 {
 			return
+		}
+
+		// the first three retry with no delay
+		if reconnectCounts > 3 {
+			time.Sleep(reconnectDelay)
+			reconnectDelay *= 2
+		}
+		reconnectCounts++
+
+		now := time.Now()
+		if now.After(cutoffTime) {
+			// reset
+			cutoffTime = now.Add(time.Minute)
+			reconnectDelay = time.Second
+			reconnectCounts = 1
 		}
 
 		for {
@@ -159,9 +185,12 @@ func (svr *Service) keepControllerWorking() {
 			// reconnect success, init delayTime
 			delayTime = time.Second
 
-			ctl := NewControl(svr.ctx, svr.runId, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort)
+			ctl := NewControl(svr.ctx, svr.runID, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort, svr.authSetter)
 			ctl.Run()
 			svr.ctlMu.Lock()
+			if svr.ctl != nil {
+				svr.ctl.Close()
+			}
 			svr.ctl = ctl
 			svr.ctlMu.Unlock()
 			break
@@ -176,11 +205,17 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 	xl := xlog.FromContextSafe(svr.ctx)
 	var tlsConfig *tls.Config
 	if svr.cfg.TLSEnable {
-		tlsConfig = &tls.Config{
-			InsecureSkipVerify: true,
+		tlsConfig, err = transport.NewClientTLSConfig(
+			svr.cfg.TLSCertFile,
+			svr.cfg.TLSKeyFile,
+			svr.cfg.TLSTrustedCaFile,
+			svr.cfg.ServerAddr)
+		if err != nil {
+			xl.Warn("fail to build tls configuration when service login, err: %v", err)
+			return
 		}
 	}
-	conn, err = frpNet.ConnectServerByProxyWithTLS(svr.cfg.HttpProxy, svr.cfg.Protocol,
+	conn, err = frpNet.ConnectServerByProxyWithTLS(svr.cfg.HTTPProxy, svr.cfg.Protocol,
 		fmt.Sprintf("%s:%d", svr.cfg.ServerAddr, svr.cfg.ServerPort), tlsConfig)
 	if err != nil {
 		return
@@ -195,7 +230,7 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 		}
 	}()
 
-	if svr.cfg.TcpMux {
+	if svr.cfg.TCPMux {
 		fmuxCfg := fmux.DefaultConfig()
 		fmuxCfg.KeepAliveInterval = 20 * time.Second
 		fmuxCfg.LogOutput = ioutil.Discard
@@ -212,17 +247,20 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 		conn = stream
 	}
 
-	now := time.Now().Unix()
 	loginMsg := &msg.Login{
-		Arch:         runtime.GOARCH,
-		Os:           runtime.GOOS,
-		PoolCount:    svr.cfg.PoolCount,
-		User:         svr.cfg.User,
-		Version:      version.Full(),
-		PrivilegeKey: util.GetAuthKey(svr.cfg.Token, now),
-		Timestamp:    now,
-		RunId:        svr.runId,
-		Metas:        svr.cfg.Metas,
+		Arch:      runtime.GOARCH,
+		Os:        runtime.GOOS,
+		PoolCount: svr.cfg.PoolCount,
+		User:      svr.cfg.User,
+		Version:   version.Full(),
+		Timestamp: time.Now().Unix(),
+		RunID:     svr.runID,
+		Metas:     svr.cfg.Metas,
+	}
+
+	// Add auth
+	if err = svr.authSetter.SetLogin(loginMsg); err != nil {
+		return
 	}
 
 	if err = msg.WriteMsg(conn, loginMsg); err != nil {
@@ -242,12 +280,12 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 		return
 	}
 
-	svr.runId = loginRespMsg.RunId
+	svr.runID = loginRespMsg.RunID
 	xl.ResetPrefixes()
-	xl.AppendPrefix(svr.runId)
+	xl.AppendPrefix(svr.runID)
 
-	svr.serverUDPPort = loginRespMsg.ServerUdpPort
-	xl.Info("login to server success, get run id [%s], server udp port [%d]", loginRespMsg.RunId, loginRespMsg.ServerUdpPort)
+	svr.serverUDPPort = loginRespMsg.ServerUDPPort
+	xl.Info("login to server success, get run id [%s], server udp port [%d]", loginRespMsg.RunID, loginRespMsg.ServerUDPPort)
 	return
 }
 
@@ -262,6 +300,8 @@ func (svr *Service) ReloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs 
 
 func (svr *Service) Close() {
 	atomic.StoreUint32(&svr.exit, 1)
-	svr.ctl.Close()
+	if svr.ctl != nil {
+		svr.ctl.Close()
+	}
 	svr.cancel()
 }

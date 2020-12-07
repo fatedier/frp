@@ -1,27 +1,28 @@
-### Manage Plugin
+### Server Plugin
 
-frp manage plugin is aim to extend frp's ability without modifing self code.
+frp server plugin is aimed to extend frp's ability without modifying the Golang code.
 
-It runs as a process and listen on a port to provide RPC interface. Before frps doing some operations, frps will send RPC requests to manage plugin and do operations by it's response.
+An external server should run in a different process receiving RPC calls from frps.
+Before frps is doing some operations, it will send RPC requests to notify the external RPC server and act according to its response.
 
 ### RPC request
 
-Support HTTP first.
+RPC requests are based on JSON over HTTP.
 
-When manage plugin accept the operation request, it can give three different responses.
+When a server plugin accepts an operation request, it can respond with three different responses:
 
-* Reject operation and return the reason.
+* Reject operation and return a reason.
 * Allow operation and keep original content.
 * Allow operation and return modified content.
 
 ### Interface
 
-HTTP path can be configured for each manage plugin in frps. Assume here is `/handler`.
+HTTP path can be configured for each manage plugin in frps. We'll assume for this example that it's `/handler`.
 
-Request
+A request to the RPC server will look like:
 
 ```
-POST /handler
+POST /handler?version=0.1.0&op=Login
 {
     "version": "0.1.0",
     "op": "Login",
@@ -30,15 +31,15 @@ POST /handler
     }
 }
 
-Request Header
+Request Header:
 X-Frp-Reqid: for tracing
 ```
 
-Response
+The response can look like any of the following:
 
-Error if not return 200 http code.
+* Non-200 HTTP response status code (this will automatically tell frps that the request should fail)
 
-Reject opeartion
+* Reject operation:
 
 ```
 {
@@ -47,7 +48,7 @@ Reject opeartion
 }
 ```
 
-Allow operation and keep original content
+* Allow operation and keep original content:
 
 ```
 {
@@ -56,7 +57,7 @@ Allow operation and keep original content
 }
 ```
 
-Allow opeartion and modify content
+* Allow operation and modify content
 
 ```
 {
@@ -69,7 +70,7 @@ Allow opeartion and modify content
 
 ### Operation
 
-Now it supports `Login` and `NewProxy`.
+Currently `Login`, `NewProxy`, `Ping`, `NewWorkConn` and `NewUserConn` operations are supported.
 
 #### Login
 
@@ -102,6 +103,7 @@ Create new proxy
         "user": {
             "user": <string>,
             "metas": map<string>string
+            "run_id": <string>
         },
         "proxy_name": <string>,
         "proxy_type": <string>,
@@ -122,14 +124,77 @@ Create new proxy
         "host_header_rewrite": <string>,
         "headers": map<string>string,
 
+        // stcp only
+        "sk": <string>,
+
+        // tcpmux only
+        "multiplexer": <string>
+
         "metas": map<string>string
     }
 }
 ```
 
-### manage plugin configure
+#### Ping
+
+Heartbeat from frpc
+
+```
+{
+    "content": {
+        "user": {
+            "user": <string>,
+            "metas": map<string>string
+            "run_id": <string>
+        },
+        "timestamp": <int64>,
+        "privilege_key": <string>
+    }
+}
+```
+
+#### NewWorkConn
+
+New work connection received from frpc (RPC sent after `run_id` is matched with an existing frp connection)
+
+```
+{
+    "content": {
+        "user": {
+            "user": <string>,
+            "metas": map<string>string
+            "run_id": <string>
+        },
+        "run_id": <string>
+        "timestamp": <int64>,
+        "privilege_key": <string>
+    }
+}
+```
+
+#### NewUserConn
+
+New user connection received from proxy (support `tcp`, `stcp`, `https` and `tcpmux`) .
+
+```
+{
+    "content": {
+        "user": {
+            "user": <string>,
+            "metas": map<string>string
+            "run_id": <string>
+        },
+        "proxy_name": <string>,
+        "proxy_type": <string>,
+        "remote_addr": <string>
+    }
+}
+```
+
+### Server Plugin Configuration
 
 ```ini
+# frps.ini
 [common]
 bind_port = 7000
 
@@ -144,15 +209,19 @@ path = /handler
 ops = NewProxy
 ```
 
-addr: plugin listen on.
-path: http request url path.
-ops: opeartions plugin needs handle.
+addr: the address where the external RPC service listens on.
+path: http request url path for the POST request.
+ops: operations plugin needs to handle (e.g. "Login", "NewProxy", ...).
 
-### meta data
+### Metadata
 
-Meta data will be sent to manage plugin in each RCP request.
+Metadata will be sent to the server plugin in each RPC request.
 
-Meta data start with `meta_`. It can be configured in `common` and each proxy.
+There are 2 types of metadata entries - 1 under `[common]` and the other under each proxy configuration.
+Metadata entries under `[common]` will be sent in `Login` under the key `metas`, and in any other RPC request under `user.metas`.
+Metadata entries under each proxy configuration will be sent in `NewProxy` op only, under `metas`.
+
+Metadata entries start with `meta_`. This is an example of metadata entries in `[common]` and under the proxy named `[ssh]`:
 
 ```
 # frpc.ini

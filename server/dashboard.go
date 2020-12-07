@@ -21,9 +21,10 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/assets"
-	frpNet "github.com/fatedier/frp/utils/net"
+	frpNet "github.com/fatedier/frp/pkg/util/net"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -36,17 +37,22 @@ func (svr *Service) RunDashboardServer(addr string, port int) (err error) {
 	router := mux.NewRouter()
 
 	user, passwd := svr.cfg.DashboardUser, svr.cfg.DashboardPwd
-	router.Use(frpNet.NewHttpAuthMiddleware(user, passwd).Middleware)
+	router.Use(frpNet.NewHTTPAuthMiddleware(user, passwd).Middleware)
+
+	// metrics
+	if svr.cfg.EnablePrometheus {
+		router.Handle("/metrics", promhttp.Handler())
+	}
 
 	// api, see dashboard_api.go
-	router.HandleFunc("/api/serverinfo", svr.ApiServerInfo).Methods("GET")
-	router.HandleFunc("/api/proxy/{type}", svr.ApiProxyByType).Methods("GET")
-	router.HandleFunc("/api/proxy/{type}/{name}", svr.ApiProxyByTypeAndName).Methods("GET")
-	router.HandleFunc("/api/traffic/{name}", svr.ApiProxyTraffic).Methods("GET")
+	router.HandleFunc("/api/serverinfo", svr.APIServerInfo).Methods("GET")
+	router.HandleFunc("/api/proxy/{type}", svr.APIProxyByType).Methods("GET")
+	router.HandleFunc("/api/proxy/{type}/{name}", svr.APIProxyByTypeAndName).Methods("GET")
+	router.HandleFunc("/api/traffic/{name}", svr.APIProxyTraffic).Methods("GET")
 
 	// view
 	router.Handle("/favicon.ico", http.FileServer(assets.FileSystem)).Methods("GET")
-	router.PathPrefix("/static/").Handler(frpNet.MakeHttpGzipHandler(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))).Methods("GET")
+	router.PathPrefix("/static/").Handler(frpNet.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))).Methods("GET")
 
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)

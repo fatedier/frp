@@ -1,0 +1,14 @@
+FROM alpine:3.12.0 AS temp
+
+COPY bin/frpc /tmp
+
+RUN chmod -R 777 /tmp/frpc
+
+
+FROM alpine:3.12.0
+
+WORKDIR /app
+
+COPY --from=temp /tmp/frpc /usr/bin
+
+ENTRYPOINT ["/usr/bin/frpc"]

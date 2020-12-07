@@ -18,24 +18,17 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/consts"
 
-	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/models/consts"
+	"github.com/spf13/cobra"
 )
 
 func init() {
-	udpCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
-	udpCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	udpCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
-	udpCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
-	udpCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
-	udpCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
-	udpCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
-	udpCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
+	RegisterCommonFlags(udpCmd)
 
 	udpCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
-	udpCmd.PersistentFlags().StringVarP(&localIp, "local_ip", "i", "127.0.0.1", "local ip")
+	udpCmd.PersistentFlags().StringVarP(&localIP, "local_ip", "i", "127.0.0.1", "local ip")
 	udpCmd.PersistentFlags().IntVarP(&localPort, "local_port", "l", 0, "local port")
 	udpCmd.PersistentFlags().IntVarP(&remotePort, "remote_port", "r", 0, "remote port")
 	udpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
@@ -54,14 +47,14 @@ var udpCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		cfg := &config.UdpProxyConf{}
+		cfg := &config.UDPProxyConf{}
 		var prefix string
 		if user != "" {
 			prefix = user + "."
 		}
 		cfg.ProxyName = prefix + proxyName
-		cfg.ProxyType = consts.UdpProxy
-		cfg.LocalIp = localIp
+		cfg.ProxyType = consts.UDPProxy
+		cfg.LocalIP = localIP
 		cfg.LocalPort = localPort
 		cfg.RemotePort = remotePort
 		cfg.UseEncryption = useEncryption

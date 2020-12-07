@@ -7,7 +7,7 @@ import (
 	"os"
 	"syscall"
 
-	frpNet "github.com/fatedier/frp/utils/net"
+	frpNet "github.com/fatedier/frp/pkg/util/net"
 )
 
 type EchoServer struct {
@@ -54,7 +54,7 @@ func (es *EchoServer) Stop() {
 	es.l.Close()
 }
 
-func StartUdpEchoServer(port int) {
+func StartUDPEchoServer(port int) {
 	l, err := frpNet.ListenUDP("127.0.0.1", port)
 	if err != nil {
 		fmt.Printf("udp echo server listen error: %v\n", err)
