@@ -1,8 +1,5 @@
-import Vue from 'vue'
-import Vuex from 'vuex'
 import fetch from '@/utils/fetch'
 import { Message } from 'element-ui'
-Vue.use(Vuex)
 
 const state = {
   serverInfo: null
