@@ -19,6 +19,7 @@ function getProxyTargetPort() {
 module.exports = {
   publicPath: './',
   outputDir: `./dist/${appType}`,
+  productionSourceMap: false,
   devServer: {
     host: '127.0.0.1',
     port: 8010,
