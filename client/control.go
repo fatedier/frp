@@ -17,10 +17,10 @@ package client
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"io"
 	"net"
 	"runtime/debug"
+	"strconv"
 	"sync"
 	"time"
 
@@ -222,8 +222,10 @@ func (ctl *Control) connectServer() (conn net.Conn, err error) {
 				return
 			}
 		}
-		conn, err = frpNet.ConnectServerByProxyWithTLS(ctl.clientCfg.HTTPProxy, ctl.clientCfg.Protocol,
-			fmt.Sprintf("%s:%d", ctl.clientCfg.ServerAddr, ctl.clientCfg.ServerPort), tlsConfig)
+
+		address := net.JoinHostPort(ctl.clientCfg.ServerAddr, strconv.Itoa(ctl.clientCfg.ServerPort))
+		conn, err = frpNet.ConnectServerByProxyWithTLS(ctl.clientCfg.HTTPProxy, ctl.clientCfg.Protocol, address, tlsConfig)
+
 		if err != nil {
 			xl.Warn("start new connection to server error: %v", err)
 			return
