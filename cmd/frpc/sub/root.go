@@ -157,17 +157,16 @@ func parseClientCommonCfgFromIni(content string) (config.ClientCommonConf, error
 func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 	cfg = config.GetDefaultClientConf()
 
-	strs := strings.Split(serverAddr, ":")
-	if len(strs) < 2 {
-		err = fmt.Errorf("invalid server_addr")
+	ipStr, portStr, err := net.SplitHostPort(serverAddr)
+	if err != nil {
+		err = fmt.Errorf("invalid server_addr: %v", err)
 		return
 	}
-	if strs[0] != "" {
-		cfg.ServerAddr = strs[0]
-	}
-	cfg.ServerPort, err = strconv.Atoi(strs[1])
+
+	cfg.ServerAddr = ipStr
+	cfg.ServerPort, err = strconv.Atoi(portStr)
 	if err != nil {
-		err = fmt.Errorf("invalid server_addr")
+		err = fmt.Errorf("invalid server_addr: %v", err)
 		return
 	}
 
