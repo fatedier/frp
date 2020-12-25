@@ -1,4 +1,4 @@
-// Copyright 2016 fatedier, fatedier@gmail.com
+// Copyright 2020 The frp Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 
 // GetDefaultServerConf returns a server configuration with reasonable
 // defaults.
-func DefaultServerConf() ServerCommonConf {
+func GetDefaultServerConf() ServerCommonConf {
 	return ServerCommonConf{
 		ServerConfig:           auth.GetDefaultServerConf(),
 		BindAddr:               "0.0.0.0",
@@ -72,7 +72,7 @@ func (cfg *ServerCommonConf) Check() error {
 	return nil
 }
 
-func LoadServerCommonConf(source interface{}) (ServerCommonConf, error) {
+func UnmarshalServerConfFromIni(source interface{}) (ServerCommonConf, error) {
 
 	f, err := ini.LoadSources(ini.LoadOptions{
 		Insensitive:         false,
@@ -91,7 +91,7 @@ func LoadServerCommonConf(source interface{}) (ServerCommonConf, error) {
 		return ServerCommonConf{}, err
 	}
 
-	common := DefaultServerConf()
+	common := GetDefaultServerConf()
 	err = s.MapTo(&common)
 	if err != nil {
 		return ServerCommonConf{}, err

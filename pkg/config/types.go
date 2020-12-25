@@ -1,4 +1,4 @@
-// Copyright 2019 fatedier, fatedier@gmail.com
+// Copyright 2020 The frp Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,9 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-// Client
+// ClientCommonConf contains information for a client service. It is
+// recommended to use GetDefaultClientConf instead of creating this object
+// directly, so that all unspecified fields have reasonable default values.
 type ClientCommonConf struct {
 	auth.ClientConfig `ini:",,,,extends",json:"inline"`
 	// ServerAddr specifies the address of the server to connect to. By
@@ -96,7 +98,7 @@ type ClientCommonConf struct {
 	// Start specifies a set of enabled proxies by name. If this set is empty,
 	// all supplied proxies are enabled. By default, this value is an empty
 	// set.
-	Start []string `ini:"start",json:"start""`
+	Start []string `ini:"start",json:"start"`
 	//Start map[string]struct{} `json:"start"`
 	// Protocol specifies the protocol to use when interacting with the server.
 	// Valid values are "tcp", "kcp" and "websocket". By default, this value
@@ -131,8 +133,6 @@ type ClientCommonConf struct {
 	// By default, this value is 1500
 	UDPPacketSize int64 `ini:"udp_packet_size",json:"udp_packet_size"`
 }
-
-// Server
 
 // ServerCommonConf contains information for a server service. It is
 // recommended to use GetDefaultServerConf instead of creating this object
@@ -387,7 +387,7 @@ type BaseProxyConf struct {
 	HealthCheckConf `ini:",,,,extends",json:"inline"`
 }
 
-type DomainSpec struct {
+type DomainConf struct {
 	CustomDomains []string `ini:"custom_domains",json:"custom_domains"`
 	SubDomain     string   `ini:"subdomain",json:"subdomain"`
 }
@@ -399,7 +399,7 @@ type HTTPProxyConf struct {
 }
 
 type HTTPProxySpec struct {
-	DomainSpec        `ini:",,,,extends",json:"inline"`
+	DomainConf        `ini:",,,,extends",json:"inline"`
 	Locations         []string          `ini:"locations",json:"locations"`
 	HTTPUser          string            `ini:"http_user",json:"http_user"`
 	HTTPPwd           string            `ini:"http_pwd",json:"http_pwd"`
@@ -414,7 +414,7 @@ type HTTPSProxyConf struct {
 }
 
 type HTTPSProxySpec struct {
-	DomainSpec `ini:",,,,extends",json:"inline"`
+	DomainConf `ini:",,,,extends",json:"inline"`
 }
 
 // TCP
@@ -434,7 +434,7 @@ type TCPMuxProxyConf struct {
 }
 
 type TCPMuxProxySpec struct {
-	DomainSpec  `ini:",,,,extends",json:"inline"`
+	DomainConf  `ini:",,,,extends",json:"inline"`
 	Multiplexer string `ini:"multiplexer"`
 }
 

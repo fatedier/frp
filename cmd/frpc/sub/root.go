@@ -131,7 +131,7 @@ func handleSignal(svr *client.Service) {
 
 func parseClientCommonCfg(fileType int, source interface{}) (cfg config.ClientCommonConf, err error) {
 	if fileType == CfgFileTypeIni {
-		cfg, err = config.LoadClientCommonConf(source)
+		cfg, err = config.UnmarshalClientConfFromIni(source)
 	} else if fileType == CfgFileTypeCmd {
 		cfg, err = parseClientCommonCfgFromCmd()
 	}
@@ -147,7 +147,7 @@ func parseClientCommonCfg(fileType int, source interface{}) (cfg config.ClientCo
 }
 
 func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
-	cfg = config.DefaultClientConf()
+	cfg = config.GetDefaultClientConf()
 
 	strs := strings.Split(serverAddr, ":")
 	if len(strs) < 2 {
@@ -183,24 +183,25 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 	return
 }
 
-func runClient(cfgFilePath string) error {
-	content, err := config.GetRenderedConfFromFile(cfgFilePath)
+func runClient(cfgFilePath string) (err error) {
+	var content string
+	content, err = config.GetRenderedConfFromFile(cfgFilePath)
 	if err != nil {
-		return err
+		return
 	}
 
 	cfg, err := parseClientCommonCfg(CfgFileTypeIni, content)
 	if err != nil {
-		return err
+		return
 	}
 
-	pxyCfgs, visitorCfgs, err := config.LoadClientBasicConf(cfg.User, content, cfg.Start)
+	pxyCfgs, visitorCfgs, err := config.LoadAllConfFromIni(cfg.User, content, cfg.Start)
 	if err != nil {
-		return err
+		return
 	}
 
 	err = startService(cfg, pxyCfgs, visitorCfgs, cfgFilePath)
-	return err
+	return
 }
 
 func startService(

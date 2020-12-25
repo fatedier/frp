@@ -98,7 +98,7 @@ type TCPOutConf struct {
 
 type TCPMuxOutConf struct {
 	BaseOutConf
-	config.DomainSpec
+	config.DomainConf
 	Multiplexer string `json:"multiplexer"`
 }
 
@@ -109,14 +109,14 @@ type UDPOutConf struct {
 
 type HTTPOutConf struct {
 	BaseOutConf
-	config.DomainSpec
+	config.DomainConf
 	Locations         []string `json:"locations"`
 	HostHeaderRewrite string   `json:"host_header_rewrite"`
 }
 
 type HTTPSOutConf struct {
 	BaseOutConf
-	config.DomainSpec
+	config.DomainConf
 }
 
 type STCPOutConf struct {

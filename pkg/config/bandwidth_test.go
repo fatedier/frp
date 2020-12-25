@@ -1,4 +1,4 @@
-// Copyright 2020 The frp Authors
+// Copyright 2019 fatedier, fatedier@gmail.com
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,37 +15,26 @@
 package config
 
 import (
-	"strings"
+	"encoding/json"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func GetMapWithoutPrefix(set map[string]string, prefix string) map[string]string {
-	m := make(map[string]string)
-
-	for key, value := range set {
-		if strings.HasPrefix(key, prefix) {
-			m[strings.TrimPrefix(key, prefix)] = value
-		}
-	}
-
-	if len(m) == 0 {
-		return nil
-	}
-
-	return m
+type Wrap struct {
+	B   BandwidthQuantity `json:"b"`
+	Int int               `json:"int"`
 }
 
-func GetMapByPrefix(set map[string]string, prefix string) map[string]string {
-	m := make(map[string]string)
+func TestBandwidthQuantity(t *testing.T) {
+	assert := assert.New(t)
 
-	for key, value := range set {
-		if strings.HasPrefix(key, prefix) {
-			m[key] = value
-		}
-	}
+	var w Wrap
+	err := json.Unmarshal([]byte(`{"b":"1KB","int":5}`), &w)
+	assert.NoError(err)
+	assert.EqualValues(1*KB, w.B.Bytes())
 
-	if len(m) == 0 {
-		return nil
-	}
-
-	return m
+	buf, err := json.Marshal(&w)
+	assert.NoError(err)
+	assert.Equal(`{"b":"1KB","int":5}`, string(buf))
 }

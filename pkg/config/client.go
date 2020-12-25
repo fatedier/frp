@@ -1,4 +1,4 @@
-// Copyright 2016 fatedier, fatedier@gmail.com
+// Copyright 2020 The frp Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import (
 )
 
 // GetDefaultClientConf returns a client configuration with default values.
-func DefaultClientConf() ClientCommonConf {
+func GetDefaultClientConf() ClientCommonConf {
 	return ClientCommonConf{
 		ClientConfig:      auth.GetDefaultClientConf(),
 		ServerAddr:        "0.0.0.0",
@@ -87,7 +87,7 @@ func (cfg *ClientCommonConf) Check() error {
 }
 
 // Supported sources including: string(file path), []byte, Reader interface.
-func LoadClientCommonConf(source interface{}) (ClientCommonConf, error) {
+func UnmarshalClientConfFromIni(source interface{}) (ClientCommonConf, error) {
 	f, err := ini.LoadSources(ini.LoadOptions{
 		Insensitive:         false,
 		InsensitiveSections: false,
@@ -105,7 +105,7 @@ func LoadClientCommonConf(source interface{}) (ClientCommonConf, error) {
 		return ClientCommonConf{}, err
 	}
 
-	common := DefaultClientConf()
+	common := GetDefaultClientConf()
 	err = s.MapTo(&common)
 	if err != nil {
 		return ClientCommonConf{}, err
@@ -118,7 +118,7 @@ func LoadClientCommonConf(source interface{}) (ClientCommonConf, error) {
 
 // if len(startProxy) is 0, start all
 // otherwise just start proxies in startProxy map
-func LoadClientBasicConf(
+func LoadAllConfFromIni(
 	prefix string,
 	source interface{},
 	start []string,

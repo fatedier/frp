@@ -104,7 +104,7 @@ func NewProxyConfFromIni(prefix, name string, section *ini.Section) (ProxyConf, 
 }
 
 // Proxy loaded from msg
-func NewProxyConfFromMsg(pMsg *msg.NewProxy, svrconf ServerCommonConf) (ProxyConf, error) {
+func NewProxyConfFromMsg(pMsg *msg.NewProxy, serverCfg ServerCommonConf) (ProxyConf, error) {
 	if pMsg.ProxyType == "" {
 		pMsg.ProxyType = consts.TCPProxy
 	}
@@ -116,7 +116,7 @@ func NewProxyConfFromMsg(pMsg *msg.NewProxy, svrconf ServerCommonConf) (ProxyCon
 
 	conf.UnmarshalFromMsg(pMsg)
 
-	err := conf.CheckForSvr(svrconf)
+	err := conf.CheckForSvr(serverCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -134,27 +134,27 @@ func defaultBaseProxyConf(proxyType string) BaseProxyConf {
 	}
 }
 
-func (c *BaseProxyConf) GetBaseInfo() *BaseProxyConf {
-	return c
+func (cfg *BaseProxyConf) GetBaseInfo() *BaseProxyConf {
+	return cfg
 }
 
-func (c *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
-	if c.ProxyName != cmp.ProxyName ||
-		c.ProxyType != cmp.ProxyType ||
-		c.UseEncryption != cmp.UseEncryption ||
-		c.UseCompression != cmp.UseCompression ||
-		c.Group != cmp.Group ||
-		c.GroupKey != cmp.GroupKey ||
-		c.ProxyProtocolVersion != cmp.ProxyProtocolVersion ||
-		!c.BandwidthLimit.Equal(&cmp.BandwidthLimit) ||
-		!reflect.DeepEqual(c.Metas, cmp.Metas) {
+func (cfg *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
+	if cfg.ProxyName != cmp.ProxyName ||
+		cfg.ProxyType != cmp.ProxyType ||
+		cfg.UseEncryption != cmp.UseEncryption ||
+		cfg.UseCompression != cmp.UseCompression ||
+		cfg.Group != cmp.Group ||
+		cfg.GroupKey != cmp.GroupKey ||
+		cfg.ProxyProtocolVersion != cmp.ProxyProtocolVersion ||
+		!cfg.BandwidthLimit.Equal(&cmp.BandwidthLimit) ||
+		!reflect.DeepEqual(cfg.Metas, cmp.Metas) {
 		return false
 	}
 
-	if !reflect.DeepEqual(c.LocalSvrConf, cmp.LocalSvrConf) {
+	if !reflect.DeepEqual(cfg.LocalSvrConf, cmp.LocalSvrConf) {
 		return false
 	}
-	if !reflect.DeepEqual(c.HealthCheckConf, cmp.HealthCheckConf) {
+	if !reflect.DeepEqual(cfg.HealthCheckConf, cmp.HealthCheckConf) {
 		return false
 	}
 
@@ -162,88 +162,128 @@ func (c *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
 }
 
 // BaseProxyConf apply custom logic changes.
-func (c *BaseProxyConf) decorate(prefix string, name string, section *ini.Section) error {
+func (cfg *BaseProxyConf) decorate(prefix string, name string, section *ini.Section) error {
 	// proxy_name
-	c.ProxyName = prefix + name
+	cfg.ProxyName = prefix + name
 
 	// metas_xxx
-	c.Metas = GetMapWithoutPrefix(section.KeysHash(), "meta_")
+	cfg.Metas = GetMapWithoutPrefix(section.KeysHash(), "meta_")
 
 	// bandwidth_limit
 	if bandwidth, err := section.GetKey("bandwidth_limit"); err == nil {
-		c.BandwidthLimit, err = NewBandwidthQuantity(bandwidth.String())
+		cfg.BandwidthLimit, err = NewBandwidthQuantity(bandwidth.String())
 		if err != nil {
 			return err
 		}
 	}
 
 	// plugin_xxx
-	c.LocalSvrConf.PluginParams = GetMapByPrefix(section.KeysHash(), "plugin_")
+	cfg.LocalSvrConf.PluginParams = GetMapByPrefix(section.KeysHash(), "plugin_")
 
 	// custom logic code
-	if c.HealthCheckType == "tcp" && c.Plugin == "" {
-		c.HealthCheckAddr = c.LocalIP + fmt.Sprintf(":%d", c.LocalPort)
+	if cfg.HealthCheckType == "tcp" && cfg.Plugin == "" {
+		cfg.HealthCheckAddr = cfg.LocalIP + fmt.Sprintf(":%d", cfg.LocalPort)
 	}
 
-	if c.HealthCheckType == "http" && c.Plugin == "" && c.HealthCheckURL != "" {
-		s := fmt.Sprintf("http://%s:%d", c.LocalIP, c.LocalPort)
-		if !strings.HasPrefix(c.HealthCheckURL, "/") {
+	if cfg.HealthCheckType == "http" && cfg.Plugin == "" && cfg.HealthCheckURL != "" {
+		s := fmt.Sprintf("http://%s:%d", cfg.LocalIP, cfg.LocalPort)
+		if !strings.HasPrefix(cfg.HealthCheckURL, "/") {
 			s += "/"
 		}
-		c.HealthCheckURL = s + c.HealthCheckURL
+		cfg.HealthCheckURL = s + cfg.HealthCheckURL
 	}
 
 	return nil
 }
 
-func (c *BaseProxyConf) unmarshalFromMsg(pMsg *msg.NewProxy) {
-	c.ProxyName = pMsg.ProxyName
-	c.ProxyType = pMsg.ProxyType
-	c.UseEncryption = pMsg.UseEncryption
-	c.UseCompression = pMsg.UseCompression
-	c.Group = pMsg.Group
-	c.GroupKey = pMsg.GroupKey
-	c.Metas = pMsg.Metas
+func (cfg *BaseProxyConf) marshalToMsg(pMsg *msg.NewProxy) {
+	pMsg.ProxyName = cfg.ProxyName
+	pMsg.ProxyType = cfg.ProxyType
+	pMsg.UseEncryption = cfg.UseEncryption
+	pMsg.UseCompression = cfg.UseCompression
+	pMsg.Group = cfg.Group
+	pMsg.GroupKey = cfg.GroupKey
+	pMsg.Metas = cfg.Metas
 }
 
-func (c *BaseProxyConf) marshalToMsg(pMsg *msg.NewProxy) {
-	pMsg.ProxyName = c.ProxyName
-	pMsg.ProxyType = c.ProxyType
-	pMsg.UseEncryption = c.UseEncryption
-	pMsg.UseCompression = c.UseCompression
-	pMsg.Group = c.Group
-	pMsg.GroupKey = c.GroupKey
-	pMsg.Metas = c.Metas
+func (cfg *BaseProxyConf) unmarshalFromMsg(pMsg *msg.NewProxy) {
+	cfg.ProxyName = pMsg.ProxyName
+	cfg.ProxyType = pMsg.ProxyType
+	cfg.UseEncryption = pMsg.UseEncryption
+	cfg.UseCompression = pMsg.UseCompression
+	cfg.Group = pMsg.Group
+	cfg.GroupKey = pMsg.GroupKey
+	cfg.Metas = pMsg.Metas
 }
 
-func (c *BaseProxyConf) checkForCli() error {
-	if c.ProxyProtocolVersion != "" {
-		if c.ProxyProtocolVersion != "v1" && c.ProxyProtocolVersion != "v2" {
-			return fmt.Errorf("no support proxy protocol version: %s", c.ProxyProtocolVersion)
+func (cfg *BaseProxyConf) checkForCli() (err error) {
+	if cfg.ProxyProtocolVersion != "" {
+		if cfg.ProxyProtocolVersion != "v1" && cfg.ProxyProtocolVersion != "v2" {
+			return fmt.Errorf("no support proxy protocol version: %s", cfg.ProxyProtocolVersion)
 		}
 	}
 
-	if err := c.LocalSvrConf.validate(); err != nil {
-		return err
+	if err = cfg.LocalSvrConf.checkForCli(); err != nil {
+		return
 	}
-	if err := c.HealthCheckConf.validate(); err != nil {
-		return err
+	if err = cfg.HealthCheckConf.checkForCli(); err != nil {
+		return
 	}
 	return nil
 }
 
-func (c *BaseProxyConf) checkForSvr(conf ServerCommonConf) error {
+func (cfg *BaseProxyConf) checkForSvr(conf ServerCommonConf) error {
+	return nil
+}
+
+// DomainConf
+func (cfg *DomainConf) check() (err error) {
+	if len(cfg.CustomDomains) == 0 && cfg.SubDomain == "" {
+		err = fmt.Errorf("custom_domains and subdomain should set at least one of them")
+		return
+	}
+	return
+}
+
+func (cfg *DomainConf) checkForCli() (err error) {
+	if err = cfg.check(); err != nil {
+		return
+	}
+	return
+}
+
+func (cfg *DomainConf) checkForSvr(serverCfg ServerCommonConf) (err error) {
+	if err = cfg.check(); err != nil {
+		return
+	}
+
+	for _, domain := range cfg.CustomDomains {
+		if serverCfg.SubDomainHost != "" && len(strings.Split(serverCfg.SubDomainHost, ".")) < len(strings.Split(domain, ".")) {
+			if strings.Contains(domain, serverCfg.SubDomainHost) {
+				return fmt.Errorf("custom domain [%s] should not belong to subdomain_host [%s]", domain, serverCfg.SubDomainHost)
+			}
+		}
+	}
+
+	if cfg.SubDomain != "" {
+		if serverCfg.SubDomainHost == "" {
+			return fmt.Errorf("subdomain is not supported because this feature is not enabled in remote frps")
+		}
+		if strings.Contains(cfg.SubDomain, ".") || strings.Contains(cfg.SubDomain, "*") {
+			return fmt.Errorf("'.' and '*' is not supported in subdomain")
+		}
+	}
 	return nil
 }
 
 // LocalSvrConf
-func (c *LocalSvrConf) validate() (err error) {
-	if c.Plugin == "" {
-		if c.LocalIP == "" {
+func (cfg *LocalSvrConf) checkForCli() (err error) {
+	if cfg.Plugin == "" {
+		if cfg.LocalIP == "" {
 			err = fmt.Errorf("local ip or plugin is required")
 			return
 		}
-		if c.LocalPort <= 0 {
+		if cfg.LocalPort <= 0 {
 			err = fmt.Errorf("error local_port")
 			return
 		}
@@ -252,252 +292,53 @@ func (c *LocalSvrConf) validate() (err error) {
 }
 
 // HealthCheckConf
-func (c *HealthCheckConf) validate() error {
-	if c.HealthCheckType != "" && c.HealthCheckType != "tcp" && c.HealthCheckType != "http" {
+func (cfg *HealthCheckConf) checkForCli() error {
+	if cfg.HealthCheckType != "" && cfg.HealthCheckType != "tcp" && cfg.HealthCheckType != "http" {
 		return fmt.Errorf("unsupport health check type")
 	}
-	if c.HealthCheckType != "" {
-		if c.HealthCheckType == "http" && c.HealthCheckURL == "" {
+	if cfg.HealthCheckType != "" {
+		if cfg.HealthCheckType == "http" && cfg.HealthCheckURL == "" {
 			return fmt.Errorf("health_check_url is required for health check type 'http'")
 		}
 	}
 	return nil
 }
 
-// DomainSpec
-func (c *DomainSpec) validate() error {
-	if len(c.CustomDomains) == 0 && c.SubDomain == "" {
-		return fmt.Errorf("custom_domains and subdomain should set at least one of them")
-	}
-	return nil
-}
-
-func (c *DomainSpec) validateForCli() error {
-	if err := c.validate(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *DomainSpec) validateForSvr(svrconf ServerCommonConf) error {
-	if err := c.validate(); err != nil {
-		return err
-	}
-
-	for _, domain := range c.CustomDomains {
-		if svrconf.SubDomainHost != "" && len(strings.Split(svrconf.SubDomainHost, ".")) < len(strings.Split(domain, ".")) {
-			if strings.Contains(domain, svrconf.SubDomainHost) {
-				return fmt.Errorf("custom domain [%s] should not belong to subdomain_host [%s]", domain, svrconf.SubDomainHost)
-			}
-		}
-	}
-
-	if c.SubDomain != "" {
-		if svrconf.SubDomainHost == "" {
-			return fmt.Errorf("subdomain is not supported because this feature is not enabled in remote frps")
-		}
-		if strings.Contains(c.SubDomain, ".") || strings.Contains(c.SubDomain, "*") {
-			return fmt.Errorf("'.' and '*' is not supported in subdomain")
-		}
-	}
-	return nil
-}
-
-// HTTP
-var _ ProxyConf = &HTTPProxyConf{}
-
-func (c *HTTPProxyConf) Compare(conf ProxyConf) bool {
-	cmp, ok := conf.(*HTTPProxyConf)
-	if !ok {
-		return false
-	}
-
-	if !c.BaseProxyConf.compare(&cmp.BaseProxyConf) {
-		return false
-	}
-
-	// Add custom logic equal if exists.
-	if !reflect.DeepEqual(c.HTTPProxySpec, cmp.HTTPProxySpec) {
-		return false
-	}
-
-	return true
-}
-
-func (c *HTTPProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
-	err := section.MapTo(c)
-	if err != nil {
-		return err
-	}
-
-	err = c.BaseProxyConf.decorate(prefix, name, section)
-	if err != nil {
-		return err
-	}
-
-	// Add custom logic unmarshal if exists
-	c.Headers = GetMapWithoutPrefix(section.KeysHash(), "header_")
-
-	return nil
-}
-
-func (c *HTTPProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.unmarshalFromMsg(pMsg)
-
-	// Add custom logic unmarshal if exists
-	c.CustomDomains = pMsg.CustomDomains
-	c.SubDomain = pMsg.SubDomain
-	c.Locations = pMsg.Locations
-	c.HostHeaderRewrite = pMsg.HostHeaderRewrite
-	c.HTTPUser = pMsg.HTTPUser
-	c.HTTPPwd = pMsg.HTTPPwd
-	c.Headers = pMsg.Headers
-}
-
-func (c *HTTPProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.marshalToMsg(pMsg)
-
-	// Add custom logic marshal if exists
-	pMsg.CustomDomains = c.CustomDomains
-	pMsg.SubDomain = c.SubDomain
-	pMsg.Locations = c.Locations
-	pMsg.HostHeaderRewrite = c.HostHeaderRewrite
-	pMsg.HTTPUser = c.HTTPUser
-	pMsg.HTTPPwd = c.HTTPPwd
-	pMsg.Headers = c.Headers
-}
-
-func (c *HTTPProxyConf) CheckForCli() error {
-	if err := c.BaseProxyConf.checkForCli(); err != nil {
-		return err
-	}
-
-	// Add custom logic check if exists
-	if err := c.DomainSpec.validateForCli(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *HTTPProxyConf) CheckForSvr(svrconf ServerCommonConf) error {
-	if svrconf.VhostHTTPPort == 0 {
-		return fmt.Errorf("type [http] not support when vhost_http_port is not set")
-	}
-
-	if err := c.DomainSpec.validateForSvr(svrconf); err != nil {
-		return fmt.Errorf("proxy [%s] domain conf check error: %v", c.ProxyName, err)
-	}
-
-	return nil
-}
-
-// HTTPS
-var _ ProxyConf = &HTTPSProxyConf{}
-
-func (c *HTTPSProxyConf) Compare(conf ProxyConf) bool {
-	cmp, ok := conf.(*HTTPSProxyConf)
-	if !ok {
-		return false
-	}
-
-	if !c.BaseProxyConf.compare(&cmp.BaseProxyConf) {
-		return false
-	}
-
-	// Add custom logic equal if exists.
-	if !reflect.DeepEqual(c.HTTPSProxySpec, cmp.HTTPSProxySpec) {
-		return false
-	}
-
-	return true
-}
-
-func (c *HTTPSProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
-	err := section.MapTo(c)
-	if err != nil {
-		return err
-	}
-
-	err = c.BaseProxyConf.decorate(prefix, name, section)
-	if err != nil {
-		return err
-	}
-
-	// Add custom logic unmarshal if exists
-
-	return nil
-}
-
-func (c *HTTPSProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.unmarshalFromMsg(pMsg)
-
-	// Add custom logic unmarshal if exists
-	c.CustomDomains = pMsg.CustomDomains
-	c.SubDomain = pMsg.SubDomain
-}
-
-func (c *HTTPSProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.marshalToMsg(pMsg)
-
-	// Add custom logic marshal if exists
-	pMsg.CustomDomains = c.CustomDomains
-	pMsg.SubDomain = c.SubDomain
-}
-
-func (c *HTTPSProxyConf) CheckForCli() error {
-	if err := c.BaseProxyConf.checkForCli(); err != nil {
-		return err
-	}
-
-	// Add custom logic check if exists
-	if err := c.DomainSpec.validateForCli(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *HTTPSProxyConf) CheckForSvr(svrconf ServerCommonConf) error {
-	if svrconf.VhostHTTPSPort == 0 {
-		return fmt.Errorf("type [https] not support when vhost_https_port is not set")
-	}
-
-	if err := c.DomainSpec.validateForSvr(svrconf); err != nil {
-		return fmt.Errorf("proxy [%s] domain conf check error: %v", c.ProxyName, err)
-	}
-
-	return nil
-}
-
 // TCP
 var _ ProxyConf = &TCPProxyConf{}
 
-func (c *TCPProxyConf) Compare(conf ProxyConf) bool {
-	cmp, ok := conf.(*TCPProxyConf)
+func (cfg *TCPProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*TCPProxyConf)
 	if !ok {
 		return false
 	}
 
-	if !c.BaseProxyConf.compare(&cmp.BaseProxyConf) {
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) {
 		return false
 	}
 
 	// Add custom logic equal if exists.
-	if !reflect.DeepEqual(c.TCPProxySpec, cmp.TCPProxySpec) {
+	if !reflect.DeepEqual(cfg.TCPProxySpec, cmpConf.TCPProxySpec) {
 		return false
 	}
 
 	return true
 }
 
-func (c *TCPProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
-	err := section.MapTo(c)
+func (cfg *TCPProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.unmarshalFromMsg(pMsg)
+
+	// Add custom logic unmarshal if exists
+	cfg.RemotePort = pMsg.RemotePort
+}
+
+func (cfg *TCPProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
+	err := section.MapTo(cfg)
 	if err != nil {
 		return err
 	}
 
-	err = c.BaseProxyConf.decorate(prefix, name, section)
+	err = cfg.BaseProxyConf.decorate(prefix, name, section)
 	if err != nil {
 		return err
 	}
@@ -507,62 +348,55 @@ func (c *TCPProxyConf) UnmarshalFromIni(prefix string, name string, section *ini
 	return nil
 }
 
-func (c *TCPProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.unmarshalFromMsg(pMsg)
-
-	// Add custom logic unmarshal if exists
-	c.RemotePort = pMsg.RemotePort
-}
-
-func (c *TCPProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.marshalToMsg(pMsg)
+func (cfg *TCPProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.marshalToMsg(pMsg)
 
 	// Add custom logic marshal if exists
-	pMsg.RemotePort = c.RemotePort
+	pMsg.RemotePort = cfg.RemotePort
 }
 
-func (c *TCPProxyConf) CheckForCli() error {
-	if err := c.BaseProxyConf.checkForCli(); err != nil {
-		return err
+func (cfg *TCPProxyConf) CheckForCli() (err error) {
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
+		return
 	}
 
 	// Add custom logic check if exists
 
-	return nil
+	return
 }
 
-func (c *TCPProxyConf) CheckForSvr(svrconf ServerCommonConf) error {
+func (cfg *TCPProxyConf) CheckForSvr(serverCfg ServerCommonConf) error {
 	return nil
 }
 
 // TCPMux
 var _ ProxyConf = &TCPMuxProxyConf{}
 
-func (c *TCPMuxProxyConf) Compare(conf ProxyConf) bool {
-	cmp, ok := conf.(*TCPMuxProxyConf)
+func (cfg *TCPMuxProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*TCPMuxProxyConf)
 	if !ok {
 		return false
 	}
 
-	if !c.BaseProxyConf.compare(&cmp.BaseProxyConf) {
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) {
 		return false
 	}
 
 	// Add custom logic equal if exists.
-	if !reflect.DeepEqual(c.TCPMuxProxySpec, cmp.TCPMuxProxySpec) {
+	if !reflect.DeepEqual(cfg.TCPMuxProxySpec, cmpConf.TCPMuxProxySpec) {
 		return false
 	}
 
 	return true
 }
 
-func (c *TCPMuxProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
-	err := section.MapTo(c)
+func (cfg *TCPMuxProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
+	err := section.MapTo(cfg)
 	if err != nil {
 		return err
 	}
 
-	err = c.BaseProxyConf.decorate(prefix, name, section)
+	err = cfg.BaseProxyConf.decorate(prefix, name, section)
 	if err != nil {
 		return err
 	}
@@ -572,333 +406,501 @@ func (c *TCPMuxProxyConf) UnmarshalFromIni(prefix string, name string, section *
 	return nil
 }
 
-func (c *TCPMuxProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.unmarshalFromMsg(pMsg)
+func (cfg *TCPMuxProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.unmarshalFromMsg(pMsg)
 
 	// Add custom logic unmarshal if exists
-	c.CustomDomains = pMsg.CustomDomains
-	c.SubDomain = pMsg.SubDomain
-	c.Multiplexer = pMsg.Multiplexer
+	cfg.CustomDomains = pMsg.CustomDomains
+	cfg.SubDomain = pMsg.SubDomain
+	cfg.Multiplexer = pMsg.Multiplexer
 }
 
-func (c *TCPMuxProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.marshalToMsg(pMsg)
+func (cfg *TCPMuxProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.marshalToMsg(pMsg)
 
 	// Add custom logic marshal if exists
-	pMsg.CustomDomains = c.CustomDomains
-	pMsg.SubDomain = c.SubDomain
-	pMsg.Multiplexer = c.Multiplexer
+	pMsg.CustomDomains = cfg.CustomDomains
+	pMsg.SubDomain = cfg.SubDomain
+	pMsg.Multiplexer = cfg.Multiplexer
 }
 
-func (c *TCPMuxProxyConf) CheckForCli() error {
-	if err := c.BaseProxyConf.checkForCli(); err != nil {
+func (cfg *TCPMuxProxyConf) CheckForCli() (err error) {
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
+		return
+	}
+
+	// Add custom logic check if exists
+	if err = cfg.DomainConf.checkForCli(); err != nil {
+		return
+	}
+
+	if cfg.Multiplexer != consts.HTTPConnectTCPMultiplexer {
+		return fmt.Errorf("parse conf error: incorrect multiplexer [%s]", cfg.Multiplexer)
+	}
+
+	return
+}
+
+func (cfg *TCPMuxProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
+	if cfg.Multiplexer != consts.HTTPConnectTCPMultiplexer {
+		return fmt.Errorf("proxy [%s] incorrect multiplexer [%s]", cfg.ProxyName, cfg.Multiplexer)
+	}
+
+	if cfg.Multiplexer == consts.HTTPConnectTCPMultiplexer && serverCfg.TCPMuxHTTPConnectPort == 0 {
+		return fmt.Errorf("proxy [%s] type [tcpmux] with multiplexer [httpconnect] requires tcpmux_httpconnect_port configuration", cfg.ProxyName)
+	}
+
+	if err = cfg.DomainConf.checkForSvr(serverCfg); err != nil {
+		err = fmt.Errorf("proxy [%s] domain conf check error: %v", cfg.ProxyName, err)
+		return
+	}
+
+	return
+}
+
+// UDP
+var _ ProxyConf = &UDPProxyConf{}
+
+func (cfg *UDPProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*UDPProxyConf)
+	if !ok {
+		return false
+	}
+
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) {
+		return false
+	}
+
+	// Add custom logic equal if exists.
+	if !reflect.DeepEqual(cfg.UDPProxySpec, cmpConf.UDPProxySpec) {
+		return false
+	}
+
+	return true
+}
+
+func (cfg *UDPProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
+	err := section.MapTo(cfg)
+	if err != nil {
+		return err
+	}
+
+	err = cfg.BaseProxyConf.decorate(prefix, name, section)
+	if err != nil {
+		return err
+	}
+
+	// Add custom logic unmarshal if exists
+
+	return nil
+}
+
+func (cfg *UDPProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.unmarshalFromMsg(pMsg)
+
+	// Add custom logic unmarshal if exists
+	cfg.RemotePort = pMsg.RemotePort
+}
+
+func (cfg *UDPProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.marshalToMsg(pMsg)
+
+	// Add custom logic marshal if exists
+	pMsg.RemotePort = cfg.RemotePort
+}
+
+func (cfg *UDPProxyConf) CheckForCli() (err error) {
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
+		return
+	}
+
+	// Add custom logic check if exists
+
+	return
+}
+
+func (cfg *UDPProxyConf) CheckForSvr(serverCfg ServerCommonConf) error {
+	return nil
+}
+
+// HTTP
+var _ ProxyConf = &HTTPProxyConf{}
+
+func (cfg *HTTPProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*HTTPProxyConf)
+	if !ok {
+		return false
+	}
+
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) {
+		return false
+	}
+
+	// Add custom logic equal if exists.
+	if !reflect.DeepEqual(cfg.HTTPProxySpec, cmpConf.HTTPProxySpec) {
+		return false
+	}
+
+	return true
+}
+
+func (cfg *HTTPProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
+	err := section.MapTo(cfg)
+	if err != nil {
+		return err
+	}
+
+	err = cfg.BaseProxyConf.decorate(prefix, name, section)
+	if err != nil {
+		return err
+	}
+
+	// Add custom logic unmarshal if exists
+	cfg.Headers = GetMapWithoutPrefix(section.KeysHash(), "header_")
+
+	return nil
+}
+
+func (cfg *HTTPProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.unmarshalFromMsg(pMsg)
+
+	// Add custom logic unmarshal if exists
+	cfg.CustomDomains = pMsg.CustomDomains
+	cfg.SubDomain = pMsg.SubDomain
+	cfg.Locations = pMsg.Locations
+	cfg.HostHeaderRewrite = pMsg.HostHeaderRewrite
+	cfg.HTTPUser = pMsg.HTTPUser
+	cfg.HTTPPwd = pMsg.HTTPPwd
+	cfg.Headers = pMsg.Headers
+}
+
+func (cfg *HTTPProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.marshalToMsg(pMsg)
+
+	// Add custom logic marshal if exists
+	pMsg.CustomDomains = cfg.CustomDomains
+	pMsg.SubDomain = cfg.SubDomain
+	pMsg.Locations = cfg.Locations
+	pMsg.HostHeaderRewrite = cfg.HostHeaderRewrite
+	pMsg.HTTPUser = cfg.HTTPUser
+	pMsg.HTTPPwd = cfg.HTTPPwd
+	pMsg.Headers = cfg.Headers
+}
+
+func (cfg *HTTPProxyConf) CheckForCli() (err error) {
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
+		return
+	}
+
+	// Add custom logic check if exists
+	if err = cfg.DomainConf.checkForCli(); err != nil {
+		return
+	}
+
+	return
+}
+
+func (cfg *HTTPProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
+	if serverCfg.VhostHTTPPort == 0 {
+		return fmt.Errorf("type [http] not support when vhost_http_port is not set")
+	}
+
+	if err = cfg.DomainConf.checkForSvr(serverCfg); err != nil {
+		err = fmt.Errorf("proxy [%s] domain conf check error: %v", cfg.ProxyName, err)
+		return
+	}
+
+	return
+}
+
+// HTTPS
+var _ ProxyConf = &HTTPSProxyConf{}
+
+func (cfg *HTTPSProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*HTTPSProxyConf)
+	if !ok {
+		return false
+	}
+
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) {
+		return false
+	}
+
+	// Add custom logic equal if exists.
+	if !reflect.DeepEqual(cfg.HTTPSProxySpec, cmpConf.HTTPSProxySpec) {
+		return false
+	}
+
+	return true
+}
+
+func (cfg *HTTPSProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
+	err := section.MapTo(cfg)
+	if err != nil {
+		return err
+	}
+
+	err = cfg.BaseProxyConf.decorate(prefix, name, section)
+	if err != nil {
+		return err
+	}
+
+	// Add custom logic unmarshal if exists
+
+	return nil
+}
+
+func (cfg *HTTPSProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.unmarshalFromMsg(pMsg)
+
+	// Add custom logic unmarshal if exists
+	cfg.CustomDomains = pMsg.CustomDomains
+	cfg.SubDomain = pMsg.SubDomain
+}
+
+func (cfg *HTTPSProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.marshalToMsg(pMsg)
+
+	// Add custom logic marshal if exists
+	pMsg.CustomDomains = cfg.CustomDomains
+	pMsg.SubDomain = cfg.SubDomain
+}
+
+func (cfg *HTTPSProxyConf) CheckForCli() (err error) {
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
+		return
+	}
+
+	// Add custom logic check if exists
+	if err = cfg.DomainConf.checkForCli(); err != nil {
+		return
+	}
+
+	return
+}
+
+func (cfg *HTTPSProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
+	if serverCfg.VhostHTTPSPort == 0 {
+		return fmt.Errorf("type [https] not support when vhost_https_port is not set")
+	}
+
+	if err = cfg.DomainConf.checkForSvr(serverCfg); err != nil {
+		err = fmt.Errorf("proxy [%s] domain conf check error: %v", cfg.ProxyName, err)
+		return
+	}
+
+	return
+}
+
+// SUDP
+var _ ProxyConf = &SUDPProxyConf{}
+
+func (cfg *SUDPProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*SUDPProxyConf)
+	if !ok {
+		return false
+	}
+
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) {
+		return false
+	}
+
+	// Add custom logic equal if exists.
+	if !reflect.DeepEqual(cfg.SUDPProxySpec, cmpConf.SUDPProxySpec) {
+		return false
+	}
+
+	return true
+}
+
+func (cfg *SUDPProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
+	err := section.MapTo(cfg)
+	if err != nil {
+		return err
+	}
+
+	err = cfg.BaseProxyConf.decorate(prefix, name, section)
+	if err != nil {
+		return err
+	}
+
+	// Add custom logic unmarshal if exists
+
+	return nil
+}
+
+// Only for role server.
+func (cfg *SUDPProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.unmarshalFromMsg(pMsg)
+
+	// Add custom logic unmarshal if exists
+	cfg.Sk = pMsg.Sk
+}
+
+func (cfg *SUDPProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.marshalToMsg(pMsg)
+
+	// Add custom logic marshal if exists
+	pMsg.Sk = cfg.Sk
+}
+
+func (cfg *SUDPProxyConf) CheckForCli() (err error) {
+	if err := cfg.BaseProxyConf.checkForCli(); err != nil {
 		return err
 	}
 
 	// Add custom logic check if exists
-	if err := c.DomainSpec.validateForCli(); err != nil {
-		return err
-	}
-
-	if c.Multiplexer != consts.HTTPConnectTCPMultiplexer {
-		return fmt.Errorf("parse conf error: incorrect multiplexer [%s]", c.Multiplexer)
+	if cfg.Role != "server" {
+		return fmt.Errorf("role should be 'server'")
 	}
 
 	return nil
 }
 
-func (c *TCPMuxProxyConf) CheckForSvr(svrconf ServerCommonConf) error {
-	if c.Multiplexer != consts.HTTPConnectTCPMultiplexer {
-		return fmt.Errorf("proxy [%s] incorrect multiplexer [%s]", c.ProxyName, c.Multiplexer)
-	}
-
-	if c.Multiplexer == consts.HTTPConnectTCPMultiplexer && svrconf.TCPMuxHTTPConnectPort == 0 {
-		return fmt.Errorf("proxy [%s] type [tcpmux] with multiplexer [httpconnect] requires tcpmux_httpconnect_port configuration", c.ProxyName)
-	}
-
-	if err := c.DomainSpec.validateForSvr(svrconf); err != nil {
-		return fmt.Errorf("proxy [%s] domain conf check error: %v", c.ProxyName, err)
-	}
-
+func (cfg *SUDPProxyConf) CheckForSvr(serverCfg ServerCommonConf) error {
 	return nil
 }
 
 // STCP
 var _ ProxyConf = &STCPProxyConf{}
 
-func (c *STCPProxyConf) Compare(conf ProxyConf) bool {
-	cmp, ok := conf.(*STCPProxyConf)
+func (cfg *STCPProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*STCPProxyConf)
 	if !ok {
 		return false
 	}
 
-	if !c.BaseProxyConf.compare(&cmp.BaseProxyConf) {
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) {
 		return false
 	}
 
 	// Add custom logic equal if exists.
-	if !reflect.DeepEqual(c.STCPProxySpec, cmp.STCPProxySpec) {
+	if !reflect.DeepEqual(cfg.STCPProxySpec, cmpConf.STCPProxySpec) {
 		return false
 	}
 
 	return true
 }
 
-func (c *STCPProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
-	err := section.MapTo(c)
+func (cfg *STCPProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
+	err := section.MapTo(cfg)
 	if err != nil {
 		return err
 	}
 
-	err = c.BaseProxyConf.decorate(prefix, name, section)
+	err = cfg.BaseProxyConf.decorate(prefix, name, section)
 	if err != nil {
 		return err
 	}
 
 	// Add custom logic unmarshal if exists
-	if c.Role == "" {
-		c.Role = "server"
+	if cfg.Role == "" {
+		cfg.Role = "server"
 	}
 
 	return nil
 }
 
 // Only for role server.
-func (c *STCPProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.unmarshalFromMsg(pMsg)
+func (cfg *STCPProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.unmarshalFromMsg(pMsg)
 
 	// Add custom logic unmarshal if exists
-	c.Sk = pMsg.Sk
+	cfg.Sk = pMsg.Sk
 }
 
-func (c *STCPProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.marshalToMsg(pMsg)
+func (cfg *STCPProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.marshalToMsg(pMsg)
 
 	// Add custom logic marshal if exists
-	pMsg.Sk = c.Sk
+	pMsg.Sk = cfg.Sk
 }
 
-func (c *STCPProxyConf) CheckForCli() error {
-	if err := c.BaseProxyConf.checkForCli(); err != nil {
-		return err
+func (cfg *STCPProxyConf) CheckForCli() (err error) {
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
+		return
 	}
 
 	// Add custom logic check if exists
-	if c.Role != "server" {
+	if cfg.Role != "server" {
 		return fmt.Errorf("role should be 'server'")
 	}
 
-	return nil
+	return
 }
 
-func (c *STCPProxyConf) CheckForSvr(svrconf ServerCommonConf) error {
+func (cfg *STCPProxyConf) CheckForSvr(serverCfg ServerCommonConf) error {
 	return nil
 }
 
 // XTCP
 var _ ProxyConf = &XTCPProxyConf{}
 
-func (c *XTCPProxyConf) Compare(conf ProxyConf) bool {
-	cmp, ok := conf.(*XTCPProxyConf)
+func (cfg *XTCPProxyConf) Compare(cmp ProxyConf) bool {
+	cmpConf, ok := cmp.(*XTCPProxyConf)
 	if !ok {
 		return false
 	}
 
-	if !c.BaseProxyConf.compare(&cmp.BaseProxyConf) {
+	if !cfg.BaseProxyConf.compare(&cmpConf.BaseProxyConf) {
 		return false
 	}
 
 	// Add custom logic equal if exists.
-	if !reflect.DeepEqual(c.XTCPProxySpec, cmp.XTCPProxySpec) {
+	if !reflect.DeepEqual(cfg.XTCPProxySpec, cmpConf.XTCPProxySpec) {
 		return false
 	}
 
 	return true
 }
 
-func (c *XTCPProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
-	err := section.MapTo(c)
+func (cfg *XTCPProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
+	err := section.MapTo(cfg)
 	if err != nil {
 		return err
 	}
 
-	err = c.BaseProxyConf.decorate(prefix, name, section)
+	err = cfg.BaseProxyConf.decorate(prefix, name, section)
 	if err != nil {
 		return err
 	}
 
 	// Add custom logic unmarshal if exists
-	if c.Role == "" {
-		c.Role = "server"
+	if cfg.Role == "" {
+		cfg.Role = "server"
 	}
 
 	return nil
 }
 
 // Only for role server.
-func (c *XTCPProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.unmarshalFromMsg(pMsg)
+func (cfg *XTCPProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.unmarshalFromMsg(pMsg)
 
 	// Add custom logic unmarshal if exists
-	c.Sk = pMsg.Sk
+	cfg.Sk = pMsg.Sk
 }
 
-func (c *XTCPProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.marshalToMsg(pMsg)
+func (cfg *XTCPProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
+	cfg.BaseProxyConf.marshalToMsg(pMsg)
 
 	// Add custom logic marshal if exists
-	pMsg.Sk = c.Sk
+	pMsg.Sk = cfg.Sk
 }
 
-func (c *XTCPProxyConf) CheckForCli() error {
-	if err := c.BaseProxyConf.checkForCli(); err != nil {
-		return err
+func (cfg *XTCPProxyConf) CheckForCli() (err error) {
+	if err = cfg.BaseProxyConf.checkForCli(); err != nil {
+		return
 	}
 
 	// Add custom logic check if exists
-	if c.Role != "server" {
+	if cfg.Role != "server" {
 		return fmt.Errorf("role should be 'server'")
 	}
 
-	return nil
+	return
 }
 
-func (c *XTCPProxyConf) CheckForSvr(svrconf ServerCommonConf) error {
-	return nil
-}
-
-// UDP
-
-var _ ProxyConf = &UDPProxyConf{}
-
-func (c *UDPProxyConf) Compare(conf ProxyConf) bool {
-	cmp, ok := conf.(*UDPProxyConf)
-	if !ok {
-		return false
-	}
-
-	if !c.BaseProxyConf.compare(&cmp.BaseProxyConf) {
-		return false
-	}
-
-	// Add custom logic equal if exists.
-	if !reflect.DeepEqual(c.UDPProxySpec, cmp.UDPProxySpec) {
-		return false
-	}
-
-	return true
-}
-
-func (c *UDPProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
-	err := section.MapTo(c)
-	if err != nil {
-		return err
-	}
-
-	err = c.BaseProxyConf.decorate(prefix, name, section)
-	if err != nil {
-		return err
-	}
-
-	// Add custom logic unmarshal if exists
-
-	return nil
-}
-
-func (c *UDPProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.unmarshalFromMsg(pMsg)
-
-	// Add custom logic unmarshal if exists
-	c.RemotePort = pMsg.RemotePort
-}
-
-func (c *UDPProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.marshalToMsg(pMsg)
-
-	// Add custom logic marshal if exists
-	pMsg.RemotePort = c.RemotePort
-}
-
-func (c *UDPProxyConf) CheckForCli() error {
-	if err := c.BaseProxyConf.checkForCli(); err != nil {
-		return err
-	}
-
-	// Add custom logic check if exists
-
-	return nil
-}
-
-func (c *UDPProxyConf) CheckForSvr(svrconf ServerCommonConf) error {
-	return nil
-}
-
-// SUDP
-
-var _ ProxyConf = &SUDPProxyConf{}
-
-func (c *SUDPProxyConf) Compare(conf ProxyConf) bool {
-	cmp, ok := conf.(*SUDPProxyConf)
-	if !ok {
-		return false
-	}
-
-	if !c.BaseProxyConf.compare(&cmp.BaseProxyConf) {
-		return false
-	}
-
-	// Add custom logic equal if exists.
-	if !reflect.DeepEqual(c.SUDPProxySpec, cmp.SUDPProxySpec) {
-		return false
-	}
-
-	return true
-}
-
-func (c *SUDPProxyConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
-	err := section.MapTo(c)
-	if err != nil {
-		return err
-	}
-
-	err = c.BaseProxyConf.decorate(prefix, name, section)
-	if err != nil {
-		return err
-	}
-
-	// Add custom logic unmarshal if exists
-
-	return nil
-}
-
-// Only for role server.
-func (c *SUDPProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.unmarshalFromMsg(pMsg)
-
-	// Add custom logic unmarshal if exists
-	c.Sk = pMsg.Sk
-}
-
-func (c *SUDPProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
-	c.BaseProxyConf.marshalToMsg(pMsg)
-
-	// Add custom logic marshal if exists
-	pMsg.Sk = c.Sk
-}
-
-func (c *SUDPProxyConf) CheckForCli() error {
-	if err := c.BaseProxyConf.checkForCli(); err != nil {
-		return err
-	}
-
-	// Add custom logic check if exists
-	if c.Role != "server" {
-		return fmt.Errorf("role should be 'server'")
-	}
-
-	return nil
-}
-
-func (c *SUDPProxyConf) CheckForSvr(svrconf ServerCommonConf) error {
+func (cfg *XTCPProxyConf) CheckForSvr(serverCfg ServerCommonConf) error {
 	return nil
 }
