@@ -144,7 +144,7 @@ func (v *Muxer) handle(c net.Conn) {
 
 	sConn, reqInfoMap, err := v.vhostFunc(c)
 	if err != nil {
-		log.Warn("get hostname from http/https request error: %v", err)
+		log.Debug("get hostname from http/https request error: %v", err)
 		c.Close()
 		return
 	}
