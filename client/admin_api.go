@@ -243,7 +243,7 @@ func (svr *Service) apiGetConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows := strings.Split(content, "\n")
+	rows := strings.Split(string(content), "\n")
 	newRows := make([]string, 0, len(rows))
 	for _, row := range rows {
 		row = strings.TrimSpace(row)

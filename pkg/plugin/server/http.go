@@ -28,11 +28,11 @@ import (
 )
 
 type HTTPPluginOptions struct {
-	Name      string
-	Addr      string
-	Path      string
-	Ops       []string
-	TLSVerify bool
+	Name      string   `ini:"name"`
+	Addr      string   `ini:"addr"`
+	Path      string   `ini:"path"`
+	Ops       []string `ini:"ops"`
+	TLSVerify bool     `ini:"tls_verify"`
 }
 
 type httpPlugin struct {
