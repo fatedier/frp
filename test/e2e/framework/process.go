@@ -28,7 +28,7 @@ func (f *Framework) RunProcesses(serverTemplates []string, clientTemplates []str
 	ExpectNoError(err)
 	ExpectTrue(len(templates) > 0)
 
-	f.UsedPorts = ports
+	f.usedPorts = ports
 
 	for i := range serverTemplates {
 		path := filepath.Join(f.TempDirectory, fmt.Sprintf("frp-e2e-server-%d", i))
@@ -40,8 +40,8 @@ func (f *Framework) RunProcesses(serverTemplates []string, clientTemplates []str
 		f.serverProcesses = append(f.serverProcesses, p)
 		err = p.Start()
 		ExpectNoError(err)
-		time.Sleep(500 * time.Millisecond)
 	}
+	time.Sleep(time.Second)
 
 	for i := range clientTemplates {
 		index := i + len(serverTemplates)
@@ -56,4 +56,5 @@ func (f *Framework) RunProcesses(serverTemplates []string, clientTemplates []str
 		ExpectNoError(err)
 		time.Sleep(500 * time.Millisecond)
 	}
+	time.Sleep(500 * time.Millisecond)
 }
