@@ -114,7 +114,7 @@ var rootCmd = &cobra.Command{
 			cfg, err = parseServerCommonCfg(CfgFileTypeIni, content)
 		} else {
 			log.Info("frps uses command line arguments for config")
-			cfg, err = parseServerCommonCfg(CfgFileTypeCmd, "")
+			cfg, err = parseServerCommonCfg(CfgFileTypeCmd, nil)
 		}
 		if err != nil {
 			return err
@@ -135,7 +135,7 @@ func Execute() {
 	}
 }
 
-func parseServerCommonCfg(fileType int, source interface{}) (cfg config.ServerCommonConf, err error) {
+func parseServerCommonCfg(fileType int, source []byte) (cfg config.ServerCommonConf, err error) {
 	if fileType == CfgFileTypeIni {
 		cfg, err = config.UnmarshalServerConfFromIni(source)
 	} else if fileType == CfgFileTypeCmd {

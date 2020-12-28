@@ -26,13 +26,13 @@ type BaseConfig struct {
 	// authenticate frpc with frps. If "token" is specified - token will be
 	// read into login message. If "oidc" is specified - OIDC (Open ID Connect)
 	// token will be issued using OIDC settings. By default, this value is "token".
-	AuthenticationMethod string `ini:"authentication_method",json:"authentication_method"`
+	AuthenticationMethod string `ini:"authentication_method" json:"authentication_method"`
 	// AuthenticateHeartBeats specifies whether to include authentication token in
 	// heartbeats sent to frps. By default, this value is false.
-	AuthenticateHeartBeats bool `ini:"authenticate_heartbeats",json:"authenticate_heartbeats"`
+	AuthenticateHeartBeats bool `ini:"authenticate_heartbeats" json:"authenticate_heartbeats"`
 	// AuthenticateNewWorkConns specifies whether to include authentication token in
 	// new work connections sent to frps. By default, this value is false.
-	AuthenticateNewWorkConns bool `ini:"authenticate_new_work_conns",json:"authenticate_new_work_conns"`
+	AuthenticateNewWorkConns bool `ini:"authenticate_new_work_conns" json:"authenticate_new_work_conns"`
 }
 
 func getDefaultBaseConf() BaseConfig {
@@ -44,9 +44,9 @@ func getDefaultBaseConf() BaseConfig {
 }
 
 type ClientConfig struct {
-	BaseConfig       `ini:",,,,extends"`
-	OidcClientConfig `ini:",,,,extends"`
-	TokenConfig      `ini:",,,,extends"`
+	BaseConfig       `ini:",extends"`
+	OidcClientConfig `ini:",extends"`
+	TokenConfig      `ini:",extends"`
 }
 
 func GetDefaultClientConf() ClientConfig {
@@ -58,9 +58,9 @@ func GetDefaultClientConf() ClientConfig {
 }
 
 type ServerConfig struct {
-	BaseConfig       `ini:",,,,extends"`
-	OidcServerConfig `ini:",,,,extends"`
-	TokenConfig      `ini:",,,,extends"`
+	BaseConfig       `ini:",extends"`
+	OidcServerConfig `ini:",extends"`
+	TokenConfig      `ini:",extends"`
 }
 
 func GetDefaultServerConf() ServerConfig {

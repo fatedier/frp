@@ -325,9 +325,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					HealthCheckAddr:      "127.0.0.9:29",
 				},
 			},
-			TCPProxySpec: TCPProxySpec{
-				RemotePort: 6009,
-			},
+			RemotePort: 6009,
 		},
 		testUser + ".ssh_random": &TCPProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -338,9 +336,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					LocalPort: 29,
 				},
 			},
-			TCPProxySpec: TCPProxySpec{
-				RemotePort: 9,
-			},
+			RemotePort: 9,
 		},
 		testUser + ".tcp_port_0": &TCPProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -351,9 +347,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					LocalPort: 6010,
 				},
 			},
-			TCPProxySpec: TCPProxySpec{
-				RemotePort: 6010,
-			},
+			RemotePort: 6010,
 		},
 		testUser + ".tcp_port_1": &TCPProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -364,9 +358,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					LocalPort: 6011,
 				},
 			},
-			TCPProxySpec: TCPProxySpec{
-				RemotePort: 6011,
-			},
+			RemotePort: 6011,
 		},
 		testUser + ".tcp_port_2": &TCPProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -377,9 +369,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					LocalPort: 6019,
 				},
 			},
-			TCPProxySpec: TCPProxySpec{
-				RemotePort: 6019,
-			},
+			RemotePort: 6019,
 		},
 		testUser + ".dns": &UDPProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -392,9 +382,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					LocalPort: 59,
 				},
 			},
-			UDPProxySpec: UDPProxySpec{
-				RemotePort: 6009,
-			},
+			RemotePort: 6009,
 		},
 		testUser + ".udp_port_0": &UDPProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -407,9 +395,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					LocalPort: 6000,
 				},
 			},
-			UDPProxySpec: UDPProxySpec{
-				RemotePort: 6000,
-			},
+			RemotePort: 6000,
 		},
 		testUser + ".udp_port_1": &UDPProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -422,9 +408,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					LocalPort: 6010,
 				},
 			},
-			UDPProxySpec: UDPProxySpec{
-				RemotePort: 6010,
-			},
+			RemotePort: 6010,
 		},
 		testUser + ".udp_port_2": &UDPProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -437,9 +421,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					LocalPort: 6011,
 				},
 			},
-			UDPProxySpec: UDPProxySpec{
-				RemotePort: 6011,
-			},
+			RemotePort: 6011,
 		},
 		testUser + ".web01": &HTTPProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -459,18 +441,16 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					HealthCheckURL:       "http://127.0.0.9:89/status",
 				},
 			},
-			HTTPProxySpec: HTTPProxySpec{
-				DomainConf: DomainConf{
-					CustomDomains: []string{"web02.yourdomain.com"},
-					SubDomain:     "web01",
-				},
-				Locations:         []string{"/", "/pic"},
-				HTTPUser:          "admin",
-				HTTPPwd:           "admin",
-				HostHeaderRewrite: "example.com",
-				Headers: map[string]string{
-					"X-From-Where": "frp",
-				},
+			DomainConf: DomainConf{
+				CustomDomains: []string{"web02.yourdomain.com"},
+				SubDomain:     "web01",
+			},
+			Locations:         []string{"/", "/pic"},
+			HTTPUser:          "admin",
+			HTTPPwd:           "admin",
+			HostHeaderRewrite: "example.com",
+			Headers: map[string]string{
+				"X-From-Where": "frp",
 			},
 		},
 		testUser + ".web02": &HTTPSProxyConf{
@@ -485,11 +465,9 @@ func Test_LoadClientBasicConf(t *testing.T) {
 				},
 				ProxyProtocolVersion: "v2",
 			},
-			HTTPSProxySpec: HTTPSProxySpec{
-				DomainConf: DomainConf{
-					CustomDomains: []string{"web02.yourdomain.com"},
-					SubDomain:     "web01",
-				},
+			DomainConf: DomainConf{
+				CustomDomains: []string{"web02.yourdomain.com"},
+				SubDomain:     "web01",
 			},
 		},
 		testUser + ".secret_tcp": &STCPProxyConf{
@@ -501,10 +479,8 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					LocalPort: 22,
 				},
 			},
-			STCPProxySpec: STCPProxySpec{
-				Role: "server",
-				Sk:   "abcdefg",
-			},
+			Role: "server",
+			Sk:   "abcdefg",
 		},
 		testUser + ".p2p_tcp": &XTCPProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -515,10 +491,8 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					LocalPort: 22,
 				},
 			},
-			XTCPProxySpec: XTCPProxySpec{
-				Role: "server",
-				Sk:   "abcdefg",
-			},
+			Role: "server",
+			Sk:   "abcdefg",
 		},
 		testUser + ".tcpmuxhttpconnect": &TCPMuxProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -529,13 +503,11 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					LocalPort: 10701,
 				},
 			},
-			TCPMuxProxySpec: TCPMuxProxySpec{
-				DomainConf: DomainConf{
-					CustomDomains: []string{"tunnel1"},
-					SubDomain:     "",
-				},
-				Multiplexer: "httpconnect",
+			DomainConf: DomainConf{
+				CustomDomains: []string{"tunnel1"},
+				SubDomain:     "",
 			},
+			Multiplexer: "httpconnect",
 		},
 		testUser + ".plugin_unix_domain_socket": &TCPProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -549,9 +521,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					},
 				},
 			},
-			TCPProxySpec: TCPProxySpec{
-				RemotePort: 6003,
-			},
+			RemotePort: 6003,
 		},
 		testUser + ".plugin_http_proxy": &TCPProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -566,9 +536,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					},
 				},
 			},
-			TCPProxySpec: TCPProxySpec{
-				RemotePort: 6004,
-			},
+			RemotePort: 6004,
 		},
 		testUser + ".plugin_socks5": &TCPProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -583,9 +551,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					},
 				},
 			},
-			TCPProxySpec: TCPProxySpec{
-				RemotePort: 6005,
-			},
+			RemotePort: 6005,
 		},
 		testUser + ".plugin_static_file": &TCPProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -602,9 +568,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					},
 				},
 			},
-			TCPProxySpec: TCPProxySpec{
-				RemotePort: 6006,
-			},
+			RemotePort: 6006,
 		},
 		testUser + ".plugin_https2http": &HTTPSProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -622,10 +586,8 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					},
 				},
 			},
-			HTTPSProxySpec: HTTPSProxySpec{
-				DomainConf: DomainConf{
-					CustomDomains: []string{"test.yourdomain.com"},
-				},
+			DomainConf: DomainConf{
+				CustomDomains: []string{"test.yourdomain.com"},
 			},
 		},
 		testUser + ".plugin_http2https": &HTTPProxyConf{
@@ -642,10 +604,8 @@ func Test_LoadClientBasicConf(t *testing.T) {
 					},
 				},
 			},
-			HTTPProxySpec: HTTPProxySpec{
-				DomainConf: DomainConf{
-					CustomDomains: []string{"test.yourdomain.com"},
-				},
+			DomainConf: DomainConf{
+				CustomDomains: []string{"test.yourdomain.com"},
 			},
 		},
 	}
@@ -675,7 +635,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 		},
 	}
 
-	proxyActual, visitorActual, err := LoadAllConfFromIni(testUser, testClientBytesWithFull, nil)
+	proxyActual, visitorActual, err := LoadAllProxyConfsFromIni(testUser, testClientBytesWithFull, nil)
 	assert.NoError(err)
 	assert.Equal(proxyExpected, proxyActual)
 	assert.Equal(visitorExpected, visitorActual)

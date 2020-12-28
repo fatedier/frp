@@ -28,18 +28,18 @@ type OidcClientConfig struct {
 	// OidcClientID specifies the client ID to use to get a token in OIDC
 	// authentication if AuthenticationMethod == "oidc". By default, this value
 	// is "".
-	OidcClientID string `ini:"oidc_client_id",json:"oidc_client_id"`
+	OidcClientID string `ini:"oidc_client_id" json:"oidc_client_id"`
 	// OidcClientSecret specifies the client secret to use to get a token in OIDC
 	// authentication if AuthenticationMethod == "oidc". By default, this value
 	// is "".
-	OidcClientSecret string `ini:"oidc_client_secret",json:"oidc_client_secret"`
+	OidcClientSecret string `ini:"oidc_client_secret" json:"oidc_client_secret"`
 	// OidcAudience specifies the audience of the token in OIDC authentication
 	//if AuthenticationMethod == "oidc". By default, this value is "".
-	OidcAudience string `ini:"oidc_audience",json:"oidc_audience"`
+	OidcAudience string `ini:"oidc_audience" json:"oidc_audience"`
 	// OidcTokenEndpointURL specifies the URL which implements OIDC Token Endpoint.
 	// It will be used to get an OIDC token if AuthenticationMethod == "oidc".
 	// By default, this value is "".
-	OidcTokenEndpointURL string `ini:"oidc_token_endpoint_url",json:"oidc_token_endpoint_url"`
+	OidcTokenEndpointURL string `ini:"oidc_token_endpoint_url" json:"oidc_token_endpoint_url"`
 }
 
 func getDefaultOidcClientConf() OidcClientConfig {
@@ -56,20 +56,20 @@ type OidcServerConfig struct {
 	// will be used to load public keys to verify signature and will be compared
 	// with the issuer claim in the OIDC token. It will be used if
 	// AuthenticationMethod == "oidc". By default, this value is "".
-	OidcIssuer string `ini:"oidc_issuer",json:"oidc_issuer"`
+	OidcIssuer string `ini:"oidc_issuer" json:"oidc_issuer"`
 	// OidcAudience specifies the audience OIDC tokens should contain when validated.
 	// If this value is empty, audience ("client ID") verification will be skipped.
 	// It will be used when AuthenticationMethod == "oidc". By default, this
 	// value is "".
-	OidcAudience string `ini:"oidc_audience",json:"oidc_audience"`
+	OidcAudience string `ini:"oidc_audience" json:"oidc_audience"`
 	// OidcSkipExpiryCheck specifies whether to skip checking if the OIDC token is
 	// expired. It will be used when AuthenticationMethod == "oidc". By default, this
 	// value is false.
-	OidcSkipExpiryCheck bool `ini:"oidc_skip_expiry_check",json:"oidc_skip_expiry_check"`
+	OidcSkipExpiryCheck bool `ini:"oidc_skip_expiry_check" json:"oidc_skip_expiry_check"`
 	// OidcSkipIssuerCheck specifies whether to skip checking if the OIDC token's
 	// issuer claim matches the issuer specified in OidcIssuer. It will be used when
 	// AuthenticationMethod == "oidc". By default, this value is false.
-	OidcSkipIssuerCheck bool `ini:"oidc_skip_issuer_check",json:"oidc_skip_issuer_check"`
+	OidcSkipIssuerCheck bool `ini:"oidc_skip_issuer_check" json:"oidc_skip_issuer_check"`
 }
 
 func getDefaultOidcServerConf() OidcServerConfig {

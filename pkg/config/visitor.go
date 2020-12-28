@@ -18,13 +18,57 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/fatedier/frp/pkg/consts"
+
 	"gopkg.in/ini.v1"
 )
+
+
+// Visitor
+var (
+	visitorConfTypeMap = map[string]reflect.Type{
+		consts.STCPProxy: reflect.TypeOf(STCPVisitorConf{}),
+		consts.XTCPProxy: reflect.TypeOf(XTCPVisitorConf{}),
+		consts.SUDPProxy: reflect.TypeOf(SUDPVisitorConf{}),
+	}
+)
+
+type VisitorConf interface {
+	GetBaseInfo() *BaseVisitorConf
+	Compare(cmp VisitorConf) bool
+	UnmarshalFromIni(prefix string, name string, section *ini.Section) error
+	Check() error
+}
+
+type BaseVisitorConf struct {
+	ProxyName      string `ini:"name" json:"name"`
+	ProxyType      string `ini:"type" json:"type"`
+	UseEncryption  bool   `ini:"use_encryption" json:"use_encryption"`
+	UseCompression bool   `ini:"use_compression" json:"use_compression"`
+	Role           string `ini:"role" json:"role"`
+	Sk             string `ini:"sk" json:"sk"`
+	ServerName     string `ini:"server_name" json:"server_name"`
+	BindAddr       string `ini:"bind_addr" json:"bind_addr"`
+	BindPort       int    `ini:"bind_port" json:"bind_port"`
+}
+
+type SUDPVisitorConf struct {
+	BaseVisitorConf `ini:",extends" json:"inline"`
+}
+
+type STCPVisitorConf struct {
+	BaseVisitorConf `ini:",extends" json:"inline"`
+}
+
+type XTCPVisitorConf struct {
+	BaseVisitorConf `ini:",extends" json:"inline"`
+}
+
 
 // DefaultVisitorConf creates a empty VisitorConf object by visitorType.
 // If visitorType doesn't exist, return nil.
 func DefaultVisitorConf(visitorType string) VisitorConf {
-	v, ok := VisitorConfTypeMap[visitorType]
+	v, ok := visitorConfTypeMap[visitorType]
 	if !ok {
 		return nil
 	}
@@ -93,8 +137,9 @@ func (cfg *BaseVisitorConf) check() (err error) {
 	return
 }
 
-func (cfg *BaseVisitorConf) decorate(prefix string, name string, section *ini.Section) error {
+func (cfg *BaseVisitorConf) unmarshalFromIni(prefix string, name string, section *ini.Section) error {
 
+	// Custom decoration after basic unmarshal:
 	// proxy name
 	cfg.ProxyName = prefix + name
 
@@ -104,6 +149,20 @@ func (cfg *BaseVisitorConf) decorate(prefix string, name string, section *ini.Se
 	// bind_addr
 	if cfg.BindAddr == "" {
 		cfg.BindAddr = "127.0.0.1"
+	}
+
+	return nil
+}
+
+func preVisitorUnmarshalFromIni(cfg VisitorConf, prefix string, name string, section *ini.Section) error {
+	err := section.MapTo(cfg)
+	if err != nil {
+		return err
+	}
+
+	err = cfg.GetBaseInfo().unmarshalFromIni(prefix, name, section)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -127,20 +186,15 @@ func (cfg *SUDPVisitorConf) Compare(cmp VisitorConf) bool {
 	return true
 }
 
-func (cfg *SUDPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
-	err := section.MapTo(cfg)
+func (cfg *SUDPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) (err error) {
+	err = preVisitorUnmarshalFromIni(cfg, prefix, name, section)
 	if err != nil {
-		return err
-	}
-
-	err = cfg.BaseVisitorConf.decorate(prefix, name, section)
-	if err != nil {
-		return err
+		return
 	}
 
 	// Add custom logic unmarshal, if exists
 
-	return nil
+	return
 }
 
 func (cfg *SUDPVisitorConf) Check() (err error) {
@@ -171,20 +225,15 @@ func (cfg *STCPVisitorConf) Compare(cmp VisitorConf) bool {
 	return true
 }
 
-func (cfg *STCPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
-	err := section.MapTo(cfg)
+func (cfg *STCPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) (err error) {
+	err = preVisitorUnmarshalFromIni(cfg, prefix, name, section)
 	if err != nil {
-		return err
-	}
-
-	err = cfg.BaseVisitorConf.decorate(prefix, name, section)
-	if err != nil {
-		return err
+		return
 	}
 
 	// Add custom logic unmarshal, if exists
 
-	return nil
+	return
 }
 
 func (cfg *STCPVisitorConf) Check() (err error) {
@@ -215,20 +264,15 @@ func (cfg *XTCPVisitorConf) Compare(cmp VisitorConf) bool {
 	return true
 }
 
-func (cfg *XTCPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) error {
-	err := section.MapTo(cfg)
+func (cfg *XTCPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) (err error) {
+	err = preVisitorUnmarshalFromIni(cfg, prefix, name, section)
 	if err != nil {
-		return err
-	}
-
-	err = cfg.BaseVisitorConf.decorate(prefix, name, section)
-	if err != nil {
-		return err
+		return
 	}
 
 	// Add custom logic unmarshal, if exists
 
-	return nil
+	return
 }
 
 func (cfg *XTCPVisitorConf) Check() (err error) {

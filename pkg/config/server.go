@@ -25,6 +25,146 @@ import (
 	"gopkg.in/ini.v1"
 )
 
+// ServerCommonConf contains information for a server service. It is
+// recommended to use GetDefaultServerConf instead of creating this object
+// directly, so that all unspecified fields have reasonable default values.
+type ServerCommonConf struct {
+	auth.ServerConfig `ini:",extends" json:"inline"`
+
+	// BindAddr specifies the address that the server binds to. By default,
+	// this value is "0.0.0.0".
+	BindAddr string `ini:"bind_addr" json:"bind_addr"`
+	// BindPort specifies the port that the server listens on. By default, this
+	// value is 7000.
+	BindPort int `ini:"bind_port" json:"bind_port"`
+	// BindUDPPort specifies the UDP port that the server listens on. If this
+	// value is 0, the server will not listen for UDP connections. By default,
+	// this value is 0
+	BindUDPPort int `ini:"bind_udp_port" json:"bind_udp_port"`
+	// KCPBindPort specifies the KCP port that the server listens on. If this
+	// value is 0, the server will not listen for KCP connections. By default,
+	// this value is 0.
+	KCPBindPort int `ini:"kcp_bind_port" json:"kcp_bind_port"`
+	// ProxyBindAddr specifies the address that the proxy binds to. This value
+	// may be the same as BindAddr. By default, this value is "0.0.0.0".
+	ProxyBindAddr string `ini:"proxy_bind_addr" json:"proxy_bind_addr"`
+	// VhostHTTPPort specifies the port that the server listens for HTTP Vhost
+	// requests. If this value is 0, the server will not listen for HTTP
+	// requests. By default, this value is 0.
+	VhostHTTPPort int `ini:"vhost_http_port" json:"vhost_http_port"`
+	// VhostHTTPSPort specifies the port that the server listens for HTTPS
+	// Vhost requests. If this value is 0, the server will not listen for HTTPS
+	// requests. By default, this value is 0.
+	VhostHTTPSPort int `ini:"vhost_https_port" json:"vhost_https_port"`
+	// TCPMuxHTTPConnectPort specifies the port that the server listens for TCP
+	// HTTP CONNECT requests. If the value is 0, the server will not multiplex TCP
+	// requests on one single port. If it's not - it will listen on this value for
+	// HTTP CONNECT requests. By default, this value is 0.
+	TCPMuxHTTPConnectPort int `ini:"tcpmux_httpconnect_port" json:"tcpmux_httpconnect_port"`
+	// VhostHTTPTimeout specifies the response header timeout for the Vhost
+	// HTTP server, in seconds. By default, this value is 60.
+	VhostHTTPTimeout int64 `ini:"vhost_http_timeout" json:"vhost_http_timeout"`
+	// DashboardAddr specifies the address that the dashboard binds to. By
+	// default, this value is "0.0.0.0".
+	DashboardAddr string `ini:"dashboard_addr" json:"dashboard_addr"`
+	// DashboardPort specifies the port that the dashboard listens on. If this
+	// value is 0, the dashboard will not be started. By default, this value is
+	// 0.
+	DashboardPort int `ini:"dashboard_port" json:"dashboard_port"`
+	// DashboardUser specifies the username that the dashboard will use for
+	// login. By default, this value is "admin".
+	DashboardUser string `ini:"dashboard_user" json:"dashboard_user"`
+	// DashboardUser specifies the password that the dashboard will use for
+	// login. By default, this value is "admin".
+	DashboardPwd string `ini:"dashboard_pwd" json:"dashboard_pwd"`
+	// EnablePrometheus will export prometheus metrics on {dashboard_addr}:{dashboard_port}
+	// in /metrics api.
+	EnablePrometheus bool `ini:"enable_prometheus" json:"enable_prometheus"`
+	// AssetsDir specifies the local directory that the dashboard will load
+	// resources from. If this value is "", assets will be loaded from the
+	// bundled executable using statik. By default, this value is "".
+	AssetsDir string `ini:"assets_dir" json:"assets_dir"`
+	// LogFile specifies a file where logs will be written to. This value will
+	// only be used if LogWay is set appropriately. By default, this value is
+	// "console".
+	LogFile string `ini:"log_file" json:"log_file"`
+	// LogWay specifies the way logging is managed. Valid values are "console"
+	// or "file". If "console" is used, logs will be printed to stdout. If
+	// "file" is used, logs will be printed to LogFile. By default, this value
+	// is "console".
+	LogWay string `ini:"log_way" json:"log_way"`
+	// LogLevel specifies the minimum log level. Valid values are "trace",
+	// "debug", "info", "warn", and "error". By default, this value is "info".
+	LogLevel string `ini:"log_level" json:"log_level"`
+	// LogMaxDays specifies the maximum number of days to store log information
+	// before deletion. This is only used if LogWay == "file". By default, this
+	// value is 0.
+	LogMaxDays int64 `ini:"log_max_days" json:"log_max_days"`
+	// DisableLogColor disables log colors when LogWay == "console" when set to
+	// true. By default, this value is false.
+	DisableLogColor bool `ini:"disable_log_color" json:"disable_log_color"`
+	// DetailedErrorsToClient defines whether to send the specific error (with
+	// debug info) to frpc. By default, this value is true.
+	DetailedErrorsToClient bool `ini:"detailed_errors_to_client" json:"detailed_errors_to_client"`
+
+	// SubDomainHost specifies the domain that will be attached to sub-domains
+	// requested by the client when using Vhost proxying. For example, if this
+	// value is set to "frps.com" and the client requested the subdomain
+	// "test", the resulting URL would be "test.frps.com". By default, this
+	// value is "".
+	SubDomainHost string `ini:"subdomain_host" json:"subdomain_host"`
+	// TCPMux toggles TCP stream multiplexing. This allows multiple requests
+	// from a client to share a single TCP connection. By default, this value
+	// is true.
+	TCPMux bool `ini:"tcp_mux" json:"tcp_mux"`
+	// Custom404Page specifies a path to a custom 404 page to display. If this
+	// value is "", a default page will be displayed. By default, this value is
+	// "".
+	Custom404Page string `ini:"custom_404_page" json:"custom_404_page"`
+
+	// AllowPorts specifies a set of ports that clients are able to proxy to.
+	// If the length of this value is 0, all ports are allowed. By default,
+	// this value is an empty set.
+	AllowPorts map[int]struct{} `ini:"-" json:"-"`
+	// MaxPoolCount specifies the maximum pool size for each proxy. By default,
+	// this value is 5.
+	MaxPoolCount int64 `ini:"max_pool_count" json:"max_pool_count"`
+	// MaxPortsPerClient specifies the maximum number of ports a single client
+	// may proxy to. If this value is 0, no limit will be applied. By default,
+	// this value is 0.
+	MaxPortsPerClient int64 `ini:"max_ports_per_client" json:"max_ports_per_client"`
+	// TLSOnly specifies whether to only accept TLS-encrypted connections.
+	// By default, the value is false.
+	TLSOnly bool `ini:"tls_only" json:"tls_only"`
+	// TLSCertFile specifies the path of the cert file that the server will
+	// load. If "tls_cert_file", "tls_key_file" are valid, the server will use this
+	// supplied tls configuration. Otherwise, the server will use the tls
+	// configuration generated by itself.
+	TLSCertFile string `ini:"tls_cert_file" json:"tls_cert_file"`
+	// TLSKeyFile specifies the path of the secret key that the server will
+	// load. If "tls_cert_file", "tls_key_file" are valid, the server will use this
+	// supplied tls configuration. Otherwise, the server will use the tls
+	// configuration generated by itself.
+	TLSKeyFile string `ini:"tls_key_file" json:"tls_key_file"`
+	// TLSTrustedCaFile specifies the paths of the client cert files that the
+	// server will load. It only works when "tls_only" is true. If
+	// "tls_trusted_ca_file" is valid, the server will verify each client's
+	// certificate.
+	TLSTrustedCaFile string `ini:"tls_trusted_ca_file" json:"tls_trusted_ca_file"`
+	// HeartBeatTimeout specifies the maximum time to wait for a heartbeat
+	// before terminating the connection. It is not recommended to change this
+	// value. By default, this value is 90.
+	HeartbeatTimeout int64 `ini:"heartbeat_timeout" json:"heartbeat_timeout"`
+	// UserConnTimeout specifies the maximum time to wait for a work
+	// connection. By default, this value is 10.
+	UserConnTimeout int64 `ini:"user_conn_timeout" json:"user_conn_timeout"`
+	// HTTPPlugins specify the server plugins support HTTP protocol.
+	HTTPPlugins map[string]plugin.HTTPPluginOptions `ini:"-" json:"http_plugins"`
+	// UDPPacketSize specifies the UDP packet size
+	// By default, this value is 1500
+	UDPPacketSize int64 `ini:"udp_packet_size" json:"udp_packet_size"`
+}
+
 // GetDefaultServerConf returns a server configuration with reasonable
 // defaults.
 func GetDefaultServerConf() ServerCommonConf {

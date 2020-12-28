@@ -35,6 +35,12 @@ var (
 	testProxyPrefix = "test."
 )
 
+func Test_Proxy_Interface(t *testing.T) {
+	for name := range proxyConfTypeMap {
+		NewConfByType(name)
+	}
+}
+
 func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 	assert := assert.New(t)
 
@@ -89,9 +95,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 						HealthCheckAddr:      "127.0.0.9:29",
 					},
 				},
-				TCPProxySpec: TCPProxySpec{
-					RemotePort: 6009,
-				},
+				RemotePort: 6009,
 			},
 		},
 		{
@@ -112,9 +116,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 						LocalPort: 29,
 					},
 				},
-				TCPProxySpec: TCPProxySpec{
-					RemotePort: 9,
-				},
+				RemotePort: 9,
 			},
 		},
 		{
@@ -139,9 +141,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 						LocalPort: 59,
 					},
 				},
-				UDPProxySpec: UDPProxySpec{
-					RemotePort: 6009,
-				},
+				RemotePort: 6009,
 			},
 		},
 		{
@@ -184,18 +184,16 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 						HealthCheckURL:       "http://127.0.0.9:89/status",
 					},
 				},
-				HTTPProxySpec: HTTPProxySpec{
-					DomainConf: DomainConf{
-						CustomDomains: []string{"web02.yourdomain.com"},
-						SubDomain:     "web01",
-					},
-					Locations:         []string{"/", "/pic"},
-					HTTPUser:          "admin",
-					HTTPPwd:           "admin",
-					HostHeaderRewrite: "example.com",
-					Headers: map[string]string{
-						"X-From-Where": "frp",
-					},
+				DomainConf: DomainConf{
+					CustomDomains: []string{"web02.yourdomain.com"},
+					SubDomain:     "web01",
+				},
+				Locations:         []string{"/", "/pic"},
+				HTTPUser:          "admin",
+				HTTPPwd:           "admin",
+				HostHeaderRewrite: "example.com",
+				Headers: map[string]string{
+					"X-From-Where": "frp",
 				},
 			},
 		},
@@ -224,11 +222,9 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 					},
 					ProxyProtocolVersion: "v2",
 				},
-				HTTPSProxySpec: HTTPSProxySpec{
-					DomainConf: DomainConf{
-						CustomDomains: []string{"web02.yourdomain.com"},
-						SubDomain:     "web01",
-					},
+				DomainConf: DomainConf{
+					CustomDomains: []string{"web02.yourdomain.com"},
+					SubDomain:     "web01",
 				},
 			},
 		},
@@ -252,10 +248,8 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 						LocalPort: 22,
 					},
 				},
-				STCPProxySpec: STCPProxySpec{
-					Role: "server",
-					Sk:   "abcdefg",
-				},
+				Role: "server",
+				Sk:   "abcdefg",
 			},
 		},
 		{
@@ -278,10 +272,8 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 						LocalPort: 22,
 					},
 				},
-				XTCPProxySpec: XTCPProxySpec{
-					Role: "server",
-					Sk:   "abcdefg",
-				},
+				Role: "server",
+				Sk:   "abcdefg",
 			},
 		},
 		{
@@ -303,13 +295,11 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 						LocalPort: 10701,
 					},
 				},
-				TCPMuxProxySpec: TCPMuxProxySpec{
-					DomainConf: DomainConf{
-						CustomDomains: []string{"tunnel1"},
-						SubDomain:     "",
-					},
-					Multiplexer: "httpconnect",
+				DomainConf: DomainConf{
+					CustomDomains: []string{"tunnel1"},
+					SubDomain:     "",
 				},
+				Multiplexer: "httpconnect",
 			},
 		},
 	}
@@ -359,9 +349,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 							LocalPort: 6010,
 						},
 					},
-					TCPProxySpec: TCPProxySpec{
-						RemotePort: 6010,
-					},
+					RemotePort: 6010,
 				},
 				"tcp_port_1": &TCPProxyConf{
 					BaseProxyConf: BaseProxyConf{
@@ -372,9 +360,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 							LocalPort: 6011,
 						},
 					},
-					TCPProxySpec: TCPProxySpec{
-						RemotePort: 6011,
-					},
+					RemotePort: 6011,
 				},
 				"tcp_port_2": &TCPProxyConf{
 					BaseProxyConf: BaseProxyConf{
@@ -385,9 +371,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 							LocalPort: 6019,
 						},
 					},
-					TCPProxySpec: TCPProxySpec{
-						RemotePort: 6019,
-					},
+					RemotePort: 6019,
 				},
 			},
 		},
@@ -414,9 +398,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 							LocalPort: 6000,
 						},
 					},
-					UDPProxySpec: UDPProxySpec{
-						RemotePort: 6000,
-					},
+					RemotePort: 6000,
 				},
 				"udp_port_1": &UDPProxyConf{
 					BaseProxyConf: BaseProxyConf{
@@ -429,9 +411,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 							LocalPort: 6010,
 						},
 					},
-					UDPProxySpec: UDPProxySpec{
-						RemotePort: 6010,
-					},
+					RemotePort: 6010,
 				},
 				"udp_port_2": &UDPProxyConf{
 					BaseProxyConf: BaseProxyConf{
@@ -444,9 +424,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 							LocalPort: 6011,
 						},
 					},
-					UDPProxySpec: UDPProxySpec{
-						RemotePort: 6011,
-					},
+					RemotePort: 6011,
 				},
 			},
 		},
@@ -460,7 +438,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 		actual := make(map[string]ProxyConf)
 		s := f.Section(c.sname)
 
-		err = appendTemplates(f, s)
+		err = renderRangeProxyTemplates(f, s)
 		assert.NoError(err)
 
 		f.DeleteSection(ini.DefaultSection)

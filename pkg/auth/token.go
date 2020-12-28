@@ -26,7 +26,7 @@ type TokenConfig struct {
 	// Token specifies the authorization token used to create keys to be sent
 	// to the server. The server must have a matching token for authorization
 	// to succeed.  By default, this value is "".
-	Token string `ini:"token",json:"token"`
+	Token string `ini:"token" json:"token"`
 }
 
 func getDefaultTokenConf() TokenConfig {

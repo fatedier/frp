@@ -17,14 +17,19 @@ package config
 import (
 	"testing"
 
-	"gopkg.in/ini.v1"
-
 	"github.com/fatedier/frp/pkg/consts"
 
+	"gopkg.in/ini.v1"
 	"github.com/stretchr/testify/assert"
 )
 
 const testVisitorPrefix = "test."
+
+func Test_Visitor_Interface(t *testing.T) {
+	for name := range visitorConfTypeMap {
+		DefaultVisitorConf(name)
+	}
+}
 
 func Test_Visitor_UnmarshalFromIni(t *testing.T) {
 	assert := assert.New(t)
