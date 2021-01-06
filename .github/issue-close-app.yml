@@ -1,0 +1,29 @@
+comment: >-
+  This issue has been automatically closed because it doesn't follow the issue template.
+  
+  
+  Please open a new issue and make sure to **follow the provided template**, 
+  fill out the sections **without modifying** or **deleting** the existing text.
+  
+  
+  Templates are necessary to manage the project efficiently,
+  as basic questions don't need to be asked again each time.
+
+issueConfigs:
+
+# Bug
+- content:
+  - "hat version of frp are you using"
+  - "What operating system and processor architecture are you using"
+  - "description of errors"
+  - "Detailed Description"
+  
+# Feature / Documentation
+- content:
+  - "The solution you want"
+  - "Application scenarios of this function"
+
+caseInsensitive: true
+label: "Closed by bot"
+exception:
+  - "fatedier"

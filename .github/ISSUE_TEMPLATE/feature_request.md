@@ -9,7 +9,7 @@ assignees: ''
 
 <!-- From Chinese to English by machine translation, welcome to revise and polish. -->
 
-**The solution you want**
+**[REQUIRED] The solution you want**
 <!--A clear and concise description of the solution you want. -->
 
 **Alternatives considered**
@@ -18,5 +18,5 @@ assignees: ''
 **How to implement this function**
 <!--Implementation steps for the solution you want. -->
 
-**Application scenarios of this function**
+**[REQUIRED] Application scenarios of this function**
 <!--Make a clear and concise description of the application scenario of the solution you want. -->
