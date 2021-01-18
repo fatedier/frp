@@ -276,6 +276,7 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if reqUpType != "" {
 		outreq.Header.Set("Connection", "Upgrade")
 		outreq.Header.Set("Upgrade", reqUpType)
+		p.Transport.(*http.Transport).DisableKeepAlives = false
 	}
 
 	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
