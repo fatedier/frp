@@ -139,6 +139,7 @@ func TestHealthCheck(t *testing.T) {
 	}
 
 	httpSvc3 := mock.NewHTTPServer(15005, func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(time.Second)
 		w.Write([]byte("http3"))
 	})
 	err = httpSvc3.Start()
@@ -147,6 +148,7 @@ func TestHealthCheck(t *testing.T) {
 	}
 
 	httpSvc4 := mock.NewHTTPServer(15006, func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(time.Second)
 		w.Write([]byte("http4"))
 	})
 	err = httpSvc4.Start()
@@ -277,16 +279,30 @@ func TestHealthCheck(t *testing.T) {
 
 	// ****** load balancing type http ******
 	result = make([]string, 0)
+	var wait sync.WaitGroup
+	var mu sync.Mutex
+	wait.Add(2)
 
-	code, body, _, err = util.SendHTTPMsg("GET", "http://127.0.0.1:14000/xxx", "test.balancing.com", nil, "")
-	assert.NoError(err)
-	assert.Equal(200, code)
-	result = append(result, body)
+	go func() {
+		defer wait.Done()
+		code, body, _, err := util.SendHTTPMsg("GET", "http://127.0.0.1:14000/xxx", "test.balancing.com", nil, "")
+		assert.NoError(err)
+		assert.Equal(200, code)
+		mu.Lock()
+		result = append(result, body)
+		mu.Unlock()
+	}()
 
-	code, body, _, err = util.SendHTTPMsg("GET", "http://127.0.0.1:14000/xxx", "test.balancing.com", nil, "")
-	assert.NoError(err)
-	assert.Equal(200, code)
-	result = append(result, body)
+	go func() {
+		defer wait.Done()
+		code, body, _, err = util.SendHTTPMsg("GET", "http://127.0.0.1:14000/xxx", "test.balancing.com", nil, "")
+		assert.NoError(err)
+		assert.Equal(200, code)
+		mu.Lock()
+		result = append(result, body)
+		mu.Unlock()
+	}()
+	wait.Wait()
 
 	assert.Contains(result, "http3")
 	assert.Contains(result, "http4")
