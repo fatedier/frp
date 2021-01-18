@@ -257,7 +257,9 @@ Configure `frps` same as above.
 
 2. Visit `http://x.x.x.x:6000/static/` from your browser and specify correct user and password to view files in `/tmp/files` on the `frpc` machine.
 
-### Enable HTTPS for local HTTP service
+### Enable HTTPS for local HTTP(S) service
+
+You may substitute `https2https` for the plugin, and point the `plugin_local_addr` to a HTTPS endpoint.
 
 1. Start `frpc` with configuration:
 
