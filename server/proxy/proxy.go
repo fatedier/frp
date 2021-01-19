@@ -100,7 +100,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 			xl.Warn("failed to get work connection: %v", err)
 			return
 		}
-		xl.Info("get a new work connection: [%s]", workConn.RemoteAddr().String())
+		xl.Debug("get a new work connection: [%s]", workConn.RemoteAddr().String())
 		xl.Spawn().AppendPrefix(pxy.GetName())
 		workConn = frpNet.NewContextConn(pxy.ctx, workConn)
 
@@ -159,7 +159,7 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, 
 					xl.Info("listener is closed")
 					return
 				}
-				xl.Debug("get a user connection [%s]", c.RemoteAddr().String())
+				xl.Info("get a user connection [%s]", c.RemoteAddr().String())
 				go handler(p, c, pxy.serverCfg)
 			}
 		}(listener)

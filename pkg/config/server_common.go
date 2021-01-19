@@ -83,7 +83,7 @@ type ServerCommonConf struct {
 	// AssetsDir specifies the local directory that the dashboard will load
 	// resources from. If this value is "", assets will be loaded from the
 	// bundled executable using statik. By default, this value is "".
-	AssetsDir string `json:"asserts_dir"`
+	AssetsDir string `json:"assets_dir"`
 	// LogFile specifies a file where logs will be written to. This value will
 	// only be used if LogWay is set appropriately. By default, this value is
 	// "console".
@@ -154,7 +154,7 @@ type ServerCommonConf struct {
 	// HeartBeatTimeout specifies the maximum time to wait for a heartbeat
 	// before terminating the connection. It is not recommended to change this
 	// value. By default, this value is 90.
-	HeartBeatTimeout int64 `json:"heart_beat_timeout"`
+	HeartbeatTimeout int64 `json:"heartbeat_timeout"`
 	// UserConnTimeout specifies the maximum time to wait for a work
 	// connection. By default, this value is 10.
 	UserConnTimeout int64 `json:"user_conn_timeout"`
@@ -199,7 +199,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		TLSCertFile:            "",
 		TLSKeyFile:             "",
 		TLSTrustedCaFile:       "",
-		HeartBeatTimeout:       90,
+		HeartbeatTimeout:       90,
 		UserConnTimeout:        10,
 		Custom404Page:          "",
 		HTTPPlugins:            make(map[string]plugin.HTTPPluginOptions),
@@ -421,7 +421,7 @@ func UnmarshalServerConfFromIni(content string) (cfg ServerCommonConf, err error
 			err = fmt.Errorf("Parse conf error: heartbeat_timeout is incorrect")
 			return
 		}
-		cfg.HeartBeatTimeout = v
+		cfg.HeartbeatTimeout = v
 	}
 
 	if tmpStr, ok = conf.Get("common", "tls_only"); ok && tmpStr == "true" {
@@ -458,11 +458,16 @@ func UnmarshalPluginsFromIni(sections ini.File, cfg *ServerCommonConf) {
 	for name, section := range sections {
 		if strings.HasPrefix(name, "plugin.") {
 			name = strings.TrimSpace(strings.TrimPrefix(name, "plugin."))
+			var tls_verify, err = strconv.ParseBool(section["tls_verify"])
+			if err != nil {
+				tls_verify = true
+			}
 			options := plugin.HTTPPluginOptions{
-				Name: name,
-				Addr: section["addr"],
-				Path: section["path"],
-				Ops:  strings.Split(section["ops"], ","),
+				Name:      name,
+				Addr:      section["addr"],
+				Path:      section["path"],
+				Ops:       strings.Split(section["ops"], ","),
+				TLSVerify: tls_verify,
 			}
 			for i := range options.Ops {
 				options.Ops[i] = strings.TrimSpace(options.Ops[i])

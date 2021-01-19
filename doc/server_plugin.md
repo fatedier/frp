@@ -209,9 +209,10 @@ path = /handler
 ops = NewProxy
 ```
 
-addr: the address where the external RPC service listens on.
-path: http request url path for the POST request.
-ops: operations plugin needs to handle (e.g. "Login", "NewProxy", ...).
+- addr: the address where the external RPC service listens. Defaults to http. For https, specify the schema: `addr = https://127.0.0.1:9001`.
+- path: http request url path for the POST request.
+- ops: operations plugin needs to handle (e.g. "Login", "NewProxy", ...).
+- tls_verify: When the schema is https, we verify by default. Set this value to false if you want to skip verification.
 
 ### Metadata
 

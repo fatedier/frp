@@ -15,6 +15,7 @@
 package util
 
 import (
+	"net"
 	"net/http"
 	"strings"
 )
@@ -33,6 +34,7 @@ func OkResponse() *http.Response {
 	return res
 }
 
+// TODO: use "CanonicalHost" func to replace all "GetHostFromAddr" func.
 func GetHostFromAddr(addr string) (host string) {
 	strs := strings.Split(addr, ":")
 	if len(strs) > 1 {
@@ -41,4 +43,35 @@ func GetHostFromAddr(addr string) (host string) {
 		host = addr
 	}
 	return
+}
+
+// canonicalHost strips port from host if present and returns the canonicalized
+// host name.
+func CanonicalHost(host string) (string, error) {
+	var err error
+	host = strings.ToLower(host)
+	if hasPort(host) {
+		host, _, err = net.SplitHostPort(host)
+		if err != nil {
+			return "", err
+		}
+	}
+	if strings.HasSuffix(host, ".") {
+		// Strip trailing dot from fully qualified domain names.
+		host = host[:len(host)-1]
+	}
+	return host, nil
+}
+
+// hasPort reports whether host contains a port number. host may be a host
+// name, an IPv4 or an IPv6 address.
+func hasPort(host string) bool {
+	colons := strings.Count(host, ":")
+	if colons == 0 {
+		return false
+	}
+	if colons == 1 {
+		return true
+	}
+	return host[0] == '[' && strings.Contains(host, "]:")
 }

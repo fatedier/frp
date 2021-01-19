@@ -74,7 +74,7 @@ func (svr *Service) APIServerInfo(w http.ResponseWriter, r *http.Request) {
 		SubdomainHost:     svr.cfg.SubDomainHost,
 		MaxPoolCount:      svr.cfg.MaxPoolCount,
 		MaxPortsPerClient: svr.cfg.MaxPortsPerClient,
-		HeartBeatTimeout:  svr.cfg.HeartBeatTimeout,
+		HeartBeatTimeout:  svr.cfg.HeartbeatTimeout,
 
 		TotalTrafficIn:  serverStats.TotalTrafficIn,
 		TotalTrafficOut: serverStats.TotalTrafficOut,
