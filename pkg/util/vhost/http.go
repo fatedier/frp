@@ -17,6 +17,7 @@ package vhost
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
@@ -59,20 +60,25 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			req.URL.Scheme = "http"
 			url := req.Context().Value(RouteInfoURL).(string)
 			oldHost := util.GetHostFromAddr(req.Context().Value(RouteInfoHost).(string))
-			host := rp.GetRealHost(oldHost, url)
-			if host != "" {
-				req.Host = host
-			}
-			req.URL.Host = req.Host
+			rc := rp.GetRouteConfig(oldHost, url)
+			if rc != nil {
+				if rc.RewriteHost != "" {
+					req.Host = rc.RewriteHost
+				}
+				// Set {domain}.{location} as URL host here to let http transport reuse connections.
+				req.URL.Host = rc.Domain + "." + base64.StdEncoding.EncodeToString([]byte(rc.Location))
 
-			headers := rp.GetHeaders(oldHost, url)
-			for k, v := range headers {
-				req.Header.Set(k, v)
+				for k, v := range rc.Headers {
+					req.Header.Set(k, v)
+				}
+			} else {
+				req.URL.Host = req.Host
 			}
+
 		},
 		Transport: &http.Transport{
 			ResponseHeaderTimeout: rp.responseHeaderTimeout,
-			DisableKeepAlives:     true,
+			IdleConnTimeout:       60 * time.Second,
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				url := ctx.Value(RouteInfoURL).(string)
 				host := util.GetHostFromAddr(ctx.Value(RouteInfoHost).(string))
@@ -105,6 +111,14 @@ func (rp *HTTPReverseProxy) Register(routeCfg RouteConfig) error {
 // UnRegister unregister route config by domain and location
 func (rp *HTTPReverseProxy) UnRegister(domain string, location string) {
 	rp.vhostRouter.Del(domain, location)
+}
+
+func (rp *HTTPReverseProxy) GetRouteConfig(domain string, location string) *RouteConfig {
+	vr, ok := rp.getVhost(domain, location)
+	if ok {
+		return vr.payload.(*RouteConfig)
+	}
+	return nil
 }
 
 func (rp *HTTPReverseProxy) GetRealHost(domain string, location string) (host string) {
