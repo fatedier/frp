@@ -29,6 +29,7 @@
     "@vue/cli-plugin-vuex": "~4.5.9",
     "@vue/cli-service": "~4.5.9",
     "@vue/eslint-config-standard": "^5.1.2",
+    "babel-eslint": "^10.1.0",
     "babel-plugin-component": "^1.1.1",
     "babel-plugin-equire": "^1.1.1",
     "eslint": "^7.14.0",
