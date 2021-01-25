@@ -82,8 +82,6 @@ export default {
   methods: {
     initData() {
       if (!this.serverInfo) return
-      console.log('serverInfo', this.serverInfo)
-
       this.version = this.serverInfo.version
       this.bind_port = this.serverInfo.bind_port
       this.bind_udp_port = this.serverInfo.bind_udp_port

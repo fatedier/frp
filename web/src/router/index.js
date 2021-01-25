@@ -4,7 +4,7 @@ import AdminLayout from '@/components/AdminLayout'
 
 Vue.use(Router)
 
-const allRoutes = [
+export const routes = [
   {
     path: '/',
     component: AdminLayout,
@@ -33,20 +33,6 @@ const allRoutes = [
     ]
   }
 ]
-
-// filter routes recursively
-const filterRoutes = function(routes) {
-  const newRoutes = routes.filter(route => !!route)
-  for (const route in newRoutes) {
-    if (route.children) {
-      route.children = filterRoutes(route.children)
-    }
-  }
-  return newRoutes
-}
-
-export const routes = filterRoutes(allRoutes)
-console.log('allRoutes', allRoutes, routes)
 
 const router = new Router({
   routes
