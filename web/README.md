@@ -24,6 +24,9 @@ npm run build:s
 
 # frpc
 npm run build:c
+
+# all
+npm run build:all
 ```
 
 ### Lints and fixes files

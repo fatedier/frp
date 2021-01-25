@@ -1,8 +1,7 @@
 .PHONY: dist build
 
 build: install
-	@npm run build:s
-	@npm run build:c
+	@npm run build:all
 
 dev: install
 	@npm run serve:s
