@@ -10,36 +10,29 @@ import ProxiesStcp from '../components/ProxiesStcp.vue'
 Vue.use(Router)
 
 export default new Router({
-  routes: [
-    {
-      path: '/',
-      name: 'Overview',
-      component: Overview
-    },
-    {
-      path: '/proxies/tcp',
-      name: 'ProxiesTcp',
-      component: ProxiesTcp
-    },
-    {
-      path: '/proxies/udp',
-      name: 'ProxiesUdp',
-      component: ProxiesUdp
-    },
-    {
-      path: '/proxies/http',
-      name: 'ProxiesHttp',
-      component: ProxiesHttp
-    },
-    {
-      path: '/proxies/https',
-      name: 'ProxiesHttps',
-      component: ProxiesHttps
-    },
-    {
-      path: '/proxies/stcp',
-      name: 'ProxiesStcp',
-      component: ProxiesStcp
-    }
-  ]
+    routes: [{
+        path: '/',
+        name: 'Overview',
+        component: Overview
+    }, {
+        path: '/proxies/tcp',
+        name: 'ProxiesTcp',
+        component: ProxiesTcp
+    }, {
+        path: '/proxies/udp',
+        name: 'ProxiesUdp',
+        component: ProxiesUdp
+    }, {
+        path: '/proxies/http',
+        name: 'ProxiesHttp',
+        component: ProxiesHttp
+    }, {
+        path: '/proxies/https',
+        name: 'ProxiesHttps',
+        component: ProxiesHttps
+    }, {
+        path: '/proxies/stcp',
+        name: 'ProxiesStcp',
+        component: ProxiesStcp
+    }]
 })
