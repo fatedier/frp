@@ -8,6 +8,7 @@
     "serve:s": "vue-cli-service serve --mode dev-frps",
     "build:c": "vue-cli-service build --mode frpc",
     "build:s": "vue-cli-service build --mode frps",
+    "build:all": "npm run build:s && npm run build:c",
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
