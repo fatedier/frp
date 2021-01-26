@@ -541,8 +541,6 @@ tls_trusted_ca_file = ca.crt
 
 You will need **a root CA cert** and **at least one SSL/TLS certificate**. It **can** be self-signed or regular (such as Let's Encrypt or another SSL/TLS certificate provider).
 
-If you want to generate the needed certs fast, download and run [Generate-Certs](https://github.com/asheroto/Generate-Certs) and it will generate the certs for you in less than a minute. Supports Windows + Linux.
-
 If you using `frp` via IP address and not hostname, make sure to set the appropriate IP address in the Subject Alternative Name (SAN) area when generating SSL/TLS Certificates.
 
 ### Hot-Reloading frpc configuration
