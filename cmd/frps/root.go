@@ -106,7 +106,7 @@ var rootCmd = &cobra.Command{
 		var err error
 		if cfgFile != "" {
 			log.Info("frps uses config file: %s", cfgFile)
-			var content string
+			var content []byte
 			content, err = config.GetRenderedConfFromFile(cfgFile)
 			if err != nil {
 				return err
@@ -114,7 +114,7 @@ var rootCmd = &cobra.Command{
 			cfg, err = parseServerCommonCfg(CfgFileTypeIni, content)
 		} else {
 			log.Info("frps uses command line arguments for config")
-			cfg, err = parseServerCommonCfg(CfgFileTypeCmd, "")
+			cfg, err = parseServerCommonCfg(CfgFileTypeCmd, nil)
 		}
 		if err != nil {
 			return err
@@ -135,9 +135,9 @@ func Execute() {
 	}
 }
 
-func parseServerCommonCfg(fileType int, content string) (cfg config.ServerCommonConf, err error) {
+func parseServerCommonCfg(fileType int, source []byte) (cfg config.ServerCommonConf, err error) {
 	if fileType == CfgFileTypeIni {
-		cfg, err = parseServerCommonCfgFromIni(content)
+		cfg, err = config.UnmarshalServerConfFromIni(source)
 	} else if fileType == CfgFileTypeCmd {
 		cfg, err = parseServerCommonCfgFromCmd()
 	}
@@ -150,14 +150,6 @@ func parseServerCommonCfg(fileType int, content string) (cfg config.ServerCommon
 		return
 	}
 	return
-}
-
-func parseServerCommonCfgFromIni(content string) (config.ServerCommonConf, error) {
-	cfg, err := config.UnmarshalServerConfFromIni(content)
-	if err != nil {
-		return config.ServerCommonConf{}, err
-	}
-	return cfg, nil
 }
 
 func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
