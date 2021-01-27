@@ -23,7 +23,6 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-
 // Visitor
 var (
 	visitorConfTypeMap = map[string]reflect.Type{
@@ -63,7 +62,6 @@ type STCPVisitorConf struct {
 type XTCPVisitorConf struct {
 	BaseVisitorConf `ini:",extends" json:"inline"`
 }
-
 
 // DefaultVisitorConf creates a empty VisitorConf object by visitorType.
 // If visitorType doesn't exist, return nil.
