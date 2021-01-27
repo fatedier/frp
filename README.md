@@ -1,3 +1,4 @@
+
 # frp
 
 [![Build Status](https://circleci.com/gh/fatedier/frp.svg?style=shield)](https://circleci.com/gh/fatedier/frp)
@@ -67,7 +68,7 @@ frp also has a P2P connect mode.
 * [Donation](#donation)
     * [AliPay](#alipay)
     * [Wechat Pay](#wechat-pay)
-    * [Paypal](#paypal)
+    * [PayPal](#paypal)
 
 <!-- vim-markdown-toc -->
 
@@ -515,11 +516,32 @@ use_compression = true
 
 frp supports the TLS protocol between `frpc` and `frps` since v0.25.0.
 
-Config `tls_enable = true` in the `[common]` section to `frpc.ini` to enable this feature.
-
 For port multiplexing, frp sends a first byte `0x17` to dial a TLS connection.
 
-To enforce `frps` to only accept TLS connections - configure `tls_only = true` in the `[common]` section in `frps.ini`.
+Configure `tls_enable = true` in the `[common]` section to `frpc.ini` to enable this feature.
+
+To **enforce** `frps` to only accept TLS connections - configure `tls_only = true` in the `[common]` section in `frps.ini`. **This is optional.**
+
+**`frpc` TLS settings (under the `[common]` section):**
+```ini
+tls_enable = true
+tls_cert_file = certificate.crt
+tls_key_file = certificate.key
+tls_trusted_ca_file = ca.crt
+```
+
+**`frps` TLS settings (under the `[common]` section):**
+```ini
+tls_only = true
+tls_enable = true
+tls_cert_file = certificate.crt
+tls_key_file = certificate.key
+tls_trusted_ca_file = ca.crt
+```
+
+You will need **a root CA cert** and **at least one SSL/TLS certificate**. It **can** be self-signed or regular (such as Let's Encrypt or another SSL/TLS certificate provider).
+
+If you using `frp` via IP address and not hostname, make sure to set the appropriate IP address in the Subject Alternative Name (SAN) area when generating SSL/TLS Certificates.
 
 ### Hot-Reloading frpc configuration
 
@@ -967,6 +989,6 @@ frp QQ group: 606194980
 
 ![donation-wechatpay](/doc/pic/donate-wechatpay.png)
 
-### Paypal
+### PayPal
 
-Donate money by [paypal](https://www.paypal.me/fatedier) to my account **fatedier@gmail.com**.
+Donate money by [PayPal](https://www.paypal.me/fatedier) to my account **fatedier@gmail.com**.
