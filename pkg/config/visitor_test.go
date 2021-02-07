@@ -19,8 +19,8 @@ import (
 
 	"github.com/fatedier/frp/pkg/consts"
 
-	"gopkg.in/ini.v1"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/ini.v1"
 )
 
 const testVisitorPrefix = "test."

@@ -175,7 +175,7 @@ func TestHealthCheck(t *testing.T) {
 		defer frpsProcess.Stop()
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	frpcProcess := util.NewProcess(consts.FRPC_SUB_BIN_PATH, []string{"-c", frpcCfgPath})
 	err = frpcProcess.Start()

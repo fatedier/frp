@@ -17,6 +17,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -177,9 +178,16 @@ func (svr *Service) keepControllerWorking() {
 			if err != nil {
 				xl.Warn("reconnect to server error: %v", err)
 				time.Sleep(delayTime)
-				delayTime = delayTime * 2
-				if delayTime > maxDelayTime {
-					delayTime = maxDelayTime
+
+				opErr := &net.OpError{}
+				// quick retry for dial error
+				if errors.As(err, &opErr) && opErr.Op == "dial" {
+					delayTime = 2 * time.Second
+				} else {
+					delayTime = delayTime * 2
+					if delayTime > maxDelayTime {
+						delayTime = maxDelayTime
+					}
 				}
 				continue
 			}
