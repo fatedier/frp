@@ -43,7 +43,7 @@ func newRandomTLSKeyPair() *tls.Certificate {
 	return &tlsCert
 }
 
-// Only supprt one ca file to add
+// Only support one ca file to add
 func newCertPool(caPath string) (*x509.CertPool, error) {
 	pool := x509.NewCertPool()
 
