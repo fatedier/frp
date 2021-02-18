@@ -19,7 +19,7 @@ func TestCmdTCP(t *testing.T) {
 	if assert.NoError(err) {
 		defer s.Stop()
 	}
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	c := util.NewProcess(consts.FRPC_BIN_PATH, []string{"tcp", "-s", "127.0.0.1:20000", "-t", "123", "-u", "test",
 		"-l", "10701", "-r", "20801", "-n", "tcp_test"})
@@ -43,7 +43,7 @@ func TestCmdUDP(t *testing.T) {
 	if assert.NoError(err) {
 		defer s.Stop()
 	}
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	c := util.NewProcess(consts.FRPC_BIN_PATH, []string{"udp", "-s", "127.0.0.1:20000", "-t", "123", "-u", "test",
 		"-l", "10702", "-r", "20802", "-n", "udp_test"})
@@ -67,7 +67,7 @@ func TestCmdHTTP(t *testing.T) {
 	if assert.NoError(err) {
 		defer s.Stop()
 	}
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	c := util.NewProcess(consts.FRPC_BIN_PATH, []string{"http", "-s", "127.0.0.1:20000", "-t", "123", "-u", "test",
 		"-n", "udp_test", "-l", "10704", "--custom_domain", "127.0.0.1"})
