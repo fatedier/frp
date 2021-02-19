@@ -2,23 +2,22 @@ package group
 
 import (
 	"fmt"
+	"net"
 	"sync"
 	"sync/atomic"
 
-	frpNet "github.com/fatedier/frp/utils/net"
-
-	"github.com/fatedier/frp/utils/vhost"
+	"github.com/fatedier/frp/pkg/util/vhost"
 )
 
 type HTTPGroupController struct {
 	groups map[string]*HTTPGroup
 
-	vhostRouter *vhost.VhostRouters
+	vhostRouter *vhost.Routers
 
 	mu sync.Mutex
 }
 
-func NewHTTPGroupController(vhostRouter *vhost.VhostRouters) *HTTPGroupController {
+func NewHTTPGroupController(vhostRouter *vhost.Routers) *HTTPGroupController {
 	return &HTTPGroupController{
 		groups:      make(map[string]*HTTPGroup),
 		vhostRouter: vhostRouter,
@@ -26,7 +25,7 @@ func NewHTTPGroupController(vhostRouter *vhost.VhostRouters) *HTTPGroupControlle
 }
 
 func (ctl *HTTPGroupController) Register(proxyName, group, groupKey string,
-	routeConfig vhost.VhostRouteConfig) (err error) {
+	routeConfig vhost.RouteConfig) (err error) {
 
 	indexKey := httpGroupIndex(group, routeConfig.Domain, routeConfig.Location)
 	ctl.mu.Lock()
@@ -77,7 +76,7 @@ func NewHTTPGroup(ctl *HTTPGroupController) *HTTPGroup {
 }
 
 func (g *HTTPGroup) Register(proxyName, group, groupKey string,
-	routeConfig vhost.VhostRouteConfig) (err error) {
+	routeConfig vhost.RouteConfig) (err error) {
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -131,7 +130,7 @@ func (g *HTTPGroup) UnRegister(proxyName string) (isEmpty bool) {
 	return
 }
 
-func (g *HTTPGroup) createConn(remoteAddr string) (frpNet.Conn, error) {
+func (g *HTTPGroup) createConn(remoteAddr string) (net.Conn, error) {
 	var f vhost.CreateConnFunc
 	newIndex := atomic.AddUint64(&g.index, 1)
 

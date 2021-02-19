@@ -1,40 +1,46 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/fatedier/frp/client/event"
-	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/log"
-	frpNet "github.com/fatedier/frp/utils/net"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/util/xlog"
 
 	"github.com/fatedier/golib/errors"
 )
 
-type ProxyManager struct {
+type Manager struct {
 	sendCh  chan (msg.Message)
-	proxies map[string]*ProxyWrapper
+	proxies map[string]*Wrapper
 
 	closed bool
 	mu     sync.RWMutex
 
-	logPrefix string
-	log.Logger
+	clientCfg config.ClientCommonConf
+
+	// The UDP port that the server is listening on
+	serverUDPPort int
+
+	ctx context.Context
 }
 
-func NewProxyManager(msgSendCh chan (msg.Message), logPrefix string) *ProxyManager {
-	return &ProxyManager{
-		proxies:   make(map[string]*ProxyWrapper),
-		sendCh:    msgSendCh,
-		closed:    false,
-		logPrefix: logPrefix,
-		Logger:    log.NewPrefixLogger(logPrefix),
+func NewManager(ctx context.Context, msgSendCh chan (msg.Message), clientCfg config.ClientCommonConf, serverUDPPort int) *Manager {
+	return &Manager{
+		sendCh:        msgSendCh,
+		proxies:       make(map[string]*Wrapper),
+		closed:        false,
+		clientCfg:     clientCfg,
+		serverUDPPort: serverUDPPort,
+		ctx:           ctx,
 	}
 }
 
-func (pm *ProxyManager) StartProxy(name string, remoteAddr string, serverRespErr string) error {
+func (pm *Manager) StartProxy(name string, remoteAddr string, serverRespErr string) error {
 	pm.mu.RLock()
 	pxy, ok := pm.proxies[name]
 	pm.mu.RUnlock()
@@ -49,16 +55,16 @@ func (pm *ProxyManager) StartProxy(name string, remoteAddr string, serverRespErr
 	return nil
 }
 
-func (pm *ProxyManager) Close() {
+func (pm *Manager) Close() {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 	for _, pxy := range pm.proxies {
 		pxy.Stop()
 	}
-	pm.proxies = make(map[string]*ProxyWrapper)
+	pm.proxies = make(map[string]*Wrapper)
 }
 
-func (pm *ProxyManager) HandleWorkConn(name string, workConn frpNet.Conn, m *msg.StartWorkConn) {
+func (pm *Manager) HandleWorkConn(name string, workConn net.Conn, m *msg.StartWorkConn) {
 	pm.mu.RLock()
 	pw, ok := pm.proxies[name]
 	pm.mu.RUnlock()
@@ -69,7 +75,7 @@ func (pm *ProxyManager) HandleWorkConn(name string, workConn frpNet.Conn, m *msg
 	}
 }
 
-func (pm *ProxyManager) HandleEvent(evType event.EventType, payload interface{}) error {
+func (pm *Manager) HandleEvent(evType event.Type, payload interface{}) error {
 	var m msg.Message
 	switch e := payload.(type) {
 	case *event.StartProxyPayload:
@@ -86,8 +92,8 @@ func (pm *ProxyManager) HandleEvent(evType event.EventType, payload interface{})
 	return err
 }
 
-func (pm *ProxyManager) GetAllProxyStatus() []*ProxyStatus {
-	ps := make([]*ProxyStatus, 0)
+func (pm *Manager) GetAllProxyStatus() []*WorkingStatus {
+	ps := make([]*WorkingStatus, 0)
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 	for _, pxy := range pm.proxies {
@@ -96,7 +102,8 @@ func (pm *ProxyManager) GetAllProxyStatus() []*ProxyStatus {
 	return ps
 }
 
-func (pm *ProxyManager) Reload(pxyCfgs map[string]config.ProxyConf) {
+func (pm *Manager) Reload(pxyCfgs map[string]config.ProxyConf) {
+	xl := xlog.FromContextSafe(pm.ctx)
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
@@ -120,13 +127,13 @@ func (pm *ProxyManager) Reload(pxyCfgs map[string]config.ProxyConf) {
 		}
 	}
 	if len(delPxyNames) > 0 {
-		pm.Info("proxy removed: %v", delPxyNames)
+		xl.Info("proxy removed: %v", delPxyNames)
 	}
 
 	addPxyNames := make([]string, 0)
 	for name, cfg := range pxyCfgs {
 		if _, ok := pm.proxies[name]; !ok {
-			pxy := NewProxyWrapper(cfg, pm.HandleEvent, pm.logPrefix)
+			pxy := NewWrapper(pm.ctx, cfg, pm.clientCfg, pm.HandleEvent, pm.serverUDPPort)
 			pm.proxies[name] = pxy
 			addPxyNames = append(addPxyNames, name)
 
@@ -134,6 +141,6 @@ func (pm *ProxyManager) Reload(pxyCfgs map[string]config.ProxyConf) {
 		}
 	}
 	if len(addPxyNames) > 0 {
-		pm.Info("proxy added: %v", addPxyNames)
+		xl.Info("proxy added: %v", addPxyNames)
 	}
 }

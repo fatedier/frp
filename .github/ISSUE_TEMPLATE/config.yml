@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: DOCS
+    url: https://github.com/fatedier/frp
+    about: Here you can find out how to configure frp.

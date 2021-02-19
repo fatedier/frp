@@ -17,19 +17,19 @@ package proxy
 import (
 	"strings"
 
-	"github.com/fatedier/frp/g"
-	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/utils/util"
-	"github.com/fatedier/frp/utils/vhost"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/util/util"
+	"github.com/fatedier/frp/pkg/util/vhost"
 )
 
-type HttpsProxy struct {
+type HTTPSProxy struct {
 	*BaseProxy
-	cfg *config.HttpsProxyConf
+	cfg *config.HTTPSProxyConf
 }
 
-func (pxy *HttpsProxy) Run() (remoteAddr string, err error) {
-	routeConfig := &vhost.VhostRouteConfig{}
+func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
+	xl := pxy.xl
+	routeConfig := &vhost.RouteConfig{}
 
 	defer func() {
 		if err != nil {
@@ -43,39 +43,37 @@ func (pxy *HttpsProxy) Run() (remoteAddr string, err error) {
 		}
 
 		routeConfig.Domain = domain
-		l, errRet := pxy.rc.VhostHttpsMuxer.Listen(routeConfig)
+		l, errRet := pxy.rc.VhostHTTPSMuxer.Listen(pxy.ctx, routeConfig)
 		if errRet != nil {
 			err = errRet
 			return
 		}
-		l.AddLogPrefix(pxy.name)
-		pxy.Info("https proxy listen for host [%s]", routeConfig.Domain)
+		xl.Info("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
-		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, g.GlbServerCfg.VhostHttpsPort))
+		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.VhostHTTPSPort))
 	}
 
 	if pxy.cfg.SubDomain != "" {
-		routeConfig.Domain = pxy.cfg.SubDomain + "." + g.GlbServerCfg.SubDomainHost
-		l, errRet := pxy.rc.VhostHttpsMuxer.Listen(routeConfig)
+		routeConfig.Domain = pxy.cfg.SubDomain + "." + pxy.serverCfg.SubDomainHost
+		l, errRet := pxy.rc.VhostHTTPSMuxer.Listen(pxy.ctx, routeConfig)
 		if errRet != nil {
 			err = errRet
 			return
 		}
-		l.AddLogPrefix(pxy.name)
-		pxy.Info("https proxy listen for host [%s]", routeConfig.Domain)
+		xl.Info("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
-		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(g.GlbServerCfg.VhostHttpsPort)))
+		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(pxy.serverCfg.VhostHTTPSPort)))
 	}
 
-	pxy.startListenHandler(pxy, HandleUserTcpConnection)
+	pxy.startListenHandler(pxy, HandleUserTCPConnection)
 	remoteAddr = strings.Join(addrs, ",")
 	return
 }
 
-func (pxy *HttpsProxy) GetConf() config.ProxyConf {
+func (pxy *HTTPSProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
 }
 
-func (pxy *HttpsProxy) Close() {
+func (pxy *HTTPSProxy) Close() {
 	pxy.BaseProxy.Close()
 }

@@ -16,42 +16,45 @@ package server
 
 import (
 	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
+	"context"
 	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"net"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/fatedier/frp/assets"
-	"github.com/fatedier/frp/g"
-	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/models/nathole"
+	"github.com/fatedier/frp/pkg/auth"
+	"github.com/fatedier/frp/pkg/config"
+	modelmetrics "github.com/fatedier/frp/pkg/metrics"
+	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/nathole"
+	plugin "github.com/fatedier/frp/pkg/plugin/server"
+	"github.com/fatedier/frp/pkg/transport"
+	"github.com/fatedier/frp/pkg/util/log"
+	frpNet "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/pkg/util/tcpmux"
+	"github.com/fatedier/frp/pkg/util/util"
+	"github.com/fatedier/frp/pkg/util/version"
+	"github.com/fatedier/frp/pkg/util/vhost"
+	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/group"
+	"github.com/fatedier/frp/server/metrics"
 	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/server/proxy"
-	"github.com/fatedier/frp/server/stats"
-	"github.com/fatedier/frp/utils/log"
-	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/util"
-	"github.com/fatedier/frp/utils/version"
-	"github.com/fatedier/frp/utils/vhost"
+	"github.com/fatedier/frp/server/visitor"
 
 	"github.com/fatedier/golib/net/mux"
 	fmux "github.com/hashicorp/yamux"
 )
 
 const (
-	connReadTimeout time.Duration = 10 * time.Second
+	connReadTimeout       time.Duration = 10 * time.Second
+	vhostReadWriteTimeout time.Duration = 30 * time.Second
 )
-
-var ServerService *Service
 
 // Server service
 type Service struct {
@@ -59,61 +62,102 @@ type Service struct {
 	muxer *mux.Mux
 
 	// Accept connections from client
-	listener frpNet.Listener
+	listener net.Listener
 
 	// Accept connections using kcp
-	kcpListener frpNet.Listener
+	kcpListener net.Listener
 
 	// Accept connections using websocket
-	websocketListener frpNet.Listener
+	websocketListener net.Listener
 
 	// Accept frp tls connections
-	tlsListener frpNet.Listener
+	tlsListener net.Listener
 
 	// Manage all controllers
 	ctlManager *ControlManager
 
 	// Manage all proxies
-	pxyManager *proxy.ProxyManager
+	pxyManager *proxy.Manager
+
+	// Manage all plugins
+	pluginManager *plugin.Manager
 
 	// HTTP vhost router
-	httpVhostRouter *vhost.VhostRouters
+	httpVhostRouter *vhost.Routers
 
 	// All resource managers and controllers
 	rc *controller.ResourceController
 
-	// stats collector to store server and proxies stats info
-	statsCollector stats.Collector
+	// Verifies authentication based on selected method
+	authVerifier auth.Verifier
 
 	tlsConfig *tls.Config
+
+	cfg config.ServerCommonConf
 }
 
-func NewService() (svr *Service, err error) {
-	cfg := &g.GlbServerCfg.ServerCommonConf
-	svr = &Service{
-		ctlManager: NewControlManager(),
-		pxyManager: proxy.NewProxyManager(),
-		rc: &controller.ResourceController{
-			VisitorManager: controller.NewVisitorManager(),
-			TcpPortManager: ports.NewPortManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
-			UdpPortManager: ports.NewPortManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
-		},
-		httpVhostRouter: vhost.NewVhostRouters(),
-		tlsConfig:       generateTLSConfig(),
+func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
+	tlsConfig, err := transport.NewServerTLSConfig(
+		cfg.TLSCertFile,
+		cfg.TLSKeyFile,
+		cfg.TLSTrustedCaFile)
+	if err != nil {
+		return
 	}
 
+	svr = &Service{
+		ctlManager:    NewControlManager(),
+		pxyManager:    proxy.NewManager(),
+		pluginManager: plugin.NewManager(),
+		rc: &controller.ResourceController{
+			VisitorManager: visitor.NewManager(),
+			TCPPortManager: ports.NewManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
+			UDPPortManager: ports.NewManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
+		},
+		httpVhostRouter: vhost.NewRouters(),
+		authVerifier:    auth.NewAuthVerifier(cfg.ServerConfig),
+		tlsConfig:       tlsConfig,
+		cfg:             cfg,
+	}
+
+	// Create tcpmux httpconnect multiplexer.
+	if cfg.TCPMuxHTTPConnectPort > 0 {
+		var l net.Listener
+		l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.TCPMuxHTTPConnectPort))
+		if err != nil {
+			err = fmt.Errorf("Create server listener error, %v", err)
+			return
+		}
+
+		svr.rc.TCPMuxHTTPConnectMuxer, err = tcpmux.NewHTTPConnectTCPMuxer(l, vhostReadWriteTimeout)
+		if err != nil {
+			err = fmt.Errorf("Create vhost tcpMuxer error, %v", err)
+			return
+		}
+		log.Info("tcpmux httpconnect multiplexer listen on %s:%d", cfg.ProxyBindAddr, cfg.TCPMuxHTTPConnectPort)
+	}
+
+	// Init all plugins
+	plugin_names := make([]string, 0, len(cfg.HTTPPlugins))
+	for n := range cfg.HTTPPlugins {
+		plugin_names = append(plugin_names, n)
+	}
+	sort.Strings(plugin_names)
+
+	for _, name := range plugin_names {
+		svr.pluginManager.Register(plugin.NewHTTPPluginOptions(cfg.HTTPPlugins[name]))
+		log.Info("plugin [%s] has been registered", name)
+	}
+	svr.rc.PluginManager = svr.pluginManager
+
 	// Init group controller
-	svr.rc.TcpGroupCtl = group.NewTcpGroupCtl(svr.rc.TcpPortManager)
+	svr.rc.TCPGroupCtl = group.NewTCPGroupCtl(svr.rc.TCPPortManager)
 
 	// Init HTTP group controller
 	svr.rc.HTTPGroupCtl = group.NewHTTPGroupController(svr.httpVhostRouter)
 
-	// Init assets
-	err = assets.Load(cfg.AssetsDir)
-	if err != nil {
-		err = fmt.Errorf("Load assets error: %v", err)
-		return
-	}
+	// Init TCP mux group controller
+	svr.rc.TCPMuxGroupCtl = group.NewTCPMuxGroupCtl(svr.rc.TCPMuxHTTPConnectMuxer)
 
 	// Init 404 not found page
 	vhost.NotFoundPagePath = cfg.Custom404Page
@@ -123,10 +167,10 @@ func NewService() (svr *Service, err error) {
 		httpsMuxOn bool
 	)
 	if cfg.BindAddr == cfg.ProxyBindAddr {
-		if cfg.BindPort == cfg.VhostHttpPort {
+		if cfg.BindPort == cfg.VhostHTTPPort {
 			httpMuxOn = true
 		}
-		if cfg.BindPort == cfg.VhostHttpsPort {
+		if cfg.BindPort == cfg.VhostHTTPSPort {
 			httpsMuxOn = true
 		}
 	}
@@ -142,17 +186,17 @@ func NewService() (svr *Service, err error) {
 	go svr.muxer.Serve()
 	ln = svr.muxer.DefaultListener()
 
-	svr.listener = frpNet.WrapLogListener(ln)
+	svr.listener = ln
 	log.Info("frps tcp listen on %s:%d", cfg.BindAddr, cfg.BindPort)
 
 	// Listen for accepting connections from client using kcp protocol.
-	if cfg.KcpBindPort > 0 {
-		svr.kcpListener, err = frpNet.ListenKcp(cfg.BindAddr, cfg.KcpBindPort)
+	if cfg.KCPBindPort > 0 {
+		svr.kcpListener, err = frpNet.ListenKcp(cfg.BindAddr, cfg.KCPBindPort)
 		if err != nil {
-			err = fmt.Errorf("Listen on kcp address udp [%s:%d] error: %v", cfg.BindAddr, cfg.KcpBindPort, err)
+			err = fmt.Errorf("Listen on kcp address udp [%s:%d] error: %v", cfg.BindAddr, cfg.KCPBindPort, err)
 			return
 		}
-		log.Info("frps kcp listen on udp %s:%d", cfg.BindAddr, cfg.KcpBindPort)
+		log.Info("frps kcp listen on udp %s:%d", cfg.BindAddr, cfg.KCPBindPort)
 	}
 
 	// Listen for accepting connections from client using websocket protocol.
@@ -163,13 +207,13 @@ func NewService() (svr *Service, err error) {
 	svr.websocketListener = frpNet.NewWebsocketListener(websocketLn)
 
 	// Create http vhost muxer.
-	if cfg.VhostHttpPort > 0 {
-		rp := vhost.NewHttpReverseProxy(vhost.HttpReverseProxyOptions{
-			ResponseHeaderTimeoutS: cfg.VhostHttpTimeout,
+	if cfg.VhostHTTPPort > 0 {
+		rp := vhost.NewHTTPReverseProxy(vhost.HTTPReverseProxyOptions{
+			ResponseHeaderTimeoutS: cfg.VhostHTTPTimeout,
 		}, svr.httpVhostRouter)
-		svr.rc.HttpReverseProxy = rp
+		svr.rc.HTTPReverseProxy = rp
 
-		address := fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHttpPort)
+		address := fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHTTPPort)
 		server := &http.Server{
 			Addr:    address,
 			Handler: rp,
@@ -185,52 +229,58 @@ func NewService() (svr *Service, err error) {
 			}
 		}
 		go server.Serve(l)
-		log.Info("http service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHttpPort)
+		log.Info("http service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHTTPPort)
 	}
 
 	// Create https vhost muxer.
-	if cfg.VhostHttpsPort > 0 {
+	if cfg.VhostHTTPSPort > 0 {
 		var l net.Listener
 		if httpsMuxOn {
 			l = svr.muxer.ListenHttps(1)
 		} else {
-			l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHttpsPort))
+			l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHTTPSPort))
 			if err != nil {
 				err = fmt.Errorf("Create server listener error, %v", err)
 				return
 			}
 		}
 
-		svr.rc.VhostHttpsMuxer, err = vhost.NewHttpsMuxer(frpNet.WrapLogListener(l), 30*time.Second)
+		svr.rc.VhostHTTPSMuxer, err = vhost.NewHTTPSMuxer(l, vhostReadWriteTimeout)
 		if err != nil {
 			err = fmt.Errorf("Create vhost httpsMuxer error, %v", err)
 			return
 		}
-		log.Info("https service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHttpsPort)
+		log.Info("https service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHTTPSPort)
 	}
 
 	// frp tls listener
-	tlsListener := svr.muxer.Listen(1, 1, func(data []byte) bool {
-		return int(data[0]) == frpNet.FRP_TLS_HEAD_BYTE
+	svr.tlsListener = svr.muxer.Listen(1, 1, func(data []byte) bool {
+		return int(data[0]) == frpNet.FRPTLSHeadByte
 	})
-	svr.tlsListener = frpNet.WrapLogListener(tlsListener)
 
 	// Create nat hole controller.
-	if cfg.BindUdpPort > 0 {
-		var nc *nathole.NatHoleController
-		addr := fmt.Sprintf("%s:%d", cfg.BindAddr, cfg.BindUdpPort)
-		nc, err = nathole.NewNatHoleController(addr)
+	if cfg.BindUDPPort > 0 {
+		var nc *nathole.Controller
+		addr := fmt.Sprintf("%s:%d", cfg.BindAddr, cfg.BindUDPPort)
+		nc, err = nathole.NewController(addr)
 		if err != nil {
 			err = fmt.Errorf("Create nat hole controller error, %v", err)
 			return
 		}
 		svr.rc.NatHoleController = nc
-		log.Info("nat hole udp service listen on %s:%d", cfg.BindAddr, cfg.BindUdpPort)
+		log.Info("nat hole udp service listen on %s:%d", cfg.BindAddr, cfg.BindUDPPort)
 	}
 
 	var statsEnable bool
 	// Create dashboard web server.
 	if cfg.DashboardPort > 0 {
+		// Init dashboard assets
+		err = assets.Load(cfg.AssetsDir)
+		if err != nil {
+			err = fmt.Errorf("Load assets error: %v", err)
+			return
+		}
+
 		err = svr.RunDashboardServer(cfg.DashboardAddr, cfg.DashboardPort)
 		if err != nil {
 			err = fmt.Errorf("Create dashboard web server error, %v", err)
@@ -239,8 +289,12 @@ func NewService() (svr *Service, err error) {
 		log.Info("Dashboard listen on %s:%d", cfg.DashboardAddr, cfg.DashboardPort)
 		statsEnable = true
 	}
-
-	svr.statsCollector = stats.NewInternalCollector(statsEnable)
+	if statsEnable {
+		modelmetrics.EnableMem()
+		if cfg.EnablePrometheus {
+			modelmetrics.EnablePrometheus()
+		}
+	}
 	return
 }
 
@@ -248,7 +302,7 @@ func (svr *Service) Run() {
 	if svr.rc.NatHoleController != nil {
 		go svr.rc.NatHoleController.Run()
 	}
-	if g.GlbServerCfg.KcpBindPort > 0 {
+	if svr.cfg.KCPBindPort > 0 {
 		go svr.HandleListener(svr.kcpListener)
 	}
 
@@ -258,7 +312,69 @@ func (svr *Service) Run() {
 	svr.HandleListener(svr.listener)
 }
 
-func (svr *Service) HandleListener(l frpNet.Listener) {
+func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {
+	xl := xlog.FromContextSafe(ctx)
+
+	var (
+		rawMsg msg.Message
+		err    error
+	)
+
+	conn.SetReadDeadline(time.Now().Add(connReadTimeout))
+	if rawMsg, err = msg.ReadMsg(conn); err != nil {
+		log.Trace("Failed to read message: %v", err)
+		conn.Close()
+		return
+	}
+	conn.SetReadDeadline(time.Time{})
+
+	switch m := rawMsg.(type) {
+	case *msg.Login:
+		// server plugin hook
+		content := &plugin.LoginContent{
+			Login: *m,
+		}
+		retContent, err := svr.pluginManager.Login(content)
+		if err == nil {
+			m = &retContent.Login
+			err = svr.RegisterControl(conn, m)
+		}
+
+		// If login failed, send error message there.
+		// Otherwise send success message in control's work goroutine.
+		if err != nil {
+			xl.Warn("register control error: %v", err)
+			msg.WriteMsg(conn, &msg.LoginResp{
+				Version: version.Full(),
+				Error:   util.GenerateResponseErrorString("register control error", err, svr.cfg.DetailedErrorsToClient),
+			})
+			conn.Close()
+		}
+	case *msg.NewWorkConn:
+		if err := svr.RegisterWorkConn(conn, m); err != nil {
+			conn.Close()
+		}
+	case *msg.NewVisitorConn:
+		if err = svr.RegisterVisitorConn(conn, m); err != nil {
+			xl.Warn("register visitor conn error: %v", err)
+			msg.WriteMsg(conn, &msg.NewVisitorConnResp{
+				ProxyName: m.ProxyName,
+				Error:     util.GenerateResponseErrorString("register visitor conn error", err, svr.cfg.DetailedErrorsToClient),
+			})
+			conn.Close()
+		} else {
+			msg.WriteMsg(conn, &msg.NewVisitorConnResp{
+				ProxyName: m.ProxyName,
+				Error:     "",
+			})
+		}
+	default:
+		log.Warn("Error message type for the new connection [%s]", conn.RemoteAddr().String())
+		conn.Close()
+	}
+}
+
+func (svr *Service) HandleListener(l net.Listener) {
 	// Listen for incoming connections from client.
 	for {
 		c, err := l.Accept()
@@ -266,10 +382,15 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 			log.Warn("Listener for incoming connections from client closed")
 			return
 		}
+		// inject xlog object into net.Conn context
+		xl := xlog.New()
+		ctx := context.Background()
+
+		c = frpNet.NewContextConn(xlog.NewContext(ctx, xl), c)
 
 		log.Trace("start check TLS connection...")
 		originConn := c
-		c, err = frpNet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, connReadTimeout)
+		c, err = frpNet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, svr.cfg.TLSOnly, connReadTimeout)
 		if err != nil {
 			log.Warn("CheckAndEnableTLSServerConnWithTimeout error: %v", err)
 			originConn.Close()
@@ -278,53 +399,8 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 		log.Trace("success check TLS connection")
 
 		// Start a new goroutine for dealing connections.
-		go func(frpConn frpNet.Conn) {
-			dealFn := func(conn frpNet.Conn) {
-				var rawMsg msg.Message
-				conn.SetReadDeadline(time.Now().Add(connReadTimeout))
-				if rawMsg, err = msg.ReadMsg(conn); err != nil {
-					log.Trace("Failed to read message: %v", err)
-					conn.Close()
-					return
-				}
-				conn.SetReadDeadline(time.Time{})
-
-				switch m := rawMsg.(type) {
-				case *msg.Login:
-					err = svr.RegisterControl(conn, m)
-					// If login failed, send error message there.
-					// Otherwise send success message in control's work goroutine.
-					if err != nil {
-						conn.Warn("%v", err)
-						msg.WriteMsg(conn, &msg.LoginResp{
-							Version: version.Full(),
-							Error:   err.Error(),
-						})
-						conn.Close()
-					}
-				case *msg.NewWorkConn:
-					svr.RegisterWorkConn(conn, m)
-				case *msg.NewVisitorConn:
-					if err = svr.RegisterVisitorConn(conn, m); err != nil {
-						conn.Warn("%v", err)
-						msg.WriteMsg(conn, &msg.NewVisitorConnResp{
-							ProxyName: m.ProxyName,
-							Error:     err.Error(),
-						})
-						conn.Close()
-					} else {
-						msg.WriteMsg(conn, &msg.NewVisitorConnResp{
-							ProxyName: m.ProxyName,
-							Error:     "",
-						})
-					}
-				default:
-					log.Warn("Error message type for the new connection [%s]", conn.RemoteAddr().String())
-					conn.Close()
-				}
-			}
-
-			if g.GlbServerCfg.TcpMux {
+		go func(ctx context.Context, frpConn net.Conn) {
+			if svr.cfg.TCPMux {
 				fmuxCfg := fmux.DefaultConfig()
 				fmuxCfg.KeepAliveInterval = 20 * time.Second
 				fmuxCfg.LogOutput = ioutil.Discard
@@ -342,18 +418,30 @@ func (svr *Service) HandleListener(l frpNet.Listener) {
 						session.Close()
 						return
 					}
-					wrapConn := frpNet.WrapConn(stream)
-					go dealFn(wrapConn)
+					go svr.handleConnection(ctx, stream)
 				}
 			} else {
-				dealFn(frpConn)
+				svr.handleConnection(ctx, frpConn)
 			}
-		}(c)
+		}(ctx, c)
 	}
 }
 
-func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (err error) {
-	ctlConn.Info("client login info: ip [%s] version [%s] hostname [%s] os [%s] arch [%s]",
+func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err error) {
+	// If client's RunID is empty, it's a new client, we just create a new controller.
+	// Otherwise, we check if there is one controller has the same run id. If so, we release previous controller and start new one.
+	if loginMsg.RunID == "" {
+		loginMsg.RunID, err = util.RandID()
+		if err != nil {
+			return
+		}
+	}
+
+	ctx := frpNet.NewContextFromConn(ctlConn)
+	xl := xlog.FromContextSafe(ctx)
+	xl.AppendPrefix(loginMsg.RunID)
+	ctx = xlog.NewContext(ctx, xl)
+	xl.Info("client login info: ip [%s] version [%s] hostname [%s] os [%s] arch [%s]",
 		ctlConn.RemoteAddr().String(), loginMsg.Version, loginMsg.Hostname, loginMsg.Os, loginMsg.Arch)
 
 	// Check client version.
@@ -363,73 +451,62 @@ func (svr *Service) RegisterControl(ctlConn frpNet.Conn, loginMsg *msg.Login) (e
 	}
 
 	// Check auth.
-	if util.GetAuthKey(g.GlbServerCfg.Token, loginMsg.Timestamp) != loginMsg.PrivilegeKey {
-		err = fmt.Errorf("authorization failed")
+	if err = svr.authVerifier.VerifyLogin(loginMsg); err != nil {
 		return
 	}
 
-	// If client's RunId is empty, it's a new client, we just create a new controller.
-	// Otherwise, we check if there is one controller has the same run id. If so, we release previous controller and start new one.
-	if loginMsg.RunId == "" {
-		loginMsg.RunId, err = util.RandId()
-		if err != nil {
-			return
-		}
-	}
-
-	ctl := NewControl(svr.rc, svr.pxyManager, svr.statsCollector, ctlConn, loginMsg)
-
-	if oldCtl := svr.ctlManager.Add(loginMsg.RunId, ctl); oldCtl != nil {
+	ctl := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, svr.authVerifier, ctlConn, loginMsg, svr.cfg)
+	if oldCtl := svr.ctlManager.Add(loginMsg.RunID, ctl); oldCtl != nil {
 		oldCtl.allShutdown.WaitDone()
 	}
 
-	ctlConn.AddLogPrefix(loginMsg.RunId)
 	ctl.Start()
 
 	// for statistics
-	svr.statsCollector.Mark(stats.TypeNewClient, &stats.NewClientPayload{})
+	metrics.Server.NewClient()
 
 	go func() {
 		// block until control closed
 		ctl.WaitClosed()
-		svr.ctlManager.Del(loginMsg.RunId, ctl)
+		svr.ctlManager.Del(loginMsg.RunID, ctl)
 	}()
 	return
 }
 
 // RegisterWorkConn register a new work connection to control and proxies need it.
-func (svr *Service) RegisterWorkConn(workConn frpNet.Conn, newMsg *msg.NewWorkConn) {
-	ctl, exist := svr.ctlManager.GetById(newMsg.RunId)
+func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn) error {
+	xl := frpNet.NewLogFromConn(workConn)
+	ctl, exist := svr.ctlManager.GetByID(newMsg.RunID)
 	if !exist {
-		workConn.Warn("No client control found for run id [%s]", newMsg.RunId)
-		return
+		xl.Warn("No client control found for run id [%s]", newMsg.RunID)
+		return fmt.Errorf("no client control found for run id [%s]", newMsg.RunID)
 	}
-	ctl.RegisterWorkConn(workConn)
-	return
+	// server plugin hook
+	content := &plugin.NewWorkConnContent{
+		User: plugin.UserInfo{
+			User:  ctl.loginMsg.User,
+			Metas: ctl.loginMsg.Metas,
+			RunID: ctl.loginMsg.RunID,
+		},
+		NewWorkConn: *newMsg,
+	}
+	retContent, err := svr.pluginManager.NewWorkConn(content)
+	if err == nil {
+		newMsg = &retContent.NewWorkConn
+		// Check auth.
+		err = svr.authVerifier.VerifyNewWorkConn(newMsg)
+	}
+	if err != nil {
+		xl.Warn("invalid NewWorkConn with run id [%s]", newMsg.RunID)
+		msg.WriteMsg(workConn, &msg.StartWorkConn{
+			Error: util.GenerateResponseErrorString("invalid NewWorkConn", err, ctl.serverCfg.DetailedErrorsToClient),
+		})
+		return fmt.Errorf("invalid NewWorkConn with run id [%s]", newMsg.RunID)
+	}
+	return ctl.RegisterWorkConn(workConn)
 }
 
-func (svr *Service) RegisterVisitorConn(visitorConn frpNet.Conn, newMsg *msg.NewVisitorConn) error {
+func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVisitorConn) error {
 	return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
 		newMsg.UseEncryption, newMsg.UseCompression)
-}
-
-// Setup a bare-bones TLS config for the server
-func generateTLSConfig() *tls.Config {
-	key, err := rsa.GenerateKey(rand.Reader, 1024)
-	if err != nil {
-		panic(err)
-	}
-	template := x509.Certificate{SerialNumber: big.NewInt(1)}
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
-	if err != nil {
-		panic(err)
-	}
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-
-	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
-	if err != nil {
-		panic(err)
-	}
-	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}
 }

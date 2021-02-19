@@ -16,6 +16,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -23,13 +24,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/g"
-	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/models/msg"
-	"github.com/fatedier/frp/utils/log"
-	frpNet "github.com/fatedier/frp/utils/net"
-	"github.com/fatedier/frp/utils/util"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/proto/udp"
+	frpNet "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/pkg/util/util"
+	"github.com/fatedier/frp/pkg/util/xlog"
 
+	"github.com/fatedier/golib/errors"
 	frpIo "github.com/fatedier/golib/io"
 	"github.com/fatedier/golib/pool"
 	fmux "github.com/hashicorp/yamux"
@@ -39,24 +41,30 @@ import (
 type Visitor interface {
 	Run() error
 	Close()
-	log.Logger
 }
 
-func NewVisitor(ctl *Control, cfg config.VisitorConf) (visitor Visitor) {
+func NewVisitor(ctx context.Context, ctl *Control, cfg config.VisitorConf) (visitor Visitor) {
+	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(cfg.GetBaseInfo().ProxyName)
 	baseVisitor := BaseVisitor{
-		ctl:    ctl,
-		Logger: log.NewPrefixLogger(cfg.GetBaseInfo().ProxyName),
+		ctl: ctl,
+		ctx: xlog.NewContext(ctx, xl),
 	}
 	switch cfg := cfg.(type) {
-	case *config.StcpVisitorConf:
-		visitor = &StcpVisitor{
+	case *config.STCPVisitorConf:
+		visitor = &STCPVisitor{
 			BaseVisitor: &baseVisitor,
 			cfg:         cfg,
 		}
-	case *config.XtcpVisitorConf:
-		visitor = &XtcpVisitor{
+	case *config.XTCPVisitorConf:
+		visitor = &XTCPVisitor{
 			BaseVisitor: &baseVisitor,
 			cfg:         cfg,
+		}
+	case *config.SUDPVisitorConf:
+		visitor = &SUDPVisitor{
+			BaseVisitor:  &baseVisitor,
+			cfg:          cfg,
+			checkCloseCh: make(chan struct{}),
 		}
 	}
 	return
@@ -64,20 +72,21 @@ func NewVisitor(ctl *Control, cfg config.VisitorConf) (visitor Visitor) {
 
 type BaseVisitor struct {
 	ctl    *Control
-	l      frpNet.Listener
+	l      net.Listener
 	closed bool
-	mu     sync.RWMutex
-	log.Logger
+
+	mu  sync.RWMutex
+	ctx context.Context
 }
 
-type StcpVisitor struct {
+type STCPVisitor struct {
 	*BaseVisitor
 
-	cfg *config.StcpVisitorConf
+	cfg *config.STCPVisitorConf
 }
 
-func (sv *StcpVisitor) Run() (err error) {
-	sv.l, err = frpNet.ListenTcp(sv.cfg.BindAddr, sv.cfg.BindPort)
+func (sv *STCPVisitor) Run() (err error) {
+	sv.l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", sv.cfg.BindAddr, sv.cfg.BindPort))
 	if err != nil {
 		return
 	}
@@ -86,15 +95,16 @@ func (sv *StcpVisitor) Run() (err error) {
 	return
 }
 
-func (sv *StcpVisitor) Close() {
+func (sv *STCPVisitor) Close() {
 	sv.l.Close()
 }
 
-func (sv *StcpVisitor) worker() {
+func (sv *STCPVisitor) worker() {
+	xl := xlog.FromContextSafe(sv.ctx)
 	for {
 		conn, err := sv.l.Accept()
 		if err != nil {
-			sv.Warn("stcp local listener closed")
+			xl.Warn("stcp local listener closed")
 			return
 		}
 
@@ -102,10 +112,11 @@ func (sv *StcpVisitor) worker() {
 	}
 }
 
-func (sv *StcpVisitor) handleConn(userConn frpNet.Conn) {
+func (sv *STCPVisitor) handleConn(userConn net.Conn) {
+	xl := xlog.FromContextSafe(sv.ctx)
 	defer userConn.Close()
 
-	sv.Debug("get a new stcp user connection")
+	xl.Debug("get a new stcp user connection")
 	visitorConn, err := sv.ctl.connectServer()
 	if err != nil {
 		return
@@ -122,7 +133,7 @@ func (sv *StcpVisitor) handleConn(userConn frpNet.Conn) {
 	}
 	err = msg.WriteMsg(visitorConn, newVisitorConnMsg)
 	if err != nil {
-		sv.Warn("send newVisitorConnMsg to server error: %v", err)
+		xl.Warn("send newVisitorConnMsg to server error: %v", err)
 		return
 	}
 
@@ -130,13 +141,13 @@ func (sv *StcpVisitor) handleConn(userConn frpNet.Conn) {
 	visitorConn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	err = msg.ReadMsgInto(visitorConn, &newVisitorConnRespMsg)
 	if err != nil {
-		sv.Warn("get newVisitorConnRespMsg error: %v", err)
+		xl.Warn("get newVisitorConnRespMsg error: %v", err)
 		return
 	}
 	visitorConn.SetReadDeadline(time.Time{})
 
 	if newVisitorConnRespMsg.Error != "" {
-		sv.Warn("start new visitor connection error: %s", newVisitorConnRespMsg.Error)
+		xl.Warn("start new visitor connection error: %s", newVisitorConnRespMsg.Error)
 		return
 	}
 
@@ -145,7 +156,7 @@ func (sv *StcpVisitor) handleConn(userConn frpNet.Conn) {
 	if sv.cfg.UseEncryption {
 		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk))
 		if err != nil {
-			sv.Error("create encryption stream error: %v", err)
+			xl.Error("create encryption stream error: %v", err)
 			return
 		}
 	}
@@ -157,14 +168,14 @@ func (sv *StcpVisitor) handleConn(userConn frpNet.Conn) {
 	frpIo.Join(userConn, remote)
 }
 
-type XtcpVisitor struct {
+type XTCPVisitor struct {
 	*BaseVisitor
 
-	cfg *config.XtcpVisitorConf
+	cfg *config.XTCPVisitorConf
 }
 
-func (sv *XtcpVisitor) Run() (err error) {
-	sv.l, err = frpNet.ListenTcp(sv.cfg.BindAddr, sv.cfg.BindPort)
+func (sv *XTCPVisitor) Run() (err error) {
+	sv.l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", sv.cfg.BindAddr, sv.cfg.BindPort))
 	if err != nil {
 		return
 	}
@@ -173,15 +184,16 @@ func (sv *XtcpVisitor) Run() (err error) {
 	return
 }
 
-func (sv *XtcpVisitor) Close() {
+func (sv *XTCPVisitor) Close() {
 	sv.l.Close()
 }
 
-func (sv *XtcpVisitor) worker() {
+func (sv *XTCPVisitor) worker() {
+	xl := xlog.FromContextSafe(sv.ctx)
 	for {
 		conn, err := sv.l.Accept()
 		if err != nil {
-			sv.Warn("xtcp local listener closed")
+			xl.Warn("xtcp local listener closed")
 			return
 		}
 
@@ -189,25 +201,26 @@ func (sv *XtcpVisitor) worker() {
 	}
 }
 
-func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
+func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
+	xl := xlog.FromContextSafe(sv.ctx)
 	defer userConn.Close()
 
-	sv.Debug("get a new xtcp user connection")
-	if g.GlbClientCfg.ServerUdpPort == 0 {
-		sv.Error("xtcp is not supported by server")
+	xl.Debug("get a new xtcp user connection")
+	if sv.ctl.serverUDPPort == 0 {
+		xl.Error("xtcp is not supported by server")
 		return
 	}
 
 	raddr, err := net.ResolveUDPAddr("udp",
-		fmt.Sprintf("%s:%d", g.GlbClientCfg.ServerAddr, g.GlbClientCfg.ServerUdpPort))
+		fmt.Sprintf("%s:%d", sv.ctl.clientCfg.ServerAddr, sv.ctl.serverUDPPort))
 	if err != nil {
-		sv.Error("resolve server UDP addr error")
+		xl.Error("resolve server UDP addr error")
 		return
 	}
 
 	visitorConn, err := net.DialUDP("udp", nil, raddr)
 	if err != nil {
-		sv.Warn("dial server udp addr error: %v", err)
+		xl.Warn("dial server udp addr error: %v", err)
 		return
 	}
 	defer visitorConn.Close()
@@ -220,7 +233,7 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	}
 	err = msg.WriteMsg(visitorConn, natHoleVisitorMsg)
 	if err != nil {
-		sv.Warn("send natHoleVisitorMsg to server error: %v", err)
+		xl.Warn("send natHoleVisitorMsg to server error: %v", err)
 		return
 	}
 
@@ -230,24 +243,24 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	buf := pool.GetBuf(1024)
 	n, err := visitorConn.Read(buf)
 	if err != nil {
-		sv.Warn("get natHoleRespMsg error: %v", err)
+		xl.Warn("get natHoleRespMsg error: %v", err)
 		return
 	}
 
 	err = msg.ReadMsgInto(bytes.NewReader(buf[:n]), &natHoleRespMsg)
 	if err != nil {
-		sv.Warn("get natHoleRespMsg error: %v", err)
+		xl.Warn("get natHoleRespMsg error: %v", err)
 		return
 	}
 	visitorConn.SetReadDeadline(time.Time{})
 	pool.PutBuf(buf)
 
 	if natHoleRespMsg.Error != "" {
-		sv.Error("natHoleRespMsg get error info: %s", natHoleRespMsg.Error)
+		xl.Error("natHoleRespMsg get error info: %s", natHoleRespMsg.Error)
 		return
 	}
 
-	sv.Trace("get natHoleRespMsg, sid [%s], client address [%s], visitor address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr, natHoleRespMsg.VisitorAddr)
+	xl.Trace("get natHoleRespMsg, sid [%s], client address [%s], visitor address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr, natHoleRespMsg.VisitorAddr)
 
 	// Close visitorConn, so we can use it's local address.
 	visitorConn.Close()
@@ -256,12 +269,12 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	laddr, _ := net.ResolveUDPAddr("udp", visitorConn.LocalAddr().String())
 	daddr, err := net.ResolveUDPAddr("udp", natHoleRespMsg.ClientAddr)
 	if err != nil {
-		sv.Error("resolve client udp address error: %v", err)
+		xl.Error("resolve client udp address error: %v", err)
 		return
 	}
 	lConn, err := net.DialUDP("udp", laddr, daddr)
 	if err != nil {
-		sv.Error("dial client udp address error: %v", err)
+		xl.Error("dial client udp address error: %v", err)
 		return
 	}
 	defer lConn.Close()
@@ -273,36 +286,24 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	lConn.SetReadDeadline(time.Now().Add(8 * time.Second))
 	n, err = lConn.Read(sidBuf)
 	if err != nil {
-		sv.Warn("get sid from client error: %v", err)
+		xl.Warn("get sid from client error: %v", err)
 		return
 	}
 	lConn.SetReadDeadline(time.Time{})
 	if string(sidBuf[:n]) != natHoleRespMsg.Sid {
-		sv.Warn("incorrect sid from client")
+		xl.Warn("incorrect sid from client")
 		return
 	}
 	pool.PutBuf(sidBuf)
 
-	sv.Info("nat hole connection make success, sid [%s]", natHoleRespMsg.Sid)
+	xl.Info("nat hole connection make success, sid [%s]", natHoleRespMsg.Sid)
 
 	// wrap kcp connection
 	var remote io.ReadWriteCloser
-	remote, err = frpNet.NewKcpConnFromUdp(lConn, true, natHoleRespMsg.ClientAddr)
+	remote, err = frpNet.NewKCPConnFromUDP(lConn, true, natHoleRespMsg.ClientAddr)
 	if err != nil {
-		sv.Error("create kcp connection from udp connection error: %v", err)
+		xl.Error("create kcp connection from udp connection error: %v", err)
 		return
-	}
-
-	if sv.cfg.UseEncryption {
-		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk))
-		if err != nil {
-			sv.Error("create encryption stream error: %v", err)
-			return
-		}
-	}
-
-	if sv.cfg.UseCompression {
-		remote = frpIo.WithCompression(remote)
 	}
 
 	fmuxCfg := fmux.DefaultConfig()
@@ -310,16 +311,243 @@ func (sv *XtcpVisitor) handleConn(userConn frpNet.Conn) {
 	fmuxCfg.LogOutput = ioutil.Discard
 	sess, err := fmux.Client(remote, fmuxCfg)
 	if err != nil {
-		sv.Error("create yamux session error: %v", err)
+		xl.Error("create yamux session error: %v", err)
 		return
 	}
 	defer sess.Close()
 	muxConn, err := sess.Open()
 	if err != nil {
-		sv.Error("open yamux stream error: %v", err)
+		xl.Error("open yamux stream error: %v", err)
 		return
 	}
 
-	frpIo.Join(userConn, muxConn)
-	sv.Debug("join connections closed")
+	var muxConnRWCloser io.ReadWriteCloser = muxConn
+	if sv.cfg.UseEncryption {
+		muxConnRWCloser, err = frpIo.WithEncryption(muxConnRWCloser, []byte(sv.cfg.Sk))
+		if err != nil {
+			xl.Error("create encryption stream error: %v", err)
+			return
+		}
+	}
+	if sv.cfg.UseCompression {
+		muxConnRWCloser = frpIo.WithCompression(muxConnRWCloser)
+	}
+
+	frpIo.Join(userConn, muxConnRWCloser)
+	xl.Debug("join connections closed")
+}
+
+type SUDPVisitor struct {
+	*BaseVisitor
+
+	checkCloseCh chan struct{}
+	// udpConn is the listener of udp packet
+	udpConn *net.UDPConn
+	readCh  chan *msg.UDPPacket
+	sendCh  chan *msg.UDPPacket
+
+	cfg *config.SUDPVisitorConf
+}
+
+// SUDP Run start listen a udp port
+func (sv *SUDPVisitor) Run() (err error) {
+	xl := xlog.FromContextSafe(sv.ctx)
+
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", sv.cfg.BindAddr, sv.cfg.BindPort))
+	if err != nil {
+		return fmt.Errorf("sudp ResolveUDPAddr error: %v", err)
+	}
+
+	sv.udpConn, err = net.ListenUDP("udp", addr)
+	if err != nil {
+		return fmt.Errorf("listen udp port %s error: %v", addr.String(), err)
+	}
+
+	sv.sendCh = make(chan *msg.UDPPacket, 1024)
+	sv.readCh = make(chan *msg.UDPPacket, 1024)
+
+	xl.Info("sudp start to work")
+
+	go sv.dispatcher()
+	go udp.ForwardUserConn(sv.udpConn, sv.readCh, sv.sendCh, int(sv.ctl.clientCfg.UDPPacketSize))
+
+	return
+}
+
+func (sv *SUDPVisitor) dispatcher() {
+	xl := xlog.FromContextSafe(sv.ctx)
+
+	for {
+		// loop for get frpc to frps tcp conn
+		// setup worker
+		// wait worker to finished
+		// retry or exit
+		visitorConn, err := sv.getNewVisitorConn()
+		if err != nil {
+			// check if proxy is closed
+			// if checkCloseCh is close, we will return, other case we will continue to reconnect
+			select {
+			case <-sv.checkCloseCh:
+				xl.Info("frpc sudp visitor proxy is closed")
+				return
+			default:
+			}
+
+			time.Sleep(3 * time.Second)
+
+			xl.Warn("newVisitorConn to frps error: %v, try to reconnect", err)
+			continue
+		}
+
+		sv.worker(visitorConn)
+
+		select {
+		case <-sv.checkCloseCh:
+			return
+		default:
+		}
+	}
+}
+
+func (sv *SUDPVisitor) worker(workConn net.Conn) {
+	xl := xlog.FromContextSafe(sv.ctx)
+	xl.Debug("starting sudp proxy worker")
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	closeCh := make(chan struct{})
+
+	// udp service -> frpc -> frps -> frpc visitor -> user
+	workConnReaderFn := func(conn net.Conn) {
+		defer func() {
+			conn.Close()
+			close(closeCh)
+			wg.Done()
+		}()
+
+		for {
+			var (
+				rawMsg msg.Message
+				errRet error
+			)
+
+			// frpc will send heartbeat in workConn to frpc visitor for keeping alive
+			conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+			if rawMsg, errRet = msg.ReadMsg(conn); errRet != nil {
+				xl.Warn("read from workconn for user udp conn error: %v", errRet)
+				return
+			}
+
+			conn.SetReadDeadline(time.Time{})
+			switch m := rawMsg.(type) {
+			case *msg.Ping:
+				xl.Debug("frpc visitor get ping message from frpc")
+				continue
+			case *msg.UDPPacket:
+				if errRet := errors.PanicToError(func() {
+					sv.readCh <- m
+					xl.Trace("frpc visitor get udp packet from frpc")
+				}); errRet != nil {
+					xl.Info("reader goroutine for udp work connection closed")
+					return
+				}
+			}
+		}
+	}
+
+	// udp service <- frpc <- frps <- frpc visitor <- user
+	workConnSenderFn := func(conn net.Conn) {
+		defer func() {
+			conn.Close()
+			wg.Done()
+		}()
+
+		var errRet error
+		for {
+			select {
+			case udpMsg, ok := <-sv.sendCh:
+				if !ok {
+					xl.Info("sender goroutine for udp work connection closed")
+					return
+				}
+
+				if errRet = msg.WriteMsg(conn, udpMsg); errRet != nil {
+					xl.Warn("sender goroutine for udp work connection closed: %v", errRet)
+					return
+				}
+			case <-closeCh:
+				return
+			}
+		}
+	}
+
+	go workConnReaderFn(workConn)
+	go workConnSenderFn(workConn)
+
+	wg.Wait()
+	xl.Info("sudp worker is closed")
+}
+
+func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
+	xl := xlog.FromContextSafe(sv.ctx)
+	visitorConn, err := sv.ctl.connectServer()
+	if err != nil {
+		return nil, fmt.Errorf("frpc connect frps error: %v", err)
+	}
+
+	now := time.Now().Unix()
+	newVisitorConnMsg := &msg.NewVisitorConn{
+		ProxyName:      sv.cfg.ServerName,
+		SignKey:        util.GetAuthKey(sv.cfg.Sk, now),
+		Timestamp:      now,
+		UseEncryption:  sv.cfg.UseEncryption,
+		UseCompression: sv.cfg.UseCompression,
+	}
+	err = msg.WriteMsg(visitorConn, newVisitorConnMsg)
+	if err != nil {
+		return nil, fmt.Errorf("frpc send newVisitorConnMsg to frps error: %v", err)
+	}
+
+	var newVisitorConnRespMsg msg.NewVisitorConnResp
+	visitorConn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	err = msg.ReadMsgInto(visitorConn, &newVisitorConnRespMsg)
+	if err != nil {
+		return nil, fmt.Errorf("frpc read newVisitorConnRespMsg error: %v", err)
+	}
+	visitorConn.SetReadDeadline(time.Time{})
+
+	if newVisitorConnRespMsg.Error != "" {
+		return nil, fmt.Errorf("start new visitor connection error: %s", newVisitorConnRespMsg.Error)
+	}
+
+	var remote io.ReadWriteCloser
+	remote = visitorConn
+	if sv.cfg.UseEncryption {
+		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk))
+		if err != nil {
+			xl.Error("create encryption stream error: %v", err)
+			return nil, err
+		}
+	}
+	if sv.cfg.UseCompression {
+		remote = frpIo.WithCompression(remote)
+	}
+	return frpNet.WrapReadWriteCloserToConn(remote, visitorConn), nil
+}
+
+func (sv *SUDPVisitor) Close() {
+	sv.mu.Lock()
+	defer sv.mu.Unlock()
+
+	select {
+	case <-sv.checkCloseCh:
+		return
+	default:
+		close(sv.checkCloseCh)
+	}
+	if sv.udpConn != nil {
+		sv.udpConn.Close()
+	}
+	close(sv.readCh)
+	close(sv.sendCh)
 }

@@ -21,21 +21,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/fatedier/frp/models/config"
-	"github.com/fatedier/frp/models/consts"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/consts"
 )
 
 func init() {
-	httpsCmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
-	httpsCmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	httpsCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
-	httpsCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
-	httpsCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
-	httpsCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
-	httpsCmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
+	RegisterCommonFlags(httpsCmd)
 
 	httpsCmd.PersistentFlags().StringVarP(&proxyName, "proxy_name", "n", "", "proxy name")
-	httpsCmd.PersistentFlags().StringVarP(&localIp, "local_ip", "i", "127.0.0.1", "local ip")
+	httpsCmd.PersistentFlags().StringVarP(&localIP, "local_ip", "i", "127.0.0.1", "local ip")
 	httpsCmd.PersistentFlags().IntVarP(&localPort, "local_port", "l", 0, "local port")
 	httpsCmd.PersistentFlags().StringVarP(&customDomains, "custom_domain", "d", "", "custom domain")
 	httpsCmd.PersistentFlags().StringVarP(&subDomain, "sd", "", "", "sub domain")
@@ -49,20 +43,20 @@ var httpsCmd = &cobra.Command{
 	Use:   "https",
 	Short: "Run frpc with a single https proxy",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := parseClientCommonCfg(CfgFileTypeCmd, "")
+		clientCfg, err := parseClientCommonCfg(CfgFileTypeCmd, "")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 
-		cfg := &config.HttpsProxyConf{}
+		cfg := &config.HTTPSProxyConf{}
 		var prefix string
 		if user != "" {
 			prefix = user + "."
 		}
 		cfg.ProxyName = prefix + proxyName
-		cfg.ProxyType = consts.HttpsProxy
-		cfg.LocalIp = localIp
+		cfg.ProxyType = consts.HTTPSProxy
+		cfg.LocalIP = localIP
 		cfg.LocalPort = localPort
 		cfg.CustomDomains = strings.Split(customDomains, ",")
 		cfg.SubDomain = subDomain
@@ -78,7 +72,7 @@ var httpsCmd = &cobra.Command{
 		proxyConfs := map[string]config.ProxyConf{
 			cfg.ProxyName: cfg,
 		}
-		err = startService(proxyConfs, nil)
+		err = startService(clientCfg, proxyConfs, nil, "")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

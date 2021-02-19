@@ -1,0 +1,19 @@
+builds:
+  - skip: true
+checksum:
+  name_template: 'checksums.txt'
+release:
+  # Same as for github
+  # Note: it can only be one: either github, gitlab or gitea
+  github:
+    owner: fatedier
+    name: frp
+
+  draft: false
+
+  # You can add extra pre-existing files to the release.
+  # The filename on the release will be the last part of the path (base). If
+  # another file with the same name exists, the latest one found will be used.
+  # Defaults to empty.
+  extra_files:
+    - glob: ./release/packages/*
