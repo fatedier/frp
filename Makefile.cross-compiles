@@ -7,6 +7,8 @@ all: build
 build: app
 
 app:
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "$(LDFLAGS)" -o ./release/frpc_darwin_arm64 ./cmd/frpc
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "$(LDFLAGS)" -o ./release/frps_darwin_arm64 ./cmd/frps
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o ./release/frpc_darwin_amd64 ./cmd/frpc
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o ./release/frps_darwin_amd64 ./cmd/frps
 	env CGO_ENABLED=0 GOOS=freebsd GOARCH=386 go build -trimpath -ldflags "$(LDFLAGS)" -o ./release/frpc_freebsd_386 ./cmd/frpc
