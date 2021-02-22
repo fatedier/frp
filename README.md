@@ -545,6 +545,74 @@ You will need **a root CA cert** and **at least one SSL/TLS certificate**. It **
 
 If you using `frp` via IP address and not hostname, make sure to set the appropriate IP address in the Subject Alternative Name (SAN) area when generating SSL/TLS Certificates.
 
+Given an example:
+
+* Prepare openssl config file. It exists at `/etc/pki/tls/openssl.cnf` in Linux System and `/System/Library/OpenSSL/openssl.cnf` in MacOS, and you can copy it to current path, like `cp /etc/pki/tls/openssl.cnf ./my-openssl.cnf`. If not, you can build it by yourself, like:
+```
+cat > my-openssl.cnf << EOF
+[ ca ]
+default_ca = CA_default
+[ CA_default ]
+x509_extensions = usr_cert
+[ req ]
+default_bits        = 2048
+default_md          = sha256
+default_keyfile     = privkey.pem
+distinguished_name  = req_distinguished_name
+attributes          = req_attributes
+x509_extensions     = v3_ca
+string_mask         = utf8only
+[ req_distinguished_name ]
+[ req_attributes ]
+[ usr_cert ]
+basicConstraints       = CA:FALSE
+nsComment              = "OpenSSL Generated Certificate"
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid,issuer
+[ v3_ca ]
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints       = CA:true
+EOF
+```
+
+* build ca certificates:
+```
+openssl genrsa -out ca.key 2048
+openssl req -x509 -new -nodes -key ca.key -subj "/CN=example.ca.com" -days 5000 -out ca.crt
+```
+
+* build frps certificates:
+```
+openssl genrsa -out server.key 2048
+
+openssl req -new -sha256 -key server.key \
+    -subj "/C=XX/ST=DEFAULT/L=DEFAULT/O=DEFAULT/CN=server.com" \
+    -reqexts SAN \
+    -config <(cat my-openssl.cnf <(printf "\n[SAN]\nsubjectAltName=DNS:localhost,IP:127.0.0.1,DNS:example.server.com")) \
+    -out server.csr
+
+openssl x509 -req -days 365 \
+	-in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+	-extfile <(printf "subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:example.server.com") \
+	-out server.crt
+```
+
+* build frpc certificates：
+```
+openssl genrsa -out client.key 2048
+openssl req -new -sha256 -key client.key \
+    -subj "/C=XX/ST=DEFAULT/L=DEFAULT/O=DEFAULT/CN=client.com" \
+    -reqexts SAN \
+    -config <(cat my-openssl.cnf <(printf "\n[SAN]\nsubjectAltName=DNS:client.com,DNS:example.client.com")) \
+    -out client.csr
+
+openssl x509 -req -days 365 \
+    -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+	-extfile <(printf "subjectAltName=DNS:client.com,DNS:example.client.com") \
+	-out client.crt
+```
+
 ### Hot-Reloading frpc configuration
 
 The `admin_addr` and `admin_port` fields are required for enabling HTTP API:
