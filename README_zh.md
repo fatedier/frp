@@ -50,15 +50,15 @@ frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进�
 
 如果您想学习 frp 相关的知识和技术，或者寻求任何帮助及咨询，都可以通过微信扫描下方的二维码付费加入知识星球的官方社群：
 
-![zsxq](/doc/pic/zsxq.jpg)
+![zsxq](doc/pic/zsxq.jpg)
 
 ### 支付宝扫码捐赠
 
-![donate-alipay](/doc/pic/donate-alipay.png)
+![donate-alipay](doc/pic/donate-alipay.png)
 
 ### 微信支付捐赠
 
-![donate-wechatpay](/doc/pic/donate-wechatpay.png)
+![donate-wechatpay](doc/pic/donate-wechatpay.png)
 
 ### Paypal 捐赠
 
