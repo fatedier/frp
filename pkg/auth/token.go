@@ -20,47 +20,30 @@ import (
 
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/util"
-
-	"github.com/vaughan0/go-ini"
 )
 
-type tokenConfig struct {
+type TokenConfig struct {
 	// Token specifies the authorization token used to create keys to be sent
 	// to the server. The server must have a matching token for authorization
 	// to succeed.  By default, this value is "".
-	Token string `json:"token"`
+	Token string `ini:"token" json:"token"`
 }
 
-func getDefaultTokenConf() tokenConfig {
-	return tokenConfig{
+func getDefaultTokenConf() TokenConfig {
+	return TokenConfig{
 		Token: "",
 	}
 }
 
-func unmarshalTokenConfFromIni(conf ini.File) tokenConfig {
-	var (
-		tmpStr string
-		ok     bool
-	)
-
-	cfg := getDefaultTokenConf()
-
-	if tmpStr, ok = conf.Get("common", "token"); ok {
-		cfg.Token = tmpStr
-	}
-
-	return cfg
-}
-
 type TokenAuthSetterVerifier struct {
-	baseConfig
+	BaseConfig
 
 	token string
 }
 
-func NewTokenAuth(baseCfg baseConfig, cfg tokenConfig) *TokenAuthSetterVerifier {
+func NewTokenAuth(baseCfg BaseConfig, cfg TokenConfig) *TokenAuthSetterVerifier {
 	return &TokenAuthSetterVerifier{
-		baseConfig: baseCfg,
+		BaseConfig: baseCfg,
 		token:      cfg.Token,
 	}
 }

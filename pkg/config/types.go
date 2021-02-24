@@ -41,6 +41,15 @@ func NewBandwidthQuantity(s string) (BandwidthQuantity, error) {
 	return q, nil
 }
 
+func MustBandwidthQuantity(s string) BandwidthQuantity {
+	q := BandwidthQuantity{}
+	err := q.UnmarshalString(s)
+	if err != nil {
+		panic(err)
+	}
+	return q
+}
+
 func (q *BandwidthQuantity) Equal(u *BandwidthQuantity) bool {
 	if q == nil && u == nil {
 		return true

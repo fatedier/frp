@@ -41,7 +41,7 @@ var tcpCmd = &cobra.Command{
 	Use:   "tcp",
 	Short: "Run frpc with a single tcp proxy",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		clientCfg, err := parseClientCommonCfg(CfgFileTypeCmd, "")
+		clientCfg, err := parseClientCommonCfg(CfgFileTypeCmd, nil)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

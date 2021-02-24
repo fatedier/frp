@@ -42,7 +42,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	p2 := util.NewProcess(consts.FRPC_BIN_PATH, []string{"-c", "./auto_test_frpc.ini"})
 	if err = p2.Start(); err != nil {
 		panic(err)
