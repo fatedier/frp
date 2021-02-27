@@ -1,0 +1,26 @@
+name: Autocloser
+on:
+  issues:
+    types: [opened]
+jobs:
+  autoclose:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Autoclose issues that did not follow issue template
+      uses: roots/issue-closer@v1.1
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        issue-close-message: >
+            Hello @${{ github.event.issue.user.login }}! :wave: 
+            Thank you very much for reporting it.
+
+
+            However, **your report doesn't follow the issue template**,
+            so it is being automatically closed. We are really sorry for that,
+            but we need all reports to follow the template, or else it won't be
+            possible to understand and help with all issues.
+
+
+            Please, create a new issue following the template, or reopen this
+            same issue to edit and provide all required information.
+        issue-pattern: 'I included all information required in the sections above'
