@@ -214,11 +214,16 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 	xl := xlog.FromContextSafe(svr.ctx)
 	var tlsConfig *tls.Config
 	if svr.cfg.TLSEnable {
+		sn := svr.cfg.TLSServerName
+		if sn == "" {
+			sn = svr.cfg.ServerAddr
+		}
+
 		tlsConfig, err = transport.NewClientTLSConfig(
 			svr.cfg.TLSCertFile,
 			svr.cfg.TLSKeyFile,
 			svr.cfg.TLSTrustedCaFile,
-			svr.cfg.ServerAddr)
+			sn)
 		if err != nil {
 			xl.Warn("fail to build tls configuration when service login, err: %v", err)
 			return
