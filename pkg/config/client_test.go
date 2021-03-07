@@ -60,6 +60,7 @@ var (
 		tls_cert_file = client.crt
 		tls_key_file = client.key
 		tls_trusted_ca_file = ca.crt
+		tls_server_name = example.com
 		dns_server = 8.8.8.9
 		start = ssh,dns
 		heartbeat_interval = 39
@@ -280,6 +281,7 @@ func Test_LoadClientCommonConf(t *testing.T) {
 		TLSCertFile:       "client.crt",
 		TLSKeyFile:        "client.key",
 		TLSTrustedCaFile:  "ca.crt",
+		TLSServerName:     "example.com",
 		DNSServer:         "8.8.8.9",
 		Start:             []string{"ssh", "dns"},
 		HeartbeatInterval: 39,
