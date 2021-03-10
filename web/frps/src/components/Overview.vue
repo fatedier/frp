@@ -78,7 +78,7 @@
         },
         methods: {
             fetchData() {
-                fetch('/api/serverinfo', {credentials: 'include'})
+                fetch('../api/serverinfo', {credentials: 'include'})
               .then(res => {
                 return res.json()
               }).then(json => {
