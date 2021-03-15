@@ -148,7 +148,7 @@ func (pxy *TCPProxy) Close() {
 }
 
 func (pxy *TCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, pxy.limiter,
+	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
 		conn, []byte(pxy.clientCfg.Token), m)
 }
 
@@ -177,7 +177,7 @@ func (pxy *TCPMuxProxy) Close() {
 }
 
 func (pxy *TCPMuxProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, pxy.limiter,
+	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
 		conn, []byte(pxy.clientCfg.Token), m)
 }
 
@@ -206,7 +206,7 @@ func (pxy *HTTPProxy) Close() {
 }
 
 func (pxy *HTTPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, pxy.limiter,
+	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
 		conn, []byte(pxy.clientCfg.Token), m)
 }
 
@@ -235,7 +235,7 @@ func (pxy *HTTPSProxy) Close() {
 }
 
 func (pxy *HTTPSProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, pxy.limiter,
+	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
 		conn, []byte(pxy.clientCfg.Token), m)
 }
 
@@ -264,7 +264,7 @@ func (pxy *STCPProxy) Close() {
 }
 
 func (pxy *STCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, pxy.limiter,
+	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
 		conn, []byte(pxy.clientCfg.Token), m)
 }
 
@@ -309,6 +309,10 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	raddr, _ := net.ResolveUDPAddr("udp",
 		fmt.Sprintf("%s:%d", pxy.clientCfg.ServerAddr, pxy.serverUDPPort))
 	clientConn, err := net.DialUDP("udp", nil, raddr)
+	if err != nil {
+		xl.Error("dial server udp addr error: %v", err)
+		return
+	}
 	defer clientConn.Close()
 
 	err = msg.WriteMsg(clientConn, natHoleClientMsg)
@@ -410,7 +414,7 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 		return
 	}
 
-	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, &pxy.cfg.BaseProxyConf, pxy.limiter,
+	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
 		muxConn, []byte(pxy.cfg.Sk), m)
 }
 

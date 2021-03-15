@@ -27,8 +27,8 @@ type KCPListener struct {
 	closeFlag bool
 }
 
-func ListenKcp(bindAddr string, bindPort int) (l *KCPListener, err error) {
-	listener, err := kcp.ListenWithOptions(fmt.Sprintf("%s:%d", bindAddr, bindPort), nil, 10, 3)
+func ListenKcp(address string) (l *KCPListener, err error) {
+	listener, err := kcp.ListenWithOptions(address, nil, 10, 3)
 	if err != nil {
 		return l, err
 	}

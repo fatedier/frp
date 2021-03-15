@@ -209,13 +209,17 @@ func (ctl *Control) connectServer() (conn net.Conn, err error) {
 		conn = stream
 	} else {
 		var tlsConfig *tls.Config
+		sn := ctl.clientCfg.TLSServerName
+		if sn == "" {
+			sn = ctl.clientCfg.ServerAddr
+		}
 
 		if ctl.clientCfg.TLSEnable {
 			tlsConfig, err = transport.NewClientTLSConfig(
 				ctl.clientCfg.TLSCertFile,
 				ctl.clientCfg.TLSKeyFile,
 				ctl.clientCfg.TLSTrustedCaFile,
-				ctl.clientCfg.ServerAddr)
+				sn)
 
 			if err != nil {
 				xl.Warn("fail to build tls configuration when connecting to server, err: %v", err)

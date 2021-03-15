@@ -1,3 +1,4 @@
+
 # frp
 
 [![Build Status](https://circleci.com/gh/fatedier/frp.svg?style=shield)](https://circleci.com/gh/fatedier/frp)
@@ -67,7 +68,7 @@ frp also has a P2P connect mode.
 * [Donation](#donation)
     * [AliPay](#alipay)
     * [Wechat Pay](#wechat-pay)
-    * [Paypal](#paypal)
+    * [PayPal](#paypal)
 
 <!-- vim-markdown-toc -->
 
@@ -257,7 +258,9 @@ Configure `frps` same as above.
 
 2. Visit `http://x.x.x.x:6000/static/` from your browser and specify correct user and password to view files in `/tmp/files` on the `frpc` machine.
 
-### Enable HTTPS for local HTTP service
+### Enable HTTPS for local HTTP(S) service
+
+You may substitute `https2https` for the plugin, and point the `plugin_local_addr` to a HTTPS endpoint.
 
 1. Start `frpc` with configuration:
 
@@ -515,11 +518,100 @@ use_compression = true
 
 frp supports the TLS protocol between `frpc` and `frps` since v0.25.0.
 
-Config `tls_enable = true` in the `[common]` section to `frpc.ini` to enable this feature.
-
 For port multiplexing, frp sends a first byte `0x17` to dial a TLS connection.
 
-To enforce `frps` to only accept TLS connections - configure `tls_only = true` in the `[common]` section in `frps.ini`.
+Configure `tls_enable = true` in the `[common]` section to `frpc.ini` to enable this feature.
+
+To **enforce** `frps` to only accept TLS connections - configure `tls_only = true` in the `[common]` section in `frps.ini`. **This is optional.**
+
+**`frpc` TLS settings (under the `[common]` section):**
+```ini
+tls_enable = true
+tls_cert_file = certificate.crt
+tls_key_file = certificate.key
+tls_trusted_ca_file = ca.crt
+```
+
+**`frps` TLS settings (under the `[common]` section):**
+```ini
+tls_only = true
+tls_enable = true
+tls_cert_file = certificate.crt
+tls_key_file = certificate.key
+tls_trusted_ca_file = ca.crt
+```
+
+You will need **a root CA cert** and **at least one SSL/TLS certificate**. It **can** be self-signed or regular (such as Let's Encrypt or another SSL/TLS certificate provider).
+
+If you using `frp` via IP address and not hostname, make sure to set the appropriate IP address in the Subject Alternative Name (SAN) area when generating SSL/TLS Certificates.
+
+Given an example:
+
+* Prepare openssl config file. It exists at `/etc/pki/tls/openssl.cnf` in Linux System and `/System/Library/OpenSSL/openssl.cnf` in MacOS, and you can copy it to current path, like `cp /etc/pki/tls/openssl.cnf ./my-openssl.cnf`. If not, you can build it by yourself, like:
+```
+cat > my-openssl.cnf << EOF
+[ ca ]
+default_ca = CA_default
+[ CA_default ]
+x509_extensions = usr_cert
+[ req ]
+default_bits        = 2048
+default_md          = sha256
+default_keyfile     = privkey.pem
+distinguished_name  = req_distinguished_name
+attributes          = req_attributes
+x509_extensions     = v3_ca
+string_mask         = utf8only
+[ req_distinguished_name ]
+[ req_attributes ]
+[ usr_cert ]
+basicConstraints       = CA:FALSE
+nsComment              = "OpenSSL Generated Certificate"
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid,issuer
+[ v3_ca ]
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints       = CA:true
+EOF
+```
+
+* build ca certificates:
+```
+openssl genrsa -out ca.key 2048
+openssl req -x509 -new -nodes -key ca.key -subj "/CN=example.ca.com" -days 5000 -out ca.crt
+```
+
+* build frps certificates:
+```
+openssl genrsa -out server.key 2048
+
+openssl req -new -sha256 -key server.key \
+    -subj "/C=XX/ST=DEFAULT/L=DEFAULT/O=DEFAULT/CN=server.com" \
+    -reqexts SAN \
+    -config <(cat my-openssl.cnf <(printf "\n[SAN]\nsubjectAltName=DNS:localhost,IP:127.0.0.1,DNS:example.server.com")) \
+    -out server.csr
+
+openssl x509 -req -days 365 \
+	-in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+	-extfile <(printf "subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:example.server.com") \
+	-out server.crt
+```
+
+* build frpc certificates：
+```
+openssl genrsa -out client.key 2048
+openssl req -new -sha256 -key client.key \
+    -subj "/C=XX/ST=DEFAULT/L=DEFAULT/O=DEFAULT/CN=client.com" \
+    -reqexts SAN \
+    -config <(cat my-openssl.cnf <(printf "\n[SAN]\nsubjectAltName=DNS:client.com,DNS:example.client.com")) \
+    -out client.csr
+
+openssl x509 -req -days 365 \
+    -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+	-extfile <(printf "subjectAltName=DNS:client.com,DNS:example.client.com") \
+	-out client.crt
+```
 
 ### Hot-Reloading frpc configuration
 
@@ -967,6 +1059,6 @@ frp QQ group: 606194980
 
 ![donation-wechatpay](/doc/pic/donate-wechatpay.png)
 
-### Paypal
+### PayPal
 
-Donate money by [paypal](https://www.paypal.me/fatedier) to my account **fatedier@gmail.com**.
+Donate money by [PayPal](https://www.paypal.me/fatedier) to my account **fatedier@gmail.com**.

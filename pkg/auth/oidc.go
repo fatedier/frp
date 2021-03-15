@@ -21,30 +21,29 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 
 	"github.com/coreos/go-oidc"
-	"github.com/vaughan0/go-ini"
 	"golang.org/x/oauth2/clientcredentials"
 )
 
-type oidcClientConfig struct {
+type OidcClientConfig struct {
 	// OidcClientID specifies the client ID to use to get a token in OIDC
 	// authentication if AuthenticationMethod == "oidc". By default, this value
 	// is "".
-	OidcClientID string `json:"oidc_client_id"`
+	OidcClientID string `ini:"oidc_client_id" json:"oidc_client_id"`
 	// OidcClientSecret specifies the client secret to use to get a token in OIDC
 	// authentication if AuthenticationMethod == "oidc". By default, this value
 	// is "".
-	OidcClientSecret string `json:"oidc_client_secret"`
+	OidcClientSecret string `ini:"oidc_client_secret" json:"oidc_client_secret"`
 	// OidcAudience specifies the audience of the token in OIDC authentication
 	//if AuthenticationMethod == "oidc". By default, this value is "".
-	OidcAudience string `json:"oidc_audience"`
+	OidcAudience string `ini:"oidc_audience" json:"oidc_audience"`
 	// OidcTokenEndpointURL specifies the URL which implements OIDC Token Endpoint.
 	// It will be used to get an OIDC token if AuthenticationMethod == "oidc".
 	// By default, this value is "".
-	OidcTokenEndpointURL string `json:"oidc_token_endpoint_url"`
+	OidcTokenEndpointURL string `ini:"oidc_token_endpoint_url" json:"oidc_token_endpoint_url"`
 }
 
-func getDefaultOidcClientConf() oidcClientConfig {
-	return oidcClientConfig{
+func getDefaultOidcClientConf() OidcClientConfig {
+	return OidcClientConfig{
 		OidcClientID:         "",
 		OidcClientSecret:     "",
 		OidcAudience:         "",
@@ -52,56 +51,29 @@ func getDefaultOidcClientConf() oidcClientConfig {
 	}
 }
 
-func unmarshalOidcClientConfFromIni(conf ini.File) oidcClientConfig {
-	var (
-		tmpStr string
-		ok     bool
-	)
-
-	cfg := getDefaultOidcClientConf()
-
-	if tmpStr, ok = conf.Get("common", "oidc_client_id"); ok {
-		cfg.OidcClientID = tmpStr
-	}
-
-	if tmpStr, ok = conf.Get("common", "oidc_client_secret"); ok {
-		cfg.OidcClientSecret = tmpStr
-	}
-
-	if tmpStr, ok = conf.Get("common", "oidc_audience"); ok {
-		cfg.OidcAudience = tmpStr
-	}
-
-	if tmpStr, ok = conf.Get("common", "oidc_token_endpoint_url"); ok {
-		cfg.OidcTokenEndpointURL = tmpStr
-	}
-
-	return cfg
-}
-
-type oidcServerConfig struct {
+type OidcServerConfig struct {
 	// OidcIssuer specifies the issuer to verify OIDC tokens with. This issuer
 	// will be used to load public keys to verify signature and will be compared
 	// with the issuer claim in the OIDC token. It will be used if
 	// AuthenticationMethod == "oidc". By default, this value is "".
-	OidcIssuer string `json:"oidc_issuer"`
+	OidcIssuer string `ini:"oidc_issuer" json:"oidc_issuer"`
 	// OidcAudience specifies the audience OIDC tokens should contain when validated.
 	// If this value is empty, audience ("client ID") verification will be skipped.
 	// It will be used when AuthenticationMethod == "oidc". By default, this
 	// value is "".
-	OidcAudience string `json:"oidc_audience"`
+	OidcAudience string `ini:"oidc_audience" json:"oidc_audience"`
 	// OidcSkipExpiryCheck specifies whether to skip checking if the OIDC token is
 	// expired. It will be used when AuthenticationMethod == "oidc". By default, this
 	// value is false.
-	OidcSkipExpiryCheck bool `json:"oidc_skip_expiry_check"`
+	OidcSkipExpiryCheck bool `ini:"oidc_skip_expiry_check" json:"oidc_skip_expiry_check"`
 	// OidcSkipIssuerCheck specifies whether to skip checking if the OIDC token's
 	// issuer claim matches the issuer specified in OidcIssuer. It will be used when
 	// AuthenticationMethod == "oidc". By default, this value is false.
-	OidcSkipIssuerCheck bool `json:"oidc_skip_issuer_check"`
+	OidcSkipIssuerCheck bool `ini:"oidc_skip_issuer_check" json:"oidc_skip_issuer_check"`
 }
 
-func getDefaultOidcServerConf() oidcServerConfig {
-	return oidcServerConfig{
+func getDefaultOidcServerConf() OidcServerConfig {
+	return OidcServerConfig{
 		OidcIssuer:          "",
 		OidcAudience:        "",
 		OidcSkipExpiryCheck: false,
@@ -109,44 +81,13 @@ func getDefaultOidcServerConf() oidcServerConfig {
 	}
 }
 
-func unmarshalOidcServerConfFromIni(conf ini.File) oidcServerConfig {
-	var (
-		tmpStr string
-		ok     bool
-	)
-
-	cfg := getDefaultOidcServerConf()
-
-	if tmpStr, ok = conf.Get("common", "oidc_issuer"); ok {
-		cfg.OidcIssuer = tmpStr
-	}
-
-	if tmpStr, ok = conf.Get("common", "oidc_audience"); ok {
-		cfg.OidcAudience = tmpStr
-	}
-
-	if tmpStr, ok = conf.Get("common", "oidc_skip_expiry_check"); ok && tmpStr == "true" {
-		cfg.OidcSkipExpiryCheck = true
-	} else {
-		cfg.OidcSkipExpiryCheck = false
-	}
-
-	if tmpStr, ok = conf.Get("common", "oidc_skip_issuer_check"); ok && tmpStr == "true" {
-		cfg.OidcSkipIssuerCheck = true
-	} else {
-		cfg.OidcSkipIssuerCheck = false
-	}
-
-	return cfg
-}
-
 type OidcAuthProvider struct {
-	baseConfig
+	BaseConfig
 
 	tokenGenerator *clientcredentials.Config
 }
 
-func NewOidcAuthSetter(baseCfg baseConfig, cfg oidcClientConfig) *OidcAuthProvider {
+func NewOidcAuthSetter(baseCfg BaseConfig, cfg OidcClientConfig) *OidcAuthProvider {
 	tokenGenerator := &clientcredentials.Config{
 		ClientID:     cfg.OidcClientID,
 		ClientSecret: cfg.OidcClientSecret,
@@ -155,7 +96,7 @@ func NewOidcAuthSetter(baseCfg baseConfig, cfg oidcClientConfig) *OidcAuthProvid
 	}
 
 	return &OidcAuthProvider{
-		baseConfig:     baseCfg,
+		BaseConfig:     baseCfg,
 		tokenGenerator: tokenGenerator,
 	}
 }
@@ -192,13 +133,13 @@ func (auth *OidcAuthProvider) SetNewWorkConn(newWorkConnMsg *msg.NewWorkConn) (e
 }
 
 type OidcAuthConsumer struct {
-	baseConfig
+	BaseConfig
 
 	verifier         *oidc.IDTokenVerifier
 	subjectFromLogin string
 }
 
-func NewOidcAuthVerifier(baseCfg baseConfig, cfg oidcServerConfig) *OidcAuthConsumer {
+func NewOidcAuthVerifier(baseCfg BaseConfig, cfg OidcServerConfig) *OidcAuthConsumer {
 	provider, err := oidc.NewProvider(context.Background(), cfg.OidcIssuer)
 	if err != nil {
 		panic(err)
@@ -210,7 +151,7 @@ func NewOidcAuthVerifier(baseCfg baseConfig, cfg oidcServerConfig) *OidcAuthCons
 		SkipIssuerCheck:   cfg.OidcSkipIssuerCheck,
 	}
 	return &OidcAuthConsumer{
-		baseConfig: baseCfg,
+		BaseConfig: baseCfg,
 		verifier:   provider.Verifier(&verifierConf),
 	}
 }

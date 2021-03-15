@@ -17,6 +17,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -128,7 +129,8 @@ func (svr *Service) Run() error {
 			return fmt.Errorf("Load assets error: %v", err)
 		}
 
-		err = svr.RunAdminServer(svr.cfg.AdminAddr, svr.cfg.AdminPort)
+		address := net.JoinHostPort(svr.cfg.AdminAddr, strconv.Itoa(svr.cfg.AdminPort))
+		err = svr.RunAdminServer(address)
 		if err != nil {
 			log.Warn("run admin server error: %v", err)
 		}
@@ -177,9 +179,16 @@ func (svr *Service) keepControllerWorking() {
 			if err != nil {
 				xl.Warn("reconnect to server error: %v", err)
 				time.Sleep(delayTime)
-				delayTime = delayTime * 2
-				if delayTime > maxDelayTime {
-					delayTime = maxDelayTime
+
+				opErr := &net.OpError{}
+				// quick retry for dial error
+				if errors.As(err, &opErr) && opErr.Op == "dial" {
+					delayTime = 2 * time.Second
+				} else {
+					delayTime = delayTime * 2
+					if delayTime > maxDelayTime {
+						delayTime = maxDelayTime
+					}
 				}
 				continue
 			}
@@ -206,11 +215,16 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 	xl := xlog.FromContextSafe(svr.ctx)
 	var tlsConfig *tls.Config
 	if svr.cfg.TLSEnable {
+		sn := svr.cfg.TLSServerName
+		if sn == "" {
+			sn = svr.cfg.ServerAddr
+		}
+
 		tlsConfig, err = transport.NewClientTLSConfig(
 			svr.cfg.TLSCertFile,
 			svr.cfg.TLSKeyFile,
 			svr.cfg.TLSTrustedCaFile,
-			svr.cfg.ServerAddr)
+			sn)
 		if err != nil {
 			xl.Warn("fail to build tls configuration when service login, err: %v", err)
 			return

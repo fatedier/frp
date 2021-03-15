@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/fatedier/frp/assets"
@@ -176,7 +177,8 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	}
 
 	// Listen for accepting connections from client.
-	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.BindAddr, cfg.BindPort))
+	address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.BindPort))
+	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		err = fmt.Errorf("Create server listener error, %v", err)
 		return
@@ -187,13 +189,14 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	ln = svr.muxer.DefaultListener()
 
 	svr.listener = ln
-	log.Info("frps tcp listen on %s:%d", cfg.BindAddr, cfg.BindPort)
+	log.Info("frps tcp listen on %s", address)
 
 	// Listen for accepting connections from client using kcp protocol.
 	if cfg.KCPBindPort > 0 {
-		svr.kcpListener, err = frpNet.ListenKcp(cfg.BindAddr, cfg.KCPBindPort)
+		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.KCPBindPort))
+		svr.kcpListener, err = frpNet.ListenKcp(address)
 		if err != nil {
-			err = fmt.Errorf("Listen on kcp address udp [%s:%d] error: %v", cfg.BindAddr, cfg.KCPBindPort, err)
+			err = fmt.Errorf("Listen on kcp address udp %s error: %v", address, err)
 			return
 		}
 		log.Info("frps kcp listen on udp %s:%d", cfg.BindAddr, cfg.KCPBindPort)
@@ -213,7 +216,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		}, svr.httpVhostRouter)
 		svr.rc.HTTPReverseProxy = rp
 
-		address := fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHTTPPort)
+		address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.VhostHTTPPort))
 		server := &http.Server{
 			Addr:    address,
 			Handler: rp,
@@ -238,11 +241,13 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		if httpsMuxOn {
 			l = svr.muxer.ListenHttps(1)
 		} else {
-			l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.VhostHTTPSPort))
+			address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.VhostHTTPSPort))
+			l, err = net.Listen("tcp", address)
 			if err != nil {
 				err = fmt.Errorf("Create server listener error, %v", err)
 				return
 			}
+			log.Info("https service listen on %s", address)
 		}
 
 		svr.rc.VhostHTTPSMuxer, err = vhost.NewHTTPSMuxer(l, vhostReadWriteTimeout)
@@ -250,7 +255,6 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			err = fmt.Errorf("Create vhost httpsMuxer error, %v", err)
 			return
 		}
-		log.Info("https service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHTTPSPort)
 	}
 
 	// frp tls listener
@@ -261,14 +265,14 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	// Create nat hole controller.
 	if cfg.BindUDPPort > 0 {
 		var nc *nathole.Controller
-		addr := fmt.Sprintf("%s:%d", cfg.BindAddr, cfg.BindUDPPort)
-		nc, err = nathole.NewController(addr)
+		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.BindPort))
+		nc, err = nathole.NewController(address)
 		if err != nil {
 			err = fmt.Errorf("Create nat hole controller error, %v", err)
 			return
 		}
 		svr.rc.NatHoleController = nc
-		log.Info("nat hole udp service listen on %s:%d", cfg.BindAddr, cfg.BindUDPPort)
+		log.Info("nat hole udp service listen on %s", address)
 	}
 
 	var statsEnable bool
@@ -281,7 +285,8 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			return
 		}
 
-		err = svr.RunDashboardServer(cfg.DashboardAddr, cfg.DashboardPort)
+		address := net.JoinHostPort(cfg.DashboardAddr, strconv.Itoa(cfg.DashboardPort))
+		err = svr.RunDashboardServer(address)
 		if err != nil {
 			err = fmt.Errorf("Create dashboard web server error, %v", err)
 			return
