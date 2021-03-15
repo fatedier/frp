@@ -2,7 +2,7 @@ version: 2
 jobs:
   test1:
     docker:
-      - image: circleci/golang:1.15-node
+      - image: circleci/golang:1.16-node
     working_directory: /go/src/github.com/fatedier/frp
     steps:
       - checkout
@@ -10,7 +10,7 @@ jobs:
       - run: make alltest
   test2:
     docker:
-      - image: circleci/golang:1.14-node
+      - image: circleci/golang:1.15-node
     working_directory: /go/src/github.com/fatedier/frp
     steps:
       - checkout
