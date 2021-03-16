@@ -29,7 +29,7 @@ import (
 // recommended to use GetDefaultClientConf instead of creating this object
 // directly, so that all unspecified fields have reasonable default values.
 type ClientCommonConf struct {
-	auth.ClientConfig `ini:",extends" json:"inline"`
+	auth.ClientConfig `ini:",extends"`
 
 	// ServerAddr specifies the address of the server to connect to. By
 	// default, this value is "0.0.0.0".

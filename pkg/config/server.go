@@ -29,7 +29,7 @@ import (
 // recommended to use GetDefaultServerConf instead of creating this object
 // directly, so that all unspecified fields have reasonable default values.
 type ServerCommonConf struct {
-	auth.ServerConfig `ini:",extends" json:"inline"`
+	auth.ServerConfig `ini:",extends"`
 
 	// BindAddr specifies the address that the server binds to. By default,
 	// this value is "0.0.0.0".
