@@ -144,8 +144,8 @@ type BaseProxyConf struct {
 	Metas map[string]string `ini:"-" json:"metas"`
 
 	// TODO: LocalSvrConf => LocalAppConf
-	LocalSvrConf    `ini:",extends" json:"inline"`
-	HealthCheckConf `ini:",extends" json:"inline"`
+	LocalSvrConf    `ini:",extends"`
+	HealthCheckConf `ini:",extends"`
 }
 
 type DomainConf struct {
@@ -155,8 +155,8 @@ type DomainConf struct {
 
 // HTTP
 type HTTPProxyConf struct {
-	BaseProxyConf `ini:",extends" json:"inline"`
-	DomainConf    `ini:",extends" json:"inline"`
+	BaseProxyConf `ini:",extends"`
+	DomainConf    `ini:",extends"`
 
 	Locations         []string          `ini:"locations" json:"locations"`
 	HTTPUser          string            `ini:"http_user" json:"http_user"`
@@ -167,27 +167,27 @@ type HTTPProxyConf struct {
 
 // HTTPS
 type HTTPSProxyConf struct {
-	BaseProxyConf `ini:",extends" json:"inline"`
-	DomainConf    `ini:",extends" json:"inline"`
+	BaseProxyConf `ini:",extends"`
+	DomainConf    `ini:",extends"`
 }
 
 // TCP
 type TCPProxyConf struct {
-	BaseProxyConf `ini:",extends" json:"inline"`
+	BaseProxyConf `ini:",extends"`
 	RemotePort    int `ini:"remote_port" json:"remote_port"`
 }
 
 // TCPMux
 type TCPMuxProxyConf struct {
-	BaseProxyConf `ini:",extends" json:"inline"`
-	DomainConf    `ini:",extends" json:"inline"`
+	BaseProxyConf `ini:",extends"`
+	DomainConf    `ini:",extends"`
 
 	Multiplexer string `ini:"multiplexer"`
 }
 
 // STCP
 type STCPProxyConf struct {
-	BaseProxyConf `ini:",extends" json:"inline"`
+	BaseProxyConf `ini:",extends"`
 
 	Role string `ini:"role" json:"role"`
 	Sk   string `ini:"sk" json:"sk"`
@@ -195,7 +195,7 @@ type STCPProxyConf struct {
 
 // XTCP
 type XTCPProxyConf struct {
-	BaseProxyConf `ini:",extends" json:"inline"`
+	BaseProxyConf `ini:",extends"`
 
 	Role string `ini:"role" json:"role"`
 	Sk   string `ini:"sk" json:"sk"`
@@ -203,14 +203,14 @@ type XTCPProxyConf struct {
 
 // UDP
 type UDPProxyConf struct {
-	BaseProxyConf `ini:",extends" json:"inline"`
+	BaseProxyConf `ini:",extends"`
 
 	RemotePort int `ini:"remote_port" json:"remote_port"`
 }
 
 // SUDP
 type SUDPProxyConf struct {
-	BaseProxyConf `ini:",extends" json:"inline"`
+	BaseProxyConf `ini:",extends"`
 
 	Role string `ini:"role" json:"role"`
 	Sk   string `ini:"sk" json:"sk"`
