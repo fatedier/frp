@@ -265,7 +265,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	// Create nat hole controller.
 	if cfg.BindUDPPort > 0 {
 		var nc *nathole.Controller
-		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.BindPort))
+		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.BindUDPPort))
 		nc, err = nathole.NewController(address)
 		if err != nil {
 			err = fmt.Errorf("Create nat hole controller error, %v", err)
