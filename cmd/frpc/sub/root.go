@@ -138,7 +138,11 @@ func parseClientCommonCfg(fileType int, source []byte) (cfg config.ClientCommonC
 	if err != nil {
 		return
 	}
-
+	if cfg.LogFile == "console" {
+		cfg.LogWay = "console"
+	} else {
+		cfg.LogWay = "file"
+	}
 	err = cfg.Check()
 	if err != nil {
 		return
@@ -167,11 +171,6 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 	cfg.LogLevel = logLevel
 	cfg.LogFile = logFile
 	cfg.LogMaxDays = int64(logMaxDays)
-	if logFile == "console" {
-		cfg.LogWay = "console"
-	} else {
-		cfg.LogWay = "file"
-	}
 	cfg.DisableLogColor = disableLogColor
 
 	// Only token authentication is supported in cmd mode
