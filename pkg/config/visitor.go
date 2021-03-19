@@ -52,15 +52,15 @@ type BaseVisitorConf struct {
 }
 
 type SUDPVisitorConf struct {
-	BaseVisitorConf `ini:",extends" json:"inline"`
+	BaseVisitorConf `ini:",extends"`
 }
 
 type STCPVisitorConf struct {
-	BaseVisitorConf `ini:",extends" json:"inline"`
+	BaseVisitorConf `ini:",extends"`
 }
 
 type XTCPVisitorConf struct {
-	BaseVisitorConf `ini:",extends" json:"inline"`
+	BaseVisitorConf `ini:",extends"`
 }
 
 // DefaultVisitorConf creates a empty VisitorConf object by visitorType.
