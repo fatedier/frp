@@ -732,7 +732,7 @@ This feature is suitable for a large number of short connections.
 
 Load balancing is supported by `group`.
 
-This feature is only available for types `tcp` and `http` now.
+This feature is only available for types `tcp`, `http`, `tcpmux` now.
 
 ```ini
 # frpc.ini
@@ -1006,7 +1006,7 @@ frpc will generate 8 proxies like `test_tcp_0`, `test_tcp_1`, ..., `test_tcp_7`.
 
 frpc only forwards requests to local TCP or UDP ports by default.
 
-Plugins are used for providing rich features. There are built-in plugins such as `unix_domain_socket`, `http_proxy`, `socks5`, `static_file` and you can see [example usage](#example-usage).
+Plugins are used for providing rich features. There are built-in plugins such as `unix_domain_socket`, `http_proxy`, `socks5`, `static_file`, `http2https`, `https2http`, `https2https` and you can see [example usage](#example-usage).
 
 Specify which plugin to use with the `plugin` parameter. Configuration parameters of plugin should be started with `plugin_`. `local_ip` and `local_port` are not used for plugin.
 
