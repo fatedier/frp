@@ -105,7 +105,6 @@ var rootCmd = &cobra.Command{
 		var cfg config.ServerCommonConf
 		var err error
 		if cfgFile != "" {
-			log.Info("frps uses config file: %s", cfgFile)
 			var content []byte
 			content, err = config.GetRenderedConfFromFile(cfgFile)
 			if err != nil {
@@ -113,7 +112,6 @@ var rootCmd = &cobra.Command{
 			}
 			cfg, err = parseServerCommonCfg(CfgFileTypeIni, content)
 		} else {
-			log.Info("frps uses command line arguments for config")
 			cfg, err = parseServerCommonCfg(CfgFileTypeCmd, nil)
 		}
 		if err != nil {
@@ -144,9 +142,10 @@ func parseServerCommonCfg(fileType int, source []byte) (cfg config.ServerCommonC
 	if err != nil {
 		return
 	}
-
-	err = cfg.Check()
+	cfg.Complete()
+	err = cfg.Validate()
 	if err != nil {
+		err = fmt.Errorf("Parse config error: %v", err)
 		return
 	}
 	return
@@ -190,18 +189,19 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 		}
 	}
 	cfg.MaxPortsPerClient = maxPortsPerClient
-
-	if logFile == "console" {
-		cfg.LogWay = "console"
-	} else {
-		cfg.LogWay = "file"
-	}
 	cfg.DisableLogColor = disableLogColor
 	return
 }
 
 func runServer(cfg config.ServerCommonConf) (err error) {
 	log.InitLog(cfg.LogWay, cfg.LogFile, cfg.LogLevel, cfg.LogMaxDays, cfg.DisableLogColor)
+
+	if cfgFile != "" {
+		log.Info("frps uses config file: %s", cfgFile)
+	} else {
+		log.Info("frps uses command line arguments for config")
+	}
+
 	svr, err := server.NewService(cfg)
 	if err != nil {
 		return err

@@ -29,7 +29,7 @@ import (
 // recommended to use GetDefaultClientConf instead of creating this object
 // directly, so that all unspecified fields have reasonable default values.
 type ClientCommonConf struct {
-	auth.ClientConfig `ini:",extends" json:"inline"`
+	auth.ClientConfig `ini:",extends"`
 
 	// ServerAddr specifies the address of the server to connect to. By
 	// default, this value is "0.0.0.0".
@@ -173,13 +173,21 @@ func GetDefaultClientConf() ClientCommonConf {
 	}
 }
 
-func (cfg *ClientCommonConf) Check() error {
+func (cfg *ClientCommonConf) Complete() {
+	if cfg.LogFile == "console" {
+		cfg.LogWay = "console"
+	} else {
+		cfg.LogWay = "file"
+	}
+}
+
+func (cfg *ClientCommonConf) Validate() error {
 	if cfg.HeartbeatInterval <= 0 {
-		return fmt.Errorf("Parse conf error: invalid heartbeat_interval")
+		return fmt.Errorf("invalid heartbeat_interval")
 	}
 
 	if cfg.HeartbeatTimeout < cfg.HeartbeatInterval {
-		return fmt.Errorf("Parse conf error: invalid heartbeat_timeout, heartbeat_timeout is less than heartbeat_interval")
+		return fmt.Errorf("invalid heartbeat_timeout, heartbeat_timeout is less than heartbeat_interval")
 	}
 
 	if cfg.TLSEnable == false {
@@ -194,6 +202,10 @@ func (cfg *ClientCommonConf) Check() error {
 		if cfg.TLSTrustedCaFile != "" {
 			fmt.Println("WARNING! tls_trusted_ca_file is invalid when tls_enable is false")
 		}
+	}
+
+	if cfg.Protocol != "tcp" && cfg.Protocol != "kcp" && cfg.Protocol != "websocket" {
+		return fmt.Errorf("invalid protocol")
 	}
 
 	return nil

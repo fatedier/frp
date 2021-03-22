@@ -139,8 +139,10 @@ func parseClientCommonCfg(fileType int, source []byte) (cfg config.ClientCommonC
 		return
 	}
 
-	err = cfg.Check()
+	cfg.Complete()
+	err = cfg.Validate()
 	if err != nil {
+		err = fmt.Errorf("Parse config error: %v", err)
 		return
 	}
 	return
@@ -167,11 +169,6 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 	cfg.LogLevel = logLevel
 	cfg.LogFile = logFile
 	cfg.LogMaxDays = int64(logMaxDays)
-	if logFile == "console" {
-		cfg.LogWay = "console"
-	} else {
-		cfg.LogWay = "file"
-	}
 	cfg.DisableLogColor = disableLogColor
 
 	// Only token authentication is supported in cmd mode
@@ -186,21 +183,20 @@ func runClient(cfgFilePath string) (err error) {
 	var content []byte
 	content, err = config.GetRenderedConfFromFile(cfgFilePath)
 	if err != nil {
-		return
+		return err
 	}
 
 	cfg, err := parseClientCommonCfg(CfgFileTypeIni, content)
 	if err != nil {
-		return
+		return err
 	}
 
 	pxyCfgs, visitorCfgs, err := config.LoadAllProxyConfsFromIni(cfg.User, content, cfg.Start)
 	if err != nil {
-		return
+		return err
 	}
 
-	err = startService(cfg, pxyCfgs, visitorCfgs, cfgFilePath)
-	return
+	return startService(cfg, pxyCfgs, visitorCfgs, cfgFilePath)
 }
 
 func startService(

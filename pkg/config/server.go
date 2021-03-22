@@ -29,7 +29,7 @@ import (
 // recommended to use GetDefaultServerConf instead of creating this object
 // directly, so that all unspecified fields have reasonable default values.
 type ServerCommonConf struct {
-	auth.ServerConfig `ini:",extends" json:"inline"`
+	auth.ServerConfig `ini:",extends"`
 
 	// BindAddr specifies the address that the server binds to. By default,
 	// this value is "0.0.0.0".
@@ -46,7 +46,7 @@ type ServerCommonConf struct {
 	// this value is 0.
 	KCPBindPort int `ini:"kcp_bind_port" json:"kcp_bind_port"`
 	// ProxyBindAddr specifies the address that the proxy binds to. This value
-	// may be the same as BindAddr. By default, this value is "0.0.0.0".
+	// may be the same as BindAddr.
 	ProxyBindAddr string `ini:"proxy_bind_addr" json:"proxy_bind_addr"`
 	// VhostHTTPPort specifies the port that the server listens for HTTP Vhost
 	// requests. If this value is 0, the server will not listen for HTTP
@@ -174,7 +174,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		BindPort:               7000,
 		BindUDPPort:            0,
 		KCPBindPort:            0,
-		ProxyBindAddr:          "0.0.0.0",
+		ProxyBindAddr:          "",
 		VhostHTTPPort:          0,
 		VhostHTTPSPort:         0,
 		TCPMuxHTTPConnectPort:  0,
@@ -208,10 +208,6 @@ func GetDefaultServerConf() ServerCommonConf {
 	}
 }
 
-func (cfg *ServerCommonConf) Check() error {
-	return nil
-}
-
 func UnmarshalServerConfFromIni(source interface{}) (ServerCommonConf, error) {
 
 	f, err := ini.LoadSources(ini.LoadOptions{
@@ -242,7 +238,7 @@ func UnmarshalServerConfFromIni(source interface{}) (ServerCommonConf, error) {
 	if allowPortStr != "" {
 		allowPorts, err := util.ParseRangeNumbers(allowPortStr)
 		if err != nil {
-			return ServerCommonConf{}, fmt.Errorf("Parse conf error: allow_ports: %v", err)
+			return ServerCommonConf{}, fmt.Errorf("invalid allow_ports: %v", err)
 		}
 		for _, port := range allowPorts {
 			common.AllowPorts[int(port)] = struct{}{}
@@ -267,6 +263,26 @@ func UnmarshalServerConfFromIni(source interface{}) (ServerCommonConf, error) {
 	common.HTTPPlugins = pluginOpts
 
 	return common, nil
+}
+
+func (cfg *ServerCommonConf) Complete() {
+	if cfg.LogFile == "console" {
+		cfg.LogWay = "console"
+	} else {
+		cfg.LogWay = "file"
+	}
+
+	if cfg.ProxyBindAddr == "" {
+		cfg.ProxyBindAddr = cfg.BindAddr
+	}
+
+	if cfg.TLSTrustedCaFile != "" {
+		cfg.TLSOnly = true
+	}
+}
+
+func (cfg *ServerCommonConf) Validate() error {
+	return nil
 }
 
 func loadHTTPPluginOpt(section *ini.Section) (*plugin.HTTPPluginOptions, error) {
