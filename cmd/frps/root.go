@@ -144,7 +144,11 @@ func parseServerCommonCfg(fileType int, source []byte) (cfg config.ServerCommonC
 	if err != nil {
 		return
 	}
-
+	if cfg.LogFile == "console" {
+		cfg.LogWay = "console"
+	} else {
+		cfg.LogWay = "file"
+	}
 	err = cfg.Check()
 	if err != nil {
 		return
@@ -190,12 +194,6 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 		}
 	}
 	cfg.MaxPortsPerClient = maxPortsPerClient
-
-	if logFile == "console" {
-		cfg.LogWay = "console"
-	} else {
-		cfg.LogWay = "file"
-	}
 	cfg.DisableLogColor = disableLogColor
 	return
 }
