@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/fatedier/frp/pkg/auth"
-	"github.com/fatedier/frp/pkg/plugin/server"
+	plugin "github.com/fatedier/frp/pkg/plugin/server"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -133,7 +133,7 @@ func Test_LoadServerCommonConf(t *testing.T) {
 				},
 				MaxPoolCount:      59,
 				MaxPortsPerClient: 9,
-				TLSOnly:           false,
+				TLSOnly:           true,
 				TLSCertFile:       "server.crt",
 				TLSKeyFile:        "server.key",
 				TLSTrustedCaFile:  "ca.crt",
@@ -177,7 +177,7 @@ func Test_LoadServerCommonConf(t *testing.T) {
 				BindAddr:               "0.0.0.9",
 				BindPort:               7009,
 				BindUDPPort:            7008,
-				ProxyBindAddr:          "0.0.0.0",
+				ProxyBindAddr:          "0.0.0.9",
 				VhostHTTPTimeout:       60,
 				DashboardAddr:          "0.0.0.0",
 				DashboardUser:          "admin",
@@ -202,6 +202,7 @@ func Test_LoadServerCommonConf(t *testing.T) {
 	for _, c := range testcases {
 		actual, err := UnmarshalServerConfFromIni(c.source)
 		assert.NoError(err)
+		actual.Complete()
 		assert.Equal(c.expected, actual)
 	}
 }

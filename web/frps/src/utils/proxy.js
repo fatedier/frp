@@ -54,8 +54,8 @@ class HttpProxy extends BaseProxy {
             this.custom_domains = proxyStats.conf.custom_domains
             this.host_header_rewrite = proxyStats.conf.host_header_rewrite
             this.locations = proxyStats.conf.locations
-            if (proxyStats.conf.sub_domain != "") {
-                this.subdomain = proxyStats.conf.sub_domain + "." + subdomain_host
+            if (proxyStats.conf.subdomain != "") {
+                this.subdomain = proxyStats.conf.subdomain + "." + subdomain_host
             } else {
                 this.subdomain = ""
             }
@@ -75,8 +75,8 @@ class HttpsProxy extends BaseProxy {
         this.port = port
         if (proxyStats.conf != null) {
             this.custom_domains = proxyStats.conf.custom_domains
-            if (proxyStats.conf.sub_domain != "") {
-                this.subdomain = proxyStats.conf.sub_domain + "." + subdomain_host
+            if (proxyStats.conf.subdomain != "") {
+                this.subdomain = proxyStats.conf.subdomain + "." + subdomain_host
             } else {
                 this.subdomain = ""
             }
