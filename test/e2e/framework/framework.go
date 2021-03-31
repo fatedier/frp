@@ -25,8 +25,11 @@ type Options struct {
 
 type Framework struct {
 	TempDirectory string
-	UsedPorts     map[string]int
 
+	// ports used in this framework indexed by port name.
+	usedPorts map[string]int
+
+	// portAllocator to alloc port for this test case.
 	portAllocator *port.Allocator
 
 	// Multiple mock servers used for e2e testing.
@@ -117,10 +120,10 @@ func (f *Framework) AfterEach() {
 	f.clientConfPaths = nil
 
 	// release used ports
-	for _, port := range f.UsedPorts {
+	for _, port := range f.usedPorts {
 		f.portAllocator.Release(port)
 	}
-	f.UsedPorts = nil
+	f.usedPorts = nil
 }
 
 var portRegex = regexp.MustCompile(`{{ \.Port.*? }}`)
@@ -151,7 +154,7 @@ func (f *Framework) genPortsFromTemplates(templates []string) (ports map[string]
 	}()
 
 	for name := range ports {
-		port := f.portAllocator.Get()
+		port := f.portAllocator.GetByName(name)
 		if port <= 0 {
 			return nil, fmt.Errorf("can't allocate port")
 		}
@@ -161,6 +164,7 @@ func (f *Framework) genPortsFromTemplates(templates []string) (ports map[string]
 
 }
 
+// RenderTemplates alloc all ports for port names placeholder.
 func (f *Framework) RenderTemplates(templates []string) (outs []string, ports map[string]int, err error) {
 	ports, err = f.genPortsFromTemplates(templates)
 	if err != nil {
@@ -184,4 +188,8 @@ func (f *Framework) RenderTemplates(templates []string) (outs []string, ports ma
 		outs = append(outs, buffer.String())
 	}
 	return
+}
+
+func (f *Framework) PortByName(name string) int {
+	return f.usedPorts[name]
 }

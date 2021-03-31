@@ -2,15 +2,13 @@ package plugin
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
+	"github.com/fatedier/frp/test/e2e/pkg/port"
 
 	. "github.com/onsi/ginkgo"
 )
-
-var connTimeout = 2 * time.Second
 
 var _ = Describe("[Feature: Client-Plugins]", func() {
 	f := framework.NewDefaultFramework()
@@ -37,21 +35,21 @@ var _ = Describe("[Feature: Client-Plugins]", func() {
 			}{
 				{
 					proxyName: "normal",
-					portName:  framework.GenPortName("Normal"),
+					portName:  port.GenName("Normal"),
 				},
 				{
 					proxyName:   "with-encryption",
-					portName:    framework.GenPortName("WithEncryption"),
+					portName:    port.GenName("WithEncryption"),
 					extraConfig: "use_encryption = true",
 				},
 				{
 					proxyName:   "with-compression",
-					portName:    framework.GenPortName("WithCompression"),
+					portName:    port.GenName("WithCompression"),
 					extraConfig: "use_compression = true",
 				},
 				{
 					proxyName: "with-encryption-and-compression",
-					portName:  framework.GenPortName("WithEncryptionAndCompression"),
+					portName:  port.GenName("WithEncryptionAndCompression"),
 					extraConfig: `
 					use_encryption = true
 					use_compression = true
@@ -67,9 +65,11 @@ var _ = Describe("[Feature: Client-Plugins]", func() {
 			f.RunProcesses([]string{serverConf}, []string{clientConf})
 
 			for _, test := range tests {
-				framework.ExpectTCPRequest(f.UsedPorts[test.portName],
-					[]byte(consts.TestString), []byte(consts.TestString),
-					connTimeout, test.proxyName)
+				framework.ExpectResponse(
+					framework.NewRequest().Port(f.PortByName(test.portName)),
+					[]byte(consts.TestString),
+					test.proxyName,
+				)
 			}
 		})
 	})
