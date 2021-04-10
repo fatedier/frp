@@ -12,9 +12,6 @@ file:
 	rm -rf ./assets/frpc/static/*
 	cp -rf ./web/frps/dist/* ./assets/frps/static
 	cp -rf ./web/frpc/dist/* ./assets/frpc/static
-	rm -rf ./assets/frps/statik
-	rm -rf ./assets/frpc/statik
-	go generate ./assets/...
 
 fmt:
 	go fmt ./...

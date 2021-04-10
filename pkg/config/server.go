@@ -82,7 +82,7 @@ type ServerCommonConf struct {
 	EnablePrometheus bool `ini:"enable_prometheus" json:"enable_prometheus"`
 	// AssetsDir specifies the local directory that the dashboard will load
 	// resources from. If this value is "", assets will be loaded from the
-	// bundled executable using statik. By default, this value is "".
+	// bundled executable using go embed. By default, this value is "".
 	AssetsDir string `ini:"assets_dir" json:"assets_dir"`
 	// LogFile specifies a file where logs will be written to. This value will
 	// only be used if LogWay is set appropriately. By default, this value is

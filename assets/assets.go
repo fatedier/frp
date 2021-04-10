@@ -14,26 +14,22 @@
 
 package assets
 
-//go:generate statik -src=./frps/static -dest=./frps
-//go:generate statik -src=./frpc/static -dest=./frpc
-//go:generate go fmt ./frps/statik/statik.go
-//go:generate go fmt ./frpc/statik/statik.go
-
 import (
+	"io/fs"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
-
-	"github.com/rakyll/statik/fs"
 )
 
 var (
-	// store static files in memory by statik
+	// store static files in memory by go embed
 	FileSystem http.FileSystem
 
 	// if prefix is not empty, we get file content from disk
 	prefixPath string
+
+	StaticFiles fs.FS
 )
 
 // if path is empty, load assets in memory
@@ -44,7 +40,7 @@ func Load(path string) (err error) {
 		FileSystem = http.Dir(prefixPath)
 		return nil
 	} else {
-		FileSystem, err = fs.New()
+		FileSystem = http.FS(StaticFiles)
 	}
 	return err
 }

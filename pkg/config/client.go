@@ -75,7 +75,7 @@ type ClientCommonConf struct {
 	AdminPwd string `ini:"admin_pwd" json:"admin_pwd"`
 	// AssetsDir specifies the local directory that the admin server will load
 	// resources from. If this value is "", assets will be loaded from the
-	// bundled executable using statik. By default, this value is "".
+	// bundled executable using go embed. By default, this value is "".
 	AssetsDir string `ini:"assets_dir" json:"assets_dir"`
 	// PoolCount specifies the number of connections the client will make to
 	// the server in advance. By default, this value is 0.

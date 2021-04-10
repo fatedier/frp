@@ -20,7 +20,7 @@ import (
 
 	"github.com/fatedier/golib/crypto"
 
-	_ "github.com/fatedier/frp/assets/frps/statik"
+	_ "github.com/fatedier/frp/assets/frps"
 	_ "github.com/fatedier/frp/pkg/metrics"
 )
 
