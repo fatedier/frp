@@ -42,6 +42,7 @@ var (
 	bindUDPPort       int
 	kcpBindPort       int
 	proxyBindAddr     string
+	vhostBindAddr     string
 	vhostHTTPPort     int
 	vhostHTTPSPort    int
 	vhostHTTPTimeout  int64
@@ -73,6 +74,7 @@ func init() {
 	rootCmd.PersistentFlags().IntVarP(&bindUDPPort, "bind_udp_port", "", 0, "bind udp port")
 	rootCmd.PersistentFlags().IntVarP(&kcpBindPort, "kcp_bind_port", "", 0, "kcp bind udp port")
 	rootCmd.PersistentFlags().StringVarP(&proxyBindAddr, "proxy_bind_addr", "", "0.0.0.0", "proxy bind address")
+	rootCmd.PersistentFlags().StringVarP(&proxyBindAddr, "vhost_bind_addr", "", "0.0.0.0", "vhost bind address")
 	rootCmd.PersistentFlags().IntVarP(&vhostHTTPPort, "vhost_http_port", "", 0, "vhost http port")
 	rootCmd.PersistentFlags().IntVarP(&vhostHTTPSPort, "vhost_https_port", "", 0, "vhost https port")
 	rootCmd.PersistentFlags().Int64VarP(&vhostHTTPTimeout, "vhost_http_timeout", "", 60, "vhost http response header timeout")
@@ -159,6 +161,7 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 	cfg.BindUDPPort = bindUDPPort
 	cfg.KCPBindPort = kcpBindPort
 	cfg.ProxyBindAddr = proxyBindAddr
+	cfg.VhostBindAddr = vhostBindAddr
 	cfg.VhostHTTPPort = vhostHTTPPort
 	cfg.VhostHTTPSPort = vhostHTTPSPort
 	cfg.VhostHTTPTimeout = vhostHTTPTimeout

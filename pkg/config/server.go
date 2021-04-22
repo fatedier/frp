@@ -48,6 +48,9 @@ type ServerCommonConf struct {
 	// ProxyBindAddr specifies the address that the proxy binds to. This value
 	// may be the same as BindAddr.
 	ProxyBindAddr string `ini:"proxy_bind_addr" json:"proxy_bind_addr"`
+	// VhostBindAddr specifies the address that the vhost binds to. This value
+	// may be the same as BindAddr.
+	VhostBindAddr string `ini:"vhost_bind_addr" json:"vhost_bind_addr"`
 	// VhostHTTPPort specifies the port that the server listens for HTTP Vhost
 	// requests. If this value is 0, the server will not listen for HTTP
 	// requests. By default, this value is 0.
@@ -175,6 +178,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		BindUDPPort:            0,
 		KCPBindPort:            0,
 		ProxyBindAddr:          "",
+		VhostBindAddr:          "",
 		VhostHTTPPort:          0,
 		VhostHTTPSPort:         0,
 		TCPMuxHTTPConnectPort:  0,
@@ -274,6 +278,9 @@ func (cfg *ServerCommonConf) Complete() {
 
 	if cfg.ProxyBindAddr == "" {
 		cfg.ProxyBindAddr = cfg.BindAddr
+	}
+	if cfg.VhostBindAddr == "" {
+		cfg.VhostBindAddr = cfg.BindAddr
 	}
 
 	if cfg.TLSTrustedCaFile != "" {

@@ -167,7 +167,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		httpMuxOn  bool
 		httpsMuxOn bool
 	)
-	if cfg.BindAddr == cfg.ProxyBindAddr {
+	if cfg.BindAddr == cfg.VhostBindAddr {
 		if cfg.BindPort == cfg.VhostHTTPPort {
 			httpMuxOn = true
 		}
@@ -216,7 +216,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		}, svr.httpVhostRouter)
 		svr.rc.HTTPReverseProxy = rp
 
-		address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.VhostHTTPPort))
+		address := net.JoinHostPort(cfg.VhostBindAddr, strconv.Itoa(cfg.VhostHTTPPort))
 		server := &http.Server{
 			Addr:    address,
 			Handler: rp,
@@ -232,7 +232,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			}
 		}
 		go server.Serve(l)
-		log.Info("http service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHTTPPort)
+		log.Info("http service listen on %s:%d", cfg.VhostBindAddr, cfg.VhostHTTPPort)
 	}
 
 	// Create https vhost muxer.
@@ -241,7 +241,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		if httpsMuxOn {
 			l = svr.muxer.ListenHttps(1)
 		} else {
-			address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.VhostHTTPSPort))
+			address := net.JoinHostPort(cfg.VhostBindAddr, strconv.Itoa(cfg.VhostHTTPSPort))
 			l, err = net.Listen("tcp", address)
 			if err != nil {
 				err = fmt.Errorf("Create server listener error, %v", err)
