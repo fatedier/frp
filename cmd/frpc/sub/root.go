@@ -234,7 +234,7 @@ func startService(
 	}
 
 	err = svr.Run()
-	if cfg.Protocol == "kcp" {
+	if err == nil && cfg.Protocol == "kcp" {
 		<-kcpDoneCh
 	}
 	return
