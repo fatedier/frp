@@ -59,9 +59,11 @@ func WithRangePorts(from, to int) NameOption {
 }
 
 func GenName(name string, options ...NameOption) string {
+	name = strings.ReplaceAll(name, "-", "")
+	name = strings.ReplaceAll(name, "_", "")
 	builder := &nameBuilder{name: name}
 	for _, option := range options {
-		option(builder)
+		builder = option(builder)
 	}
 	return builder.String()
 }

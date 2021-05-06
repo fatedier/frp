@@ -38,20 +38,13 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Overview of all proxies status",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		iniContent, err := config.GetRenderedConfFromFile(cfgFile)
+		cfg, _, _, err := config.ParseClientConfig(cfgFile)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 
-		clientCfg, err := parseClientCommonCfg(CfgFileTypeIni, iniContent)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		err = status(clientCfg)
-		if err != nil {
+		if err = status(cfg); err != nil {
 			fmt.Printf("frpc get status error: %v\n", err)
 			os.Exit(1)
 		}

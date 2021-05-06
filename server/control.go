@@ -248,12 +248,10 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 		xl.Debug("get work connection from pool")
 	default:
 		// no work connections available in the poll, send message to frpc to get more
-		err = errors.PanicToError(func() {
+		if err = errors.PanicToError(func() {
 			ctl.sendCh <- &msg.ReqWorkConn{}
-		})
-		if err != nil {
-			xl.Error("%v", err)
-			return
+		}); err != nil {
+			return nil, fmt.Errorf("control is already closed")
 		}
 
 		select {
@@ -357,14 +355,14 @@ func (ctl *Control) stoper() {
 
 	ctl.allShutdown.WaitStart()
 
+	ctl.conn.Close()
+	ctl.readerShutdown.WaitDone()
+
 	close(ctl.readCh)
 	ctl.managerShutdown.WaitDone()
 
 	close(ctl.sendCh)
 	ctl.writerShutdown.WaitDone()
-
-	ctl.conn.Close()
-	ctl.readerShutdown.WaitDone()
 
 	ctl.mu.Lock()
 	defer ctl.mu.Unlock()

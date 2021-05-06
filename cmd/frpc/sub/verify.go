@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/fatedier/frp/pkg/config"
+
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +31,7 @@ var verifyCmd = &cobra.Command{
 	Use:   "verify",
 	Short: "Verify that the configures is valid",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		_, _, _, err := parseConfig(cfgFile)
+		_, _, _, err := config.ParseClientConfig(cfgFile)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

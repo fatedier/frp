@@ -143,7 +143,6 @@ type BaseProxyConf struct {
 	// meta info for each proxy
 	Metas map[string]string `ini:"-" json:"metas"`
 
-	// TODO: LocalSvrConf => LocalAppConf
 	LocalSvrConf    `ini:",extends"`
 	HealthCheckConf `ini:",extends"`
 }
