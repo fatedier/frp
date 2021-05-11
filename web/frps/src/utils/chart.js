@@ -48,24 +48,6 @@ function DrawTrafficChart(elementId, trafficIn, trafficOut) {
 }
 
 function DrawProxyChart(elementId, serverInfo) {
-    if (serverInfo.proxy_type_count.tcp == null) {
-        serverInfo.proxy_type_count.tcp = 0
-    }
-    if (serverInfo.proxy_type_count.udp == null) {
-        serverInfo.proxy_type_count.udp = 0
-    }
-    if (serverInfo.proxy_type_count.http == null) {
-        serverInfo.proxy_type_count.http = 0
-    }
-    if (serverInfo.proxy_type_count.https == null) {
-        serverInfo.proxy_type_count.https = 0
-    }
-    if (serverInfo.proxy_type_count.stcp == null) {
-        serverInfo.proxy_type_count.stcp = 0
-    }
-    if (serverInfo.proxy_type_count.xtcp == null) {
-        serverInfo.proxy_type_count.xtcp = 0
-    }
     let myChart = echarts.init(document.getElementById(elementId), 'macarons')
     myChart.showLoading()
 
@@ -85,25 +67,7 @@ function DrawProxyChart(elementId, serverInfo) {
             type: 'pie',
             radius: '55%',
             center: ['50%', '60%'],
-            data: [{
-                value: serverInfo.proxy_type_count.tcp,
-                name: 'TCP'
-            }, {
-                value: serverInfo.proxy_type_count.udp,
-                name: 'UDP'
-            }, {
-                value: serverInfo.proxy_type_count.http,
-                name: 'HTTP'
-            }, {
-                value: serverInfo.proxy_type_count.https,
-                name: 'HTTPS'
-            }, {
-                value: serverInfo.proxy_type_count.stcp,
-                name: 'STCP'
-            }, {
-                value: serverInfo.proxy_type_count.xtcp,
-                name: 'XTCP'
-            }],
+            data: [],
             itemStyle: {
                 emphasis: {
                     shadowBlur: 10,
@@ -113,6 +77,29 @@ function DrawProxyChart(elementId, serverInfo) {
             }
         }]
     };
+
+    if (serverInfo.proxy_type_count.tcp != null && serverInfo.proxy_type_count.tcp != 0) {
+        option.series[0].data.push({value: serverInfo.proxy_type_count.tcp, name: 'TCP'})
+    }
+    if (serverInfo.proxy_type_count.udp != null && serverInfo.proxy_type_count.udp != 0) {
+        option.series[0].data.push({value: serverInfo.proxy_type_count.udp, name: 'UDP'})
+    }
+    if (serverInfo.proxy_type_count.http != null && serverInfo.proxy_type_count.http != 0) {
+        option.series[0].data.push({value: serverInfo.proxy_type_count.http, name: 'HTTP'})
+    }
+    if (serverInfo.proxy_type_count.https != null && serverInfo.proxy_type_count.https != 0) {
+        option.series[0].data.push({value: serverInfo.proxy_type_count.https, name: 'HTTPS'})
+    }
+    if (serverInfo.proxy_type_count.stcp != null && serverInfo.proxy_type_count.stcp != 0) {
+        option.series[0].data.push({value: serverInfo.proxy_type_count.stcp, name: 'STCP'})
+    }
+    if (serverInfo.proxy_type_count.sudp != null && serverInfo.proxy_type_count.sudp != 0) {
+        option.series[0].data.push({value: serverInfo.proxy_type_count.sudp, name: 'SUDP'})
+    }
+    if (serverInfo.proxy_type_count.xtcp != null && serverInfo.proxy_type_count.xtcp != 0) {
+        option.series[0].data.push({value: serverInfo.proxy_type_count.xtcp, name: 'XTCP'})
+    }
+
     myChart.setOption(option);
     myChart.hideLoading()
 }
