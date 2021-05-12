@@ -274,7 +274,7 @@ func NewProxyConfFromIni(prefix, name string, section *ini.Section) (ProxyConf, 
 
 	conf := DefaultProxyConf(proxyType)
 	if conf == nil {
-		return nil, fmt.Errorf("proxy [%s] type [%s] error", name, proxyType)
+		return nil, fmt.Errorf("proxy %s has invalid type [%s]", name, proxyType)
 	}
 
 	if err := conf.UnmarshalFromIni(prefix, name, section); err != nil {
