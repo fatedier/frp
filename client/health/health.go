@@ -66,7 +66,7 @@ func NewMonitor(ctx context.Context, checkType string,
 	if maxFailedTimes <= 0 {
 		maxFailedTimes = 1
 	}
-	newctx, cancel := context.WithCancel(ctx)
+	cancelCtx, cancel := context.WithCancel(ctx)
 	return &Monitor{
 		checkType:      checkType,
 		interval:       time.Duration(intervalS) * time.Second,
@@ -77,7 +77,7 @@ func NewMonitor(ctx context.Context, checkType string,
 		statusOK:       false,
 		statusNormalFn: statusNormalFn,
 		statusFailedFn: statusFailedFn,
-		ctx:            newctx,
+		ctx:            cancelCtx,
 		cancel:         cancel,
 	}
 }
