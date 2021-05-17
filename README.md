@@ -24,7 +24,7 @@ frp also has a P2P connect mode.
     * [Forward DNS query request](#forward-dns-query-request)
     * [Forward Unix domain socket](#forward-unix-domain-socket)
     * [Expose a simple HTTP file server](#expose-a-simple-http-file-server)
-    * [Enable HTTPS for local HTTP service](#enable-https-for-local-http-service)
+    * [Enable HTTPS for local HTTP(s) service](#enable-https-for-local-https-service)
     * [Expose your service privately](#expose-your-service-privately)
     * [P2P Mode](#p2p-mode)
 * [Features](#features)
