@@ -19,6 +19,7 @@ type serverMetrics struct {
 	connectionCount *prometheus.GaugeVec
 	trafficIn       *prometheus.CounterVec
 	trafficOut      *prometheus.CounterVec
+	status          *prometheus.GaugeVec
 }
 
 func (m *serverMetrics) NewClient() {
@@ -31,10 +32,12 @@ func (m *serverMetrics) CloseClient() {
 
 func (m *serverMetrics) NewProxy(name string, proxyType string) {
 	m.proxyCount.WithLabelValues(proxyType).Inc()
+	m.status.WithLabelValues(name, proxyType).Set(1)
 }
 
 func (m *serverMetrics) CloseProxy(name string, proxyType string) {
 	m.proxyCount.WithLabelValues(proxyType).Dec()
+	m.status.WithLabelValues(name, proxyType).Set(0)
 }
 
 func (m *serverMetrics) OpenConnection(name string, proxyType string) {
@@ -85,11 +88,18 @@ func newServerMetrics() *serverMetrics {
 			Name:      "traffic_out",
 			Help:      "The total out traffic",
 		}, []string{"name", "type"}),
+		status: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: serverSubsystem,
+			Name:      "status",
+			Help:      "The proxy status",
+		}, []string{"name", "type"}),
 	}
 	prometheus.MustRegister(m.clientCount)
 	prometheus.MustRegister(m.proxyCount)
 	prometheus.MustRegister(m.connectionCount)
 	prometheus.MustRegister(m.trafficIn)
 	prometheus.MustRegister(m.trafficOut)
+	prometheus.MustRegister(m.status)
 	return m
 }
