@@ -17,6 +17,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/fatedier/frp/pkg/auth"
@@ -136,40 +137,43 @@ type ClientCommonConf struct {
 	// UDPPacketSize specifies the udp packet size
 	// By default, this value is 1500
 	UDPPacketSize int64 `ini:"udp_packet_size" json:"udp_packet_size"`
+	// Include other config files for proxies.
+	IncludeConfigFiles []string `ini:"includes" json:"includes"`
 }
 
 // GetDefaultClientConf returns a client configuration with default values.
 func GetDefaultClientConf() ClientCommonConf {
 	return ClientCommonConf{
-		ClientConfig:      auth.GetDefaultClientConf(),
-		ServerAddr:        "0.0.0.0",
-		ServerPort:        7000,
-		HTTPProxy:         os.Getenv("http_proxy"),
-		LogFile:           "console",
-		LogWay:            "console",
-		LogLevel:          "info",
-		LogMaxDays:        3,
-		DisableLogColor:   false,
-		AdminAddr:         "127.0.0.1",
-		AdminPort:         0,
-		AdminUser:         "",
-		AdminPwd:          "",
-		AssetsDir:         "",
-		PoolCount:         1,
-		TCPMux:            true,
-		User:              "",
-		DNSServer:         "",
-		LoginFailExit:     true,
-		Start:             make([]string, 0),
-		Protocol:          "tcp",
-		TLSEnable:         false,
-		TLSCertFile:       "",
-		TLSKeyFile:        "",
-		TLSTrustedCaFile:  "",
-		HeartbeatInterval: 30,
-		HeartbeatTimeout:  90,
-		Metas:             make(map[string]string),
-		UDPPacketSize:     1500,
+		ClientConfig:       auth.GetDefaultClientConf(),
+		ServerAddr:         "0.0.0.0",
+		ServerPort:         7000,
+		HTTPProxy:          os.Getenv("http_proxy"),
+		LogFile:            "console",
+		LogWay:             "console",
+		LogLevel:           "info",
+		LogMaxDays:         3,
+		DisableLogColor:    false,
+		AdminAddr:          "127.0.0.1",
+		AdminPort:          0,
+		AdminUser:          "",
+		AdminPwd:           "",
+		AssetsDir:          "",
+		PoolCount:          1,
+		TCPMux:             true,
+		User:               "",
+		DNSServer:          "",
+		LoginFailExit:      true,
+		Start:              make([]string, 0),
+		Protocol:           "tcp",
+		TLSEnable:          false,
+		TLSCertFile:        "",
+		TLSKeyFile:         "",
+		TLSTrustedCaFile:   "",
+		HeartbeatInterval:  30,
+		HeartbeatTimeout:   90,
+		Metas:              make(map[string]string),
+		UDPPacketSize:      1500,
+		IncludeConfigFiles: make([]string, 0),
 	}
 }
 
@@ -208,6 +212,15 @@ func (cfg *ClientCommonConf) Validate() error {
 		return fmt.Errorf("invalid protocol")
 	}
 
+	for _, f := range cfg.IncludeConfigFiles {
+		absDir, err := filepath.Abs(filepath.Dir(f))
+		if err != nil {
+			return fmt.Errorf("include: parse directory of %s failed: %v", f, absDir)
+		}
+		if _, err := os.Stat(absDir); os.IsNotExist(err) {
+			return fmt.Errorf("include: directory of %s not exist", f)
+		}
+	}
 	return nil
 }
 
@@ -236,7 +249,6 @@ func UnmarshalClientConfFromIni(source interface{}) (ClientCommonConf, error) {
 	}
 
 	common.Metas = GetMapWithoutPrefix(s.KeysHash(), "meta_")
-
 	return common, nil
 }
 
