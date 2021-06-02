@@ -16,6 +16,10 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.16
+          
+      - run: |
+          # https://github.com/actions/setup-go/issues/107
+          cp -f `which go` /usr/bin/go
 
       - name: Make All
         run: |
