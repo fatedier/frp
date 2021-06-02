@@ -12,7 +12,3 @@ func init() {
 	uuid, _ := uuid.NewUUID()
 	RunID = uuid.String()
 }
-
-func GenPortName(name string) string {
-	return "Port" + name
-}

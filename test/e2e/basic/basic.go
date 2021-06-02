@@ -3,15 +3,15 @@ package basic
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
+	"github.com/fatedier/frp/test/e2e/mock/server"
+	"github.com/fatedier/frp/test/e2e/pkg/port"
+	"github.com/fatedier/frp/test/e2e/pkg/request"
 
 	. "github.com/onsi/ginkgo"
 )
-
-var connTimeout = 2 * time.Second
 
 var _ = Describe("[Feature: Basic]", func() {
 	f := framework.NewDefaultFramework()
@@ -50,21 +50,21 @@ var _ = Describe("[Feature: Basic]", func() {
 				}{
 					{
 						proxyName: "normal",
-						portName:  framework.GenPortName("Normal"),
+						portName:  port.GenName("Normal"),
 					},
 					{
 						proxyName:   "with-encryption",
-						portName:    framework.GenPortName("WithEncryption"),
+						portName:    port.GenName("WithEncryption"),
 						extraConfig: "use_encryption = true",
 					},
 					{
 						proxyName:   "with-compression",
-						portName:    framework.GenPortName("WithCompression"),
+						portName:    port.GenName("WithCompression"),
 						extraConfig: "use_compression = true",
 					},
 					{
 						proxyName: "with-encryption-and-compression",
-						portName:  framework.GenPortName("WithEncryptionAndCompression"),
+						portName:  port.GenName("WithEncryptionAndCompression"),
 						extraConfig: `
 						use_encryption = true
 						use_compression = true
@@ -80,8 +80,11 @@ var _ = Describe("[Feature: Basic]", func() {
 				f.RunProcesses([]string{serverConf}, []string{clientConf})
 
 				for _, test := range tests {
-					framework.ExpectRequest(protocol, f.UsedPorts[test.portName],
-						[]byte(consts.TestString), []byte(consts.TestString), connTimeout, test.proxyName)
+					framework.NewRequestExpect(f).
+						RequestModify(framework.SetRequestProtocol(protocol)).
+						PortName(test.portName).
+						Explain(test.proxyName).
+						Ensure()
 				}
 			})
 		}
@@ -139,24 +142,24 @@ var _ = Describe("[Feature: Basic]", func() {
 				}{
 					{
 						proxyName:    "normal",
-						bindPortName: framework.GenPortName("Normal"),
+						bindPortName: port.GenName("Normal"),
 						visitorSK:    correctSK,
 					},
 					{
 						proxyName:    "with-encryption",
-						bindPortName: framework.GenPortName("WithEncryption"),
+						bindPortName: port.GenName("WithEncryption"),
 						visitorSK:    correctSK,
 						extraConfig:  "use_encryption = true",
 					},
 					{
 						proxyName:    "with-compression",
-						bindPortName: framework.GenPortName("WithCompression"),
+						bindPortName: port.GenName("WithCompression"),
 						visitorSK:    correctSK,
 						extraConfig:  "use_compression = true",
 					},
 					{
 						proxyName:    "with-encryption-and-compression",
-						bindPortName: framework.GenPortName("WithEncryptionAndCompression"),
+						bindPortName: port.GenName("WithEncryptionAndCompression"),
 						visitorSK:    correctSK,
 						extraConfig: `
 						use_encryption = true
@@ -165,7 +168,7 @@ var _ = Describe("[Feature: Basic]", func() {
 					},
 					{
 						proxyName:    "with-error-sk",
-						bindPortName: framework.GenPortName("WithErrorSK"),
+						bindPortName: port.GenName("WithErrorSK"),
 						visitorSK:    wrongSK,
 						expectError:  true,
 					},
@@ -182,17 +185,92 @@ var _ = Describe("[Feature: Basic]", func() {
 				f.RunProcesses([]string{serverConf}, []string{clientServerConf, clientVisitorConf})
 
 				for _, test := range tests {
-					expectResp := []byte(consts.TestString)
-					if test.expectError {
-						framework.ExpectRequestError(protocol, f.UsedPorts[test.bindPortName],
-							[]byte(consts.TestString), connTimeout, test.proxyName)
-						continue
-					}
+					framework.NewRequestExpect(f).
+						RequestModify(framework.SetRequestProtocol(protocol)).
+						PortName(test.bindPortName).
+						Explain(test.proxyName).
+						ExpectError(test.expectError).
+						Ensure()
 
-					framework.ExpectRequest(protocol, f.UsedPorts[test.bindPortName],
-						[]byte(consts.TestString), expectResp, connTimeout, test.proxyName)
 				}
 			})
 		}
+	})
+
+	Describe("TCPMUX", func() {
+		It("Type tcpmux", func() {
+			serverConf := consts.DefaultServerConfig
+			clientConf := consts.DefaultClientConfig
+
+			tcpmuxHTTPConnectPortName := port.GenName("TCPMUX")
+			serverConf += fmt.Sprintf(`
+			tcpmux_httpconnect_port = {{ .%s }}
+			`, tcpmuxHTTPConnectPortName)
+
+			getProxyConf := func(proxyName string, extra string) string {
+				return fmt.Sprintf(`
+				[%s]
+				type = tcpmux
+				multiplexer = httpconnect
+				local_port = {{ .%s }}
+				custom_domains = %s
+				`+extra, proxyName, port.GenName(proxyName), proxyName)
+			}
+
+			tests := []struct {
+				proxyName   string
+				extraConfig string
+			}{
+				{
+					proxyName: "normal",
+				},
+				{
+					proxyName:   "with-encryption",
+					extraConfig: "use_encryption = true",
+				},
+				{
+					proxyName:   "with-compression",
+					extraConfig: "use_compression = true",
+				},
+				{
+					proxyName: "with-encryption-and-compression",
+					extraConfig: `
+						use_encryption = true
+						use_compression = true
+					`,
+				},
+			}
+
+			// build all client config
+			for _, test := range tests {
+				clientConf += getProxyConf(test.proxyName, test.extraConfig) + "\n"
+
+				localServer := server.New(server.TCP, server.WithBindPort(f.AllocPort()), server.WithRespContent([]byte(test.proxyName)))
+				f.RunServer(port.GenName(test.proxyName), localServer)
+			}
+
+			// run frps and frpc
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+			// Request without HTTP connect should get error
+			framework.NewRequestExpect(f).
+				PortName(tcpmuxHTTPConnectPortName).
+				ExpectError(true).
+				Explain("request without HTTP connect expect error").
+				Ensure()
+
+			proxyURL := fmt.Sprintf("http://127.0.0.1:%d", f.PortByName(tcpmuxHTTPConnectPortName))
+			// Request with incorrect connect hostname
+			framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
+				r.Proxy(proxyURL, "invalid")
+			}).ExpectError(true).Explain("request without HTTP connect expect error").Ensure()
+
+			// Request with correct connect hostname
+			for _, test := range tests {
+				framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
+					r.Proxy(proxyURL, test.proxyName)
+				}).ExpectResp([]byte(test.proxyName)).Explain(test.proxyName).Ensure()
+			}
+		})
 	})
 })

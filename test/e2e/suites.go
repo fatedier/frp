@@ -6,11 +6,9 @@ package e2e
 // and then the function that only runs on the first Ginkgo node.
 func CleanupSuite() {
 	// Run on all Ginkgo nodes
-	// TODO
 }
 
 // AfterSuiteActions are actions that are run on ginkgo's SynchronizedAfterSuite
 func AfterSuiteActions() {
 	// Run only Ginkgo on node 1
-	// TODO
 }

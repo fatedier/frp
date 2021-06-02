@@ -17,6 +17,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/fatedier/frp/pkg/auth"
@@ -68,10 +69,10 @@ type ClientCommonConf struct {
 	// is 0.
 	AdminPort int `ini:"admin_port" json:"admin_port"`
 	// AdminUser specifies the username that the admin server will use for
-	// login. By default, this value is "admin".
+	// login.
 	AdminUser string `ini:"admin_user" json:"admin_user"`
 	// AdminPwd specifies the password that the admin server will use for
-	// login. By default, this value is "admin".
+	// login.
 	AdminPwd string `ini:"admin_pwd" json:"admin_pwd"`
 	// AssetsDir specifies the local directory that the admin server will load
 	// resources from. If this value is "", assets will be loaded from the
@@ -136,40 +137,43 @@ type ClientCommonConf struct {
 	// UDPPacketSize specifies the udp packet size
 	// By default, this value is 1500
 	UDPPacketSize int64 `ini:"udp_packet_size" json:"udp_packet_size"`
+	// Include other config files for proxies.
+	IncludeConfigFiles []string `ini:"includes" json:"includes"`
 }
 
 // GetDefaultClientConf returns a client configuration with default values.
 func GetDefaultClientConf() ClientCommonConf {
 	return ClientCommonConf{
-		ClientConfig:      auth.GetDefaultClientConf(),
-		ServerAddr:        "0.0.0.0",
-		ServerPort:        7000,
-		HTTPProxy:         os.Getenv("http_proxy"),
-		LogFile:           "console",
-		LogWay:            "console",
-		LogLevel:          "info",
-		LogMaxDays:        3,
-		DisableLogColor:   false,
-		AdminAddr:         "127.0.0.1",
-		AdminPort:         0,
-		AdminUser:         "",
-		AdminPwd:          "",
-		AssetsDir:         "",
-		PoolCount:         1,
-		TCPMux:            true,
-		User:              "",
-		DNSServer:         "",
-		LoginFailExit:     true,
-		Start:             make([]string, 0),
-		Protocol:          "tcp",
-		TLSEnable:         false,
-		TLSCertFile:       "",
-		TLSKeyFile:        "",
-		TLSTrustedCaFile:  "",
-		HeartbeatInterval: 30,
-		HeartbeatTimeout:  90,
-		Metas:             make(map[string]string),
-		UDPPacketSize:     1500,
+		ClientConfig:       auth.GetDefaultClientConf(),
+		ServerAddr:         "0.0.0.0",
+		ServerPort:         7000,
+		HTTPProxy:          os.Getenv("http_proxy"),
+		LogFile:            "console",
+		LogWay:             "console",
+		LogLevel:           "info",
+		LogMaxDays:         3,
+		DisableLogColor:    false,
+		AdminAddr:          "127.0.0.1",
+		AdminPort:          0,
+		AdminUser:          "",
+		AdminPwd:           "",
+		AssetsDir:          "",
+		PoolCount:          1,
+		TCPMux:             true,
+		User:               "",
+		DNSServer:          "",
+		LoginFailExit:      true,
+		Start:              make([]string, 0),
+		Protocol:           "tcp",
+		TLSEnable:          false,
+		TLSCertFile:        "",
+		TLSKeyFile:         "",
+		TLSTrustedCaFile:   "",
+		HeartbeatInterval:  30,
+		HeartbeatTimeout:   90,
+		Metas:              make(map[string]string),
+		UDPPacketSize:      1500,
+		IncludeConfigFiles: make([]string, 0),
 	}
 }
 
@@ -208,6 +212,15 @@ func (cfg *ClientCommonConf) Validate() error {
 		return fmt.Errorf("invalid protocol")
 	}
 
+	for _, f := range cfg.IncludeConfigFiles {
+		absDir, err := filepath.Abs(filepath.Dir(f))
+		if err != nil {
+			return fmt.Errorf("include: parse directory of %s failed: %v", f, absDir)
+		}
+		if _, err := os.Stat(absDir); os.IsNotExist(err) {
+			return fmt.Errorf("include: directory of %s not exist", f)
+		}
+	}
 	return nil
 }
 
@@ -236,7 +249,6 @@ func UnmarshalClientConfFromIni(source interface{}) (ClientCommonConf, error) {
 	}
 
 	common.Metas = GetMapWithoutPrefix(s.KeysHash(), "meta_")
-
 	return common, nil
 }
 
@@ -290,7 +302,7 @@ func LoadAllProxyConfsFromIni(
 	for _, section := range rangeSections {
 		err = renderRangeProxyTemplates(f, section)
 		if err != nil {
-			return nil, nil, fmt.Errorf("fail to render range-section[%s] with error: %v", section.Name(), err)
+			return nil, nil, fmt.Errorf("failed to render template for proxy %s: %v", section.Name(), err)
 		}
 	}
 
@@ -315,7 +327,7 @@ func LoadAllProxyConfsFromIni(
 		case "server":
 			newConf, newErr := NewProxyConfFromIni(prefix, name, section)
 			if newErr != nil {
-				return nil, nil, fmt.Errorf("fail to parse section[%s], err: %v", name, newErr)
+				return nil, nil, fmt.Errorf("failed to parse proxy %s, err: %v", name, newErr)
 			}
 			proxyConfs[prefix+name] = newConf
 		case "visitor":
@@ -325,7 +337,7 @@ func LoadAllProxyConfsFromIni(
 			}
 			visitorConfs[prefix+name] = newConf
 		default:
-			return nil, nil, fmt.Errorf("section[%s] role should be 'server' or 'visitor'", name)
+			return nil, nil, fmt.Errorf("proxy %s role should be 'server' or 'visitor'", name)
 		}
 	}
 	return proxyConfs, visitorConfs, nil

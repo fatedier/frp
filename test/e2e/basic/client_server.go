@@ -6,6 +6,7 @@ import (
 
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
+	"github.com/fatedier/frp/test/e2e/pkg/port"
 
 	. "github.com/onsi/ginkgo"
 )
@@ -16,6 +17,7 @@ type generalTestConfigures struct {
 	expectError bool
 }
 
+// defineClientServerTest test a normal tcp and udp proxy with specified TestConfigures.
 func defineClientServerTest(desc string, f *framework.Framework, configures *generalTestConfigures) {
 	It(desc, func() {
 		serverConf := consts.DefaultServerConfig
@@ -25,6 +27,8 @@ func defineClientServerTest(desc string, f *framework.Framework, configures *gen
 				%s
 				`, configures.server)
 
+		tcpPortName := port.GenName("TCP")
+		udpPortName := port.GenName("UDP")
 		clientConf += fmt.Sprintf(`
 				%s
 
@@ -38,23 +42,15 @@ func defineClientServerTest(desc string, f *framework.Framework, configures *gen
 				local_port = {{ .%s }}
 				remote_port = {{ .%s }}
 				`, configures.client,
-			framework.TCPEchoServerPort, framework.GenPortName("TCP"),
-			framework.UDPEchoServerPort, framework.GenPortName("UDP"),
+			framework.TCPEchoServerPort, tcpPortName,
+			framework.UDPEchoServerPort, udpPortName,
 		)
 
 		f.RunProcesses([]string{serverConf}, []string{clientConf})
 
-		if !configures.expectError {
-			framework.ExpectTCPRequest(f.UsedPorts[framework.GenPortName("TCP")],
-				[]byte(consts.TestString), []byte(consts.TestString), connTimeout, "tcp proxy")
-			framework.ExpectUDPRequest(f.UsedPorts[framework.GenPortName("UDP")],
-				[]byte(consts.TestString), []byte(consts.TestString), connTimeout, "udp proxy")
-		} else {
-			framework.ExpectTCPRequestError(f.UsedPorts[framework.GenPortName("TCP")],
-				[]byte(consts.TestString), connTimeout, "tcp proxy")
-			framework.ExpectUDPRequestError(f.UsedPorts[framework.GenPortName("UDP")],
-				[]byte(consts.TestString), connTimeout, "udp proxy")
-		}
+		framework.NewRequestExpect(f).PortName(tcpPortName).ExpectError(configures.expectError).Explain("tcp proxy").Ensure()
+		framework.NewRequestExpect(f).RequestModify(framework.SetRequestProtocol("udp")).
+			PortName(udpPortName).ExpectError(configures.expectError).Explain("udp proxy").Ensure()
 	})
 }
 

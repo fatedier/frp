@@ -24,12 +24,13 @@ frp also has a P2P connect mode.
     * [Forward DNS query request](#forward-dns-query-request)
     * [Forward Unix domain socket](#forward-unix-domain-socket)
     * [Expose a simple HTTP file server](#expose-a-simple-http-file-server)
-    * [Enable HTTPS for local HTTP service](#enable-https-for-local-http-service)
+    * [Enable HTTPS for local HTTP(S) service](#enable-https-for-local-https-service)
     * [Expose your service privately](#expose-your-service-privately)
     * [P2P Mode](#p2p-mode)
 * [Features](#features)
     * [Configuration Files](#configuration-files)
     * [Using Environment Variables](#using-environment-variables)
+    * [Split Configures Into Different Files](#split-configures-into-different-files)
     * [Dashboard](#dashboard)
     * [Admin UI](#admin-ui)
     * [Monitor](#monitor)
@@ -412,6 +413,27 @@ export FRP_SSH_REMOTE_PORT="6000"
 
 `frpc` will render configuration file template using OS environment variables. Remember to prefix your reference with `.Envs`.
 
+### Split Configures Into Different Files
+
+You can split multiple proxy configs into different files and include them in the main file.
+
+```ini
+# frpc.ini
+[common]
+server_addr = x.x.x.x
+server_port = 7000
+includes=./confd/*.ini
+```
+
+```ini
+# ./confd/test.ini
+[ssh]
+type = tcp
+local_ip = 127.0.0.1
+local_port = 22
+remote_port = 6000
+```
+
 ### Dashboard
 
 Check frp's status and proxies' statistics information by Dashboard.
@@ -421,12 +443,12 @@ Configure a port for dashboard to enable this feature:
 ```ini
 [common]
 dashboard_port = 7500
-# dashboard's username and password are both optional，if not set, default is admin.
+# dashboard's username and password are both optional
 dashboard_user = admin
 dashboard_pwd = admin
 ```
 
-Then visit `http://[server_addr]:7500` to see the dashboard, with username and password both being `admin` by default.
+Then visit `http://[server_addr]:7500` to see the dashboard, with username and password both being `admin`.
 
 ![dashboard](/doc/pic/dashboard.png)
 
@@ -444,7 +466,7 @@ admin_user = admin
 admin_pwd = admin
 ```
 
-Then visit `http://127.0.0.1:7400` to see admin UI, with username and password both being `admin` by default.
+Then visit `http://127.0.0.1:7400` to see admin UI, with username and password both being `admin`.
 
 ### Monitor
 
@@ -624,9 +646,11 @@ admin_addr = 127.0.0.1
 admin_port = 7400
 ```
 
-Then run command `frpc reload -c ./frpc.ini` and wait for about 10 seconds to let `frpc` create or update or delete proxies.
+Then run command `frpc reload -c ./frpc.ini` and wait for about 10 seconds to let `frpc` create or update or remove proxies.
 
 **Note that parameters in [common] section won't be modified except 'start'.**
+
+You can run command `frpc verify -c ./frpc.ini` before reloading to check if there are config errors.
 
 ### Get proxy status from client
 
