@@ -56,7 +56,6 @@ func (pa *Allocator) GetByName(portName string) int {
 			return 0
 		}
 
-		// TODO: Distinguish between TCP and UDP
 		l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 		if err != nil {
 			// Maybe not controlled by us, mark it used.

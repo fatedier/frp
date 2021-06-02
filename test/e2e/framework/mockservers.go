@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/fatedier/frp/test/e2e/mock/echoserver"
+	"github.com/fatedier/frp/test/e2e/mock/server"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
 )
 
@@ -15,36 +15,22 @@ const (
 )
 
 type MockServers struct {
-	tcpEchoServer *echoserver.Server
-	udpEchoServer *echoserver.Server
-	udsEchoServer *echoserver.Server
+	tcpEchoServer *server.Server
+	udpEchoServer *server.Server
+	udsEchoServer *server.Server
 }
 
 func NewMockServers(portAllocator *port.Allocator) *MockServers {
 	s := &MockServers{}
 	tcpPort := portAllocator.Get()
 	udpPort := portAllocator.Get()
-	s.tcpEchoServer = echoserver.New(echoserver.Options{
-		Type:      echoserver.TCP,
-		BindAddr:  "127.0.0.1",
-		BindPort:  int32(tcpPort),
-		RepeatNum: 1,
-	})
-	s.udpEchoServer = echoserver.New(echoserver.Options{
-		Type:      echoserver.UDP,
-		BindAddr:  "127.0.0.1",
-		BindPort:  int32(udpPort),
-		RepeatNum: 1,
-	})
+	s.tcpEchoServer = server.New(server.TCP, server.WithBindPort(tcpPort), server.WithEchoMode(true))
+	s.udpEchoServer = server.New(server.UDP, server.WithBindPort(udpPort), server.WithEchoMode(true))
 
 	udsIndex := portAllocator.Get()
 	udsAddr := fmt.Sprintf("%s/frp_echo_server_%d.sock", os.TempDir(), udsIndex)
 	os.Remove(udsAddr)
-	s.udsEchoServer = echoserver.New(echoserver.Options{
-		Type:      echoserver.Unix,
-		BindAddr:  udsAddr,
-		RepeatNum: 1,
-	})
+	s.udsEchoServer = server.New(server.Unix, server.WithBindAddr(udsAddr), server.WithEchoMode(true))
 	return s
 }
 
@@ -65,14 +51,14 @@ func (m *MockServers) Close() {
 	m.tcpEchoServer.Close()
 	m.udpEchoServer.Close()
 	m.udsEchoServer.Close()
-	os.Remove(m.udsEchoServer.GetOptions().BindAddr)
+	os.Remove(m.udsEchoServer.BindAddr())
 }
 
 func (m *MockServers) GetTemplateParams() map[string]interface{} {
 	ret := make(map[string]interface{})
-	ret[TCPEchoServerPort] = m.tcpEchoServer.GetOptions().BindPort
-	ret[UDPEchoServerPort] = m.udpEchoServer.GetOptions().BindPort
-	ret[UDSEchoServerAddr] = m.udsEchoServer.GetOptions().BindAddr
+	ret[TCPEchoServerPort] = m.tcpEchoServer.BindPort()
+	ret[UDPEchoServerPort] = m.udpEchoServer.BindPort()
+	ret[UDSEchoServerAddr] = m.udsEchoServer.BindAddr()
 	return ret
 }
 

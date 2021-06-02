@@ -49,7 +49,6 @@ func RunE2ETests(t *testing.T) {
 // accepting the byte array.
 func setupSuite() {
 	// Run only on Ginkgo node 1
-	// TODO
 }
 
 // setupSuitePerGinkgoNode is the boilerplate that can be used to setup ginkgo test suites, on the SynchronizedBeforeSuite step.

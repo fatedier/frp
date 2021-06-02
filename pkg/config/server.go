@@ -223,7 +223,6 @@ func UnmarshalServerConfFromIni(source interface{}) (ServerCommonConf, error) {
 
 	s, err := f.GetSection("common")
 	if err != nil {
-		// TODO: add error info
 		return ServerCommonConf{}, err
 	}
 

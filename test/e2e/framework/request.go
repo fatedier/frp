@@ -54,7 +54,7 @@ func NewRequestExpect(f *Framework) *RequestExpect {
 	}
 }
 
-func (e *RequestExpect) Request(f func(r *request.Request)) *RequestExpect {
+func (e *RequestExpect) RequestModify(f func(r *request.Request)) *RequestExpect {
 	f(e.req)
 	return e
 }
@@ -63,6 +63,11 @@ func (e *RequestExpect) PortName(name string) *RequestExpect {
 	if e.f != nil {
 		e.req.Port(e.f.PortByName(name))
 	}
+	return e
+}
+
+func (e *RequestExpect) ExpectResp(resp []byte) *RequestExpect {
+	e.expectResp = resp
 	return e
 }
 

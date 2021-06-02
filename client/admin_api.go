@@ -33,36 +33,19 @@ type GeneralResponse struct {
 }
 
 // GET api/reload
-
 func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 
-	log.Info("Http request [/api/reload]")
+	log.Info("api request [/api/reload]")
 	defer func() {
-		log.Info("Http response [/api/reload], code [%d]", res.Code)
+		log.Info("api response [/api/reload], code [%d]", res.Code)
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
 			w.Write([]byte(res.Msg))
 		}
 	}()
 
-	content, err := config.GetRenderedConfFromFile(svr.cfgFile)
-	if err != nil {
-		res.Code = 400
-		res.Msg = err.Error()
-		log.Warn("reload frpc config file error: %s", res.Msg)
-		return
-	}
-
-	newCommonCfg, err := config.UnmarshalClientConfFromIni(content)
-	if err != nil {
-		res.Code = 400
-		res.Msg = err.Error()
-		log.Warn("reload frpc common section error: %s", res.Msg)
-		return
-	}
-
-	pxyCfgs, visitorCfgs, err := config.LoadAllProxyConfsFromIni(svr.cfg.User, content, newCommonCfg.Start)
+	_, pxyCfgs, visitorCfgs, err := config.ParseClientConfig(svr.cfgFile)
 	if err != nil {
 		res.Code = 400
 		res.Msg = err.Error()
@@ -70,8 +53,7 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = svr.ReloadConf(pxyCfgs, visitorCfgs)
-	if err != nil {
+	if err = svr.ReloadConf(pxyCfgs, visitorCfgs); err != nil {
 		res.Code = 500
 		res.Msg = err.Error()
 		log.Warn("reload frpc proxy config error: %s", res.Msg)

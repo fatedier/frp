@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/fatedier/frp/test/e2e/mock/server"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
 	"github.com/fatedier/frp/test/e2e/pkg/process"
 
@@ -32,7 +33,7 @@ type Framework struct {
 	// portAllocator to alloc port for this test case.
 	portAllocator *port.Allocator
 
-	// Multiple mock servers used for e2e testing.
+	// Multiple default mock servers used for e2e testing.
 	mockServers *MockServers
 
 	// To make sure that this framework cleans up after itself, no matter what,
@@ -47,6 +48,9 @@ type Framework struct {
 	serverProcesses []*process.Process
 	clientConfPaths []string
 	clientProcesses []*process.Process
+
+	// Manual registered mock servers.
+	servers []*server.Server
 }
 
 func NewDefaultFramework() *Framework {
@@ -62,6 +66,7 @@ func NewDefaultFramework() *Framework {
 func NewFramework(opt Options) *Framework {
 	f := &Framework{
 		portAllocator: port.NewAllocator(opt.FromPortIndex, opt.ToPortIndex, opt.TotalParallelNode, opt.CurrentNodeIndex-1),
+		usedPorts:     make(map[string]int),
 	}
 
 	ginkgo.BeforeEach(f.BeforeEach)
@@ -110,8 +115,13 @@ func (f *Framework) AfterEach() {
 	f.serverProcesses = nil
 	f.clientProcesses = nil
 
-	// close mock servers
+	// close default mock servers
 	f.mockServers.Close()
+
+	// close manual registered mock servers
+	for _, s := range f.servers {
+		s.Close()
+	}
 
 	// clean directory
 	os.RemoveAll(f.TempDirectory)
@@ -123,7 +133,7 @@ func (f *Framework) AfterEach() {
 	for _, port := range f.usedPorts {
 		f.portAllocator.Release(port)
 	}
-	f.usedPorts = nil
+	f.usedPorts = make(map[string]int)
 }
 
 var portRegex = regexp.MustCompile(`{{ \.Port.*? }}`)
@@ -161,7 +171,6 @@ func (f *Framework) genPortsFromTemplates(templates []string) (ports map[string]
 		ports[name] = port
 	}
 	return
-
 }
 
 // RenderTemplates alloc all ports for port names placeholder.
@@ -173,6 +182,10 @@ func (f *Framework) RenderTemplates(templates []string) (outs []string, ports ma
 
 	params := f.mockServers.GetTemplateParams()
 	for name, port := range ports {
+		params[name] = port
+	}
+
+	for name, port := range f.usedPorts {
 		params[name] = port
 	}
 
@@ -192,4 +205,23 @@ func (f *Framework) RenderTemplates(templates []string) (outs []string, ports ma
 
 func (f *Framework) PortByName(name string) int {
 	return f.usedPorts[name]
+}
+
+func (f *Framework) AllocPort() int {
+	port := f.portAllocator.Get()
+	ExpectTrue(port > 0, "alloc port failed")
+	return port
+}
+
+func (f *Framework) ReleasePort(port int) {
+	f.portAllocator.Release(port)
+}
+
+func (f *Framework) RunServer(portName string, s *server.Server) {
+	f.servers = append(f.servers, s)
+	if s.BindPort() > 0 {
+		f.usedPorts[portName] = s.BindPort()
+	}
+	err := s.Run()
+	ExpectNoError(err, portName)
 }

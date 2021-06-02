@@ -6,6 +6,7 @@ import (
 
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
+	"github.com/fatedier/frp/test/e2e/mock/server"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
 
@@ -80,7 +81,7 @@ var _ = Describe("[Feature: Basic]", func() {
 
 				for _, test := range tests {
 					framework.NewRequestExpect(f).
-						Request(framework.SetRequestProtocol(protocol)).
+						RequestModify(framework.SetRequestProtocol(protocol)).
 						PortName(test.portName).
 						Explain(test.proxyName).
 						Ensure()
@@ -185,7 +186,7 @@ var _ = Describe("[Feature: Basic]", func() {
 
 				for _, test := range tests {
 					framework.NewRequestExpect(f).
-						Request(framework.SetRequestProtocol(protocol)).
+						RequestModify(framework.SetRequestProtocol(protocol)).
 						PortName(test.bindPortName).
 						Explain(test.proxyName).
 						ExpectError(test.expectError).
@@ -213,12 +214,11 @@ var _ = Describe("[Feature: Basic]", func() {
 				multiplexer = httpconnect
 				local_port = {{ .%s }}
 				custom_domains = %s
-				`+extra, proxyName, framework.TCPEchoServerPort, proxyName)
+				`+extra, proxyName, port.GenName(proxyName), proxyName)
 			}
 
 			tests := []struct {
 				proxyName   string
-				portName    string
 				extraConfig string
 			}{
 				{
@@ -244,7 +244,11 @@ var _ = Describe("[Feature: Basic]", func() {
 			// build all client config
 			for _, test := range tests {
 				clientConf += getProxyConf(test.proxyName, test.extraConfig) + "\n"
+
+				localServer := server.New(server.TCP, server.WithBindPort(f.AllocPort()), server.WithRespContent([]byte(test.proxyName)))
+				f.RunServer(port.GenName(test.proxyName), localServer)
 			}
+
 			// run frps and frpc
 			f.RunProcesses([]string{serverConf}, []string{clientConf})
 
@@ -257,15 +261,15 @@ var _ = Describe("[Feature: Basic]", func() {
 
 			proxyURL := fmt.Sprintf("http://127.0.0.1:%d", f.PortByName(tcpmuxHTTPConnectPortName))
 			// Request with incorrect connect hostname
-			framework.NewRequestExpect(f).Request(func(r *request.Request) {
+			framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
 				r.Proxy(proxyURL, "invalid")
 			}).ExpectError(true).Explain("request without HTTP connect expect error").Ensure()
 
 			// Request with correct connect hostname
 			for _, test := range tests {
-				framework.NewRequestExpect(f).Request(func(r *request.Request) {
+				framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
 					r.Proxy(proxyURL, test.proxyName)
-				}).Explain(test.proxyName).Ensure()
+				}).ExpectResp([]byte(test.proxyName)).Explain(test.proxyName).Ensure()
 			}
 		})
 	})
