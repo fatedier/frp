@@ -14,27 +14,30 @@ jobs:
     name: Build Golang project
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Set up Go 1.x
+      - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
-          go-version: 1.15
-      -
-        run: go version
-      -
-        name: Check out code into the Go module directory
+          go-version: 1.16
+
+      - run: |
+          # https://github.com/actions/setup-go/issues/107
+          cp -f `which go` /usr/bin/go
+
+      - run: go version
+
+      - name: Check out code into the Go module directory
         uses: actions/checkout@v2
-      -
-        name: Build
+
+      - name: Build
         run: make build
-      -
-        name: Archive artifacts for frpc
+
+      - name: Archive artifacts for frpc
         uses: actions/upload-artifact@v1
         with:
           name: frpc
           path: bin/frpc
-      -
-        name: Archive artifacts for frps
+
+      - name: Archive artifacts for frps
         uses: actions/upload-artifact@v1
         with:
           name: frps
@@ -46,42 +49,41 @@ jobs:
     needs: binary
     steps:
       # environment
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v2
         with:
           fetch-depth: '0'
-      -
-        name: Set up QEMU
+
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
-      -
-        name: Set up Docker Buildx
+
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
+
       # download binaries of frpc and frps
-      -
-        name: Download binary of frpc
+      - name: Download binary of frpc
         uses: actions/download-artifact@v2
         with:
           name: frpc
           path: bin/frpc
-      -
-        name: Download binary of frps
+
+      - name: Download binary of frps
         uses: actions/download-artifact@v2
         with:
           name: frps
           path: bin/frps
+
       # get image tag name
-      -
-        name: Get Image Tag Name
+      - name: Get Image Tag Name
         run: |
           if [ x${{ github.event.inputs.tag }} == x"" ]; then
             echo "TAG_NAME=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
           else
             echo "TAG_NAME=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
           fi
+
       # prepare image tags
-      -
-        name: Prepare Image Tags
+      - name: Prepare Image Tags
         run: |
           echo "DOCKERFILE_FRPC_PATH=dockerfiles/Dockerfile-for-frpc" >> $GITHUB_ENV
           echo "DOCKERFILE_FRPS_PATH=dockerfiles/Dockerfile-for-frps" >> $GITHUB_ENV
@@ -89,9 +91,9 @@ jobs:
           echo "TAG_FRPS=fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
           echo "TAG_FRPC_GPR=ghcr.io/fatedier/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
           echo "TAG_FRPS_GPR=ghcr.io/fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
+
       # build images
-      -
-        name: Build Images
+      - name: Build Images
         run: |
           # for Docker hub
           docker build --file ${{ env.DOCKERFILE_FRPC_PATH }} --tag ${{ env.TAG_FRPC }} .
@@ -99,16 +101,16 @@ jobs:
           # for GPR
           docker build --file ${{ env.DOCKERFILE_FRPC_PATH }} --tag ${{ env.TAG_FRPC_GPR }} .
           docker build --file ${{ env.DOCKERFILE_FRPS_PATH }} --tag ${{ env.TAG_FRPS_GPR }} .
+
       # push to dockerhub
-      -
-        name: Publish to Dockerhub
+      - name: Publish to Dockerhub
         run: |
           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
           docker push ${{ env.TAG_FRPC }}
           docker push ${{ env.TAG_FRPS }}
+
       # push to gpr
-      -
-        name: Publish to GPR
+      - name: Publish to GPR
         run: |
           echo ${{ secrets.GPR_TOKEN }} | docker login ghcr.io --username ${{ github.repository_owner }} --password-stdin
           docker push ${{ env.TAG_FRPC_GPR }}
