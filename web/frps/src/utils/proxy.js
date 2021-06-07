@@ -94,11 +94,4 @@ class StcpProxy extends BaseProxy {
     }
 }
 
-class SudpProxy extends BaseProxy {
-    constructor(proxyStats) {
-        super(proxyStats)
-        this.type = "sudp"
-    }
-}
-
-export {BaseProxy, TcpProxy, UdpProxy, HttpProxy, HttpsProxy, StcpProxy, SudpProxy}
+export {BaseProxy, TcpProxy, UdpProxy, HttpProxy, HttpsProxy, StcpProxy}

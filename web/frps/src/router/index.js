@@ -6,7 +6,6 @@ import ProxiesUdp from '../components/ProxiesUdp.vue'
 import ProxiesHttp from '../components/ProxiesHttp.vue'
 import ProxiesHttps from '../components/ProxiesHttps.vue'
 import ProxiesStcp from '../components/ProxiesStcp.vue'
-import ProxiesSudp from '../components/ProxiesSudp.vue'
 
 Vue.use(Router)
 
@@ -35,9 +34,5 @@ export default new Router({
         path: '/proxies/stcp',
         name: 'ProxiesStcp',
         component: ProxiesStcp
-    }, {
-        path: '/proxies/sudp',
-        name: 'ProxiesSudp',
-        component: ProxiesSudp
     }]
 })

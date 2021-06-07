@@ -122,9 +122,6 @@
                     if (json.proxy_type_count.stcp != null) {
                         this.proxy_counts += json.proxy_type_count.stcp
                     }
-                    if (json.proxy_type_count.sudp != null) {
-                        this.proxy_counts += json.proxy_type_count.sudp
-                    }
                     if (json.proxy_type_count.xtcp != null) {
                         this.proxy_counts += json.proxy_type_count.xtcp
                     }
