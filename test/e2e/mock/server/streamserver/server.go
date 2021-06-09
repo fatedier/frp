@@ -1,4 +1,4 @@
-package server
+package streamserver
 
 import (
 	"fmt"
@@ -7,16 +7,16 @@ import (
 	libnet "github.com/fatedier/frp/pkg/util/net"
 )
 
-type ServerType string
+type Type string
 
 const (
-	TCP  ServerType = "tcp"
-	UDP  ServerType = "udp"
-	Unix ServerType = "unix"
+	TCP  Type = "tcp"
+	UDP  Type = "udp"
+	Unix Type = "unix"
 )
 
 type Server struct {
-	netType     ServerType
+	netType     Type
 	bindAddr    string
 	bindPort    int
 	respContent []byte
@@ -29,7 +29,7 @@ type Server struct {
 
 type Option func(*Server) *Server
 
-func New(netType ServerType, options ...Option) *Server {
+func New(netType Type, options ...Option) *Server {
 	s := &Server{
 		netType:  netType,
 		bindAddr: "127.0.0.1",

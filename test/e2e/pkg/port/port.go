@@ -22,6 +22,7 @@ func NewAllocator(from int, to int, mod int, index int) *Allocator {
 		reserved: sets.NewInt(),
 		used:     sets.NewInt(),
 	}
+
 	for i := from; i <= to; i++ {
 		if i%mod == index {
 			pa.reserved.Insert(i)
@@ -50,7 +51,7 @@ func (pa *Allocator) GetByName(portName string) int {
 	pa.mu.Lock()
 	defer pa.mu.Unlock()
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 20; i++ {
 		port := pa.getByRange(builder.rangePortFrom, builder.rangePortTo)
 		if port == 0 {
 			return 0

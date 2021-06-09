@@ -2,10 +2,12 @@ package plugin
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
+	"github.com/fatedier/frp/test/e2e/pkg/request"
 
 	. "github.com/onsi/ginkgo"
 )
@@ -65,12 +67,40 @@ var _ = Describe("[Feature: Client-Plugins]", func() {
 			f.RunProcesses([]string{serverConf}, []string{clientConf})
 
 			for _, test := range tests {
-				framework.ExpectResponse(
-					framework.NewRequest().Port(f.PortByName(test.portName)),
-					[]byte(consts.TestString),
-					test.proxyName,
-				)
+				framework.NewRequestExpect(f).Port(f.PortByName(test.portName)).Ensure()
 			}
+		})
+	})
+
+	It("plugin http_proxy", func() {
+		serverConf := consts.DefaultServerConfig
+		clientConf := consts.DefaultClientConfig
+
+		remotePort := f.AllocPort()
+		clientConf += fmt.Sprintf(`
+		[tcp]
+		type = tcp
+		remote_port = %d
+		plugin = http_proxy
+		plugin_http_user = abc
+		plugin_http_passwd = 123
+		`, remotePort)
+
+		f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+		// http proxy, no auth info
+		framework.NewRequestExpect(f).PortName(framework.HTTPSimpleServerPort).RequestModify(func(r *request.Request) {
+			r.HTTP().Proxy("http://127.0.0.1:" + strconv.Itoa(remotePort))
+		}).Ensure(framework.ExpectResponseCode(407))
+
+		// http proxy, correct auth
+		framework.NewRequestExpect(f).PortName(framework.HTTPSimpleServerPort).RequestModify(func(r *request.Request) {
+			r.HTTP().Proxy("http://abc:123@127.0.0.1:" + strconv.Itoa(remotePort))
+		}).Ensure()
+
+		// connect TCP server by CONNECT method
+		framework.NewRequestExpect(f).PortName(framework.TCPEchoServerPort).RequestModify(func(r *request.Request) {
+			r.TCP().Proxy("http://abc:123@127.0.0.1:" + strconv.Itoa(remotePort))
 		})
 	})
 })
