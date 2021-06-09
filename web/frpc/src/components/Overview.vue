@@ -22,7 +22,7 @@
     export default {
         data() {
             return {
-                status: null
+                status: new Array(),
             }
         },
         created() {

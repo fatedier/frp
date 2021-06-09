@@ -78,7 +78,7 @@
   export default {
     data() {
       return {
-        proxies: null
+        proxies: new Array(),
       }
     },
     created() {

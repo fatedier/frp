@@ -92,7 +92,7 @@
   export default {
     data() {
       return {
-        proxies: null,
+        proxies: new Array(),
         vhost_https_port: '',
         subdomain_host: ''
       }
