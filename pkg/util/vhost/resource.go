@@ -24,7 +24,8 @@ import (
 )
 
 var (
-	NotFoundPagePath = ""
+	NotFoundPagePath   = ""
+	NotFoundStatusCode = 404
 )
 
 const (
@@ -74,8 +75,7 @@ func notFoundResponse() *http.Response {
 	header.Set("Content-Type", "text/html")
 
 	res := &http.Response{
-		Status:     "Not Found",
-		StatusCode: 404,
+		StatusCode: NotFoundStatusCode,
 		Proto:      "HTTP/1.0",
 		ProtoMajor: 1,
 		ProtoMinor: 0,
@@ -89,7 +89,6 @@ func noAuthResponse() *http.Response {
 	header := make(map[string][]string)
 	header["WWW-Authenticate"] = []string{`Basic realm="Restricted"`}
 	res := &http.Response{
-		Status:     "401 Not authorized",
 		StatusCode: 401,
 		Proto:      "HTTP/1.1",
 		ProtoMajor: 1,

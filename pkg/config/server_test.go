@@ -75,6 +75,7 @@ func Test_LoadServerCommonConf(t *testing.T) {
 				subdomain_host = frps.com
 				tcp_mux
 				udp_packet_size = 1509
+				custom_404_status_code = 400
 				[plugin.user-manager]
 				addr = 127.0.0.1:9009
 				path = /handler
@@ -125,6 +126,7 @@ func Test_LoadServerCommonConf(t *testing.T) {
 				DetailedErrorsToClient: true,
 				HeartbeatTimeout:       99,
 				UserConnTimeout:        9,
+				Custom404StatusCode:    400,
 				AllowPorts: map[int]struct{}{
 					10: struct{}{},
 					11: struct{}{},
@@ -189,6 +191,7 @@ func Test_LoadServerCommonConf(t *testing.T) {
 				LogMaxDays:             3,
 				DetailedErrorsToClient: true,
 				TCPMux:                 true,
+				Custom404StatusCode:    404,
 				AllowPorts:             make(map[int]struct{}),
 				MaxPoolCount:           5,
 				HeartbeatTimeout:       90,

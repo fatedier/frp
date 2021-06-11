@@ -163,6 +163,9 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	// Init 404 not found page
 	vhost.NotFoundPagePath = cfg.Custom404Page
 
+	// Init not found status code
+	vhost.NotFoundStatusCode = cfg.Custom404StatusCode
+
 	var (
 		httpMuxOn  bool
 		httpsMuxOn bool

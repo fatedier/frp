@@ -121,6 +121,9 @@ type ServerCommonConf struct {
 	// value is "", a default page will be displayed. By default, this value is
 	// "".
 	Custom404Page string `ini:"custom_404_page" json:"custom_404_page"`
+	// Custom404StatusCode specifies a status code for response when 404 page
+	// is being sent. By default, this value is 404.
+	Custom404StatusCode int `ini:"custom_404_status_code" json:"custom_404_status_code"`
 
 	// AllowPorts specifies a set of ports that clients are able to proxy to.
 	// If the length of this value is 0, all ports are allowed. By default,
@@ -203,6 +206,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		HeartbeatTimeout:       90,
 		UserConnTimeout:        10,
 		Custom404Page:          "",
+		Custom404StatusCode:    404,
 		HTTPPlugins:            make(map[string]plugin.HTTPPluginOptions),
 		UDPPacketSize:          1500,
 	}
