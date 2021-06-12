@@ -65,17 +65,15 @@ func (authMid *HTTPAuthMiddleware) Middleware(next http.Handler) http.Handler {
 		if (authMid.user == "" && authMid.passwd == "") ||
 			(hasAuth && reqUser == authMid.user && reqPasswd == authMid.passwd) {
 			next.ServeHTTP(w, r)
-		} 
-		else if (authMid.user == reqUser && authMid.passwd[:4] == "$2a$") {
-			correct := bcrypt.CompareHashAndPassword([]byte(reqPasswd), []byte(authMid.passwd))
-			if (correct == nil) {
+		} else if authMid.user == reqUser && authMid.passwd[:4] == "$2a$" {
+			correct := bcrypt.CompareHashAndPassword([]byte(authMid.passwd), []byte(reqPasswd))
+			if correct == nil {
 				next.ServeHTTP(w, r)
 			} else {
 				w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			}
-		}
-		else {
+		} else {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		}
@@ -88,17 +86,15 @@ func HTTPBasicAuth(h http.HandlerFunc, user, passwd string) http.HandlerFunc {
 		if (user == "" && passwd == "") ||
 			(hasAuth && reqUser == user && reqPasswd == passwd) {
 			h.ServeHTTP(w, r)
-		}
-		else if (user == reqUser && authMid.passwd[:4] == "$2a$") {
-			correct := bcrypt.CompareHashAndPassword([]byte(reqPasswd), []byte(authMid.passwd))
-			if (correct == nil) {
+		} else if user == reqUser && passwd[:4] == "$2a$" {
+			correct := bcrypt.CompareHashAndPassword([]byte(passwd), []byte(reqPasswd))
+			if correct == nil {
 				h.ServeHTTP(w, r)
 			} else {
 				w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			}
-		} 
-		else {
+		} else {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		}
