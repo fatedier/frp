@@ -906,6 +906,18 @@ http_user = abc
 http_pwd = abc
 ```
 
+You can also use a BCrypt encrypted hash as your password.
+
+```ini
+# frpc.ini
+[web]
+type = http
+local_port = 80
+custom_domains = test.example.com
+http_user = abc
+http_pwd = $2a$10$q92.cZZ5/Q0P2cVrRZomquuQdvCEAG9Zx6yoE4GG.Yvq0CiiCDQIW
+```
+
 Visit `http://test.example.com` in the browser and now you are prompted to enter the username and password.
 
 ### Custom Subdomain Names

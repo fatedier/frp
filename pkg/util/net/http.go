@@ -19,6 +19,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type HTTPAuthWraper struct {
@@ -63,7 +65,17 @@ func (authMid *HTTPAuthMiddleware) Middleware(next http.Handler) http.Handler {
 		if (authMid.user == "" && authMid.passwd == "") ||
 			(hasAuth && reqUser == authMid.user && reqPasswd == authMid.passwd) {
 			next.ServeHTTP(w, r)
-		} else {
+		} 
+		else if (authMid.user == reqUser && authMid.passwd[:4] == "$2a$") {
+			correct := bcrypt.CompareHashAndPassword([]byte(reqPasswd), []byte(authMid.passwd))
+			if (correct == nil) {
+				next.ServeHTTP(w, r)
+			} else {
+				w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			}
+		}
+		else {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		}
@@ -76,7 +88,17 @@ func HTTPBasicAuth(h http.HandlerFunc, user, passwd string) http.HandlerFunc {
 		if (user == "" && passwd == "") ||
 			(hasAuth && reqUser == user && reqPasswd == passwd) {
 			h.ServeHTTP(w, r)
-		} else {
+		}
+		else if (user == reqUser && authMid.passwd[:4] == "$2a$") {
+			correct := bcrypt.CompareHashAndPassword([]byte(reqPasswd), []byte(authMid.passwd))
+			if (correct == nil) {
+				h.ServeHTTP(w, r)
+			} else {
+				w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			}
+		} 
+		else {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		}
