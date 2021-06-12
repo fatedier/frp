@@ -65,7 +65,7 @@ func (authMid *HTTPAuthMiddleware) Middleware(next http.Handler) http.Handler {
 		if (authMid.user == "" && authMid.passwd == "") ||
 			(hasAuth && reqUser == authMid.user && reqPasswd == authMid.passwd) {
 			next.ServeHTTP(w, r)
-		} else if authMid.user == reqUser && authMid.passwd[:4] == "$2a$" {
+		} else if authMid.user == reqUser && authMid.passwd[:4] == "$2a$" || authMid.passwd[:4] == "$2y$" {
 			correct := bcrypt.CompareHashAndPassword([]byte(authMid.passwd), []byte(reqPasswd))
 			if correct == nil {
 				next.ServeHTTP(w, r)
@@ -86,7 +86,7 @@ func HTTPBasicAuth(h http.HandlerFunc, user, passwd string) http.HandlerFunc {
 		if (user == "" && passwd == "") ||
 			(hasAuth && reqUser == user && reqPasswd == passwd) {
 			h.ServeHTTP(w, r)
-		} else if user == reqUser && passwd[:4] == "$2a$" {
+		} else if user == reqUser && passwd[:4] == "$2a$" || passwd[:4] == "$2y$" {
 			correct := bcrypt.CompareHashAndPassword([]byte(passwd), []byte(reqPasswd))
 			if correct == nil {
 				h.ServeHTTP(w, r)
