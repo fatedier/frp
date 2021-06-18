@@ -49,7 +49,7 @@ func defineClientServerTest(desc string, f *framework.Framework, configures *gen
 		f.RunProcesses([]string{serverConf}, []string{clientConf})
 
 		framework.NewRequestExpect(f).PortName(tcpPortName).ExpectError(configures.expectError).Explain("tcp proxy").Ensure()
-		framework.NewRequestExpect(f).RequestModify(framework.SetRequestProtocol("udp")).
+		framework.NewRequestExpect(f).Protocol("udp").
 			PortName(udpPortName).ExpectError(configures.expectError).Explain("udp proxy").Ensure()
 	})
 }

@@ -12,4 +12,9 @@ debug=false
 if [ x${DEBUG} == x"true" ]; then
     debug=true
 fi
-ginkgo -nodes=4 ${ROOT}/test/e2e -- -frpc-path=${ROOT}/bin/frpc -frps-path=${ROOT}/bin/frps -log-level=debug -debug=${debug}
+logLevel=debug
+if [ x${LOG_LEVEL} != x"" ]; then
+    logLevel=${LOG_LEVEL}
+fi
+
+ginkgo -nodes=5 -slowSpecThreshold=10 ${ROOT}/test/e2e -- -frpc-path=${ROOT}/bin/frpc -frps-path=${ROOT}/bin/frps -log-level=${logLevel} -debug=${debug}

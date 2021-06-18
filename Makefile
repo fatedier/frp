@@ -34,13 +34,13 @@ gotest:
 	go test -v --cover ./server/...
 	go test -v --cover ./pkg/...
 
-ci:
-	go test -count=1 -p=1 -v ./tests/...
-
 e2e:
 	./hack/run-e2e.sh
 
-alltest: gotest ci e2e
+e2e-trace:
+	DEBUG=true LOG_LEVEL=trace ./hack/run-e2e.sh
+
+alltest: gotest e2e
 	
 clean:
 	rm -f ./bin/frpc

@@ -14,6 +14,10 @@ func ExpectEqualValues(actual interface{}, extra interface{}, explain ...interfa
 	gomega.ExpectWithOffset(1, actual).To(gomega.BeEquivalentTo(extra), explain...)
 }
 
+func ExpectEqualValuesWithOffset(offset int, actual interface{}, extra interface{}, explain ...interface{}) {
+	gomega.ExpectWithOffset(1+offset, actual).To(gomega.BeEquivalentTo(extra), explain...)
+}
+
 // ExpectNotEqual expects the specified two are not the same, otherwise an exception raises
 func ExpectNotEqual(actual interface{}, extra interface{}, explain ...interface{}) {
 	gomega.ExpectWithOffset(1, actual).NotTo(gomega.Equal(extra), explain...)
@@ -22,6 +26,10 @@ func ExpectNotEqual(actual interface{}, extra interface{}, explain ...interface{
 // ExpectError expects an error happens, otherwise an exception raises
 func ExpectError(err error, explain ...interface{}) {
 	gomega.ExpectWithOffset(1, err).To(gomega.HaveOccurred(), explain...)
+}
+
+func ExpectErrorWithOffset(offset int, err error, explain ...interface{}) {
+	gomega.ExpectWithOffset(1+offset, err).To(gomega.HaveOccurred(), explain...)
 }
 
 // ExpectNoError checks if "err" is set, and if so, fails assertion while logging the error.
@@ -40,6 +48,14 @@ func ExpectConsistOf(actual interface{}, extra interface{}, explain ...interface
 	gomega.ExpectWithOffset(1, actual).To(gomega.ConsistOf(extra), explain...)
 }
 
+func ExpectContainElements(actual interface{}, extra interface{}, explain ...interface{}) {
+	gomega.ExpectWithOffset(1, actual).To(gomega.ContainElements(extra), explain...)
+}
+
+func ExpectNotContainElements(actual interface{}, extra interface{}, explain ...interface{}) {
+	gomega.ExpectWithOffset(1, actual).NotTo(gomega.ContainElements(extra), explain...)
+}
+
 // ExpectHaveKey expects the actual map has the key in the keyset
 func ExpectHaveKey(actual interface{}, key interface{}, explain ...interface{}) {
 	gomega.ExpectWithOffset(1, actual).To(gomega.HaveKey(key), explain...)
@@ -52,4 +68,8 @@ func ExpectEmpty(actual interface{}, explain ...interface{}) {
 
 func ExpectTrue(actual interface{}, explain ...interface{}) {
 	gomega.ExpectWithOffset(1, actual).Should(gomega.BeTrue(), explain...)
+}
+
+func ExpectTrueWithOffset(offset int, actual interface{}, explain ...interface{}) {
+	gomega.ExpectWithOffset(1+offset, actual).Should(gomega.BeTrue(), explain...)
 }
