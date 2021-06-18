@@ -24,7 +24,7 @@ require (
 	github.com/rakyll/statik v0.1.1
 	github.com/rodaine/table v1.0.1
 	github.com/spf13/cobra v1.1.3
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/templexxx/cpufeat v0.0.0-20170927014610-3794dfbfb047 // indirect
 	github.com/templexxx/xor v0.0.0-20170926022130-0af8e873c554 // indirect
 	github.com/tjfoc/gmsm v0.0.0-20171124023159-98aa888b79d8 // indirect
