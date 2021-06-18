@@ -17,14 +17,13 @@ require (
 	github.com/klauspost/cpuid v1.2.0 // indirect
 	github.com/klauspost/reedsolomon v1.9.1 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
-	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
 	github.com/pires/go-proxyproto v0.0.0-20190111085350-4d51b51e3bfc
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/prometheus/client_golang v1.11.0
 	github.com/rakyll/statik v0.1.1
-	github.com/rodaine/table v1.0.0
+	github.com/rodaine/table v1.0.1
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/spf13/cobra v0.0.3
 	github.com/stretchr/testify v1.6.1
