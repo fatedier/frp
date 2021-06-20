@@ -9,6 +9,5 @@ import (
 var RunID string
 
 func init() {
-	uuid, _ := uuid.NewUUID()
-	RunID = uuid.String()
+	RunID = uuid.NewString()
 }
