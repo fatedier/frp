@@ -5,6 +5,7 @@ import (
 	"net"
 
 	libnet "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/test/e2e/pkg/rpc"
 )
 
 type Type string
@@ -20,9 +21,6 @@ type Server struct {
 	bindAddr    string
 	bindPort    int
 	respContent []byte
-	bufSize     int64
-
-	echoMode bool
 
 	l net.Listener
 }
@@ -33,7 +31,6 @@ func New(netType Type, options ...Option) *Server {
 	s := &Server{
 		netType:  netType,
 		bindAddr: "127.0.0.1",
-		bufSize:  2048,
 	}
 
 	for _, option := range options {
@@ -59,20 +56,6 @@ func WithBindPort(port int) Option {
 func WithRespContent(content []byte) Option {
 	return func(s *Server) *Server {
 		s.respContent = content
-		return s
-	}
-}
-
-func WithBufSize(bufSize int64) Option {
-	return func(s *Server) *Server {
-		s.bufSize = bufSize
-		return s
-	}
-}
-
-func WithEchoMode(echoMode bool) Option {
-	return func(s *Server) *Server {
-		s.echoMode = echoMode
 		return s
 	}
 }
@@ -118,18 +101,16 @@ func (s *Server) initListener() (err error) {
 func (s *Server) handle(c net.Conn) {
 	defer c.Close()
 
-	buf := make([]byte, s.bufSize)
 	for {
-		n, err := c.Read(buf)
+		buf, err := rpc.ReadBytes(c)
 		if err != nil {
 			return
 		}
 
-		if s.echoMode {
-			c.Write(buf[:n])
-		} else {
-			c.Write(s.respContent)
+		if len(s.respContent) > 0 {
+			buf = s.respContent
 		}
+		rpc.WriteBytes(c, buf)
 	}
 }
 

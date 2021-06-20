@@ -11,6 +11,7 @@ import (
 
 	// test source
 	_ "github.com/fatedier/frp/test/e2e/basic"
+	_ "github.com/fatedier/frp/test/e2e/features"
 	_ "github.com/fatedier/frp/test/e2e/plugin"
 
 	_ "github.com/onsi/ginkgo"
