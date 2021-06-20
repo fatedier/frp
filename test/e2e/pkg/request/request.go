@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/fatedier/frp/test/e2e/pkg/rpc"
 	libnet "github.com/fatedier/golib/net"
 )
 
@@ -210,15 +211,14 @@ func sendHTTPRequest(method, urlstr string, host string, headers map[string]stri
 }
 
 func sendRequestByConn(c net.Conn, content []byte) ([]byte, error) {
-	_, err := c.Write(content)
+	_, err := rpc.WriteBytes(c, content)
 	if err != nil {
 		return nil, fmt.Errorf("write error: %v", err)
 	}
 
-	buf := make([]byte, 2048)
-	n, err := c.Read(buf)
+	buf, err := rpc.ReadBytes(c)
 	if err != nil {
 		return nil, fmt.Errorf("read error: %v", err)
 	}
-	return buf[:n], nil
+	return buf, nil
 }

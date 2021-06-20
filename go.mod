@@ -18,7 +18,7 @@ require (
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
-	github.com/pires/go-proxyproto v0.0.0-20190111085350-4d51b51e3bfc
+	github.com/pires/go-proxyproto v0.5.0
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/prometheus/client_golang v1.11.0
 	github.com/rakyll/statik v0.1.1
