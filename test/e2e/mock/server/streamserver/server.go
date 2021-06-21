@@ -1,7 +1,9 @@
 package streamserver
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"net"
 
 	libnet "github.com/fatedier/frp/pkg/util/net"
@@ -22,6 +24,8 @@ type Server struct {
 	bindPort    int
 	respContent []byte
 
+	handler func(net.Conn)
+
 	l net.Listener
 }
 
@@ -32,6 +36,7 @@ func New(netType Type, options ...Option) *Server {
 		netType:  netType,
 		bindAddr: "127.0.0.1",
 	}
+	s.handler = s.handle
 
 	for _, option := range options {
 		s = option(s)
@@ -60,6 +65,13 @@ func WithRespContent(content []byte) Option {
 	}
 }
 
+func WithCustomHandler(handler func(net.Conn)) Option {
+	return func(s *Server) *Server {
+		s.handler = handler
+		return s
+	}
+}
+
 func (s *Server) Run() error {
 	if err := s.initListener(); err != nil {
 		return err
@@ -71,7 +83,7 @@ func (s *Server) Run() error {
 			if err != nil {
 				return
 			}
-			go s.handle(c)
+			go s.handler(c)
 		}
 	}()
 	return nil
@@ -101,8 +113,12 @@ func (s *Server) initListener() (err error) {
 func (s *Server) handle(c net.Conn) {
 	defer c.Close()
 
+	var reader io.Reader = c
+	if s.netType == UDP {
+		reader = bufio.NewReader(c)
+	}
 	for {
-		buf, err := rpc.ReadBytes(c)
+		buf, err := rpc.ReadBytes(reader)
 		if err != nil {
 			return
 		}

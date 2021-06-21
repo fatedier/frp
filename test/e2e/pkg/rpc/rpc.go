@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -16,15 +15,12 @@ func WriteBytes(w io.Writer, buf []byte) (int, error) {
 }
 
 func ReadBytes(r io.Reader) ([]byte, error) {
-	// To compatible with UDP connection, use bufio reader here to avoid lost conent.
-	rd := bufio.NewReader(r)
-
 	var length int64
-	if err := binary.Read(rd, binary.BigEndian, &length); err != nil {
+	if err := binary.Read(r, binary.BigEndian, &length); err != nil {
 		return nil, err
 	}
 	buffer := make([]byte, length)
-	n, err := io.ReadFull(rd, buffer)
+	n, err := io.ReadFull(r, buffer)
 	if err != nil {
 		return nil, err
 	}
