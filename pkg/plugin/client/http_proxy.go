@@ -74,8 +74,8 @@ func (hp *HTTPProxy) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBuf
 		wrapConn.Close()
 		return
 	}
-
-	if strings.ToUpper(string(firstBytes)) == "CONNECT" {
+	if strings.Index(strings.ToUpper(string(firstBytes)), "CONNECT") == 0 ||
+		strings.Index(strings.ToUpper(string(firstBytes)), "GET") == 0 {
 		bufRd := bufio.NewReader(sc)
 		request, err := http.ReadRequest(bufRd)
 		if err != nil {
@@ -192,7 +192,11 @@ func (hp *HTTPProxy) handleConnectReq(req *http.Request, rwc io.ReadWriteCloser)
 		return
 	}
 
-	remote, err := net.Dial("tcp", req.URL.Host)
+	dialHost := req.URL.Host
+	if !strings.Contains(dialHost, ":") {
+		dialHost = dialHost + ":http"
+	}
+	remote, err := net.Dial("tcp", dialHost)
 	if err != nil {
 		res := &http.Response{
 			StatusCode: 400,
@@ -203,8 +207,11 @@ func (hp *HTTPProxy) handleConnectReq(req *http.Request, rwc io.ReadWriteCloser)
 		res.Write(rwc)
 		return
 	}
-	rwc.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
-
+	if req.Method == "GET" {
+		req.Write(remote)
+	} else {
+		rwc.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	}
 	frpIo.Join(remote, rwc)
 }
 
