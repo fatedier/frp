@@ -31,8 +31,8 @@ func NewMockServers(portAllocator *port.Allocator) *MockServers {
 	tcpPort := portAllocator.Get()
 	udpPort := portAllocator.Get()
 	httpPort := portAllocator.Get()
-	s.tcpEchoServer = streamserver.New(streamserver.TCP, streamserver.WithBindPort(tcpPort), streamserver.WithEchoMode(true))
-	s.udpEchoServer = streamserver.New(streamserver.UDP, streamserver.WithBindPort(udpPort), streamserver.WithEchoMode(true))
+	s.tcpEchoServer = streamserver.New(streamserver.TCP, streamserver.WithBindPort(tcpPort))
+	s.udpEchoServer = streamserver.New(streamserver.UDP, streamserver.WithBindPort(udpPort))
 	s.httpSimpleServer = httpserver.New(httpserver.WithBindPort(httpPort), httpserver.WithHandler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte(consts.TestString))
 	})))
@@ -40,7 +40,7 @@ func NewMockServers(portAllocator *port.Allocator) *MockServers {
 	udsIndex := portAllocator.Get()
 	udsAddr := fmt.Sprintf("%s/frp_echo_server_%d.sock", os.TempDir(), udsIndex)
 	os.Remove(udsAddr)
-	s.udsEchoServer = streamserver.New(streamserver.Unix, streamserver.WithBindAddr(udsAddr), streamserver.WithEchoMode(true))
+	s.udsEchoServer = streamserver.New(streamserver.Unix, streamserver.WithBindAddr(udsAddr))
 	return s
 }
 

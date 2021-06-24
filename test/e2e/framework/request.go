@@ -17,7 +17,11 @@ func SpecifiedHTTPBodyHandler(body []byte) http.HandlerFunc {
 
 func ExpectResponseCode(code int) EnsureFunc {
 	return func(resp *request.Response) bool {
-		return resp.Code == code
+		if resp.Code == code {
+			return true
+		}
+		flog.Warn("Expect code %d, but got %d", code, resp.Code)
+		return false
 	}
 }
 

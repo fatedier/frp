@@ -272,7 +272,7 @@ var _ = Describe("[Feature: HTTP]", func() {
 			Ensure()
 	})
 
-	It("websocket", func() {
+	It("Websocket protocol", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostHTTPPort)
 

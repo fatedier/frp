@@ -1,6 +1,7 @@
 package request
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/fatedier/frp/test/e2e/pkg/rpc"
 	libnet "github.com/fatedier/golib/net"
 )
 
@@ -119,7 +121,7 @@ func (r *Request) Do() (*Response, error) {
 	addr := net.JoinHostPort(r.addr, strconv.Itoa(r.port))
 	// for protocol http
 	if r.protocol == "http" {
-		return sendHTTPRequest(r.method, fmt.Sprintf("http://%s%s", addr, r.path),
+		return r.sendHTTPRequest(r.method, fmt.Sprintf("http://%s%s", addr, r.path),
 			r.host, r.headers, r.proxyURL, r.body)
 	}
 
@@ -150,7 +152,7 @@ func (r *Request) Do() (*Response, error) {
 	if r.timeout > 0 {
 		conn.SetDeadline(time.Now().Add(r.timeout))
 	}
-	buf, err := sendRequestByConn(conn, r.body)
+	buf, err := r.sendRequestByConn(conn, r.body)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +165,7 @@ type Response struct {
 	Content []byte
 }
 
-func sendHTTPRequest(method, urlstr string, host string, headers map[string]string, proxy string, body []byte) (*Response, error) {
+func (r *Request) sendHTTPRequest(method, urlstr string, host string, headers map[string]string, proxy string, body []byte) (*Response, error) {
 	var inBody io.Reader
 	if len(body) != 0 {
 		inBody = bytes.NewReader(body)
@@ -209,16 +211,20 @@ func sendHTTPRequest(method, urlstr string, host string, headers map[string]stri
 	return ret, nil
 }
 
-func sendRequestByConn(c net.Conn, content []byte) ([]byte, error) {
-	_, err := c.Write(content)
+func (r *Request) sendRequestByConn(c net.Conn, content []byte) ([]byte, error) {
+	_, err := rpc.WriteBytes(c, content)
 	if err != nil {
 		return nil, fmt.Errorf("write error: %v", err)
 	}
 
-	buf := make([]byte, 2048)
-	n, err := c.Read(buf)
+	var reader io.Reader = c
+	if r.protocol == "udp" {
+		reader = bufio.NewReader(c)
+	}
+
+	buf, err := rpc.ReadBytes(reader)
 	if err != nil {
 		return nil, fmt.Errorf("read error: %v", err)
 	}
-	return buf[:n], nil
+	return buf, nil
 }
