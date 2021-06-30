@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"text/template"
@@ -255,4 +256,11 @@ func (f *Framework) RunServer(portName string, s server.Server) {
 
 func (f *Framework) SetEnvs(envs []string) {
 	f.osEnvs = envs
+}
+
+func (f *Framework) WriteTempFile(name string, content string) string {
+	filePath := filepath.Join(f.TempDirectory, name)
+	err := ioutil.WriteFile(filePath, []byte(content), 0766)
+	ExpectNoError(err)
+	return filePath
 }

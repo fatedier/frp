@@ -55,6 +55,11 @@ func NewRequestExpect(f *Framework) *RequestExpect {
 	}
 }
 
+func (e *RequestExpect) Request(req *request.Request) *RequestExpect {
+	e.req = req
+	return e
+}
+
 func (e *RequestExpect) RequestModify(f func(r *request.Request)) *RequestExpect {
 	f(e.req)
 	return e

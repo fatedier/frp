@@ -179,7 +179,7 @@ func (m *Manager) NewWorkConn(content *NewWorkConnContent) (*NewWorkConnContent,
 	ctx := xlog.NewContext(context.Background(), xl)
 	ctx = NewReqidContext(ctx, reqid)
 
-	for _, p := range m.pingPlugins {
+	for _, p := range m.newWorkConnPlugins {
 		res, retContent, err = p.Handle(ctx, OpPing, *content)
 		if err != nil {
 			xl.Warn("send NewWorkConn request to plugin [%s] error: %v", p.Name(), err)
