@@ -156,7 +156,11 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, 
 				// if listener is closed, err returned
 				c, err := l.Accept()
 				if err != nil {
-					xl.Info("listener is closed")
+					xl.Warn("listener is closed: %s", err)
+					if err2, ok := err.(*net.OpError); ok && err2.Temporary() {
+						xl.Info("met temporary error when accepting, continue ...")
+						continue
+					}
 					return
 				}
 				xl.Info("get a user connection [%s]", c.RemoteAddr().String())
