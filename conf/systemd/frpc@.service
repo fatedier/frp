@@ -3,7 +3,7 @@ Description=Frp Client Service
 After=network.target
 
 [Service]
-Type=idle
+Type=simple
 User=nobody
 Restart=on-failure
 RestartSec=5s
