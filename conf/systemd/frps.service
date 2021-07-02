@@ -8,6 +8,10 @@ User=nobody
 Restart=on-failure
 RestartSec=5s
 ExecStart=/usr/bin/frps -c /etc/frp/frps.ini
+# see:
+#   https://github.com/containerd/containerd/issues/3201
+#   https://github.com/containerd/containerd/pull/3202
+LimitNOFILE=1048576
 
 [Install]
 WantedBy=multi-user.target
