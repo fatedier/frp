@@ -21,6 +21,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
@@ -151,16 +152,30 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, 
 	xl := xlog.FromContextSafe(pxy.ctx)
 	for _, listener := range pxy.listeners {
 		go func(l net.Listener) {
+			var tempDelay time.Duration // how long to sleep on accept failure
+
 			for {
 				// block
 				// if listener is closed, err returned
 				c, err := l.Accept()
 				if err != nil {
 					xl.Warn("listener is closed: %s", err)
-					if err2, ok := err.(*net.OpError); ok && err2.Temporary() {
-						xl.Info("met temporary error when accepting, continue ...")
+
+					// see: net/mux/mux.go#Serve()
+					if err, ok := err.(interface{ Temporary() bool }); ok && err.Temporary() {
+						if tempDelay == 0 {
+							tempDelay = 5 * time.Millisecond
+						} else {
+							tempDelay *= 2
+						}
+						if max := 1 * time.Second; tempDelay > max {
+							tempDelay = max
+						}
+						xl.Info("met temporary error when accepting, sleep for %s ...", tempDelay)
+						time.Sleep(tempDelay)
 						continue
 					}
+
 					return
 				}
 				xl.Info("get a user connection [%s]", c.RemoteAddr().String())
