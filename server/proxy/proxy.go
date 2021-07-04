@@ -159,9 +159,6 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, 
 				// if listener is closed, err returned
 				c, err := l.Accept()
 				if err != nil {
-					xl.Warn("listener is closed: %s", err)
-
-					// see: net/mux/mux.go#Serve()
 					if err, ok := err.(interface{ Temporary() bool }); ok && err.Temporary() {
 						if tempDelay == 0 {
 							tempDelay = 5 * time.Millisecond
@@ -171,11 +168,12 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, 
 						if max := 1 * time.Second; tempDelay > max {
 							tempDelay = max
 						}
-						xl.Info("met temporary error when accepting, sleep for %s ...", tempDelay)
+						xl.Info("met temporary error: %s, sleep for %s ...", err, tempDelay)
 						time.Sleep(tempDelay)
 						continue
 					}
 
+					xl.Warn("listener is closed: %s", err)
 					return
 				}
 				xl.Info("get a user connection [%s]", c.RemoteAddr().String())
