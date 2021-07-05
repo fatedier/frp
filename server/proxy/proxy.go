@@ -21,6 +21,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
@@ -151,12 +152,28 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, 
 	xl := xlog.FromContextSafe(pxy.ctx)
 	for _, listener := range pxy.listeners {
 		go func(l net.Listener) {
+			var tempDelay time.Duration // how long to sleep on accept failure
+
 			for {
 				// block
 				// if listener is closed, err returned
 				c, err := l.Accept()
 				if err != nil {
-					xl.Info("listener is closed")
+					if err, ok := err.(interface{ Temporary() bool }); ok && err.Temporary() {
+						if tempDelay == 0 {
+							tempDelay = 5 * time.Millisecond
+						} else {
+							tempDelay *= 2
+						}
+						if max := 1 * time.Second; tempDelay > max {
+							tempDelay = max
+						}
+						xl.Info("met temporary error: %s, sleep for %s ...", err, tempDelay)
+						time.Sleep(tempDelay)
+						continue
+					}
+
+					xl.Warn("listener is closed: %s", err)
 					return
 				}
 				xl.Info("get a user connection [%s]", c.RemoteAddr().String())
