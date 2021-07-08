@@ -12,7 +12,7 @@ require (
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/hashicorp/yamux v0.0.0-20210316155119-a95892c5f864
+	github.com/hashicorp/yamux v0.0.0-20210707203944-259a57b3608c
 	github.com/klauspost/cpuid v1.2.0 // indirect
 	github.com/klauspost/reedsolomon v1.9.1 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
