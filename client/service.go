@@ -177,6 +177,9 @@ func (svr *Service) keepControllerWorking() {
 			xl.Info("try to reconnect to server...")
 			conn, session, err := svr.login()
 			if err != nil {
+				if svr.cfg.LoginFailExit {
+					return err
+				}
 				xl.Warn("reconnect to server error: %v", err)
 				time.Sleep(delayTime)
 
