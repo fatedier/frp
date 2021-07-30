@@ -53,7 +53,7 @@ func NewHTTPSMuxer(listener net.Listener, timeout time.Duration) (*HTTPSMuxer, e
 }
 
 func readHandshake(rd io.Reader) (host string, err error) {
-	data := pool.GetBuf(1024)
+	data := pool.GetBuf(4096)
 	origin := data
 	defer pool.PutBuf(origin)
 
