@@ -86,16 +86,16 @@ var _ = Describe("[Feature: Server Manager]", func() {
 
 		adminPort := f.AllocPort()
 		clientConf += fmt.Sprintf(`
-			admin_port = %d
+		admin_port = %d
 
-			[tcp]
-			type = tcp
-			local_port = {{ .%s }}
+		[tcp]
+		type = tcp
+		local_port = {{ .%s }}
 
-			[udp]
-			type = udp
-			local_port = {{ .%s }}
-			`, adminPort, framework.TCPEchoServerPort, framework.UDPEchoServerPort)
+		[udp]
+		type = udp
+		local_port = {{ .%s }}
+		`, adminPort, framework.TCPEchoServerPort, framework.UDPEchoServerPort)
 
 		f.RunProcesses([]string{serverConf}, []string{clientConf})
 
@@ -122,5 +122,26 @@ var _ = Describe("[Feature: Server Manager]", func() {
 		framework.ExpectNoError(err)
 
 		framework.NewRequestExpect(f).Protocol("udp").Port(port).Ensure()
+	})
+
+	It("Port Reuse", func() {
+		serverConf := consts.DefaultServerConfig
+		// Use same port as PortServer
+		serverConf += fmt.Sprintf(`
+		vhost_http_port = {{ .%s }}
+		`, consts.PortServerName)
+
+		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+		[http]
+		type = http
+		local_port = {{ .%s }}
+		custom_domains = example.com
+		`, framework.HTTPSimpleServerPort)
+
+		f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+		framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
+			r.HTTP().HTTPHost("example.com")
+		}).PortName(consts.PortServerName).Ensure()
 	})
 })
