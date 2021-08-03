@@ -1,12 +1,15 @@
 package basic
 
 import (
+	"crypto/tls"
 	"fmt"
 	"strings"
 
+	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
-	"github.com/fatedier/frp/test/e2e/mock/server"
+	"github.com/fatedier/frp/test/e2e/mock/server/httpserver"
+	"github.com/fatedier/frp/test/e2e/mock/server/streamserver"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
 
@@ -81,13 +84,195 @@ var _ = Describe("[Feature: Basic]", func() {
 
 				for _, test := range tests {
 					framework.NewRequestExpect(f).
-						RequestModify(framework.SetRequestProtocol(protocol)).
+						Protocol(protocol).
 						PortName(test.portName).
 						Explain(test.proxyName).
 						Ensure()
 				}
 			})
 		}
+	})
+
+	Describe("HTTP", func() {
+		It("proxy to HTTP server", func() {
+			serverConf := consts.DefaultServerConfig
+			vhostHTTPPort := f.AllocPort()
+			serverConf += fmt.Sprintf(`
+			vhost_http_port = %d
+			`, vhostHTTPPort)
+
+			clientConf := consts.DefaultClientConfig
+
+			getProxyConf := func(proxyName string, customDomains string, extra string) string {
+				return fmt.Sprintf(`
+				[%s]
+				type = http
+				local_port = {{ .%s }}
+				custom_domains = %s
+				`+extra, proxyName, framework.HTTPSimpleServerPort, customDomains)
+			}
+
+			tests := []struct {
+				proxyName     string
+				customDomains string
+				extraConfig   string
+			}{
+				{
+					proxyName: "normal",
+				},
+				{
+					proxyName:   "with-encryption",
+					extraConfig: "use_encryption = true",
+				},
+				{
+					proxyName:   "with-compression",
+					extraConfig: "use_compression = true",
+				},
+				{
+					proxyName: "with-encryption-and-compression",
+					extraConfig: `
+						use_encryption = true
+						use_compression = true
+						`,
+				},
+				{
+					proxyName:     "multiple-custom-domains",
+					customDomains: "a.example.com, b.example.com",
+				},
+			}
+
+			// build all client config
+			for i, test := range tests {
+				if tests[i].customDomains == "" {
+					tests[i].customDomains = test.proxyName + ".example.com"
+				}
+				clientConf += getProxyConf(test.proxyName, tests[i].customDomains, test.extraConfig) + "\n"
+			}
+			// run frps and frpc
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+			for _, test := range tests {
+				for _, domain := range strings.Split(test.customDomains, ",") {
+					domain = strings.TrimSpace(domain)
+					framework.NewRequestExpect(f).
+						Explain(test.proxyName + "-" + domain).
+						Port(vhostHTTPPort).
+						RequestModify(func(r *request.Request) {
+							r.HTTP().HTTPHost(domain)
+						}).
+						Ensure()
+				}
+			}
+
+			// not exist host
+			framework.NewRequestExpect(f).
+				Explain("not exist host").
+				Port(vhostHTTPPort).
+				RequestModify(func(r *request.Request) {
+					r.HTTP().HTTPHost("not-exist.example.com")
+				}).
+				Ensure(framework.ExpectResponseCode(404))
+		})
+	})
+
+	Describe("HTTPS", func() {
+		It("proxy to HTTPS server", func() {
+			serverConf := consts.DefaultServerConfig
+			vhostHTTPSPort := f.AllocPort()
+			serverConf += fmt.Sprintf(`
+			vhost_https_port = %d
+			`, vhostHTTPSPort)
+
+			localPort := f.AllocPort()
+			clientConf := consts.DefaultClientConfig
+			getProxyConf := func(proxyName string, customDomains string, extra string) string {
+				return fmt.Sprintf(`
+				[%s]
+				type = https
+				local_port = %d
+				custom_domains = %s
+				`+extra, proxyName, localPort, customDomains)
+			}
+
+			tests := []struct {
+				proxyName     string
+				customDomains string
+				extraConfig   string
+			}{
+				{
+					proxyName: "normal",
+				},
+				{
+					proxyName:   "with-encryption",
+					extraConfig: "use_encryption = true",
+				},
+				{
+					proxyName:   "with-compression",
+					extraConfig: "use_compression = true",
+				},
+				{
+					proxyName: "with-encryption-and-compression",
+					extraConfig: `
+						use_encryption = true
+						use_compression = true
+						`,
+				},
+				{
+					proxyName:     "multiple-custom-domains",
+					customDomains: "a.example.com, b.example.com",
+				},
+			}
+
+			// build all client config
+			for i, test := range tests {
+				if tests[i].customDomains == "" {
+					tests[i].customDomains = test.proxyName + ".example.com"
+				}
+				clientConf += getProxyConf(test.proxyName, tests[i].customDomains, test.extraConfig) + "\n"
+			}
+			// run frps and frpc
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+			tlsConfig, err := transport.NewServerTLSConfig("", "", "")
+			framework.ExpectNoError(err)
+			localServer := httpserver.New(
+				httpserver.WithBindPort(localPort),
+				httpserver.WithTlsConfig(tlsConfig),
+				httpserver.WithResponse([]byte("test")),
+			)
+			f.RunServer("", localServer)
+
+			for _, test := range tests {
+				for _, domain := range strings.Split(test.customDomains, ",") {
+					domain = strings.TrimSpace(domain)
+					framework.NewRequestExpect(f).
+						Explain(test.proxyName + "-" + domain).
+						Port(vhostHTTPSPort).
+						RequestModify(func(r *request.Request) {
+							r.HTTPS().HTTPHost(domain).TLSConfig(&tls.Config{
+								ServerName:         domain,
+								InsecureSkipVerify: true,
+							})
+						}).
+						ExpectResp([]byte("test")).
+						Ensure()
+				}
+			}
+
+			// not exist host
+			notExistDomain := "not-exist.example.com"
+			framework.NewRequestExpect(f).
+				Explain("not exist host").
+				Port(vhostHTTPSPort).
+				RequestModify(func(r *request.Request) {
+					r.HTTPS().HTTPHost(notExistDomain).TLSConfig(&tls.Config{
+						ServerName:         notExistDomain,
+						InsecureSkipVerify: true,
+					})
+				}).
+				ExpectError(true).
+				Ensure()
+		})
 	})
 
 	Describe("STCP && SUDP", func() {
@@ -186,12 +371,11 @@ var _ = Describe("[Feature: Basic]", func() {
 
 				for _, test := range tests {
 					framework.NewRequestExpect(f).
-						RequestModify(framework.SetRequestProtocol(protocol)).
+						Protocol(protocol).
 						PortName(test.bindPortName).
 						Explain(test.proxyName).
 						ExpectError(test.expectError).
 						Ensure()
-
 				}
 			})
 		}
@@ -245,7 +429,7 @@ var _ = Describe("[Feature: Basic]", func() {
 			for _, test := range tests {
 				clientConf += getProxyConf(test.proxyName, test.extraConfig) + "\n"
 
-				localServer := server.New(server.TCP, server.WithBindPort(f.AllocPort()), server.WithRespContent([]byte(test.proxyName)))
+				localServer := streamserver.New(streamserver.TCP, streamserver.WithBindPort(f.AllocPort()), streamserver.WithRespContent([]byte(test.proxyName)))
 				f.RunServer(port.GenName(test.proxyName), localServer)
 			}
 
@@ -262,13 +446,13 @@ var _ = Describe("[Feature: Basic]", func() {
 			proxyURL := fmt.Sprintf("http://127.0.0.1:%d", f.PortByName(tcpmuxHTTPConnectPortName))
 			// Request with incorrect connect hostname
 			framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
-				r.Proxy(proxyURL, "invalid")
+				r.Addr("invalid").Proxy(proxyURL)
 			}).ExpectError(true).Explain("request without HTTP connect expect error").Ensure()
 
 			// Request with correct connect hostname
 			for _, test := range tests {
 				framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
-					r.Proxy(proxyURL, test.proxyName)
+					r.Addr(test.proxyName).Proxy(proxyURL)
 				}).ExpectResp([]byte(test.proxyName)).Explain(test.proxyName).Ensure()
 			}
 		})

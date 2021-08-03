@@ -6,7 +6,7 @@
             </el-row>
         </header>
         <section>
-            <el-row :gutter="20">
+            <el-row>
                 <el-col id="side-nav" :xs="24" :md="4">
                     <el-menu default-active="1" mode="vertical" theme="light" router="false" @select="handleSelect">
                         <el-menu-item index="/">Overview</el-menu-item>

@@ -1,40 +1,42 @@
-package server
+package streamserver
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"net"
 
 	libnet "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/test/e2e/pkg/rpc"
 )
 
-type ServerType string
+type Type string
 
 const (
-	TCP  ServerType = "tcp"
-	UDP  ServerType = "udp"
-	Unix ServerType = "unix"
+	TCP  Type = "tcp"
+	UDP  Type = "udp"
+	Unix Type = "unix"
 )
 
 type Server struct {
-	netType     ServerType
+	netType     Type
 	bindAddr    string
 	bindPort    int
 	respContent []byte
-	bufSize     int64
 
-	echoMode bool
+	handler func(net.Conn)
 
 	l net.Listener
 }
 
 type Option func(*Server) *Server
 
-func New(netType ServerType, options ...Option) *Server {
+func New(netType Type, options ...Option) *Server {
 	s := &Server{
 		netType:  netType,
 		bindAddr: "127.0.0.1",
-		bufSize:  2048,
 	}
+	s.handler = s.handle
 
 	for _, option := range options {
 		s = option(s)
@@ -63,16 +65,9 @@ func WithRespContent(content []byte) Option {
 	}
 }
 
-func WithBufSize(bufSize int64) Option {
+func WithCustomHandler(handler func(net.Conn)) Option {
 	return func(s *Server) *Server {
-		s.bufSize = bufSize
-		return s
-	}
-}
-
-func WithEchoMode(echoMode bool) Option {
-	return func(s *Server) *Server {
-		s.echoMode = echoMode
+		s.handler = handler
 		return s
 	}
 }
@@ -88,7 +83,7 @@ func (s *Server) Run() error {
 			if err != nil {
 				return
 			}
-			go s.handle(c)
+			go s.handler(c)
 		}
 	}()
 	return nil
@@ -118,18 +113,20 @@ func (s *Server) initListener() (err error) {
 func (s *Server) handle(c net.Conn) {
 	defer c.Close()
 
-	buf := make([]byte, s.bufSize)
+	var reader io.Reader = c
+	if s.netType == UDP {
+		reader = bufio.NewReader(c)
+	}
 	for {
-		n, err := c.Read(buf)
+		buf, err := rpc.ReadBytes(reader)
 		if err != nil {
 			return
 		}
 
-		if s.echoMode {
-			c.Write(buf[:n])
-		} else {
-			c.Write(s.respContent)
+		if len(s.respContent) > 0 {
+			buf = s.respContent
 		}
+		rpc.WriteBytes(c, buf)
 	}
 }
 

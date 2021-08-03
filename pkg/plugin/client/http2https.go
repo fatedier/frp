@@ -60,7 +60,7 @@ func NewHTTP2HTTPSPlugin(params map[string]string) (Plugin, error) {
 
 	listener := NewProxyListener()
 
-	p := &HTTPS2HTTPPlugin{
+	p := &HTTP2HTTPSPlugin{
 		localAddr:         localAddr,
 		hostHeaderRewrite: hostHeaderRewrite,
 		headers:           headers,

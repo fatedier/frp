@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"text/template"
@@ -30,6 +31,9 @@ type Framework struct {
 	// ports used in this framework indexed by port name.
 	usedPorts map[string]int
 
+	// record ports alloced by this framework and release them after each test
+	allocedPorts []int
+
 	// portAllocator to alloc port for this test case.
 	portAllocator *port.Allocator
 
@@ -50,7 +54,13 @@ type Framework struct {
 	clientProcesses []*process.Process
 
 	// Manual registered mock servers.
-	servers []*server.Server
+	servers []server.Server
+
+	// used to generate unique config file name.
+	configFileIndex int64
+
+	// envs used to start processes, the form is `key=value`.
+	osEnvs []string
 }
 
 func NewDefaultFramework() *Framework {
@@ -80,13 +90,21 @@ func (f *Framework) BeforeEach() {
 
 	f.cleanupHandle = AddCleanupAction(f.AfterEach)
 
-	dir, err := ioutil.TempDir(os.TempDir(), "frpe2e-test-*")
+	dir, err := ioutil.TempDir(os.TempDir(), "frp-e2e-test-*")
 	ExpectNoError(err)
 	f.TempDirectory = dir
 
 	f.mockServers = NewMockServers(f.portAllocator)
 	if err := f.mockServers.Run(); err != nil {
 		Failf("%v", err)
+	}
+
+	params := f.mockServers.GetTemplateParams()
+	for k, v := range params {
+		switch t := v.(type) {
+		case int:
+			f.usedPorts[k] = int(t)
+		}
 	}
 }
 
@@ -126,14 +144,23 @@ func (f *Framework) AfterEach() {
 	// clean directory
 	os.RemoveAll(f.TempDirectory)
 	f.TempDirectory = ""
-	f.serverConfPaths = nil
-	f.clientConfPaths = nil
+	f.serverConfPaths = []string{}
+	f.clientConfPaths = []string{}
 
 	// release used ports
 	for _, port := range f.usedPorts {
 		f.portAllocator.Release(port)
 	}
 	f.usedPorts = make(map[string]int)
+
+	// release alloced ports
+	for _, port := range f.allocedPorts {
+		f.portAllocator.Release(port)
+	}
+	f.allocedPorts = make([]int, 0)
+
+	// clear os envs
+	f.osEnvs = make([]string, 0)
 }
 
 var portRegex = regexp.MustCompile(`{{ \.Port.*? }}`)
@@ -210,6 +237,7 @@ func (f *Framework) PortByName(name string) int {
 func (f *Framework) AllocPort() int {
 	port := f.portAllocator.Get()
 	ExpectTrue(port > 0, "alloc port failed")
+	f.allocedPorts = append(f.allocedPorts, port)
 	return port
 }
 
@@ -217,11 +245,22 @@ func (f *Framework) ReleasePort(port int) {
 	f.portAllocator.Release(port)
 }
 
-func (f *Framework) RunServer(portName string, s *server.Server) {
+func (f *Framework) RunServer(portName string, s server.Server) {
 	f.servers = append(f.servers, s)
-	if s.BindPort() > 0 {
+	if s.BindPort() > 0 && portName != "" {
 		f.usedPorts[portName] = s.BindPort()
 	}
 	err := s.Run()
-	ExpectNoError(err, portName)
+	ExpectNoError(err, "RunServer: with PortName %s", portName)
+}
+
+func (f *Framework) SetEnvs(envs []string) {
+	f.osEnvs = envs
+}
+
+func (f *Framework) WriteTempFile(name string, content string) string {
+	filePath := filepath.Join(f.TempDirectory, name)
+	err := ioutil.WriteFile(filePath, []byte(content), 0766)
+	ExpectNoError(err)
+	return filePath
 }

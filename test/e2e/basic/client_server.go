@@ -6,6 +6,7 @@ import (
 
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
+	"github.com/fatedier/frp/test/e2e/pkg/cert"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
 
 	. "github.com/onsi/ginkgo"
@@ -17,19 +18,17 @@ type generalTestConfigures struct {
 	expectError bool
 }
 
-// defineClientServerTest test a normal tcp and udp proxy with specified TestConfigures.
-func defineClientServerTest(desc string, f *framework.Framework, configures *generalTestConfigures) {
-	It(desc, func() {
-		serverConf := consts.DefaultServerConfig
-		clientConf := consts.DefaultClientConfig
+func runClientServerTest(f *framework.Framework, configures *generalTestConfigures) {
+	serverConf := consts.DefaultServerConfig
+	clientConf := consts.DefaultClientConfig
 
-		serverConf += fmt.Sprintf(`
+	serverConf += fmt.Sprintf(`
 				%s
 				`, configures.server)
 
-		tcpPortName := port.GenName("TCP")
-		udpPortName := port.GenName("UDP")
-		clientConf += fmt.Sprintf(`
+	tcpPortName := port.GenName("TCP")
+	udpPortName := port.GenName("UDP")
+	clientConf += fmt.Sprintf(`
 				%s
 
 				[tcp]
@@ -42,15 +41,21 @@ func defineClientServerTest(desc string, f *framework.Framework, configures *gen
 				local_port = {{ .%s }}
 				remote_port = {{ .%s }}
 				`, configures.client,
-			framework.TCPEchoServerPort, tcpPortName,
-			framework.UDPEchoServerPort, udpPortName,
-		)
+		framework.TCPEchoServerPort, tcpPortName,
+		framework.UDPEchoServerPort, udpPortName,
+	)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+	f.RunProcesses([]string{serverConf}, []string{clientConf})
 
-		framework.NewRequestExpect(f).PortName(tcpPortName).ExpectError(configures.expectError).Explain("tcp proxy").Ensure()
-		framework.NewRequestExpect(f).RequestModify(framework.SetRequestProtocol("udp")).
-			PortName(udpPortName).ExpectError(configures.expectError).Explain("udp proxy").Ensure()
+	framework.NewRequestExpect(f).PortName(tcpPortName).ExpectError(configures.expectError).Explain("tcp proxy").Ensure()
+	framework.NewRequestExpect(f).Protocol("udp").
+		PortName(udpPortName).ExpectError(configures.expectError).Explain("udp proxy").Ensure()
+}
+
+// defineClientServerTest test a normal tcp and udp proxy with specified TestConfigures.
+func defineClientServerTest(desc string, f *framework.Framework, configures *generalTestConfigures) {
+	It(desc, func() {
+		runClientServerTest(f, configures)
 	})
 }
 
@@ -106,6 +111,124 @@ var _ = Describe("[Feature: Client-Server]", func() {
 		defineClientServerTest("enable tls_only, client without TLS", f, &generalTestConfigures{
 			server:      "tls_only = true",
 			expectError: true,
+		})
+	})
+
+	Describe("TLS with custom certificate", func() {
+		supportProtocols := []string{"tcp", "kcp", "websocket"}
+
+		var (
+			caCrtPath                    string
+			serverCrtPath, serverKeyPath string
+			clientCrtPath, clientKeyPath string
+		)
+		JustBeforeEach(func() {
+			generator := &cert.SelfSignedCertGenerator{}
+			artifacts, err := generator.Generate("0.0.0.0")
+			framework.ExpectNoError(err)
+
+			caCrtPath = f.WriteTempFile("ca.crt", string(artifacts.CACert))
+			serverCrtPath = f.WriteTempFile("server.crt", string(artifacts.Cert))
+			serverKeyPath = f.WriteTempFile("server.key", string(artifacts.Key))
+			generator.SetCA(artifacts.CACert, artifacts.CAKey)
+			generator.Generate("0.0.0.0")
+			clientCrtPath = f.WriteTempFile("client.crt", string(artifacts.Cert))
+			clientKeyPath = f.WriteTempFile("client.key", string(artifacts.Key))
+		})
+
+		for _, protocol := range supportProtocols {
+			tmp := protocol
+
+			It("one-way authentication: "+tmp, func() {
+				runClientServerTest(f, &generalTestConfigures{
+					server: fmt.Sprintf(`
+						protocol = %s
+						kcp_bind_port = {{ .%s }}
+						tls_trusted_ca_file = %s
+					`, tmp, consts.PortServerName, caCrtPath),
+					client: fmt.Sprintf(`
+						protocol = %s
+						tls_enable = true
+						tls_cert_file = %s
+						tls_key_file = %s
+					`, tmp, clientCrtPath, clientKeyPath),
+				})
+			})
+
+			It("mutual authentication: "+tmp, func() {
+				runClientServerTest(f, &generalTestConfigures{
+					server: fmt.Sprintf(`
+						protocol = %s
+						kcp_bind_port = {{ .%s }}
+						tls_cert_file = %s
+						tls_key_file = %s
+						tls_trusted_ca_file = %s
+					`, tmp, consts.PortServerName, serverCrtPath, serverKeyPath, caCrtPath),
+					client: fmt.Sprintf(`
+						protocol = %s
+						tls_enable = true
+						tls_cert_file = %s
+						tls_key_file = %s
+						tls_trusted_ca_file = %s
+					`, tmp, clientCrtPath, clientKeyPath, caCrtPath),
+				})
+			})
+		}
+	})
+
+	Describe("TLS with custom certificate and specified server name", func() {
+		var (
+			caCrtPath                    string
+			serverCrtPath, serverKeyPath string
+			clientCrtPath, clientKeyPath string
+		)
+		JustBeforeEach(func() {
+			generator := &cert.SelfSignedCertGenerator{}
+			artifacts, err := generator.Generate("example.com")
+			framework.ExpectNoError(err)
+
+			caCrtPath = f.WriteTempFile("ca.crt", string(artifacts.CACert))
+			serverCrtPath = f.WriteTempFile("server.crt", string(artifacts.Cert))
+			serverKeyPath = f.WriteTempFile("server.key", string(artifacts.Key))
+			generator.SetCA(artifacts.CACert, artifacts.CAKey)
+			generator.Generate("example.com")
+			clientCrtPath = f.WriteTempFile("client.crt", string(artifacts.Cert))
+			clientKeyPath = f.WriteTempFile("client.key", string(artifacts.Key))
+		})
+
+		It("mutual authentication", func() {
+			runClientServerTest(f, &generalTestConfigures{
+				server: fmt.Sprintf(`
+				tls_cert_file = %s
+				tls_key_file = %s
+				tls_trusted_ca_file = %s
+				`, serverCrtPath, serverKeyPath, caCrtPath),
+				client: fmt.Sprintf(`
+				tls_enable = true
+				tls_server_name = example.com
+				tls_cert_file = %s
+				tls_key_file = %s
+				tls_trusted_ca_file = %s
+				`, clientCrtPath, clientKeyPath, caCrtPath),
+			})
+		})
+
+		It("mutual authentication with incorrect server name", func() {
+			runClientServerTest(f, &generalTestConfigures{
+				server: fmt.Sprintf(`
+				tls_cert_file = %s
+				tls_key_file = %s
+				tls_trusted_ca_file = %s
+				`, serverCrtPath, serverKeyPath, caCrtPath),
+				client: fmt.Sprintf(`
+				tls_enable = true
+				tls_server_name = invalid.com
+				tls_cert_file = %s
+				tls_key_file = %s
+				tls_trusted_ca_file = %s
+				`, clientCrtPath, clientKeyPath, caCrtPath),
+				expectError: true,
+			})
 		})
 	})
 })

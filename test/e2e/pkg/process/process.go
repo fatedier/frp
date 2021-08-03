@@ -13,11 +13,17 @@ type Process struct {
 	stdOutput   *bytes.Buffer
 
 	beforeStopHandler func()
+	stopped           bool
 }
 
 func New(path string, params []string) *Process {
+	return NewWithEnvs(path, params, nil)
+}
+
+func NewWithEnvs(path string, params []string, envs []string) *Process {
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd := exec.CommandContext(ctx, path, params...)
+	cmd.Env = envs
 	p := &Process{
 		cmd:    cmd,
 		cancel: cancel,
@@ -34,6 +40,12 @@ func (p *Process) Start() error {
 }
 
 func (p *Process) Stop() error {
+	if p.stopped {
+		return nil
+	}
+	defer func() {
+		p.stopped = true
+	}()
 	if p.beforeStopHandler != nil {
 		p.beforeStopHandler()
 	}

@@ -5,7 +5,6 @@ import (
 
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
-	"github.com/fatedier/frp/test/e2e/pkg/port"
 
 	. "github.com/onsi/ginkgo"
 )
@@ -18,17 +17,17 @@ var _ = Describe("[Feature: Example]", func() {
 			serverConf := consts.DefaultServerConfig
 			clientConf := consts.DefaultClientConfig
 
-			portName := port.GenName("TCP")
+			remotePort := f.AllocPort()
 			clientConf += fmt.Sprintf(`
 			[tcp]
 			type = tcp
 			local_port = {{ .%s }}
-			remote_port = {{ .%s }}
-			`, framework.TCPEchoServerPort, portName)
+			remote_port = %d
+			`, framework.TCPEchoServerPort, remotePort)
 
 			f.RunProcesses([]string{serverConf}, []string{clientConf})
 
-			framework.NewRequestExpect(f).PortName(portName).Ensure()
+			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 		})
 	})
 })

@@ -1,38 +1,39 @@
 package framework
 
 import (
+	"bytes"
+	"net/http"
+
+	flog "github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
 )
 
-func SetRequestProtocol(protocol string) func(*request.Request) {
-	return func(r *request.Request) {
-		r.Protocol(protocol)
+func SpecifiedHTTPBodyHandler(body []byte) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		w.Write(body)
 	}
 }
 
-func SetRequestPort(port int) func(*request.Request) {
-	return func(r *request.Request) {
-		r.Port(port)
+func ExpectResponseCode(code int) EnsureFunc {
+	return func(resp *request.Response) bool {
+		if resp.Code == code {
+			return true
+		}
+		flog.Warn("Expect code %d, but got %d", code, resp.Code)
+		return false
 	}
 }
 
-// NewRequest return a default TCP request with default timeout and content.
+// NewRequest return a default request with default timeout and content.
 func NewRequest() *request.Request {
 	return request.New().
 		Timeout(consts.DefaultTimeout).
 		Body([]byte(consts.TestString))
 }
 
-func ExpectResponse(req *request.Request, expectResp []byte, explain ...interface{}) {
-	ret, err := req.Do()
-	ExpectNoError(err, explain...)
-	ExpectEqualValues(expectResp, ret, explain...)
-}
-
-func ExpectResponseError(req *request.Request, explain ...interface{}) {
-	_, err := req.Do()
-	ExpectError(err, explain...)
+func NewHTTPRequest() *request.Request {
+	return request.New().HTTP().HTTPParams("GET", "", "/", nil)
 }
 
 type RequestExpect struct {
@@ -54,14 +55,31 @@ func NewRequestExpect(f *Framework) *RequestExpect {
 	}
 }
 
+func (e *RequestExpect) Request(req *request.Request) *RequestExpect {
+	e.req = req
+	return e
+}
+
 func (e *RequestExpect) RequestModify(f func(r *request.Request)) *RequestExpect {
 	f(e.req)
+	return e
+}
+
+func (e *RequestExpect) Protocol(protocol string) *RequestExpect {
+	e.req.Protocol(protocol)
 	return e
 }
 
 func (e *RequestExpect) PortName(name string) *RequestExpect {
 	if e.f != nil {
 		e.req.Port(e.f.PortByName(name))
+	}
+	return e
+}
+
+func (e *RequestExpect) Port(port int) *RequestExpect {
+	if e.f != nil {
+		e.req.Port(port)
 	}
 	return e
 }
@@ -81,10 +99,32 @@ func (e *RequestExpect) Explain(explain ...interface{}) *RequestExpect {
 	return e
 }
 
-func (e *RequestExpect) Ensure() {
+type EnsureFunc func(*request.Response) bool
+
+func (e *RequestExpect) Ensure(fns ...EnsureFunc) {
+	ret, err := e.req.Do()
 	if e.expectError {
-		ExpectResponseError(e.req, e.explain...)
-	} else {
-		ExpectResponse(e.req, e.expectResp, e.explain...)
+		ExpectErrorWithOffset(1, err, e.explain...)
+		return
 	}
+	ExpectNoErrorWithOffset(1, err, e.explain...)
+
+	if len(fns) == 0 {
+		if !bytes.Equal(e.expectResp, ret.Content) {
+			flog.Trace("Response info: %+v", ret)
+		}
+		ExpectEqualValuesWithOffset(1, e.expectResp, ret.Content, e.explain...)
+	} else {
+		for _, fn := range fns {
+			ok := fn(ret)
+			if !ok {
+				flog.Trace("Response info: %+v", ret)
+			}
+			ExpectTrueWithOffset(1, ok, e.explain...)
+		}
+	}
+}
+
+func (e *RequestExpect) Do() (*request.Response, error) {
+	return e.req.Do()
 }
