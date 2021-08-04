@@ -51,6 +51,11 @@ type serverInfoResp struct {
 	ProxyTypeCounts map[string]int64 `json:"proxy_type_count"`
 }
 
+// /healthz
+func (svr *Service) Healthz(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(200)
+}
+
 // api/serverinfo
 func (svr *Service) APIServerInfo(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
