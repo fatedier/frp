@@ -24,47 +24,48 @@ import (
 	gerr "github.com/fatedier/golib/errors"
 )
 
-type TcpGroupListener struct {
-	groupName string
-	group     *TcpGroup
+// TCPGroupCtl manage all TCPGroups
+type TCPGroupCtl struct {
+	groups map[string]*TCPGroup
 
-	addr    net.Addr
-	closeCh chan struct{}
+	// portManager is used to manage port
+	portManager *ports.Manager
+	mu          sync.Mutex
 }
 
-func newTcpGroupListener(name string, group *TcpGroup, addr net.Addr) *TcpGroupListener {
-	return &TcpGroupListener{
-		groupName: name,
-		group:     group,
-		addr:      addr,
-		closeCh:   make(chan struct{}),
+// NewTCPGroupCtl return a new TcpGroupCtl
+func NewTCPGroupCtl(portManager *ports.Manager) *TCPGroupCtl {
+	return &TCPGroupCtl{
+		groups:      make(map[string]*TCPGroup),
+		portManager: portManager,
 	}
 }
 
-func (ln *TcpGroupListener) Accept() (c net.Conn, err error) {
-	var ok bool
-	select {
-	case <-ln.closeCh:
-		return nil, ErrListenerClosed
-	case c, ok = <-ln.group.Accept():
-		if !ok {
-			return nil, ErrListenerClosed
-		}
-		return c, nil
+// Listen is the wrapper for TCPGroup's Listen
+// If there are no group, we will create one here
+func (tgc *TCPGroupCtl) Listen(proxyName string, group string, groupKey string,
+	addr string, port int) (l net.Listener, realPort int, err error) {
+
+	tgc.mu.Lock()
+	tcpGroup, ok := tgc.groups[group]
+	if !ok {
+		tcpGroup = NewTCPGroup(tgc)
+		tgc.groups[group] = tcpGroup
 	}
+	tgc.mu.Unlock()
+
+	return tcpGroup.Listen(proxyName, group, groupKey, addr, port)
 }
 
-func (ln *TcpGroupListener) Addr() net.Addr {
-	return ln.addr
+// RemoveGroup remove TCPGroup from controller
+func (tgc *TCPGroupCtl) RemoveGroup(group string) {
+	tgc.mu.Lock()
+	defer tgc.mu.Unlock()
+	delete(tgc.groups, group)
 }
 
-func (ln *TcpGroupListener) Close() (err error) {
-	close(ln.closeCh)
-	ln.group.CloseListener(ln)
-	return
-}
-
-type TcpGroup struct {
+// TCPGroup route connections to different proxies
+type TCPGroup struct {
 	group    string
 	groupKey string
 	addr     string
@@ -74,23 +75,28 @@ type TcpGroup struct {
 	acceptCh chan net.Conn
 	index    uint64
 	tcpLn    net.Listener
-	lns      []*TcpGroupListener
-	ctl      *TcpGroupCtl
+	lns      []*TCPGroupListener
+	ctl      *TCPGroupCtl
 	mu       sync.Mutex
 }
 
-func NewTcpGroup(ctl *TcpGroupCtl) *TcpGroup {
-	return &TcpGroup{
-		lns:      make([]*TcpGroupListener, 0),
+// NewTCPGroup return a new TCPGroup
+func NewTCPGroup(ctl *TCPGroupCtl) *TCPGroup {
+	return &TCPGroup{
+		lns:      make([]*TCPGroupListener, 0),
 		ctl:      ctl,
 		acceptCh: make(chan net.Conn),
 	}
 }
 
-func (tg *TcpGroup) Listen(proxyName string, group string, groupKey string, addr string, port int) (ln *TcpGroupListener, realPort int, err error) {
+// Listen will return a new TCPGroupListener
+// if TCPGroup already has a listener, just add a new TCPGroupListener to the queues
+// otherwise, listen on the real address
+func (tg *TCPGroup) Listen(proxyName string, group string, groupKey string, addr string, port int) (ln *TCPGroupListener, realPort int, err error) {
 	tg.mu.Lock()
 	defer tg.mu.Unlock()
 	if len(tg.lns) == 0 {
+		// the first listener, listen on the real address
 		realPort, err = tg.ctl.portManager.Acquire(proxyName, port)
 		if err != nil {
 			return
@@ -100,7 +106,7 @@ func (tg *TcpGroup) Listen(proxyName string, group string, groupKey string, addr
 			err = errRet
 			return
 		}
-		ln = newTcpGroupListener(group, tg, tcpLn.Addr())
+		ln = newTCPGroupListener(group, tg, tcpLn.Addr())
 
 		tg.group = group
 		tg.groupKey = groupKey
@@ -114,22 +120,28 @@ func (tg *TcpGroup) Listen(proxyName string, group string, groupKey string, addr
 		}
 		go tg.worker()
 	} else {
-		if tg.group != group || tg.addr != addr || tg.port != port {
+		// address and port in the same group must be equal
+		if tg.group != group || tg.addr != addr {
 			err = ErrGroupParamsInvalid
+			return
+		}
+		if tg.port != port {
+			err = ErrGroupDifferentPort
 			return
 		}
 		if tg.groupKey != groupKey {
 			err = ErrGroupAuthFailed
 			return
 		}
-		ln = newTcpGroupListener(group, tg, tg.lns[0].Addr())
+		ln = newTCPGroupListener(group, tg, tg.lns[0].Addr())
 		realPort = tg.realPort
 		tg.lns = append(tg.lns, ln)
 	}
 	return
 }
 
-func (tg *TcpGroup) worker() {
+// worker is called when the real tcp listener has been created
+func (tg *TCPGroup) worker() {
 	for {
 		c, err := tg.tcpLn.Accept()
 		if err != nil {
@@ -144,11 +156,12 @@ func (tg *TcpGroup) worker() {
 	}
 }
 
-func (tg *TcpGroup) Accept() <-chan net.Conn {
+func (tg *TCPGroup) Accept() <-chan net.Conn {
 	return tg.acceptCh
 }
 
-func (tg *TcpGroup) CloseListener(ln *TcpGroupListener) {
+// CloseListener remove the TCPGroupListener from the TCPGroup
+func (tg *TCPGroup) CloseListener(ln *TCPGroupListener) {
 	tg.mu.Lock()
 	defer tg.mu.Unlock()
 	for i, tmpLn := range tg.lns {
@@ -165,36 +178,47 @@ func (tg *TcpGroup) CloseListener(ln *TcpGroupListener) {
 	}
 }
 
-type TcpGroupCtl struct {
-	groups map[string]*TcpGroup
+// TCPGroupListener
+type TCPGroupListener struct {
+	groupName string
+	group     *TCPGroup
 
-	portManager *ports.PortManager
-	mu          sync.Mutex
+	addr    net.Addr
+	closeCh chan struct{}
 }
 
-func NewTcpGroupCtl(portManager *ports.PortManager) *TcpGroupCtl {
-	return &TcpGroupCtl{
-		groups:      make(map[string]*TcpGroup),
-		portManager: portManager,
+func newTCPGroupListener(name string, group *TCPGroup, addr net.Addr) *TCPGroupListener {
+	return &TCPGroupListener{
+		groupName: name,
+		group:     group,
+		addr:      addr,
+		closeCh:   make(chan struct{}),
 	}
 }
 
-func (tgc *TcpGroupCtl) Listen(proxyNanme string, group string, groupKey string,
-	addr string, port int) (l net.Listener, realPort int, err error) {
-
-	tgc.mu.Lock()
-	defer tgc.mu.Unlock()
-	if tcpGroup, ok := tgc.groups[group]; ok {
-		return tcpGroup.Listen(proxyNanme, group, groupKey, addr, port)
-	} else {
-		tcpGroup = NewTcpGroup(tgc)
-		tgc.groups[group] = tcpGroup
-		return tcpGroup.Listen(proxyNanme, group, groupKey, addr, port)
+// Accept will accept connections from TCPGroup
+func (ln *TCPGroupListener) Accept() (c net.Conn, err error) {
+	var ok bool
+	select {
+	case <-ln.closeCh:
+		return nil, ErrListenerClosed
+	case c, ok = <-ln.group.Accept():
+		if !ok {
+			return nil, ErrListenerClosed
+		}
+		return c, nil
 	}
 }
 
-func (tgc *TcpGroupCtl) RemoveGroup(group string) {
-	tgc.mu.Lock()
-	defer tgc.mu.Unlock()
-	delete(tgc.groups, group)
+func (ln *TCPGroupListener) Addr() net.Addr {
+	return ln.addr
+}
+
+// Close close the listener
+func (ln *TCPGroupListener) Close() (err error) {
+	close(ln.closeCh)
+
+	// remove self from TcpGroup
+	ln.group.CloseListener(ln)
+	return
 }

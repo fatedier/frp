@@ -1,0 +1,25 @@
+version: 2
+jobs:
+  go-version-latest:
+    docker:
+      - image: circleci/golang:1.16-node
+    working_directory: /go/src/github.com/fatedier/frp
+    steps:
+      - checkout
+      - run: make
+      - run: make alltest
+  go-version-last:
+    docker:
+      - image: circleci/golang:1.15-node
+    working_directory: /go/src/github.com/fatedier/frp
+    steps:
+      - checkout
+      - run: make
+      - run: make alltest
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - go-version-latest
+      - go-version-last

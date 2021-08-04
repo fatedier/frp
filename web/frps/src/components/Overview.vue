@@ -19,9 +19,6 @@
                         <el-form-item label="Https Port">
                           <span>{{ vhost_https_port }}</span>
                         </el-form-item>
-                        <el-form-item label="Auth Timeout">
-                          <span>{{ auth_timeout }}</span>
-                        </el-form-item>
                         <el-form-item label="Subdomain Host">
                           <span>{{ subdomain_host }}</span>
                         </el-form-item>
@@ -64,7 +61,6 @@
                 bind_udp_port: '',
                 vhost_http_port: '',
                 vhost_https_port: '',
-                auth_timeout: '',
                 subdomain_host: '',
                 max_pool_count: '',
                 max_ports_per_client: '',
@@ -82,7 +78,7 @@
         },
         methods: {
             fetchData() {
-                fetch('/api/serverinfo', {credentials: 'include'})
+                fetch('../api/serverinfo', {credentials: 'include'})
               .then(res => {
                 return res.json()
               }).then(json => {
@@ -100,7 +96,6 @@
                 if (this.vhost_https_port == 0) {
                     this.vhost_https_port = "disable"
                 }
-                this.auth_timeout = json.auth_timeout
                 this.subdomain_host = json.subdomain_host
                 this.max_pool_count = json.max_pool_count
                 this.max_ports_per_client = json.max_ports_per_client
@@ -126,6 +121,9 @@
                     }
                     if (json.proxy_type_count.stcp != null) {
                         this.proxy_counts += json.proxy_type_count.stcp
+                    }
+                    if (json.proxy_type_count.sudp != null) {
+                        this.proxy_counts += json.proxy_type_count.sudp
                     }
                     if (json.proxy_type_count.xtcp != null) {
                         this.proxy_counts += json.proxy_type_count.xtcp

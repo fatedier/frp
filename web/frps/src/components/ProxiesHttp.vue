@@ -97,7 +97,7 @@
   export default {
     data() {
       return {
-        proxies: null,
+        proxies: new Array(),
         vhost_http_port: "",
         subdomain_host: ""
       }
@@ -116,7 +116,7 @@
         return Humanize.fileSize(row.traffic_out)
       },
       fetchData() {
-        fetch('/api/serverinfo', {credentials: 'include'})
+        fetch('../api/serverinfo', {credentials: 'include'})
           .then(res => {
             return res.json()
           }).then(json => {
@@ -125,7 +125,7 @@
             if (this.vhost_http_port == null || this.vhost_http_port == 0) {
               return
             } else {
-              fetch('/api/proxy/http', {credentials: 'include'})
+              fetch('../api/proxy/http', {credentials: 'include'})
                 .then(res => {
                   return res.json()
                 }).then(json => {

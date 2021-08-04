@@ -88,7 +88,7 @@
   export default {
     data() {
       return {
-        proxies: null
+        proxies: new Array(),
       }
     },
     created() {
@@ -105,7 +105,7 @@
         return Humanize.fileSize(row.traffic_out)
       },
       fetchData() {
-        fetch('/api/proxy/udp', {credentials: 'include'})
+        fetch('../api/proxy/udp', {credentials: 'include'})
           .then(res => {
             return res.json()
           }).then(json => {
