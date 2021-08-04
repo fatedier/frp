@@ -32,6 +32,11 @@ type GeneralResponse struct {
 	Msg  string
 }
 
+// /healthz
+func (svr *Service) healthz(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(200)
+}
+
 // GET api/reload
 func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
