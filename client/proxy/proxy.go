@@ -28,6 +28,7 @@ import (
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/client"
+	"github.com/fatedier/frp/pkg/plugin/filter"
 	"github.com/fatedier/frp/pkg/proto/udp"
 	"github.com/fatedier/frp/pkg/util/limit"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
@@ -128,6 +129,8 @@ type TCPProxy struct {
 
 	cfg         *config.TCPProxyConf
 	proxyPlugin plugin.Plugin
+
+	streamFilter *filter.HTTPStreamFilter
 }
 
 func (pxy *TCPProxy) Run() (err error) {
@@ -137,6 +140,14 @@ func (pxy *TCPProxy) Run() (err error) {
 			return
 		}
 	}
+
+	if pxy.cfg.StreamFilterType != "" {
+		pxy.streamFilter, err = filter.NewHTTPStreamFilter(pxy.cfg.LocalSvrConf, pxy.cfg.StreamFilterParams)
+		if err != nil {
+			return
+		}
+	}
+
 	return
 }
 
@@ -148,7 +159,7 @@ func (pxy *TCPProxy) Close() {
 
 func (pxy *TCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
-		conn, []byte(pxy.clientCfg.Token), m)
+		conn, []byte(pxy.clientCfg.Token), m, pxy.streamFilter)
 }
 
 // TCP Multiplexer
@@ -157,6 +168,8 @@ type TCPMuxProxy struct {
 
 	cfg         *config.TCPMuxProxyConf
 	proxyPlugin plugin.Plugin
+
+	streamFilter *filter.HTTPStreamFilter
 }
 
 func (pxy *TCPMuxProxy) Run() (err error) {
@@ -166,6 +179,14 @@ func (pxy *TCPMuxProxy) Run() (err error) {
 			return
 		}
 	}
+
+	if pxy.cfg.StreamFilterType != "" {
+		pxy.streamFilter, err = filter.NewHTTPStreamFilter(pxy.cfg.LocalSvrConf, pxy.cfg.StreamFilterParams)
+		if err != nil {
+			return
+		}
+	}
+
 	return
 }
 
@@ -177,7 +198,7 @@ func (pxy *TCPMuxProxy) Close() {
 
 func (pxy *TCPMuxProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
-		conn, []byte(pxy.clientCfg.Token), m)
+		conn, []byte(pxy.clientCfg.Token), m, pxy.streamFilter)
 }
 
 // HTTP
@@ -186,6 +207,8 @@ type HTTPProxy struct {
 
 	cfg         *config.HTTPProxyConf
 	proxyPlugin plugin.Plugin
+
+	streamFilter *filter.HTTPStreamFilter
 }
 
 func (pxy *HTTPProxy) Run() (err error) {
@@ -195,6 +218,14 @@ func (pxy *HTTPProxy) Run() (err error) {
 			return
 		}
 	}
+
+	if pxy.cfg.StreamFilterType != "" {
+		pxy.streamFilter, err = filter.NewHTTPStreamFilter(pxy.cfg.LocalSvrConf, pxy.cfg.StreamFilterParams)
+		if err != nil {
+			return
+		}
+	}
+
 	return
 }
 
@@ -206,7 +237,7 @@ func (pxy *HTTPProxy) Close() {
 
 func (pxy *HTTPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
-		conn, []byte(pxy.clientCfg.Token), m)
+		conn, []byte(pxy.clientCfg.Token), m, pxy.streamFilter)
 }
 
 // HTTPS
@@ -215,6 +246,8 @@ type HTTPSProxy struct {
 
 	cfg         *config.HTTPSProxyConf
 	proxyPlugin plugin.Plugin
+
+	streamFilter *filter.HTTPStreamFilter
 }
 
 func (pxy *HTTPSProxy) Run() (err error) {
@@ -224,6 +257,14 @@ func (pxy *HTTPSProxy) Run() (err error) {
 			return
 		}
 	}
+
+	if pxy.cfg.StreamFilterType != "" {
+		pxy.streamFilter, err = filter.NewHTTPStreamFilter(pxy.cfg.LocalSvrConf, pxy.cfg.StreamFilterParams)
+		if err != nil {
+			return
+		}
+	}
+
 	return
 }
 
@@ -235,7 +276,7 @@ func (pxy *HTTPSProxy) Close() {
 
 func (pxy *HTTPSProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
-		conn, []byte(pxy.clientCfg.Token), m)
+		conn, []byte(pxy.clientCfg.Token), m, pxy.streamFilter)
 }
 
 // STCP
@@ -244,6 +285,8 @@ type STCPProxy struct {
 
 	cfg         *config.STCPProxyConf
 	proxyPlugin plugin.Plugin
+
+	streamFilter *filter.HTTPStreamFilter
 }
 
 func (pxy *STCPProxy) Run() (err error) {
@@ -253,6 +296,14 @@ func (pxy *STCPProxy) Run() (err error) {
 			return
 		}
 	}
+
+	if pxy.cfg.StreamFilterType != "" {
+		pxy.streamFilter, err = filter.NewHTTPStreamFilter(pxy.cfg.LocalSvrConf, pxy.cfg.StreamFilterParams)
+		if err != nil {
+			return
+		}
+	}
+
 	return
 }
 
@@ -264,7 +315,7 @@ func (pxy *STCPProxy) Close() {
 
 func (pxy *STCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
-		conn, []byte(pxy.clientCfg.Token), m)
+		conn, []byte(pxy.clientCfg.Token), m, pxy.streamFilter)
 }
 
 // XTCP
@@ -273,6 +324,8 @@ type XTCPProxy struct {
 
 	cfg         *config.XTCPProxyConf
 	proxyPlugin plugin.Plugin
+
+	streamFilter *filter.HTTPStreamFilter
 }
 
 func (pxy *XTCPProxy) Run() (err error) {
@@ -282,6 +335,14 @@ func (pxy *XTCPProxy) Run() (err error) {
 			return
 		}
 	}
+
+	if pxy.cfg.StreamFilterType != "" {
+		pxy.streamFilter, err = filter.NewHTTPStreamFilter(pxy.cfg.LocalSvrConf, pxy.cfg.StreamFilterParams)
+		if err != nil {
+			return
+		}
+	}
+
 	return
 }
 
@@ -414,7 +475,7 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	}
 
 	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
-		muxConn, []byte(pxy.cfg.Sk), m)
+		muxConn, []byte(pxy.cfg.Sk), m, pxy.streamFilter)
 }
 
 func (pxy *XTCPProxy) sendDetectMsg(addr string, port int, laddr *net.UDPAddr, content []byte) (err error) {
@@ -722,7 +783,9 @@ func (pxy *SUDPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 
 // Common handler for tcp work connections.
 func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf, proxyPlugin plugin.Plugin,
-	baseInfo *config.BaseProxyConf, limiter *rate.Limiter, workConn net.Conn, encKey []byte, m *msg.StartWorkConn) {
+	baseInfo *config.BaseProxyConf, limiter *rate.Limiter, workConn net.Conn, encKey []byte, m *msg.StartWorkConn,
+	streamFilter *filter.HTTPStreamFilter) {
+
 	xl := xlog.FromContextSafe(ctx)
 	var (
 		remote io.ReadWriteCloser
@@ -787,6 +850,13 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 		xl.Debug("handle by plugin: %s", proxyPlugin.Name())
 		proxyPlugin.Handle(remote, workConn, extraInfo)
 		xl.Debug("handle by plugin finished")
+		return
+	}
+
+	if streamFilter != nil {
+		xl.Debug("handle by filter")
+		streamFilter.Handle(remote, workConn)
+		xl.Debug("handle by filter finish")
 		return
 	}
 

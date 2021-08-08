@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/fatedier/frp/pkg/util/listener"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
 
 	"github.com/gorilla/mux"
@@ -36,7 +37,7 @@ type StaticFilePlugin struct {
 	httpUser    string
 	httpPasswd  string
 
-	l *Listener
+	l *listener.Listener
 	s *http.Server
 }
 
@@ -46,7 +47,7 @@ func NewStaticFilePlugin(params map[string]string) (Plugin, error) {
 	httpUser := params["plugin_http_user"]
 	httpPasswd := params["plugin_http_passwd"]
 
-	listener := NewProxyListener()
+	listener := listener.NewProxyListener()
 
 	sp := &StaticFilePlugin{
 		localPath:   localPath,

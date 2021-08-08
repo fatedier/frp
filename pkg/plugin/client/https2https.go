@@ -23,6 +23,8 @@ import (
 	"net/http/httputil"
 	"strings"
 
+	"github.com/fatedier/frp/pkg/plugin/interceptor"
+	"github.com/fatedier/frp/pkg/util/listener"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
 )
 
@@ -39,7 +41,7 @@ type HTTPS2HTTPSPlugin struct {
 	localAddr         string
 	headers           map[string]string
 
-	l *Listener
+	l *listener.Listener
 	s *http.Server
 }
 
@@ -68,7 +70,9 @@ func NewHTTPS2HTTPSPlugin(params map[string]string) (Plugin, error) {
 		return nil, fmt.Errorf("plugin_local_addr is required")
 	}
 
-	listener := NewProxyListener()
+	filter := params["stream_filter_type"]
+
+	listener := listener.NewProxyListener()
 
 	p := &HTTPS2HTTPSPlugin{
 		crtPath:           crtPath,
@@ -79,8 +83,11 @@ func NewHTTPS2HTTPSPlugin(params map[string]string) (Plugin, error) {
 		l:                 listener,
 	}
 
-	tr := &http.Transport{
+	tr := interceptor.NewTransportWrapper(&http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	})
+	if filter == "http" {
+		tr.WithCacheInterceptor()
 	}
 
 	rp := &httputil.ReverseProxy{

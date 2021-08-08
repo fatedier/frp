@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/fatedier/frp/pkg/plugin/interceptor"
+	"github.com/fatedier/frp/pkg/util/listener"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
 
 	frpIo "github.com/fatedier/golib/io"
@@ -35,21 +37,32 @@ func init() {
 }
 
 type HTTPProxy struct {
-	l          *Listener
+	l          *listener.Listener
 	s          *http.Server
 	AuthUser   string
 	AuthPasswd string
+
+	Transport http.RoundTripper
 }
 
 func NewHTTPProxyPlugin(params map[string]string) (Plugin, error) {
 	user := params["plugin_http_user"]
 	passwd := params["plugin_http_passwd"]
-	listener := NewProxyListener()
+	filter := params["stream_filter_type"]
+
+	listener := listener.NewProxyListener()
+
+	tr := interceptor.NewTransportWrapper(http.DefaultTransport)
+	if filter == "http" {
+		tr.WithCacheInterceptor()
+	}
 
 	hp := &HTTPProxy{
 		l:          listener,
 		AuthUser:   user,
 		AuthPasswd: passwd,
+
+		Transport: tr,
 	}
 
 	hp.s = &http.Server{
@@ -115,7 +128,7 @@ func (hp *HTTPProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 func (hp *HTTPProxy) HTTPHandler(rw http.ResponseWriter, req *http.Request) {
 	removeProxyHeaders(req)
 
-	resp, err := http.DefaultTransport.RoundTrip(req)
+	resp, err := hp.Transport.RoundTrip(req)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return

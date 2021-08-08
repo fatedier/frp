@@ -73,6 +73,9 @@ type LocalSvrConf struct {
 	// PluginParams specify parameters to be passed to the plugin, if one is
 	// being used. By default, this value is an empty map.
 	PluginParams map[string]string `ini:"-"`
+
+	StreamFilterType   string            `ini:"stream_filter_type" json:"stream_filter_type"`
+	StreamFilterParams map[string]string `ini:"-"`
 }
 
 // HealthCheckConf configures health checking. This can be useful for load

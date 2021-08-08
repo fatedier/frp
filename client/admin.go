@@ -51,6 +51,13 @@ func (svr *Service) RunAdminServer(address string) (err error) {
 		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
 	})
 
+	// http filter
+	router.HandleFunc("/api/http/list", svr.httpFilterList).Methods("GET")
+	router.HandleFunc("/api/http/raw_data/{id}", svr.httpFilterGetRaw).Methods("GET")
+	router.HandleFunc("/api/http/replay/{id}", svr.httpFilterReplay).Methods("PUT")
+	router.HandleFunc("/api/http/remove/{id}", svr.httpFilterRemove).Methods("DELETE")
+	router.HandleFunc("/api/http/clear", svr.httpFilterClear).Methods("PUT")
+
 	server := &http.Server{
 		Addr:         address,
 		Handler:      router,
