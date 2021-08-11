@@ -258,8 +258,9 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	}
 
 	// frp tls listener
-	svr.tlsListener = svr.muxer.Listen(1, 1, func(data []byte) bool {
-		return int(data[0]) == frpNet.FRPTLSHeadByte
+	svr.tlsListener = svr.muxer.Listen(2, 1, func(data []byte) bool {
+		// tls first byte can be 0x16 only when vhost https port is not same with bind port
+		return int(data[0]) == frpNet.FRPTLSHeadByte || int(data[0]) == 0x16
 	})
 
 	// Create nat hole controller.
@@ -395,15 +396,16 @@ func (svr *Service) HandleListener(l net.Listener) {
 
 		log.Trace("start check TLS connection...")
 		originConn := c
-		c, err = frpNet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, svr.cfg.TLSOnly, connReadTimeout)
+		var isTLS, custom bool
+		c, isTLS, custom, err = frpNet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, svr.cfg.TLSOnly, connReadTimeout)
 		if err != nil {
 			log.Warn("CheckAndEnableTLSServerConnWithTimeout error: %v", err)
 			originConn.Close()
 			continue
 		}
-		log.Trace("success check TLS connection")
+		log.Trace("check TLS connection success, isTLS: %v custom: %v", isTLS, custom)
 
-		// Start a new goroutine for dealing connections.
+		// Start a new goroutine to handle connection.
 		go func(ctx context.Context, frpConn net.Conn) {
 			if svr.cfg.TCPMux {
 				fmuxCfg := fmux.DefaultConfig()
