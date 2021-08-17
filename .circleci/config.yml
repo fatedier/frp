@@ -2,16 +2,14 @@ version: 2
 jobs:
   go-version-latest:
     docker:
-      - image: circleci/golang:1.16-node
-    working_directory: /go/src/github.com/fatedier/frp
+      - image: cimg/go:1.17-node
     steps:
       - checkout
       - run: make
       - run: make alltest
   go-version-last:
     docker:
-      - image: circleci/golang:1.15-node
-    working_directory: /go/src/github.com/fatedier/frp
+      - image: cimg/go:1.16-node
     steps:
       - checkout
       - run: make
