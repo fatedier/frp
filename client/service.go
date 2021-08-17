@@ -124,13 +124,10 @@ func (svr *Service) Run() error {
 
 	if svr.cfg.AdminPort != 0 {
 		// Init admin server assets
-		err := assets.Load(svr.cfg.AssetsDir)
-		if err != nil {
-			return fmt.Errorf("Load assets error: %v", err)
-		}
+		assets.Load(svr.cfg.AssetsDir)
 
 		address := net.JoinHostPort(svr.cfg.AdminAddr, strconv.Itoa(svr.cfg.AdminPort))
-		err = svr.RunAdminServer(address)
+		err := svr.RunAdminServer(address)
 		if err != nil {
 			log.Warn("run admin server error: %v", err)
 		}

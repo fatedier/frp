@@ -31,15 +31,13 @@ var (
 
 // if path is empty, load assets in memory
 // or set FileSystem using disk files
-func Load(path string) (err error) {
+func Load(path string) {
 	prefixPath = path
 	if prefixPath != "" {
 		FileSystem = http.Dir(prefixPath)
-		return nil
 	} else {
 		FileSystem = http.FS(content)
 	}
-	return err
 }
 
 func Register(fs fs.FS) {

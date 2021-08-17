@@ -21,7 +21,6 @@ require (
 	github.com/pires/go-proxyproto v0.5.0
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/prometheus/client_golang v1.11.0
-	github.com/rakyll/statik v0.1.1
 	github.com/rodaine/table v1.0.1
 	github.com/spf13/cobra v1.1.3
 	github.com/stretchr/testify v1.7.0
