@@ -40,6 +40,9 @@ func Load(path string) {
 	}
 }
 
-func Register(fs fs.FS) {
-	content = fs
+func Register(fileSystem fs.FS) {
+	subFs, err := fs.Sub(fileSystem, "static")
+	if err == nil {
+		content = subFs
+	}
 }
