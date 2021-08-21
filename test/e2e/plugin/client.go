@@ -3,7 +3,9 @@ package plugin
 import (
 	"crypto/tls"
 	"fmt"
+	"os"
 	"strconv"
+	"time"
 
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/test/e2e/framework"
@@ -308,6 +310,57 @@ var _ = Describe("[Feature: Client-Plugins]", func() {
 				r.HTTPS().HTTPHost("example.com").TLSConfig(&tls.Config{
 					ServerName:         "example.com",
 					InsecureSkipVerify: true,
+				})
+			}).
+			ExpectResp([]byte("test")).
+			Ensure()
+	})
+
+	It("https2http_acme", func() {
+		domain := os.Getenv("ACME_TEST_DOMAIN")
+		vhostHTTPSPort, _ := strconv.Atoi(os.Getenv("ACME_TEST_PORT"))
+		tlsHandshakeTimeout, _ := time.ParseDuration(os.Getenv("ACME_TEST_TLS_HANDSHAKE_TIMEOUT"))
+		if len(domain) == 0 || vhostHTTPSPort == 0 {
+			Skip("ACME_TEST_DOMAIN and ACME_TEST_PORT env vars have to be set")
+			return
+		}
+		if tlsHandshakeTimeout == 0 {
+			tlsHandshakeTimeout = 100 * time.Second // ACME takes long time sometimes
+		}
+
+		email := fmt.Sprintf("frp-e2e-tests@%s", domain)
+		certsPath := f.MakeTempDir("certs")
+
+		serverConf := consts.DefaultServerConfig
+		serverConf += fmt.Sprintf(`
+		vhost_https_port = %d
+		`, vhostHTTPSPort)
+
+		localPort := f.AllocPort()
+		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+		[https2http_acme]
+		type = https
+		custom_domains = %s
+		plugin = https2http_acme
+		plugin_local_addr = 127.0.0.1:%d
+		plugin_certs_path = %s
+		plugin_email = %s
+		`, domain, localPort, certsPath, email)
+
+		f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+		localServer := httpserver.New(
+			httpserver.WithBindPort(localPort),
+			httpserver.WithResponse([]byte("test")),
+		)
+		f.RunServer("", localServer)
+
+		framework.NewRequestExpect(f).
+			Port(vhostHTTPSPort).
+			RequestModify(func(r *request.Request) {
+				r.TLSHandshakeTimeout(tlsHandshakeTimeout)
+				r.HTTPS().HTTPHost(domain).TLSConfig(&tls.Config{
+					ServerName: domain,
 				})
 			}).
 			ExpectResp([]byte("test")).

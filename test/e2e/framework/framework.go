@@ -264,3 +264,9 @@ func (f *Framework) WriteTempFile(name string, content string) string {
 	ExpectNoError(err)
 	return filePath
 }
+
+func (f *Framework) MakeTempDir(pattern string) string {
+	path, err := ioutil.TempDir(f.TempDirectory, pattern)
+	ExpectNoError(err)
+	return path
+}

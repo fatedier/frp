@@ -33,6 +33,9 @@ type Request struct {
 	headers   map[string]string
 	tlsConfig *tls.Config
 
+	// for acme
+	tlsHandshakeTimeout time.Duration
+
 	proxyURL string
 }
 
@@ -119,6 +122,11 @@ func (r *Request) Timeout(timeout time.Duration) *Request {
 	return r
 }
 
+func (r *Request) TLSHandshakeTimeout(tlsHandshakeTimeout time.Duration) *Request {
+	r.tlsHandshakeTimeout = tlsHandshakeTimeout
+	return r
+}
+
 func (r *Request) Body(content []byte) *Request {
 	r.body = content
 	return r
@@ -195,6 +203,10 @@ func (r *Request) sendHTTPRequest(method, urlstr string, host string, headers ma
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
+	tlsHandshakeTimeout := 10 * time.Second
+	if r.tlsHandshakeTimeout > 0 {
+		tlsHandshakeTimeout = r.tlsHandshakeTimeout
+	}
 	tr := &http.Transport{
 		DialContext: (&net.Dialer{
 			Timeout:   time.Second,
@@ -203,7 +215,7 @@ func (r *Request) sendHTTPRequest(method, urlstr string, host string, headers ma
 		}).DialContext,
 		MaxIdleConns:          100,
 		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
+		TLSHandshakeTimeout:   tlsHandshakeTimeout,
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig:       tlsConfig,
 	}
