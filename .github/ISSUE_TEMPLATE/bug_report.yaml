@@ -50,9 +50,9 @@ body:
     description: Prefer you providing releated error logs here
     placeholder: Pay attention to hiding your personal informations
 - type: textarea
-  id: reproduce-steps
+  id: steps-to-reproduce
   attributes:
-    label: Reproduce Steps
+    label: Steps to reproduce
     description: How to reproduce it? It's important for us to find the bug
     value: |
       1. 
