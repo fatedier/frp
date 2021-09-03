@@ -1,0 +1,36 @@
+name: Feature Request
+description: Suggest an idea to improve frp
+title: "[Feature Request] "
+
+body:
+- type: markdown
+  attributes:
+    value: |
+      This is only used to request new product features.
+- type: textarea
+  id: feature-request
+  attributes:
+    label: Describe the feature request
+    description: Tell us what's you want and why it should be added in frp.
+  validations:
+    required: true
+- type: textarea
+  id: alternatives
+  attributes:
+    label: Describe alternatives you've considered
+- type: checkboxes
+  id: area
+  attributes:
+    label: Affected area
+    options:
+    - label: "Docs"
+    - label: "Installation"
+    - label: "Performance and Scalability"
+    - label: "Security"
+    - label: "User Experience"
+    - label: "Test and Release"
+    - label: "Developer Infrastructure"
+    - label: "Client Plugin"
+    - label: "Server Plugin"
+    - label: "Extensions"
+    - label: "Others"
