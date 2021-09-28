@@ -2,7 +2,7 @@ package framework
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -30,7 +30,7 @@ func (f *Framework) RunProcesses(serverTemplates []string, clientTemplates []str
 
 	for i := range serverTemplates {
 		path := filepath.Join(f.TempDirectory, fmt.Sprintf("frp-e2e-server-%d", i))
-		err = ioutil.WriteFile(path, []byte(outs[i]), 0666)
+		err = os.WriteFile(path, []byte(outs[i]), 0666)
 		ExpectNoError(err)
 		flog.Trace("[%s] %s", path, outs[i])
 
@@ -45,7 +45,7 @@ func (f *Framework) RunProcesses(serverTemplates []string, clientTemplates []str
 	for i := range clientTemplates {
 		index := i + len(serverTemplates)
 		path := filepath.Join(f.TempDirectory, fmt.Sprintf("frp-e2e-client-%d", i))
-		err = ioutil.WriteFile(path, []byte(outs[index]), 0666)
+		err = os.WriteFile(path, []byte(outs[index]), 0666)
 		ExpectNoError(err)
 		flog.Trace("[%s] %s", path, outs[index])
 
@@ -85,7 +85,7 @@ func (f *Framework) RunFrpc(args ...string) (*process.Process, string, error) {
 func (f *Framework) GenerateConfigFile(content string) string {
 	f.configFileIndex++
 	path := filepath.Join(f.TempDirectory, fmt.Sprintf("frp-e2e-config-%d", f.configFileIndex))
-	err := ioutil.WriteFile(path, []byte(content), 0666)
+	err := os.WriteFile(path, []byte(content), 0666)
 	ExpectNoError(err)
 	return path
 }

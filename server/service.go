@@ -19,7 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"sort"
@@ -406,7 +406,7 @@ func (svr *Service) HandleListener(l net.Listener) {
 			if svr.cfg.TCPMux {
 				fmuxCfg := fmux.DefaultConfig()
 				fmuxCfg.KeepAliveInterval = 20 * time.Second
-				fmuxCfg.LogOutput = ioutil.Discard
+				fmuxCfg.LogOutput = io.Discard
 				session, err := fmux.Server(frpConn, fmuxCfg)
 				if err != nil {
 					log.Warn("Failed to create mux connection: %v", err)

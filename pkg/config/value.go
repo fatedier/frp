@@ -16,7 +16,6 @@ package config
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"strings"
 	"text/template"
@@ -67,7 +66,7 @@ func RenderContent(in []byte) (out []byte, err error) {
 
 func GetRenderedConfFromFile(path string) (out []byte, err error) {
 	var b []byte
-	b, err = ioutil.ReadFile(path)
+	b, err = os.ReadFile(path)
 	if err != nil {
 		return
 	}
