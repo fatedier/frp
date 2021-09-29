@@ -7,6 +7,9 @@
 _obj
 _test
 
+.DS_Store
+.local
+
 # Architecture specific extensions/prefixes
 *.[568vq]
 [568vq].out

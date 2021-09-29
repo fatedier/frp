@@ -31,3 +31,5 @@ require (
 	k8s.io/apimachinery v0.21.2
 	k8s.io/client-go v0.21.2
 )
+
+replace github.com/hashicorp/yamux => github.com/spectrocloud/yamux v0.0.0-20210929202422-307e73739833
