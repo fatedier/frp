@@ -17,7 +17,6 @@ package config
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -77,7 +76,7 @@ func getIncludeContents(paths []string) ([]byte, error) {
 		if _, err := os.Stat(absDir); os.IsNotExist(err) {
 			return nil, err
 		}
-		files, err := ioutil.ReadDir(absDir)
+		files, err := os.ReadDir(absDir)
 		if err != nil {
 			return nil, err
 		}

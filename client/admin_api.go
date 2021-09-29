@@ -17,8 +17,9 @@ package client
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 
@@ -256,7 +257,7 @@ func (svr *Service) apiPutConfig(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// get new config content
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		res.Code = 400
 		res.Msg = fmt.Sprintf("read request body error: %v", err)
@@ -273,7 +274,7 @@ func (svr *Service) apiPutConfig(w http.ResponseWriter, r *http.Request) {
 
 	// get token from origin content
 	token := ""
-	b, err := ioutil.ReadFile(svr.cfgFile)
+	b, err := os.ReadFile(svr.cfgFile)
 	if err != nil {
 		res.Code = 400
 		res.Msg = err.Error()
@@ -312,7 +313,7 @@ func (svr *Service) apiPutConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	content = strings.Join(newRows, "\n")
 
-	err = ioutil.WriteFile(svr.cfgFile, []byte(content), 0644)
+	err = os.WriteFile(svr.cfgFile, []byte(content), 0644)
 	if err != nil {
 		res.Code = 500
 		res.Msg = fmt.Sprintf("write content to frpc config file error: %v", err)

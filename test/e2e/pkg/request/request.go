@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -219,7 +218,7 @@ func (r *Request) sendHTTPRequest(method, urlstr string, host string, headers ma
 	}
 
 	ret := &Response{Code: resp.StatusCode, Header: resp.Header}
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}

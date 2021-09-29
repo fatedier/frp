@@ -3,7 +3,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -125,7 +125,7 @@ func (c *Client) do(req *http.Request) (string, error) {
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("api status code [%d]", resp.StatusCode)
 	}
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
