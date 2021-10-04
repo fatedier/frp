@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -229,6 +231,17 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 	}
 
 	address := net.JoinHostPort(svr.cfg.ServerAddr, strconv.Itoa(svr.cfg.ServerPort))
+	if svr.cfg.Protocol == "websocket" {
+		// compatible: construct the websocket server addr
+		address = "ws://" + address
+		if _url, _err := url.Parse(svr.cfg.ServerAddr); _err == nil && len(_url.Scheme) > 0 {
+			// support the cfg.ServerAddr parameter with the URL format, i.e. wss://domain/path/
+			address = svr.cfg.ServerAddr
+		}
+		// add the frp websocket special path
+		address = strings.TrimRight(address, "/") + frpNet.FrpWebsocketPath
+	}
+
 	conn, err = frpNet.ConnectServerByProxyWithTLS(svr.cfg.HTTPProxy, svr.cfg.Protocol, address, tlsConfig, svr.cfg.DisableCustomTLSFirstByte)
 	if err != nil {
 		return
