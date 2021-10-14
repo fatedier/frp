@@ -115,6 +115,9 @@ func (m *serverMetrics) CloseProxy(name string, proxyType string) {
 	defer m.mu.Unlock()
 	if counter, ok := m.info.ProxyTypeCounts[proxyType]; ok {
 		counter.Dec(1)
+		if counter.Count() < 0 {
+			counter.Clear()
+		}
 	}
 	if proxyStats, ok := m.info.ProxyStatistics[name]; ok {
 		proxyStats.LastCloseTime = time.Now()
@@ -135,12 +138,18 @@ func (m *serverMetrics) OpenConnection(name string, proxyType string) {
 
 func (m *serverMetrics) CloseConnection(name string, proxyType string) {
 	m.info.CurConns.Dec(1)
+	if m.info.CurConns.Count() < 0 {
+		m.info.CurConns.Clear()
+	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	proxyStats, ok := m.info.ProxyStatistics[name]
 	if ok {
 		proxyStats.CurConns.Dec(1)
+		if proxyStats.CurConns.Count() < 0 {
+			proxyStats.CurConns.Clear()
+		}
 		m.info.ProxyStatistics[name] = proxyStats
 	}
 }
