@@ -234,9 +234,15 @@ func (ctl *Control) connectServer() (conn net.Conn, err error) {
 			}
 		}
 
-		address := net.JoinHostPort(ctl.clientCfg.ServerAddr, strconv.Itoa(ctl.clientCfg.ServerPort))
-		conn, err = frpNet.ConnectServerByProxyWithTLS(ctl.clientCfg.HTTPProxy, ctl.clientCfg.Protocol, address, tlsConfig, ctl.clientCfg.DisableCustomTLSFirstByte)
+		opts := []frpNet.DialOption{
+			frpNet.WithProxy(ctl.clientCfg.HTTPProxy),
+			frpNet.WithProtocol(ctl.clientCfg.Protocol),
+			frpNet.WithRemoteAddress(net.JoinHostPort(ctl.clientCfg.ServerAddr, strconv.Itoa(ctl.clientCfg.ServerPort))),
+			frpNet.WithTLSConfig(tlsConfig),
+			frpNet.WithDisableCustomTLSHeadByte(ctl.clientCfg.DisableCustomTLSFirstByte),
+		}
 
+		conn, err = frpNet.Dial(opts...)
 		if err != nil {
 			xl.Warn("start new connection to server error: %v", err)
 			return

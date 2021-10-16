@@ -13,7 +13,8 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/test/e2e/pkg/rpc"
-	libnet "github.com/fatedier/golib/net"
+
+	frpNet "github.com/fatedier/frp/pkg/util/net"
 )
 
 type Request struct {
@@ -141,7 +142,13 @@ func (r *Request) Do() (*Response, error) {
 		if r.protocol != "tcp" {
 			return nil, fmt.Errorf("only tcp protocol is allowed for proxy")
 		}
-		conn, err = libnet.DialTcpByProxy(r.proxyURL, addr)
+
+		opts := []frpNet.DialOption{
+			frpNet.WithProxy(r.proxyURL),
+			frpNet.WithRemoteAddress(addr),
+		}
+
+		conn, err = frpNet.Dial(opts...)
 		if err != nil {
 			return nil, err
 		}

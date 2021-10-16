@@ -16,18 +16,13 @@ package net
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"sync/atomic"
 	"time"
 
 	"github.com/fatedier/frp/pkg/util/xlog"
-
-	gnet "github.com/fatedier/golib/net"
-	kcp "github.com/fatedier/kcp-go"
 )
 
 type ContextGetter interface {
@@ -186,58 +181,5 @@ func (statsConn *StatsConn) Close() (err error) {
 			statsConn.statsFunc(statsConn.totalRead, statsConn.totalWrite)
 		}
 	}
-	return
-}
-
-func ConnectServer(protocol string, addr string) (c net.Conn, err error) {
-	switch protocol {
-	case "tcp":
-		return net.Dial("tcp", addr)
-	case "kcp":
-		kcpConn, errRet := kcp.DialWithOptions(addr, nil, 10, 3)
-		if errRet != nil {
-			err = errRet
-			return
-		}
-		kcpConn.SetStreamMode(true)
-		kcpConn.SetWriteDelay(true)
-		kcpConn.SetNoDelay(1, 20, 2, 1)
-		kcpConn.SetWindowSize(128, 512)
-		kcpConn.SetMtu(1350)
-		kcpConn.SetACKNoDelay(false)
-		kcpConn.SetReadBuffer(4194304)
-		kcpConn.SetWriteBuffer(4194304)
-		c = kcpConn
-		return
-	default:
-		return nil, fmt.Errorf("unsupport protocol: %s", protocol)
-	}
-}
-
-func ConnectServerByProxy(proxyURL string, protocol string, addr string) (c net.Conn, err error) {
-	switch protocol {
-	case "tcp":
-		return gnet.DialTcpByProxy(proxyURL, addr)
-	case "kcp":
-		// http proxy is not supported for kcp
-		return ConnectServer(protocol, addr)
-	case "websocket":
-		return ConnectWebsocketServer(addr)
-	default:
-		return nil, fmt.Errorf("unsupport protocol: %s", protocol)
-	}
-}
-
-func ConnectServerByProxyWithTLS(proxyURL string, protocol string, addr string, tlsConfig *tls.Config, disableCustomTLSHeadByte bool) (c net.Conn, err error) {
-	c, err = ConnectServerByProxy(proxyURL, protocol, addr)
-	if err != nil {
-		return
-	}
-
-	if tlsConfig == nil {
-		return
-	}
-
-	c = WrapTLSClientConn(c, tlsConfig, disableCustomTLSHeadByte)
 	return
 }

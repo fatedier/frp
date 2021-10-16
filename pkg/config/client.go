@@ -38,6 +38,10 @@ type ClientCommonConf struct {
 	// ServerPort specifies the port to connect to the server on. By default,
 	// this value is 7000.
 	ServerPort int `ini:"server_port" json:"server_port"`
+
+	BindAddr string `ini:"bind_addr" json:"bind_addr"`
+	BindPort int    `ini:"bind_port" json:"bind_port"`
+
 	// HTTPProxy specifies a proxy address to connect to the server through. If
 	// this value is "", the server will be connected to directly. By default,
 	// this value is read from the "http_proxy" environment variable.
