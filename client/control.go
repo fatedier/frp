@@ -185,11 +185,11 @@ func (ctl *Control) Close() error {
 	return ctl.GracefulClose(0)
 }
 
-func (ctl *Control) GracefulClose(t time.Duration) error {
+func (ctl *Control) GracefulClose(d time.Duration) error {
 	ctl.pm.Close()
 	ctl.vm.Close()
 
-	time.Sleep(t)
+	time.Sleep(d)
 
 	ctl.conn.Close()
 	if ctl.session != nil {
