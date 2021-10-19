@@ -124,8 +124,7 @@ func handleSignal(svr *client.Service) {
 	ch := make(chan os.Signal)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
 	<-ch
-	svr.Close()
-	time.Sleep(250 * time.Millisecond)
+	svr.Close(time.Millisecond * 250)
 	close(kcpDoneCh)
 }
 

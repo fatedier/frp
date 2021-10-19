@@ -311,10 +311,14 @@ func (svr *Service) ReloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs 
 	return svr.ctl.ReloadConf(pxyCfgs, visitorCfgs)
 }
 
-func (svr *Service) Close() {
+func (svr *Service) Close(t time.Duration) {
 	atomic.StoreUint32(&svr.exit, 1)
 	if svr.ctl != nil {
-		svr.ctl.Close()
+		if t > 0 {
+			svr.ctl.GracefulClose(t)
+		} else {
+			svr.ctl.Close()
+		}
 	}
 	svr.cancel()
 }
