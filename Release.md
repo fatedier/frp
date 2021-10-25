@@ -1,5 +1,8 @@
-### Fix
+### New
 
-* Plugin `https2https` not work.
-* `context canceled` problem for `http_proxy` plugin when multiple requests reuse same connection.
-* In some cases, frps can't get server name for `https` proxy.
+* Add `/healthz` API.
+* frpc support `disable_custom_tls_first_byte` .If set true, frpc will not send custom header byte.
+
+### Improve
+
+* Use go standard embed package instead of statik.
