@@ -3,6 +3,7 @@ package features
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/test/e2e/framework"
@@ -35,6 +36,7 @@ var _ = Describe("[Feature: Monitor]", func() {
 		f.RunProcesses([]string{serverConf}, []string{clientConf})
 
 		framework.NewRequestExpect(f).Port(remotePort).Ensure()
+		time.Sleep(500 * time.Millisecond)
 
 		framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
 			r.HTTP().Port(dashboardPort).HTTPPath("/metrics")
