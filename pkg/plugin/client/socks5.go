@@ -16,7 +16,6 @@ package plugin
 
 import (
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 
@@ -43,7 +42,7 @@ func NewSocks5Plugin(params map[string]string) (p Plugin, err error) {
 	passwd := params["plugin_passwd"]
 
 	cfg := &gosocks5.Config{
-		Logger: log.New(ioutil.Discard, "", log.LstdFlags),
+		Logger: log.New(io.Discard, "", log.LstdFlags),
 	}
 	if user != "" || passwd != "" {
 		cfg.Credentials = gosocks5.StaticCredentials(map[string]string{user: passwd})

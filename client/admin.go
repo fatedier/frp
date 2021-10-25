@@ -37,7 +37,8 @@ func (svr *Service) RunAdminServer(address string) (err error) {
 	user, passwd := svr.cfg.AdminUser, svr.cfg.AdminPwd
 	router.Use(frpNet.NewHTTPAuthMiddleware(user, passwd).Middleware)
 
-	// api, see dashboard_api.go
+	// api, see admin_api.go
+	router.HandleFunc("/healthz", svr.healthz)
 	router.HandleFunc("/api/reload", svr.apiReload).Methods("GET")
 	router.HandleFunc("/api/status", svr.apiStatus).Methods("GET")
 	router.HandleFunc("/api/config", svr.apiGetConfig).Methods("GET")

@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"sync"
 	"time"
@@ -308,7 +307,7 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 
 	fmuxCfg := fmux.DefaultConfig()
 	fmuxCfg.KeepAliveInterval = 5 * time.Second
-	fmuxCfg.LogOutput = ioutil.Discard
+	fmuxCfg.LogOutput = io.Discard
 	sess, err := fmux.Client(remote, fmuxCfg)
 	if err != nil {
 		xl.Error("create yamux session error: %v", err)

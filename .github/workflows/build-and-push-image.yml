@@ -17,7 +17,7 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
-          go-version: 1.16
+          go-version: 1.17
 
       - run: |
           # https://github.com/actions/setup-go/issues/107

@@ -19,7 +19,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"runtime"
 	"strconv"
@@ -124,13 +124,10 @@ func (svr *Service) Run() error {
 
 	if svr.cfg.AdminPort != 0 {
 		// Init admin server assets
-		err := assets.Load(svr.cfg.AssetsDir)
-		if err != nil {
-			return fmt.Errorf("Load assets error: %v", err)
-		}
+		assets.Load(svr.cfg.AssetsDir)
 
 		address := net.JoinHostPort(svr.cfg.AdminAddr, strconv.Itoa(svr.cfg.AdminPort))
-		err = svr.RunAdminServer(address)
+		err := svr.RunAdminServer(address)
 		if err != nil {
 			log.Warn("run admin server error: %v", err)
 		}
@@ -232,7 +229,7 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 	}
 
 	address := net.JoinHostPort(svr.cfg.ServerAddr, strconv.Itoa(svr.cfg.ServerPort))
-	conn, err = frpNet.ConnectServerByProxyWithTLS(svr.cfg.HTTPProxy, svr.cfg.Protocol, address, tlsConfig)
+	conn, err = frpNet.ConnectServerByProxyWithTLS(svr.cfg.HTTPProxy, svr.cfg.Protocol, address, tlsConfig, svr.cfg.DisableCustomTLSFirstByte)
 	if err != nil {
 		return
 	}
@@ -249,7 +246,7 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 	if svr.cfg.TCPMux {
 		fmuxCfg := fmux.DefaultConfig()
 		fmuxCfg.KeepAliveInterval = 20 * time.Second
-		fmuxCfg.LogOutput = ioutil.Discard
+		fmuxCfg.LogOutput = io.Discard
 		session, err = fmux.Client(conn, fmuxCfg)
 		if err != nil {
 			return
@@ -315,9 +312,13 @@ func (svr *Service) ReloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs 
 }
 
 func (svr *Service) Close() {
+	svr.GracefulClose(time.Duration(0))
+}
+
+func (svr *Service) GracefulClose(d time.Duration) {
 	atomic.StoreUint32(&svr.exit, 1)
 	if svr.ctl != nil {
-		svr.ctl.Close()
+		svr.ctl.GracefulClose(d)
 	}
 	svr.cancel()
 }

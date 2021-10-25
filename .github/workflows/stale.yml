@@ -15,12 +15,12 @@ jobs:
     - uses: actions/stale@v3
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-        stale-issue-message: 'Issues go stale after 45d of inactivity. Stale issues rot after an additional 10d of inactivity and eventually close.'
-        stale-pr-message: 'Issues go stale after 45d of inactivity. Stale issues rot after an additional 10d of inactivity and eventually close.'
+        stale-issue-message: 'Issues go stale after 30d of inactivity. Stale issues rot after an additional 7d of inactivity and eventually close.'
+        stale-pr-message: 'Issues go stale after 30d of inactivity. Stale issues rot after an additional 7d of inactivity and eventually close.'
         stale-issue-label: 'lifecycle/stale'
         exempt-issue-labels: 'bug,doc,enhancement,future,proposal,question,testing,todo,easy,help wanted,assigned'
         stale-pr-label: 'lifecycle/stale'
         exempt-pr-labels: 'bug,doc,enhancement,future,proposal,question,testing,todo,easy,help wanted,assigned'
-        days-before-stale: 45
-        days-before-close: 10
+        days-before-stale: 30
+        days-before-close: 7
         debug-only: ${{ github.event.inputs.debug-only }}
