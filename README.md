@@ -77,7 +77,9 @@ frp also has a P2P connect mode.
 
 frp is under development. Try the latest release version in the `master` branch, or use the `dev` branch for the version in development.
 
-**The protocol might change at a release and we don't promise backwards compatibility. Please check the release log when upgrading the client and the server.**
+We are working on v2 version and trying to do some code refactor and improvements. It won't be compatible with v1.
+
+We will switch v0 to v1 at the right time and only accept bug fixes and improvements instead of big feature requirements.
 
 ## Architecture
 
