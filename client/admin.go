@@ -34,20 +34,22 @@ func (svr *Service) RunAdminServer(address string) (err error) {
 	// url router
 	router := mux.NewRouter()
 
+	router.HandleFunc("/healthz", svr.healthz)
+
+	subRouter := router.NewRoute().Subrouter()
 	user, passwd := svr.cfg.AdminUser, svr.cfg.AdminPwd
-	router.Use(frpNet.NewHTTPAuthMiddleware(user, passwd).Middleware)
+	subRouter.Use(frpNet.NewHTTPAuthMiddleware(user, passwd).Middleware)
 
 	// api, see admin_api.go
-	router.HandleFunc("/healthz", svr.healthz)
-	router.HandleFunc("/api/reload", svr.apiReload).Methods("GET")
-	router.HandleFunc("/api/status", svr.apiStatus).Methods("GET")
-	router.HandleFunc("/api/config", svr.apiGetConfig).Methods("GET")
-	router.HandleFunc("/api/config", svr.apiPutConfig).Methods("PUT")
+	subRouter.HandleFunc("/api/reload", svr.apiReload).Methods("GET")
+	subRouter.HandleFunc("/api/status", svr.apiStatus).Methods("GET")
+	subRouter.HandleFunc("/api/config", svr.apiGetConfig).Methods("GET")
+	subRouter.HandleFunc("/api/config", svr.apiPutConfig).Methods("PUT")
 
 	// view
-	router.Handle("/favicon.ico", http.FileServer(assets.FileSystem)).Methods("GET")
-	router.PathPrefix("/static/").Handler(frpNet.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))).Methods("GET")
-	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	subRouter.Handle("/favicon.ico", http.FileServer(assets.FileSystem)).Methods("GET")
+	subRouter.PathPrefix("/static/").Handler(frpNet.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))).Methods("GET")
+	subRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
 	})
 
