@@ -144,4 +144,36 @@ var _ = Describe("[Feature: Server Manager]", func() {
 			r.HTTP().HTTPHost("example.com")
 		}).PortName(consts.PortServerName).Ensure()
 	})
+
+	It("healthz", func() {
+		serverConf := consts.DefaultServerConfig
+		dashboardPort := f.AllocPort()
+
+		// Use same port as PortServer
+		serverConf += fmt.Sprintf(`
+		vhost_http_port = {{ .%s }}
+		dashboard_addr = 0.0.0.0
+		dashboard_port = %d
+		dashboard_user = admin
+		dashboard_pwd = admin
+		`, consts.PortServerName, dashboardPort)
+
+		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+		[http]
+		type = http
+		local_port = {{ .%s }}
+		custom_domains = example.com
+		`, framework.HTTPSimpleServerPort)
+
+		f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+		framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
+			r.HTTP().HTTPPath("/healthz")
+		}).Port(dashboardPort).ExpectResp([]byte("")).Ensure()
+
+		framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
+			r.HTTP().HTTPPath("/")
+		}).Port(dashboardPort).
+			Ensure(framework.ExpectResponseCode(401))
+	})
 })
