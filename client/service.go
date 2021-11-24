@@ -72,10 +72,9 @@ type Service struct {
 	cancel context.CancelFunc
 }
 
-func NewService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf, cfgFile string) (svr *Service, err error) {
-
+func NewService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf, cfgFile string) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
-	svr = &Service{
+	return &Service{
 		authSetter:  auth.NewAuthSetter(cfg.ClientConfig),
 		cfg:         cfg,
 		cfgFile:     cfgFile,
@@ -85,7 +84,6 @@ func NewService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf
 		ctx:         xlog.NewContext(ctx, xlog.New()),
 		cancel:      cancel,
 	}
-	return
 }
 
 func (svr *Service) GetController() *Control {
