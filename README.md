@@ -985,11 +985,13 @@ server_port = 7000
 type = tcpmux
 multiplexer = httpconnect
 custom_domains = test1
+local_port = 80
 
 [proxy2]
 type = tcpmux
 multiplexer = httpconnect
 custom_domains = test2
+local_port = 8080
 ```
 
 In the above configuration - frps can be contacted on port 1337 with a HTTP CONNECT header such as:
