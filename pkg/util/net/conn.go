@@ -226,7 +226,7 @@ func ConnectServerByProxy(proxyURL string, protocol string, addr string) (c net.
 	case "tcp":
 		return gnet.DialTcpByProxy(proxyURL, addr)
 	default:
-		return nil, fmt.Errorf("unsupport protocol: %s", protocol)
+		return nil, fmt.Errorf("unsupport protocol: %s when connecting by proxy", protocol)
 	}
 }
 

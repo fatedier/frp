@@ -8,8 +8,6 @@ import (
 type dialOptions struct {
 	proxyURL                 string
 	protocol                 string
-	laddr                    string
-	addr                     string
 	tlsConfig                *tls.Config
 	disableCustomTLSHeadByte bool
 }
@@ -42,27 +40,15 @@ func DefaultDialOptions() dialOptions {
 	}
 }
 
-func WithProxy(proxyURL string) DialOption {
+func WithProxyURL(proxyURL string) DialOption {
 	return newFuncDialOption(func(do *dialOptions) {
 		do.proxyURL = proxyURL
-	})
-}
-
-func WithBindAddress(laddr string) DialOption {
-	return newFuncDialOption(func(do *dialOptions) {
-		do.laddr = laddr
 	})
 }
 
 func WithTLSConfig(tlsConfig *tls.Config) DialOption {
 	return newFuncDialOption(func(do *dialOptions) {
 		do.tlsConfig = tlsConfig
-	})
-}
-
-func WithRemoteAddress(addr string) DialOption {
-	return newFuncDialOption(func(do *dialOptions) {
-		do.addr = addr
 	})
 }
 
@@ -78,7 +64,7 @@ func WithProtocol(protocol string) DialOption {
 	})
 }
 
-func DialWithOptions(opts ...DialOption) (c net.Conn, err error) {
+func DialWithOptions(addr string, opts ...DialOption) (c net.Conn, err error) {
 	op := DefaultDialOptions()
 
 	for _, opt := range opts {
@@ -86,9 +72,9 @@ func DialWithOptions(opts ...DialOption) (c net.Conn, err error) {
 	}
 
 	if op.proxyURL == "" {
-		c, err = ConnectServer(op.protocol, op.addr)
+		c, err = ConnectServer(op.protocol, addr)
 	} else {
-		c, err = ConnectServerByProxy(op.proxyURL, op.protocol, op.addr)
+		c, err = ConnectServerByProxy(op.proxyURL, op.protocol, addr)
 	}
 	if err != nil {
 		return nil, err
