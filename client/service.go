@@ -228,8 +228,12 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 		}
 	}
 
-	address := net.JoinHostPort(svr.cfg.ServerAddr, strconv.Itoa(svr.cfg.ServerPort))
-	conn, err = frpNet.ConnectServerByProxyWithTLS(svr.cfg.HTTPProxy, svr.cfg.Protocol, address, tlsConfig, svr.cfg.DisableCustomTLSFirstByte)
+	conn, err = frpNet.DialWithOptions(net.JoinHostPort(svr.cfg.ServerAddr, strconv.Itoa(svr.cfg.ServerPort)),
+		frpNet.WithProxyURL(svr.cfg.HTTPProxy),
+		frpNet.WithProtocol(svr.cfg.Protocol),
+		frpNet.WithTLSConfig(tlsConfig),
+		frpNet.WithDisableCustomTLSHeadByte(svr.cfg.DisableCustomTLSFirstByte))
+
 	if err != nil {
 		return
 	}
