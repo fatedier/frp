@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
-	"time"
 
 	"golang.org/x/net/websocket"
 )
@@ -76,28 +74,4 @@ func (p *WebsocketListener) Close() error {
 
 func (p *WebsocketListener) Addr() net.Addr {
 	return p.ln.Addr()
-}
-
-// addr: domain:port
-func ConnectWebsocketServer(addr string) (net.Conn, error) {
-	addr = "ws://" + addr + FrpWebsocketPath
-	uri, err := url.Parse(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	origin := "http://" + uri.Host
-	cfg, err := websocket.NewConfig(addr, origin)
-	if err != nil {
-		return nil, err
-	}
-	cfg.Dialer = &net.Dialer{
-		Timeout: 10 * time.Second,
-	}
-
-	conn, err := websocket.DialConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return conn, nil
 }
