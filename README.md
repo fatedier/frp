@@ -12,8 +12,8 @@ frp is a fast reverse proxy to help you expose a local server behind a NAT or fi
 
 frp also has a P2P connect mode.
 
-<h3 align="center">Sponsors</h3>
-<!--special start-->
+<h3 align="center">Platinum Sponsors</h3>
+<!--platinum sponsors start-->
 
 <p align="center">
   <a href="https://www.doppler.com/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
@@ -21,7 +21,11 @@ frp also has a P2P connect mode.
   </a>
 </p>
 
-<!--special end-->
+<!--platinum sponsors end-->
+
+<h3 align="center">Silver Sponsors</h3>
+
+* Sakura Frp - 欢迎点击 "加入我们"
 
 ## Table of Contents
 
