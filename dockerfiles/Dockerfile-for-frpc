@@ -1,11 +1,11 @@
-FROM alpine:3.12.0 AS temp
+FROM alpine:3 AS temp
 
 COPY bin/frpc /tmp
 
 RUN chmod -R 777 /tmp/frpc
 
 
-FROM alpine:3.12.0
+FROM alpine:3
 
 WORKDIR /app
 
