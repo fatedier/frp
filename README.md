@@ -884,7 +884,7 @@ In this example, it will set header `X-From-Where: frp` in the HTTP request.
 
 This feature is for http proxy only.
 
-You can get user's real IP from HTTP request headers `X-Forwarded-For` and `X-Real-IP`.
+You can get user's real IP from HTTP request headers `X-Forwarded-For`.
 
 #### Proxy Protocol
 
