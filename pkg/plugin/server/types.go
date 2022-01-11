@@ -33,6 +33,8 @@ type Response struct {
 
 type LoginContent struct {
 	msg.Login
+
+	ClientAddress string `json:"client_address,omitempty"`
 }
 
 type UserInfo struct {
