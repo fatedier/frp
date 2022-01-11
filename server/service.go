@@ -334,7 +334,8 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {
 	case *msg.Login:
 		// server plugin hook
 		content := &plugin.LoginContent{
-			Login: *m,
+			Login:         *m,
+			ClientAddress: conn.RemoteAddr().String(),
 		}
 		retContent, err := svr.pluginManager.Login(content)
 		if err == nil {
