@@ -406,7 +406,7 @@ func (svr *Service) HandleListener(l net.Listener) {
 		go func(ctx context.Context, frpConn net.Conn) {
 			if svr.cfg.TCPMux {
 				fmuxCfg := fmux.DefaultConfig()
-				fmuxCfg.KeepAliveInterval = 20 * time.Second
+				fmuxCfg.KeepAliveInterval = time.Duration(svr.cfg.TCPMuxKeepaliveInterval) * time.Second
 				fmuxCfg.LogOutput = io.Discard
 				session, err := fmux.Server(frpConn, fmuxCfg)
 				if err != nil {

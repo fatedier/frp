@@ -400,12 +400,19 @@ func (ctl *Control) manager() {
 	defer ctl.allShutdown.Start()
 	defer ctl.managerShutdown.Done()
 
-	heartbeat := time.NewTicker(time.Second)
-	defer heartbeat.Stop()
+	var heartbeatCh <-chan time.Time
+	if ctl.serverCfg.TCPMux || ctl.serverCfg.HeartbeatTimeout <= 0 {
+		// Don't need application heartbeat here.
+		// yamux will do same thing.
+	} else {
+		heartbeat := time.NewTicker(time.Second)
+		defer heartbeat.Stop()
+		heartbeatCh = heartbeat.C
+	}
 
 	for {
 		select {
-		case <-heartbeat.C:
+		case <-heartbeatCh:
 			if time.Since(ctl.lastPing) > time.Duration(ctl.serverCfg.HeartbeatTimeout)*time.Second {
 				xl.Warn("heartbeat timeout")
 				return

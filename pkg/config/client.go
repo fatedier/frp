@@ -86,6 +86,9 @@ type ClientCommonConf struct {
 	// the server must have TCP multiplexing enabled as well. By default, this
 	// value is true.
 	TCPMux bool `ini:"tcp_mux" json:"tcp_mux"`
+	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multipler.
+	// If TCPMux is true, heartbeat of application layer is unnecessary because it can only rely on heartbeat in TCPMux.
+	TCPMuxKeepaliveInterval int64 `ini:"tcp_mux_keepalive_interval" json:"tcp_mux_keepalive_interval"`
 	// User specifies a prefix for proxy names to distinguish them from other
 	// clients. If this value is not "", proxy names will automatically be
 	// changed to "{user}.{proxy_name}". By default, this value is "".
@@ -129,11 +132,11 @@ type ClientCommonConf struct {
 	DisableCustomTLSFirstByte bool `ini:"disable_custom_tls_first_byte" json:"disable_custom_tls_first_byte"`
 	// HeartBeatInterval specifies at what interval heartbeats are sent to the
 	// server, in seconds. It is not recommended to change this value. By
-	// default, this value is 30.
+	// default, this value is 30. Set negative value to disable it.
 	HeartbeatInterval int64 `ini:"heartbeat_interval" json:"heartbeat_interval"`
 	// HeartBeatTimeout specifies the maximum allowed heartbeat response delay
 	// before the connection is terminated, in seconds. It is not recommended
-	// to change this value. By default, this value is 90.
+	// to change this value. By default, this value is 90. Set negative value to disable it.
 	HeartbeatTimeout int64 `ini:"heartbeat_timeout" json:"heartbeat_timeout"`
 	// Client meta info
 	Metas map[string]string `ini:"-" json:"metas"`
@@ -147,36 +150,37 @@ type ClientCommonConf struct {
 // GetDefaultClientConf returns a client configuration with default values.
 func GetDefaultClientConf() ClientCommonConf {
 	return ClientCommonConf{
-		ClientConfig:       auth.GetDefaultClientConf(),
-		ServerAddr:         "0.0.0.0",
-		ServerPort:         7000,
-		HTTPProxy:          os.Getenv("http_proxy"),
-		LogFile:            "console",
-		LogWay:             "console",
-		LogLevel:           "info",
-		LogMaxDays:         3,
-		DisableLogColor:    false,
-		AdminAddr:          "127.0.0.1",
-		AdminPort:          0,
-		AdminUser:          "",
-		AdminPwd:           "",
-		AssetsDir:          "",
-		PoolCount:          1,
-		TCPMux:             true,
-		User:               "",
-		DNSServer:          "",
-		LoginFailExit:      true,
-		Start:              make([]string, 0),
-		Protocol:           "tcp",
-		TLSEnable:          false,
-		TLSCertFile:        "",
-		TLSKeyFile:         "",
-		TLSTrustedCaFile:   "",
-		HeartbeatInterval:  30,
-		HeartbeatTimeout:   90,
-		Metas:              make(map[string]string),
-		UDPPacketSize:      1500,
-		IncludeConfigFiles: make([]string, 0),
+		ClientConfig:            auth.GetDefaultClientConf(),
+		ServerAddr:              "0.0.0.0",
+		ServerPort:              7000,
+		HTTPProxy:               os.Getenv("http_proxy"),
+		LogFile:                 "console",
+		LogWay:                  "console",
+		LogLevel:                "info",
+		LogMaxDays:              3,
+		DisableLogColor:         false,
+		AdminAddr:               "127.0.0.1",
+		AdminPort:               0,
+		AdminUser:               "",
+		AdminPwd:                "",
+		AssetsDir:               "",
+		PoolCount:               1,
+		TCPMux:                  true,
+		TCPMuxKeepaliveInterval: 60,
+		User:                    "",
+		DNSServer:               "",
+		LoginFailExit:           true,
+		Start:                   make([]string, 0),
+		Protocol:                "tcp",
+		TLSEnable:               false,
+		TLSCertFile:             "",
+		TLSKeyFile:              "",
+		TLSTrustedCaFile:        "",
+		HeartbeatInterval:       30,
+		HeartbeatTimeout:        90,
+		Metas:                   make(map[string]string),
+		UDPPacketSize:           1500,
+		IncludeConfigFiles:      make([]string, 0),
 	}
 }
 
@@ -189,12 +193,10 @@ func (cfg *ClientCommonConf) Complete() {
 }
 
 func (cfg *ClientCommonConf) Validate() error {
-	if cfg.HeartbeatInterval <= 0 {
-		return fmt.Errorf("invalid heartbeat_interval")
-	}
-
-	if cfg.HeartbeatTimeout < cfg.HeartbeatInterval {
-		return fmt.Errorf("invalid heartbeat_timeout, heartbeat_timeout is less than heartbeat_interval")
+	if cfg.HeartbeatTimeout > 0 && cfg.HeartbeatInterval > 0 {
+		if cfg.HeartbeatTimeout < cfg.HeartbeatInterval {
+			return fmt.Errorf("invalid heartbeat_timeout, heartbeat_timeout is less than heartbeat_interval")
+		}
 	}
 
 	if cfg.TLSEnable == false {

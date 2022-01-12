@@ -249,7 +249,7 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 
 	if svr.cfg.TCPMux {
 		fmuxCfg := fmux.DefaultConfig()
-		fmuxCfg.KeepAliveInterval = 20 * time.Second
+		fmuxCfg.KeepAliveInterval = time.Duration(svr.cfg.TCPMuxKeepaliveInterval) * time.Second
 		fmuxCfg.LogOutput = io.Discard
 		session, err = fmux.Client(conn, fmuxCfg)
 		if err != nil {
