@@ -33,3 +33,7 @@ dist/
 
 # Cache
 *.swp
+
+
+# idea 配置
+.idea
