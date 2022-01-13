@@ -118,6 +118,9 @@ type ServerCommonConf struct {
 	// from a client to share a single TCP connection. By default, this value
 	// is true.
 	TCPMux bool `ini:"tcp_mux" json:"tcp_mux"`
+	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multipler.
+	// If TCPMux is true, heartbeat of application layer is unnecessary because it can only rely on heartbeat in TCPMux.
+	TCPMuxKeepaliveInterval int64 `ini:"tcp_mux_keepalive_interval" json:"tcp_mux_keepalive_interval"`
 	// Custom404Page specifies a path to a custom 404 page to display. If this
 	// value is "", a default page will be displayed. By default, this value is
 	// "".
@@ -154,7 +157,7 @@ type ServerCommonConf struct {
 	TLSTrustedCaFile string `ini:"tls_trusted_ca_file" json:"tls_trusted_ca_file"`
 	// HeartBeatTimeout specifies the maximum time to wait for a heartbeat
 	// before terminating the connection. It is not recommended to change this
-	// value. By default, this value is 90.
+	// value. By default, this value is 90. Set negative value to disable it.
 	HeartbeatTimeout int64 `ini:"heartbeat_timeout" json:"heartbeat_timeout"`
 	// UserConnTimeout specifies the maximum time to wait for a work
 	// connection. By default, this value is 10.
@@ -170,42 +173,43 @@ type ServerCommonConf struct {
 // defaults.
 func GetDefaultServerConf() ServerCommonConf {
 	return ServerCommonConf{
-		ServerConfig:           auth.GetDefaultServerConf(),
-		BindAddr:               "0.0.0.0",
-		BindPort:               7000,
-		BindUDPPort:            0,
-		KCPBindPort:            0,
-		ProxyBindAddr:          "",
-		VhostHTTPPort:          0,
-		VhostHTTPSPort:         0,
-		TCPMuxHTTPConnectPort:  0,
-		VhostHTTPTimeout:       60,
-		DashboardAddr:          "0.0.0.0",
-		DashboardPort:          0,
-		DashboardUser:          "",
-		DashboardPwd:           "",
-		EnablePrometheus:       false,
-		AssetsDir:              "",
-		LogFile:                "console",
-		LogWay:                 "console",
-		LogLevel:               "info",
-		LogMaxDays:             3,
-		DisableLogColor:        false,
-		DetailedErrorsToClient: true,
-		SubDomainHost:          "",
-		TCPMux:                 true,
-		AllowPorts:             make(map[int]struct{}),
-		MaxPoolCount:           5,
-		MaxPortsPerClient:      0,
-		TLSOnly:                false,
-		TLSCertFile:            "",
-		TLSKeyFile:             "",
-		TLSTrustedCaFile:       "",
-		HeartbeatTimeout:       90,
-		UserConnTimeout:        10,
-		Custom404Page:          "",
-		HTTPPlugins:            make(map[string]plugin.HTTPPluginOptions),
-		UDPPacketSize:          1500,
+		ServerConfig:            auth.GetDefaultServerConf(),
+		BindAddr:                "0.0.0.0",
+		BindPort:                7000,
+		BindUDPPort:             0,
+		KCPBindPort:             0,
+		ProxyBindAddr:           "",
+		VhostHTTPPort:           0,
+		VhostHTTPSPort:          0,
+		TCPMuxHTTPConnectPort:   0,
+		VhostHTTPTimeout:        60,
+		DashboardAddr:           "0.0.0.0",
+		DashboardPort:           0,
+		DashboardUser:           "",
+		DashboardPwd:            "",
+		EnablePrometheus:        false,
+		AssetsDir:               "",
+		LogFile:                 "console",
+		LogWay:                  "console",
+		LogLevel:                "info",
+		LogMaxDays:              3,
+		DisableLogColor:         false,
+		DetailedErrorsToClient:  true,
+		SubDomainHost:           "",
+		TCPMux:                  true,
+		TCPMuxKeepaliveInterval: 60,
+		AllowPorts:              make(map[int]struct{}),
+		MaxPoolCount:            5,
+		MaxPortsPerClient:       0,
+		TLSOnly:                 false,
+		TLSCertFile:             "",
+		TLSKeyFile:              "",
+		TLSTrustedCaFile:        "",
+		HeartbeatTimeout:        90,
+		UserConnTimeout:         10,
+		Custom404Page:           "",
+		HTTPPlugins:             make(map[string]plugin.HTTPPluginOptions),
+		UDPPacketSize:           1500,
 	}
 }
 

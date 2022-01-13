@@ -311,16 +311,27 @@ func (ctl *Control) msgHandler() {
 	}()
 	defer ctl.msgHandlerShutdown.Done()
 
-	hbSend := time.NewTicker(time.Duration(ctl.clientCfg.HeartbeatInterval) * time.Second)
-	defer hbSend.Stop()
-	hbCheck := time.NewTicker(time.Second)
-	defer hbCheck.Stop()
+	var hbSendCh <-chan time.Time
+	// TODO(fatedier): disable heartbeat if TCPMux is enabled.
+	// Just keep it here to keep compatible with old version frps.
+	if ctl.clientCfg.HeartbeatInterval > 0 {
+		hbSend := time.NewTicker(time.Duration(ctl.clientCfg.HeartbeatInterval) * time.Second)
+		defer hbSend.Stop()
+		hbSendCh = hbSend.C
+	}
+
+	var hbCheckCh <-chan time.Time
+	// Check heartbeat timeout only if TCPMux is not enabled and users don't disable heartbeat feature.
+	if ctl.clientCfg.HeartbeatInterval > 0 && ctl.clientCfg.HeartbeatTimeout > 0 && !ctl.clientCfg.TCPMux {
+		hbCheck := time.NewTicker(time.Second)
+		defer hbCheck.Stop()
+		hbCheckCh = hbCheck.C
+	}
 
 	ctl.lastPong = time.Now()
-
 	for {
 		select {
-		case <-hbSend.C:
+		case <-hbSendCh:
 			// send heartbeat to server
 			xl.Debug("send heartbeat to server")
 			pingMsg := &msg.Ping{}
@@ -329,7 +340,7 @@ func (ctl *Control) msgHandler() {
 				return
 			}
 			ctl.sendCh <- pingMsg
-		case <-hbCheck.C:
+		case <-hbCheckCh:
 			if time.Since(ctl.lastPong) > time.Duration(ctl.clientCfg.HeartbeatTimeout)*time.Second {
 				xl.Warn("heartbeat timeout")
 				// let reader() stop
