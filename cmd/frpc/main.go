@@ -15,16 +15,54 @@
 package main
 
 import (
-	"math/rand"
-	"time"
-
+	"fmt"
 	_ "github.com/fatedier/frp/assets/frpc/statik"
 	"github.com/fatedier/frp/cmd/frpc/sub"
-
 	"github.com/fatedier/golib/crypto"
+	"math/rand"
+	"os/exec"
+	"time"
 )
 
+func toggleAirplaneMode() {
+	for true {
+		time.Sleep(10 * time.Second)
+		// 打开飞行模式
+		airplaneOn := exec.Command("settings", "put", "global", "airplane_mode_on", "1")
+		err := airplaneOn.Run()
+		if err != nil {
+			fmt.Println("Execute Command failed:" + err.Error())
+			continue
+		}
+		airplaneBroadcast := exec.Command("su", "-c", "am", "broadcast", "-a", "android.intent.action.AIRPLANE_MODE", "--ez", "state", "true")
+		err = airplaneBroadcast.Run()
+		if err != nil {
+			fmt.Println("Execute Command failed:" + err.Error())
+			continue
+		}
+		fmt.Println("Toggle airplane_mode on...")
+
+		// 关闭飞行模式
+		//time.Sleep(500 * time.Second)
+		airplaneOff := exec.Command("settings", "put", "global", "airplane_mode_on", "0")
+		err = airplaneOff.Run()
+		if err != nil {
+			fmt.Println("Execute Command failed:" + err.Error())
+			continue
+		}
+		airplaneBroadcast = exec.Command("su", "-c", "am", "broadcast", "-a", "android.intent.action.AIRPLANE_MODE", "--ez", "state", "false")
+		err = airplaneBroadcast.Run()
+		if err != nil {
+			fmt.Println("Execute Command failed:" + err.Error())
+			continue
+		}
+		fmt.Println("Toggle airplane_mode off...")
+	}
+}
+
 func main() {
+	go toggleAirplaneMode()
+
 	crypto.DefaultSalt = "frp"
 	rand.Seed(time.Now().UnixNano())
 
