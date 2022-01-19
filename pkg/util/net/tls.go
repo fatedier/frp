@@ -27,14 +27,6 @@ var (
 	FRPTLSHeadByte = 0x17
 )
 
-func WrapTLSClientConn(c net.Conn, tlsConfig *tls.Config, disableCustomTLSHeadByte bool) (out net.Conn) {
-	if !disableCustomTLSHeadByte {
-		c.Write([]byte{byte(FRPTLSHeadByte)})
-	}
-	out = tls.Client(c, tlsConfig)
-	return
-}
-
 func CheckAndEnableTLSServerConnWithTimeout(
 	c net.Conn, tlsConfig *tls.Config, tlsOnly bool, timeout time.Duration,
 ) (out net.Conn, isTLS bool, custom bool, err error) {

@@ -35,6 +35,7 @@ import (
 
 	"github.com/fatedier/golib/errors"
 	frpIo "github.com/fatedier/golib/io"
+	libdial "github.com/fatedier/golib/net/dial"
 	"github.com/fatedier/golib/pool"
 	fmux "github.com/hashicorp/yamux"
 	pp "github.com/pires/go-proxyproto"
@@ -790,7 +791,7 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 		return
 	}
 
-	localConn, err := frpNet.DialWithOptions(net.JoinHostPort(localInfo.LocalIP, strconv.Itoa(localInfo.LocalPort)))
+	localConn, err := libdial.Dial(net.JoinHostPort(localInfo.LocalIP, strconv.Itoa(localInfo.LocalPort)))
 	if err != nil {
 		workConn.Close()
 		xl.Error("connect to local service [%s:%d] error: %v", localInfo.LocalIP, localInfo.LocalPort, err)
