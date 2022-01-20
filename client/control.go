@@ -34,6 +34,7 @@ import (
 
 	"github.com/fatedier/golib/control/shutdown"
 	"github.com/fatedier/golib/crypto"
+	libdial "github.com/fatedier/golib/net/dial"
 	fmux "github.com/hashicorp/yamux"
 )
 
@@ -234,15 +235,33 @@ func (ctl *Control) connectServer() (conn net.Conn, err error) {
 			}
 		}
 
-		conn, err = frpNet.DialWithOptions(net.JoinHostPort(ctl.clientCfg.ServerAddr, strconv.Itoa(ctl.clientCfg.ServerPort)),
-			frpNet.WithProxyURL(ctl.clientCfg.HTTPProxy),
-			frpNet.WithProtocol(ctl.clientCfg.Protocol),
-			frpNet.WithTLSConfig(tlsConfig),
-			frpNet.WithDisableCustomTLSHeadByte(ctl.clientCfg.DisableCustomTLSFirstByte))
-
+		proxyType, addr, auth, err := libdial.ParseProxyURL(ctl.clientCfg.HTTPProxy)
+		if err != nil {
+			xl.Error("fail to parse proxy url")
+			return nil, err
+		}
+		dialOptions := []libdial.DialOption{}
+		protocol := ctl.clientCfg.Protocol
+		if protocol == "websocket" {
+			protocol = "tcp"
+			dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: frpNet.DialHookWebsocket()}))
+		}
+		dialOptions = append(dialOptions,
+			libdial.WithProtocol(protocol),
+			libdial.WithProxy(proxyType, addr),
+			libdial.WithProxyAuth(auth),
+			libdial.WithTLSConfig(tlsConfig),
+			libdial.WithAfterHook(libdial.AfterHook{
+				Hook: frpNet.DialHookCustomTLSHeadByte(tlsConfig != nil, ctl.clientCfg.DisableCustomTLSFirstByte),
+			}),
+		)
+		conn, err = libdial.Dial(
+			net.JoinHostPort(ctl.clientCfg.ServerAddr, strconv.Itoa(ctl.clientCfg.ServerPort)),
+			dialOptions...,
+		)
 		if err != nil {
 			xl.Warn("start new connection to server error: %v", err)
-			return
+			return nil, err
 		}
 	}
 	return

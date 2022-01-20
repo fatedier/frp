@@ -36,6 +36,7 @@ import (
 	frpNet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/xlog"
+	libdial "github.com/fatedier/golib/net/dial"
 
 	fmux "github.com/hashicorp/yamux"
 )
@@ -228,12 +229,30 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 		}
 	}
 
-	conn, err = frpNet.DialWithOptions(net.JoinHostPort(svr.cfg.ServerAddr, strconv.Itoa(svr.cfg.ServerPort)),
-		frpNet.WithProxyURL(svr.cfg.HTTPProxy),
-		frpNet.WithProtocol(svr.cfg.Protocol),
-		frpNet.WithTLSConfig(tlsConfig),
-		frpNet.WithDisableCustomTLSHeadByte(svr.cfg.DisableCustomTLSFirstByte))
-
+	proxyType, addr, auth, err := libdial.ParseProxyURL(svr.cfg.HTTPProxy)
+	if err != nil {
+		xl.Error("fail to parse proxy url")
+		return
+	}
+	dialOptions := []libdial.DialOption{}
+	protocol := svr.cfg.Protocol
+	if protocol == "websocket" {
+		protocol = "tcp"
+		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: frpNet.DialHookWebsocket()}))
+	}
+	dialOptions = append(dialOptions,
+		libdial.WithProtocol(protocol),
+		libdial.WithProxy(proxyType, addr),
+		libdial.WithProxyAuth(auth),
+		libdial.WithTLSConfig(tlsConfig),
+		libdial.WithAfterHook(libdial.AfterHook{
+			Hook: frpNet.DialHookCustomTLSHeadByte(tlsConfig != nil, svr.cfg.DisableCustomTLSFirstByte),
+		}),
+	)
+	conn, err = libdial.Dial(
+		net.JoinHostPort(svr.cfg.ServerAddr, strconv.Itoa(svr.cfg.ServerPort)),
+		dialOptions...,
+	)
 	if err != nil {
 		return
 	}
