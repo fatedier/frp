@@ -24,9 +24,14 @@ var _ = Describe("[Feature: Server-Plugins]", func() {
 
 		It("Auth for custom meta token", func() {
 			localPort := f.AllocPort()
+
+			clientAddressGot := false
 			handler := func(req *plugin.Request) *plugin.Response {
 				var ret plugin.Response
 				content := req.Content.(*plugin.LoginContent)
+				if content.ClientAddress != "" {
+					clientAddressGot = true
+				}
 				if content.Metas["token"] == "123" {
 					ret.Unchange = true
 				} else {
@@ -69,6 +74,8 @@ var _ = Describe("[Feature: Server-Plugins]", func() {
 
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 			framework.NewRequestExpect(f).Port(remotePort2).ExpectError(true).Ensure()
+
+			framework.ExpectTrue(clientAddressGot)
 		})
 	})
 

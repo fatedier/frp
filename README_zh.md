@@ -7,6 +7,21 @@
 
 frp 是一个专注于内网穿透的高性能的反向代理应用，支持 TCP、UDP、HTTP、HTTPS 等多种协议。可以将内网服务以安全、便捷的方式通过具有公网 IP 节点的中转暴露到公网。
 
+<h3 align="center">Platinum Sponsors</h3>
+<!--platinum sponsors start-->
+
+<p align="center">
+  <a href="https://www.doppler.com/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
+    <img width="400px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_doppler.png">
+  </a>
+</p>
+
+<!--platinum sponsors end-->
+
+<h3 align="center">Silver Sponsors</h3>
+
+* Sakura Frp - 欢迎点击 "加入我们"
+
 ## 为什么使用 frp ？
 
 通过在具有公网 IP 的节点上部署 frp 服务端，可以轻松地将内网服务穿透到公网，同时提供诸多专业的功能特性，这包括：
@@ -24,6 +39,10 @@ frp 是一个专注于内网穿透的高性能的反向代理应用，支持 TCP
 frp 目前已被很多公司广泛用于测试、生产环境。
 
 master 分支用于发布稳定版本，dev 分支用于开发，您可以尝试下载最新的 release 版本进行测试。
+
+我们正在进行 v2 大版本的开发，将会尝试在各个方面进行重构和升级，且不会与 v1 版本进行兼容，预计会持续一段时间。
+
+现在的 v0 版本将会在合适的时间切换为 v1 版本并且保证兼容性，后续只做 bug 修复和优化，不再进行大的功能性更新。
 
 ## 文档
 

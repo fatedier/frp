@@ -88,7 +88,8 @@ Client login operation
         "privilege_key": <string>,
         "run_id": <string>,
         "pool_count": <int>,
-        "metas": map<string>string
+        "metas": map<string>string,
+        "client_address": <string>
     }
 }
 ```

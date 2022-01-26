@@ -334,7 +334,8 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {
 	case *msg.Login:
 		// server plugin hook
 		content := &plugin.LoginContent{
-			Login: *m,
+			Login:         *m,
+			ClientAddress: conn.RemoteAddr().String(),
 		}
 		retContent, err := svr.pluginManager.Login(content)
 		if err == nil {
@@ -405,7 +406,7 @@ func (svr *Service) HandleListener(l net.Listener) {
 		go func(ctx context.Context, frpConn net.Conn) {
 			if svr.cfg.TCPMux {
 				fmuxCfg := fmux.DefaultConfig()
-				fmuxCfg.KeepAliveInterval = 20 * time.Second
+				fmuxCfg.KeepAliveInterval = time.Duration(svr.cfg.TCPMuxKeepaliveInterval) * time.Second
 				fmuxCfg.LogOutput = io.Discard
 				session, err := fmux.Server(frpConn, fmuxCfg)
 				if err != nil {

@@ -34,27 +34,29 @@ var (
 func (svr *Service) RunDashboardServer(address string) (err error) {
 	// url router
 	router := mux.NewRouter()
+	router.HandleFunc("/healthz", svr.Healthz)
+
+	subRouter := router.NewRoute().Subrouter()
 
 	user, passwd := svr.cfg.DashboardUser, svr.cfg.DashboardPwd
-	router.Use(frpNet.NewHTTPAuthMiddleware(user, passwd).Middleware)
+	subRouter.Use(frpNet.NewHTTPAuthMiddleware(user, passwd).Middleware)
 
 	// metrics
 	if svr.cfg.EnablePrometheus {
-		router.Handle("/metrics", promhttp.Handler())
+		subRouter.Handle("/metrics", promhttp.Handler())
 	}
 
 	// api, see dashboard_api.go
-	router.HandleFunc("/api/serverinfo", svr.APIServerInfo).Methods("GET")
-	router.HandleFunc("/api/proxy/{type}", svr.APIProxyByType).Methods("GET")
-	router.HandleFunc("/api/proxy/{type}/{name}", svr.APIProxyByTypeAndName).Methods("GET")
-	router.HandleFunc("/api/traffic/{name}", svr.APIProxyTraffic).Methods("GET")
-	router.HandleFunc("/healthz", svr.Healthz)
+	subRouter.HandleFunc("/api/serverinfo", svr.APIServerInfo).Methods("GET")
+	subRouter.HandleFunc("/api/proxy/{type}", svr.APIProxyByType).Methods("GET")
+	subRouter.HandleFunc("/api/proxy/{type}/{name}", svr.APIProxyByTypeAndName).Methods("GET")
+	subRouter.HandleFunc("/api/traffic/{name}", svr.APIProxyTraffic).Methods("GET")
 
 	// view
-	router.Handle("/favicon.ico", http.FileServer(assets.FileSystem)).Methods("GET")
-	router.PathPrefix("/static/").Handler(frpNet.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))).Methods("GET")
+	subRouter.Handle("/favicon.ico", http.FileServer(assets.FileSystem)).Methods("GET")
+	subRouter.PathPrefix("/static/").Handler(frpNet.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))).Methods("GET")
 
-	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	subRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
 	})
 
