@@ -240,8 +240,8 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 		protocol = "tcp"
 		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: frpNet.DialHookWebsocket()}))
 	}
-	if svr.cfg.ConnectLocalIP != "" {
-		dialOptions = append(dialOptions, libdial.WithLocalAddr(svr.cfg.ConnectLocalIP))
+	if svr.cfg.ConnectServerLocalIP != "" {
+		dialOptions = append(dialOptions, libdial.WithLocalAddr(svr.cfg.ConnectServerLocalIP))
 	}
 	dialOptions = append(dialOptions,
 		libdial.WithProtocol(protocol),

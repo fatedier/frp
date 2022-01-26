@@ -38,10 +38,10 @@ type ClientCommonConf struct {
 	// ServerPort specifies the port to connect to the server on. By default,
 	// this value is 7000.
 	ServerPort int `ini:"server_port" json:"server_port"`
-	// ConnectLocalIP specifies the address of the client bind when it connect to server.
+	// ConnectServerLocalIP specifies the address of the client bind when it connect to server.
 	// By default, this value is empty.
 	// this value only use in TCP/Websocket protocol. Not support in KCP protocol.
-	ConnectLocalIP string `ini:"connect_local_ip" json:"connect_local_ip"`
+	ConnectServerLocalIP string `ini:"connect_server_local_ip" json:"connect_server_local_ip"`
 	// HTTPProxy specifies a proxy address to connect to the server through. If
 	// this value is "", the server will be connected to directly. By default,
 	// this value is read from the "http_proxy" environment variable.
