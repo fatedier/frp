@@ -82,8 +82,7 @@ frp also has a P2P connect mode.
 * [Development Plan](#development-plan)
 * [Contributing](#contributing)
 * [Donation](#donation)
-    * [AliPay](#alipay)
-    * [Wechat Pay](#wechat-pay)
+    * [GitHub Sponsors](#github-sponsors)
     * [PayPal](#paypal)
 
 <!-- vim-markdown-toc -->
@@ -1092,15 +1091,11 @@ Interested in getting involved? We would like to help you!
 
 If frp helps you a lot, you can support us by:
 
-frp QQ group: 606194980
+### GitHub Sponsors
 
-### AliPay
+Support us by [Github Sponsors](https://github.com/sponsors/fatedier).
 
-![donation-alipay](/doc/pic/donate-alipay.png)
-
-### Wechat Pay
-
-![donation-wechatpay](/doc/pic/donate-wechatpay.png)
+You can have your company's logo placed on README file of this project.
 
 ### PayPal
 

@@ -65,6 +65,12 @@ frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进�
 
 如果您觉得 frp 对你有帮助，欢迎给予我们一定的捐助来维持项目的长期发展。
 
+### GitHub Sponsors
+
+您可以通过 [GitHub Sponsors](https://github.com/sponsors/fatedier) 赞助我们。
+
+企业赞助者可以将贵公司的 Logo 以及链接放置在项目 README 文件中。
+
 ### 知识星球
 
 如果您想学习 frp 相关的知识和技术，或者寻求任何帮助及咨询，都可以通过微信扫描下方的二维码付费加入知识星球的官方社群：
@@ -78,7 +84,3 @@ frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进�
 ### 微信支付捐赠
 
 ![donate-wechatpay](/doc/pic/donate-wechatpay.png)
-
-### Paypal 捐赠
-
-海外用户推荐通过 [Paypal](https://www.paypal.me/fatedier) 向我的账户 **fatedier@gmail.com** 进行捐赠。
