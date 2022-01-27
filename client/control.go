@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"io"
 	"net"
+	"os"
 	"runtime/debug"
 	"strconv"
 	"sync"
@@ -87,6 +88,8 @@ type Control struct {
 
 	// sets authentication based on selected method
 	authSetter auth.Setter
+
+	timeOutExit int64
 }
 
 func NewControl(ctx context.Context, runID string, conn net.Conn, session *fmux.Session,
@@ -114,6 +117,7 @@ func NewControl(ctx context.Context, runID string, conn net.Conn, session *fmux.
 		xl:                 xlog.FromContextSafe(ctx),
 		ctx:                ctx,
 		authSetter:         authSetter,
+		timeOutExit:        clientCfg.TimeOutExit,
 	}
 	ctl.pm = proxy.NewManager(ctl.ctx, ctl.sendCh, clientCfg, serverUDPPort)
 
@@ -341,6 +345,13 @@ func (ctl *Control) msgHandler() {
 			}
 			ctl.sendCh <- pingMsg
 		case <-hbCheckCh:
+			if ctl.clientCfg.TimeOutExit > 0 {
+				ctl.timeOutExit--
+				if ctl.timeOutExit <= 0 {
+					xl.Debug("exit --------------------", ctl.timeOutExit)
+					os.Exit(0)
+				}
+			}
 			if time.Since(ctl.lastPong) > time.Duration(ctl.clientCfg.HeartbeatTimeout)*time.Second {
 				xl.Warn("heartbeat timeout")
 				// let reader() stop
@@ -354,8 +365,10 @@ func (ctl *Control) msgHandler() {
 
 			switch m := rawMsg.(type) {
 			case *msg.ReqWorkConn:
+				ctl.timeOutExit = ctl.clientCfg.TimeOutExit
 				go ctl.HandleReqWorkConn(m)
 			case *msg.NewProxyResp:
+				ctl.timeOutExit = ctl.clientCfg.TimeOutExit
 				ctl.HandleNewProxyResp(m)
 			case *msg.Pong:
 				if m.Error != "" {

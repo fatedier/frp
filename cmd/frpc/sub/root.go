@@ -71,7 +71,8 @@ var (
 	bindAddr          string
 	bindPort          int
 
-	tlsEnable bool
+	tlsEnable   bool
+	timeOutExit int
 
 	kcpDoneCh chan struct{}
 )
@@ -93,6 +94,7 @@ func RegisterCommonFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
 	cmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
 	cmd.PersistentFlags().BoolVarP(&tlsEnable, "tls_enable", "", false, "enable frpc tls")
+	cmd.PersistentFlags().IntVarP(&timeOutExit, "timeout_exit", "", -1, "time out exit frpc")
 }
 
 var rootCmd = &cobra.Command{
@@ -150,7 +152,7 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 	cfg.LogFile = logFile
 	cfg.LogMaxDays = int64(logMaxDays)
 	cfg.DisableLogColor = disableLogColor
-
+	cfg.TimeOutExit = int64(timeOutExit)
 	// Only token authentication is supported in cmd mode
 	cfg.ClientConfig = auth.GetDefaultClientConf()
 	cfg.Token = token

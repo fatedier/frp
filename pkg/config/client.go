@@ -145,6 +145,8 @@ type ClientCommonConf struct {
 	UDPPacketSize int64 `ini:"udp_packet_size" json:"udp_packet_size"`
 	// Include other config files for proxies.
 	IncludeConfigFiles []string `ini:"includes" json:"includes"`
+	// There is no data interaction between frpc and frps, timeout exit
+	TimeOutExit int64 `ini:"timeout_exit" json:"timeout_exit"`
 }
 
 // GetDefaultClientConf returns a client configuration with default values.
