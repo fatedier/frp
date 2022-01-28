@@ -18,6 +18,17 @@ frp 是一个专注于内网穿透的高性能的反向代理应用，支持 TCP
 
 <!--platinum sponsors end-->
 
+<h3 align="center">Gold Sponsors</h3>
+<!--gold sponsors start-->
+
+<p align="center">
+  <a href="https://workos.com/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
+    <img width="300px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_workos.png">
+  </a>
+</p>
+
+<!--gold sponsors end-->
+
 <h3 align="center">Silver Sponsors</h3>
 
 * Sakura Frp - 欢迎点击 "加入我们"
