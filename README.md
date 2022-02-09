@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://www.doppler.com/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
-    <img width="450px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_doppler.png">
+    <img width="400px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_doppler.png">
   </a>
 </p>
 
