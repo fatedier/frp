@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/fatedier/frp/pkg/config"
@@ -70,7 +71,7 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 
 	remoteAddr = fmt.Sprintf(":%d", pxy.realPort)
 	pxy.cfg.RemotePort = pxy.realPort
-	addr, errRet := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", pxy.serverCfg.ProxyBindAddr, pxy.realPort))
+	addr, errRet := net.ResolveUDPAddr("udp", net.JoinHostPort(pxy.serverCfg.ProxyBindAddr, strconv.Itoa(pxy.realPort)))
 	if errRet != nil {
 		err = errRet
 		return

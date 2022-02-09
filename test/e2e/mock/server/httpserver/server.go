@@ -2,7 +2,6 @@ package httpserver
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -97,7 +96,7 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) initListener() (err error) {
-	s.l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", s.bindAddr, s.bindPort))
+	s.l, err = net.Listen("tcp", net.JoinHostPort(s.bindAddr, strconv.Itoa(s.bindPort)))
 	return
 }
 

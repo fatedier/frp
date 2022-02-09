@@ -59,7 +59,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 		Director: func(req *http.Request) {
 			req.URL.Scheme = "http"
 			url := req.Context().Value(RouteInfoURL).(string)
-			oldHost := util.GetHostFromAddr(req.Context().Value(RouteInfoHost).(string))
+			oldHost, _ := util.CanonicalHost(req.Context().Value(RouteInfoHost).(string))
 			rc := rp.GetRouteConfig(oldHost, url)
 			if rc != nil {
 				if rc.RewriteHost != "" {
@@ -81,7 +81,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			IdleConnTimeout:       60 * time.Second,
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				url := ctx.Value(RouteInfoURL).(string)
-				host := util.GetHostFromAddr(ctx.Value(RouteInfoHost).(string))
+				host, _ := util.CanonicalHost(ctx.Value(RouteInfoHost).(string))
 				remote := ctx.Value(RouteInfoRemote).(string)
 				return rp.CreateConnection(host, url, remote)
 			},
@@ -191,7 +191,7 @@ func (rp *HTTPReverseProxy) getVhost(domain string, location string) (vr *Router
 }
 
 func (rp *HTTPReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	domain := util.GetHostFromAddr(req.Host)
+	domain, _ := util.CanonicalHost(req.Host)
 	location := req.URL.Path
 	user, passwd, _ := req.BasicAuth()
 	if !rp.CheckAuth(domain, location, user, passwd) {

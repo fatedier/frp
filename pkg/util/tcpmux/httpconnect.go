@@ -48,7 +48,7 @@ func readHTTPConnectRequest(rd io.Reader) (host string, err error) {
 		return
 	}
 
-	host = util.GetHostFromAddr(req.Host)
+	host, _ = util.CanonicalHost(req.Host)
 	return
 }
 

@@ -19,6 +19,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 )
@@ -52,7 +53,7 @@ func CanonicalAddr(host string, port int) (addr string) {
 	if port == 80 || port == 443 {
 		addr = host
 	} else {
-		addr = fmt.Sprintf("%s:%d", host, port)
+		addr = net.JoinHostPort(host, strconv.Itoa(port))
 	}
 	return
 }
