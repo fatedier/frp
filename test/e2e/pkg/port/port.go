@@ -3,6 +3,7 @@ package port
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -57,7 +58,7 @@ func (pa *Allocator) GetByName(portName string) int {
 			return 0
 		}
 
-		l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		l, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
 		if err != nil {
 			// Maybe not controlled by us, mark it used.
 			pa.used.Insert(port)
@@ -65,7 +66,7 @@ func (pa *Allocator) GetByName(portName string) int {
 		}
 		l.Close()
 
-		udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("127.0.0.1:%d", port))
+		udpAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
 		if err != nil {
 			continue
 		}
