@@ -6,12 +6,6 @@
 
 [README](README.md) | [中文文档](README_zh.md)
 
-## What is frp?
-
-frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the Internet. As of now, it supports **TCP** and **UDP**, as well as **HTTP** and **HTTPS** protocols, where requests can be forwarded to internal services by domain name.
-
-frp also has a P2P connect mode.
-
 <h3 align="center">Platinum Sponsors</h3>
 <!--platinum sponsors start-->
 
@@ -23,9 +17,26 @@ frp also has a P2P connect mode.
 
 <!--platinum sponsors end-->
 
+<h3 align="center">Gold Sponsors</h3>
+<!--gold sponsors start-->
+
+<p align="center">
+  <a href="https://workos.com/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
+    <img width="300px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_workos.png">
+  </a>
+</p>
+
+<!--gold sponsors end-->
+
 <h3 align="center">Silver Sponsors</h3>
 
 * Sakura Frp - 欢迎点击 "加入我们"
+
+## What is frp?
+
+frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the Internet. As of now, it supports **TCP** and **UDP**, as well as **HTTP** and **HTTPS** protocols, where requests can be forwarded to internal services by domain name.
+
+frp also has a P2P connect mode.
 
 ## Table of Contents
 
@@ -82,8 +93,7 @@ frp also has a P2P connect mode.
 * [Development Plan](#development-plan)
 * [Contributing](#contributing)
 * [Donation](#donation)
-    * [AliPay](#alipay)
-    * [Wechat Pay](#wechat-pay)
+    * [GitHub Sponsors](#github-sponsors)
     * [PayPal](#paypal)
 
 <!-- vim-markdown-toc -->
@@ -1092,15 +1102,11 @@ Interested in getting involved? We would like to help you!
 
 If frp helps you a lot, you can support us by:
 
-frp QQ group: 606194980
+### GitHub Sponsors
 
-### AliPay
+Support us by [Github Sponsors](https://github.com/sponsors/fatedier).
 
-![donation-alipay](/doc/pic/donate-alipay.png)
-
-### Wechat Pay
-
-![donation-wechatpay](/doc/pic/donate-wechatpay.png)
+You can have your company's logo placed on README file of this project.
 
 ### PayPal
 

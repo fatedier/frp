@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -163,7 +164,7 @@ type UDPListener struct {
 }
 
 func ListenUDP(bindAddr string, bindPort int) (l *UDPListener, err error) {
-	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", bindAddr, bindPort))
+	udpAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(bindAddr, strconv.Itoa(bindPort)))
 	if err != nil {
 		return l, err
 	}
