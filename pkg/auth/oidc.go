@@ -93,6 +93,9 @@ func NewOidcAuthSetter(baseCfg BaseConfig, cfg OidcClientConfig) *OidcAuthProvid
 		ClientSecret: cfg.OidcClientSecret,
 		Scopes:       []string{cfg.OidcAudience},
 		TokenURL:     cfg.OidcTokenEndpointURL,
+		EndpointParams: map[string][]string{
+			"audience": {cfg.OidcAudience},
+		},
 	}
 
 	return &OidcAuthProvider{
