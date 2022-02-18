@@ -787,7 +787,10 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 		return
 	}
 
-	localConn, err := libdial.Dial(net.JoinHostPort(localInfo.LocalIP, strconv.Itoa(localInfo.LocalPort)))
+	localConn, err := libdial.Dial(
+		net.JoinHostPort(localInfo.LocalIP, strconv.Itoa(localInfo.LocalPort)),
+		libdial.WithTimeout(10*time.Second),
+	)
 	if err != nil {
 		workConn.Close()
 		xl.Error("connect to local service [%s:%d] error: %v", localInfo.LocalIP, localInfo.LocalPort, err)
