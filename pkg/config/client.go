@@ -38,6 +38,8 @@ type ClientCommonConf struct {
 	// ServerPort specifies the port to connect to the server on. By default,
 	// this value is 7000.
 	ServerPort int `ini:"server_port" json:"server_port"`
+	// The maximum amount of time a dial to server will wait for a connect to complete.
+	DialServerTimeout int64 `ini:"dial_server_timeout" json:"dial_server_timeout"`
 	// ConnectServerLocalIP specifies the address of the client bind when it connect to server.
 	// By default, this value is empty.
 	// this value only use in TCP/Websocket protocol. Not support in KCP protocol.
@@ -157,6 +159,7 @@ func GetDefaultClientConf() ClientCommonConf {
 		ClientConfig:            auth.GetDefaultClientConf(),
 		ServerAddr:              "0.0.0.0",
 		ServerPort:              7000,
+		DialServerTimeout:       10,
 		HTTPProxy:               os.Getenv("http_proxy"),
 		LogFile:                 "console",
 		LogWay:                  "console",
