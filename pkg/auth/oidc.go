@@ -16,6 +16,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/fatedier/frp/pkg/msg"
@@ -40,6 +41,10 @@ type OidcClientConfig struct {
 	// It will be used to get an OIDC token if AuthenticationMethod == "oidc".
 	// By default, this value is "".
 	OidcTokenEndpointURL string `ini:"oidc_token_endpoint_url" json:"oidc_token_endpoint_url"`
+
+	// OidcAdditionalEndpointParams specifies additional parameters to be sent
+	// this field will be Unmarshal to map[string][]string
+	OidcAdditionalEndpointParams string `ini:"oidc_additional_endpoint_params" json:"oidc_additional_endpoint_params"`
 }
 
 func getDefaultOidcClientConf() OidcClientConfig {
@@ -88,11 +93,20 @@ type OidcAuthProvider struct {
 }
 
 func NewOidcAuthSetter(baseCfg BaseConfig, cfg OidcClientConfig) *OidcAuthProvider {
+	eps := make(map[string][]string)
+	if cfg.OidcAdditionalEndpointParams != "" {
+		err := json.Unmarshal([]byte(cfg.OidcAdditionalEndpointParams), &eps)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	tokenGenerator := &clientcredentials.Config{
-		ClientID:     cfg.OidcClientID,
-		ClientSecret: cfg.OidcClientSecret,
-		Scopes:       []string{cfg.OidcAudience},
-		TokenURL:     cfg.OidcTokenEndpointURL,
+		ClientID:       cfg.OidcClientID,
+		ClientSecret:   cfg.OidcClientSecret,
+		Scopes:         []string{cfg.OidcAudience},
+		TokenURL:       cfg.OidcTokenEndpointURL,
+		EndpointParams: eps,
 	}
 
 	return &OidcAuthProvider{
