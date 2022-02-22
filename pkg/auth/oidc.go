@@ -16,7 +16,6 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/fatedier/frp/pkg/msg"
@@ -43,16 +42,18 @@ type OidcClientConfig struct {
 	OidcTokenEndpointURL string `ini:"oidc_token_endpoint_url" json:"oidc_token_endpoint_url"`
 
 	// OidcAdditionalEndpointParams specifies additional parameters to be sent
-	// this field will be Unmarshal to map[string][]string
-	OidcAdditionalEndpointParams string `ini:"oidc_additional_endpoint_params" json:"oidc_additional_endpoint_params"`
+	// this field will be transfer to map[string][]string in OIDC token generator
+	// The field will be set by prefix "oidc_additional_"
+	OidcAdditionalEndpointParams map[string]string `ini:"-" json:"oidc_additional_endpoint_params"`
 }
 
 func getDefaultOidcClientConf() OidcClientConfig {
 	return OidcClientConfig{
-		OidcClientID:         "",
-		OidcClientSecret:     "",
-		OidcAudience:         "",
-		OidcTokenEndpointURL: "",
+		OidcClientID:                 "",
+		OidcClientSecret:             "",
+		OidcAudience:                 "",
+		OidcTokenEndpointURL:         "",
+		OidcAdditionalEndpointParams: make(map[string]string),
 	}
 }
 
@@ -94,11 +95,8 @@ type OidcAuthProvider struct {
 
 func NewOidcAuthSetter(baseCfg BaseConfig, cfg OidcClientConfig) *OidcAuthProvider {
 	eps := make(map[string][]string)
-	if cfg.OidcAdditionalEndpointParams != "" {
-		err := json.Unmarshal([]byte(cfg.OidcAdditionalEndpointParams), &eps)
-		if err != nil {
-			panic(err)
-		}
+	for k, v := range cfg.OidcAdditionalEndpointParams {
+		eps[k] = []string{v}
 	}
 
 	tokenGenerator := &clientcredentials.Config{
