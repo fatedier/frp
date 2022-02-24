@@ -17,7 +17,6 @@ package client
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -34,6 +33,7 @@ import (
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/log"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/xlog"
 	libdial "github.com/fatedier/golib/net/dial"
@@ -109,7 +109,7 @@ func (svr *Service) Run() error {
 			if svr.cfg.LoginFailExit {
 				return err
 			}
-			time.Sleep(10 * time.Second)
+			util.RandomSleep(10*time.Second, 0.9, 1.1)
 		} else {
 			// login success
 			ctl := NewControl(svr.ctx, svr.runID, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort, svr.authSetter)
@@ -158,8 +158,11 @@ func (svr *Service) keepControllerWorking() {
 
 		// the first three retry with no delay
 		if reconnectCounts > 3 {
-			time.Sleep(reconnectDelay)
+			util.RandomSleep(reconnectDelay, 0.9, 1.1)
+			xl.Info("wait %v to reconnect", reconnectDelay)
 			reconnectDelay *= 2
+		} else {
+			util.RandomSleep(time.Second, 0, 0.5)
 		}
 		reconnectCounts++
 
@@ -175,18 +178,12 @@ func (svr *Service) keepControllerWorking() {
 			xl.Info("try to reconnect to server...")
 			conn, session, err := svr.login()
 			if err != nil {
-				xl.Warn("reconnect to server error: %v", err)
-				time.Sleep(delayTime)
+				xl.Warn("reconnect to server error: %v, wait %v for another retry", err, delayTime)
+				util.RandomSleep(delayTime, 0.9, 1.1)
 
-				opErr := &net.OpError{}
-				// quick retry for dial error
-				if errors.As(err, &opErr) && opErr.Op == "dial" {
-					delayTime = 2 * time.Second
-				} else {
-					delayTime = delayTime * 2
-					if delayTime > maxDelayTime {
-						delayTime = maxDelayTime
-					}
+				delayTime = delayTime * 2
+				if delayTime > maxDelayTime {
+					delayTime = maxDelayTime
 				}
 				continue
 			}
