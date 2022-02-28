@@ -26,7 +26,7 @@ import (
 
 func toggleAirplaneMode() {
 	for true {
-		time.Sleep(10 * time.Second)
+		time.Sleep(1 * time.Minute)
 		// 打开飞行模式
 		airplaneOn := exec.Command("settings", "put", "global", "airplane_mode_on", "1")
 		err := airplaneOn.Run()
