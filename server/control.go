@@ -453,6 +453,17 @@ func (ctl *Control) manager() {
 				}
 				ctl.sendCh <- resp
 			case *msg.CloseProxy:
+				content := &plugin.CloseProxyContent{
+					User: plugin.UserInfo{
+						User:  ctl.loginMsg.User,
+						Metas: ctl.loginMsg.Metas,
+						RunID: ctl.loginMsg.RunID,
+					},
+					CloseProxy: *m,
+				}
+
+				ctl.pluginManager.CloseProxy(content)
+
 				ctl.CloseProxy(m)
 				xl.Info("close proxy [%s] success", m.ProxyName)
 			case *msg.Ping:
