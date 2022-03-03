@@ -376,6 +376,20 @@ func (ctl *Control) stoper() {
 		pxy.Close()
 		ctl.pxyManager.Del(pxy.GetName())
 		metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
+
+		notifyContent := &plugin.CloseProxyContent{
+			User: plugin.UserInfo{
+				User:  ctl.loginMsg.User,
+				Metas: ctl.loginMsg.Metas,
+				RunID: ctl.loginMsg.RunID,
+			},
+			CloseProxy: msg.CloseProxy{
+				ProxyName: pxy.GetName(),
+			},
+		}
+		go func() {
+			ctl.pluginManager.CloseProxy(notifyContent)
+		}()
 	}
 
 	ctl.allShutdown.Done()
@@ -453,17 +467,6 @@ func (ctl *Control) manager() {
 				}
 				ctl.sendCh <- resp
 			case *msg.CloseProxy:
-				content := &plugin.CloseProxyContent{
-					User: plugin.UserInfo{
-						User:  ctl.loginMsg.User,
-						Metas: ctl.loginMsg.Metas,
-						RunID: ctl.loginMsg.RunID,
-					},
-					CloseProxy: *m,
-				}
-
-				ctl.pluginManager.CloseProxy(content)
-
 				ctl.CloseProxy(m)
 				xl.Info("close proxy [%s] success", m.ProxyName)
 			case *msg.Ping:
