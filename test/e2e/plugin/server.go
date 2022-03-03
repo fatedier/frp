@@ -167,14 +167,11 @@ var _ = Describe("[Feature: Server-Plugins]", func() {
 
 		It("Validate Info", func() {
 			localPort := f.AllocPort()
+			var recordProxyName string
 			handler := func(req *plugin.Request) *plugin.Response {
 				var ret plugin.Response
 				content := req.Content.(*plugin.CloseProxyContent)
-				if content.ProxyName == "tcp" {
-					ret.Unchange = true
-				} else {
-					ret.Reject = true
-				}
+				recordProxyName = content.ProxyName
 				return &ret
 			}
 			pluginServer := NewHTTPPluginServer(localPort, newFunc, handler, nil)
@@ -197,11 +194,17 @@ var _ = Describe("[Feature: Server-Plugins]", func() {
 			remote_port = %d
 			`, framework.TCPEchoServerPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
-
-			time.Sleep(5 * time.Second)
+			_, clients := f.RunProcesses([]string{serverConf}, []string{clientConf})
 
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
+
+			for _, c := range clients {
+				c.Stop()
+			}
+
+			time.Sleep(1 * time.Second)
+
+			framework.ExpectEqual(recordProxyName, "tcp")
 		})
 	})
 
