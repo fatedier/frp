@@ -578,5 +578,20 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 	ctl.mu.Unlock()
 
 	metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
+
+	notifyContent := &plugin.CloseProxyContent{
+		User: plugin.UserInfo{
+			User:  ctl.loginMsg.User,
+			Metas: ctl.loginMsg.Metas,
+			RunID: ctl.loginMsg.RunID,
+		},
+		CloseProxy: msg.CloseProxy{
+			ProxyName: pxy.GetName(),
+		},
+	}
+	go func() {
+		ctl.pluginManager.CloseProxy(notifyContent)
+	}()
+
 	return
 }
