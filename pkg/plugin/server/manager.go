@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -132,24 +133,29 @@ func (m *Manager) NewProxy(content *NewProxyContent) (*NewProxyContent, error) {
 	return content, nil
 }
 
-func (m *Manager) CloseProxy(content *CloseProxyContent) {
+func (m *Manager) CloseProxy(content *CloseProxyContent) error {
 	if len(m.closeProxyPlugins) == 0 {
-		return
+		return nil
 	}
 
-	var (
-		err error
-	)
+	errs := make([]string, 0)
 	reqid, _ := util.RandID()
 	xl := xlog.New().AppendPrefix("reqid: " + reqid)
 	ctx := xlog.NewContext(context.Background(), xl)
 	ctx = NewReqidContext(ctx, reqid)
 
 	for _, p := range m.closeProxyPlugins {
-		_, _, err = p.Handle(ctx, OpCloseProxy, *content)
+		_, _, err := p.Handle(ctx, OpCloseProxy, *content)
 		if err != nil {
 			xl.Warn("send CloseProxy request to plugin [%s] error: %v", p.Name(), err)
+			errs = append(errs, fmt.Sprintf("[%s]: %v", p.Name(), err))
 		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("send CloseProxy request to plugin errors: %s", strings.Join(errs, "; "))
+	} else {
+		return nil
 	}
 }
 
