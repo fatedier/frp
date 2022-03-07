@@ -261,6 +261,8 @@ func UnmarshalClientConfFromIni(source interface{}) (ClientCommonConf, error) {
 	}
 
 	common.Metas = GetMapWithoutPrefix(s.KeysHash(), "meta_")
+	common.ClientConfig.OidcAdditionalEndpointParams = GetMapWithoutPrefix(s.KeysHash(), "oidc_additional_")
+
 	return common, nil
 }
 
