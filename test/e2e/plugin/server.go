@@ -158,6 +158,56 @@ var _ = Describe("[Feature: Server-Plugins]", func() {
 		})
 	})
 
+	Describe("CloseProxy", func() {
+		newFunc := func() *plugin.Request {
+			var r plugin.Request
+			r.Content = &plugin.CloseProxyContent{}
+			return &r
+		}
+
+		It("Validate Info", func() {
+			localPort := f.AllocPort()
+			var recordProxyName string
+			handler := func(req *plugin.Request) *plugin.Response {
+				var ret plugin.Response
+				content := req.Content.(*plugin.CloseProxyContent)
+				recordProxyName = content.ProxyName
+				return &ret
+			}
+			pluginServer := NewHTTPPluginServer(localPort, newFunc, handler, nil)
+
+			f.RunServer("", pluginServer)
+
+			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			[plugin.test]
+			addr = 127.0.0.1:%d
+			path = /handler
+			ops = CloseProxy
+			`, localPort)
+			clientConf := consts.DefaultClientConfig
+
+			remotePort := f.AllocPort()
+			clientConf += fmt.Sprintf(`
+			[tcp]
+			type = tcp
+			local_port = {{ .%s }}
+			remote_port = %d
+			`, framework.TCPEchoServerPort, remotePort)
+
+			_, clients := f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+			framework.NewRequestExpect(f).Port(remotePort).Ensure()
+
+			for _, c := range clients {
+				c.Stop()
+			}
+
+			time.Sleep(1 * time.Second)
+
+			framework.ExpectEqual(recordProxyName, "tcp")
+		})
+	})
+
 	Describe("Ping", func() {
 		newFunc := func() *plugin.Request {
 			var r plugin.Request

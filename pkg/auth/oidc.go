@@ -40,14 +40,20 @@ type OidcClientConfig struct {
 	// It will be used to get an OIDC token if AuthenticationMethod == "oidc".
 	// By default, this value is "".
 	OidcTokenEndpointURL string `ini:"oidc_token_endpoint_url" json:"oidc_token_endpoint_url"`
+
+	// OidcAdditionalEndpointParams specifies additional parameters to be sent
+	// this field will be transfer to map[string][]string in OIDC token generator
+	// The field will be set by prefix "oidc_additional_"
+	OidcAdditionalEndpointParams map[string]string `ini:"-" json:"oidc_additional_endpoint_params"`
 }
 
 func getDefaultOidcClientConf() OidcClientConfig {
 	return OidcClientConfig{
-		OidcClientID:         "",
-		OidcClientSecret:     "",
-		OidcAudience:         "",
-		OidcTokenEndpointURL: "",
+		OidcClientID:                 "",
+		OidcClientSecret:             "",
+		OidcAudience:                 "",
+		OidcTokenEndpointURL:         "",
+		OidcAdditionalEndpointParams: make(map[string]string),
 	}
 }
 
@@ -88,11 +94,17 @@ type OidcAuthProvider struct {
 }
 
 func NewOidcAuthSetter(baseCfg BaseConfig, cfg OidcClientConfig) *OidcAuthProvider {
+	eps := make(map[string][]string)
+	for k, v := range cfg.OidcAdditionalEndpointParams {
+		eps[k] = []string{v}
+	}
+
 	tokenGenerator := &clientcredentials.Config{
-		ClientID:     cfg.OidcClientID,
-		ClientSecret: cfg.OidcClientSecret,
-		Scopes:       []string{cfg.OidcAudience},
-		TokenURL:     cfg.OidcTokenEndpointURL,
+		ClientID:       cfg.OidcClientID,
+		ClientSecret:   cfg.OidcClientSecret,
+		Scopes:         []string{cfg.OidcAudience},
+		TokenURL:       cfg.OidcTokenEndpointURL,
+		EndpointParams: eps,
 	}
 
 	return &OidcAuthProvider{

@@ -19,9 +19,11 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	mathrand "math/rand"
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // RandID return a rand string used in frp.
@@ -108,4 +110,18 @@ func GenerateResponseErrorString(summary string, err error, detailed bool) strin
 		return err.Error()
 	}
 	return summary
+}
+
+func RandomSleep(duration time.Duration, minRatio, maxRatio float64) time.Duration {
+	min := int64(minRatio * 1000.0)
+	max := int64(maxRatio * 1000.0)
+	var n int64
+	if max <= min {
+		n = min
+	} else {
+		n = mathrand.Int63n(max-min) + min
+	}
+	d := duration * time.Duration(n) / time.Duration(1000)
+	time.Sleep(d)
+	return d
 }

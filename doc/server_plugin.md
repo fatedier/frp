@@ -70,7 +70,7 @@ The response can look like any of the following:
 
 ### Operation
 
-Currently `Login`, `NewProxy`, `Ping`, `NewWorkConn` and `NewUserConn` operations are supported.
+Currently `Login`, `NewProxy`, `CloseProxy`, `Ping`, `NewWorkConn` and `NewUserConn` operations are supported.
 
 #### Login
 
@@ -132,6 +132,26 @@ Create new proxy
         "multiplexer": <string>
 
         "metas": map<string>string
+    }
+}
+```
+
+#### CloseProxy
+
+A previously created proxy is closed.
+
+Please note that one request will be sent for every proxy that is closed, do **NOT** use this
+if you have too many proxies bound to a single client, as this may exhaust the server's resources.
+
+```
+{
+    "content": {
+        "user": {
+            "user": <string>,
+            "metas": map<string>string
+            "run_id": <string>
+        },
+        "proxy_name": <string>
     }
 }
 ```
