@@ -244,7 +244,9 @@ func (ctl *Control) connectServer() (conn net.Conn, err error) {
 		protocol := ctl.clientCfg.Protocol
 		if protocol == "websocket" {
 			protocol = "tcp"
-			dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: frpNet.DialHookWebsocket()}))
+			dialOptions = append(dialOptions,
+				libdial.WithAfterHook(libdial.AfterHook{Hook: frpNet.DialHookWebsocket(ctl.clientCfg.WebsocketPath)}),
+			)
 		}
 		if ctl.clientCfg.ConnectServerLocalIP != "" {
 			dialOptions = append(dialOptions, libdial.WithLocalAddr(ctl.clientCfg.ConnectServerLocalIP))

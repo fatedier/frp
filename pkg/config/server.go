@@ -46,6 +46,9 @@ type ServerCommonConf struct {
 	// value is 0, the server will not listen for KCP connections. By default,
 	// this value is 0.
 	KCPBindPort int `ini:"kcp_bind_port" json:"kcp_bind_port" validate:"gte=0,lte=65535"`
+	// WebsocketPath specifies the websocket PATH when working in WS mode.
+	// require start with '/', no space. By default, this value is "/~!frp".
+	WebsocketPath string `ini:"websocket_path" json:"websocket_path"`
 	// ProxyBindAddr specifies the address that the proxy binds to. This value
 	// may be the same as BindAddr.
 	ProxyBindAddr string `ini:"proxy_bind_addr" json:"proxy_bind_addr"`
@@ -178,6 +181,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		BindPort:                7000,
 		BindUDPPort:             0,
 		KCPBindPort:             0,
+		WebsocketPath:           "/~!frp",
 		ProxyBindAddr:           "",
 		VhostHTTPPort:           0,
 		VhostHTTPSPort:          0,

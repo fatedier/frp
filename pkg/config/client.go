@@ -115,6 +115,9 @@ type ClientCommonConf struct {
 	// Valid values are "tcp", "kcp" and "websocket". By default, this value
 	// is "tcp".
 	Protocol string `ini:"protocol" json:"protocol"`
+	// WebsocketPath specifies the websocket PATH when working in WS mode.
+	// require start with '/', no space. By default, this value is "/~!frp".
+	WebsocketPath string `ini:"websocket_path" json:"websocket_path"`
 	// TLSEnable specifies whether or not TLS should be used when communicating
 	// with the server. If "tls_cert_file" and "tls_key_file" are valid,
 	// client will load the supplied tls configuration.
@@ -179,6 +182,7 @@ func GetDefaultClientConf() ClientCommonConf {
 		LoginFailExit:           true,
 		Start:                   make([]string, 0),
 		Protocol:                "tcp",
+		WebsocketPath:           "/~!frp",
 		TLSEnable:               false,
 		TLSCertFile:             "",
 		TLSKeyFile:              "",

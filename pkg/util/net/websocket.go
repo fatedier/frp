@@ -13,10 +13,6 @@ var (
 	ErrWebsocketListenerClosed = errors.New("websocket listener closed")
 )
 
-const (
-	FrpWebsocketPath = "/~!frp"
-)
-
 type WebsocketListener struct {
 	ln       net.Listener
 	acceptCh chan net.Conn
@@ -27,13 +23,13 @@ type WebsocketListener struct {
 
 // NewWebsocketListener to handle websocket connections
 // ln: tcp listener for websocket connections
-func NewWebsocketListener(ln net.Listener) (wl *WebsocketListener) {
+func NewWebsocketListener(ln net.Listener, websocketPath string) (wl *WebsocketListener) {
 	wl = &WebsocketListener{
 		acceptCh: make(chan net.Conn),
 	}
 
 	muxer := http.NewServeMux()
-	muxer.Handle(FrpWebsocketPath, websocket.Handler(func(c *websocket.Conn) {
+	muxer.Handle(websocketPath, websocket.Handler(func(c *websocket.Conn) {
 		notifyCh := make(chan struct{})
 		conn := WrapCloseNotifyConn(c, func() {
 			close(notifyCh)
@@ -56,7 +52,7 @@ func ListenWebsocket(bindAddr string, bindPort int) (*WebsocketListener, error) 
 	if err != nil {
 		return nil, err
 	}
-	l := NewWebsocketListener(tcpLn)
+	l := NewWebsocketListener(tcpLn, "/~!frp")
 	return l, nil
 }
 

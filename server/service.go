@@ -204,11 +204,11 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	}
 
 	// Listen for accepting connections from client using websocket protocol.
-	websocketPrefix := []byte("GET " + frpNet.FrpWebsocketPath)
+	websocketPrefix := []byte("GET " + cfg.WebsocketPath)
 	websocketLn := svr.muxer.Listen(0, uint32(len(websocketPrefix)), func(data []byte) bool {
 		return bytes.Equal(data, websocketPrefix)
 	})
-	svr.websocketListener = frpNet.NewWebsocketListener(websocketLn)
+	svr.websocketListener = frpNet.NewWebsocketListener(websocketLn, cfg.WebsocketPath)
 
 	// Create http vhost muxer.
 	if cfg.VhostHTTPPort > 0 {
