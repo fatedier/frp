@@ -377,28 +377,46 @@ func (sv *SUDPVisitor) Run() (err error) {
 func (sv *SUDPVisitor) dispatcher() {
 	xl := xlog.FromContextSafe(sv.ctx)
 
+	var (
+		visitorConn net.Conn
+		err         error
+	)
+
 	for {
 		// loop for get frpc to frps tcp conn
 		// setup worker
 		// wait worker to finished
 		// retry or exit
-		visitorConn, err := sv.getNewVisitorConn()
+
+		if len(sv.sendCh) > 0 {
+			visitorConn, err = sv.getNewVisitorConn() // connect to frps when data is ready
+		} else {
+			time.Sleep(time.Second)
+			continue
+		}
+
 		if err != nil {
+			// release all sendCh data
 			// check if proxy is closed
 			// if checkCloseCh is close, we will return, other case we will continue to reconnect
-			select {
-			case <-sv.checkCloseCh:
-				xl.Info("frpc sudp visitor proxy is closed")
-				return
-			default:
+			for {
+				if len(sv.sendCh) == 0 {
+					break
+				}
+				select {
+				case <-sv.sendCh:
+				case <-sv.checkCloseCh:
+					xl.Info("frpc sudp visitor proxy is closed")
+					return
+				default:
+				}
 			}
-
-			time.Sleep(3 * time.Second)
 
 			xl.Warn("newVisitorConn to frps error: %v, try to reconnect", err)
 			continue
 		}
 
+		// visitorConn always be closed when worker done.
 		sv.worker(visitorConn)
 
 		select {
