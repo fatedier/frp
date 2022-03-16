@@ -380,44 +380,30 @@ func (sv *SUDPVisitor) dispatcher() {
 	var (
 		visitorConn net.Conn
 		err         error
+
+		firstPacket *msg.UDPPacket
 	)
 
 	for {
-		// loop for get frpc to frps tcp conn
-		// setup worker
-		// wait worker to finished
-		// retry or exit
-
-		if len(sv.sendCh) > 0 {
-			visitorConn, err = sv.getNewVisitorConn() // connect to frps when data is ready
-		} else {
-			time.Sleep(time.Second)
-			continue
+		select {
+		case firstPacket = <-sv.sendCh:
+			if firstPacket == nil {
+				xl.Info("frpc sudp visitor proxy is closed")
+				return
+			}
+		case <-sv.checkCloseCh:
+			xl.Info("frpc sudp visitor proxy is closed")
+			return
 		}
 
+		visitorConn, err = sv.getNewVisitorConn()
 		if err != nil {
-			// release all sendCh data
-			// check if proxy is closed
-			// if checkCloseCh is close, we will return, other case we will continue to reconnect
-			for {
-				if len(sv.sendCh) == 0 {
-					break
-				}
-				select {
-				case <-sv.sendCh:
-				case <-sv.checkCloseCh:
-					xl.Info("frpc sudp visitor proxy is closed")
-					return
-				default:
-				}
-			}
-
 			xl.Warn("newVisitorConn to frps error: %v, try to reconnect", err)
 			continue
 		}
 
 		// visitorConn always be closed when worker done.
-		sv.worker(visitorConn)
+		sv.worker(visitorConn, firstPacket)
 
 		select {
 		case <-sv.checkCloseCh:
@@ -425,9 +411,10 @@ func (sv *SUDPVisitor) dispatcher() {
 		default:
 		}
 	}
+
 }
 
-func (sv *SUDPVisitor) worker(workConn net.Conn) {
+func (sv *SUDPVisitor) worker(workConn net.Conn, firstPacket *msg.UDPPacket) {
 	xl := xlog.FromContextSafe(sv.ctx)
 	xl.Debug("starting sudp proxy worker")
 
@@ -481,6 +468,14 @@ func (sv *SUDPVisitor) worker(workConn net.Conn) {
 		}()
 
 		var errRet error
+		if firstPacket != nil {
+			if errRet = msg.WriteMsg(conn, firstPacket); errRet != nil {
+				xl.Warn("sender goroutine for udp work connection closed: %v", errRet)
+				return
+			}
+			xl.Trace("send udp package to workConn: %s", firstPacket.Content)
+		}
+
 		for {
 			select {
 			case udpMsg, ok := <-sv.sendCh:
