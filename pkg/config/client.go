@@ -151,6 +151,9 @@ type ClientCommonConf struct {
 	UDPPacketSize int64 `ini:"udp_packet_size" json:"udp_packet_size"`
 	// Include other config files for proxies.
 	IncludeConfigFiles []string `ini:"includes" json:"includes"`
+	// Enable golang pprof handlers in admin listener.
+	// Admin port must be set first.
+	PprofEnable bool `ini:"pprof_enable" json:"pprof_enable"`
 }
 
 // GetDefaultClientConf returns a client configuration with default values.
@@ -188,6 +191,7 @@ func GetDefaultClientConf() ClientCommonConf {
 		Metas:                   make(map[string]string),
 		UDPPacketSize:           1500,
 		IncludeConfigFiles:      make([]string, 0),
+		PprofEnable:             false,
 	}
 }
 
