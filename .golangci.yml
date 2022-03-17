@@ -62,10 +62,9 @@ linters:
     # TODO: enable one by one
     - paralleltest
     - maintidx
-    - ifshort
     - unparam
     - nakedret
-    - misspell
+    # - misspell
     - goimports
     - goconst
     - wastedassign
@@ -120,3 +119,4 @@ linters:
     - scopelint   
     - testpackage 
     - wsl
+    - ifshort
