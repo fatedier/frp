@@ -18,10 +18,10 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/fatedier/golib/crypto"
+
 	_ "github.com/fatedier/frp/assets/frpc"
 	"github.com/fatedier/frp/cmd/frpc/sub"
-
-	"github.com/fatedier/golib/crypto"
 )
 
 func main() {

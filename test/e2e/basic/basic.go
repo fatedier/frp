@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	. "github.com/onsi/ginkgo"
+
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
@@ -12,8 +14,6 @@ import (
 	"github.com/fatedier/frp/test/e2e/mock/server/streamserver"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
-
-	. "github.com/onsi/ginkgo"
 )
 
 var _ = Describe("[Feature: Basic]", func() {

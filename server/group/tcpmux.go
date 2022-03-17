@@ -20,11 +20,11 @@ import (
 	"net"
 	"sync"
 
+	gerr "github.com/fatedier/golib/errors"
+
 	"github.com/fatedier/frp/pkg/consts"
 	"github.com/fatedier/frp/pkg/util/tcpmux"
 	"github.com/fatedier/frp/pkg/util/vhost"
-
-	gerr "github.com/fatedier/golib/errors"
 )
 
 // TCPMuxGroupCtl manage all TCPMuxGroups

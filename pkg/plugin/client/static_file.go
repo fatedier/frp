@@ -19,9 +19,9 @@ import (
 	"net"
 	"net/http"
 
-	frpNet "github.com/fatedier/frp/pkg/util/net"
-
 	"github.com/gorilla/mux"
+
+	frpNet "github.com/fatedier/frp/pkg/util/net"
 )
 
 const PluginStaticFile = "static_file"

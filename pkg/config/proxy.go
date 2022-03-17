@@ -19,10 +19,10 @@ import (
 	"reflect"
 	"strings"
 
+	"gopkg.in/ini.v1"
+
 	"github.com/fatedier/frp/pkg/consts"
 	"github.com/fatedier/frp/pkg/msg"
-
-	"gopkg.in/ini.v1"
 )
 
 // Proxy

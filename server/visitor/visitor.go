@@ -20,10 +20,10 @@ import (
 	"net"
 	"sync"
 
+	frpIo "github.com/fatedier/golib/io"
+
 	frpNet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
-
-	frpIo "github.com/fatedier/golib/io"
 )
 
 // Manager for visitor listeners.

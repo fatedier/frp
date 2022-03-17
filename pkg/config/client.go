@@ -20,10 +20,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/ini.v1"
+
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/util/util"
-
-	"gopkg.in/ini.v1"
 )
 
 // ClientCommonConf contains information for a client service. It is

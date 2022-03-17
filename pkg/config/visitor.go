@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/fatedier/frp/pkg/consts"
-
 	"gopkg.in/ini.v1"
+
+	"github.com/fatedier/frp/pkg/consts"
 )
 
 // Visitor

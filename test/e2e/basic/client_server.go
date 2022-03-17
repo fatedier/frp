@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	. "github.com/onsi/ginkgo"
+
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
 	"github.com/fatedier/frp/test/e2e/pkg/cert"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
-
-	. "github.com/onsi/ginkgo"
 )
 
 type generalTestConfigures struct {

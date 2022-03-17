@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	. "github.com/onsi/ginkgo"
+
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
-
-	. "github.com/onsi/ginkgo"
 )
 
 var _ = Describe("[Feature: Server-Plugins]", func() {

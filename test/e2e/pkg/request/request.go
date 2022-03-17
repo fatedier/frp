@@ -12,8 +12,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/fatedier/frp/test/e2e/pkg/rpc"
 	libdial "github.com/fatedier/golib/net/dial"
+
+	"github.com/fatedier/frp/test/e2e/pkg/rpc"
 )
 
 type Request struct {

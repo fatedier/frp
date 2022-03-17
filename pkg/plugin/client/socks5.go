@@ -19,9 +19,9 @@ import (
 	"log"
 	"net"
 
-	frpNet "github.com/fatedier/frp/pkg/util/net"
-
 	gosocks5 "github.com/armon/go-socks5"
+
+	frpNet "github.com/fatedier/frp/pkg/util/net"
 )
 
 const PluginSocks5 = "socks5"

@@ -17,10 +17,10 @@ package config
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/fatedier/frp/pkg/auth"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func Test_LoadServerCommonConf(t *testing.T) {

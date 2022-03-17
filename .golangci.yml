@@ -64,8 +64,6 @@ linters:
     - maintidx
     - unparam
     - nakedret
-    # - misspell
-    - goimports
     - goconst
     - wastedassign
     - gosimple
@@ -75,7 +73,7 @@ linters:
     - unused
     - promlinter
     - nestif
-    - gci
+    # - gci
     - errorlint
     - ineffassign
     - lll

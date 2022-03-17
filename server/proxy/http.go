@@ -19,13 +19,13 @@ import (
 	"net"
 	"strings"
 
+	frpIo "github.com/fatedier/golib/io"
+
 	"github.com/fatedier/frp/pkg/config"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/vhost"
 	"github.com/fatedier/frp/server/metrics"
-
-	frpIo "github.com/fatedier/golib/io"
 )
 
 type HTTPProxy struct {

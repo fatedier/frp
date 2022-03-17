@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	frpIo "github.com/fatedier/golib/io"
+
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
@@ -30,8 +32,6 @@ import (
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/metrics"
-
-	frpIo "github.com/fatedier/golib/io"
 )
 
 type GetWorkConnFn func() (net.Conn, error)

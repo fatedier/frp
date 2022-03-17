@@ -17,10 +17,10 @@ package config
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/consts"
-
-	"github.com/stretchr/testify/assert"
 )
 
 const (

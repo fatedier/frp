@@ -26,10 +26,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatedier/golib/pool"
+
 	frpLog "github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/util"
-
-	"github.com/fatedier/golib/pool"
 )
 
 var (

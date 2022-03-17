@@ -6,12 +6,12 @@ import (
 	"net"
 	"sync"
 
+	"github.com/fatedier/golib/errors"
+
 	"github.com/fatedier/frp/client/event"
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/xlog"
-
-	"github.com/fatedier/golib/errors"
 )
 
 type Manager struct {

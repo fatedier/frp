@@ -20,11 +20,11 @@ import (
 	"net/http/pprof"
 	"time"
 
-	"github.com/fatedier/frp/assets"
-	frpNet "github.com/fatedier/frp/pkg/util/net"
-
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/fatedier/frp/assets"
+	frpNet "github.com/fatedier/frp/pkg/util/net"
 )
 
 var (

@@ -26,6 +26,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	libdial "github.com/fatedier/golib/net/dial"
+	fmux "github.com/hashicorp/yamux"
+
 	"github.com/fatedier/frp/assets"
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
@@ -36,9 +39,6 @@ import (
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/xlog"
-	libdial "github.com/fatedier/golib/net/dial"
-
-	fmux "github.com/hashicorp/yamux"
 )
 
 // Service is a client service.

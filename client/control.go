@@ -24,6 +24,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatedier/golib/control/shutdown"
+	"github.com/fatedier/golib/crypto"
+	libdial "github.com/fatedier/golib/net/dial"
+	fmux "github.com/hashicorp/yamux"
+
 	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
@@ -31,11 +36,6 @@ import (
 	"github.com/fatedier/frp/pkg/transport"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
-
-	"github.com/fatedier/golib/control/shutdown"
-	"github.com/fatedier/golib/crypto"
-	libdial "github.com/fatedier/golib/net/dial"
-	fmux "github.com/hashicorp/yamux"
 )
 
 type Control struct {

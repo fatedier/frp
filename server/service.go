@@ -26,6 +26,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/fatedier/golib/net/mux"
+	fmux "github.com/hashicorp/yamux"
+
 	"github.com/fatedier/frp/assets"
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
@@ -47,9 +50,6 @@ import (
 	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/server/proxy"
 	"github.com/fatedier/frp/server/visitor"
-
-	"github.com/fatedier/golib/net/mux"
-	fmux "github.com/hashicorp/yamux"
 )
 
 const (
