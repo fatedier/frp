@@ -85,7 +85,7 @@ linters:
     - whitespace
     - gofumpt
     - godot
-    - gofmt
+    # - gofmt
     - gocritic
     - gocognit
     - deadcode
