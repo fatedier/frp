@@ -167,6 +167,9 @@ type ServerCommonConf struct {
 	// UDPPacketSize specifies the UDP packet size
 	// By default, this value is 1500
 	UDPPacketSize int64 `ini:"udp_packet_size" json:"udp_packet_size"`
+	// Enable golang pprof handlers in dashboard listener.
+	// Dashboard port must be set first.
+	PprofEnable bool `ini:"pprof_enable" json:"pprof_enable"`
 }
 
 // GetDefaultServerConf returns a server configuration with reasonable
@@ -210,6 +213,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		Custom404Page:           "",
 		HTTPPlugins:             make(map[string]plugin.HTTPPluginOptions),
 		UDPPacketSize:           1500,
+		PprofEnable:             false,
 	}
 }
 
