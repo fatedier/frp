@@ -1,0 +1,125 @@
+run:
+  modules-download-mode: readonly
+  issues-exit-code: 0
+
+linters-settings:
+  exhaustive:
+    default-signifies-exhaustive: false
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/fatedier/frp)
+  goconst:
+    min-occurrences: 5
+    ignore-tests: true
+  godot:
+    scope: toplevel
+    exclude:
+      - go-sumtype:decl
+      - check interfaces
+    capital: true
+  godox:
+    keywords:
+      - BUG
+      - FIXME
+      - HACK
+  goimports:
+    local-prefixes: github.com/fatedier/frp
+  gosimple:
+    go: "1.18"
+    checks: ["all"]
+  lll:
+    line-length: 130
+    tab-width: 4
+  nolintlint:
+    allow-unused: false
+    allow-leading-space: false
+    allow-no-explanation: []
+    require-explanation: true
+    require-specific: true
+  staticcheck:
+    go: "1.18"
+    checks: ["all"]
+  stylecheck:
+    go: "1.18"
+    checks: ["all"]
+    dot-import-whitelist: []
+    initialisms: []
+    http-status-code-whitelist: []
+  unparam:
+    check-exported: true
+  unused:
+    go: "1.18"
+  whitespace:
+    multi-if: false
+    multi-func: false
+  tagliatelle:
+
+linters:
+  enable-all: true
+  disable:
+    # TODO: enable one by one
+    - paralleltest
+    - maintidx
+    - ifshort
+    - gosimple
+    - unparam
+    - nakedret
+    - misspell
+    - goimports
+    - goconst
+    - wastedassign
+    - gosimple
+    - dupl
+    - goprintffuncname
+    - structcheck
+    - unused
+    - promlinter
+    - nestif
+    - gci
+    - errorlint
+    - ineffassign
+    - lll
+    - contextcheck
+    - bodyclose
+    - whitespace
+    - gofumpt
+    - godot
+    - gofmt
+    - gocritic
+    - gocognit
+    - deadcode
+    - unconvert
+    - varcheck
+    - errchkjson
+    - govet
+    - nilnil
+    - thelper
+    - ireturn
+    - forbidigo
+    - containedctx
+    - tagliatelle
+    - cyclop
+    - errcheck
+    - exhaustivestruct
+    - forcetypeassert
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
+    - goerr113
+    - gomnd
+    - gosec
+    - revive
+    - varnamelen
+    - wrapcheck
+    - noctx
+    - staticcheck
+    - stylecheck
+    - golint      
+    - interfacer 
+    - maligned    
+    - nlreturn    
+    - scopelint   
+    - testpackage 
+    - wsl
