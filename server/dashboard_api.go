@@ -250,7 +250,7 @@ func (svr *Service) APIProxyByTypeAndName(w http.ResponseWriter, r *http.Request
 	}()
 	log.Info("Http request: [%s]", r.URL.Path)
 
-	proxyStatsResp := GetProxyStatsResp{}
+	var proxyStatsResp GetProxyStatsResp
 	proxyStatsResp, res.Code, res.Msg = svr.getProxyStatsByTypeAndName(proxyType, name)
 	if res.Code != 200 {
 		return
