@@ -116,7 +116,7 @@ func NewOidcAuthSetter(baseCfg BaseConfig, cfg OidcClientConfig) *OidcAuthProvid
 func (auth *OidcAuthProvider) generateAccessToken() (accessToken string, err error) {
 	tokenObj, err := auth.tokenGenerator.Token(context.Background())
 	if err != nil {
-		return "", fmt.Errorf("couldn't generate OIDC token for login: %v", err)
+		return "", fmt.Errorf("couldn't generate OIDC token for login: %w", err)
 	}
 	return tokenObj.AccessToken, nil
 }
@@ -171,7 +171,7 @@ func NewOidcAuthVerifier(baseCfg BaseConfig, cfg OidcServerConfig) *OidcAuthCons
 func (auth *OidcAuthConsumer) VerifyLogin(loginMsg *msg.Login) (err error) {
 	token, err := auth.verifier.Verify(context.Background(), loginMsg.PrivilegeKey)
 	if err != nil {
-		return fmt.Errorf("invalid OIDC token in login: %v", err)
+		return fmt.Errorf("invalid OIDC token in login: %w", err)
 	}
 	auth.subjectFromLogin = token.Subject
 	return nil
@@ -180,7 +180,7 @@ func (auth *OidcAuthConsumer) VerifyLogin(loginMsg *msg.Login) (err error) {
 func (auth *OidcAuthConsumer) verifyPostLoginToken(privilegeKey string) (err error) {
 	token, err := auth.verifier.Verify(context.Background(), privilegeKey)
 	if err != nil {
-		return fmt.Errorf("invalid OIDC token in ping: %v", err)
+		return fmt.Errorf("invalid OIDC token in ping: %w", err)
 	}
 	if token.Subject != auth.subjectFromLogin {
 		return fmt.Errorf("received different OIDC subject in login and ping. "+

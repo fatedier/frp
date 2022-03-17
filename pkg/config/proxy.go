@@ -639,7 +639,7 @@ func (cfg *TCPMuxProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) 
 	}
 
 	if err = cfg.DomainConf.checkForSvr(serverCfg); err != nil {
-		err = fmt.Errorf("proxy [%s] domain conf check error: %v", cfg.ProxyName, err)
+		err = fmt.Errorf("proxy [%s] domain conf check error: %w", cfg.ProxyName, err)
 		return
 	}
 
@@ -788,7 +788,7 @@ func (cfg *HTTPProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
 	}
 
 	if err = cfg.DomainConf.checkForSvr(serverCfg); err != nil {
-		err = fmt.Errorf("proxy [%s] domain conf check error: %v", cfg.ProxyName, err)
+		err = fmt.Errorf("proxy [%s] domain conf check error: %w", cfg.ProxyName, err)
 		return
 	}
 
@@ -860,7 +860,7 @@ func (cfg *HTTPSProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
 	}
 
 	if err = cfg.DomainConf.checkForSvr(serverCfg); err != nil {
-		err = fmt.Errorf("proxy [%s] domain conf check error: %v", cfg.ProxyName, err)
+		err = fmt.Errorf("proxy [%s] domain conf check error: %w", cfg.ProxyName, err)
 		return
 	}
 

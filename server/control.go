@@ -16,6 +16,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -25,7 +26,7 @@ import (
 
 	"github.com/fatedier/golib/control/shutdown"
 	"github.com/fatedier/golib/crypto"
-	"github.com/fatedier/golib/errors"
+	gErr "github.com/fatedier/golib/errors"
 
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
@@ -248,7 +249,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 		xl.Debug("get work connection from pool")
 	default:
 		// no work connections available in the poll, send message to frpc to get more
-		if err = errors.PanicToError(func() {
+		if err = gErr.PanicToError(func() {
 			ctl.sendCh <- &msg.ReqWorkConn{}
 		}); err != nil {
 			return nil, fmt.Errorf("control is already closed")
@@ -270,7 +271,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 	}
 
 	// When we get a work connection from pool, replace it with a new one.
-	errors.PanicToError(func() {
+	gErr.PanicToError(func() {
 		ctl.sendCh <- &msg.ReqWorkConn{}
 	})
 	return
@@ -331,7 +332,7 @@ func (ctl *Control) reader() {
 	for {
 		m, err := msg.ReadMsg(encReader)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				xl.Debug("control connection closed")
 				return
 			}

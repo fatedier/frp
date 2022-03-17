@@ -355,12 +355,12 @@ func (sv *SUDPVisitor) Run() (err error) {
 
 	addr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(sv.cfg.BindAddr, strconv.Itoa(sv.cfg.BindPort)))
 	if err != nil {
-		return fmt.Errorf("sudp ResolveUDPAddr error: %v", err)
+		return fmt.Errorf("sudp ResolveUDPAddr error: %w", err)
 	}
 
 	sv.udpConn, err = net.ListenUDP("udp", addr)
 	if err != nil {
-		return fmt.Errorf("listen udp port %s error: %v", addr.String(), err)
+		return fmt.Errorf("listen udp port %s error: %w", addr.String(), err)
 	}
 
 	sv.sendCh = make(chan *msg.UDPPacket, 1024)
@@ -506,7 +506,7 @@ func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
 	xl := xlog.FromContextSafe(sv.ctx)
 	visitorConn, err := sv.ctl.connectServer()
 	if err != nil {
-		return nil, fmt.Errorf("frpc connect frps error: %v", err)
+		return nil, fmt.Errorf("frpc connect frps error: %w", err)
 	}
 
 	now := time.Now().Unix()
@@ -519,14 +519,14 @@ func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
 	}
 	err = msg.WriteMsg(visitorConn, newVisitorConnMsg)
 	if err != nil {
-		return nil, fmt.Errorf("frpc send newVisitorConnMsg to frps error: %v", err)
+		return nil, fmt.Errorf("frpc send newVisitorConnMsg to frps error: %w", err)
 	}
 
 	var newVisitorConnRespMsg msg.NewVisitorConnResp
 	visitorConn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	err = msg.ReadMsgInto(visitorConn, &newVisitorConnRespMsg)
 	if err != nil {
-		return nil, fmt.Errorf("frpc read newVisitorConnRespMsg error: %v", err)
+		return nil, fmt.Errorf("frpc read newVisitorConnRespMsg error: %w", err)
 	}
 	visitorConn.SetReadDeadline(time.Time{})
 
@@ -539,7 +539,7 @@ func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
 	if sv.cfg.UseEncryption {
 		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk))
 		if err != nil {
-			xl.Error("create encryption stream error: %v", err)
+			xl.Error("create encryption stream error: %w", err)
 			return nil, err
 		}
 	}

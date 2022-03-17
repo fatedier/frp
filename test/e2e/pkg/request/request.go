@@ -144,7 +144,7 @@ func (r *Request) Do() (*Response, error) {
 		}
 		proxyType, proxyAddress, auth, err := libdial.ParseProxyURL(r.proxyURL)
 		if err != nil {
-			return nil, fmt.Errorf("parse ProxyURL error: %v", err)
+			return nil, fmt.Errorf("parse ProxyURL error: %w", err)
 		}
 		conn, err = libdial.Dial(addr, libdial.WithProxy(proxyType, proxyAddress), libdial.WithProxyAuth(auth))
 		if err != nil {
@@ -235,7 +235,7 @@ func (r *Request) sendHTTPRequest(method, urlstr string, host string, headers ma
 func (r *Request) sendRequestByConn(c net.Conn, content []byte) ([]byte, error) {
 	_, err := rpc.WriteBytes(c, content)
 	if err != nil {
-		return nil, fmt.Errorf("write error: %v", err)
+		return nil, fmt.Errorf("write error: %w", err)
 	}
 
 	var reader io.Reader = c
@@ -245,7 +245,7 @@ func (r *Request) sendRequestByConn(c net.Conn, content []byte) ([]byte, error) 
 
 	buf, err := rpc.ReadBytes(reader)
 	if err != nil {
-		return nil, fmt.Errorf("read error: %v", err)
+		return nil, fmt.Errorf("read error: %w", err)
 	}
 	return buf, nil
 }

@@ -246,7 +246,7 @@ func UnmarshalServerConfFromIni(source interface{}) (ServerCommonConf, error) {
 	if allowPortStr != "" {
 		allowPorts, err := util.ParseRangeNumbers(allowPortStr)
 		if err != nil {
-			return ServerCommonConf{}, fmt.Errorf("invalid allow_ports: %v", err)
+			return ServerCommonConf{}, fmt.Errorf("invalid allow_ports: %w", err)
 		}
 		for _, port := range allowPorts {
 			common.AllowPorts[int(port)] = struct{}{}

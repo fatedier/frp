@@ -320,7 +320,7 @@ func LoadAllProxyConfsFromIni(
 	for _, section := range rangeSections {
 		err = renderRangeProxyTemplates(f, section)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to render template for proxy %s: %v", section.Name(), err)
+			return nil, nil, fmt.Errorf("failed to render template for proxy %s: %w", section.Name(), err)
 		}
 	}
 
@@ -345,7 +345,7 @@ func LoadAllProxyConfsFromIni(
 		case "server":
 			newConf, newErr := NewProxyConfFromIni(prefix, name, section)
 			if newErr != nil {
-				return nil, nil, fmt.Errorf("failed to parse proxy %s, err: %v", name, newErr)
+				return nil, nil, fmt.Errorf("failed to parse proxy %s, err: %w", name, newErr)
 			}
 			proxyConfs[prefix+name] = newConf
 		case "visitor":

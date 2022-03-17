@@ -17,6 +17,7 @@ package plugin
 import (
 	"bufio"
 	"encoding/base64"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -126,7 +127,7 @@ func (hp *HTTPProxy) HTTPHandler(rw http.ResponseWriter, req *http.Request) {
 	rw.WriteHeader(resp.StatusCode)
 
 	_, err = io.Copy(rw, resp.Body)
-	if err != nil && err != io.EOF {
+	if err != nil && errors.Is(err, io.EOF) {
 		return
 	}
 }

@@ -98,7 +98,7 @@ func NewHTTPS2HTTPPlugin(params map[string]string) (Plugin, error) {
 
 	tlsConfig, err := p.genTLSConfig()
 	if err != nil {
-		return nil, fmt.Errorf("gen TLS config error: %v", err)
+		return nil, fmt.Errorf("gen TLS config error: %w", err)
 	}
 	ln := tls.NewListener(listener, tlsConfig)
 

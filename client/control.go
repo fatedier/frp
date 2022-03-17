@@ -17,6 +17,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"io"
 	"net"
 	"runtime/debug"
@@ -287,7 +288,7 @@ func (ctl *Control) reader() {
 	for {
 		m, err := msg.ReadMsg(encReader)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				xl.Debug("read from control connection EOF")
 				return
 			}

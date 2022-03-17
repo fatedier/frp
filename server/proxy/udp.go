@@ -61,7 +61,7 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 	xl := pxy.xl
 	pxy.realPort, err = pxy.rc.UDPPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
 	if err != nil {
-		return "", fmt.Errorf("acquire port %d error: %v", pxy.cfg.RemotePort, err)
+		return "", fmt.Errorf("acquire port %d error: %w", pxy.cfg.RemotePort, err)
 	}
 	defer func() {
 		if err != nil {

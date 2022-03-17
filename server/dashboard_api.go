@@ -88,7 +88,10 @@ func (svr *Service) APIServerInfo(w http.ResponseWriter, r *http.Request) {
 		ProxyTypeCounts: serverStats.ProxyTypeCounts,
 	}
 
-	buf, _ := json.Marshal(&svrResp)
+	buf, err := json.Marshal(&svrResp)
+	if err != nil {
+		log.Warn("marshal server information response: %w", err)
+	}
 	res.Msg = string(buf)
 }
 

@@ -8,6 +8,7 @@ package vhost
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -456,7 +457,7 @@ func (p *ReverseProxy) copyBuffer(dst io.Writer, src io.Reader, buf []byte) (int
 	var written int64
 	for {
 		nr, rerr := src.Read(buf)
-		if rerr != nil && rerr != io.EOF && rerr != context.Canceled {
+		if rerr != nil && !errors.Is(rerr, io.EOF) && !errors.Is(rerr, context.Canceled) {
 			p.logf("httputil: ReverseProxy read error during body copy: %v", rerr)
 		}
 		if nr > 0 {
@@ -582,7 +583,7 @@ func (p *ReverseProxy) handleUpgradeResponse(rw http.ResponseWriter, req *http.R
 
 	conn, brw, err := hj.Hijack()
 	if err != nil {
-		p.getErrorHandler()(rw, req, fmt.Errorf("Hijack failed on protocol switch: %v", err))
+		p.getErrorHandler()(rw, req, fmt.Errorf("Hijack failed on protocol switch: %w", err))
 		return
 	}
 	defer conn.Close()
@@ -592,11 +593,11 @@ func (p *ReverseProxy) handleUpgradeResponse(rw http.ResponseWriter, req *http.R
 	res.Header = rw.Header()
 	res.Body = nil // so res.Write only writes the headers; we have res.Body in backConn above
 	if err := res.Write(brw); err != nil {
-		p.getErrorHandler()(rw, req, fmt.Errorf("response write: %v", err))
+		p.getErrorHandler()(rw, req, fmt.Errorf("response write: %w", err))
 		return
 	}
 	if err := brw.Flush(); err != nil {
-		p.getErrorHandler()(rw, req, fmt.Errorf("response flush: %v", err))
+		p.getErrorHandler()(rw, req, fmt.Errorf("response flush: %w", err))
 		return
 	}
 	errc := make(chan error, 1)

@@ -146,7 +146,7 @@ func (rp *HTTPReverseProxy) CreateConnection(domain string, location string, rem
 			return fn(remoteAddr)
 		}
 	}
-	return nil, fmt.Errorf("%v: %s %s", ErrNoDomain, domain, location)
+	return nil, fmt.Errorf("%w: %s %s", ErrNoDomain, domain, location)
 }
 
 func (rp *HTTPReverseProxy) CheckAuth(domain, location, user, passwd string) bool {

@@ -127,13 +127,13 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.TCPMuxHTTPConnectPort))
 		l, err = net.Listen("tcp", address)
 		if err != nil {
-			err = fmt.Errorf("Create server listener error, %v", err)
+			err = fmt.Errorf("Create server listener error, %w", err)
 			return
 		}
 
 		svr.rc.TCPMuxHTTPConnectMuxer, err = tcpmux.NewHTTPConnectTCPMuxer(l, vhostReadWriteTimeout)
 		if err != nil {
-			err = fmt.Errorf("Create vhost tcpMuxer error, %v", err)
+			err = fmt.Errorf("Create vhost tcpMuxer error, %w", err)
 			return
 		}
 		log.Info("tcpmux httpconnect multiplexer listen on %s", address)
@@ -181,7 +181,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.BindPort))
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
-		err = fmt.Errorf("Create server listener error, %v", err)
+		err = fmt.Errorf("Create server listener error, %w", err)
 		return
 	}
 
@@ -197,7 +197,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.KCPBindPort))
 		svr.kcpListener, err = frpNet.ListenKcp(address)
 		if err != nil {
-			err = fmt.Errorf("Listen on kcp address udp %s error: %v", address, err)
+			err = fmt.Errorf("Listen on kcp address udp %s error: %w", address, err)
 			return
 		}
 		log.Info("frps kcp listen on udp %s", address)
@@ -228,7 +228,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		} else {
 			l, err = net.Listen("tcp", address)
 			if err != nil {
-				err = fmt.Errorf("Create vhost http listener error, %v", err)
+				err = fmt.Errorf("Create vhost http listener error, %w", err)
 				return
 			}
 		}
@@ -245,7 +245,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.VhostHTTPSPort))
 			l, err = net.Listen("tcp", address)
 			if err != nil {
-				err = fmt.Errorf("Create server listener error, %v", err)
+				err = fmt.Errorf("Create server listener error, %w", err)
 				return
 			}
 			log.Info("https service listen on %s", address)
@@ -253,7 +253,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 
 		svr.rc.VhostHTTPSMuxer, err = vhost.NewHTTPSMuxer(l, vhostReadWriteTimeout)
 		if err != nil {
-			err = fmt.Errorf("Create vhost httpsMuxer error, %v", err)
+			err = fmt.Errorf("Create vhost httpsMuxer error, %w", err)
 			return
 		}
 	}
@@ -270,7 +270,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.BindUDPPort))
 		nc, err = nathole.NewController(address)
 		if err != nil {
-			err = fmt.Errorf("Create nat hole controller error, %v", err)
+			err = fmt.Errorf("Create nat hole controller error, %w", err)
 			return
 		}
 		svr.rc.NatHoleController = nc
@@ -286,7 +286,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		address := net.JoinHostPort(cfg.DashboardAddr, strconv.Itoa(cfg.DashboardPort))
 		err = svr.RunDashboardServer(address)
 		if err != nil {
-			err = fmt.Errorf("Create dashboard web server error, %v", err)
+			err = fmt.Errorf("Create dashboard web server error, %w", err)
 			return
 		}
 		log.Info("Dashboard listen on %s", address)

@@ -145,7 +145,7 @@ func parseServerCommonCfg(fileType int, source []byte) (cfg config.ServerCommonC
 	cfg.Complete()
 	err = cfg.Validate()
 	if err != nil {
-		err = fmt.Errorf("Parse config error: %v", err)
+		err = fmt.Errorf("Parse config error: %w", err)
 		return
 	}
 	return
@@ -180,7 +180,7 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 		// e.g. 1000-2000,2001,2002,3000-4000
 		ports, errRet := util.ParseRangeNumbers(allowPorts)
 		if errRet != nil {
-			err = fmt.Errorf("Parse conf error: allow_ports: %v", errRet)
+			err = fmt.Errorf("Parse conf error: allow_ports: %w", errRet)
 			return
 		}
 

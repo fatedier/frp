@@ -135,14 +135,14 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 
 	ipStr, portStr, err := net.SplitHostPort(serverAddr)
 	if err != nil {
-		err = fmt.Errorf("invalid server_addr: %v", err)
+		err = fmt.Errorf("invalid server_addr: %w", err)
 		return
 	}
 
 	cfg.ServerAddr = ipStr
 	cfg.ServerPort, err = strconv.Atoi(portStr)
 	if err != nil {
-		err = fmt.Errorf("invalid server_addr: %v", err)
+		err = fmt.Errorf("invalid server_addr: %w", err)
 		return
 	}
 
@@ -160,7 +160,7 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 
 	cfg.Complete()
 	if err = cfg.Validate(); err != nil {
-		err = fmt.Errorf("Parse config error: %v", err)
+		err = fmt.Errorf("Parse config error: %w", err)
 		return
 	}
 	return

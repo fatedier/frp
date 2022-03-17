@@ -42,7 +42,7 @@ func ParseClientConfig(filePath string) (
 	}
 	cfg.Complete()
 	if err = cfg.Validate(); err != nil {
-		err = fmt.Errorf("Parse config error: %v", err)
+		err = fmt.Errorf("Parse config error: %w", err)
 		return
 	}
 
@@ -50,7 +50,7 @@ func ParseClientConfig(filePath string) (
 	var buf []byte
 	buf, err = getIncludeContents(cfg.IncludeConfigFiles)
 	if err != nil {
-		err = fmt.Errorf("getIncludeContents error: %v", err)
+		err = fmt.Errorf("getIncludeContents error: %w", err)
 		return
 	}
 	configBuffer.WriteString("\n")
@@ -88,7 +88,7 @@ func getIncludeContents(paths []string) ([]byte, error) {
 			if matched, _ := filepath.Match(filepath.Join(absDir, filepath.Base(path)), absFile); matched {
 				tmpContent, err := GetRenderedConfFromFile(absFile)
 				if err != nil {
-					return nil, fmt.Errorf("render extra config %s error: %v", absFile, err)
+					return nil, fmt.Errorf("render extra config %s error: %w", absFile, err)
 				}
 				out.Write(tmpContent)
 				out.WriteString("\n")

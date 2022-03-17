@@ -43,10 +43,10 @@ func ValidateTestContext(t *TestContextType) error {
 		return fmt.Errorf("frpc and frps binary path can't be empty")
 	}
 	if _, err := os.Stat(t.FRPClientPath); err != nil {
-		return fmt.Errorf("load frpc-path error: %v", err)
+		return fmt.Errorf("load frpc-path error: %w", err)
 	}
 	if _, err := os.Stat(t.FRPServerPath); err != nil {
-		return fmt.Errorf("load frps-path error: %v", err)
+		return fmt.Errorf("load frps-path error: %w", err)
 	}
 	return nil
 }
