@@ -121,7 +121,9 @@ func Execute() {
 }
 
 func handleSignal(svr *client.Service) {
-	ch := make(chan os.Signal)
+	// We must use a buffered channel or risk missing the signal
+	// if we're not ready to receive when the signal is sent.
+	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
 	<-ch
 	svr.GracefulClose(500 * time.Millisecond)

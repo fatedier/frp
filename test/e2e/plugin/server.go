@@ -149,7 +149,7 @@ var _ = Describe("[Feature: Server-Plugins]", func() {
 			[tcp]
 			type = tcp
 			local_port = {{ .%s }}
-			remote_port = 0
+			remote_port = %d
 			`, framework.TCPEchoServerPort, remotePort)
 
 			f.RunProcesses([]string{serverConf}, []string{clientConf})

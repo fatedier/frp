@@ -63,7 +63,6 @@ linters:
     - paralleltest
     - maintidx
     - ifshort
-    - gosimple
     - unparam
     - nakedret
     - misspell
@@ -93,7 +92,6 @@ linters:
     - unconvert
     - varcheck
     - errchkjson
-    - govet
     - nilnil
     - thelper
     - ireturn
