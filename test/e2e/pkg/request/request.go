@@ -220,6 +220,7 @@ func (r *Request) sendHTTPRequest(method, urlstr string, host string, headers ma
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	ret := &Response{Code: resp.StatusCode, Header: resp.Header}
 	buf, err := io.ReadAll(resp.Body)
