@@ -110,7 +110,7 @@ type ClientCommonConf struct {
 	// all supplied proxies are enabled. By default, this value is an empty
 	// set.
 	Start []string `ini:"start" json:"start"`
-	//Start map[string]struct{} `json:"start"`
+	// Start map[string]struct{} `json:"start"`
 	// Protocol specifies the protocol to use when interacting with the server.
 	// Valid values are "tcp", "kcp" and "websocket". By default, this value
 	// is "tcp".

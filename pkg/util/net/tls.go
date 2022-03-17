@@ -41,13 +41,16 @@ func CheckAndEnableTLSServerConnWithTimeout(
 		return
 	}
 
-	if n == 1 && int(buf[0]) == FRPTLSHeadByte {
-		out = tls.Server(c, tlsConfig)
-		isTLS = true
-		custom = true
-	} else if n == 1 && int(buf[0]) == 0x16 {
-		out = tls.Server(sc, tlsConfig)
-		isTLS = true
+	if n == 1 {
+		switch int(buf[0]) {
+		case FRPTLSHeadByte:
+			out = tls.Server(c, tlsConfig)
+			isTLS = true
+			custom = true
+		case 0x16:
+			out = tls.Server(sc, tlsConfig)
+			isTLS = true
+		}
 	} else {
 		if tlsOnly {
 			err = fmt.Errorf("non-TLS connection received on a TlsOnly server")

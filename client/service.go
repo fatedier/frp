@@ -181,7 +181,7 @@ func (svr *Service) keepControllerWorking() {
 				xl.Warn("reconnect to server error: %v, wait %v for another retry", err, delayTime)
 				util.RandomSleep(delayTime, 0.9, 1.1)
 
-				delayTime = delayTime * 2
+				delayTime *= 2
 				if delayTime > maxDelayTime {
 					delayTime = maxDelayTime
 				}

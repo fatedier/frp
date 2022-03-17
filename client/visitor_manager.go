@@ -99,10 +99,8 @@ func (vm *VisitorManager) Reload(cfgs map[string]config.VisitorConf) {
 		cfg, ok := cfgs[name]
 		if !ok {
 			del = true
-		} else {
-			if !oldCfg.Compare(cfg) {
-				del = true
-			}
+		} else if !oldCfg.Compare(cfg) {
+			del = true
 		}
 
 		if del {

@@ -425,8 +425,8 @@ func (pxy *XTCPProxy) sendDetectMsg(addr string, port int, laddr *net.UDPAddr, c
 		return err
 	}
 
-	//uConn := ipv4.NewConn(tConn)
-	//uConn.SetTTL(3)
+	// uConn := ipv4.NewConn(tConn)
+	// uConn.SetTTL(3)
 
 	tConn.Write(content)
 	tConn.Close()

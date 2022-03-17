@@ -528,13 +528,13 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 			err = fmt.Errorf("exceed the max_ports_per_client")
 			return
 		}
-		ctl.portsUsedNum = ctl.portsUsedNum + pxy.GetUsedPortsNum()
+		ctl.portsUsedNum += pxy.GetUsedPortsNum()
 		ctl.mu.Unlock()
 
 		defer func() {
 			if err != nil {
 				ctl.mu.Lock()
-				ctl.portsUsedNum = ctl.portsUsedNum - pxy.GetUsedPortsNum()
+				ctl.portsUsedNum -= pxy.GetUsedPortsNum()
 				ctl.mu.Unlock()
 			}
 		}()
@@ -570,7 +570,7 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 	}
 
 	if ctl.serverCfg.MaxPortsPerClient > 0 {
-		ctl.portsUsedNum = ctl.portsUsedNum - pxy.GetUsedPortsNum()
+		ctl.portsUsedNum -= pxy.GetUsedPortsNum()
 	}
 	pxy.Close()
 	ctl.pxyManager.Del(pxy.GetName())

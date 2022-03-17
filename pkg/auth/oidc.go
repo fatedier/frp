@@ -34,7 +34,7 @@ type OidcClientConfig struct {
 	// is "".
 	OidcClientSecret string `ini:"oidc_client_secret" json:"oidc_client_secret"`
 	// OidcAudience specifies the audience of the token in OIDC authentication
-	//if AuthenticationMethod == "oidc". By default, this value is "".
+	// if AuthenticationMethod == "oidc". By default, this value is "".
 	OidcAudience string `ini:"oidc_audience" json:"oidc_audience"`
 	// OidcTokenEndpointURL specifies the URL which implements OIDC Token Endpoint.
 	// It will be used to get an OIDC token if AuthenticationMethod == "oidc".

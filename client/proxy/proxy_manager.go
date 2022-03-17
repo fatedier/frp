@@ -113,10 +113,8 @@ func (pm *Manager) Reload(pxyCfgs map[string]config.ProxyConf) {
 		cfg, ok := pxyCfgs[name]
 		if !ok {
 			del = true
-		} else {
-			if !pxy.Cfg.Compare(cfg) {
-				del = true
-			}
+		} else if !pxy.Cfg.Compare(cfg) {
+			del = true
 		}
 
 		if del {
