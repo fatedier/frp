@@ -42,3 +42,9 @@ alltest: gotest e2e
 clean:
 	rm -f ./bin/frpc
 	rm -f ./bin/frps
+
+linter:
+	./bin/golangci-lint run ./... --timeout=5m
+
+linter-install:
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s
