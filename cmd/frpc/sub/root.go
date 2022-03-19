@@ -121,7 +121,7 @@ func Execute() {
 }
 
 func handleSignal(svr *client.Service) {
-	ch := make(chan os.Signal)
+	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
 	<-ch
 	svr.GracefulClose(500 * time.Millisecond)
