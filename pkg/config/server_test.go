@@ -140,6 +140,7 @@ func Test_LoadServerCommonConf(t *testing.T) {
 				SubDomainHost:           "frps.com",
 				TCPMux:                  true,
 				TCPMuxKeepaliveInterval: 60,
+				TCPKeepAlive:            7200,
 				UDPPacketSize:           1509,
 
 				HTTPPlugins: map[string]plugin.HTTPPluginOptions{
@@ -191,6 +192,7 @@ func Test_LoadServerCommonConf(t *testing.T) {
 				DetailedErrorsToClient:  true,
 				TCPMux:                  true,
 				TCPMuxKeepaliveInterval: 60,
+				TCPKeepAlive:            7200,
 				AllowPorts:              make(map[int]struct{}),
 				MaxPoolCount:            5,
 				HeartbeatTimeout:        90,
