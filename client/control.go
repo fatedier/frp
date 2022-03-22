@@ -252,6 +252,7 @@ func (ctl *Control) connectServer() (conn net.Conn, err error) {
 		dialOptions = append(dialOptions,
 			libdial.WithProtocol(protocol),
 			libdial.WithTimeout(time.Duration(ctl.clientCfg.DialServerTimeout)*time.Second),
+			libdial.WithKeepAlive(time.Duration(ctl.clientCfg.DialServerKeepAlive)*time.Second),
 			libdial.WithProxy(proxyType, addr),
 			libdial.WithProxyAuth(auth),
 			libdial.WithTLSConfig(tlsConfig),

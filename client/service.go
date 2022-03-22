@@ -243,6 +243,7 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 	dialOptions = append(dialOptions,
 		libdial.WithProtocol(protocol),
 		libdial.WithTimeout(time.Duration(svr.cfg.DialServerTimeout)*time.Second),
+		libdial.WithKeepAlive(time.Duration(svr.cfg.DialServerKeepAlive)*time.Second),
 		libdial.WithProxy(proxyType, addr),
 		libdial.WithProxyAuth(auth),
 		libdial.WithTLSConfig(tlsConfig),

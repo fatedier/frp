@@ -121,6 +121,9 @@ type ServerCommonConf struct {
 	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multipler.
 	// If TCPMux is true, heartbeat of application layer is unnecessary because it can only rely on heartbeat in TCPMux.
 	TCPMuxKeepaliveInterval int64 `ini:"tcp_mux_keepalive_interval" json:"tcp_mux_keepalive_interval"`
+	// TCPKeepAlive specifies the interval between keep-alive probes for an active network connection between frpc and frps.
+	// If negative, keep-alive probes are disabled.
+	TCPKeepAlive int64 `ini:"tcp_keepalive" json:"tcp_keepalive"`
 	// Custom404Page specifies a path to a custom 404 page to display. If this
 	// value is "", a default page will be displayed. By default, this value is
 	// "".
@@ -201,6 +204,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		SubDomainHost:           "",
 		TCPMux:                  true,
 		TCPMuxKeepaliveInterval: 60,
+		TCPKeepAlive:            7200,
 		AllowPorts:              make(map[int]struct{}),
 		MaxPoolCount:            5,
 		MaxPortsPerClient:       0,
