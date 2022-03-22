@@ -207,10 +207,10 @@ func (m *serverMetrics) GetProxiesByType(proxyType string) []*ProxyStats {
 			CurConns:        int64(proxyStats.CurConns.Count()),
 		}
 		if !proxyStats.LastStartTime.IsZero() {
-			ps.LastStartTime = proxyStats.LastStartTime.Format("01-02 15:04:05")
+			ps.LastStartTime = proxyStats.LastStartTime.Format("2006-01-02 15:04:05")
 		}
 		if !proxyStats.LastCloseTime.IsZero() {
-			ps.LastCloseTime = proxyStats.LastCloseTime.Format("01-02 15:04:05")
+			ps.LastCloseTime = proxyStats.LastCloseTime.Format("2006-01-02 15:04:05")
 		}
 		res = append(res, ps)
 	}
@@ -238,10 +238,10 @@ func (m *serverMetrics) GetProxiesByTypeAndName(proxyType string, proxyName stri
 			CurConns:        int64(proxyStats.CurConns.Count()),
 		}
 		if !proxyStats.LastStartTime.IsZero() {
-			res.LastStartTime = proxyStats.LastStartTime.Format("01-02 15:04:05")
+			res.LastStartTime = proxyStats.LastStartTime.Format("2006-01-02 15:04:05")
 		}
 		if !proxyStats.LastCloseTime.IsZero() {
-			res.LastCloseTime = proxyStats.LastCloseTime.Format("01-02 15:04:05")
+			res.LastCloseTime = proxyStats.LastCloseTime.Format("2006-01-02 15:04:05")
 		}
 		break
 	}
