@@ -186,6 +186,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	}
 
 	svr.muxer = mux.NewMux(ln)
+	svr.muxer.SetKeepAlive(time.Duration(cfg.TCPKeepAlive) * time.Second)
 	go svr.muxer.Serve()
 	ln = svr.muxer.DefaultListener()
 

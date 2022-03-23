@@ -17,6 +17,7 @@ package client
 import (
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"time"
 
 	"github.com/fatedier/frp/assets"
@@ -26,8 +27,8 @@ import (
 )
 
 var (
-	httpServerReadTimeout  = 10 * time.Second
-	httpServerWriteTimeout = 10 * time.Second
+	httpServerReadTimeout  = 60 * time.Second
+	httpServerWriteTimeout = 60 * time.Second
 )
 
 func (svr *Service) RunAdminServer(address string) (err error) {
@@ -35,6 +36,15 @@ func (svr *Service) RunAdminServer(address string) (err error) {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/healthz", svr.healthz)
+
+	// debug
+	if svr.cfg.PprofEnable {
+		router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		router.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		router.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		router.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		router.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
+	}
 
 	subRouter := router.NewRoute().Subrouter()
 	user, passwd := svr.cfg.AdminUser, svr.cfg.AdminPwd

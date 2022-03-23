@@ -262,6 +262,7 @@ func Test_LoadClientCommonConf(t *testing.T) {
 		ServerAddr:              "0.0.0.9",
 		ServerPort:              7009,
 		DialServerTimeout:       10,
+		DialServerKeepAlive:     7200,
 		HTTPProxy:               "http://user:passwd@192.168.1.128:8080",
 		LogFile:                 "./frpc.log9",
 		LogWay:                  "file",
