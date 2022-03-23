@@ -1,7 +1,10 @@
 builds:
   - skip: true
 checksum:
-  name_template: 'checksums.txt'
+  name_template: '{{ .ProjectName }}_{{ .Version }}_sha256_checksums.txt'
+  algorithm: sha256
+  extra_files:
+  - glob: ./release/packages/*
 release:
   # Same as for github
   # Note: it can only be one: either github, gitlab or gitea
