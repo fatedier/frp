@@ -16,6 +16,9 @@ file:
 fmt:
 	go fmt ./...
 
+vet:
+	go vet ./...
+
 frps:
 	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frps ./cmd/frps
 
@@ -37,7 +40,7 @@ e2e:
 e2e-trace:
 	DEBUG=true LOG_LEVEL=trace ./hack/run-e2e.sh
 
-alltest: gotest e2e
+alltest: vet gotest e2e
 	
 clean:
 	rm -f ./bin/frpc

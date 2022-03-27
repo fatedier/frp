@@ -15,13 +15,14 @@
 package sub
 
 import (
-	"context"
 	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
-	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -41,6 +42,7 @@ const (
 
 var (
 	cfgFile     string
+	cfgDir      string
 	showVersion bool
 
 	serverAddr      string
@@ -72,15 +74,12 @@ var (
 	bindPort          int
 
 	tlsEnable bool
-
-	kcpDoneCh chan struct{}
 )
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "./frpc.ini", "config file of frpc")
+	rootCmd.PersistentFlags().StringVarP(&cfgDir, "config_dir", "", "", "config directory, run one frpc service for each file in config directory")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
-
-	kcpDoneCh = make(chan struct{})
 }
 
 func RegisterCommonFlags(cmd *cobra.Command) {
@@ -104,6 +103,31 @@ var rootCmd = &cobra.Command{
 			return nil
 		}
 
+		// If cfgDir is not empty, run multiple frpc service for each config file in cfgDir.
+		// Note that it's only designed for testing. It's not guaranteed to be stable.
+		if cfgDir != "" {
+			var wg sync.WaitGroup
+			filepath.WalkDir(cfgDir, func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return nil
+				}
+				if d.IsDir() {
+					return nil
+				}
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					err := runClient(path)
+					if err != nil {
+						fmt.Printf("frpc service error for config file [%s]\n", path)
+					}
+				}()
+				return nil
+			})
+			wg.Wait()
+			return nil
+		}
+
 		// Do not show command usage here.
 		err := runClient(cfgFile)
 		if err != nil {
@@ -120,12 +144,12 @@ func Execute() {
 	}
 }
 
-func handleSignal(svr *client.Service) {
-	ch := make(chan os.Signal)
+func handleSignal(svr *client.Service, doneCh chan struct{}) {
+	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
 	<-ch
 	svr.GracefulClose(500 * time.Millisecond)
-	close(kcpDoneCh)
+	close(doneCh)
 }
 
 func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
@@ -182,18 +206,9 @@ func startService(
 	log.InitLog(cfg.LogWay, cfg.LogFile, cfg.LogLevel,
 		cfg.LogMaxDays, cfg.DisableLogColor)
 
-	if cfg.DNSServer != "" {
-		s := cfg.DNSServer
-		if !strings.Contains(s, ":") {
-			s += ":53"
-		}
-		// Change default dns server for frpc
-		net.DefaultResolver = &net.Resolver{
-			PreferGo: true,
-			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-				return net.Dial("udp", s)
-			},
-		}
+	if cfgFile != "" {
+		log.Trace("start frpc service for config file [%s]", cfgFile)
+		defer log.Trace("frpc service for config file [%s] stopped", cfgFile)
 	}
 	svr, errRet := client.NewService(cfg, pxyCfgs, visitorCfgs, cfgFile)
 	if errRet != nil {
@@ -201,9 +216,10 @@ func startService(
 		return
 	}
 
+	kcpDoneCh := make(chan struct{})
 	// Capture the exit signal if we use kcp.
 	if cfg.Protocol == "kcp" {
-		go handleSignal(svr)
+		go handleSignal(svr, kcpDoneCh)
 	}
 
 	err = svr.Run()

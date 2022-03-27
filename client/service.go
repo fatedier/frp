@@ -19,9 +19,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -36,10 +38,16 @@ import (
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/xlog"
+	"github.com/fatedier/golib/crypto"
 	libdial "github.com/fatedier/golib/net/dial"
 
 	fmux "github.com/hashicorp/yamux"
 )
+
+func init() {
+	crypto.DefaultSalt = "frp"
+	rand.Seed(time.Now().UnixNano())
+}
 
 // Service is a client service.
 type Service struct {
@@ -97,6 +105,21 @@ func (svr *Service) GetController() *Control {
 
 func (svr *Service) Run() error {
 	xl := xlog.FromContextSafe(svr.ctx)
+
+	// set custom DNSServer
+	if svr.cfg.DNSServer != "" {
+		dnsAddr := svr.cfg.DNSServer
+		if !strings.Contains(dnsAddr, ":") {
+			dnsAddr += ":53"
+		}
+		// Change default dns server for frpc
+		net.DefaultResolver = &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				return net.Dial("udp", dnsAddr)
+			},
+		}
+	}
 
 	// login to frps
 	for {
