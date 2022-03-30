@@ -14,8 +14,8 @@ make -f ./Makefile.cross-compiles
 rm -rf ./release/packages
 mkdir -p ./release/packages
 
-os_all='linux windows darwin freebsd'
-arch_all='386 amd64 arm arm64 mips64 mips64le mips mipsle'
+os_all='linux'
+arch_all='s390x'
 
 cd ./release
 
