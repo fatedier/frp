@@ -366,7 +366,7 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	// Listen for clientConn's address and wait for visitor connection
 	lConn, err := net.ListenUDP("udp", laddr)
 	if err != nil {
-		xl.Error("listen on visitorConn's local adress error: %v", err)
+		xl.Error("listen on visitorConn's local address error: %v", err)
 		return
 	}
 	defer lConn.Close()

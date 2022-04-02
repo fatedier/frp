@@ -133,7 +133,7 @@ type ClientCommonConf struct {
 	// It only works when "tls_enable" is valid and tls configuration of server
 	// has been specified.
 	TLSTrustedCaFile string `ini:"tls_trusted_ca_file" json:"tls_trusted_ca_file"`
-	// TLSServerName specifices the custom server name of tls certificate. By
+	// TLSServerName specifies the custom server name of tls certificate. By
 	// default, server name if same to ServerAddr.
 	TLSServerName string `ini:"tls_server_name" json:"tls_server_name"`
 	// By default, frpc will connect frps with first custom byte if tls is enabled.
