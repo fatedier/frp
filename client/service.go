@@ -174,7 +174,10 @@ func (svr *Service) keepControllerWorking() {
 	reconnectCounts := 1
 
 	for {
-		<-svr.ctl.ClosedDoneCh()
+		svr.ctlMu.RLock()
+		ctlCh := svr.ctl.ClosedDoneCh()
+		svr.ctlMu.RUnlock()
+		<-ctlCh
 		if atomic.LoadUint32(&svr.exit) != 0 {
 			return
 		}
@@ -356,6 +359,8 @@ func (svr *Service) ReloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs 
 	svr.visitorCfgs = visitorCfgs
 	svr.cfgMu.Unlock()
 
+	svr.ctlMu.Lock()
+	defer svr.ctlMu.Unlock()
 	return svr.ctl.ReloadConf(pxyCfgs, visitorCfgs)
 }
 
@@ -365,8 +370,12 @@ func (svr *Service) Close() {
 
 func (svr *Service) GracefulClose(d time.Duration) {
 	atomic.StoreUint32(&svr.exit, 1)
+
+	svr.ctlMu.Lock()
 	if svr.ctl != nil {
 		svr.ctl.GracefulClose(d)
 	}
+	svr.ctlMu.Unlock()
+
 	svr.cancel()
 }
