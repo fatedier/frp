@@ -1,4 +1,4 @@
-name: Build Docker Image
+name: Build Image and Publish to Dockerhub & GPR
 
 on:
   release:
@@ -9,77 +9,76 @@ on:
         description: 'Image tag'
         required: true
         default: 'test'
-
 jobs:
-  buildx:
+  image:
+    name: Build Image from Dockerfile and binaries
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Checkout
+      # environment
+      - name: Checkout
         uses: actions/checkout@v2
-      - name: Get current date
-        id: date
-        run: echo "::set-output name=today::$(date +'%Y-%m-%d')"
-      -
-        name: Set up QEMU
+        with:
+          fetch-depth: '0'
+
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
-      -
-        name: Set up Docker Buildx
-        id: buildx
+
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
-      -
-        name: Available platforms
-        run: echo ${{ steps.buildx.outputs.platforms }}
-      - 
-        name: Get Image Tag Name
+
+      # get image tag name
+      - name: Get Image Tag Name
         run: |
           if [ x${{ github.event.inputs.tag }} == x"" ]; then
             echo "TAG_NAME=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
           else
             echo "TAG_NAME=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
           fi
-      -
-        name: Login to DockerHub
+      - name: Login to DockerHub
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-      - 
-        name: Login to the GPR
+
+      - name: Login to the GPR
         uses: docker/login-action@v1
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      -
-        name: Build and push frpc
+
+      # prepare image tags
+      - name: Prepare Image Tags
+        run: |
+          echo "DOCKERFILE_FRPC_PATH=dockerfiles/Dockerfile-for-frpc" >> $GITHUB_ENV
+          echo "DOCKERFILE_FRPS_PATH=dockerfiles/Dockerfile-for-frps" >> $GITHUB_ENV
+          echo "TAG_FRPC=fatedier/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
+          echo "TAG_FRPS=fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
+          echo "TAG_FRPC_GPR=ghcr.io/fatedier/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
+          echo "TAG_FRPS_GPR=ghcr.io/fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
+
+      - name: Build and push frpc
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: ./Dockerfile.frpc
+          file: ./dockerfiles/Dockerfile-for-frpc
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
           push: ${{ github.event_name != 'pull_request' }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
           tags: |
-            fatedier/frpc:dev
-            fatedier/frpc:${{ env.TAG_NAME }}
-            fatedier/frpc:${{ steps.date.outputs.today }}
-            ghcr.io/fatedier/frpc:dev
-            ghcr.io/fatedier/frpc:${{ env.TAG_NAME }}
-      -
-        name: Build and push frps
+            ${{ env.TAG_FRPC }}
+            ${{ env.TAG_FRPC_GPR }}
+
+      - name: Build and push frps
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: ./Dockerfile.frps
+          file: ./dockerfiles/Dockerfile-for-frps
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
           push: ${{ github.event_name != 'pull_request' }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
           tags: |
-            fatedier/frps:dev
-            fatedier/frps:${{ env.TAG_NAME }}
-            fatedier/frps:${{ steps.date.outputs.today }}
-            ghcr.io/fatedier/frps:dev
-            ghcr.io/fatedier/frps:${{ env.TAG_NAME }}
+            ${{ env.TAG_FRPS }}
+            ${{ env.TAG_FRPS_GPR }}
