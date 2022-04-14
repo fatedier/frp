@@ -357,8 +357,13 @@ func (svr *Service) ReloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs 
 	svr.cfgMu.Unlock()
 
 	svr.ctlMu.RLock()
-	defer svr.ctlMu.RUnlock()
-	return svr.ctl.ReloadConf(pxyCfgs, visitorCfgs)
+	ctl := svr.ctl
+	svr.ctlMu.RUnlock()
+
+	if ctl != nil {
+		return svr.ctl.ReloadConf(pxyCfgs, visitorCfgs)
+	}
+	return nil
 }
 
 func (svr *Service) Close() {

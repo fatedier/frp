@@ -115,6 +115,7 @@ var rootCmd = &cobra.Command{
 					return nil
 				}
 				wg.Add(1)
+				time.Sleep(time.Millisecond)
 				go func() {
 					defer wg.Done()
 					err := runClient(path)
