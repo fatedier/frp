@@ -11,6 +11,7 @@ RUN apk --no-cache add \
 FROM alpine:3.15
 LABEL maintainer="i@muir.fun"
 
-COPY --from=building /building/bin/frps /frps
+COPY --from=building /building/bin/frps /usr/bin/frps
 
-CMD ["/frps","-h"]
+ENTRYPOINT ["/usr/bin/frps"]
+CMD ["-h"]

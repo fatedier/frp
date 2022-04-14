@@ -11,6 +11,7 @@ RUN apk --no-cache add \
 FROM alpine:3.15
 LABEL maintainer="i@muir.fun"
 
-COPY --from=building /building/bin/frpc /frpc
+COPY --from=building /building/bin/frpc /usr/bin/frpc
 
-CMD ["/frpc","-h"]
+ENTRYPOINT ["/usr/bin/frpc"]
+CMD ["-h"]
