@@ -28,6 +28,7 @@ import (
 
 	frpLog "github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/util"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/fatedier/golib/pool"
 )
@@ -154,7 +155,14 @@ func (rp *HTTPReverseProxy) CheckAuth(domain, location, user, passwd string) boo
 	if ok {
 		checkUser := vr.payload.(*RouteConfig).Username
 		checkPasswd := vr.payload.(*RouteConfig).Password
-		if (checkUser != "" || checkPasswd != "") && (checkUser != user || checkPasswd != passwd) {
+		hashed := vr.payload.(*RouteConfig).Hashed
+		var correctPwd bool
+		if hashed {
+			correctPwd = bcrypt.CompareHashAndPassword([]byte(checkPasswd), []byte(passwd)) == nil
+		} else {
+			correctPwd = checkPasswd == passwd
+		}
+		if (checkUser != "" || checkPasswd != "") && (checkUser != user || !correctPwd) {
 			return false
 		}
 	}

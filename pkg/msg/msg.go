@@ -102,6 +102,7 @@ type NewProxy struct {
 	Locations         []string          `json:"locations"`
 	HTTPUser          string            `json:"http_user"`
 	HTTPPwd           string            `json:"http_pwd"`
+	HashedPwd         bool              `json:"hashed_pwd"`
 	HostHeaderRewrite string            `json:"host_header_rewrite"`
 	Headers           map[string]string `json:"headers"`
 

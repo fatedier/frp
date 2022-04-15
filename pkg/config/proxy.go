@@ -754,6 +754,7 @@ func (cfg *HTTPProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.HostHeaderRewrite = pMsg.HostHeaderRewrite
 	cfg.HTTPUser = pMsg.HTTPUser
 	cfg.HTTPPwd = pMsg.HTTPPwd
+	cfg.HashedPwd = pMsg.HashedPwd
 	cfg.Headers = pMsg.Headers
 }
 
@@ -767,6 +768,7 @@ func (cfg *HTTPProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.HostHeaderRewrite = cfg.HostHeaderRewrite
 	pMsg.HTTPUser = cfg.HTTPUser
 	pMsg.HTTPPwd = cfg.HTTPPwd
+	pMsg.HashedPwd = cfg.HashedPwd
 	pMsg.Headers = cfg.Headers
 }
 

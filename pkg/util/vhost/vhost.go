@@ -75,6 +75,7 @@ type RouteConfig struct {
 	Headers     map[string]string
 
 	CreateConnFn CreateConnFunc
+	Hashed       bool
 }
 
 // listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil
