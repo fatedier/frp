@@ -49,6 +49,7 @@ var (
 	dashboardPort     int
 	dashboardUser     string
 	dashboardPwd      string
+	hashedPwd         bool
 	enablePrometheus  bool
 	assetsDir         string
 	logFile           string
@@ -80,6 +81,7 @@ func init() {
 	rootCmd.PersistentFlags().IntVarP(&dashboardPort, "dashboard_port", "", 0, "dashboard port")
 	rootCmd.PersistentFlags().StringVarP(&dashboardUser, "dashboard_user", "", "admin", "dashboard user")
 	rootCmd.PersistentFlags().StringVarP(&dashboardPwd, "dashboard_pwd", "", "admin", "dashboard password")
+	rootCmd.PersistentFlags().BoolVarP(&hashedPwd, "hashed_pwd", "", false, "specify if password is hashed")
 	rootCmd.PersistentFlags().BoolVarP(&enablePrometheus, "enable_prometheus", "", false, "enable prometheus dashboard")
 	rootCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "log file")
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
@@ -166,6 +168,7 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 	cfg.DashboardPort = dashboardPort
 	cfg.DashboardUser = dashboardUser
 	cfg.DashboardPwd = dashboardPwd
+	cfg.HashedPwd = hashedPwd
 	cfg.EnablePrometheus = enablePrometheus
 	cfg.LogFile = logFile
 	cfg.LogLevel = logLevel

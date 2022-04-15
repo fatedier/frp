@@ -47,8 +47,8 @@ func (svr *Service) RunAdminServer(address string) (err error) {
 	}
 
 	subRouter := router.NewRoute().Subrouter()
-	user, passwd := svr.cfg.AdminUser, svr.cfg.AdminPwd
-	subRouter.Use(frpNet.NewHTTPAuthMiddleware(user, passwd).Middleware)
+	user, passwd, hashed := svr.cfg.AdminUser, svr.cfg.AdminPwd, svr.cfg.HashedPwd
+	subRouter.Use(frpNet.NewHTTPAuthMiddleware(user, passwd, hashed).Middleware)
 
 	// api, see admin_api.go
 	subRouter.HandleFunc("/api/reload", svr.apiReload).Methods("GET")

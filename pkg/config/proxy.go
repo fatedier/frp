@@ -160,6 +160,7 @@ type HTTPProxyConf struct {
 	Locations         []string          `ini:"locations" json:"locations"`
 	HTTPUser          string            `ini:"http_user" json:"http_user"`
 	HTTPPwd           string            `ini:"http_pwd" json:"http_pwd"`
+	HashedPwd         bool              `ini:"hashed_pwd" json:"hashed_pwd"`
 	HostHeaderRewrite string            `ini:"host_header_rewrite" json:"host_header_rewrite"`
 	Headers           map[string]string `ini:"-" json:"headers"`
 }

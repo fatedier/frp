@@ -78,6 +78,8 @@ type ServerCommonConf struct {
 	// DashboardPwd specifies the password that the dashboard will use for
 	// login.
 	DashboardPwd string `ini:"dashboard_pwd" json:"dashboard_pwd"`
+	// HashedPwd specifies if the password is hashed using BCrypt or not
+	HashedPwd bool `ini:"hashed_pwd" json:"hashed_pwd"`
 	// EnablePrometheus will export prometheus metrics on {dashboard_addr}:{dashboard_port}
 	// in /metrics api.
 	EnablePrometheus bool `ini:"enable_prometheus" json:"enable_prometheus"`
@@ -193,6 +195,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		DashboardPort:           0,
 		DashboardUser:           "",
 		DashboardPwd:            "",
+		HashedPwd:               false,
 		EnablePrometheus:        false,
 		AssetsDir:               "",
 		LogFile:                 "console",

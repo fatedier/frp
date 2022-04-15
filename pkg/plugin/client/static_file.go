@@ -18,6 +18,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 
 	frpNet "github.com/fatedier/frp/pkg/util/net"
 
@@ -35,6 +36,7 @@ type StaticFilePlugin struct {
 	stripPrefix string
 	httpUser    string
 	httpPasswd  string
+	hashedPwd   bool
 
 	l *Listener
 	s *http.Server
@@ -45,6 +47,11 @@ func NewStaticFilePlugin(params map[string]string) (Plugin, error) {
 	stripPrefix := params["plugin_strip_prefix"]
 	httpUser := params["plugin_http_user"]
 	httpPasswd := params["plugin_http_passwd"]
+	hashedPwd, err := strconv.ParseBool(params["plugin_hashed_pwd"])
+
+	if err != nil {
+		hashedPwd = false
+	}
 
 	listener := NewProxyListener()
 
@@ -53,6 +60,7 @@ func NewStaticFilePlugin(params map[string]string) (Plugin, error) {
 		stripPrefix: stripPrefix,
 		httpUser:    httpUser,
 		httpPasswd:  httpPasswd,
+		hashedPwd:   hashedPwd,
 
 		l: listener,
 	}
@@ -64,7 +72,7 @@ func NewStaticFilePlugin(params map[string]string) (Plugin, error) {
 	}
 
 	router := mux.NewRouter()
-	router.Use(frpNet.NewHTTPAuthMiddleware(httpUser, httpPasswd).Middleware)
+	router.Use(frpNet.NewHTTPAuthMiddleware(httpUser, httpPasswd, hashedPwd).Middleware)
 	router.PathPrefix(prefix).Handler(frpNet.MakeHTTPGzipHandler(http.StripPrefix(prefix, http.FileServer(http.Dir(localPath))))).Methods("GET")
 	sp.s = &http.Server{
 		Handler: router,

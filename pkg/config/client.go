@@ -83,6 +83,8 @@ type ClientCommonConf struct {
 	// AdminPwd specifies the password that the admin server will use for
 	// login.
 	AdminPwd string `ini:"admin_pwd" json:"admin_pwd"`
+	// HashedPwd specifies if the password is hashed using BCrypt or not
+	HashedPwd bool `ini:"hashed_pwd" json:"hashed_pwd"`
 	// AssetsDir specifies the local directory that the admin server will load
 	// resources from. If this value is "", assets will be loaded from the
 	// bundled executable using statik. By default, this value is "".

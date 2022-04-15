@@ -50,12 +50,14 @@ func (aw *HTTPAuthWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type HTTPAuthMiddleware struct {
 	user   string
 	passwd string
+	hashed bool
 }
 
-func NewHTTPAuthMiddleware(user, passwd string) *HTTPAuthMiddleware {
+func NewHTTPAuthMiddleware(user, passwd string, hashed bool) *HTTPAuthMiddleware {
 	return &HTTPAuthMiddleware{
 		user:   user,
 		passwd: passwd,
+		hashed: hashed,
 	}
 }
 
@@ -65,7 +67,7 @@ func (authMid *HTTPAuthMiddleware) Middleware(next http.Handler) http.Handler {
 		if (authMid.user == "" && authMid.passwd == "") ||
 			(hasAuth && reqUser == authMid.user && reqPasswd == authMid.passwd) {
 			next.ServeHTTP(w, r)
-		} else if authMid.user == reqUser && authMid.passwd[:4] == "$2a$" || authMid.passwd[:4] == "$2y$" {
+		} else if authMid.user == reqUser && authMid.hashed {
 			correct := bcrypt.CompareHashAndPassword([]byte(authMid.passwd), []byte(reqPasswd))
 			if correct == nil {
 				next.ServeHTTP(w, r)
