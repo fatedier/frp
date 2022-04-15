@@ -33,6 +33,8 @@ type Response struct {
 
 type LoginContent struct {
 	msg.Login
+
+	ClientAddress string `json:"client_address,omitempty"`
 }
 
 type UserInfo struct {
@@ -44,6 +46,11 @@ type UserInfo struct {
 type NewProxyContent struct {
 	User UserInfo `json:"user"`
 	msg.NewProxy
+}
+
+type CloseProxyContent struct {
+	User UserInfo `json:"user"`
+	msg.CloseProxy
 }
 
 type PingContent struct {

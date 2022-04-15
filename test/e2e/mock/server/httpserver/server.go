@@ -1,7 +1,7 @@
 package httpserver
 
 import (
-	"fmt"
+	"crypto/tls"
 	"net"
 	"net/http"
 	"strconv"
@@ -10,10 +10,11 @@ import (
 type Server struct {
 	bindAddr string
 	bindPort int
-	hanlder  http.Handler
+	handler  http.Handler
 
-	l  net.Listener
-	hs *http.Server
+	l         net.Listener
+	tlsConfig *tls.Config
+	hs        *http.Server
 }
 
 type Option func(*Server) *Server
@@ -43,9 +44,25 @@ func WithBindPort(port int) Option {
 	}
 }
 
+func WithTlsConfig(tlsConfig *tls.Config) Option {
+	return func(s *Server) *Server {
+		s.tlsConfig = tlsConfig
+		return s
+	}
+}
+
 func WithHandler(h http.Handler) Option {
 	return func(s *Server) *Server {
-		s.hanlder = h
+		s.handler = h
+		return s
+	}
+}
+
+func WithResponse(resp []byte) Option {
+	return func(s *Server) *Server {
+		s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write(resp)
+		})
 		return s
 	}
 }
@@ -57,11 +74,17 @@ func (s *Server) Run() error {
 
 	addr := net.JoinHostPort(s.bindAddr, strconv.Itoa(s.bindPort))
 	hs := &http.Server{
-		Addr:    addr,
-		Handler: s.hanlder,
+		Addr:      addr,
+		Handler:   s.handler,
+		TLSConfig: s.tlsConfig,
 	}
+
 	s.hs = hs
-	go hs.Serve(s.l)
+	if s.tlsConfig == nil {
+		go hs.Serve(s.l)
+	} else {
+		go hs.ServeTLS(s.l, "", "")
+	}
 	return nil
 }
 
@@ -73,7 +96,7 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) initListener() (err error) {
-	s.l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", s.bindAddr, s.bindPort))
+	s.l, err = net.Listen("tcp", net.JoinHostPort(s.bindAddr, strconv.Itoa(s.bindPort)))
 	return
 }
 

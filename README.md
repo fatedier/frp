@@ -6,6 +6,32 @@
 
 [README](README.md) | [中文文档](README_zh.md)
 
+<h3 align="center">Platinum Sponsors</h3>
+<!--platinum sponsors start-->
+
+<p align="center">
+  <a href="https://www.doppler.com/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
+    <img width="400px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_doppler.png">
+  </a>
+</p>
+
+<!--platinum sponsors end-->
+
+<h3 align="center">Gold Sponsors</h3>
+<!--gold sponsors start-->
+
+<p align="center">
+  <a href="https://workos.com/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
+    <img width="300px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_workos.png">
+  </a>
+</p>
+
+<!--gold sponsors end-->
+
+<h3 align="center">Silver Sponsors</h3>
+
+* Sakura Frp - 欢迎点击 "加入我们"
+
 ## What is frp?
 
 frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the Internet. As of now, it supports **TCP** and **UDP**, as well as **HTTP** and **HTTPS** protocols, where requests can be forwarded to internal services by domain name.
@@ -67,8 +93,7 @@ frp also has a P2P connect mode.
 * [Development Plan](#development-plan)
 * [Contributing](#contributing)
 * [Donation](#donation)
-    * [AliPay](#alipay)
-    * [Wechat Pay](#wechat-pay)
+    * [GitHub Sponsors](#github-sponsors)
     * [PayPal](#paypal)
 
 <!-- vim-markdown-toc -->
@@ -77,7 +102,9 @@ frp also has a P2P connect mode.
 
 frp is under development. Try the latest release version in the `master` branch, or use the `dev` branch for the version in development.
 
-**The protocol might change at a release and we don't promise backwards compatibility. Please check the release log when upgrading the client and the server.**
+We are working on v2 version and trying to do some code refactor and improvements. It won't be compatible with v1.
+
+We will switch v0 to v1 at the right time and only accept bug fixes and improvements instead of big feature requirements.
 
 ## Architecture
 
@@ -867,7 +894,7 @@ In this example, it will set header `X-From-Where: frp` in the HTTP request.
 
 This feature is for http proxy only.
 
-You can get user's real IP from HTTP request headers `X-Forwarded-For` and `X-Real-IP`.
+You can get user's real IP from HTTP request headers `X-Forwarded-For`.
 
 #### Proxy Protocol
 
@@ -995,11 +1022,13 @@ server_port = 7000
 type = tcpmux
 multiplexer = httpconnect
 custom_domains = test1
+local_port = 80
 
 [proxy2]
 type = tcpmux
 multiplexer = httpconnect
 custom_domains = test2
+local_port = 8080
 ```
 
 In the above configuration - frps can be contacted on port 1337 with a HTTP CONNECT header such as:
@@ -1085,15 +1114,11 @@ Interested in getting involved? We would like to help you!
 
 If frp helps you a lot, you can support us by:
 
-frp QQ group: 606194980
+### GitHub Sponsors
 
-### AliPay
+Support us by [Github Sponsors](https://github.com/sponsors/fatedier).
 
-![donation-alipay](/doc/pic/donate-alipay.png)
-
-### Wechat Pay
-
-![donation-wechatpay](/doc/pic/donate-wechatpay.png)
+You can have your company's logo placed on README file of this project.
 
 ### PayPal
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 
 	libnet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/test/e2e/pkg/rpc"
@@ -99,7 +100,7 @@ func (s *Server) Close() error {
 func (s *Server) initListener() (err error) {
 	switch s.netType {
 	case TCP:
-		s.l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", s.bindAddr, s.bindPort))
+		s.l, err = net.Listen("tcp", net.JoinHostPort(s.bindAddr, strconv.Itoa(s.bindPort)))
 	case UDP:
 		s.l, err = libnet.ListenUDP(s.bindAddr, s.bindPort)
 	case Unix:

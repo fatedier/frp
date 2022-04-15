@@ -6,8 +6,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"io/ioutil"
 	"math/big"
+	"os"
 )
 
 func newCustomTLSKeyPair(certfile, keyfile string) (*tls.Certificate, error) {
@@ -47,7 +47,7 @@ func newRandomTLSKeyPair() *tls.Certificate {
 func newCertPool(caPath string) (*x509.CertPool, error) {
 	pool := x509.NewCertPool()
 
-	caCrt, err := ioutil.ReadFile(caPath)
+	caCrt, err := os.ReadFile(caPath)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func NewServerTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 	return base, nil
 }
 
-func NewClientTLSConfig(certPath, keyPath, caPath, servearName string) (*tls.Config, error) {
+func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Config, error) {
 	var base = &tls.Config{}
 
 	if certPath == "" || keyPath == "" {
@@ -100,6 +100,8 @@ func NewClientTLSConfig(certPath, keyPath, caPath, servearName string) (*tls.Con
 		base.Certificates = []tls.Certificate{*cert}
 	}
 
+	base.ServerName = serverName
+
 	if caPath != "" {
 		pool, err := newCertPool(caPath)
 		if err != nil {
@@ -107,7 +109,6 @@ func NewClientTLSConfig(certPath, keyPath, caPath, servearName string) (*tls.Con
 		}
 
 		base.RootCAs = pool
-		base.ServerName = servearName
 		base.InsecureSkipVerify = false
 	} else {
 		base.InsecureSkipVerify = true

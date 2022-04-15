@@ -1,0 +1,77 @@
+name: Bug report
+description: Report a bug to help us improve frp
+
+body:
+- type: markdown
+  attributes:
+    value: |
+      Thanks for taking the time to fill out this bug report!
+- type: textarea
+  id: bug-description
+  attributes:
+    label: Bug Description
+    description: Tell us what issues you ran into
+    placeholder: Include information about what you tried, what you expected to happen, and what actually happened. The more details, the better!
+  validations:
+    required: true
+- type: input
+  id: frpc-version
+  attributes:
+    label: frpc Version
+    description: Include the output of `frpc -v`
+  validations:
+    required: true
+- type: input
+  id: frps-version
+  attributes:
+    label: frps Version
+    description: Include the output of `frps -v`
+  validations:
+    required: true
+- type: input
+  id: system-architecture
+  attributes:
+    label: System Architecture
+    description: Include which architecture you used, such as `linux/amd64`, `windows/amd64`
+  validations:
+    required: true
+- type: textarea
+  id: config
+  attributes:
+    label: Configurations
+    description: Include what configurrations you used and ran into this problem
+    placeholder: Pay attention to hiding the token and password in your output
+  validations:
+    required: true
+- type: textarea
+  id: log
+  attributes:
+    label: Logs
+    description: Prefer you providing releated error logs here
+    placeholder: Pay attention to hiding your personal informations
+- type: textarea
+  id: steps-to-reproduce
+  attributes:
+    label: Steps to reproduce
+    description: How to reproduce it? It's important for us to find the bug
+    value: |
+      1. 
+      2. 
+      3. 
+      ...
+- type: checkboxes
+  id: area
+  attributes:
+    label: Affected area
+    options:
+    - label: "Docs"
+    - label: "Installation"
+    - label: "Performance and Scalability"
+    - label: "Security"
+    - label: "User Experience"
+    - label: "Test and Release"
+    - label: "Developer Infrastructure"
+    - label: "Client Plugin"
+    - label: "Server Plugin"
+    - label: "Extensions"
+    - label: "Others"

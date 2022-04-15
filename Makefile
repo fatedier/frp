@@ -12,12 +12,12 @@ file:
 	rm -rf ./assets/frpc/static/*
 	cp -rf ./web/frps/dist/* ./assets/frps/static
 	cp -rf ./web/frpc/dist/* ./assets/frpc/static
-	rm -rf ./assets/frps/statik
-	rm -rf ./assets/frpc/statik
-	go generate ./assets/...
 
 fmt:
 	go fmt ./...
+
+vet:
+	go vet ./...
 
 frps:
 	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frps ./cmd/frps
@@ -40,7 +40,7 @@ e2e:
 e2e-trace:
 	DEBUG=true LOG_LEVEL=trace ./hack/run-e2e.sh
 
-alltest: gotest e2e
+alltest: vet gotest e2e
 	
 clean:
 	rm -f ./bin/frpc

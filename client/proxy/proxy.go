@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"strconv"
 	"strings"
@@ -36,6 +35,7 @@ import (
 
 	"github.com/fatedier/golib/errors"
 	frpIo "github.com/fatedier/golib/io"
+	libdial "github.com/fatedier/golib/net/dial"
 	"github.com/fatedier/golib/pool"
 	fmux "github.com/hashicorp/yamux"
 	pp "github.com/pires/go-proxyproto"
@@ -347,22 +347,18 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	xl.Trace("get natHoleRespMsg, sid [%s], client address [%s] visitor address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr, natHoleRespMsg.VisitorAddr)
 
 	// Send detect message
-	array := strings.Split(natHoleRespMsg.VisitorAddr, ":")
-	if len(array) <= 1 {
-		xl.Error("get NatHoleResp visitor address error: %v", natHoleRespMsg.VisitorAddr)
+	host, portStr, err := net.SplitHostPort(natHoleRespMsg.VisitorAddr)
+	if err != nil {
+		xl.Error("get NatHoleResp visitor address [%s] error: %v", natHoleRespMsg.VisitorAddr, err)
 	}
 	laddr, _ := net.ResolveUDPAddr("udp", clientConn.LocalAddr().String())
-	/*
-		for i := 1000; i < 65000; i++ {
-			pxy.sendDetectMsg(array[0], int64(i), laddr, "a")
-		}
-	*/
-	port, err := strconv.ParseInt(array[1], 10, 64)
+
+	port, err := strconv.ParseInt(portStr, 10, 64)
 	if err != nil {
 		xl.Error("get natHoleResp visitor address error: %v", natHoleRespMsg.VisitorAddr)
 		return
 	}
-	pxy.sendDetectMsg(array[0], int(port), laddr, []byte(natHoleRespMsg.Sid))
+	pxy.sendDetectMsg(host, int(port), laddr, []byte(natHoleRespMsg.Sid))
 	xl.Trace("send all detect msg done")
 
 	msg.WriteMsg(conn, &msg.NatHoleClientDetectOK{})
@@ -370,7 +366,7 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	// Listen for clientConn's address and wait for visitor connection
 	lConn, err := net.ListenUDP("udp", laddr)
 	if err != nil {
-		xl.Error("listen on visitorConn's local adress error: %v", err)
+		xl.Error("listen on visitorConn's local address error: %v", err)
 		return
 	}
 	defer lConn.Close()
@@ -401,7 +397,7 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 
 	fmuxCfg := fmux.DefaultConfig()
 	fmuxCfg.KeepAliveInterval = 5 * time.Second
-	fmuxCfg.LogOutput = ioutil.Discard
+	fmuxCfg.LogOutput = io.Discard
 	sess, err := fmux.Server(kcpConn, fmuxCfg)
 	if err != nil {
 		xl.Error("create yamux server from kcp connection error: %v", err)
@@ -791,7 +787,10 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 		return
 	}
 
-	localConn, err := frpNet.ConnectServer("tcp", fmt.Sprintf("%s:%d", localInfo.LocalIP, localInfo.LocalPort))
+	localConn, err := libdial.Dial(
+		net.JoinHostPort(localInfo.LocalIP, strconv.Itoa(localInfo.LocalPort)),
+		libdial.WithTimeout(10*time.Second),
+	)
 	if err != nil {
 		workConn.Close()
 		xl.Error("connect to local service [%s:%d] error: %v", localInfo.LocalIP, localInfo.LocalPort, err)

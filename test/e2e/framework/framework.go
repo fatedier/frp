@@ -3,8 +3,8 @@ package framework
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"text/template"
@@ -89,7 +89,7 @@ func (f *Framework) BeforeEach() {
 
 	f.cleanupHandle = AddCleanupAction(f.AfterEach)
 
-	dir, err := ioutil.TempDir(os.TempDir(), "frp-e2e-test-*")
+	dir, err := os.MkdirTemp(os.TempDir(), "frp-e2e-test-*")
 	ExpectNoError(err)
 	f.TempDirectory = dir
 
@@ -255,4 +255,11 @@ func (f *Framework) RunServer(portName string, s server.Server) {
 
 func (f *Framework) SetEnvs(envs []string) {
 	f.osEnvs = envs
+}
+
+func (f *Framework) WriteTempFile(name string, content string) string {
+	filePath := filepath.Join(f.TempDirectory, name)
+	err := os.WriteFile(filePath, []byte(content), 0766)
+	ExpectNoError(err)
+	return filePath
 }

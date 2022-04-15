@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
@@ -162,7 +161,7 @@ func (monitor *Monitor) doHTTPCheck(ctx context.Context) error {
 		return err
 	}
 	defer resp.Body.Close()
-	io.Copy(ioutil.Discard, resp.Body)
+	io.Copy(io.Discard, resp.Body)
 
 	if resp.StatusCode/100 != 2 {
 		return fmt.Errorf("do http health check, StatusCode is [%d] not 2xx", resp.StatusCode)

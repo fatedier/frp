@@ -5,7 +5,7 @@ ROOT=$(unset CDPATH && cd $(dirname "${BASH_SOURCE[0]}")/.. && pwd)
 which ginkgo &> /dev/null
 if [ $? -ne 0 ]; then
     echo "ginkgo not found, try to install..."
-    go get -u github.com/onsi/ginkgo/ginkgo
+    go install github.com/onsi/ginkgo/ginkgo@latest
 fi
 
 debug=false
@@ -17,4 +17,4 @@ if [ x${LOG_LEVEL} != x"" ]; then
     logLevel=${LOG_LEVEL}
 fi
 
-ginkgo -nodes=5 -slowSpecThreshold=20 ${ROOT}/test/e2e -- -frpc-path=${ROOT}/bin/frpc -frps-path=${ROOT}/bin/frps -log-level=${logLevel} -debug=${debug}
+ginkgo -nodes=8 -slowSpecThreshold=20 ${ROOT}/test/e2e -- -frpc-path=${ROOT}/bin/frpc -frps-path=${ROOT}/bin/frps -log-level=${logLevel} -debug=${debug}

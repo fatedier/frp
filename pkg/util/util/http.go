@@ -34,17 +34,6 @@ func OkResponse() *http.Response {
 	return res
 }
 
-// TODO: use "CanonicalHost" func to replace all "GetHostFromAddr" func.
-func GetHostFromAddr(addr string) (host string) {
-	strs := strings.Split(addr, ":")
-	if len(strs) > 1 {
-		host = strs[0]
-	} else {
-		host = addr
-	}
-	return
-}
-
 // canonicalHost strips port from host if present and returns the canonicalized
 // host name.
 func CanonicalHost(host string) (string, error) {

@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -26,6 +27,7 @@ import (
 type Manager struct {
 	loginPlugins       []Plugin
 	newProxyPlugins    []Plugin
+	closeProxyPlugins  []Plugin
 	pingPlugins        []Plugin
 	newWorkConnPlugins []Plugin
 	newUserConnPlugins []Plugin
@@ -35,6 +37,7 @@ func NewManager() *Manager {
 	return &Manager{
 		loginPlugins:       make([]Plugin, 0),
 		newProxyPlugins:    make([]Plugin, 0),
+		closeProxyPlugins:  make([]Plugin, 0),
 		pingPlugins:        make([]Plugin, 0),
 		newWorkConnPlugins: make([]Plugin, 0),
 		newUserConnPlugins: make([]Plugin, 0),
@@ -47,6 +50,9 @@ func (m *Manager) Register(p Plugin) {
 	}
 	if p.IsSupport(OpNewProxy) {
 		m.newProxyPlugins = append(m.newProxyPlugins, p)
+	}
+	if p.IsSupport(OpCloseProxy) {
+		m.closeProxyPlugins = append(m.closeProxyPlugins, p)
 	}
 	if p.IsSupport(OpPing) {
 		m.pingPlugins = append(m.pingPlugins, p)
@@ -127,6 +133,32 @@ func (m *Manager) NewProxy(content *NewProxyContent) (*NewProxyContent, error) {
 	return content, nil
 }
 
+func (m *Manager) CloseProxy(content *CloseProxyContent) error {
+	if len(m.closeProxyPlugins) == 0 {
+		return nil
+	}
+
+	errs := make([]string, 0)
+	reqid, _ := util.RandID()
+	xl := xlog.New().AppendPrefix("reqid: " + reqid)
+	ctx := xlog.NewContext(context.Background(), xl)
+	ctx = NewReqidContext(ctx, reqid)
+
+	for _, p := range m.closeProxyPlugins {
+		_, _, err := p.Handle(ctx, OpCloseProxy, *content)
+		if err != nil {
+			xl.Warn("send CloseProxy request to plugin [%s] error: %v", p.Name(), err)
+			errs = append(errs, fmt.Sprintf("[%s]: %v", p.Name(), err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("send CloseProxy request to plugin errors: %s", strings.Join(errs, "; "))
+	} else {
+		return nil
+	}
+}
+
 func (m *Manager) Ping(content *PingContent) (*PingContent, error) {
 	if len(m.pingPlugins) == 0 {
 		return content, nil
@@ -179,7 +211,7 @@ func (m *Manager) NewWorkConn(content *NewWorkConnContent) (*NewWorkConnContent,
 	ctx := xlog.NewContext(context.Background(), xl)
 	ctx = NewReqidContext(ctx, reqid)
 
-	for _, p := range m.pingPlugins {
+	for _, p := range m.newWorkConnPlugins {
 		res, retContent, err = p.Handle(ctx, OpPing, *content)
 		if err != nil {
 			xl.Warn("send NewWorkConn request to plugin [%s] error: %v", p.Name(), err)

@@ -14,22 +14,15 @@
 
 package assets
 
-//go:generate statik -src=./frps/static -dest=./frps
-//go:generate statik -src=./frpc/static -dest=./frpc
-//go:generate go fmt ./frps/statik/statik.go
-//go:generate go fmt ./frpc/statik/statik.go
-
 import (
-	"io/ioutil"
+	"io/fs"
 	"net/http"
-	"os"
-	"path"
-
-	"github.com/rakyll/statik/fs"
 )
 
 var (
-	// store static files in memory by statik
+	// read-only filesystem created by "embed" for embedded files
+	content fs.FS
+
 	FileSystem http.FileSystem
 
 	// if prefix is not empty, we get file content from disk
@@ -38,40 +31,18 @@ var (
 
 // if path is empty, load assets in memory
 // or set FileSystem using disk files
-func Load(path string) (err error) {
+func Load(path string) {
 	prefixPath = path
 	if prefixPath != "" {
 		FileSystem = http.Dir(prefixPath)
-		return nil
 	} else {
-		FileSystem, err = fs.New()
+		FileSystem = http.FS(content)
 	}
-	return err
 }
 
-func ReadFile(file string) (content string, err error) {
-	if prefixPath == "" {
-		file, err := FileSystem.Open(path.Join("/", file))
-		if err != nil {
-			return content, err
-		}
-		defer file.Close()
-		buf, err := ioutil.ReadAll(file)
-		if err != nil {
-			return content, err
-		}
-		content = string(buf)
-	} else {
-		file, err := os.Open(path.Join(prefixPath, file))
-		if err != nil {
-			return content, err
-		}
-		defer file.Close()
-		buf, err := ioutil.ReadAll(file)
-		if err != nil {
-			return content, err
-		}
-		content = string(buf)
+func Register(fileSystem fs.FS) {
+	subFs, err := fs.Sub(fileSystem, "static")
+	if err == nil {
+		content = subFs
 	}
-	return content, err
 }

@@ -17,6 +17,7 @@ package proxy
 import (
 	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/fatedier/frp/pkg/config"
 )
@@ -54,7 +55,7 @@ func (pxy *TCPProxy) Run() (remoteAddr string, err error) {
 				pxy.rc.TCPPortManager.Release(pxy.realPort)
 			}
 		}()
-		listener, errRet := net.Listen("tcp", fmt.Sprintf("%s:%d", pxy.serverCfg.ProxyBindAddr, pxy.realPort))
+		listener, errRet := net.Listen("tcp", net.JoinHostPort(pxy.serverCfg.ProxyBindAddr, strconv.Itoa(pxy.realPort)))
 		if errRet != nil {
 			err = errRet
 			return

@@ -55,6 +55,11 @@ func NewRequestExpect(f *Framework) *RequestExpect {
 	}
 }
 
+func (e *RequestExpect) Request(req *request.Request) *RequestExpect {
+	e.req = req
+	return e
+}
+
 func (e *RequestExpect) RequestModify(f func(r *request.Request)) *RequestExpect {
 	f(e.req)
 	return e
@@ -108,7 +113,7 @@ func (e *RequestExpect) Ensure(fns ...EnsureFunc) {
 		if !bytes.Equal(e.expectResp, ret.Content) {
 			flog.Trace("Response info: %+v", ret)
 		}
-		ExpectEqualValuesWithOffset(1, e.expectResp, ret.Content, e.explain...)
+		ExpectEqualValuesWithOffset(1, ret.Content, e.expectResp, e.explain...)
 	} else {
 		for _, fn := range fns {
 			ok := fn(ret)

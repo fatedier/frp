@@ -3,9 +3,9 @@ package request
 import (
 	"bufio"
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/fatedier/frp/test/e2e/pkg/rpc"
-	libnet "github.com/fatedier/golib/net"
+	libdial "github.com/fatedier/golib/net/dial"
 )
 
 type Request struct {
@@ -25,11 +25,12 @@ type Request struct {
 	body    []byte
 	timeout time.Duration
 
-	// for http
-	method  string
-	host    string
-	path    string
-	headers map[string]string
+	// for http or https
+	method    string
+	host      string
+	path      string
+	headers   map[string]string
+	tlsConfig *tls.Config
 
 	proxyURL string
 }
@@ -61,6 +62,11 @@ func (r *Request) UDP() *Request {
 
 func (r *Request) HTTP() *Request {
 	r.protocol = "http"
+	return r
+}
+
+func (r *Request) HTTPS() *Request {
+	r.protocol = "https"
 	return r
 }
 
@@ -102,6 +108,11 @@ func (r *Request) HTTPHeaders(headers map[string]string) *Request {
 	return r
 }
 
+func (r *Request) TLSConfig(tlsConfig *tls.Config) *Request {
+	r.tlsConfig = tlsConfig
+	return r
+}
+
 func (r *Request) Timeout(timeout time.Duration) *Request {
 	r.timeout = timeout
 	return r
@@ -119,10 +130,10 @@ func (r *Request) Do() (*Response, error) {
 	)
 
 	addr := net.JoinHostPort(r.addr, strconv.Itoa(r.port))
-	// for protocol http
-	if r.protocol == "http" {
-		return r.sendHTTPRequest(r.method, fmt.Sprintf("http://%s%s", addr, r.path),
-			r.host, r.headers, r.proxyURL, r.body)
+	// for protocol http and https
+	if r.protocol == "http" || r.protocol == "https" {
+		return r.sendHTTPRequest(r.method, fmt.Sprintf("%s://%s%s", r.protocol, addr, r.path),
+			r.host, r.headers, r.proxyURL, r.body, r.tlsConfig)
 	}
 
 	// for protocol tcp and udp
@@ -130,7 +141,11 @@ func (r *Request) Do() (*Response, error) {
 		if r.protocol != "tcp" {
 			return nil, fmt.Errorf("only tcp protocol is allowed for proxy")
 		}
-		conn, err = libnet.DialTcpByProxy(r.proxyURL, addr)
+		proxyType, proxyAddress, auth, err := libdial.ParseProxyURL(r.proxyURL)
+		if err != nil {
+			return nil, fmt.Errorf("parse ProxyURL error: %v", err)
+		}
+		conn, err = libdial.Dial(addr, libdial.WithProxy(proxyType, proxyAddress), libdial.WithProxyAuth(auth))
 		if err != nil {
 			return nil, err
 		}
@@ -165,7 +180,10 @@ type Response struct {
 	Content []byte
 }
 
-func (r *Request) sendHTTPRequest(method, urlstr string, host string, headers map[string]string, proxy string, body []byte) (*Response, error) {
+func (r *Request) sendHTTPRequest(method, urlstr string, host string, headers map[string]string,
+	proxy string, body []byte, tlsConfig *tls.Config,
+) (*Response, error) {
+
 	var inBody io.Reader
 	if len(body) != 0 {
 		inBody = bytes.NewReader(body)
@@ -190,6 +208,7 @@ func (r *Request) sendHTTPRequest(method, urlstr string, host string, headers ma
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
+		TLSClientConfig:       tlsConfig,
 	}
 	if len(proxy) != 0 {
 		tr.Proxy = func(req *http.Request) (*url.URL, error) {
@@ -203,7 +222,7 @@ func (r *Request) sendHTTPRequest(method, urlstr string, host string, headers ma
 	}
 
 	ret := &Response{Code: resp.StatusCode, Header: resp.Header}
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}

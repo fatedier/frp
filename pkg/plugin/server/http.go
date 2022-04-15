@@ -20,7 +20,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -116,7 +116,7 @@ func (p *httpPlugin) do(ctx context.Context, r *Request, res *Response) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("do http request error code: %d", resp.StatusCode)
 	}
-	buf, err = ioutil.ReadAll(resp.Body)
+	buf, err = io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}

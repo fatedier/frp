@@ -19,7 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"sort"
@@ -124,7 +124,8 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	// Create tcpmux httpconnect multiplexer.
 	if cfg.TCPMuxHTTPConnectPort > 0 {
 		var l net.Listener
-		l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", cfg.ProxyBindAddr, cfg.TCPMuxHTTPConnectPort))
+		address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.TCPMuxHTTPConnectPort))
+		l, err = net.Listen("tcp", address)
 		if err != nil {
 			err = fmt.Errorf("Create server listener error, %v", err)
 			return
@@ -135,7 +136,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			err = fmt.Errorf("Create vhost tcpMuxer error, %v", err)
 			return
 		}
-		log.Info("tcpmux httpconnect multiplexer listen on %s:%d", cfg.ProxyBindAddr, cfg.TCPMuxHTTPConnectPort)
+		log.Info("tcpmux httpconnect multiplexer listen on %s", address)
 	}
 
 	// Init all plugins
@@ -185,6 +186,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	}
 
 	svr.muxer = mux.NewMux(ln)
+	svr.muxer.SetKeepAlive(time.Duration(cfg.TCPKeepAlive) * time.Second)
 	go svr.muxer.Serve()
 	ln = svr.muxer.DefaultListener()
 
@@ -199,7 +201,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			err = fmt.Errorf("Listen on kcp address udp %s error: %v", address, err)
 			return
 		}
-		log.Info("frps kcp listen on udp %s:%d", cfg.BindAddr, cfg.KCPBindPort)
+		log.Info("frps kcp listen on udp %s", address)
 	}
 
 	// Listen for accepting connections from client using websocket protocol.
@@ -232,7 +234,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			}
 		}
 		go server.Serve(l)
-		log.Info("http service listen on %s:%d", cfg.ProxyBindAddr, cfg.VhostHTTPPort)
+		log.Info("http service listen on %s", address)
 	}
 
 	// Create https vhost muxer.
@@ -258,8 +260,9 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	}
 
 	// frp tls listener
-	svr.tlsListener = svr.muxer.Listen(1, 1, func(data []byte) bool {
-		return int(data[0]) == frpNet.FRPTLSHeadByte
+	svr.tlsListener = svr.muxer.Listen(2, 1, func(data []byte) bool {
+		// tls first byte can be 0x16 only when vhost https port is not same with bind port
+		return int(data[0]) == frpNet.FRPTLSHeadByte || int(data[0]) == 0x16
 	})
 
 	// Create nat hole controller.
@@ -279,11 +282,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	// Create dashboard web server.
 	if cfg.DashboardPort > 0 {
 		// Init dashboard assets
-		err = assets.Load(cfg.AssetsDir)
-		if err != nil {
-			err = fmt.Errorf("Load assets error: %v", err)
-			return
-		}
+		assets.Load(cfg.AssetsDir)
 
 		address := net.JoinHostPort(cfg.DashboardAddr, strconv.Itoa(cfg.DashboardPort))
 		err = svr.RunDashboardServer(address)
@@ -291,7 +290,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			err = fmt.Errorf("Create dashboard web server error, %v", err)
 			return
 		}
-		log.Info("Dashboard listen on %s:%d", cfg.DashboardAddr, cfg.DashboardPort)
+		log.Info("Dashboard listen on %s", address)
 		statsEnable = true
 	}
 	if statsEnable {
@@ -337,7 +336,8 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {
 	case *msg.Login:
 		// server plugin hook
 		content := &plugin.LoginContent{
-			Login: *m,
+			Login:         *m,
+			ClientAddress: conn.RemoteAddr().String(),
 		}
 		retContent, err := svr.pluginManager.Login(content)
 		if err == nil {
@@ -395,20 +395,21 @@ func (svr *Service) HandleListener(l net.Listener) {
 
 		log.Trace("start check TLS connection...")
 		originConn := c
-		c, err = frpNet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, svr.cfg.TLSOnly, connReadTimeout)
+		var isTLS, custom bool
+		c, isTLS, custom, err = frpNet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, svr.cfg.TLSOnly, connReadTimeout)
 		if err != nil {
 			log.Warn("CheckAndEnableTLSServerConnWithTimeout error: %v", err)
 			originConn.Close()
 			continue
 		}
-		log.Trace("success check TLS connection")
+		log.Trace("check TLS connection success, isTLS: %v custom: %v", isTLS, custom)
 
-		// Start a new goroutine for dealing connections.
+		// Start a new goroutine to handle connection.
 		go func(ctx context.Context, frpConn net.Conn) {
 			if svr.cfg.TCPMux {
 				fmuxCfg := fmux.DefaultConfig()
-				fmuxCfg.KeepAliveInterval = 20 * time.Second
-				fmuxCfg.LogOutput = ioutil.Discard
+				fmuxCfg.KeepAliveInterval = time.Duration(svr.cfg.TCPMuxKeepaliveInterval) * time.Second
+				fmuxCfg.LogOutput = io.Discard
 				session, err := fmux.Server(frpConn, fmuxCfg)
 				if err != nil {
 					log.Warn("Failed to create mux connection: %v", err)

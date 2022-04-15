@@ -19,8 +19,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -86,7 +86,7 @@ type STCPVisitor struct {
 }
 
 func (sv *STCPVisitor) Run() (err error) {
-	sv.l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", sv.cfg.BindAddr, sv.cfg.BindPort))
+	sv.l, err = net.Listen("tcp", net.JoinHostPort(sv.cfg.BindAddr, strconv.Itoa(sv.cfg.BindPort)))
 	if err != nil {
 		return
 	}
@@ -175,7 +175,7 @@ type XTCPVisitor struct {
 }
 
 func (sv *XTCPVisitor) Run() (err error) {
-	sv.l, err = net.Listen("tcp", fmt.Sprintf("%s:%d", sv.cfg.BindAddr, sv.cfg.BindPort))
+	sv.l, err = net.Listen("tcp", net.JoinHostPort(sv.cfg.BindAddr, strconv.Itoa(sv.cfg.BindPort)))
 	if err != nil {
 		return
 	}
@@ -308,7 +308,7 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 
 	fmuxCfg := fmux.DefaultConfig()
 	fmuxCfg.KeepAliveInterval = 5 * time.Second
-	fmuxCfg.LogOutput = ioutil.Discard
+	fmuxCfg.LogOutput = io.Discard
 	sess, err := fmux.Client(remote, fmuxCfg)
 	if err != nil {
 		xl.Error("create yamux session error: %v", err)
@@ -353,7 +353,7 @@ type SUDPVisitor struct {
 func (sv *SUDPVisitor) Run() (err error) {
 	xl := xlog.FromContextSafe(sv.ctx)
 
-	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", sv.cfg.BindAddr, sv.cfg.BindPort))
+	addr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(sv.cfg.BindAddr, strconv.Itoa(sv.cfg.BindPort)))
 	if err != nil {
 		return fmt.Errorf("sudp ResolveUDPAddr error: %v", err)
 	}
@@ -377,29 +377,33 @@ func (sv *SUDPVisitor) Run() (err error) {
 func (sv *SUDPVisitor) dispatcher() {
 	xl := xlog.FromContextSafe(sv.ctx)
 
+	var (
+		visitorConn net.Conn
+		err         error
+
+		firstPacket *msg.UDPPacket
+	)
+
 	for {
-		// loop for get frpc to frps tcp conn
-		// setup worker
-		// wait worker to finished
-		// retry or exit
-		visitorConn, err := sv.getNewVisitorConn()
-		if err != nil {
-			// check if proxy is closed
-			// if checkCloseCh is close, we will return, other case we will continue to reconnect
-			select {
-			case <-sv.checkCloseCh:
+		select {
+		case firstPacket = <-sv.sendCh:
+			if firstPacket == nil {
 				xl.Info("frpc sudp visitor proxy is closed")
 				return
-			default:
 			}
+		case <-sv.checkCloseCh:
+			xl.Info("frpc sudp visitor proxy is closed")
+			return
+		}
 
-			time.Sleep(3 * time.Second)
-
+		visitorConn, err = sv.getNewVisitorConn()
+		if err != nil {
 			xl.Warn("newVisitorConn to frps error: %v, try to reconnect", err)
 			continue
 		}
 
-		sv.worker(visitorConn)
+		// visitorConn always be closed when worker done.
+		sv.worker(visitorConn, firstPacket)
 
 		select {
 		case <-sv.checkCloseCh:
@@ -407,9 +411,10 @@ func (sv *SUDPVisitor) dispatcher() {
 		default:
 		}
 	}
+
 }
 
-func (sv *SUDPVisitor) worker(workConn net.Conn) {
+func (sv *SUDPVisitor) worker(workConn net.Conn, firstPacket *msg.UDPPacket) {
 	xl := xlog.FromContextSafe(sv.ctx)
 	xl.Debug("starting sudp proxy worker")
 
@@ -463,6 +468,14 @@ func (sv *SUDPVisitor) worker(workConn net.Conn) {
 		}()
 
 		var errRet error
+		if firstPacket != nil {
+			if errRet = msg.WriteMsg(conn, firstPacket); errRet != nil {
+				xl.Warn("sender goroutine for udp work connection closed: %v", errRet)
+				return
+			}
+			xl.Trace("send udp package to workConn: %s", firstPacket.Content)
+		}
+
 		for {
 			select {
 			case udpMsg, ok := <-sv.sendCh:
