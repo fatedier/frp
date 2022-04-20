@@ -61,6 +61,7 @@ type STCPVisitorConf struct {
 
 type XTCPVisitorConf struct {
 	BaseVisitorConf `ini:",extends"`
+	StunServer      string `ini:"stun_server" json:"stun_server"`
 }
 
 // DefaultVisitorConf creates a empty VisitorConf object by visitorType.
@@ -269,7 +270,9 @@ func (cfg *XTCPVisitorConf) UnmarshalFromIni(prefix string, name string, section
 	}
 
 	// Add custom logic unmarshal, if exists
-
+	if cfg.StunServer == "" {
+		cfg.StunServer = "stun.voipstunt.com:3478"
+	}
 	return
 }
 

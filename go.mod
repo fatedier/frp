@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
+	github.com/ccding/go-stun/stun v0.0.0-20200514191101-4dc67bcdb029
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/fatedier/beego v0.0.0-20171024143340-6c6a4f5bd5eb
 	github.com/fatedier/golib v0.1.1-0.20220321042308-c306138b83ac

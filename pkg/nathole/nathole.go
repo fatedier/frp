@@ -15,8 +15,19 @@ import (
 	"github.com/fatedier/golib/pool"
 )
 
+/*
++---------+--------------------+--------------------+--------------------+---------------------+--------------------+
+| O: SUPPORT    X: UNSUPPORT   |   Full cone NAT    | IP Restricted NAT  | Port Restricted NAT |    Symmetric NAT   |
++---------+--------------------+--------------------+--------------------+---------------------+--------------------+
+|         |Full cone NAT       |         O          |         O          |         O           |        O           |
+| VISITOR |IP Restricted NAT   |         O          |         O          |         O           |        O           |
+|         |Port restricted NAT |         O          |         O          |         O           |        O           |
+|         |Symmetric NAT       |         O          |         O          |         O           |        X           |
++---------+--------------------+--------------------+--------------------+---------------------+--------------------+
+*/
+
 // Timeout seconds.
-var NatHoleTimeout int64 = 10
+var NatHoleTimeout int64 = 30
 
 type SidRequest struct {
 	Sid      string
@@ -105,9 +116,10 @@ func (nc *Controller) GenSid() string {
 func (nc *Controller) HandleVisitor(m *msg.NatHoleVisitor, raddr *net.UDPAddr) {
 	sid := nc.GenSid()
 	session := &Session{
-		Sid:         sid,
-		VisitorAddr: raddr,
-		NotifyCh:    make(chan struct{}, 0),
+		Sid:            sid,
+		VisitorAddr:    raddr,
+		VisitorNatType: m.NatType,
+		NotifyCh:       make(chan struct{}, 0),
 	}
 	nc.mu.Lock()
 	clientCfg, ok := nc.clientCfgs[m.ProxyName]
@@ -166,6 +178,7 @@ func (nc *Controller) HandleClient(m *msg.NatHoleClient, raddr *net.UDPAddr) {
 	}
 	log.Trace("handle client message, sid [%s]", session.Sid)
 	session.ClientAddr = raddr
+	session.ClientNatType = m.NatType
 
 	resp := nc.GenNatHoleResponse(session, "")
 	log.Trace("send nat hole response to client")
@@ -174,20 +187,26 @@ func (nc *Controller) HandleClient(m *msg.NatHoleClient, raddr *net.UDPAddr) {
 
 func (nc *Controller) GenNatHoleResponse(session *Session, errInfo string) []byte {
 	var (
-		sid         string
-		visitorAddr string
-		clientAddr  string
+		sid            string
+		visitorAddr    string
+		clientAddr     string
+		visitorNatType string
+		clientNatType  string
 	)
 	if session != nil {
 		sid = session.Sid
 		visitorAddr = session.VisitorAddr.String()
 		clientAddr = session.ClientAddr.String()
+		visitorNatType = session.VisitorNatType
+		clientNatType = session.ClientNatType
 	}
 	m := &msg.NatHoleResp{
-		Sid:         sid,
-		VisitorAddr: visitorAddr,
-		ClientAddr:  clientAddr,
-		Error:       errInfo,
+		Sid:            sid,
+		VisitorAddr:    visitorAddr,
+		ClientAddr:     clientAddr,
+		Error:          errInfo,
+		VisitorNatType: visitorNatType,
+		ClientNatType:  clientNatType,
 	}
 	b := bytes.NewBuffer(nil)
 	err := msg.WriteMsg(b, m)
@@ -198,9 +217,11 @@ func (nc *Controller) GenNatHoleResponse(session *Session, errInfo string) []byt
 }
 
 type Session struct {
-	Sid         string
-	VisitorAddr *net.UDPAddr
-	ClientAddr  *net.UDPAddr
+	Sid            string
+	VisitorAddr    *net.UDPAddr
+	ClientAddr     *net.UDPAddr
+	VisitorNatType string
+	ClientNatType  string
 
 	NotifyCh chan struct{}
 }

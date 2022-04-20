@@ -196,8 +196,9 @@ type STCPProxyConf struct {
 type XTCPProxyConf struct {
 	BaseProxyConf `ini:",extends"`
 
-	Role string `ini:"role" json:"role"`
-	Sk   string `ini:"sk" json:"sk"`
+	Role       string `ini:"role" json:"role"`
+	Sk         string `ini:"sk" json:"sk"`
+	StunServer string `ini:"stun_server" json:"stun_server"`
 }
 
 // UDP
@@ -299,7 +300,6 @@ func NewProxyConfFromMsg(pMsg *msg.NewProxy, serverCfg ServerCommonConf) (ProxyC
 	}
 
 	conf.UnmarshalFromMsg(pMsg)
-
 	err := conf.CheckForSvr(serverCfg)
 	if err != nil {
 		return nil, err
@@ -1025,6 +1025,10 @@ func (cfg *XTCPProxyConf) UnmarshalFromIni(prefix string, name string, section *
 	// Add custom logic unmarshal if exists
 	if cfg.Role == "" {
 		cfg.Role = "server"
+	}
+
+	if cfg.StunServer == "" {
+		cfg.StunServer = "stun.voipstunt.com:3478"
 	}
 
 	return nil

@@ -37,6 +37,7 @@ func init() {
 	xtcpCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "", 0, "bind port")
 	xtcpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	xtcpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
+	xtcpCmd.PersistentFlags().StringVarP(&stunServer, "stun_server", "", "stun.voipbuster.com:3478", "stun server")
 
 	rootCmd.AddCommand(xtcpCmd)
 }
@@ -69,6 +70,7 @@ var xtcpCmd = &cobra.Command{
 			cfg.Sk = sk
 			cfg.LocalIP = localIP
 			cfg.LocalPort = localPort
+			cfg.StunServer = stunServer
 			err = cfg.CheckForCli()
 			if err != nil {
 				fmt.Println(err)
@@ -86,6 +88,7 @@ var xtcpCmd = &cobra.Command{
 			cfg.ServerName = serverName
 			cfg.BindAddr = bindAddr
 			cfg.BindPort = bindPort
+			cfg.StunServer = stunServer
 			err = cfg.Check()
 			if err != nil {
 				fmt.Println(err)

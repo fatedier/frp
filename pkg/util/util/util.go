@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ccding/go-stun/stun"
 )
 
 // RandID return a rand string used in frp.
@@ -124,4 +126,25 @@ func RandomSleep(duration time.Duration, minRatio, maxRatio float64) time.Durati
 	d := duration * time.Duration(n) / time.Duration(1000)
 	time.Sleep(d)
 	return d
+}
+
+var g_nat_type string = ""
+
+func GetNatType(stunServer string) string {
+	// 检测NAT 类型
+	if stunServer != "disable" {
+		if g_nat_type == "" {
+			client := stun.NewClient()
+			client.SetServerAddr(stunServer)
+			nat, _, err := client.Discover()
+			if err != nil {
+				nat = stun.NATError
+			}
+			g_nat_type = nat.String()
+		}
+	} else {
+		g_nat_type = stun.NATUnknown.String()
+	}
+
+	return g_nat_type
 }
