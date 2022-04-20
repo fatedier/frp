@@ -59,6 +59,7 @@ func NewVisitor(ctx context.Context, ctl *Control, cfg config.VisitorConf) (visi
 		visitor = &XTCPVisitor{
 			BaseVisitor: &baseVisitor,
 			cfg:         cfg,
+			NatType:     util.GetNatType(cfg.StunServer),
 		}
 	case *config.SUDPVisitorConf:
 		visitor = &SUDPVisitor{
@@ -171,7 +172,8 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 type XTCPVisitor struct {
 	*BaseVisitor
 
-	cfg *config.XTCPVisitorConf
+	cfg     *config.XTCPVisitorConf
+	NatType string
 }
 
 func (sv *XTCPVisitor) Run() (err error) {
@@ -230,6 +232,7 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		ProxyName: sv.cfg.ServerName,
 		SignKey:   util.GetAuthKey(sv.cfg.Sk, now),
 		Timestamp: now,
+		NatType:   sv.NatType,
 	}
 	err = msg.WriteMsg(visitorConn, natHoleVisitorMsg)
 	if err != nil {
@@ -237,9 +240,9 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		return
 	}
 
-	// Wait for client address at most 10 seconds.
+	// Wait for client address at most 30 seconds.
 	var natHoleRespMsg msg.NatHoleResp
-	visitorConn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	visitorConn.SetReadDeadline(time.Now().Add(30 * time.Second))
 	buf := pool.GetBuf(1024)
 	n, err := visitorConn.Read(buf)
 	if err != nil {
@@ -260,10 +263,15 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		return
 	}
 
-	xl.Trace("get natHoleRespMsg, sid [%s], client address [%s], visitor address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr, natHoleRespMsg.VisitorAddr)
+	xl.Trace("get natHoleRespMsg, sid [%s], client address [%s], visitor address [%s] client nat type [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr, natHoleRespMsg.VisitorAddr, natHoleRespMsg.ClientNatType)
 
 	// Close visitorConn, so we can use it's local address.
 	visitorConn.Close()
+
+	if sv.NatType == "Symmetric NAT" && natHoleRespMsg.ClientNatType == "Symmetric NAT" {
+		xl.Error("NAT type is Symmetric NAT!")
+		return
+	}
 
 	// send sid message to client
 	laddr, _ := net.ResolveUDPAddr("udp", visitorConn.LocalAddr().String())
@@ -272,35 +280,62 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		xl.Error("resolve client udp address error: %v", err)
 		return
 	}
-	lConn, err := net.DialUDP("udp", laddr, daddr)
+	lConn, err := net.ListenUDP("udp", laddr)
 	if err != nil {
 		xl.Error("dial client udp address error: %v", err)
 		return
 	}
 	defer lConn.Close()
 
-	lConn.Write([]byte(natHoleRespMsg.Sid))
+	var sid_ok bool = false
+	var uAddr *net.UDPAddr
+	for i := 0; i < 10; i++ {
+		var detectRange int = 0
+		if natHoleRespMsg.ClientNatType == "Symmetric NAT" {
+			// TODO: How to detect the port of Symmetric NAT faster? AI?
+			detectRange = 2000
+		}
+		for j := -detectRange; j <= detectRange; j++ {
+			daddr1, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", daddr.IP.String(), daddr.Port+j))
+			_, err = lConn.WriteToUDP([]byte(natHoleRespMsg.Sid), daddr1)
+			if err != nil {
+				xl.Warn("get sid from client error, %+v", err)
+			}
+		}
+		xl.Trace("send all detect msg done, detectRange=%d", detectRange)
 
-	// read ack sid from client
-	sidBuf := pool.GetBuf(1024)
-	lConn.SetReadDeadline(time.Now().Add(8 * time.Second))
-	n, err = lConn.Read(sidBuf)
-	if err != nil {
-		xl.Warn("get sid from client error: %v", err)
+		// read ack sid from client
+		lConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+
+		sidBuf := pool.GetBuf(1024)
+		for {
+			n, tAddr, err := lConn.ReadFromUDP(sidBuf)
+			if err != nil {
+				xl.Warn("get sid from client error, retry")
+				break
+			}
+			if string(sidBuf[:n]) == natHoleRespMsg.Sid {
+				sid_ok = true
+				uAddr = tAddr
+			}
+		}
+		pool.PutBuf(sidBuf)
+		if sid_ok {
+			xl.Info("nat hole connection make success, sid [%s]", natHoleRespMsg.Sid)
+			break
+		}
+	}
+
+	if !sid_ok {
+		xl.Error("get sid from client error")
 		return
 	}
+
 	lConn.SetReadDeadline(time.Time{})
-	if string(sidBuf[:n]) != natHoleRespMsg.Sid {
-		xl.Warn("incorrect sid from client")
-		return
-	}
-	pool.PutBuf(sidBuf)
-
-	xl.Info("nat hole connection make success, sid [%s]", natHoleRespMsg.Sid)
 
 	// wrap kcp connection
 	var remote io.ReadWriteCloser
-	remote, err = frpNet.NewKCPConnFromUDP(lConn, true, natHoleRespMsg.ClientAddr)
+	remote, err = frpNet.NewKCPConnFromUDP(lConn, false, uAddr.String())
 	if err != nil {
 		xl.Error("create kcp connection from udp connection error: %v", err)
 		return

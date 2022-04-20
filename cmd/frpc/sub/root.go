@@ -72,6 +72,7 @@ var (
 	serverName        string
 	bindAddr          string
 	bindPort          int
+	stunServer        string
 
 	tlsEnable bool
 )

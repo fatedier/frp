@@ -61,6 +61,7 @@ type STCPVisitorConf struct {
 
 type XTCPVisitorConf struct {
 	BaseVisitorConf `ini:",extends"`
+	StunServer      string `ini:"stun_server" json:"stun_server"`
 }
 
 // DefaultVisitorConf creates a empty VisitorConf object by visitorType.

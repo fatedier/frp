@@ -172,18 +172,22 @@ type NatHoleVisitor struct {
 	ProxyName string `json:"proxy_name"`
 	SignKey   string `json:"sign_key"`
 	Timestamp int64  `json:"timestamp"`
+	NatType   string `json:"nat_type"`
 }
 
 type NatHoleClient struct {
 	ProxyName string `json:"proxy_name"`
 	Sid       string `json:"sid"`
+	NatType   string `json:"nat_type"`
 }
 
 type NatHoleResp struct {
-	Sid         string `json:"sid"`
-	VisitorAddr string `json:"visitor_addr"`
-	ClientAddr  string `json:"client_addr"`
-	Error       string `json:"error"`
+	Sid            string `json:"sid"`
+	VisitorAddr    string `json:"visitor_addr"`
+	ClientAddr     string `json:"client_addr"`
+	Error          string `json:"error"`
+	VisitorNatType string `json:"visitor_nat_type"`
+	ClientNatType  string `json:"client_nat_type"`
 }
 
 type NatHoleClientDetectOK struct {
