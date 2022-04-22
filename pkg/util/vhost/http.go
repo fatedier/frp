@@ -89,7 +89,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 		BufferPool: newWrapPool(),
 		ErrorLog:   log.New(newWrapLogger(), "", 0),
 		ErrorHandler: func(rw http.ResponseWriter, req *http.Request, err error) {
-			frpLog.Warn("do http proxy request error: %v", err)
+			frpLog.Warn("do http proxy request [host: %s] error: %v", req.Host, err)
 			rw.WriteHeader(http.StatusNotFound)
 			rw.Write(getNotFoundPageContent())
 		},

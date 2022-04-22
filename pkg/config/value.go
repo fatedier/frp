@@ -29,11 +29,11 @@ func init() {
 	glbEnvs = make(map[string]string)
 	envs := os.Environ()
 	for _, env := range envs {
-		kv := strings.Split(env, "=")
-		if len(kv) != 2 {
+		pair := strings.SplitN(env, "=", 2)
+		if len(pair) != 2 {
 			continue
 		}
-		glbEnvs[kv[0]] = kv[1]
+		glbEnvs[pair[0]] = pair[1]
 	}
 }
 
