@@ -1,8 +1,7 @@
 ### New
 
-* Support go http pprof.
+* Added new parameter `config_dir` in frpc to run multiple client instances in one process.
 
-### Improve
+### Fix
 
-* Change underlying TCP connection keepalive interval to 2 hours.
-* Create new connection to server for `sudp` visitor when needed, to avoid frequent reconnections.
+* Equal sign in environment variables causes parsing error.
