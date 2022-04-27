@@ -287,7 +287,7 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	if cfg.UseCompression {
 		local = frpIo.WithCompression(local)
 	}
-	startime := time.Now().UnixNano() / 1000000      // time in microseconds
+	startime := time.Now().Unix()
 	xl.Debug("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", workConn.LocalAddr().String(),
 		workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 
@@ -298,11 +298,11 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	metrics.Server.CloseConnection(name, proxyType)
 	metrics.Server.AddTrafficIn(name, proxyType, inCount)
 	metrics.Server.AddTrafficOut(name, proxyType, outCount)
-	endtime := time.Now().UnixNano() / 1000000      // time in microseconds
+	endtime := time.Now().Unix()
 	connection_duration := endtime - startime
-	//xl.Debug("join connections closed, it remains [%d]ms, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", connection_duration,
+	//xl.Debug("join connections closed, it remains [%d]seconds, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", connection_duration,
 	//	workConn.LocalAddr().String(), workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String() )
-	xl.Info("connections closed, it remains [%d]ms, [%s]", connection_duration, userConn.RemoteAddr().String() )
+	xl.Info("connections closed, it remains [%d]seconds, [%s]", connection_duration, userConn.RemoteAddr().String() )
 }
 
 type Manager struct {
