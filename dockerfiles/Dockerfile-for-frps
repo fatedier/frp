@@ -1,17 +1,12 @@
-FROM golang:1.18-alpine3.15 AS building
+FROM golang:1.18 AS building
 
 COPY . /building
 WORKDIR /building
 
-RUN apk --no-cache add \
-    git \
- && export GO111MODULE=on \
- && env CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o ./bin/frps ./cmd/frps
+RUN make frps
 
-FROM alpine:3.15
-LABEL maintainer="i@muir.fun"
+FROM alpine:3
 
 COPY --from=building /building/bin/frps /usr/bin/frps
 
 ENTRYPOINT ["/usr/bin/frps"]
-CMD ["-h"]
