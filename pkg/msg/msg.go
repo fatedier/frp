@@ -62,133 +62,134 @@ var (
 
 // When frpc start, client send this message to login to server.
 type Login struct {
-	Version      string            `json:"version"`
-	Hostname     string            `json:"hostname"`
-	Os           string            `json:"os"`
-	Arch         string            `json:"arch"`
-	User         string            `json:"user"`
-	PrivilegeKey string            `json:"privilege_key"`
-	Timestamp    int64             `json:"timestamp"`
-	RunID        string            `json:"run_id"`
-	Metas        map[string]string `json:"metas"`
+	Version      string            `json:"version,omitempty"`
+	Hostname     string            `json:"hostname,omitempty"`
+	Os           string            `json:"os,omitempty"`
+	Arch         string            `json:"arch,omitempty"`
+	User         string            `json:"user,omitempty"`
+	PrivilegeKey string            `json:"privilege_key,omitempty"`
+	Timestamp    int64             `json:"timestamp,omitempty"`
+	RunID        string            `json:"run_id,omitempty"`
+	Metas        map[string]string `json:"metas,omitempty"`
 
 	// Some global configures.
-	PoolCount int `json:"pool_count"`
+	PoolCount int `json:"pool_count,omitempty"`
 }
 
 type LoginResp struct {
-	Version       string `json:"version"`
-	RunID         string `json:"run_id"`
-	ServerUDPPort int    `json:"server_udp_port"`
-	Error         string `json:"error"`
+	Version       string `json:"version,omitempty"`
+	RunID         string `json:"run_id,omitempty"`
+	ServerUDPPort int    `json:"server_udp_port,omitempty"`
+	Error         string `json:"error,omitempty"`
 }
 
 // When frpc login success, send this message to frps for running a new proxy.
 type NewProxy struct {
-	ProxyName      string            `json:"proxy_name"`
-	ProxyType      string            `json:"proxy_type"`
-	UseEncryption  bool              `json:"use_encryption"`
-	UseCompression bool              `json:"use_compression"`
-	Group          string            `json:"group"`
-	GroupKey       string            `json:"group_key"`
-	Metas          map[string]string `json:"metas"`
+	ProxyName      string            `json:"proxy_name,omitempty"`
+	ProxyType      string            `json:"proxy_type,omitempty"`
+	UseEncryption  bool              `json:"use_encryption,omitempty"`
+	UseCompression bool              `json:"use_compression,omitempty"`
+	Group          string            `json:"group,omitempty"`
+	GroupKey       string            `json:"group_key,omitempty"`
+	Metas          map[string]string `json:"metas,omitempty"`
 
 	// tcp and udp only
-	RemotePort int `json:"remote_port"`
+	RemotePort int `json:"remote_port,omitempty"`
 
 	// http and https only
-	CustomDomains     []string          `json:"custom_domains"`
-	SubDomain         string            `json:"subdomain"`
-	Locations         []string          `json:"locations"`
-	HTTPUser          string            `json:"http_user"`
-	HTTPPwd           string            `json:"http_pwd"`
-	HostHeaderRewrite string            `json:"host_header_rewrite"`
-	Headers           map[string]string `json:"headers"`
+	CustomDomains     []string          `json:"custom_domains,omitempty"`
+	SubDomain         string            `json:"subdomain,omitempty"`
+	Locations         []string          `json:"locations,omitempty"`
+	HTTPUser          string            `json:"http_user,omitempty"`
+	HTTPPwd           string            `json:"http_pwd,omitempty"`
+	HostHeaderRewrite string            `json:"host_header_rewrite,omitempty"`
+	Headers           map[string]string `json:"headers,omitempty"`
+	RouteByHTTPUser   string            `json:"route_by_http_user,omitempty"`
 
 	// stcp
-	Sk string `json:"sk"`
+	Sk string `json:"sk,omitempty"`
 
 	// tcpmux
-	Multiplexer string `json:"multiplexer"`
+	Multiplexer string `json:"multiplexer,omitempty"`
 }
 
 type NewProxyResp struct {
-	ProxyName  string `json:"proxy_name"`
-	RemoteAddr string `json:"remote_addr"`
-	Error      string `json:"error"`
+	ProxyName  string `json:"proxy_name,omitempty"`
+	RemoteAddr string `json:"remote_addr,omitempty"`
+	Error      string `json:"error,omitempty"`
 }
 
 type CloseProxy struct {
-	ProxyName string `json:"proxy_name"`
+	ProxyName string `json:"proxy_name,omitempty"`
 }
 
 type NewWorkConn struct {
-	RunID        string `json:"run_id"`
-	PrivilegeKey string `json:"privilege_key"`
-	Timestamp    int64  `json:"timestamp"`
+	RunID        string `json:"run_id,omitempty"`
+	PrivilegeKey string `json:"privilege_key,omitempty"`
+	Timestamp    int64  `json:"timestamp,omitempty"`
 }
 
 type ReqWorkConn struct {
 }
 
 type StartWorkConn struct {
-	ProxyName string `json:"proxy_name"`
-	SrcAddr   string `json:"src_addr"`
-	DstAddr   string `json:"dst_addr"`
-	SrcPort   uint16 `json:"src_port"`
-	DstPort   uint16 `json:"dst_port"`
-	Error     string `json:"error"`
+	ProxyName string `json:"proxy_name,omitempty"`
+	SrcAddr   string `json:"src_addr,omitempty"`
+	DstAddr   string `json:"dst_addr,omitempty"`
+	SrcPort   uint16 `json:"src_port,omitempty"`
+	DstPort   uint16 `json:"dst_port,omitempty"`
+	Error     string `json:"error,omitempty"`
 }
 
 type NewVisitorConn struct {
-	ProxyName      string `json:"proxy_name"`
-	SignKey        string `json:"sign_key"`
-	Timestamp      int64  `json:"timestamp"`
-	UseEncryption  bool   `json:"use_encryption"`
-	UseCompression bool   `json:"use_compression"`
+	ProxyName      string `json:"proxy_name,omitempty"`
+	SignKey        string `json:"sign_key,omitempty"`
+	Timestamp      int64  `json:"timestamp,omitempty"`
+	UseEncryption  bool   `json:"use_encryption,omitempty"`
+	UseCompression bool   `json:"use_compression,omitempty"`
 }
 
 type NewVisitorConnResp struct {
-	ProxyName string `json:"proxy_name"`
-	Error     string `json:"error"`
+	ProxyName string `json:"proxy_name,omitempty"`
+	Error     string `json:"error,omitempty"`
 }
 
 type Ping struct {
-	PrivilegeKey string `json:"privilege_key"`
-	Timestamp    int64  `json:"timestamp"`
+	PrivilegeKey string `json:"privilege_key,omitempty"`
+	Timestamp    int64  `json:"timestamp,omitempty"`
 }
 
 type Pong struct {
-	Error string `json:"error"`
+	Error string `json:"error,omitempty"`
 }
 
 type UDPPacket struct {
-	Content    string       `json:"c"`
-	LocalAddr  *net.UDPAddr `json:"l"`
-	RemoteAddr *net.UDPAddr `json:"r"`
+	Content    string       `json:"c,omitempty"`
+	LocalAddr  *net.UDPAddr `json:"l,omitempty"`
+	RemoteAddr *net.UDPAddr `json:"r,omitempty"`
 }
 
 type NatHoleVisitor struct {
-	ProxyName string `json:"proxy_name"`
-	SignKey   string `json:"sign_key"`
-	Timestamp int64  `json:"timestamp"`
+	ProxyName string `json:"proxy_name,omitempty"`
+	SignKey   string `json:"sign_key,omitempty"`
+	Timestamp int64  `json:"timestamp,omitempty"`
 }
 
 type NatHoleClient struct {
-	ProxyName string `json:"proxy_name"`
-	Sid       string `json:"sid"`
+	ProxyName string `json:"proxy_name,omitempty"`
+	Sid       string `json:"sid,omitempty"`
 }
 
 type NatHoleResp struct {
-	Sid         string `json:"sid"`
-	VisitorAddr string `json:"visitor_addr"`
-	ClientAddr  string `json:"client_addr"`
-	Error       string `json:"error"`
+	Sid         string `json:"sid,omitempty"`
+	VisitorAddr string `json:"visitor_addr,omitempty"`
+	ClientAddr  string `json:"client_addr,omitempty"`
+	Error       string `json:"error,omitempty"`
 }
 
 type NatHoleClientDetectOK struct {
 }
 
 type NatHoleSid struct {
-	Sid string `json:"sid"`
+	Sid string `json:"sid,omitempty"`
 }
