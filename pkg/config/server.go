@@ -62,6 +62,8 @@ type ServerCommonConf struct {
 	// requests on one single port. If it's not - it will listen on this value for
 	// HTTP CONNECT requests. By default, this value is 0.
 	TCPMuxHTTPConnectPort int `ini:"tcpmux_httpconnect_port" json:"tcpmux_httpconnect_port" validate:"gte=0,lte=65535"`
+	// If TCPMuxPassthrough is true, frps won't do any update on traffic.
+	TCPMuxPassthrough bool `ini:"tcpmux_passthrough" json:"tcpmux_passthrough"`
 	// VhostHTTPTimeout specifies the response header timeout for the Vhost
 	// HTTP server, in seconds. By default, this value is 60.
 	VhostHTTPTimeout int64 `ini:"vhost_http_timeout" json:"vhost_http_timeout"`
@@ -188,6 +190,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		VhostHTTPPort:           0,
 		VhostHTTPSPort:          0,
 		TCPMuxHTTPConnectPort:   0,
+		TCPMuxPassthrough:       false,
 		VhostHTTPTimeout:        60,
 		DashboardAddr:           "0.0.0.0",
 		DashboardPort:           0,

@@ -46,8 +46,11 @@ func NewTCPMuxGroupCtl(tcpMuxHTTPConnectMuxer *tcpmux.HTTPConnectTCPMuxer) *TCPM
 
 // Listen is the wrapper for TCPMuxGroup's Listen
 // If there are no group, we will create one here
-func (tmgc *TCPMuxGroupCtl) Listen(ctx context.Context, multiplexer string, group string, groupKey string,
-	domain string) (l net.Listener, err error) {
+func (tmgc *TCPMuxGroupCtl) Listen(
+	ctx context.Context,
+	multiplexer, group, groupKey string,
+	routeConfig vhost.RouteConfig,
+) (l net.Listener, err error) {
 
 	tmgc.mu.Lock()
 	tcpMuxGroup, ok := tmgc.groups[group]
@@ -59,7 +62,7 @@ func (tmgc *TCPMuxGroupCtl) Listen(ctx context.Context, multiplexer string, grou
 
 	switch multiplexer {
 	case consts.HTTPConnectTCPMultiplexer:
-		return tcpMuxGroup.HTTPConnectListen(ctx, group, groupKey, domain)
+		return tcpMuxGroup.HTTPConnectListen(ctx, group, groupKey, routeConfig)
 	default:
 		err = fmt.Errorf("unknown multiplexer [%s]", multiplexer)
 		return
@@ -75,9 +78,10 @@ func (tmgc *TCPMuxGroupCtl) RemoveGroup(group string) {
 
 // TCPMuxGroup route connections to different proxies
 type TCPMuxGroup struct {
-	group    string
-	groupKey string
-	domain   string
+	group           string
+	groupKey        string
+	domain          string
+	routeByHTTPUser string
 
 	acceptCh chan net.Conn
 	index    uint64
@@ -99,15 +103,17 @@ func NewTCPMuxGroup(ctl *TCPMuxGroupCtl) *TCPMuxGroup {
 // Listen will return a new TCPMuxGroupListener
 // if TCPMuxGroup already has a listener, just add a new TCPMuxGroupListener to the queues
 // otherwise, listen on the real address
-func (tmg *TCPMuxGroup) HTTPConnectListen(ctx context.Context, group string, groupKey string, domain string) (ln *TCPMuxGroupListener, err error) {
+func (tmg *TCPMuxGroup) HTTPConnectListen(
+	ctx context.Context,
+	group, groupKey string,
+	routeConfig vhost.RouteConfig,
+) (ln *TCPMuxGroupListener, err error) {
+
 	tmg.mu.Lock()
 	defer tmg.mu.Unlock()
 	if len(tmg.lns) == 0 {
 		// the first listener, listen on the real address
-		routeConfig := &vhost.RouteConfig{
-			Domain: domain,
-		}
-		tcpMuxLn, errRet := tmg.ctl.tcpMuxHTTPConnectMuxer.Listen(ctx, routeConfig)
+		tcpMuxLn, errRet := tmg.ctl.tcpMuxHTTPConnectMuxer.Listen(ctx, &routeConfig)
 		if errRet != nil {
 			return nil, errRet
 		}
@@ -115,7 +121,8 @@ func (tmg *TCPMuxGroup) HTTPConnectListen(ctx context.Context, group string, gro
 
 		tmg.group = group
 		tmg.groupKey = groupKey
-		tmg.domain = domain
+		tmg.domain = routeConfig.Domain
+		tmg.routeByHTTPUser = routeConfig.RouteByHTTPUser
 		tmg.tcpMuxLn = tcpMuxLn
 		tmg.lns = append(tmg.lns, ln)
 		if tmg.acceptCh == nil {
@@ -123,8 +130,8 @@ func (tmg *TCPMuxGroup) HTTPConnectListen(ctx context.Context, group string, gro
 		}
 		go tmg.worker()
 	} else {
-		// domain in the same group must be equal
-		if tmg.group != group || tmg.domain != domain {
+		// route config in the same group must be equal
+		if tmg.group != group || tmg.domain != routeConfig.Domain || tmg.routeByHTTPUser != routeConfig.RouteByHTTPUser {
 			return nil, ErrGroupParamsInvalid
 		}
 		if tmg.groupKey != groupKey {

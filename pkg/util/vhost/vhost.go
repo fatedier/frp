@@ -29,16 +29,19 @@ import (
 type RouteInfo string
 
 const (
-	RouteInfoURL    RouteInfo = "url"
-	RouteInfoHost   RouteInfo = "host"
-	RouteInfoRemote RouteInfo = "remote"
+	RouteInfoURL      RouteInfo = "url"
+	RouteInfoHost     RouteInfo = "host"
+	RouteInfoHTTPUser RouteInfo = "httpUser"
+	RouteInfoRemote   RouteInfo = "remote"
+	RouteInfoURLHost  RouteInfo = "urlHost"
 )
 
 type muxFunc func(net.Conn) (net.Conn, map[string]string, error)
 type httpAuthFunc func(net.Conn, string, string, string) (bool, error)
 type hostRewriteFunc func(net.Conn, string) (net.Conn, error)
-type successFunc func(net.Conn) error
+type successFunc func(net.Conn, map[string]string) error
 
+// Muxer is only used for https and tcpmux proxy.
 type Muxer struct {
 	listener       net.Listener
 	timeout        time.Duration
@@ -49,7 +52,15 @@ type Muxer struct {
 	registryRouter *Routers
 }
 
-func NewMuxer(listener net.Listener, vhostFunc muxFunc, authFunc httpAuthFunc, successFunc successFunc, rewriteFunc hostRewriteFunc, timeout time.Duration) (mux *Muxer, err error) {
+func NewMuxer(
+	listener net.Listener,
+	vhostFunc muxFunc,
+	authFunc httpAuthFunc,
+	successFunc successFunc,
+	rewriteFunc hostRewriteFunc,
+	timeout time.Duration,
+) (mux *Muxer, err error) {
+
 	mux = &Muxer{
 		listener:       listener,
 		timeout:        timeout,
@@ -67,12 +78,13 @@ type CreateConnFunc func(remoteAddr string) (net.Conn, error)
 
 // RouteConfig is the params used to match HTTP requests
 type RouteConfig struct {
-	Domain      string
-	Location    string
-	RewriteHost string
-	Username    string
-	Password    string
-	Headers     map[string]string
+	Domain          string
+	Location        string
+	RewriteHost     string
+	Username        string
+	Password        string
+	Headers         map[string]string
+	RouteByHTTPUser string
 
 	CreateConnFn CreateConnFunc
 }
@@ -81,49 +93,66 @@ type RouteConfig struct {
 // then rewrite the host header to rewriteHost
 func (v *Muxer) Listen(ctx context.Context, cfg *RouteConfig) (l *Listener, err error) {
 	l = &Listener{
-		name:        cfg.Domain,
-		location:    cfg.Location,
-		rewriteHost: cfg.RewriteHost,
-		userName:    cfg.Username,
-		passWord:    cfg.Password,
-		mux:         v,
-		accept:      make(chan net.Conn),
-		ctx:         ctx,
+		name:            cfg.Domain,
+		location:        cfg.Location,
+		routeByHTTPUser: cfg.RouteByHTTPUser,
+		rewriteHost:     cfg.RewriteHost,
+		userName:        cfg.Username,
+		passWord:        cfg.Password,
+		mux:             v,
+		accept:          make(chan net.Conn),
+		ctx:             ctx,
 	}
-	err = v.registryRouter.Add(cfg.Domain, cfg.Location, l)
+	err = v.registryRouter.Add(cfg.Domain, cfg.Location, cfg.RouteByHTTPUser, l)
 	if err != nil {
 		return
 	}
 	return l, nil
 }
 
-func (v *Muxer) getListener(name, path string) (l *Listener, exist bool) {
+func (v *Muxer) getListener(name, path, httpUser string) (*Listener, bool) {
+
+	findRouter := func(inName, inPath, inHTTPUser string) (*Listener, bool) {
+		vr, ok := v.registryRouter.Get(inName, inPath, httpUser)
+		if ok {
+			return vr.payload.(*Listener), true
+		}
+		// Try to check if there is one proxy that doesn't specify routerByHTTPUser, it means match all.
+		vr, ok = v.registryRouter.Get(inName, inPath, "")
+		if ok {
+			return vr.payload.(*Listener), true
+		}
+		return nil, false
+	}
+
 	// first we check the full hostname
 	// if not exist, then check the wildcard_domain such as *.example.com
-	vr, found := v.registryRouter.Get(name, path)
-	if found {
-		return vr.payload.(*Listener), true
+	l, ok := findRouter(name, path, httpUser)
+	if ok {
+		return l, true
 	}
 
 	domainSplit := strings.Split(name, ".")
-	if len(domainSplit) < 3 {
-		return
-	}
-
 	for {
 		if len(domainSplit) < 3 {
-			return
+			break
 		}
 
 		domainSplit[0] = "*"
 		name = strings.Join(domainSplit, ".")
 
-		vr, found = v.registryRouter.Get(name, path)
-		if found {
-			return vr.payload.(*Listener), true
+		l, ok = findRouter(name, path, httpUser)
+		if ok {
+			return l, true
 		}
 		domainSplit = domainSplit[1:]
 	}
+	// Finally, try to check if there is one proxy that domain is "*" means match all domains.
+	l, ok = findRouter("*", path, httpUser)
+	if ok {
+		return l, true
+	}
+	return nil, false
 }
 
 func (v *Muxer) run() {
@@ -151,25 +180,26 @@ func (v *Muxer) handle(c net.Conn) {
 
 	name := strings.ToLower(reqInfoMap["Host"])
 	path := strings.ToLower(reqInfoMap["Path"])
-	l, ok := v.getListener(name, path)
+	httpUser := reqInfoMap["HTTPUser"]
+	l, ok := v.getListener(name, path, httpUser)
 	if !ok {
 		res := notFoundResponse()
 		res.Write(c)
-		log.Debug("http request for host [%s] path [%s] not found", name, path)
+		log.Debug("http request for host [%s] path [%s] httpUser [%s] not found", name, path, httpUser)
 		c.Close()
 		return
 	}
 
 	xl := xlog.FromContextSafe(l.ctx)
 	if v.successFunc != nil {
-		if err := v.successFunc(c); err != nil {
+		if err := v.successFunc(c, reqInfoMap); err != nil {
 			xl.Info("success func failure on vhost connection: %v", err)
 			c.Close()
 			return
 		}
 	}
 
-	// if authFunc is exist and userName/password is set
+	// if authFunc is exist and username/password is set
 	// then verify user access
 	if l.mux.authFunc != nil && l.userName != "" && l.passWord != "" {
 		bAccess, err := l.mux.authFunc(c, l.userName, l.passWord, reqInfoMap["Authorization"])
@@ -188,7 +218,7 @@ func (v *Muxer) handle(c net.Conn) {
 	}
 	c = sConn
 
-	xl.Debug("get new http request host [%s] path [%s]", name, path)
+	xl.Debug("new request host [%s] path [%s] httpUser [%s]", name, path, httpUser)
 	err = errors.PanicToError(func() {
 		l.accept <- c
 	})
@@ -198,14 +228,15 @@ func (v *Muxer) handle(c net.Conn) {
 }
 
 type Listener struct {
-	name        string
-	location    string
-	rewriteHost string
-	userName    string
-	passWord    string
-	mux         *Muxer // for closing Muxer
-	accept      chan net.Conn
-	ctx         context.Context
+	name            string
+	location        string
+	routeByHTTPUser string
+	rewriteHost     string
+	userName        string
+	passWord        string
+	mux             *Muxer // for closing Muxer
+	accept          chan net.Conn
+	ctx             context.Context
 }
 
 func (l *Listener) Accept() (net.Conn, error) {
@@ -231,7 +262,7 @@ func (l *Listener) Accept() (net.Conn, error) {
 }
 
 func (l *Listener) Close() error {
-	l.mux.registryRouter.Del(l.name, l.location)
+	l.mux.registryRouter.Del(l.name, l.location, l.routeByHTTPUser)
 	close(l.accept)
 	return nil
 }

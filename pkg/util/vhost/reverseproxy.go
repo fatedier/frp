@@ -8,6 +8,7 @@ package vhost
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -209,6 +210,24 @@ func (p *ReverseProxy) modifyResponse(rw http.ResponseWriter, res *http.Response
 	return true
 }
 
+func parseBasicAuth(auth string) (username, password string, ok bool) {
+	const prefix = "Basic "
+	// Case insensitive prefix match. See Issue 22736.
+	if len(auth) < len(prefix) || !strings.EqualFold(auth[:len(prefix)], prefix) {
+		return
+	}
+	c, err := base64.StdEncoding.DecodeString(auth[len(prefix):])
+	if err != nil {
+		return
+	}
+	cs := string(c)
+	s := strings.IndexByte(cs, ':')
+	if s < 0 {
+		return
+	}
+	return cs[:s], cs[s+1:], true
+}
+
 func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	transport := p.Transport
 	if transport == nil {
@@ -237,13 +256,6 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if outreq.Header == nil {
 		outreq.Header = make(http.Header) // Issue 33142: historical behavior was to always allocate
 	}
-
-	// =============================
-	// Modified for frp
-	outreq = outreq.Clone(context.WithValue(outreq.Context(), RouteInfoURL, req.URL.Path))
-	outreq = outreq.Clone(context.WithValue(outreq.Context(), RouteInfoHost, req.Host))
-	outreq = outreq.Clone(context.WithValue(outreq.Context(), RouteInfoRemote, req.RemoteAddr))
-	// =============================
 
 	p.Director(outreq)
 	outreq.Close = false
