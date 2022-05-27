@@ -1,7 +1,5 @@
 ### New
 
-* Added new parameter `config_dir` in frpc to run multiple client instances in one process.
-
-### Fix
-
-* Equal sign in environment variables causes parsing error.
+* Added `route_by_http_user` in `http` and `tcpmux` proxy to support route to different clients by HTTP basic auth user.
+* `CONNECT` method can be forwarded in `http` type proxy.
+* Added `tcpmux_passthrough` in `tcpmux` proxy. If true, `CONNECT` request will be forwarded to frpc.
