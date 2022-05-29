@@ -33,7 +33,7 @@
         },
         methods: {
             fetchData() {
-                fetch('/api/status', {credentials: 'include'})
+                fetch('./api/status', {credentials: 'include'})
               .then(res => {
                 return res.json()
               }).then(json => {
