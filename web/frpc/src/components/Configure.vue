@@ -23,7 +23,7 @@
         },
         methods: {
             fetchData() {
-                fetch('/api/config', {credentials: 'include'})
+                fetch('../api/config', {credentials: 'include'})
                 .then(res => {
                     return res.text()
                 }).then(text => {
