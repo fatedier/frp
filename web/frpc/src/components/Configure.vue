@@ -50,12 +50,12 @@
                         return
                     }
 
-                    fetch('/api/config', {
+                    fetch('../api/config', {
                         credentials: 'include',
                         method: 'PUT',
                         body: this.textarea,
                     }).then(() => {
-                        fetch('/api/reload', {credentials: 'include'})
+                        fetch('../api/reload', {credentials: 'include'})
                         .then(() => {
                             this.$message({
                                 type: 'success',
