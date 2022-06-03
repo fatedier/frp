@@ -276,9 +276,9 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 
 	var local io.ReadWriteCloser = workConn
 	cfg := pxy.GetConf().GetBaseInfo()
-	xl.Trace("handler user tcp connection, use_encryption: %t, use_compression: %t", cfg.UseEncryption, cfg.UseCompression)
+	xl.Trace("handler user tcp connection, use_encryption: %t, use_aead: %t, use_compression: %t", cfg.UseEncryption, cfg.UseAead, cfg.UseCompression)
 	if cfg.UseEncryption {
-		local, err = frpIo.WithEncryption(local, []byte(serverCfg.Token))
+		local, err = frpIo.WithEncryption(local, []byte(serverCfg.Token), cfg.UseAead)
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return

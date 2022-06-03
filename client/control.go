@@ -284,7 +284,7 @@ func (ctl *Control) reader() {
 	defer ctl.readerShutdown.Done()
 	defer close(ctl.closedCh)
 
-	encReader := crypto.NewReader(ctl.conn, []byte(ctl.clientCfg.Token))
+	encReader := crypto.NewReader(ctl.conn, []byte(ctl.clientCfg.Token), ctl.clientCfg.Aead)
 	for {
 		m, err := msg.ReadMsg(encReader)
 		if err != nil {
@@ -304,7 +304,7 @@ func (ctl *Control) reader() {
 func (ctl *Control) writer() {
 	xl := ctl.xl
 	defer ctl.writerShutdown.Done()
-	encWriter, err := crypto.NewWriter(ctl.conn, []byte(ctl.clientCfg.Token))
+	encWriter, err := crypto.NewWriter(ctl.conn, []byte(ctl.clientCfg.Token), ctl.clientCfg.Aead)
 	if err != nil {
 		xl.Error("crypto new writer error: %v", err)
 		ctl.conn.Close()

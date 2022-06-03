@@ -32,6 +32,7 @@ func init() {
 	udpCmd.PersistentFlags().IntVarP(&localPort, "local_port", "l", 0, "local port")
 	udpCmd.PersistentFlags().IntVarP(&remotePort, "remote_port", "r", 0, "remote port")
 	udpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
+	udpCmd.PersistentFlags().BoolVarP(&useAead, "ua", "", false, "use aead")
 	udpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
 
 	rootCmd.AddCommand(udpCmd)
@@ -58,6 +59,7 @@ var udpCmd = &cobra.Command{
 		cfg.LocalPort = localPort
 		cfg.RemotePort = remotePort
 		cfg.UseEncryption = useEncryption
+		cfg.UseAead = useAead
 		cfg.UseCompression = useCompression
 
 		err = cfg.CheckForCli()

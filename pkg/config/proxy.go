@@ -120,6 +120,10 @@ type BaseProxyConf struct {
 	// be encrypted. Encryption is done using the tokens supplied in the server
 	// and client configuration. By default, this value is false.
 	UseEncryption bool `ini:"use_encryption" json:"use_encryption"`
+	// UseAead controls whether or not the encryption uses AEAD cipher or unsafe
+	// stream cipher. It is valid only when UseEncryption is true. By default,
+	// this value is false.
+	UseAead       bool `ini:"use_aead" json:"use_aead"`
 	// UseCompression controls whether or not communication with the server
 	// will be compressed. By default, this value is false.
 	UseCompression bool `ini:"use_compression" json:"use_compression"`
@@ -328,6 +332,7 @@ func (cfg *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
 	if cfg.ProxyName != cmp.ProxyName ||
 		cfg.ProxyType != cmp.ProxyType ||
 		cfg.UseEncryption != cmp.UseEncryption ||
+		cfg.UseAead != cmp.UseAead ||
 		cfg.UseCompression != cmp.UseCompression ||
 		cfg.Group != cmp.Group ||
 		cfg.GroupKey != cmp.GroupKey ||
@@ -386,6 +391,7 @@ func (cfg *BaseProxyConf) marshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.ProxyName = cfg.ProxyName
 	pMsg.ProxyType = cfg.ProxyType
 	pMsg.UseEncryption = cfg.UseEncryption
+	pMsg.UseAead = cfg.UseAead
 	pMsg.UseCompression = cfg.UseCompression
 	pMsg.Group = cfg.Group
 	pMsg.GroupKey = cfg.GroupKey
@@ -396,6 +402,7 @@ func (cfg *BaseProxyConf) unmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.ProxyName = pMsg.ProxyName
 	cfg.ProxyType = pMsg.ProxyType
 	cfg.UseEncryption = pMsg.UseEncryption
+	cfg.UseAead = pMsg.UseAead
 	cfg.UseCompression = pMsg.UseCompression
 	cfg.Group = pMsg.Group
 	cfg.GroupKey = pMsg.GroupKey

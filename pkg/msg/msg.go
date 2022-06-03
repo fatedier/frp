@@ -88,6 +88,7 @@ type NewProxy struct {
 	ProxyName      string            `json:"proxy_name,omitempty"`
 	ProxyType      string            `json:"proxy_type,omitempty"`
 	UseEncryption  bool              `json:"use_encryption,omitempty"`
+	UseAead        bool              `json:"use_aead,omitempty"`
 	UseCompression bool              `json:"use_compression,omitempty"`
 	Group          string            `json:"group,omitempty"`
 	GroupKey       string            `json:"group_key,omitempty"`
@@ -146,6 +147,7 @@ type NewVisitorConn struct {
 	SignKey        string `json:"sign_key,omitempty"`
 	Timestamp      int64  `json:"timestamp,omitempty"`
 	UseEncryption  bool   `json:"use_encryption,omitempty"`
+	UseAead        bool   `json:"use_aead,omitempty"`
 	UseCompression bool   `json:"use_compression,omitempty"`
 }
 

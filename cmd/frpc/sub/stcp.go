@@ -36,6 +36,7 @@ func init() {
 	stcpCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "", "", "bind addr")
 	stcpCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "", 0, "bind port")
 	stcpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
+	stcpCmd.PersistentFlags().BoolVarP(&useAead, "ua", "", false, "use aead")
 	stcpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
 
 	rootCmd.AddCommand(stcpCmd)
@@ -64,6 +65,7 @@ var stcpCmd = &cobra.Command{
 			cfg.ProxyName = prefix + proxyName
 			cfg.ProxyType = consts.STCPProxy
 			cfg.UseEncryption = useEncryption
+			cfg.UseAead = useAead
 			cfg.UseCompression = useCompression
 			cfg.Role = role
 			cfg.Sk = sk
@@ -80,6 +82,7 @@ var stcpCmd = &cobra.Command{
 			cfg.ProxyName = prefix + proxyName
 			cfg.ProxyType = consts.STCPProxy
 			cfg.UseEncryption = useEncryption
+			cfg.UseAead = useAead
 			cfg.UseCompression = useCompression
 			cfg.Role = role
 			cfg.Sk = sk

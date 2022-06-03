@@ -312,6 +312,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 				ProxyType:      consts.TCPProxy,
 				UseCompression: true,
 				UseEncryption:  true,
+				UseAead:        true,
 				Group:          "test_group",
 				GroupKey:       "123456",
 				BandwidthLimit: MustBandwidthQuantity("19MB"),
@@ -382,6 +383,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 				ProxyName:      testUser + ".dns",
 				ProxyType:      consts.UDPProxy,
 				UseEncryption:  true,
+				UseAead:        true,
 				UseCompression: true,
 				LocalSvrConf: LocalSvrConf{
 					LocalIP:   "114.114.114.114",
@@ -395,6 +397,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 				ProxyName:      testUser + ".udp_port_0",
 				ProxyType:      consts.UDPProxy,
 				UseEncryption:  true,
+				UseAead:        true,
 				UseCompression: true,
 				LocalSvrConf: LocalSvrConf{
 					LocalIP:   "114.114.114.114",
@@ -408,6 +411,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 				ProxyName:      testUser + ".udp_port_1",
 				ProxyType:      consts.UDPProxy,
 				UseEncryption:  true,
+				UseAead:        true,
 				UseCompression: true,
 				LocalSvrConf: LocalSvrConf{
 					LocalIP:   "114.114.114.114",
@@ -421,6 +425,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 				ProxyName:      testUser + ".udp_port_2",
 				ProxyType:      consts.UDPProxy,
 				UseEncryption:  true,
+				UseAead:        true,
 				UseCompression: true,
 				LocalSvrConf: LocalSvrConf{
 					LocalIP:   "114.114.114.114",
@@ -435,6 +440,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 				ProxyType:      consts.HTTPProxy,
 				UseCompression: true,
 				UseEncryption:  true,
+				UseAead:        true,
 				LocalSvrConf: LocalSvrConf{
 					LocalIP:   "127.0.0.9",
 					LocalPort: 89,
@@ -465,6 +471,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 				ProxyType:      consts.HTTPSProxy,
 				UseCompression: true,
 				UseEncryption:  true,
+				UseAead:        true,
 				LocalSvrConf: LocalSvrConf{
 					LocalIP:   "127.0.0.9",
 					LocalPort: 8009,

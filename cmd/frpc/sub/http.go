@@ -38,6 +38,7 @@ func init() {
 	httpCmd.PersistentFlags().StringVarP(&httpPwd, "http_pwd", "", "", "http auth password")
 	httpCmd.PersistentFlags().StringVarP(&hostHeaderRewrite, "host_header_rewrite", "", "", "host header rewrite")
 	httpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
+	httpCmd.PersistentFlags().BoolVarP(&useAead, "ua", "", false, "use aead")
 	httpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
 
 	rootCmd.AddCommand(httpCmd)
@@ -69,6 +70,7 @@ var httpCmd = &cobra.Command{
 		cfg.HTTPPwd = httpPwd
 		cfg.HostHeaderRewrite = hostHeaderRewrite
 		cfg.UseEncryption = useEncryption
+		cfg.UseAead = useAead
 		cfg.UseCompression = useCompression
 
 		err = cfg.CheckForCli()

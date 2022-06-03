@@ -35,6 +35,7 @@ func init() {
 	tcpMuxCmd.PersistentFlags().StringVarP(&subDomain, "sd", "", "", "sub domain")
 	tcpMuxCmd.PersistentFlags().StringVarP(&multiplexer, "mux", "", "", "multiplexer")
 	tcpMuxCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
+	tcpMuxCmd.PersistentFlags().BoolVarP(&useAead, "ua", "", false, "use aead")
 	tcpMuxCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
 
 	rootCmd.AddCommand(tcpMuxCmd)
@@ -63,6 +64,7 @@ var tcpMuxCmd = &cobra.Command{
 		cfg.SubDomain = subDomain
 		cfg.Multiplexer = multiplexer
 		cfg.UseEncryption = useEncryption
+		cfg.UseAead = useAead
 		cfg.UseCompression = useCompression
 
 		err = cfg.CheckForCli()

@@ -43,6 +43,7 @@ type BaseVisitorConf struct {
 	ProxyName      string `ini:"name" json:"name"`
 	ProxyType      string `ini:"type" json:"type"`
 	UseEncryption  bool   `ini:"use_encryption" json:"use_encryption"`
+	UseAead        bool   `ini:"use_aead" json:"use_aead"`
 	UseCompression bool   `ini:"use_compression" json:"use_compression"`
 	Role           string `ini:"role" json:"role"`
 	Sk             string `ini:"sk" json:"sk"`
@@ -108,6 +109,7 @@ func (cfg *BaseVisitorConf) compare(cmp *BaseVisitorConf) bool {
 	if cfg.ProxyName != cmp.ProxyName ||
 		cfg.ProxyType != cmp.ProxyType ||
 		cfg.UseEncryption != cmp.UseEncryption ||
+		cfg.UseAead != cmp.UseAead ||
 		cfg.UseCompression != cmp.UseCompression ||
 		cfg.Role != cmp.Role ||
 		cfg.Sk != cmp.Sk ||

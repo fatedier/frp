@@ -76,6 +76,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 					ProxyType:      consts.TCPProxy,
 					UseCompression: true,
 					UseEncryption:  true,
+					UseAead:        true,
 					Group:          "test_group",
 					GroupKey:       "123456",
 					BandwidthLimit: MustBandwidthQuantity("19MB"),
@@ -135,6 +136,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 					ProxyName:      testProxyPrefix + "dns",
 					ProxyType:      consts.UDPProxy,
 					UseEncryption:  true,
+					UseAead:        true,
 					UseCompression: true,
 					LocalSvrConf: LocalSvrConf{
 						LocalIP:   "114.114.114.114",
@@ -172,6 +174,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 					ProxyType:      consts.HTTPProxy,
 					UseCompression: true,
 					UseEncryption:  true,
+					UseAead:        true,
 					LocalSvrConf: LocalSvrConf{
 						LocalIP:   "127.0.0.9",
 						LocalPort: 89,
@@ -216,6 +219,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 					ProxyType:      consts.HTTPSProxy,
 					UseCompression: true,
 					UseEncryption:  true,
+					UseAead:        true,
 					LocalSvrConf: LocalSvrConf{
 						LocalIP:   "127.0.0.9",
 						LocalPort: 8009,
@@ -392,6 +396,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 						ProxyName:      testProxyPrefix + "udp_port_0",
 						ProxyType:      consts.UDPProxy,
 						UseEncryption:  true,
+						UseAead:        true,
 						UseCompression: true,
 						LocalSvrConf: LocalSvrConf{
 							LocalIP:   "114.114.114.114",
@@ -405,6 +410,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 						ProxyName:      testProxyPrefix + "udp_port_1",
 						ProxyType:      consts.UDPProxy,
 						UseEncryption:  true,
+						UseAead:        true,
 						UseCompression: true,
 						LocalSvrConf: LocalSvrConf{
 							LocalIP:   "114.114.114.114",
@@ -418,6 +424,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 						ProxyName:      testProxyPrefix + "udp_port_2",
 						ProxyType:      consts.UDPProxy,
 						UseEncryption:  true,
+						UseAead:        true,
 						UseCompression: true,
 						LocalSvrConf: LocalSvrConf{
 							LocalIP:   "114.114.114.114",

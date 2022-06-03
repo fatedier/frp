@@ -487,7 +487,7 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 		})
 	}
 	if pxy.cfg.UseEncryption {
-		rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.clientCfg.Token))
+		rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.clientCfg.Token), pxy.cfg.UseAead)
 		if err != nil {
 			conn.Close()
 			xl.Error("create encryption stream error: %v", err)
@@ -600,7 +600,7 @@ func (pxy *SUDPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 		})
 	}
 	if pxy.cfg.UseEncryption {
-		rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.clientCfg.Token))
+		rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.clientCfg.Token), pxy.cfg.UseAead)
 		if err != nil {
 			conn.Close()
 			xl.Error("create encryption stream error: %v", err)
@@ -732,10 +732,10 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 		})
 	}
 
-	xl.Trace("handle tcp work connection, use_encryption: %t, use_compression: %t",
-		baseInfo.UseEncryption, baseInfo.UseCompression)
+	xl.Trace("handle tcp work connection, use_encryption: %t,  use_aead: %t, use_compression: %t",
+		baseInfo.UseEncryption, baseInfo.UseAead, baseInfo.UseCompression)
 	if baseInfo.UseEncryption {
-		remote, err = frpIo.WithEncryption(remote, encKey)
+		remote, err = frpIo.WithEncryption(remote, encKey, baseInfo.UseAead)
 		if err != nil {
 			workConn.Close()
 			xl.Error("create encryption stream error: %v", err)

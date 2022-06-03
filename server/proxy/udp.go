@@ -185,7 +185,7 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 
 			var rwc io.ReadWriteCloser = workConn
 			if pxy.cfg.UseEncryption {
-				rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.serverCfg.Token))
+				rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.serverCfg.Token), pxy.cfg.UseAead)
 				if err != nil {
 					xl.Error("create encryption stream error: %v", err)
 					workConn.Close()

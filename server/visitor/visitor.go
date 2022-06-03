@@ -57,7 +57,7 @@ func (vm *Manager) Listen(name string, sk string) (l *frpNet.CustomListener, err
 }
 
 func (vm *Manager) NewConn(name string, conn net.Conn, timestamp int64, signKey string,
-	useEncryption bool, useCompression bool) (err error) {
+	useEncryption bool, useAead bool, useCompression bool) (err error) {
 
 	vm.mu.RLock()
 	defer vm.mu.RUnlock()
@@ -71,7 +71,7 @@ func (vm *Manager) NewConn(name string, conn net.Conn, timestamp int64, signKey 
 
 		var rwc io.ReadWriteCloser = conn
 		if useEncryption {
-			if rwc, err = frpIo.WithEncryption(rwc, []byte(sk)); err != nil {
+			if rwc, err = frpIo.WithEncryption(rwc, []byte(sk), useAead); err != nil {
 				err = fmt.Errorf("create encryption connection failed: %v", err)
 				return
 			}

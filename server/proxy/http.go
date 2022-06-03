@@ -151,7 +151,7 @@ func (pxy *HTTPProxy) GetRealConn(remoteAddr string) (workConn net.Conn, err err
 
 	var rwc io.ReadWriteCloser = tmpConn
 	if pxy.cfg.UseEncryption {
-		rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.serverCfg.Token))
+		rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.serverCfg.Token), pxy.cfg.UseAead)
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return

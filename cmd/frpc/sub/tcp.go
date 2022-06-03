@@ -32,6 +32,7 @@ func init() {
 	tcpCmd.PersistentFlags().IntVarP(&localPort, "local_port", "l", 0, "local port")
 	tcpCmd.PersistentFlags().IntVarP(&remotePort, "remote_port", "r", 0, "remote port")
 	tcpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
+	tcpCmd.PersistentFlags().BoolVarP(&useAead, "ua", "", false, "use aead")
 	tcpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
 
 	rootCmd.AddCommand(tcpCmd)
@@ -58,6 +59,7 @@ var tcpCmd = &cobra.Command{
 		cfg.LocalPort = localPort
 		cfg.RemotePort = remotePort
 		cfg.UseEncryption = useEncryption
+		cfg.UseAead = useAead
 		cfg.UseCompression = useCompression
 
 		err = cfg.CheckForCli()

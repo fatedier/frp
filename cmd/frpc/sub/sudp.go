@@ -36,6 +36,7 @@ func init() {
 	sudpCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "", "", "bind addr")
 	sudpCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "", 0, "bind port")
 	sudpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
+	sudpCmd.PersistentFlags().BoolVarP(&useAead, "ua", "", false, "use aead")
 	sudpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
 
 	rootCmd.AddCommand(sudpCmd)
@@ -64,6 +65,7 @@ var sudpCmd = &cobra.Command{
 			cfg.ProxyName = prefix + proxyName
 			cfg.ProxyType = consts.SUDPProxy
 			cfg.UseEncryption = useEncryption
+			cfg.UseAead = useAead
 			cfg.UseCompression = useCompression
 			cfg.Role = role
 			cfg.Sk = sk
@@ -80,6 +82,7 @@ var sudpCmd = &cobra.Command{
 			cfg.ProxyName = prefix + proxyName
 			cfg.ProxyType = consts.SUDPProxy
 			cfg.UseEncryption = useEncryption
+			cfg.UseAead = useAead
 			cfg.UseCompression = useCompression
 			cfg.Role = role
 			cfg.Sk = sk

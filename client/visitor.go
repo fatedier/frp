@@ -154,7 +154,7 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	var remote io.ReadWriteCloser
 	remote = visitorConn
 	if sv.cfg.UseEncryption {
-		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk))
+		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk), sv.cfg.UseAead)
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return
@@ -323,7 +323,7 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 
 	var muxConnRWCloser io.ReadWriteCloser = muxConn
 	if sv.cfg.UseEncryption {
-		muxConnRWCloser, err = frpIo.WithEncryption(muxConnRWCloser, []byte(sv.cfg.Sk))
+		muxConnRWCloser, err = frpIo.WithEncryption(muxConnRWCloser, []byte(sv.cfg.Sk), sv.cfg.UseAead)
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return
@@ -515,6 +515,7 @@ func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
 		SignKey:        util.GetAuthKey(sv.cfg.Sk, now),
 		Timestamp:      now,
 		UseEncryption:  sv.cfg.UseEncryption,
+		UseAead:        sv.cfg.UseAead,
 		UseCompression: sv.cfg.UseCompression,
 	}
 	err = msg.WriteMsg(visitorConn, newVisitorConnMsg)
@@ -537,7 +538,7 @@ func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
 	var remote io.ReadWriteCloser
 	remote = visitorConn
 	if sv.cfg.UseEncryption {
-		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk))
+		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk), sv.cfg.UseAead)
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return nil, err

@@ -34,6 +34,7 @@ func init() {
 	httpsCmd.PersistentFlags().StringVarP(&customDomains, "custom_domain", "d", "", "custom domain")
 	httpsCmd.PersistentFlags().StringVarP(&subDomain, "sd", "", "", "sub domain")
 	httpsCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
+	httpsCmd.PersistentFlags().BoolVarP(&useAead, "ua", "", false, "use aead")
 	httpsCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
 
 	rootCmd.AddCommand(httpsCmd)
@@ -61,6 +62,7 @@ var httpsCmd = &cobra.Command{
 		cfg.CustomDomains = strings.Split(customDomains, ",")
 		cfg.SubDomain = subDomain
 		cfg.UseEncryption = useEncryption
+		cfg.UseAead = useAead
 		cfg.UseCompression = useCompression
 
 		err = cfg.CheckForCli()

@@ -59,6 +59,7 @@ var (
 	localPort         int
 	remotePort        int
 	useEncryption     bool
+	useAead           bool
 	useCompression    bool
 	customDomains     string
 	subDomain         string

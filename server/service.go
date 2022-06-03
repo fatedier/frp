@@ -514,5 +514,5 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 
 func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVisitorConn) error {
 	return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
-		newMsg.UseEncryption, newMsg.UseCompression)
+		newMsg.UseEncryption, newMsg.UseAead, newMsg.UseCompression)
 }

@@ -27,6 +27,7 @@ type TokenConfig struct {
 	// to the server. The server must have a matching token for authorization
 	// to succeed.  By default, this value is "".
 	Token string `ini:"token" json:"token"`
+	Aead  bool   `ini:"aead" json:"aead"`
 }
 
 func getDefaultTokenConf() TokenConfig {

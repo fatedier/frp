@@ -36,6 +36,7 @@ func init() {
 	xtcpCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "", "", "bind addr")
 	xtcpCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "", 0, "bind port")
 	xtcpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
+	xtcpCmd.PersistentFlags().BoolVarP(&useAead, "ua", "", false, "use aead")
 	xtcpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
 
 	rootCmd.AddCommand(xtcpCmd)
@@ -64,6 +65,7 @@ var xtcpCmd = &cobra.Command{
 			cfg.ProxyName = prefix + proxyName
 			cfg.ProxyType = consts.XTCPProxy
 			cfg.UseEncryption = useEncryption
+			cfg.UseAead = useAead
 			cfg.UseCompression = useCompression
 			cfg.Role = role
 			cfg.Sk = sk
@@ -80,6 +82,7 @@ var xtcpCmd = &cobra.Command{
 			cfg.ProxyName = prefix + proxyName
 			cfg.ProxyType = consts.XTCPProxy
 			cfg.UseEncryption = useEncryption
+			cfg.UseAead = useAead
 			cfg.UseCompression = useCompression
 			cfg.Role = role
 			cfg.Sk = sk
