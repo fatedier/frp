@@ -302,7 +302,7 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	connection_duration := endtime - startime
 	//xl.Debug("join connections closed, it remains [%d]ms, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", connection_duration,
 	//	workConn.LocalAddr().String(), workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String() )
-	xl.Info("connections closed, it remains [%d]ms, [%s]", connection_duration, userConn.RemoteAddr().String() )
+	xl.Info("connections closed, it remains [%d]ms, r[%s]", connection_duration, userConn.RemoteAddr().String() )
 }
 
 type Manager struct {
