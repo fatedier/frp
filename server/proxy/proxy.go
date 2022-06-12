@@ -292,13 +292,13 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	xl.Debug("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", workConn.LocalAddr().String(),
 		workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 
-        name := pxy.GetName()
-        proxyType := pxy.GetConf().GetBaseInfo().ProxyType
-        metrics.Server.OpenConnection(name, proxyType)
-        inCount, outCount := frpIo.Join(local, userConn)
-        metrics.Server.CloseConnection(name, proxyType)
-        metrics.Server.AddTrafficIn(name, proxyType, inCount)
-        metrics.Server.AddTrafficOut(name, proxyType, outCount)
+	name := pxy.GetName()
+	proxyType := pxy.GetConf().GetBaseInfo().ProxyType
+	metrics.Server.OpenConnection(name, proxyType)
+	inCount, outCount := frpIo.Join(local, userConn)
+	metrics.Server.CloseConnection(name, proxyType)
+	metrics.Server.AddTrafficIn(name, proxyType, inCount)
+	metrics.Server.AddTrafficOut(name, proxyType, outCount)
 
         if IsTheTypeToLog(serverCfg.LogDurationTypes, name) {
                 endtime := time.Now().UnixNano() / 1000000 // time in microseconds
