@@ -105,7 +105,7 @@ type ServerCommonConf struct {
         // the duration of those connections. if it is setting as 'ssh,rdp', it
         // will log the duration of the name as 'ssh', 'ssh_1', 'sshname', 'rdp',
         // 'rdp_test1' or 'web_my_rdp' . By default, this value is "ssh,rdp".
-        LogDurationTypes string `json:"log_duration_types"`
+        LogDurationTypes string `ini:"log_duration_types" json:"log_duration_types"`
 	// DisableLogColor disables log colors when LogWay == "console" when set to
 	// true. By default, this value is false.
 	DisableLogColor bool `ini:"disable_log_color" json:"disable_log_color"`
