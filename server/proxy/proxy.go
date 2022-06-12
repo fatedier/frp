@@ -325,7 +325,6 @@ func IsTheTypeToLog(LogDurationTypes string, name string) bool {
         return false
 }
 
-
 type Manager struct {
 	// proxies indexed by proxy name
 	pxys map[string]Proxy
