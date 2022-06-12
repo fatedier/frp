@@ -54,6 +54,7 @@ var (
 	logFile           string
 	logLevel          string
 	logMaxDays        int64
+        logDurationTypes  string
 	disableLogColor   bool
 	token             string
 	subDomainHost     string
@@ -84,6 +85,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "log file")
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	rootCmd.PersistentFlags().Int64VarP(&logMaxDays, "log_max_days", "", 3, "log max days")
+        rootCmd.PersistentFlags().StringVarP(&logDurationTypes, "log_duration_types", "", "ssh,rdp", "log duration types")
 	rootCmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
 
 	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
@@ -170,6 +172,7 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 	cfg.LogFile = logFile
 	cfg.LogLevel = logLevel
 	cfg.LogMaxDays = logMaxDays
+        cfg.LogDurationTypes = logDurationTypes
 	cfg.SubDomainHost = subDomainHost
 	cfg.TLSOnly = tlsOnly
 
