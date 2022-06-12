@@ -20,6 +20,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -291,19 +292,39 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	xl.Debug("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", workConn.LocalAddr().String(),
 		workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 
-	name := pxy.GetName()
-	proxyType := pxy.GetConf().GetBaseInfo().ProxyType
-	metrics.Server.OpenConnection(name, proxyType)
-	inCount, outCount := frpIo.Join(local, userConn)
-	metrics.Server.CloseConnection(name, proxyType)
-	metrics.Server.AddTrafficIn(name, proxyType, inCount)
-	metrics.Server.AddTrafficOut(name, proxyType, outCount)
-	endtime := time.Now().UnixNano() / 1000000 // time in microseconds
-	connection_duration := endtime - startime
-	xl.Debug("join connection closed, it remains [%d]ms, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", connection_duration,
-		workConn.LocalAddr().String(), workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String() )
-	xl.Info("connection closed, it remains [%d]ms, r[%s]", connection_duration, userConn.RemoteAddr().String() )
+        name := pxy.GetName()
+        proxyType := pxy.GetConf().GetBaseInfo().ProxyType
+        metrics.Server.OpenConnection(name, proxyType)
+        inCount, outCount := frpIo.Join(local, userConn)
+        metrics.Server.CloseConnection(name, proxyType)
+        metrics.Server.AddTrafficIn(name, proxyType, inCount)
+        metrics.Server.AddTrafficOut(name, proxyType, outCount)
+
+        if IsTheTypeToLog(serverCfg.LogDurationTypes, name) {
+                endtime := time.Now().UnixNano() / 1000000 // time in microseconds
+                connection_duration := endtime - startime
+                xl.Debug("join connection closed, it remains [%d]ms, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", connection_duration,
+                        workConn.LocalAddr().String(), workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
+                xl.Info("connection closed, it remains [%d]ms, userConn(l[%s] r[%s])", connection_duration,
+                        userConn.LocalAddr().String(), userConn.RemoteAddr().String())
+        } else {
+                xl.Debug("join connection closed, userConn(l[%s] r[%s])", userConn.LocalAddr().String(), userConn.RemoteAddr().String())
+        }
 }
+
+func IsTheTypeToLog(LogDurationTypes string, name string) bool {
+        if strings.Contains(LogDurationTypes, "all") {
+                return true
+        }
+        thestrlist := strings.Split(LogDurationTypes, ",")
+        for i := 0; i < len(thestrlist); i++ {
+                if strings.Contains(name, thestrlist[i]) {
+                        return true
+                }
+        }
+        return false
+}
+
 
 type Manager struct {
 	// proxies indexed by proxy name
