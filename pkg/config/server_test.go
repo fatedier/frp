@@ -53,6 +53,7 @@ func Test_LoadServerCommonConf(t *testing.T) {
 				log_way = file
 				log_level = info9
 				log_max_days = 39
+				log_duration_types = ssh,rdp
 				disable_log_color = false
 				detailed_errors_to_client
 				authentication_method = token
@@ -121,6 +122,7 @@ func Test_LoadServerCommonConf(t *testing.T) {
 				LogWay:                 "file",
 				LogLevel:               "info9",
 				LogMaxDays:             39,
+				LogDurationTypes:       "ssh,rdp",
 				DisableLogColor:        false,
 				DetailedErrorsToClient: true,
 				HeartbeatTimeout:       99,
