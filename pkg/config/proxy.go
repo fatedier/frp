@@ -16,7 +16,9 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/fatedier/frp/pkg/consts"
@@ -372,7 +374,7 @@ func (cfg *BaseProxyConf) decorate(prefix string, name string, section *ini.Sect
 	}
 
 	if cfg.HealthCheckType == "http" && cfg.Plugin == "" && cfg.HealthCheckURL != "" {
-		s := fmt.Sprintf("http://%s:%d", cfg.LocalIP, cfg.LocalPort)
+		s := "http://" + net.JoinHostPort(cfg.LocalIP, strconv.Itoa(cfg.LocalPort))
 		if !strings.HasPrefix(cfg.HealthCheckURL, "/") {
 			s += "/"
 		}
