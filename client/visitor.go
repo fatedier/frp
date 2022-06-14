@@ -212,7 +212,7 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 	}
 
 	raddr, err := net.ResolveUDPAddr("udp",
-		fmt.Sprintf("%s:%d", sv.ctl.clientCfg.ServerAddr, sv.ctl.serverUDPPort))
+		net.JoinHostPort(sv.ctl.clientCfg.ServerAddr, strconv.Itoa(sv.ctl.serverUDPPort)))
 	if err != nil {
 		xl.Error("resolve server UDP addr error")
 		return
