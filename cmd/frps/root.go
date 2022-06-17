@@ -62,6 +62,9 @@ var (
 	maxPoolCount      int64
 	maxPortsPerClient int64
 	tlsOnly           bool
+	dashboardTLSMode     bool
+	dashboardTLSCertFile string
+	dashboardTLSKeyFile  string
 )
 
 func init() {
