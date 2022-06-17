@@ -84,8 +84,8 @@ func (svr *Service) RunDashboardServer(address string) (err error) {
 		return err
 	}
 
-	if svr.cfg.TLSOnly {
-		go server.ServeTLS(ln, svr.cfg.TLSCertFile, svr.cfg.TLSKeyFile)
+	if svr.cfg.DashboardTLSMode {
+		go server.ServeTLS(ln, svr.cfg.DashboardTLSCertFile, svr.cfg.DashboardTLSKeyFile)
 	} else {
 		go server.Serve(ln)
 	}
