@@ -318,11 +318,11 @@ func (cfg *ServerCommonConf) Validate() error {
 		}
 	} else {
 		if cfg.DashboardTLSCertFile == "" {
-			return fmt.Errorf("ERROR! dashboard_tls_cert_file cannot be null when dashboard_tls_mode is true")
+			return fmt.Errorf("ERROR! dashboard_tls_cert_file must be specified when dashboard_tls_mode is true")
 		}
 
 		if cfg.DashboardTLSKeyFile == "" {
-			return fmt.Errorf("ERROR! dashboard_tls_cert_file cannot be null when dashboard_tls_mode is true")
+			return fmt.Errorf("ERROR! dashboard_tls_cert_file must be specified when dashboard_tls_mode is true")
 		}
 	}
 	return validator.New().Struct(cfg)
