@@ -15,6 +15,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -70,23 +71,44 @@ func (svr *Service) RunDashboardServer(address string) (err error) {
 		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
 	})
 
-	server := &http.Server{
-		Addr:         address,
-		Handler:      router,
-		ReadTimeout:  httpServerReadTimeout,
-		WriteTimeout: httpServerWriteTimeout,
-	}
-	if address == "" || address == ":" {
-		address = ":http"
-	}
-	ln, err := net.Listen("tcp", address)
-	if err != nil {
-		return err
-	}
-
 	if svr.cfg.DashboardTLSMode {
-		go server.ServeTLS(ln, svr.cfg.DashboardTLSCertFile, svr.cfg.DashboardTLSKeyFile)
+		cer, err := tls.LoadX509KeyPair(svr.cfg.DashboardTLSCertFile, svr.cfg.DashboardTLSKeyFile)
+		if err != nil {
+			return err
+		}
+		cfg := &tls.Config{
+			MinVersion:               tls.VersionTLS12,
+			CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+			PreferServerCipherSuites: true,
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+			},
+			Certificates: []tls.Certificate{cer},
+		}
+		server := &http.Server{
+			Addr:         address,
+			Handler:      router,
+			TLSConfig:    cfg,
+			TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
+		}
+		go server.ListenAndServeTLS("", "")
 	} else {
+		server := &http.Server{
+			Addr:         address,
+			Handler:      router,
+			ReadTimeout:  httpServerReadTimeout,
+			WriteTimeout: httpServerWriteTimeout,
+		}
+		if address == "" || address == ":" {
+			address = ":http"
+		}
+		ln, err := net.Listen("tcp", address)
+		if err != nil {
+			return err
+		}
 		go server.Serve(ln)
 	}
 	return
