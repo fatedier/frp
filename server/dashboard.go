@@ -84,8 +84,6 @@ func (svr *Service) RunDashboardServer(address string) (err error) {
 			Handler:      router,
 			TLSConfig:    cfg,
 			TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
-			ReadTimeout:  httpServerReadTimeout,
-			WriteTimeout: httpServerWriteTimeout,
 		}
 		go server.ListenAndServeTLS("", "")
 	} else {
