@@ -37,31 +37,31 @@ var (
 	cfgFile     string
 	showVersion bool
 
-	bindAddr          string
-	bindPort          int
-	bindUDPPort       int
-	kcpBindPort       int
-	proxyBindAddr     string
-	vhostHTTPPort     int
-	vhostHTTPSPort    int
-	vhostHTTPTimeout  int64
-	dashboardAddr     string
-	dashboardPort     int
-	dashboardUser     string
-	dashboardPwd      string
-	enablePrometheus  bool
-	assetsDir         string
-	logFile           string
-	logLevel          string
-	logMaxDays        int64
-	disableLogColor   bool
-	token             string
-	subDomainHost     string
-	tcpMux            bool
-	allowPorts        string
-	maxPoolCount      int64
-	maxPortsPerClient int64
-	tlsOnly           bool
+	bindAddr             string
+	bindPort             int
+	bindUDPPort          int
+	kcpBindPort          int
+	proxyBindAddr        string
+	vhostHTTPPort        int
+	vhostHTTPSPort       int
+	vhostHTTPTimeout     int64
+	dashboardAddr        string
+	dashboardPort        int
+	dashboardUser        string
+	dashboardPwd         string
+	enablePrometheus     bool
+	assetsDir            string
+	logFile              string
+	logLevel             string
+	logMaxDays           int64
+	disableLogColor      bool
+	token                string
+	subDomainHost        string
+	tcpMux               bool
+	allowPorts           string
+	maxPoolCount         int64
+	maxPortsPerClient    int64
+	tlsOnly              bool
 	dashboardTLSMode     bool
 	dashboardTLSCertFile string
 	dashboardTLSKeyFile  string
