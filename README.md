@@ -477,6 +477,21 @@ dashboard_pwd = admin
 
 Then visit `http://[server_addr]:7500` to see the dashboard, with username and password both being `admin`.
 
+Additionally, you can use HTTPS port by using your domains wildcard or normal SSL certificate:
+
+```ini
+[common]
+dashboard_port = 7500
+# dashboard's username and password are both optional
+dashboard_user = admin
+dashboard_pwd = admin
+dashboard_tls_mode = true
+dashboard_tls_cert_file = server.crt
+dashboard_tls_key_file = server.key
+```
+
+Then visit `https://[server_addr]:7500` to see the dashboard in secure HTTPS connection, with username and password both being `admin`.
+
 ![dashboard](/doc/pic/dashboard.png)
 
 ### Admin UI
