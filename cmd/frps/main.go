@@ -15,6 +15,7 @@
 package main
 
 import (
+	"github.com/fatedier/frp/cmd/frps/sub"
 	"math/rand"
 	"time"
 
@@ -28,5 +29,5 @@ func main() {
 	crypto.DefaultSalt = "frp"
 	rand.Seed(time.Now().UnixNano())
 
-	Execute()
+	sub.Execute()
 }
