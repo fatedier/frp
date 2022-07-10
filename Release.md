@@ -1,5 +1,8 @@
 ### New
 
-* Added `route_by_http_user` in `http` and `tcpmux` proxy to support route to different clients by HTTP basic auth user.
-* `CONNECT` method can be forwarded in `http` type proxy.
-* Added `tcpmux_passthrough` in `tcpmux` proxy. If true, `CONNECT` request will be forwarded to frpc.
+* Use auto generated certificates if `plugin_key_path` and `plugin_crt_path` are empty for plugin `https2https` and `https2http`.
+* Server dashboard supports TLS configs.
+
+### Fix
+
+* xtcp error with IPv6 address.
