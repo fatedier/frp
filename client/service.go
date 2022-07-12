@@ -198,6 +198,10 @@ func (svr *Service) keepControllerWorking() {
 		}
 
 		for {
+			if atomic.LoadUint32(&svr.exit) != 0 {
+				return
+			}
+
 			xl.Info("try to reconnect to server...")
 			conn, session, err := svr.login()
 			if err != nil {
