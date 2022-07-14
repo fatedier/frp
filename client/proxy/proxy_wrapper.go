@@ -145,7 +145,7 @@ func (pw *Wrapper) Stop() {
 }
 
 func (pw *Wrapper) close() {
-	pw.handler(event.EvCloseProxy, &event.CloseProxyPayload{
+	pw.handler(&event.CloseProxyPayload{
 		CloseProxyMsg: &msg.CloseProxy{
 			ProxyName: pw.Name,
 		},
@@ -174,7 +174,7 @@ func (pw *Wrapper) checkWorker() {
 				var newProxyMsg msg.NewProxy
 				pw.Cfg.MarshalToMsg(&newProxyMsg)
 				pw.lastSendStartMsg = now
-				pw.handler(event.EvStartProxy, &event.StartProxyPayload{
+				pw.handler(&event.StartProxyPayload{
 					NewProxyMsg: &newProxyMsg,
 				})
 			}
