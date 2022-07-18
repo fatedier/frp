@@ -54,7 +54,7 @@ var (
 	logFile           string
 	logLevel          string
 	logMaxDays        int64
-        logDurationTypes  string
+	logDurationTypes  string
 	disableLogColor   bool
 	token             string
 	subDomainHost     string
