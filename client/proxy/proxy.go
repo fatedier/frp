@@ -17,7 +17,6 @@ package proxy
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"strconv"
@@ -307,7 +306,7 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 		Sid:       natHoleSidMsg.Sid,
 	}
 	raddr, _ := net.ResolveUDPAddr("udp",
-		fmt.Sprintf("%s:%d", pxy.clientCfg.ServerAddr, pxy.serverUDPPort))
+		net.JoinHostPort(pxy.clientCfg.ServerAddr, strconv.Itoa(pxy.serverUDPPort)))
 	clientConn, err := net.DialUDP("udp", nil, raddr)
 	if err != nil {
 		xl.Error("dial server udp addr error: %v", err)
@@ -415,7 +414,7 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 }
 
 func (pxy *XTCPProxy) sendDetectMsg(addr string, port int, laddr *net.UDPAddr, content []byte) (err error) {
-	daddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", addr, port))
+	daddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(addr, strconv.Itoa(port)))
 	if err != nil {
 		return err
 	}
@@ -448,7 +447,7 @@ type UDPProxy struct {
 }
 
 func (pxy *UDPProxy) Run() (err error) {
-	pxy.localAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", pxy.cfg.LocalIP, pxy.cfg.LocalPort))
+	pxy.localAddr, err = net.ResolveUDPAddr("udp", net.JoinHostPort(pxy.cfg.LocalIP, strconv.Itoa(pxy.cfg.LocalPort)))
 	if err != nil {
 		return
 	}
@@ -570,7 +569,7 @@ type SUDPProxy struct {
 }
 
 func (pxy *SUDPProxy) Run() (err error) {
-	pxy.localAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", pxy.cfg.LocalIP, pxy.cfg.LocalPort))
+	pxy.localAddr, err = net.ResolveUDPAddr("udp", net.JoinHostPort(pxy.cfg.LocalIP, strconv.Itoa(pxy.cfg.LocalPort)))
 	if err != nil {
 		return
 	}

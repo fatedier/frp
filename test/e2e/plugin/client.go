@@ -12,7 +12,6 @@ import (
 	"github.com/fatedier/frp/test/e2e/pkg/cert"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
-	"github.com/fatedier/frp/test/e2e/pkg/utils"
 
 	. "github.com/onsi/ginkgo"
 )
@@ -181,9 +180,7 @@ var _ = Describe("[Feature: Client-Plugins]", func() {
 
 		// from http proxy with auth
 		framework.NewRequestExpect(f).Request(
-			framework.NewHTTPRequest().HTTPHost("other.example.com").HTTPPath("/test_static_file").Port(vhostPort).HTTPHeaders(map[string]string{
-				"Authorization": utils.BasicAuth("abc", "123"),
-			}),
+			framework.NewHTTPRequest().HTTPHost("other.example.com").HTTPPath("/test_static_file").Port(vhostPort).HTTPAuth("abc", "123"),
 		).ExpectResp([]byte("foo")).Ensure()
 	})
 

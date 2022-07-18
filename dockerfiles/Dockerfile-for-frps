@@ -1,14 +1,12 @@
-FROM alpine:3 AS temp
+FROM golang:1.18 AS building
 
-COPY bin/frps /tmp
+COPY . /building
+WORKDIR /building
 
-RUN chmod -R 777 /tmp/frps
-
+RUN make frps
 
 FROM alpine:3
 
-WORKDIR /app
-
-COPY --from=temp /tmp/frps /usr/bin
+COPY --from=building /building/bin/frps /usr/bin/frps
 
 ENTRYPOINT ["/usr/bin/frps"]

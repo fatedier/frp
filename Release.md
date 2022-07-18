@@ -1,7 +1,8 @@
 ### New
 
-* Added new parameter `config_dir` in frpc to run multiple client instances in one process.
+* Use auto generated certificates if `plugin_key_path` and `plugin_crt_path` are empty for plugin `https2https` and `https2http`.
+* Server dashboard supports TLS configs.
 
 ### Fix
 
-* Equal sign in environment variables causes parsing error.
+* xtcp error with IPv6 address.

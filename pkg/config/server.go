@@ -62,6 +62,8 @@ type ServerCommonConf struct {
 	// requests on one single port. If it's not - it will listen on this value for
 	// HTTP CONNECT requests. By default, this value is 0.
 	TCPMuxHTTPConnectPort int `ini:"tcpmux_httpconnect_port" json:"tcpmux_httpconnect_port" validate:"gte=0,lte=65535"`
+	// If TCPMuxPassthrough is true, frps won't do any update on traffic.
+	TCPMuxPassthrough bool `ini:"tcpmux_passthrough" json:"tcpmux_passthrough"`
 	// VhostHTTPTimeout specifies the response header timeout for the Vhost
 	// HTTP server, in seconds. By default, this value is 60.
 	VhostHTTPTimeout int64 `ini:"vhost_http_timeout" json:"vhost_http_timeout"`
@@ -72,6 +74,17 @@ type ServerCommonConf struct {
 	// value is 0, the dashboard will not be started. By default, this value is
 	// 0.
 	DashboardPort int `ini:"dashboard_port" json:"dashboard_port" validate:"gte=0,lte=65535"`
+	// DashboardTLSCertFile specifies the path of the cert file that the server will
+	// load. If "dashboard_tls_cert_file", "dashboard_tls_key_file" are valid, the server will use this
+	// supplied tls configuration.
+	DashboardTLSCertFile string `ini:"dashboard_tls_cert_file" json:"dashboard_tls_cert_file"`
+	// DashboardTLSKeyFile specifies the path of the secret key that the server will
+	// load. If "dashboard_tls_cert_file", "dashboard_tls_key_file" are valid, the server will use this
+	// supplied tls configuration.
+	DashboardTLSKeyFile string `ini:"dashboard_tls_key_file" json:"dashboard_tls_key_file"`
+	// DashboardTLSMode specifies the mode of the dashboard between HTTP or HTTPS modes. By
+	// default, this value is false, which is HTTP mode.
+	DashboardTLSMode bool `ini:"dashboard_tls_mode" json:"dashboard_tls_mode"`
 	// DashboardUser specifies the username that the dashboard will use for
 	// login.
 	DashboardUser string `ini:"dashboard_user" json:"dashboard_user"`
@@ -193,6 +206,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		VhostHTTPPort:           0,
 		VhostHTTPSPort:          0,
 		TCPMuxHTTPConnectPort:   0,
+		TCPMuxPassthrough:       false,
 		VhostHTTPTimeout:        60,
 		DashboardAddr:           "0.0.0.0",
 		DashboardPort:           0,
@@ -300,6 +314,23 @@ func (cfg *ServerCommonConf) Complete() {
 }
 
 func (cfg *ServerCommonConf) Validate() error {
+	if cfg.DashboardTLSMode == false {
+		if cfg.DashboardTLSCertFile != "" {
+			fmt.Println("WARNING! dashboard_tls_cert_file is invalid when dashboard_tls_mode is false")
+		}
+
+		if cfg.DashboardTLSKeyFile != "" {
+			fmt.Println("WARNING! dashboard_tls_key_file is invalid when dashboard_tls_mode is false")
+		}
+	} else {
+		if cfg.DashboardTLSCertFile == "" {
+			return fmt.Errorf("ERROR! dashboard_tls_cert_file must be specified when dashboard_tls_mode is true")
+		}
+
+		if cfg.DashboardTLSKeyFile == "" {
+			return fmt.Errorf("ERROR! dashboard_tls_cert_file must be specified when dashboard_tls_mode is true")
+		}
+	}
 	return validator.New().Struct(cfg)
 }
 

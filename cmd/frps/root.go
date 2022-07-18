@@ -63,6 +63,9 @@ var (
 	maxPoolCount         int64
 	maxPortsPerClient    int64
 	tlsOnly              bool
+	dashboardTLSMode     bool
+	dashboardTLSCertFile string
+	dashboardTLSKeyFile  string
 )
 
 func init() {
@@ -93,6 +96,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&allowPorts, "allow_ports", "", "", "allow ports")
 	rootCmd.PersistentFlags().Int64VarP(&maxPortsPerClient, "max_ports_per_client", "", 0, "max ports per client")
 	rootCmd.PersistentFlags().BoolVarP(&tlsOnly, "tls_only", "", false, "frps tls only")
+	rootCmd.PersistentFlags().BoolVarP(&dashboardTLSMode, "dashboard_tls_mode", "", false, "dashboard tls mode")
+	rootCmd.PersistentFlags().StringVarP(&dashboardTLSCertFile, "dashboard_tls_cert_file", "", "", "dashboard tls cert file")
+	rootCmd.PersistentFlags().StringVarP(&dashboardTLSKeyFile, "dashboard_tls_key_file", "", "", "dashboard tls key file")
 }
 
 var rootCmd = &cobra.Command{
@@ -169,6 +175,9 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 	cfg.DashboardUser = dashboardUser
 	cfg.DashboardPwd = dashboardPwd
 	cfg.EnablePrometheus = enablePrometheus
+	cfg.DashboardTLSCertFile = dashboardTLSCertFile
+	cfg.DashboardTLSKeyFile = dashboardTLSKeyFile
+	cfg.DashboardTLSMode = dashboardTLSMode
 	cfg.LogFile = logFile
 	cfg.LogLevel = logLevel
 	cfg.LogMaxDays = logMaxDays

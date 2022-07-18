@@ -15,6 +15,7 @@
 package util
 
 import (
+	"encoding/base64"
 	"net"
 	"net/http"
 	"strings"
@@ -26,6 +27,20 @@ func OkResponse() *http.Response {
 	res := &http.Response{
 		Status:     "OK",
 		StatusCode: 200,
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Header:     header,
+	}
+	return res
+}
+
+func ProxyUnauthorizedResponse() *http.Response {
+	header := make(http.Header)
+	header.Set("Proxy-Authenticate", `Basic realm="Restricted"`)
+	res := &http.Response{
+		Status:     "Proxy Authentication Required",
+		StatusCode: 407,
 		Proto:      "HTTP/1.1",
 		ProtoMajor: 1,
 		ProtoMinor: 1,
@@ -63,4 +78,22 @@ func hasPort(host string) bool {
 		return true
 	}
 	return host[0] == '[' && strings.Contains(host, "]:")
+}
+
+func ParseBasicAuth(auth string) (username, password string, ok bool) {
+	const prefix = "Basic "
+	// Case insensitive prefix match. See Issue 22736.
+	if len(auth) < len(prefix) || !strings.EqualFold(auth[:len(prefix)], prefix) {
+		return
+	}
+	c, err := base64.StdEncoding.DecodeString(auth[len(prefix):])
+	if err != nil {
+		return
+	}
+	cs := string(c)
+	s := strings.IndexByte(cs, ':')
+	if s < 0 {
+		return
+	}
+	return cs[:s], cs[s+1:], true
 }
