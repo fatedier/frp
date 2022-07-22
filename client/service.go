@@ -123,6 +123,10 @@ func (svr *Service) Run() error {
 
 	// login to frps
 	for {
+		if atomic.LoadUint32(&svr.exit) != 0 {
+			return nil
+		}
+
 		conn, session, err := svr.login()
 		if err != nil {
 			xl.Warn("login to server failed: %v", err)
@@ -174,9 +178,14 @@ func (svr *Service) keepControllerWorking() {
 	reconnectCounts := 1
 
 	for {
-		<-svr.ctl.ClosedDoneCh()
-		if atomic.LoadUint32(&svr.exit) != 0 {
-			return
+		select {
+		case <-svr.ctl.ClosedDoneCh():
+		case <-time.After(5 * time.Second):
+			if atomic.LoadUint32(&svr.exit) != 0 {
+				svr.ctl.GracefulClose(0)
+				return
+			}
+			continue
 		}
 
 		// the first three retry with no delay
@@ -217,9 +226,13 @@ func (svr *Service) keepControllerWorking() {
 			// reconnect success, init delayTime
 			delayTime = time.Second
 
+			svr.ctlMu.Lock()
+			if atomic.LoadUint32(&svr.exit) != 0 {
+				svr.ctlMu.Unlock()
+				return
+			}
 			ctl := NewControl(svr.ctx, svr.runID, conn, session, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort, svr.authSetter)
 			ctl.Run()
-			svr.ctlMu.Lock()
 			if svr.ctl != nil {
 				svr.ctl.Close()
 			}
