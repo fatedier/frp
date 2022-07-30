@@ -45,3 +45,15 @@ alltest: vet gotest e2e
 clean:
 	rm -f ./bin/frpc
 	rm -f ./bin/frps
+
+build-image:
+	docker build \
+		-t docker.io/fatedier/frp:latest\
+		-f build/docker/Dockerfile \
+		--build-arg BUILD_IMAGE="golang:1.16.15-alpine" \
+		--build-arg RUN_AS_USER=0 \
+		--build-arg RUN_AS_GROUP=0 \
+		--build-arg GIT_COMMIT=$(shell git rev-parse HEAD) \
+		--build-arg GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD) \
+		--build-arg BUILD_DATE=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ") \
+		.
