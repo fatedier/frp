@@ -19,9 +19,10 @@ import (
 )
 
 const (
-	APIVersion = "0.1.0"
+	APIVersion = "0.1.1"
 
 	OpLogin       = "Login"
+	OpExit        = "Exit"
 	OpNewProxy    = "NewProxy"
 	OpCloseProxy  = "CloseProxy"
 	OpPing        = "Ping"

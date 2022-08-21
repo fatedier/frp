@@ -26,6 +26,7 @@ import (
 
 type Manager struct {
 	loginPlugins       []Plugin
+	exitPlugins        []Plugin
 	newProxyPlugins    []Plugin
 	closeProxyPlugins  []Plugin
 	pingPlugins        []Plugin
@@ -36,6 +37,7 @@ type Manager struct {
 func NewManager() *Manager {
 	return &Manager{
 		loginPlugins:       make([]Plugin, 0),
+		exitPlugins:        make([]Plugin, 0),
 		newProxyPlugins:    make([]Plugin, 0),
 		closeProxyPlugins:  make([]Plugin, 0),
 		pingPlugins:        make([]Plugin, 0),
@@ -47,6 +49,9 @@ func NewManager() *Manager {
 func (m *Manager) Register(p Plugin) {
 	if p.IsSupport(OpLogin) {
 		m.loginPlugins = append(m.loginPlugins, p)
+	}
+	if p.IsSupport(OpExit) {
+		m.exitPlugins = append(m.exitPlugins, p)
 	}
 	if p.IsSupport(OpNewProxy) {
 		m.newProxyPlugins = append(m.newProxyPlugins, p)
@@ -97,6 +102,32 @@ func (m *Manager) Login(content *LoginContent) (*LoginContent, error) {
 		}
 	}
 	return content, nil
+}
+
+func (m *Manager) Exit(content *ExitContent) error {
+	if len(m.exitPlugins) == 0 {
+		return nil
+	}
+
+	errs := make([]string, 0)
+	reqid, _ := util.RandID()
+	xl := xlog.New().AppendPrefix("reqid: " + reqid)
+	ctx := xlog.NewContext(context.Background(), xl)
+	ctx = NewReqidContext(ctx, reqid)
+
+	for _, p := range m.exitPlugins {
+		_, _, err := p.Handle(ctx, OpExit, *content)
+		if err != nil {
+			xl.Warn("send Exit request to plugin [%s] error: %v", p.Name(), err)
+			errs = append(errs, fmt.Sprintf("[%s]: %v", p.Name(), err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("send Exit request to plugin errors: %s", strings.Join(errs, "; "))
+	} else {
+		return nil
+	}
 }
 
 func (m *Manager) NewProxy(content *NewProxyContent) (*NewProxyContent, error) {

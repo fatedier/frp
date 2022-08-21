@@ -94,6 +94,29 @@ Client login operation
 }
 ```
 
+#### Exit
+
+Client exit operation. When client cannot connect to server that will notify to admin.
+Can use a new version (OpExit supported at: https://github.com/lowk3v/frp-notify/releases/tag/OpExitSupported)
+
+```
+{
+    "content": {
+        "version": <string>,
+        "hostname": <string>,
+        "os": <string>,
+        "arch": <string>,
+        "user": <string>,
+        "timestamp": <int64>,
+        "privilege_key": <string>,
+        "run_id": <string>,
+        "pool_count": <int>,
+        "metas": map<string>string,
+        "client_address": <string>
+    }
+}
+```
+
 #### NewProxy
 
 Create new proxy

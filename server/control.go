@@ -394,6 +394,25 @@ func (ctl *Control) stoper() {
 
 	ctl.allShutdown.Done()
 	xl.Info("client exit success")
+
+	notifyContent := &plugin.ExitContent{
+		ClientAddress: ctl.conn.RemoteAddr().String(),
+		Exit: msg.Exit{
+			Version:      ctl.loginMsg.Version,
+			Hostname:     ctl.loginMsg.Hostname,
+			Os:           ctl.loginMsg.Os,
+			Arch:         ctl.loginMsg.Arch,
+			User:         ctl.loginMsg.User,
+			PrivilegeKey: ctl.loginMsg.PrivilegeKey,
+			Timestamp:    ctl.loginMsg.Timestamp,
+			RunID:        ctl.loginMsg.RunID,
+			Metas:        ctl.loginMsg.Metas,
+		},
+	}
+	go func() {
+		_ = ctl.pluginManager.Exit(notifyContent)
+	}()
+
 	metrics.Server.CloseClient()
 }
 

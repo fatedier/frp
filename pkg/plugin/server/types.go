@@ -37,6 +37,11 @@ type LoginContent struct {
 	ClientAddress string `json:"client_address,omitempty"`
 }
 
+type ExitContent struct {
+	ClientAddress string `json:"client_address,omitempty"`
+	msg.Exit
+}
+
 type UserInfo struct {
 	User  string            `json:"user"`
 	Metas map[string]string `json:"metas"`

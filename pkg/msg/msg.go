@@ -83,6 +83,19 @@ type LoginResp struct {
 	Error         string `json:"error,omitempty"`
 }
 
+// When frpc exit success, send this message to exit plugin server
+type Exit struct {
+	Version      string            `json:"version,omitempty"`
+	Hostname     string            `json:"hostname,omitempty"`
+	Os           string            `json:"os,omitempty"`
+	Arch         string            `json:"arch,omitempty"`
+	User         string            `json:"user,omitempty"`
+	PrivilegeKey string            `json:"privilege_key,omitempty"`
+	Timestamp    int64             `json:"timestamp,omitempty"`
+	RunID        string            `json:"run_id,omitempty"`
+	Metas        map[string]string `json:"metas,omitempty"`
+}
+
 // When frpc login success, send this message to frps for running a new proxy.
 type NewProxy struct {
 	ProxyName      string            `json:"proxy_name,omitempty"`
