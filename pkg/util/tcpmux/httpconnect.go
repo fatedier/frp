@@ -22,9 +22,10 @@ import (
 	"net/http"
 	"time"
 
+	gnet "github.com/fatedier/golib/net"
+
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/vhost"
-	gnet "github.com/fatedier/golib/net"
 )
 
 type HTTPConnectTCPMuxer struct {
@@ -66,7 +67,11 @@ func (muxer *HTTPConnectTCPMuxer) sendConnectResponse(c net.Conn, reqInfo map[st
 	if muxer.passthrough {
 		return nil
 	}
-	return util.OkResponse().Write(c)
+	res := util.OkResponse()
+	if res.Body != nil {
+		defer res.Body.Close()
+	}
+	return res.Write(c)
 }
 
 func (muxer *HTTPConnectTCPMuxer) getHostFromHTTPConnect(c net.Conn) (net.Conn, map[string]string, error) {
@@ -82,11 +87,15 @@ func (muxer *HTTPConnectTCPMuxer) getHostFromHTTPConnect(c net.Conn) (net.Conn, 
 	reqInfoMap["Scheme"] = "tcp"
 	reqInfoMap["HTTPUser"] = httpUser
 
-	var outConn net.Conn = c
+	outConn := c
 	if muxer.passthrough {
 		outConn = sc
 		if muxer.authRequired && httpUser == "" {
-			util.ProxyUnauthorizedResponse().Write(c)
+			resp := util.ProxyUnauthorizedResponse()
+			if resp.Body != nil {
+				defer resp.Body.Close()
+			}
+			_ = resp.Write(c)
 			outConn = c
 		}
 	}

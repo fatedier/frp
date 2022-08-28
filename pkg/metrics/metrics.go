@@ -4,5 +4,7 @@ import (
 	"github.com/fatedier/frp/pkg/metrics/aggregate"
 )
 
-var EnableMem = aggregate.EnableMem
-var EnablePrometheus = aggregate.EnablePrometheus
+var (
+	EnableMem        = aggregate.EnableMem
+	EnablePrometheus = aggregate.EnablePrometheus
+)

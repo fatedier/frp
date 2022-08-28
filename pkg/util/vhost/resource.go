@@ -24,9 +24,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/version"
 )
 
-var (
-	NotFoundPagePath = ""
-)
+var NotFoundPagePath = ""
 
 const (
 	NotFound = `<!DOCTYPE html>

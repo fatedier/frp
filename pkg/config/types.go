@@ -75,21 +75,22 @@ func (q *BandwidthQuantity) UnmarshalString(s string) error {
 		f    float64
 		err  error
 	)
-	if strings.HasSuffix(s, "MB") {
+	switch {
+	case strings.HasSuffix(s, "MB"):
 		base = MB
 		fstr := strings.TrimSuffix(s, "MB")
 		f, err = strconv.ParseFloat(fstr, 64)
 		if err != nil {
 			return err
 		}
-	} else if strings.HasSuffix(s, "KB") {
+	case strings.HasSuffix(s, "KB"):
 		base = KB
 		fstr := strings.TrimSuffix(s, "KB")
 		f, err = strconv.ParseFloat(fstr, 64)
 		if err != nil {
 			return err
 		}
-	} else {
+	default:
 		return errors.New("unit not support")
 	}
 

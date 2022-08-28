@@ -20,10 +20,10 @@ import (
 	"net"
 	"sync"
 
+	frpIo "github.com/fatedier/golib/io"
+
 	frpNet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
-
-	frpIo "github.com/fatedier/golib/io"
 )
 
 // Manager for visitor listeners.
@@ -57,8 +57,8 @@ func (vm *Manager) Listen(name string, sk string) (l *frpNet.CustomListener, err
 }
 
 func (vm *Manager) NewConn(name string, conn net.Conn, timestamp int64, signKey string,
-	useEncryption bool, useCompression bool) (err error) {
-
+	useEncryption bool, useCompression bool,
+) (err error) {
 	vm.mu.RLock()
 	defer vm.mu.RUnlock()
 

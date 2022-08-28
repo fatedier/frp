@@ -22,8 +22,8 @@ type Artifacts struct {
 	ResourceVersion string
 }
 
-// CertGenerator is an interface to provision the serving certificate.
-type CertGenerator interface {
+// Generator is an interface to provision the serving certificate.
+type Generator interface {
 	// Generate returns a Artifacts struct.
 	Generate(CommonName string) (*Artifacts, error)
 	// SetCA sets the PEM-encoded CA private key and CA cert for signing the generated serving cert.

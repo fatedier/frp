@@ -37,28 +37,26 @@ const (
 	TypeNatHoleSid            = '5'
 )
 
-var (
-	msgTypeMap = map[byte]interface{}{
-		TypeLogin:                 Login{},
-		TypeLoginResp:             LoginResp{},
-		TypeNewProxy:              NewProxy{},
-		TypeNewProxyResp:          NewProxyResp{},
-		TypeCloseProxy:            CloseProxy{},
-		TypeNewWorkConn:           NewWorkConn{},
-		TypeReqWorkConn:           ReqWorkConn{},
-		TypeStartWorkConn:         StartWorkConn{},
-		TypeNewVisitorConn:        NewVisitorConn{},
-		TypeNewVisitorConnResp:    NewVisitorConnResp{},
-		TypePing:                  Ping{},
-		TypePong:                  Pong{},
-		TypeUDPPacket:             UDPPacket{},
-		TypeNatHoleVisitor:        NatHoleVisitor{},
-		TypeNatHoleClient:         NatHoleClient{},
-		TypeNatHoleResp:           NatHoleResp{},
-		TypeNatHoleClientDetectOK: NatHoleClientDetectOK{},
-		TypeNatHoleSid:            NatHoleSid{},
-	}
-)
+var msgTypeMap = map[byte]interface{}{
+	TypeLogin:                 Login{},
+	TypeLoginResp:             LoginResp{},
+	TypeNewProxy:              NewProxy{},
+	TypeNewProxyResp:          NewProxyResp{},
+	TypeCloseProxy:            CloseProxy{},
+	TypeNewWorkConn:           NewWorkConn{},
+	TypeReqWorkConn:           ReqWorkConn{},
+	TypeStartWorkConn:         StartWorkConn{},
+	TypeNewVisitorConn:        NewVisitorConn{},
+	TypeNewVisitorConnResp:    NewVisitorConnResp{},
+	TypePing:                  Ping{},
+	TypePong:                  Pong{},
+	TypeUDPPacket:             UDPPacket{},
+	TypeNatHoleVisitor:        NatHoleVisitor{},
+	TypeNatHoleClient:         NatHoleClient{},
+	TypeNatHoleResp:           NatHoleResp{},
+	TypeNatHoleClientDetectOK: NatHoleClientDetectOK{},
+	TypeNatHoleSid:            NatHoleSid{},
+}
 
 // When frpc start, client send this message to login to server.
 type Login struct {
@@ -129,8 +127,7 @@ type NewWorkConn struct {
 	Timestamp    int64  `json:"timestamp,omitempty"`
 }
 
-type ReqWorkConn struct {
-}
+type ReqWorkConn struct{}
 
 type StartWorkConn struct {
 	ProxyName string `json:"proxy_name,omitempty"`
@@ -187,8 +184,7 @@ type NatHoleResp struct {
 	Error       string `json:"error,omitempty"`
 }
 
-type NatHoleClientDetectOK struct {
-}
+type NatHoleClientDetectOK struct{}
 
 type NatHoleSid struct {
 	Sid string `json:"sid,omitempty"`

@@ -18,12 +18,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-playground/validator/v10"
+	"gopkg.in/ini.v1"
+
 	"github.com/fatedier/frp/pkg/auth"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/util/util"
-
-	"github.com/go-playground/validator/v10"
-	"gopkg.in/ini.v1"
 )
 
 // ServerCommonConf contains information for a server service. It is
@@ -236,7 +236,6 @@ func GetDefaultServerConf() ServerCommonConf {
 }
 
 func UnmarshalServerConfFromIni(source interface{}) (ServerCommonConf, error) {
-
 	f, err := ini.LoadSources(ini.LoadOptions{
 		Insensitive:         false,
 		InsensitiveSections: false,
@@ -308,7 +307,7 @@ func (cfg *ServerCommonConf) Complete() {
 }
 
 func (cfg *ServerCommonConf) Validate() error {
-	if cfg.DashboardTLSMode == false {
+	if !cfg.DashboardTLSMode {
 		if cfg.DashboardTLSCertFile != "" {
 			fmt.Println("WARNING! dashboard_tls_cert_file is invalid when dashboard_tls_mode is false")
 		}

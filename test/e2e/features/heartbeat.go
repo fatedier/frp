@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/fatedier/frp/test/e2e/framework"
+	"github.com/onsi/ginkgo"
 
-	. "github.com/onsi/ginkgo"
+	"github.com/fatedier/frp/test/e2e/framework"
 )
 
-var _ = Describe("[Feature: Heartbeat]", func() {
+var _ = ginkgo.Describe("[Feature: Heartbeat]", func() {
 	f := framework.NewDefaultFramework()
 
-	It("disable application layer heartbeat", func() {
+	ginkgo.It("disable application layer heartbeat", func() {
 		serverPort := f.AllocPort()
 		serverConf := fmt.Sprintf(`
 		[common]

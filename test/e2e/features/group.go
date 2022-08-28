@@ -6,16 +6,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/onsi/ginkgo"
+
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
 	"github.com/fatedier/frp/test/e2e/mock/server/httpserver"
 	"github.com/fatedier/frp/test/e2e/mock/server/streamserver"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
-
-	. "github.com/onsi/ginkgo"
 )
 
-var _ = Describe("[Feature: Group]", func() {
+var _ = ginkgo.Describe("[Feature: Group]", func() {
 	f := framework.NewDefaultFramework()
 
 	newHTTPServer := func(port int, respContent string) *httpserver.Server {
@@ -60,8 +60,8 @@ var _ = Describe("[Feature: Group]", func() {
 		return results
 	}
 
-	Describe("Load Balancing", func() {
-		It("TCP", func() {
+	ginkgo.Describe("Load Balancing", func() {
+		ginkgo.It("TCP", func() {
 			serverConf := consts.DefaultServerConfig
 			clientConf := consts.DefaultClientConfig
 
@@ -112,8 +112,8 @@ var _ = Describe("[Feature: Group]", func() {
 		})
 	})
 
-	Describe("Health Check", func() {
-		It("TCP", func() {
+	ginkgo.Describe("Health Check", func() {
+		ginkgo.It("TCP", func() {
 			serverConf := consts.DefaultServerConfig
 			clientConf := consts.DefaultClientConfig
 
@@ -178,7 +178,7 @@ var _ = Describe("[Feature: Group]", func() {
 			framework.ExpectContainElements(results, []string{"foo", "bar"})
 		})
 
-		It("HTTP", func() {
+		ginkgo.It("HTTP", func() {
 			vhostPort := f.AllocPort()
 			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
 			vhost_http_port = %d

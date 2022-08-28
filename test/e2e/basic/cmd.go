@@ -5,21 +5,21 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/onsi/ginkgo"
+
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
-
-	. "github.com/onsi/ginkgo"
 )
 
 const (
 	ConfigValidStr = "syntax is ok"
 )
 
-var _ = Describe("[Feature: Cmd]", func() {
+var _ = ginkgo.Describe("[Feature: Cmd]", func() {
 	f := framework.NewDefaultFramework()
 
-	Describe("Verify", func() {
-		It("frps valid", func() {
+	ginkgo.Describe("Verify", func() {
+		ginkgo.It("frps valid", func() {
 			path := f.GenerateConfigFile(`
 			[common]
 			bind_addr = 0.0.0.0
@@ -29,7 +29,7 @@ var _ = Describe("[Feature: Cmd]", func() {
 			framework.ExpectNoError(err)
 			framework.ExpectTrue(strings.Contains(output, ConfigValidStr), "output: %s", output)
 		})
-		It("frps invalid", func() {
+		ginkgo.It("frps invalid", func() {
 			path := f.GenerateConfigFile(`
 			[common]
 			bind_addr = 0.0.0.0
@@ -39,7 +39,7 @@ var _ = Describe("[Feature: Cmd]", func() {
 			framework.ExpectNoError(err)
 			framework.ExpectTrue(!strings.Contains(output, ConfigValidStr), "output: %s", output)
 		})
-		It("frpc valid", func() {
+		ginkgo.It("frpc valid", func() {
 			path := f.GenerateConfigFile(`
 			[common]
 			server_addr = 0.0.0.0
@@ -49,7 +49,7 @@ var _ = Describe("[Feature: Cmd]", func() {
 			framework.ExpectNoError(err)
 			framework.ExpectTrue(strings.Contains(output, ConfigValidStr), "output: %s", output)
 		})
-		It("frpc invalid", func() {
+		ginkgo.It("frpc invalid", func() {
 			path := f.GenerateConfigFile(`
 			[common]
 			server_addr = 0.0.0.0
@@ -62,8 +62,8 @@ var _ = Describe("[Feature: Cmd]", func() {
 		})
 	})
 
-	Describe("Single proxy", func() {
-		It("TCP", func() {
+	ginkgo.Describe("Single proxy", func() {
+		ginkgo.It("TCP", func() {
 			serverPort := f.AllocPort()
 			_, _, err := f.RunFrps("-t", "123", "-p", strconv.Itoa(serverPort))
 			framework.ExpectNoError(err)
@@ -77,7 +77,7 @@ var _ = Describe("[Feature: Cmd]", func() {
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 		})
 
-		It("UDP", func() {
+		ginkgo.It("UDP", func() {
 			serverPort := f.AllocPort()
 			_, _, err := f.RunFrps("-t", "123", "-p", strconv.Itoa(serverPort))
 			framework.ExpectNoError(err)
@@ -92,7 +92,7 @@ var _ = Describe("[Feature: Cmd]", func() {
 				Port(remotePort).Ensure()
 		})
 
-		It("HTTP", func() {
+		ginkgo.It("HTTP", func() {
 			serverPort := f.AllocPort()
 			vhostHTTPPort := f.AllocPort()
 			_, _, err := f.RunFrps("-t", "123", "-p", strconv.Itoa(serverPort), "--vhost_http_port", strconv.Itoa(vhostHTTPPort))

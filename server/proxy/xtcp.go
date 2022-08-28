@@ -17,10 +17,10 @@ package proxy
 import (
 	"fmt"
 
+	"github.com/fatedier/golib/errors"
+
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
-
-	"github.com/fatedier/golib/errors"
 )
 
 type XTCPProxy struct {
@@ -91,7 +91,7 @@ func (pxy *XTCPProxy) GetConf() config.ProxyConf {
 func (pxy *XTCPProxy) Close() {
 	pxy.BaseProxy.Close()
 	pxy.rc.NatHoleController.CloseClient(pxy.GetName())
-	errors.PanicToError(func() {
+	_ = errors.PanicToError(func() {
 		close(pxy.closeCh)
 	})
 }

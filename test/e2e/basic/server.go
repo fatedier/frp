@@ -5,19 +5,19 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/onsi/ginkgo"
+
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
 	clientsdk "github.com/fatedier/frp/test/e2e/pkg/sdk/client"
-
-	. "github.com/onsi/ginkgo"
 )
 
-var _ = Describe("[Feature: Server Manager]", func() {
+var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 	f := framework.NewDefaultFramework()
 
-	It("Ports Whitelist", func() {
+	ginkgo.It("Ports Whitelist", func() {
 		serverConf := consts.DefaultServerConfig
 		clientConf := consts.DefaultClientConfig
 
@@ -80,7 +80,7 @@ var _ = Describe("[Feature: Server Manager]", func() {
 		}).ExpectError(true).Ensure()
 	})
 
-	It("Alloc Random Port", func() {
+	ginkgo.It("Alloc Random Port", func() {
 		serverConf := consts.DefaultServerConfig
 		clientConf := consts.DefaultClientConfig
 
@@ -124,7 +124,7 @@ var _ = Describe("[Feature: Server Manager]", func() {
 		framework.NewRequestExpect(f).Protocol("udp").Port(port).Ensure()
 	})
 
-	It("Port Reuse", func() {
+	ginkgo.It("Port Reuse", func() {
 		serverConf := consts.DefaultServerConfig
 		// Use same port as PortServer
 		serverConf += fmt.Sprintf(`
@@ -145,7 +145,7 @@ var _ = Describe("[Feature: Server Manager]", func() {
 		}).PortName(consts.PortServerName).Ensure()
 	})
 
-	It("healthz", func() {
+	ginkgo.It("healthz", func() {
 		serverConf := consts.DefaultServerConfig
 		dashboardPort := f.AllocPort()
 

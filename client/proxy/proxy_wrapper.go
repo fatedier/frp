@@ -8,13 +8,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/fatedier/golib/errors"
+
 	"github.com/fatedier/frp/client/event"
 	"github.com/fatedier/frp/client/health"
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/xlog"
-
-	"github.com/fatedier/golib/errors"
 )
 
 const (
@@ -27,9 +27,9 @@ const (
 )
 
 var (
-	statusCheckInterval time.Duration = 3 * time.Second
-	waitResponseTimeout               = 20 * time.Second
-	startErrTimeout                   = 30 * time.Second
+	statusCheckInterval = 3 * time.Second
+	waitResponseTimeout = 20 * time.Second
+	startErrTimeout     = 30 * time.Second
 )
 
 type WorkingStatus struct {
@@ -145,7 +145,7 @@ func (pw *Wrapper) Stop() {
 }
 
 func (pw *Wrapper) close() {
-	pw.handler(&event.CloseProxyPayload{
+	_ = pw.handler(&event.CloseProxyPayload{
 		CloseProxyMsg: &msg.CloseProxy{
 			ProxyName: pw.Name,
 		},
@@ -174,7 +174,7 @@ func (pw *Wrapper) checkWorker() {
 				var newProxyMsg msg.NewProxy
 				pw.Cfg.MarshalToMsg(&newProxyMsg)
 				pw.lastSendStartMsg = now
-				pw.handler(&event.StartProxyPayload{
+				_ = pw.handler(&event.StartProxyPayload{
 					NewProxyMsg: &newProxyMsg,
 				})
 			}
@@ -201,7 +201,7 @@ func (pw *Wrapper) checkWorker() {
 func (pw *Wrapper) statusNormalCallback() {
 	xl := pw.xl
 	atomic.StoreUint32(&pw.health, 0)
-	errors.PanicToError(func() {
+	_ = errors.PanicToError(func() {
 		select {
 		case pw.healthNotifyCh <- struct{}{}:
 		default:
@@ -213,7 +213,7 @@ func (pw *Wrapper) statusNormalCallback() {
 func (pw *Wrapper) statusFailedCallback() {
 	xl := pw.xl
 	atomic.StoreUint32(&pw.health, 1)
-	errors.PanicToError(func() {
+	_ = errors.PanicToError(func() {
 		select {
 		case pw.healthNotifyCh <- struct{}{}:
 		default:

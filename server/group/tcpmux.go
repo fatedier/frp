@@ -20,11 +20,11 @@ import (
 	"net"
 	"sync"
 
+	gerr "github.com/fatedier/golib/errors"
+
 	"github.com/fatedier/frp/pkg/consts"
 	"github.com/fatedier/frp/pkg/util/tcpmux"
 	"github.com/fatedier/frp/pkg/util/vhost"
-
-	gerr "github.com/fatedier/golib/errors"
 )
 
 // TCPMuxGroupCtl manage all TCPMuxGroups
@@ -51,7 +51,6 @@ func (tmgc *TCPMuxGroupCtl) Listen(
 	multiplexer, group, groupKey string,
 	routeConfig vhost.RouteConfig,
 ) (l net.Listener, err error) {
-
 	tmgc.mu.Lock()
 	tcpMuxGroup, ok := tmgc.groups[group]
 	if !ok {
@@ -84,7 +83,6 @@ type TCPMuxGroup struct {
 	routeByHTTPUser string
 
 	acceptCh chan net.Conn
-	index    uint64
 	tcpMuxLn net.Listener
 	lns      []*TCPMuxGroupListener
 	ctl      *TCPMuxGroupCtl
@@ -108,7 +106,6 @@ func (tmg *TCPMuxGroup) HTTPConnectListen(
 	group, groupKey string,
 	routeConfig vhost.RouteConfig,
 ) (ln *TCPMuxGroupListener, err error) {
-
 	tmg.mu.Lock()
 	defer tmg.mu.Unlock()
 	if len(tmg.lns) == 0 {
