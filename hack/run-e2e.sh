@@ -5,7 +5,7 @@ ROOT=$(unset CDPATH && cd $(dirname "${BASH_SOURCE[0]}")/.. && pwd)
 which ginkgo &> /dev/null
 if [ $? -ne 0 ]; then
     echo "ginkgo not found, try to install..."
-    go install github.com/onsi/ginkgo/ginkgo@latest
+    go install github.com/onsi/ginkgo/ginkgo@v1.16.5
 fi
 
 debug=false

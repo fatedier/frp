@@ -23,7 +23,7 @@ type SelfSignedCertGenerator struct {
 	caCert []byte
 }
 
-var _ CertGenerator = &SelfSignedCertGenerator{}
+var _ Generator = &SelfSignedCertGenerator{}
 
 // SetCA sets the PEM-encoded CA private key and CA cert for signing the generated serving cert.
 func (cp *SelfSignedCertGenerator) SetCA(caKey, caCert []byte) {

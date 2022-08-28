@@ -42,7 +42,7 @@ func ParseClientConfig(filePath string) (
 	}
 	cfg.Complete()
 	if err = cfg.Validate(); err != nil {
-		err = fmt.Errorf("Parse config error: %v", err)
+		err = fmt.Errorf("parse config error: %v", err)
 		return
 	}
 

@@ -19,13 +19,13 @@ import (
 	"net"
 	"strings"
 
+	frpIo "github.com/fatedier/golib/io"
+
 	"github.com/fatedier/frp/pkg/config"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/vhost"
 	"github.com/fatedier/frp/server/metrics"
-
-	frpIo "github.com/fatedier/golib/io"
 )
 
 type HTTPProxy struct {
@@ -89,7 +89,7 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 					pxy.rc.HTTPReverseProxy.UnRegister(tmpRouteConfig)
 				})
 			}
-			addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, int(pxy.serverCfg.VhostHTTPPort)))
+			addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.VhostHTTPPort))
 			xl.Info("http proxy listen for host [%s] location [%s] group [%s], routeByHTTPUser [%s]",
 				routeConfig.Domain, routeConfig.Location, pxy.cfg.Group, pxy.cfg.RouteByHTTPUser)
 		}

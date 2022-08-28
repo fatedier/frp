@@ -18,14 +18,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/server"
-
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -50,16 +50,13 @@ var (
 	dashboardUser        string
 	dashboardPwd         string
 	enablePrometheus     bool
-	assetsDir            string
 	logFile              string
 	logLevel             string
 	logMaxDays           int64
 	disableLogColor      bool
 	token                string
 	subDomainHost        string
-	tcpMux               bool
 	allowPorts           string
-	maxPoolCount         int64
 	maxPortsPerClient    int64
 	tlsOnly              bool
 	dashboardTLSMode     bool
@@ -151,7 +148,7 @@ func parseServerCommonCfg(fileType int, source []byte) (cfg config.ServerCommonC
 	cfg.Complete()
 	err = cfg.Validate()
 	if err != nil {
-		err = fmt.Errorf("Parse config error: %v", err)
+		err = fmt.Errorf("parse config error: %v", err)
 		return
 	}
 	return
@@ -189,7 +186,7 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 		// e.g. 1000-2000,2001,2002,3000-4000
 		ports, errRet := util.ParseRangeNumbers(allowPorts)
 		if errRet != nil {
-			err = fmt.Errorf("Parse conf error: allow_ports: %v", errRet)
+			err = fmt.Errorf("parse conf error: allow_ports: %v", errRet)
 			return
 		}
 

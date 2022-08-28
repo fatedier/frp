@@ -9,7 +9,10 @@ import (
 
 func WriteBytes(w io.Writer, buf []byte) (int, error) {
 	out := bytes.NewBuffer(nil)
-	binary.Write(out, binary.BigEndian, int64(len(buf)))
+	if err := binary.Write(out, binary.BigEndian, int64(len(buf))); err != nil {
+		return 0, err
+	}
+
 	out.Write(buf)
 	return w.Write(out.Bytes())
 }

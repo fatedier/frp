@@ -28,6 +28,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/fatedier/golib/crypto"
+	libdial "github.com/fatedier/golib/net/dial"
+	fmux "github.com/hashicorp/yamux"
+
 	"github.com/fatedier/frp/assets"
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
@@ -38,10 +42,6 @@ import (
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/xlog"
-	"github.com/fatedier/golib/crypto"
-	libdial "github.com/fatedier/golib/net/dial"
-
-	fmux "github.com/hashicorp/yamux"
 )
 
 func init() {
@@ -81,8 +81,12 @@ type Service struct {
 	cancel context.CancelFunc
 }
 
-func NewService(cfg config.ClientCommonConf, pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf, cfgFile string) (svr *Service, err error) {
-
+func NewService(
+	cfg config.ClientCommonConf,
+	pxyCfgs map[string]config.ProxyConf,
+	visitorCfgs map[string]config.VisitorConf,
+	cfgFile string,
+) (svr *Service, err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	svr = &Service{
 		authSetter:  auth.NewAuthSetter(cfg.ClientConfig),
@@ -208,7 +212,7 @@ func (svr *Service) keepControllerWorking() {
 				xl.Warn("reconnect to server error: %v, wait %v for another retry", err, delayTime)
 				util.RandomSleep(delayTime, 0.9, 1.1)
 
-				delayTime = delayTime * 2
+				delayTime *= 2
 				if delayTime > maxDelayTime {
 					delayTime = maxDelayTime
 				}
@@ -333,11 +337,11 @@ func (svr *Service) login() (conn net.Conn, session *fmux.Session, err error) {
 	}
 
 	var loginRespMsg msg.LoginResp
-	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	if err = msg.ReadMsgInto(conn, &loginRespMsg); err != nil {
 		return
 	}
-	conn.SetReadDeadline(time.Time{})
+	_ = conn.SetReadDeadline(time.Time{})
 
 	if loginRespMsg.Error != "" {
 		err = fmt.Errorf("%s", loginRespMsg.Error)

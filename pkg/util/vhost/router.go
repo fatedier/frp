@@ -7,9 +7,7 @@ import (
 	"sync"
 )
 
-var (
-	ErrRouterConfigConflict = errors.New("router config conflict")
-)
+var ErrRouterConfigConflict = errors.New("router config conflict")
 
 type routerByHTTPUser map[string][]*Router
 
@@ -133,9 +131,11 @@ type ByLocation []*Router
 func (a ByLocation) Len() int {
 	return len(a)
 }
+
 func (a ByLocation) Swap(i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
+
 func (a ByLocation) Less(i, j int) bool {
 	return strings.Compare(a[i].location, a[j].location) < 0
 }

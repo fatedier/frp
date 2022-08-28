@@ -18,13 +18,13 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/gorilla/mux"
+
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/consts"
 	"github.com/fatedier/frp/pkg/metrics/mem"
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/version"
-
-	"github.com/gorilla/mux"
 )
 
 type GeneralResponse struct {
@@ -63,7 +63,7 @@ func (svr *Service) APIServerInfo(w http.ResponseWriter, r *http.Request) {
 		log.Info("Http response [%s]: code [%d]", r.URL.Path, res.Code)
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
-			w.Write([]byte(res.Msg))
+			_, _ = w.Write([]byte(res.Msg))
 		}
 	}()
 
@@ -179,7 +179,7 @@ func (svr *Service) APIProxyByType(w http.ResponseWriter, r *http.Request) {
 		log.Info("Http response [%s]: code [%d]", r.URL.Path, res.Code)
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
-			w.Write([]byte(res.Msg))
+			_, _ = w.Write([]byte(res.Msg))
 		}
 	}()
 	log.Info("Http request: [%s]", r.URL.Path)
@@ -245,12 +245,12 @@ func (svr *Service) APIProxyByTypeAndName(w http.ResponseWriter, r *http.Request
 		log.Info("Http response [%s]: code [%d]", r.URL.Path, res.Code)
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
-			w.Write([]byte(res.Msg))
+			_, _ = w.Write([]byte(res.Msg))
 		}
 	}()
 	log.Info("Http request: [%s]", r.URL.Path)
 
-	proxyStatsResp := GetProxyStatsResp{}
+	var proxyStatsResp GetProxyStatsResp
 	proxyStatsResp, res.Code, res.Msg = svr.getProxyStatsByTypeAndName(proxyType, name)
 	if res.Code != 200 {
 		return
@@ -313,7 +313,7 @@ func (svr *Service) APIProxyTraffic(w http.ResponseWriter, r *http.Request) {
 		log.Info("Http response [%s]: code [%d]", r.URL.Path, res.Code)
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
-			w.Write([]byte(res.Msg))
+			_, _ = w.Write([]byte(res.Msg))
 		}
 	}()
 	log.Info("Http request: [%s]", r.URL.Path)

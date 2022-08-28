@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	frpIo "github.com/fatedier/golib/io"
+
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
@@ -30,8 +32,6 @@ import (
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/metrics"
-
-	frpIo "github.com/fatedier/golib/io"
 )
 
 type GetWorkConnFn func() (net.Conn, error)
@@ -184,8 +184,8 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, 
 }
 
 func NewProxy(ctx context.Context, userInfo plugin.UserInfo, rc *controller.ResourceController, poolCount int,
-	getWorkConnFn GetWorkConnFn, pxyConf config.ProxyConf, serverCfg config.ServerCommonConf) (pxy Proxy, err error) {
-
+	getWorkConnFn GetWorkConnFn, pxyConf config.ProxyConf, serverCfg config.ServerCommonConf,
+) (pxy Proxy, err error) {
 	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(pxyConf.GetBaseInfo().ProxyName)
 	basePxy := BaseProxy{
 		name:          pxyConf.GetBaseInfo().ProxyName,

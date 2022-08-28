@@ -17,10 +17,10 @@ package config
 import (
 	"testing"
 
-	"github.com/fatedier/frp/pkg/consts"
 	"github.com/stretchr/testify/assert"
-
 	"gopkg.in/ini.v1"
+
+	"github.com/fatedier/frp/pkg/consts"
 )
 
 var (
@@ -49,7 +49,6 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 		source   []byte
 		expected ProxyConf
 	}{
-
 		{
 			sname: "ssh",
 			source: []byte(`
@@ -457,5 +456,4 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 
 		assert.Equal(c.expected, actual)
 	}
-
 }
