@@ -883,7 +883,7 @@ custom_domains = test.example.com
 host_header_rewrite = dev.example.com
 ```
 
-The HTTP request will have the the `Host` header rewritten to `Host: dev.example.com` when it reaches the actual web server, although the request from the browser probably has `Host: test.example.com`.
+The HTTP request will have the `Host` header rewritten to `Host: dev.example.com` when it reaches the actual web server, although the request from the browser probably has `Host: test.example.com`.
 
 ### Setting other HTTP Headers
 

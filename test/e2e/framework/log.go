@@ -68,7 +68,7 @@ func PrunedStack(skip int) []byte {
 	fullStackTrace := debug.Stack()
 	stack := bytes.Split(fullStackTrace, []byte("\n"))
 	// Ensure that the even entries are the method names and the
-	// the odd entries the source code information.
+	// odd entries the source code information.
 	if len(stack) > 0 && bytes.HasPrefix(stack[0], []byte("goroutine ")) {
 		// Ignore "goroutine 29 [running]:" line.
 		stack = stack[1:]
