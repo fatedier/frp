@@ -56,7 +56,7 @@ func (f *Framework) RunProcesses(serverTemplates []string, clientTemplates []str
 		ExpectNoError(err)
 		time.Sleep(500 * time.Millisecond)
 	}
-	time.Sleep(time.Second)
+	time.Sleep(2 * time.Second)
 
 	return currentServerProcesses, currentClientProcesses
 }
