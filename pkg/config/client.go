@@ -215,6 +215,10 @@ func (cfg *ClientCommonConf) Validate() error {
 	}
 
 	if cfg.TLSEnable == false {
+		if cfg.Protocol == "wss" {
+			return fmt.Errorf("tls_enable must be true for wss support")
+		}
+
 		if cfg.TLSCertFile != "" {
 			fmt.Println("WARNING! tls_cert_file is invalid when tls_enable is false")
 		}
@@ -228,7 +232,7 @@ func (cfg *ClientCommonConf) Validate() error {
 		}
 	}
 
-	if cfg.Protocol != "tcp" && cfg.Protocol != "kcp" && cfg.Protocol != "websocket" {
+	if cfg.Protocol != "tcp" && cfg.Protocol != "kcp" && cfg.Protocol != "websocket" && cfg.Protocol != "wss" {
 		return fmt.Errorf("invalid protocol")
 	}
 

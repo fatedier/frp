@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"io"
+	"math"
 	"net"
 	"runtime/debug"
 	"strconv"
@@ -242,9 +243,21 @@ func (ctl *Control) connectServer() (conn net.Conn, err error) {
 		}
 		dialOptions := []libdial.DialOption{}
 		protocol := ctl.clientCfg.Protocol
-		if protocol == "websocket" {
+		var websocketAfterHook *libdial.AfterHook
+		if protocol == "websocket" || protocol == "wss" {
+			if protocol == "wss" {
+				websocketAfterHook = &libdial.AfterHook{
+					Priority: math.MaxUint64, // in case of wss, we first want to make the TLS handshake and then switch protocols from https to wss
+					Hook:     frpNet.DialHookWebsocket(true),
+				}
+			} else {
+				websocketAfterHook = &libdial.AfterHook{
+					Priority: 0, // in case of ws, we first want to switch protocols from http to ws, and only then make the TLS handshake in case TLS is enabled
+					Hook:     frpNet.DialHookWebsocket(false),
+				}
+			}
+
 			protocol = "tcp"
-			dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: frpNet.DialHookWebsocket()}))
 		}
 		if ctl.clientCfg.ConnectServerLocalIP != "" {
 			dialOptions = append(dialOptions, libdial.WithLocalAddr(ctl.clientCfg.ConnectServerLocalIP))
@@ -255,11 +268,18 @@ func (ctl *Control) connectServer() (conn net.Conn, err error) {
 			libdial.WithKeepAlive(time.Duration(ctl.clientCfg.DialServerKeepAlive)*time.Second),
 			libdial.WithProxy(proxyType, addr),
 			libdial.WithProxyAuth(auth),
-			libdial.WithTLSConfig(tlsConfig),
+			libdial.WithTLSConfig(tlsConfig), // TLS AfterHook has math.MaxUint64 priority
 			libdial.WithAfterHook(libdial.AfterHook{
-				Hook: frpNet.DialHookCustomTLSHeadByte(tlsConfig != nil, ctl.clientCfg.DisableCustomTLSFirstByte),
+				Priority: 1, // should be executed before TLS AfterHook but after the rest of the AfterHooks (except for wss)
+				Hook:     frpNet.DialHookCustomTLSHeadByte(tlsConfig != nil, ctl.clientCfg.DisableCustomTLSFirstByte),
 			}),
 		)
+		if websocketAfterHook != nil {
+			// websocketAfterHook must be appended after TLS AfterHook because they both might have the
+			// same priority of math.MaxUint64 in case of wss but TLS AfterHook must be executed first
+			dialOptions = append(dialOptions, libdial.WithAfterHook(*websocketAfterHook))
+		}
+
 		conn, err = libdial.Dial(
 			net.JoinHostPort(ctl.clientCfg.ServerAddr, strconv.Itoa(ctl.clientCfg.ServerPort)),
 			dialOptions...,

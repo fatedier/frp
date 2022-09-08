@@ -9,4 +9,4 @@ FROM alpine:3
 
 COPY --from=building /building/bin/frps /usr/bin/frps
 
-ENTRYPOINT ["/usr/bin/frps"]
+ENTRYPOINT /usr/bin/frps -c /etc/frp/frps.ini

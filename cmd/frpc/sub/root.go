@@ -85,7 +85,7 @@ func init() {
 func RegisterCommonFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
 	cmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	cmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
+	cmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket or wss")
 	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
 	cmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	cmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
