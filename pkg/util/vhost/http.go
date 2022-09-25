@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/jpillora/ipfilter"
 	"log"
 	"net"
 	"net/http"
@@ -60,6 +61,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 	proxy := &ReverseProxy{
 		// Modify incoming requests by route policies.
 		Director: func(req *http.Request) {
+			frpLog.Info("Director *********************")
 			req.URL.Scheme = "http"
 			url := req.Context().Value(RouteInfoURL).(string)
 			routeByHTTPUser := req.Context().Value(RouteInfoHTTPUser).(string)
@@ -88,6 +90,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			ResponseHeaderTimeout: rp.responseHeaderTimeout,
 			IdleConnTimeout:       60 * time.Second,
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				frpLog.Info("DialContext *********************")
 				url := ctx.Value(RouteInfoURL).(string)
 				host, _ := util.CanonicalHost(ctx.Value(RouteInfoHost).(string))
 				routerByHTTPUser := ctx.Value(RouteInfoHTTPUser).(string)
@@ -102,6 +105,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 				// Normal:
 				// GET / HTTP/1.1
 				// Host: example.com
+				frpLog.Info("Proxy *********************")
 				urlHost := req.Context().Value(RouteInfoURLHost).(string)
 				if urlHost != "" {
 					return req.URL, nil
@@ -163,6 +167,8 @@ func (rp *HTTPReverseProxy) GetHeaders(domain, location, routeByHTTPUser string)
 
 // CreateConnection create a new connection by route config
 func (rp *HTTPReverseProxy) CreateConnection(domain, location, routeByHTTPUser string, remoteAddr string) (net.Conn, error) {
+	frpLog.Info("CreateConnection *********************")
+
 	vr, ok := rp.getVhost(domain, location, routeByHTTPUser)
 	if ok {
 		fn := vr.payload.(*RouteConfig).CreateConnFn
@@ -180,6 +186,23 @@ func (rp *HTTPReverseProxy) CheckAuth(domain, location, routeByHTTPUser, user, p
 		checkPasswd := vr.payload.(*RouteConfig).Password
 		if (checkUser != "" || checkPasswd != "") && (checkUser != user || checkPasswd != passwd) {
 			return false
+		}
+	}
+	return true
+}
+
+func (rp *HTTPReverseProxy) CheckRemoteAddress(domain, location, routeByHTTPUser, remoteAdd string) bool {
+	remoteAddWithoutPort := strings.Split(remoteAdd, ":")[0]
+	vr, ok := rp.getVhost(domain, location, routeByHTTPUser)
+	if ok {
+		ipsAllowList := vr.payload.(*RouteConfig).IpsAllowList
+		if ipsAllowList != nil {
+			// perhaps it's better to configure it once and check the remote address here
+			f := ipfilter.New(ipfilter.Options{
+				AllowedIPs:     vr.payload.(*RouteConfig).IpsAllowList,
+				BlockByDefault: true,
+			})
+			return f.Allowed(remoteAddWithoutPort)
 		}
 	}
 	return true
@@ -290,6 +313,12 @@ func (rp *HTTPReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 	if !rp.CheckAuth(domain, location, user, user, passwd) {
 		rw.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 		http.Error(rw, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
+	}
+
+	remoteAdd := req.RemoteAddr
+	if !rp.CheckRemoteAddress(domain, location, user, remoteAdd) {
+		http.Error(rw, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
 

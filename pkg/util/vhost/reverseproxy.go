@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	frpLog "github.com/fatedier/frp/pkg/util/log"
 	"io"
 	"log"
 	"net"
@@ -229,6 +230,7 @@ func parseBasicAuth(auth string) (username, password string, ok bool) {
 }
 
 func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	frpLog.Info("ServeHTTP *********************")
 	transport := p.Transport
 	if transport == nil {
 		transport = http.DefaultTransport

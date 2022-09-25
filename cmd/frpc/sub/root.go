@@ -64,6 +64,7 @@ var (
 	subDomain         string
 	httpUser          string
 	httpPwd           string
+	ipsAllowList      string
 	locations         string
 	hostHeaderRewrite string
 	role              string

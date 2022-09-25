@@ -162,6 +162,7 @@ type HTTPProxyConf struct {
 	Locations         []string          `ini:"locations" json:"locations"`
 	HTTPUser          string            `ini:"http_user" json:"http_user"`
 	HTTPPwd           string            `ini:"http_pwd" json:"http_pwd"`
+	IpsAllowList      []string          `ini:"ips_allow_list" json:"ips_allow_list"`
 	HostHeaderRewrite string            `ini:"host_header_rewrite" json:"host_header_rewrite"`
 	Headers           map[string]string `ini:"-" json:"headers"`
 	RouteByHTTPUser   string            `ini:"route_by_http_user" json:"route_by_http_user"`
@@ -760,6 +761,7 @@ func (cfg *HTTPProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.HostHeaderRewrite = pMsg.HostHeaderRewrite
 	cfg.HTTPUser = pMsg.HTTPUser
 	cfg.HTTPPwd = pMsg.HTTPPwd
+	cfg.IpsAllowList = pMsg.IpsAllowList
 	cfg.Headers = pMsg.Headers
 	cfg.RouteByHTTPUser = pMsg.RouteByHTTPUser
 }
@@ -774,6 +776,7 @@ func (cfg *HTTPProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.HostHeaderRewrite = cfg.HostHeaderRewrite
 	pMsg.HTTPUser = cfg.HTTPUser
 	pMsg.HTTPPwd = cfg.HTTPPwd
+	pMsg.IpsAllowList = cfg.IpsAllowList
 	pMsg.Headers = cfg.Headers
 	pMsg.RouteByHTTPUser = cfg.RouteByHTTPUser
 }

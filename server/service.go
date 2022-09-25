@@ -317,6 +317,7 @@ func (svr *Service) Run() {
 }
 
 func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {
+	log.Info("handleConnection! ")
 	xl := xlog.FromContextSafe(ctx)
 
 	var (
@@ -406,6 +407,7 @@ func (svr *Service) HandleListener(l net.Listener) {
 
 		// Start a new goroutine to handle connection.
 		go func(ctx context.Context, frpConn net.Conn) {
+			log.Info("server - handle connection goroutine ")
 			if svr.cfg.TCPMux {
 				fmuxCfg := fmux.DefaultConfig()
 				fmuxCfg.KeepAliveInterval = time.Duration(svr.cfg.TCPMuxKeepaliveInterval) * time.Second
