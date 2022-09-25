@@ -15,7 +15,6 @@
 package proxy
 
 import (
-	frpLog "github.com/fatedier/frp/pkg/util/log"
 	"io"
 	"net"
 	"strings"
@@ -138,7 +137,6 @@ func (pxy *HTTPProxy) GetConf() config.ProxyConf {
 }
 
 func (pxy *HTTPProxy) GetRealConn(remoteAddr string) (workConn net.Conn, err error) {
-	frpLog.Info("GetRealConn *********************")
 	xl := pxy.xl
 	rAddr, errRet := net.ResolveTCPAddr("tcp", remoteAddr)
 	if errRet != nil {

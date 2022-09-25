@@ -145,13 +145,10 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	m := &msg.NewWorkConn{
 		RunID: ctl.runID,
 	}
-	xl.Info("SetNewWorkConn")
 	if err = ctl.authSetter.SetNewWorkConn(m); err != nil {
 		xl.Warn("error during NewWorkConn authentication: %v", err)
 		return
 	}
-	xl.Info("WriteMsg - NewWorkConn")
-
 	if err = msg.WriteMsg(workConn, m); err != nil {
 		xl.Warn("work connection write to server error: %v", err)
 		workConn.Close()
@@ -159,20 +156,17 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	}
 
 	var startMsg msg.StartWorkConn
-	xl.Info("Starting to read - NewWorkConn")
 	if err = msg.ReadMsgInto(workConn, &startMsg); err != nil {
 		xl.Error("work connection closed before response StartWorkConn message: %v", err)
 		workConn.Close()
 		return
 	}
-	xl.Info("Finished to read - NewWorkConn")
 	if startMsg.Error != "" {
 		xl.Error("StartWorkConn contains error: %s", startMsg.Error)
 		workConn.Close()
 		return
 	}
 
-	xl.Info("Call to HandleWorkConn")
 	// dispatch this work connection to related proxy
 	ctl.pm.HandleWorkConn(startMsg.ProxyName, workConn, &startMsg)
 }
@@ -404,7 +398,6 @@ func (ctl *Control) msgHandler() {
 
 			switch m := rawMsg.(type) {
 			case *msg.ReqWorkConn:
-				xl.Info("ReqWorkConn msg")
 				go ctl.HandleReqWorkConn(m)
 			case *msg.NewProxyResp:
 				ctl.HandleNewProxyResp(m)

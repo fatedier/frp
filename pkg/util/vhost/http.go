@@ -61,7 +61,6 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 	proxy := &ReverseProxy{
 		// Modify incoming requests by route policies.
 		Director: func(req *http.Request) {
-			frpLog.Info("Director *********************")
 			req.URL.Scheme = "http"
 			url := req.Context().Value(RouteInfoURL).(string)
 			routeByHTTPUser := req.Context().Value(RouteInfoHTTPUser).(string)
@@ -90,7 +89,6 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			ResponseHeaderTimeout: rp.responseHeaderTimeout,
 			IdleConnTimeout:       60 * time.Second,
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				frpLog.Info("DialContext *********************")
 				url := ctx.Value(RouteInfoURL).(string)
 				host, _ := util.CanonicalHost(ctx.Value(RouteInfoHost).(string))
 				routerByHTTPUser := ctx.Value(RouteInfoHTTPUser).(string)
@@ -105,7 +103,6 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 				// Normal:
 				// GET / HTTP/1.1
 				// Host: example.com
-				frpLog.Info("Proxy *********************")
 				urlHost := req.Context().Value(RouteInfoURLHost).(string)
 				if urlHost != "" {
 					return req.URL, nil
@@ -167,8 +164,6 @@ func (rp *HTTPReverseProxy) GetHeaders(domain, location, routeByHTTPUser string)
 
 // CreateConnection create a new connection by route config
 func (rp *HTTPReverseProxy) CreateConnection(domain, location, routeByHTTPUser string, remoteAddr string) (net.Conn, error) {
-	frpLog.Info("CreateConnection *********************")
-
 	vr, ok := rp.getVhost(domain, location, routeByHTTPUser)
 	if ok {
 		fn := vr.payload.(*RouteConfig).CreateConnFn

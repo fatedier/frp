@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/rodaine/table v1.0.1
 	github.com/spf13/cobra v1.1.3
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.7.0
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
