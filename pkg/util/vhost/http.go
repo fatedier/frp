@@ -20,7 +20,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/jpillora/ipfilter"
 	"log"
 	"net"
 	"net/http"
@@ -190,14 +189,8 @@ func (rp *HTTPReverseProxy) CheckRemoteAddress(domain, location, routeByHTTPUser
 	remoteAddWithoutPort := strings.Split(remoteAdd, ":")[0]
 	vr, ok := rp.getVhost(domain, location, routeByHTTPUser)
 	if ok {
-		ipsAllowList := vr.payload.(*RouteConfig).IpsAllowList
-		if ipsAllowList != nil {
-			// perhaps it's better to configure it once and check the remote address here
-			f := ipfilter.New(ipfilter.Options{
-				AllowedIPs:     vr.payload.(*RouteConfig).IpsAllowList,
-				BlockByDefault: true,
-			})
-			return f.Allowed(remoteAddWithoutPort)
+		if vr.ipValidator != nil {
+			return vr.ipValidator.Allowed(remoteAddWithoutPort)
 		}
 	}
 	return true

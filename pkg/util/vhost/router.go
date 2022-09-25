@@ -2,9 +2,13 @@ package vhost
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
+	"unsafe"
+
+	"github.com/jpillora/ipfilter"
 )
 
 var (
@@ -20,9 +24,10 @@ type Routers struct {
 }
 
 type Router struct {
-	domain   string
-	location string
-	httpUser string
+	domain      string
+	location    string
+	httpUser    string
+	ipValidator *ipfilter.IPFilter
 
 	// store any object here
 	payload interface{}
@@ -51,12 +56,22 @@ func (r *Routers) Add(domain, location, httpUser string, payload interface{}) er
 		vrs = make([]*Router, 0, 1)
 	}
 
-	vr := &Router{
-		domain:   domain,
-		location: location,
-		httpUser: httpUser,
-		payload:  payload,
+	var ipValidator *ipfilter.IPFilter
+	if payload.(*RouteConfig).IpsAllowList != nil {
+		ipValidator = ipfilter.New(ipfilter.Options{
+			AllowedIPs:     payload.(*RouteConfig).IpsAllowList,
+			BlockByDefault: true,
+		})
 	}
+
+	vr := &Router{
+		domain:      domain,
+		location:    location,
+		httpUser:    httpUser,
+		ipValidator: ipValidator,
+		payload:     payload,
+	}
+	fmt.Printf("Size of %T struct: %d bytes", vr, unsafe.Sizeof(*vr))
 	vrs = append(vrs, vr)
 	sort.Sort(sort.Reverse(ByLocation(vrs)))
 
