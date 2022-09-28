@@ -2,11 +2,9 @@ package vhost
 
 import (
 	"errors"
-	"fmt"
 	"sort"
 	"strings"
 	"sync"
-	"unsafe"
 
 	"github.com/jpillora/ipfilter"
 )
@@ -71,7 +69,6 @@ func (r *Routers) Add(domain, location, httpUser string, payload interface{}) er
 		ipValidator: ipValidator,
 		payload:     payload,
 	}
-	fmt.Printf("Size of %T struct: %d bytes", vr, unsafe.Sizeof(*vr))
 	vrs = append(vrs, vr)
 	sort.Sort(sort.Reverse(ByLocation(vrs)))
 
