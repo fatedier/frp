@@ -6,18 +6,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/onsi/ginkgo"
+
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
 	clientsdk "github.com/fatedier/frp/test/e2e/pkg/sdk/client"
-
-	. "github.com/onsi/ginkgo"
 )
 
-var _ = Describe("[Feature: ClientManage]", func() {
+var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 	f := framework.NewDefaultFramework()
 
-	It("Update && Reload API", func() {
+	ginkgo.It("Update && Reload API", func() {
 		serverConf := consts.DefaultServerConfig
 
 		adminPort := f.AllocPort()
@@ -62,7 +62,9 @@ var _ = Describe("[Feature: ClientManage]", func() {
 		// change p2 port and remove p3 proxy
 		newClientConf := strings.ReplaceAll(conf, strconv.Itoa(p2Port), strconv.Itoa(newP2Port))
 		p3Index := strings.Index(newClientConf, "[p3]")
-		newClientConf = newClientConf[:p3Index]
+		if p3Index >= 0 {
+			newClientConf = newClientConf[:p3Index]
+		}
 
 		err = client.UpdateConfig(newClientConf)
 		framework.ExpectNoError(err)
@@ -77,7 +79,7 @@ var _ = Describe("[Feature: ClientManage]", func() {
 		framework.NewRequestExpect(f).Port(p3Port).Explain("p3 port").ExpectError(true).Ensure()
 	})
 
-	It("healthz", func() {
+	ginkgo.It("healthz", func() {
 		serverConf := consts.DefaultServerConfig
 
 		dashboardPort := f.AllocPort()
@@ -99,5 +101,4 @@ var _ = Describe("[Feature: ClientManage]", func() {
 		}).Port(dashboardPort).
 			Ensure(framework.ExpectResponseCode(401))
 	})
-
 })

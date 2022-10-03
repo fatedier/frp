@@ -23,27 +23,26 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
 
+	frpIo "github.com/fatedier/golib/io"
+	"github.com/fatedier/golib/pool"
+
 	frpLog "github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/util"
-	frpIo "github.com/fatedier/golib/io"
-
-	"github.com/fatedier/golib/pool"
 )
 
-var (
-	ErrNoRouteFound = errors.New("no route found")
-)
+var ErrNoRouteFound = errors.New("no route found")
 
 type HTTPReverseProxyOptions struct {
 	ResponseHeaderTimeoutS int64
 }
 
 type HTTPReverseProxy struct {
-	proxy       *ReverseProxy
+	proxy       *httputil.ReverseProxy
 	vhostRouter *Routers
 
 	responseHeaderTimeout time.Duration
@@ -57,7 +56,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 		responseHeaderTimeout: time.Duration(option.ResponseHeaderTimeoutS) * time.Second,
 		vhostRouter:           vhostRouter,
 	}
-	proxy := &ReverseProxy{
+	proxy := &httputil.ReverseProxy{
 		// Modify incoming requests by route policies.
 		Director: func(req *http.Request) {
 			req.URL.Scheme = "http"
@@ -81,7 +80,6 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			} else {
 				req.URL.Host = req.Host
 			}
-
 		},
 		// Create a connection to one proxy routed by route policy.
 		Transport: &http.Transport{
@@ -114,7 +112,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 		ErrorHandler: func(rw http.ResponseWriter, req *http.Request, err error) {
 			frpLog.Warn("do http proxy request [host: %s] error: %v", req.Host, err)
 			rw.WriteHeader(http.StatusNotFound)
-			rw.Write(getNotFoundPageContent())
+			_, _ = rw.Write(getNotFoundPageContent())
 		},
 	}
 	rp.proxy = proxy
@@ -257,8 +255,26 @@ func (rp *HTTPReverseProxy) connectHandler(rw http.ResponseWriter, req *http.Req
 		client.Close()
 		return
 	}
-	req.Write(remote)
+	_ = req.Write(remote)
 	go frpIo.Join(remote, client)
+}
+
+func parseBasicAuth(auth string) (username, password string, ok bool) {
+	const prefix = "Basic "
+	// Case insensitive prefix match. See Issue 22736.
+	if len(auth) < len(prefix) || !strings.EqualFold(auth[:len(prefix)], prefix) {
+		return
+	}
+	c, err := base64.StdEncoding.DecodeString(auth[len(prefix):])
+	if err != nil {
+		return
+	}
+	cs := string(c)
+	s := strings.IndexByte(cs, ':')
+	if s < 0 {
+		return
+	}
+	return cs[:s], cs[s+1:], true
 }
 
 func (rp *HTTPReverseProxy) injectRequestInfoToCtx(req *http.Request) *http.Request {

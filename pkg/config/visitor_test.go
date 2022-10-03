@@ -17,10 +17,10 @@ package config
 import (
 	"testing"
 
-	"github.com/fatedier/frp/pkg/consts"
-
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/ini.v1"
+
+	"github.com/fatedier/frp/pkg/consts"
 )
 
 const testVisitorPrefix = "test."

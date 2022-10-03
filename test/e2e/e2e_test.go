@@ -6,15 +6,14 @@ import (
 	"os"
 	"testing"
 
-	"github.com/fatedier/frp/pkg/util/log"
-	"github.com/fatedier/frp/test/e2e/framework"
+	_ "github.com/onsi/ginkgo"
 
+	"github.com/fatedier/frp/pkg/util/log"
 	// test source
 	_ "github.com/fatedier/frp/test/e2e/basic"
 	_ "github.com/fatedier/frp/test/e2e/features"
+	"github.com/fatedier/frp/test/e2e/framework"
 	_ "github.com/fatedier/frp/test/e2e/plugin"
-
-	_ "github.com/onsi/ginkgo"
 )
 
 // handleFlags sets up all flags and parses the command line.

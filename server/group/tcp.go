@@ -19,9 +19,9 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/fatedier/frp/server/ports"
-
 	gerr "github.com/fatedier/golib/errors"
+
+	"github.com/fatedier/frp/server/ports"
 )
 
 // TCPGroupCtl manage all TCPGroups
@@ -44,8 +44,8 @@ func NewTCPGroupCtl(portManager *ports.Manager) *TCPGroupCtl {
 // Listen is the wrapper for TCPGroup's Listen
 // If there are no group, we will create one here
 func (tgc *TCPGroupCtl) Listen(proxyName string, group string, groupKey string,
-	addr string, port int) (l net.Listener, realPort int, err error) {
-
+	addr string, port int,
+) (l net.Listener, realPort int, err error) {
 	tgc.mu.Lock()
 	tcpGroup, ok := tgc.groups[group]
 	if !ok {
@@ -73,7 +73,6 @@ type TCPGroup struct {
 	realPort int
 
 	acceptCh chan net.Conn
-	index    uint64
 	tcpLn    net.Listener
 	lns      []*TCPGroupListener
 	ctl      *TCPGroupCtl

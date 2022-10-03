@@ -65,7 +65,7 @@ func (vm *VisitorManager) Run() {
 				name := cfg.GetBaseInfo().ProxyName
 				if _, exist := vm.visitors[name]; !exist {
 					xl.Info("try to start visitor [%s]", name)
-					vm.startVisitor(cfg)
+					_ = vm.startVisitor(cfg)
 				}
 			}
 			vm.mu.Unlock()
@@ -99,10 +99,8 @@ func (vm *VisitorManager) Reload(cfgs map[string]config.VisitorConf) {
 		cfg, ok := cfgs[name]
 		if !ok {
 			del = true
-		} else {
-			if !oldCfg.Compare(cfg) {
-				del = true
-			}
+		} else if !oldCfg.Compare(cfg) {
+			del = true
 		}
 
 		if del {
@@ -123,13 +121,12 @@ func (vm *VisitorManager) Reload(cfgs map[string]config.VisitorConf) {
 		if _, ok := vm.cfgs[name]; !ok {
 			vm.cfgs[name] = cfg
 			addNames = append(addNames, name)
-			vm.startVisitor(cfg)
+			_ = vm.startVisitor(cfg)
 		}
 	}
 	if len(addNames) > 0 {
 		xl.Info("visitor added: %v", addNames)
 	}
-	return
 }
 
 func (vm *VisitorManager) Close() {

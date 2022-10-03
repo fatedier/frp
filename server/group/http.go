@@ -31,7 +31,6 @@ func (ctl *HTTPGroupController) Register(
 	proxyName, group, groupKey string,
 	routeConfig vhost.RouteConfig,
 ) (err error) {
-
 	indexKey := group
 	ctl.mu.Lock()
 	g, ok := ctl.groups[indexKey]
@@ -86,7 +85,6 @@ func (g *HTTPGroup) Register(
 	proxyName, group, groupKey string,
 	routeConfig vhost.RouteConfig,
 ) (err error) {
-
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if len(g.createFuncs) == 0 {
@@ -152,7 +150,7 @@ func (g *HTTPGroup) createConn(remoteAddr string) (net.Conn, error) {
 	routeByHTTPUser := g.routeByHTTPUser
 	if len(g.pxyNames) > 0 {
 		name := g.pxyNames[int(newIndex)%len(g.pxyNames)]
-		f, _ = g.createFuncs[name]
+		f = g.createFuncs[name]
 	}
 	g.mu.RUnlock()
 

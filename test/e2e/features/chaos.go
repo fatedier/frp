@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/fatedier/frp/test/e2e/framework"
+	"github.com/onsi/ginkgo"
 
-	. "github.com/onsi/ginkgo"
+	"github.com/fatedier/frp/test/e2e/framework"
 )
 
-var _ = Describe("[Feature: Chaos]", func() {
+var _ = ginkgo.Describe("[Feature: Chaos]", func() {
 	f := framework.NewDefaultFramework()
 
-	It("reconnect after frps restart", func() {
+	ginkgo.It("reconnect after frps restart", func() {
 		serverPort := f.AllocPort()
 		serverConfigPath := f.GenerateConfigFile(fmt.Sprintf(`
 		[common]
@@ -41,7 +41,7 @@ var _ = Describe("[Feature: Chaos]", func() {
 		framework.NewRequestExpect(f).Port(remotePort).Ensure()
 
 		// 2. stop frps, expect request failed
-		ps.Stop()
+		_ = ps.Stop()
 		time.Sleep(200 * time.Millisecond)
 		framework.NewRequestExpect(f).Port(remotePort).ExpectError(true).Ensure()
 
@@ -52,7 +52,7 @@ var _ = Describe("[Feature: Chaos]", func() {
 		framework.NewRequestExpect(f).Port(remotePort).Ensure()
 
 		// 4. stop frpc, expect request failed
-		pc.Stop()
+		_ = pc.Stop()
 		time.Sleep(200 * time.Millisecond)
 		framework.NewRequestExpect(f).Port(remotePort).ExpectError(true).Ensure()
 

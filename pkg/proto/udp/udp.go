@@ -20,10 +20,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/pkg/msg"
-
 	"github.com/fatedier/golib/errors"
 	"github.com/fatedier/golib/pool"
+
+	"github.com/fatedier/frp/pkg/msg"
 )
 
 func NewUDPPacket(buf []byte, laddr, raddr *net.UDPAddr) *msg.UDPPacket {
@@ -47,7 +47,7 @@ func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UDPPacket, sendCh 
 			if err != nil {
 				continue
 			}
-			udpConn.WriteToUDP(buf, udpMsg.RemoteAddr)
+			_, _ = udpConn.WriteToUDP(buf, udpMsg.RemoteAddr)
 		}
 	}()
 
@@ -70,9 +70,7 @@ func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UDPPacket, sendCh 
 }
 
 func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UDPPacket, sendCh chan<- msg.Message, bufSize int) {
-	var (
-		mu sync.RWMutex
-	)
+	var mu sync.RWMutex
 	udpConnMap := make(map[string]*net.UDPConn)
 
 	// read from dstAddr and write to sendCh
@@ -87,7 +85,7 @@ func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UDPPacket, sendCh chan<-
 
 		buf := pool.GetBuf(bufSize)
 		for {
-			udpConn.SetReadDeadline(time.Now().Add(30 * time.Second))
+			_ = udpConn.SetReadDeadline(time.Now().Add(30 * time.Second))
 			n, _, err := udpConn.ReadFromUDP(buf)
 			if err != nil {
 				return

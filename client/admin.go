@@ -20,10 +20,10 @@ import (
 	"net/http/pprof"
 	"time"
 
+	"github.com/gorilla/mux"
+
 	"github.com/fatedier/frp/assets"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
-
-	"github.com/gorilla/mux"
 )
 
 var (
@@ -77,6 +77,8 @@ func (svr *Service) RunAdminServer(address string) (err error) {
 		return err
 	}
 
-	go server.Serve(ln)
+	go func() {
+		_ = server.Serve(ln)
+	}()
 	return
 }

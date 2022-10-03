@@ -19,9 +19,9 @@ import (
 	"net"
 	"net/http"
 
-	frpNet "github.com/fatedier/frp/pkg/util/net"
-
 	"github.com/gorilla/mux"
+
+	frpNet "github.com/fatedier/frp/pkg/util/net"
 )
 
 const PluginStaticFile = "static_file"
@@ -69,13 +69,15 @@ func NewStaticFilePlugin(params map[string]string) (Plugin, error) {
 	sp.s = &http.Server{
 		Handler: router,
 	}
-	go sp.s.Serve(listener)
+	go func() {
+		_ = sp.s.Serve(listener)
+	}()
 	return sp, nil
 }
 
 func (sp *StaticFilePlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
 	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
-	sp.l.PutConn(wrapConn)
+	_ = sp.l.PutConn(wrapConn)
 }
 
 func (sp *StaticFilePlugin) Name() string {

@@ -86,17 +86,20 @@ func NewHTTP2HTTPSPlugin(params map[string]string) (Plugin, error) {
 	}
 
 	p.s = &http.Server{
-		Handler: rp,
+		Handler:           rp,
+		ReadHeaderTimeout: 0,
 	}
 
-	go p.s.Serve(listener)
+	go func() {
+		_ = p.s.Serve(listener)
+	}()
 
 	return p, nil
 }
 
 func (p *HTTP2HTTPSPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
 	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
-	p.l.PutConn(wrapConn)
+	_ = p.l.PutConn(wrapConn)
 }
 
 func (p *HTTP2HTTPSPlugin) Name() string {

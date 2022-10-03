@@ -23,6 +23,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatedier/golib/control/shutdown"
+	"github.com/fatedier/golib/crypto"
+	"github.com/fatedier/golib/errors"
+
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/consts"
@@ -35,10 +39,6 @@ import (
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/metrics"
 	"github.com/fatedier/frp/server/proxy"
-
-	"github.com/fatedier/golib/control/shutdown"
-	"github.com/fatedier/golib/crypto"
-	"github.com/fatedier/golib/errors"
 )
 
 type ControlManager struct {
@@ -154,7 +154,6 @@ func NewControl(
 	loginMsg *msg.Login,
 	serverCfg config.ServerCommonConf,
 ) *Control {
-
 	poolCount := loginMsg.PoolCount
 	if poolCount > int(serverCfg.MaxPoolCount) {
 		poolCount = int(serverCfg.MaxPoolCount)
@@ -193,7 +192,7 @@ func (ctl *Control) Start() {
 		ServerUDPPort: ctl.serverCfg.BindUDPPort,
 		Error:         "",
 	}
-	msg.WriteMsg(ctl.conn, loginRespMsg)
+	_ = msg.WriteMsg(ctl.conn, loginRespMsg)
 
 	go ctl.writer()
 	for i := 0; i < ctl.poolCount; i++ {
@@ -270,7 +269,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 	}
 
 	// When we get a work connection from pool, replace it with a new one.
-	errors.PanicToError(func() {
+	_ = errors.PanicToError(func() {
 		ctl.sendCh <- &msg.ReqWorkConn{}
 	})
 	return
@@ -388,7 +387,7 @@ func (ctl *Control) stoper() {
 			},
 		}
 		go func() {
-			ctl.pluginManager.CloseProxy(notifyContent)
+			_ = ctl.pluginManager.CloseProxy(notifyContent)
 		}()
 	}
 
@@ -467,7 +466,7 @@ func (ctl *Control) manager() {
 				}
 				ctl.sendCh <- resp
 			case *msg.CloseProxy:
-				ctl.CloseProxy(m)
+				_ = ctl.CloseProxy(m)
 				xl.Info("close proxy [%s] success", m.ProxyName)
 			case *msg.Ping:
 				content := &plugin.PingContent{
@@ -528,13 +527,13 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 			err = fmt.Errorf("exceed the max_ports_per_client")
 			return
 		}
-		ctl.portsUsedNum = ctl.portsUsedNum + pxy.GetUsedPortsNum()
+		ctl.portsUsedNum += pxy.GetUsedPortsNum()
 		ctl.mu.Unlock()
 
 		defer func() {
 			if err != nil {
 				ctl.mu.Lock()
-				ctl.portsUsedNum = ctl.portsUsedNum - pxy.GetUsedPortsNum()
+				ctl.portsUsedNum -= pxy.GetUsedPortsNum()
 				ctl.mu.Unlock()
 			}
 		}()
@@ -570,7 +569,7 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 	}
 
 	if ctl.serverCfg.MaxPortsPerClient > 0 {
-		ctl.portsUsedNum = ctl.portsUsedNum - pxy.GetUsedPortsNum()
+		ctl.portsUsedNum -= pxy.GetUsedPortsNum()
 	}
 	pxy.Close()
 	ctl.pxyManager.Del(pxy.GetName())
@@ -590,7 +589,7 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 		},
 	}
 	go func() {
-		ctl.pluginManager.CloseProxy(notifyContent)
+		_ = ctl.pluginManager.CloseProxy(notifyContent)
 	}()
 
 	return

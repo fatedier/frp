@@ -19,7 +19,7 @@ func newCustomTLSKeyPair(certfile, keyfile string) (*tls.Certificate, error) {
 }
 
 func newRandomTLSKeyPair() *tls.Certificate {
-	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		panic(err)
 	}
@@ -58,7 +58,7 @@ func newCertPool(caPath string) (*x509.CertPool, error) {
 }
 
 func NewServerTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
-	var base = &tls.Config{}
+	base := &tls.Config{}
 
 	if certPath == "" || keyPath == "" {
 		// server will generate tls conf by itself
@@ -87,7 +87,7 @@ func NewServerTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 }
 
 func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Config, error) {
-	var base = &tls.Config{}
+	base := &tls.Config{}
 
 	if certPath == "" || keyPath == "" {
 		// client will not generate tls conf by itself

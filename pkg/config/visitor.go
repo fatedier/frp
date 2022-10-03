@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/fatedier/frp/pkg/consts"
-
 	"gopkg.in/ini.v1"
+
+	"github.com/fatedier/frp/pkg/consts"
 )
 
 // Visitor
@@ -136,6 +136,7 @@ func (cfg *BaseVisitorConf) check() (err error) {
 }
 
 func (cfg *BaseVisitorConf) unmarshalFromIni(prefix string, name string, section *ini.Section) error {
+	_ = section
 
 	// Custom decoration after basic unmarshal:
 	// proxy name

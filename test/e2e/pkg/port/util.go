@@ -26,16 +26,17 @@ func unmarshalFromName(name string) (*nameBuilder, error) {
 		builder.name = arrs[1]
 	case 4:
 		builder.name = arrs[1]
-		if fromPort, err := strconv.Atoi(arrs[2]); err != nil {
+		fromPort, err := strconv.Atoi(arrs[2])
+		if err != nil {
 			return nil, fmt.Errorf("error range port from")
-		} else {
-			builder.rangePortFrom = fromPort
 		}
-		if toPort, err := strconv.Atoi(arrs[3]); err != nil {
+		builder.rangePortFrom = fromPort
+
+		toPort, err := strconv.Atoi(arrs[3])
+		if err != nil {
 			return nil, fmt.Errorf("error range port to")
-		} else {
-			builder.rangePortTo = toPort
 		}
+		builder.rangePortTo = toPort
 	default:
 		return nil, fmt.Errorf("error port name format")
 	}

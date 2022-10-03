@@ -17,10 +17,10 @@ package config
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/fatedier/frp/pkg/auth"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func Test_LoadServerCommonConf(t *testing.T) {
@@ -126,10 +126,10 @@ func Test_LoadServerCommonConf(t *testing.T) {
 				HeartbeatTimeout:       99,
 				UserConnTimeout:        9,
 				AllowPorts: map[int]struct{}{
-					10: struct{}{},
-					11: struct{}{},
-					12: struct{}{},
-					99: struct{}{},
+					10: {},
+					11: {},
+					12: {},
+					99: {},
 				},
 				MaxPoolCount:            59,
 				MaxPortsPerClient:       9,

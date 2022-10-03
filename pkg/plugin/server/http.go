@@ -43,12 +43,12 @@ type httpPlugin struct {
 }
 
 func NewHTTPPluginOptions(options HTTPPluginOptions) Plugin {
-	var url = fmt.Sprintf("%s%s", options.Addr, options.Path)
+	url := fmt.Sprintf("%s%s", options.Addr, options.Path)
 
 	var client *http.Client
 	if strings.HasPrefix(url, "https://") {
 		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: options.TLSVerify == false},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: !options.TLSVerify},
 		}
 		client = &http.Client{Transport: tr}
 	} else {

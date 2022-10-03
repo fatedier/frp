@@ -6,6 +6,9 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/onsi/ginkgo"
+	pp "github.com/pires/go-proxyproto"
+
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
@@ -13,15 +16,12 @@ import (
 	"github.com/fatedier/frp/test/e2e/mock/server/streamserver"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
 	"github.com/fatedier/frp/test/e2e/pkg/rpc"
-
-	. "github.com/onsi/ginkgo"
-	pp "github.com/pires/go-proxyproto"
 )
 
-var _ = Describe("[Feature: Real IP]", func() {
+var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 	f := framework.NewDefaultFramework()
 
-	It("HTTP X-Forwarded-For", func() {
+	ginkgo.It("HTTP X-Forwarded-For", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
 		vhost_http_port = %d
@@ -31,7 +31,7 @@ var _ = Describe("[Feature: Real IP]", func() {
 		localServer := httpserver.New(
 			httpserver.WithBindPort(localPort),
 			httpserver.WithHandler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				w.Write([]byte(req.Header.Get("X-Forwarded-For")))
+				_, _ = w.Write([]byte(req.Header.Get("X-Forwarded-For")))
 			})),
 		)
 		f.RunServer("", localServer)
@@ -52,11 +52,10 @@ var _ = Describe("[Feature: Real IP]", func() {
 			}).
 			ExpectResp([]byte("127.0.0.1")).
 			Ensure()
-
 	})
 
-	Describe("Proxy Protocol", func() {
-		It("TCP", func() {
+	ginkgo.Describe("Proxy Protocol", func() {
+		ginkgo.It("TCP", func() {
 			serverConf := consts.DefaultServerConfig
 			clientConf := consts.DefaultClientConfig
 
@@ -77,7 +76,7 @@ var _ = Describe("[Feature: Real IP]", func() {
 						}
 
 						buf := []byte(ppHeader.SourceAddr.String())
-						rpc.WriteBytes(c, buf)
+						_, _ = rpc.WriteBytes(c, buf)
 					}
 				}))
 			f.RunServer("", localServer)
@@ -106,7 +105,7 @@ var _ = Describe("[Feature: Real IP]", func() {
 			})
 		})
 
-		It("HTTP", func() {
+		ginkgo.It("HTTP", func() {
 			vhostHTTPPort := f.AllocPort()
 			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
 		vhost_http_port = %d

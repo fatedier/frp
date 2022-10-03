@@ -20,10 +20,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/ini.v1"
+
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/util/util"
-
-	"gopkg.in/ini.v1"
 )
 
 // ClientCommonConf contains information for a client service. It is
@@ -113,7 +113,7 @@ type ClientCommonConf struct {
 	// all supplied proxies are enabled. By default, this value is an empty
 	// set.
 	Start []string `ini:"start" json:"start"`
-	//Start map[string]struct{} `json:"start"`
+	// Start map[string]struct{} `json:"start"`
 	// Protocol specifies the protocol to use when interacting with the server.
 	// Valid values are "tcp", "kcp" and "websocket". By default, this value
 	// is "tcp".
@@ -214,7 +214,7 @@ func (cfg *ClientCommonConf) Validate() error {
 		}
 	}
 
-	if cfg.TLSEnable == false {
+	if !cfg.TLSEnable {
 		if cfg.TLSCertFile != "" {
 			fmt.Println("WARNING! tls_cert_file is invalid when tls_enable is false")
 		}
@@ -281,7 +281,6 @@ func LoadAllProxyConfsFromIni(
 	source interface{},
 	start []string,
 ) (map[string]ProxyConf, map[string]VisitorConf, error) {
-
 	f, err := ini.LoadSources(ini.LoadOptions{
 		Insensitive:         false,
 		InsensitiveSections: false,
@@ -366,7 +365,6 @@ func LoadAllProxyConfsFromIni(
 }
 
 func renderRangeProxyTemplates(f *ini.File, section *ini.Section) error {
-
 	// Validation
 	localPortStr := section.Key("local_port").String()
 	remotePortStr := section.Key("remote_port").String()
@@ -404,8 +402,12 @@ func renderRangeProxyTemplates(f *ini.File, section *ini.Section) error {
 		}
 
 		copySection(section, tmpsection)
-		tmpsection.NewKey("local_port", fmt.Sprintf("%d", localPorts[i]))
-		tmpsection.NewKey("remote_port", fmt.Sprintf("%d", remotePorts[i]))
+		if _, err := tmpsection.NewKey("local_port", fmt.Sprintf("%d", localPorts[i])); err != nil {
+			return fmt.Errorf("local_port new key in section error: %v", err)
+		}
+		if _, err := tmpsection.NewKey("remote_port", fmt.Sprintf("%d", remotePorts[i])); err != nil {
+			return fmt.Errorf("remote_port new key in section error: %v", err)
+		}
 	}
 
 	return nil
@@ -413,6 +415,6 @@ func renderRangeProxyTemplates(f *ini.File, section *ini.Section) error {
 
 func copySection(source, target *ini.Section) {
 	for key, value := range source.KeysHash() {
-		target.NewKey(key, value)
+		_, _ = target.NewKey(key, value)
 	}
 }

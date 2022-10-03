@@ -32,8 +32,8 @@ func ListenKcp(address string) (l *KCPListener, err error) {
 	if err != nil {
 		return l, err
 	}
-	listener.SetReadBuffer(4194304)
-	listener.SetWriteBuffer(4194304)
+	_ = listener.SetReadBuffer(4194304)
+	_ = listener.SetWriteBuffer(4194304)
 
 	l = &KCPListener{
 		listener:  listener,

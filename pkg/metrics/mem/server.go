@@ -23,9 +23,12 @@ import (
 	server "github.com/fatedier/frp/server/metrics"
 )
 
-var sm *serverMetrics = newServerMetrics()
-var ServerMetrics server.ServerMetrics
-var StatsCollector Collector
+var (
+	sm = newServerMetrics()
+
+	ServerMetrics  server.ServerMetrics
+	StatsCollector Collector
+)
 
 func init() {
 	ServerMetrics = sm

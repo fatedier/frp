@@ -26,9 +26,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
-var (
-	ErrHealthCheckType = errors.New("error health check type")
-)
+var ErrHealthCheckType = errors.New("error health check type")
 
 type Monitor struct {
 	checkType      string
@@ -54,8 +52,8 @@ type Monitor struct {
 func NewMonitor(ctx context.Context, checkType string,
 	intervalS int, timeoutS int, maxFailedTimes int,
 	addr string, url string,
-	statusNormalFn func(), statusFailedFn func()) *Monitor {
-
+	statusNormalFn func(), statusFailedFn func(),
+) *Monitor {
 	if intervalS <= 0 {
 		intervalS = 10
 	}
@@ -152,7 +150,7 @@ func (monitor *Monitor) doTCPCheck(ctx context.Context) error {
 }
 
 func (monitor *Monitor) doHTTPCheck(ctx context.Context) error {
-	req, err := http.NewRequest("GET", monitor.url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", monitor.url, nil)
 	if err != nil {
 		return err
 	}
@@ -161,7 +159,7 @@ func (monitor *Monitor) doHTTPCheck(ctx context.Context) error {
 		return err
 	}
 	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
+	_, _ = io.Copy(io.Discard, resp.Body)
 
 	if resp.StatusCode/100 != 2 {
 		return fmt.Errorf("do http health check, StatusCode is [%d] not 2xx", resp.StatusCode)
