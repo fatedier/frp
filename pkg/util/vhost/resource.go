@@ -72,14 +72,16 @@ func notFoundResponse() *http.Response {
 	header.Set("server", "frp/"+version.Full())
 	header.Set("Content-Type", "text/html")
 
+	content := getNotFoundPageContent()
 	res := &http.Response{
-		Status:     "Not Found",
-		StatusCode: 404,
-		Proto:      "HTTP/1.0",
-		ProtoMajor: 1,
-		ProtoMinor: 0,
-		Header:     header,
-		Body:       io.NopCloser(bytes.NewReader(getNotFoundPageContent())),
+		Status:        "Not Found",
+		StatusCode:    404,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Header:        header,
+		Body:          io.NopCloser(bytes.NewReader(content)),
+		ContentLength: int64(len(content)),
 	}
 	return res
 }

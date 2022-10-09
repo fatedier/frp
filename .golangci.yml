@@ -48,7 +48,6 @@ linters:
   - unconvert
   - unparam
   - gci
-  - bodyclose
   - gosec
   - asciicheck
   - prealloc
