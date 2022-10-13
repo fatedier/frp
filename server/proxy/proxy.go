@@ -306,17 +306,17 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 		xl.Debug("join connection closed, it remains [%d]ms, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", connectionDuration,
 			workConn.LocalAddr().String(), workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 		xl.Info("connection closed, it remains [%d]ms, userConn(l[%s] r[%s])", connectionDuration,
-                	userConn.LocalAddr().String(), userConn.RemoteAddr().String())
+			userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 	} else {
 		xl.Debug("join connection closed, userConn(l[%s] r[%s])", userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 	}
 }
 
-func IsTheTypeToLog(LogDurationTypes string, name string) bool {
-	if strings.Contains(LogDurationTypes, "all") {
+func IsTheTypeToLog(logDurationTypes string, name string) bool {
+	if strings.Contains(logDurationTypes, "all") {
 		return true
 	}
-	thestrlist := strings.Split(LogDurationTypes, ",")
+	thestrlist := strings.Split(logDurationTypes, ",")
 	for i := 0; i < len(thestrlist); i++ {
 		if strings.Contains(name, thestrlist[i]) {
 			return true
