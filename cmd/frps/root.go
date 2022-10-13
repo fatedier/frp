@@ -181,7 +181,7 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 	cfg.LogFile = logFile
 	cfg.LogLevel = logLevel
 	cfg.LogMaxDays = logMaxDays
-        cfg.LogDurationTypes = logDurationTypes
+	cfg.LogDurationTypes = logDurationTypes
 	cfg.SubDomainHost = subDomainHost
 	cfg.TLSOnly = tlsOnly
 
