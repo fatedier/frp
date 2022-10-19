@@ -6,17 +6,6 @@
 
 [README](README.md) | [中文文档](README_zh.md)
 
-<h3 align="center">Platinum Sponsors</h3>
-<!--platinum sponsors start-->
-
-<p align="center">
-  <a href="https://www.doppler.com/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
-    <img width="400px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_doppler.png">
-  </a>
-</p>
-
-<!--platinum sponsors end-->
-
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
 
