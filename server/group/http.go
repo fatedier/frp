@@ -10,7 +10,7 @@ import (
 )
 
 type HTTPGroupController struct {
-	// groups by indexKey
+	// groups indexed by group name
 	groups map[string]*HTTPGroup
 
 	// register createConn for each group to vhostRouter.
@@ -65,7 +65,7 @@ type HTTPGroup struct {
 	location        string
 	routeByHTTPUser string
 
-	// CreateConnFuncs indexed by echo proxy name
+	// CreateConnFuncs indexed by proxy name
 	createFuncs map[string]vhost.CreateConnFunc
 	pxyNames    []string
 	index       uint64
@@ -91,6 +91,8 @@ func (g *HTTPGroup) Register(
 		// the first proxy in this group
 		tmp := routeConfig // copy object
 		tmp.CreateConnFn = g.createConn
+		tmp.ChooseEndpointFn = g.chooseEndpoint
+		tmp.CreateConnByEndpointFn = g.createConnByEndpoint
 		err = g.ctl.vhostRouter.Add(routeConfig.Domain, routeConfig.Location, routeConfig.RouteByHTTPUser, &tmp)
 		if err != nil {
 			return
@@ -159,5 +161,38 @@ func (g *HTTPGroup) createConn(remoteAddr string) (net.Conn, error) {
 			group, domain, location, routeByHTTPUser)
 	}
 
+	return f(remoteAddr)
+}
+
+func (g *HTTPGroup) chooseEndpoint() (string, error) {
+	newIndex := atomic.AddUint64(&g.index, 1)
+	name := ""
+
+	g.mu.RLock()
+	group := g.group
+	domain := g.domain
+	location := g.location
+	routeByHTTPUser := g.routeByHTTPUser
+	if len(g.pxyNames) > 0 {
+		name = g.pxyNames[int(newIndex)%len(g.pxyNames)]
+	}
+	g.mu.RUnlock()
+
+	if name == "" {
+		return "", fmt.Errorf("no healthy endpoint for http group [%s], domain [%s], location [%s], routeByHTTPUser [%s]",
+			group, domain, location, routeByHTTPUser)
+	}
+	return name, nil
+}
+
+func (g *HTTPGroup) createConnByEndpoint(endpoint, remoteAddr string) (net.Conn, error) {
+	var f vhost.CreateConnFunc
+	g.mu.RLock()
+	f = g.createFuncs[endpoint]
+	g.mu.RUnlock()
+
+	if f == nil {
+		return nil, fmt.Errorf("no CreateConnFunc for endpoint [%s] in group [%s]", endpoint, g.group)
+	}
 	return f(remoteAddr)
 }

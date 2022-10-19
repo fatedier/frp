@@ -217,6 +217,29 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 
 			f.RunProcesses([]string{serverConf}, []string{clientConf})
 
+			// send first HTTP request
+			var contents []string
+			framework.NewRequestExpect(f).Port(vhostPort).
+				RequestModify(func(r *request.Request) {
+					r.HTTP().HTTPHost("example.com")
+				}).
+				Ensure(func(resp *request.Response) bool {
+					contents = append(contents, string(resp.Content))
+					return true
+				})
+
+			// send second HTTP request, should be forwarded to another service
+			framework.NewRequestExpect(f).Port(vhostPort).
+				RequestModify(func(r *request.Request) {
+					r.HTTP().HTTPHost("example.com")
+				}).
+				Ensure(func(resp *request.Response) bool {
+					contents = append(contents, string(resp.Content))
+					return true
+				})
+
+			framework.ExpectContainElements(contents, []string{"foo", "bar"})
+
 			// check foo and bar is ok
 			results := doFooBarHTTPRequest(vhostPort, "example.com")
 			framework.ExpectContainElements(results, []string{"foo", "bar"})

@@ -29,12 +29,17 @@ import (
 type RouteInfo string
 
 const (
-	RouteInfoURL      RouteInfo = "url"
-	RouteInfoHost     RouteInfo = "host"
-	RouteInfoHTTPUser RouteInfo = "httpUser"
-	RouteInfoRemote   RouteInfo = "remote"
-	RouteInfoURLHost  RouteInfo = "urlHost"
+	RouteInfoKey RouteInfo = "routeInfo"
 )
+
+type RequestRouteInfo struct {
+	URL        string
+	Host       string
+	HTTPUser   string
+	RemoteAddr string
+	URLHost    string
+	Endpoint   string
+}
 
 type (
 	muxFunc         func(net.Conn) (net.Conn, map[string]string, error)
@@ -75,7 +80,11 @@ func NewMuxer(
 	return mux, nil
 }
 
+type ChooseEndpointFunc func() (string, error)
+
 type CreateConnFunc func(remoteAddr string) (net.Conn, error)
+
+type CreateConnByEndpointFunc func(endpoint, remoteAddr string) (net.Conn, error)
 
 // RouteConfig is the params used to match HTTP requests
 type RouteConfig struct {
@@ -87,7 +96,9 @@ type RouteConfig struct {
 	Headers         map[string]string
 	RouteByHTTPUser string
 
-	CreateConnFn CreateConnFunc
+	CreateConnFn           CreateConnFunc
+	ChooseEndpointFn       ChooseEndpointFunc
+	CreateConnByEndpointFn CreateConnByEndpointFunc
 }
 
 // listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil
