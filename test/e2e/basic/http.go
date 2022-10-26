@@ -6,16 +6,16 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/gorilla/websocket"
+	"github.com/onsi/ginkgo"
+
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
 	"github.com/fatedier/frp/test/e2e/mock/server/httpserver"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
-
-	"github.com/gorilla/websocket"
-	. "github.com/onsi/ginkgo"
 )
 
-var _ = Describe("[Feature: HTTP]", func() {
+var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 	f := framework.NewDefaultFramework()
 
 	getDefaultServerConf := func(vhostHTTPPort int) string {
@@ -31,7 +31,7 @@ var _ = Describe("[Feature: HTTP]", func() {
 		)
 	}
 
-	It("HTTP route by locations", func() {
+	ginkgo.It("HTTP route by locations", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostHTTPPort)
 
@@ -78,7 +78,7 @@ var _ = Describe("[Feature: HTTP]", func() {
 		}
 	})
 
-	It("HTTP route by HTTP user", func() {
+	ginkgo.It("HTTP route by HTTP user", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostHTTPPort)
 
@@ -138,7 +138,7 @@ var _ = Describe("[Feature: HTTP]", func() {
 			Ensure()
 	})
 
-	It("HTTP Basic Auth", func() {
+	ginkgo.It("HTTP Basic Auth", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostHTTPPort)
 
@@ -176,7 +176,7 @@ var _ = Describe("[Feature: HTTP]", func() {
 			Ensure()
 	})
 
-	It("Wildcard domain", func() {
+	ginkgo.It("Wildcard domain", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostHTTPPort)
 
@@ -212,7 +212,7 @@ var _ = Describe("[Feature: HTTP]", func() {
 			Ensure()
 	})
 
-	It("Subdomain", func() {
+	ginkgo.It("Subdomain", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostHTTPPort)
 		serverConf += `
@@ -257,7 +257,7 @@ var _ = Describe("[Feature: HTTP]", func() {
 			Ensure()
 	})
 
-	It("Modify headers", func() {
+	ginkgo.It("Modify headers", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostHTTPPort)
 
@@ -265,7 +265,7 @@ var _ = Describe("[Feature: HTTP]", func() {
 		localServer := httpserver.New(
 			httpserver.WithBindPort(localPort),
 			httpserver.WithHandler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				w.Write([]byte(req.Header.Get("X-From-Where")))
+				_, _ = w.Write([]byte(req.Header.Get("X-From-Where")))
 			})),
 		)
 		f.RunServer("", localServer)
@@ -290,7 +290,7 @@ var _ = Describe("[Feature: HTTP]", func() {
 			Ensure()
 	})
 
-	It("Host Header Rewrite", func() {
+	ginkgo.It("Host Header Rewrite", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostHTTPPort)
 
@@ -298,7 +298,7 @@ var _ = Describe("[Feature: HTTP]", func() {
 		localServer := httpserver.New(
 			httpserver.WithBindPort(localPort),
 			httpserver.WithHandler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				w.Write([]byte(req.Host))
+				_, _ = w.Write([]byte(req.Host))
 			})),
 		)
 		f.RunServer("", localServer)
@@ -322,7 +322,7 @@ var _ = Describe("[Feature: HTTP]", func() {
 			Ensure()
 	})
 
-	It("Websocket protocol", func() {
+	ginkgo.It("Websocket protocol", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostHTTPPort)
 

@@ -6,12 +6,12 @@ import (
 	"net"
 	"sync"
 
+	"github.com/fatedier/golib/errors"
+
 	"github.com/fatedier/frp/client/event"
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/xlog"
-
-	"github.com/fatedier/golib/errors"
 )
 
 type Manager struct {
@@ -75,7 +75,7 @@ func (pm *Manager) HandleWorkConn(name string, workConn net.Conn, m *msg.StartWo
 	}
 }
 
-func (pm *Manager) HandleEvent(evType event.Type, payload interface{}) error {
+func (pm *Manager) HandleEvent(payload interface{}) error {
 	var m msg.Message
 	switch e := payload.(type) {
 	case *event.StartProxyPayload:
@@ -113,10 +113,8 @@ func (pm *Manager) Reload(pxyCfgs map[string]config.ProxyConf) {
 		cfg, ok := pxyCfgs[name]
 		if !ok {
 			del = true
-		} else {
-			if !pxy.Cfg.Compare(cfg) {
-				del = true
-			}
+		} else if !pxy.Cfg.Compare(cfg) {
+			del = true
 		}
 
 		if del {

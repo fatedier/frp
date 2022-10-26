@@ -6,17 +6,6 @@
 
 [README](README.md) | [中文文档](README_zh.md)
 
-<h3 align="center">Platinum Sponsors</h3>
-<!--platinum sponsors start-->
-
-<p align="center">
-  <a href="https://www.doppler.com/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
-    <img width="400px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_doppler.png">
-  </a>
-</p>
-
-<!--platinum sponsors end-->
-
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
 
@@ -656,7 +645,7 @@ openssl req -new -sha256 -key server.key \
     -config <(cat my-openssl.cnf <(printf "\n[SAN]\nsubjectAltName=DNS:localhost,IP:127.0.0.1,DNS:example.server.com")) \
     -out server.csr
 
-openssl x509 -req -days 365 \
+openssl x509 -req -days 365 -sha256 \
 	-in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
 	-extfile <(printf "subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:example.server.com") \
 	-out server.crt
@@ -671,7 +660,7 @@ openssl req -new -sha256 -key client.key \
     -config <(cat my-openssl.cnf <(printf "\n[SAN]\nsubjectAltName=DNS:client.com,DNS:example.client.com")) \
     -out client.csr
 
-openssl x509 -req -days 365 \
+openssl x509 -req -days 365 -sha256 \
     -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
 	-extfile <(printf "subjectAltName=DNS:client.com,DNS:example.client.com") \
 	-out client.crt
@@ -883,7 +872,7 @@ custom_domains = test.example.com
 host_header_rewrite = dev.example.com
 ```
 
-The HTTP request will have the the `Host` header rewritten to `Host: dev.example.com` when it reaches the actual web server, although the request from the browser probably has `Host: test.example.com`.
+The HTTP request will have the `Host` header rewritten to `Host: dev.example.com` when it reaches the actual web server, although the request from the browser probably has `Host: test.example.com`.
 
 ### Setting other HTTP Headers
 

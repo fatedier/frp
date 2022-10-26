@@ -30,7 +30,7 @@ func EnablePrometheus() {
 	sm.Add(prometheus.ServerMetrics)
 }
 
-var sm *serverMetrics = &serverMetrics{}
+var sm = &serverMetrics{}
 
 func init() {
 	metrics.Register(sm)

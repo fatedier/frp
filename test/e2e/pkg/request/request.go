@@ -12,9 +12,10 @@ import (
 	"strconv"
 	"time"
 
+	libdial "github.com/fatedier/golib/net/dial"
+
 	"github.com/fatedier/frp/test/e2e/pkg/rpc"
 	"github.com/fatedier/frp/test/e2e/pkg/utils"
-	libdial "github.com/fatedier/golib/net/dial"
 )
 
 type Request struct {
@@ -181,7 +182,7 @@ func (r *Request) Do() (*Response, error) {
 
 	defer conn.Close()
 	if r.timeout > 0 {
-		conn.SetDeadline(time.Now().Add(r.timeout))
+		_ = conn.SetDeadline(time.Now().Add(r.timeout))
 	}
 	buf, err := r.sendRequestByConn(conn, r.body)
 	if err != nil {
@@ -199,7 +200,6 @@ type Response struct {
 func (r *Request) sendHTTPRequest(method, urlstr string, host string, headers map[string]string,
 	proxy string, body []byte, tlsConfig *tls.Config,
 ) (*Response, error) {
-
 	var inBody io.Reader
 	if len(body) != 0 {
 		inBody = bytes.NewReader(body)
@@ -240,6 +240,7 @@ func (r *Request) sendHTTPRequest(method, urlstr string, host string, headers ma
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	ret := &Response{Code: resp.StatusCode, Header: resp.Header}
 	buf, err := io.ReadAll(resp.Body)

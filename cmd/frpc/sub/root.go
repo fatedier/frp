@@ -26,13 +26,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/fatedier/frp/client"
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/version"
-
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -107,7 +107,7 @@ var rootCmd = &cobra.Command{
 		// Note that it's only designed for testing. It's not guaranteed to be stable.
 		if cfgDir != "" {
 			var wg sync.WaitGroup
-			filepath.WalkDir(cfgDir, func(path string, d fs.DirEntry, err error) error {
+			_ = filepath.WalkDir(cfgDir, func(path string, d fs.DirEntry, err error) error {
 				if err != nil {
 					return nil
 				}
@@ -183,7 +183,7 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 
 	cfg.Complete()
 	if err = cfg.Validate(); err != nil {
-		err = fmt.Errorf("Parse config error: %v", err)
+		err = fmt.Errorf("parse config error: %v", err)
 		return
 	}
 	return
@@ -203,7 +203,6 @@ func startService(
 	visitorCfgs map[string]config.VisitorConf,
 	cfgFile string,
 ) (err error) {
-
 	log.InitLog(cfg.LogWay, cfg.LogFile, cfg.LogLevel,
 		cfg.LogMaxDays, cfg.DisableLogColor)
 

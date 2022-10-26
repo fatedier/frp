@@ -7,15 +7,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatedier/golib/errors"
+	"github.com/fatedier/golib/pool"
+
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/util"
-
-	"github.com/fatedier/golib/errors"
-	"github.com/fatedier/golib/pool"
 )
 
-// Timeout seconds.
+// NatHoleTimeout seconds.
 var NatHoleTimeout int64 = 10
 
 type SidRequest struct {
@@ -107,7 +107,7 @@ func (nc *Controller) HandleVisitor(m *msg.NatHoleVisitor, raddr *net.UDPAddr) {
 	session := &Session{
 		Sid:         sid,
 		VisitorAddr: raddr,
-		NotifyCh:    make(chan struct{}, 0),
+		NotifyCh:    make(chan struct{}),
 	}
 	nc.mu.Lock()
 	clientCfg, ok := nc.clientCfgs[m.ProxyName]
@@ -115,14 +115,14 @@ func (nc *Controller) HandleVisitor(m *msg.NatHoleVisitor, raddr *net.UDPAddr) {
 		nc.mu.Unlock()
 		errInfo := fmt.Sprintf("xtcp server for [%s] doesn't exist", m.ProxyName)
 		log.Debug(errInfo)
-		nc.listener.WriteToUDP(nc.GenNatHoleResponse(nil, errInfo), raddr)
+		_, _ = nc.listener.WriteToUDP(nc.GenNatHoleResponse(nil, errInfo), raddr)
 		return
 	}
 	if m.SignKey != util.GetAuthKey(clientCfg.Sk, m.Timestamp) {
 		nc.mu.Unlock()
 		errInfo := fmt.Sprintf("xtcp connection of [%s] auth failed", m.ProxyName)
 		log.Debug(errInfo)
-		nc.listener.WriteToUDP(nc.GenNatHoleResponse(nil, errInfo), raddr)
+		_, _ = nc.listener.WriteToUDP(nc.GenNatHoleResponse(nil, errInfo), raddr)
 		return
 	}
 
@@ -151,7 +151,7 @@ func (nc *Controller) HandleVisitor(m *msg.NatHoleVisitor, raddr *net.UDPAddr) {
 	case <-session.NotifyCh:
 		resp := nc.GenNatHoleResponse(session, "")
 		log.Trace("send nat hole response to visitor")
-		nc.listener.WriteToUDP(resp, raddr)
+		_, _ = nc.listener.WriteToUDP(resp, raddr)
 	case <-time.After(time.Duration(NatHoleTimeout) * time.Second):
 		return
 	}
@@ -169,7 +169,7 @@ func (nc *Controller) HandleClient(m *msg.NatHoleClient, raddr *net.UDPAddr) {
 
 	resp := nc.GenNatHoleResponse(session, "")
 	log.Trace("send nat hole response to client")
-	nc.listener.WriteToUDP(resp, raddr)
+	_, _ = nc.listener.WriteToUDP(resp, raddr)
 }
 
 func (nc *Controller) GenNatHoleResponse(session *Session, errInfo string) []byte {

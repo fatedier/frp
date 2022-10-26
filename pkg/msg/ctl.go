@@ -22,9 +22,7 @@ import (
 
 type Message = jsonMsg.Message
 
-var (
-	msgCtl *jsonMsg.MsgCtl
-)
+var msgCtl *jsonMsg.MsgCtl
 
 func init() {
 	msgCtl = jsonMsg.NewMsgCtl()

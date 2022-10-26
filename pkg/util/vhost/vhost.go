@@ -19,27 +19,34 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatedier/golib/errors"
+
 	"github.com/fatedier/frp/pkg/util/log"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
-
-	"github.com/fatedier/golib/errors"
 )
 
 type RouteInfo string
 
 const (
-	RouteInfoURL      RouteInfo = "url"
-	RouteInfoHost     RouteInfo = "host"
-	RouteInfoHTTPUser RouteInfo = "httpUser"
-	RouteInfoRemote   RouteInfo = "remote"
-	RouteInfoURLHost  RouteInfo = "urlHost"
+	RouteInfoKey RouteInfo = "routeInfo"
 )
 
-type muxFunc func(net.Conn) (net.Conn, map[string]string, error)
-type httpAuthFunc func(net.Conn, string, string, string) (bool, error)
-type hostRewriteFunc func(net.Conn, string) (net.Conn, error)
-type successFunc func(net.Conn, map[string]string) error
+type RequestRouteInfo struct {
+	URL        string
+	Host       string
+	HTTPUser   string
+	RemoteAddr string
+	URLHost    string
+	Endpoint   string
+}
+
+type (
+	muxFunc         func(net.Conn) (net.Conn, map[string]string, error)
+	httpAuthFunc    func(net.Conn, string, string, string) (bool, error)
+	hostRewriteFunc func(net.Conn, string) (net.Conn, error)
+	successFunc     func(net.Conn, map[string]string) error
+)
 
 // Muxer is only used for https and tcpmux proxy.
 type Muxer struct {
@@ -60,7 +67,6 @@ func NewMuxer(
 	rewriteFunc hostRewriteFunc,
 	timeout time.Duration,
 ) (mux *Muxer, err error) {
-
 	mux = &Muxer{
 		listener:       listener,
 		timeout:        timeout,
@@ -74,7 +80,11 @@ func NewMuxer(
 	return mux, nil
 }
 
+type ChooseEndpointFunc func() (string, error)
+
 type CreateConnFunc func(remoteAddr string) (net.Conn, error)
+
+type CreateConnByEndpointFunc func(endpoint, remoteAddr string) (net.Conn, error)
 
 // RouteConfig is the params used to match HTTP requests
 type RouteConfig struct {
@@ -86,7 +96,9 @@ type RouteConfig struct {
 	Headers         map[string]string
 	RouteByHTTPUser string
 
-	CreateConnFn CreateConnFunc
+	CreateConnFn           CreateConnFunc
+	ChooseEndpointFn       ChooseEndpointFunc
+	CreateConnByEndpointFn CreateConnByEndpointFunc
 }
 
 // listen for a new domain name, if rewriteHost is not empty  and rewriteFunc is not nil
@@ -111,9 +123,8 @@ func (v *Muxer) Listen(ctx context.Context, cfg *RouteConfig) (l *Listener, err 
 }
 
 func (v *Muxer) getListener(name, path, httpUser string) (*Listener, bool) {
-
 	findRouter := func(inName, inPath, inHTTPUser string) (*Listener, bool) {
-		vr, ok := v.registryRouter.Get(inName, inPath, httpUser)
+		vr, ok := v.registryRouter.Get(inName, inPath, inHTTPUser)
 		if ok {
 			return vr.payload.(*Listener), true
 		}
@@ -167,14 +178,14 @@ func (v *Muxer) run() {
 
 func (v *Muxer) handle(c net.Conn) {
 	if err := c.SetDeadline(time.Now().Add(v.timeout)); err != nil {
-		c.Close()
+		_ = c.Close()
 		return
 	}
 
 	sConn, reqInfoMap, err := v.vhostFunc(c)
 	if err != nil {
 		log.Debug("get hostname from http/https request error: %v", err)
-		c.Close()
+		_ = c.Close()
 		return
 	}
 
@@ -184,9 +195,12 @@ func (v *Muxer) handle(c net.Conn) {
 	l, ok := v.getListener(name, path, httpUser)
 	if !ok {
 		res := notFoundResponse()
-		res.Write(c)
+		if res.Body != nil {
+			defer res.Body.Close()
+		}
+		_ = res.Write(c)
 		log.Debug("http request for host [%s] path [%s] httpUser [%s] not found", name, path, httpUser)
-		c.Close()
+		_ = c.Close()
 		return
 	}
 
@@ -194,7 +208,7 @@ func (v *Muxer) handle(c net.Conn) {
 	if v.successFunc != nil {
 		if err := v.successFunc(c, reqInfoMap); err != nil {
 			xl.Info("success func failure on vhost connection: %v", err)
-			c.Close()
+			_ = c.Close()
 			return
 		}
 	}
@@ -203,17 +217,20 @@ func (v *Muxer) handle(c net.Conn) {
 	// then verify user access
 	if l.mux.authFunc != nil && l.userName != "" && l.passWord != "" {
 		bAccess, err := l.mux.authFunc(c, l.userName, l.passWord, reqInfoMap["Authorization"])
-		if bAccess == false || err != nil {
+		if !bAccess || err != nil {
 			xl.Debug("check http Authorization failed")
 			res := noAuthResponse()
-			res.Write(c)
-			c.Close()
+			if res.Body != nil {
+				defer res.Body.Close()
+			}
+			_ = res.Write(c)
+			_ = c.Close()
 			return
 		}
 	}
 
 	if err = sConn.SetDeadline(time.Time{}); err != nil {
-		c.Close()
+		_ = c.Close()
 		return
 	}
 	c = sConn

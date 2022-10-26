@@ -49,7 +49,7 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 		log.Info("api response [/api/reload], code [%d]", res.Code)
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
-			w.Write([]byte(res.Msg))
+			_, _ = w.Write([]byte(res.Msg))
 		}
 	}()
 
@@ -68,7 +68,6 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Info("success reload conf")
-	return
 }
 
 type StatusResp struct {
@@ -173,7 +172,7 @@ func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		log.Info("Http response [/api/status]")
 		buf, _ = json.Marshal(&res)
-		w.Write(buf)
+		_, _ = w.Write(buf)
 	}()
 
 	ps := svr.ctl.pm.GetAllProxyStatus()
@@ -202,7 +201,6 @@ func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request) {
 	sort.Sort(ByProxyStatusResp(res.STCP))
 	sort.Sort(ByProxyStatusResp(res.XTCP))
 	sort.Sort(ByProxyStatusResp(res.SUDP))
-	return
 }
 
 // GET api/config
@@ -214,7 +212,7 @@ func (svr *Service) apiGetConfig(w http.ResponseWriter, r *http.Request) {
 		log.Info("Http get response [/api/config], code [%d]", res.Code)
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
-			w.Write([]byte(res.Msg))
+			_, _ = w.Write([]byte(res.Msg))
 		}
 	}()
 
@@ -254,7 +252,7 @@ func (svr *Service) apiPutConfig(w http.ResponseWriter, r *http.Request) {
 		log.Info("Http put response [/api/config], code [%d]", res.Code)
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
-			w.Write([]byte(res.Msg))
+			_, _ = w.Write([]byte(res.Msg))
 		}
 	}()
 
@@ -315,7 +313,7 @@ func (svr *Service) apiPutConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	content = strings.Join(newRows, "\n")
 
-	err = os.WriteFile(svr.cfgFile, []byte(content), 0644)
+	err = os.WriteFile(svr.cfgFile, []byte(content), 0o644)
 	if err != nil {
 		res.Code = 500
 		res.Msg = fmt.Sprintf("write content to frpc config file error: %v", err)

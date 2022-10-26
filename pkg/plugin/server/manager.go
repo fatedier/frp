@@ -154,9 +154,8 @@ func (m *Manager) CloseProxy(content *CloseProxyContent) error {
 
 	if len(errs) > 0 {
 		return fmt.Errorf("send CloseProxy request to plugin errors: %s", strings.Join(errs, "; "))
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (m *Manager) Ping(content *PingContent) (*PingContent, error) {

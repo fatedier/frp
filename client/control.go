@@ -21,8 +21,12 @@ import (
 	"net"
 	"runtime/debug"
 	"strconv"
-	"sync"
 	"time"
+
+	"github.com/fatedier/golib/control/shutdown"
+	"github.com/fatedier/golib/crypto"
+	libdial "github.com/fatedier/golib/net/dial"
+	fmux "github.com/hashicorp/yamux"
 
 	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/pkg/auth"
@@ -31,11 +35,6 @@ import (
 	"github.com/fatedier/frp/pkg/transport"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
-
-	"github.com/fatedier/golib/control/shutdown"
-	"github.com/fatedier/golib/crypto"
-	libdial "github.com/fatedier/golib/net/dial"
-	fmux "github.com/hashicorp/yamux"
 )
 
 type Control struct {
@@ -79,8 +78,6 @@ type Control struct {
 	// The UDP port that the server is listening on
 	serverUDPPort int
 
-	mu sync.RWMutex
-
 	xl *xlog.Logger
 
 	// service context
@@ -95,8 +92,8 @@ func NewControl(ctx context.Context, runID string, conn net.Conn, session *fmux.
 	pxyCfgs map[string]config.ProxyConf,
 	visitorCfgs map[string]config.VisitorConf,
 	serverUDPPort int,
-	authSetter auth.Setter) *Control {
-
+	authSetter auth.Setter,
+) *Control {
 	// new xlog instance
 	ctl := &Control{
 		runID:              runID,
@@ -131,7 +128,6 @@ func (ctl *Control) Run() {
 
 	// start all visitors
 	go ctl.vm.Run()
-	return
 }
 
 func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
@@ -400,24 +396,21 @@ func (ctl *Control) worker() {
 	go ctl.reader()
 	go ctl.writer()
 
-	select {
-	case <-ctl.closedCh:
-		// close related channels and wait until other goroutines done
-		close(ctl.readCh)
-		ctl.readerShutdown.WaitDone()
-		ctl.msgHandlerShutdown.WaitDone()
+	<-ctl.closedCh
+	// close related channels and wait until other goroutines done
+	close(ctl.readCh)
+	ctl.readerShutdown.WaitDone()
+	ctl.msgHandlerShutdown.WaitDone()
 
-		close(ctl.sendCh)
-		ctl.writerShutdown.WaitDone()
+	close(ctl.sendCh)
+	ctl.writerShutdown.WaitDone()
 
-		ctl.pm.Close()
-		ctl.vm.Close()
+	ctl.pm.Close()
+	ctl.vm.Close()
 
-		close(ctl.closedDoneCh)
-		if ctl.session != nil {
-			ctl.session.Close()
-		}
-		return
+	close(ctl.closedDoneCh)
+	if ctl.session != nil {
+		ctl.session.Close()
 	}
 }
 
