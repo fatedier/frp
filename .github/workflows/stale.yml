@@ -12,7 +12,7 @@ jobs:
   stale:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/stale@v5
+    - uses: actions/stale@v6
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         stale-issue-message: 'Issues go stale after 30d of inactivity. Stale issues rot after an additional 7d of inactivity and eventually close.'
