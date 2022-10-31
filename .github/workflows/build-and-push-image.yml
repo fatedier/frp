@@ -9,6 +9,9 @@ on:
         description: 'Image tag'
         required: true
         default: 'test'
+permissions:
+  contents: read
+
 jobs:
   image:
     name: Build Image from Dockerfile and binaries
