@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2/clientcredentials"
 
 	"github.com/fatedier/frp/pkg/msg"
@@ -103,17 +103,14 @@ func NewOidcAuthSetter(baseCfg BaseConfig, cfg OidcClientConfig) *OidcAuthProvid
 		eps[k] = []string{v}
 	}
 
-	// Previous versions hardcoded the scope to audience,
-	// so for backwards compatibility, use that if no scope is set
-	scope := cfg.OidcAudience
-	if cfg.OidcScope != "" {
-		scope = cfg.OidcScope
+	if cfg.OidcAudience != "" {
+		eps["audience"] = []string{cfg.OidcAudience}
 	}
 
 	tokenGenerator := &clientcredentials.Config{
 		ClientID:       cfg.OidcClientID,
 		ClientSecret:   cfg.OidcClientSecret,
-		Scopes:         []string{scope},
+		Scopes:         []string{cfg.OidcScope},
 		TokenURL:       cfg.OidcTokenEndpointURL,
 		EndpointParams: eps,
 	}
