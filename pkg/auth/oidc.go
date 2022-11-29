@@ -103,10 +103,17 @@ func NewOidcAuthSetter(baseCfg BaseConfig, cfg OidcClientConfig) *OidcAuthProvid
 		eps[k] = []string{v}
 	}
 
+	// Previous versions hardcoded the scope to audience,
+	// so for backwards compatability, use that if no scope is set
+	scope := cfg.OidcAudience
+	if cfg.OidcScope != "" {
+		scope = cfg.OidcScope
+	}
+
 	tokenGenerator := &clientcredentials.Config{
 		ClientID:       cfg.OidcClientID,
 		ClientSecret:   cfg.OidcClientSecret,
-		Scopes:         []string{cfg.OidcScope},
+		Scopes:         []string{scope},
 		TokenURL:       cfg.OidcTokenEndpointURL,
 		EndpointParams: eps,
 	}
