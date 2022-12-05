@@ -22,6 +22,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	quic "github.com/lucas-clemente/quic-go"
+
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
@@ -182,4 +184,30 @@ func (statsConn *StatsConn) Close() (err error) {
 		}
 	}
 	return
+}
+
+type wrapQuicStream struct {
+	quic.Stream
+	c quic.Connection
+}
+
+func QuicStreamToNetConn(s quic.Stream, c quic.Connection) net.Conn {
+	return &wrapQuicStream{
+		Stream: s,
+		c:      c,
+	}
+}
+
+func (conn *wrapQuicStream) LocalAddr() net.Addr {
+	if conn.c != nil {
+		return conn.c.LocalAddr()
+	}
+	return (*net.TCPAddr)(nil)
+}
+
+func (conn *wrapQuicStream) RemoteAddr() net.Addr {
+	if conn.c != nil {
+		return conn.c.RemoteAddr()
+	}
+	return (*net.TCPAddr)(nil)
 }

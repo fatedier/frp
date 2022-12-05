@@ -25,6 +25,7 @@ var (
 
 	DefaultClientConfig = `
 	[common]
+	server_addr = 127.0.0.1
 	server_port = {{ .%s }}
 	log_level = trace
 	`
