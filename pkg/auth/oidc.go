@@ -104,7 +104,7 @@ func NewOidcAuthSetter(baseCfg BaseConfig, cfg OidcClientConfig) *OidcAuthProvid
 	}
 
 	// Previous versions hardcoded the scope to audience,
-	// so for backwards compatability, use that if no scope is set
+	// so for backwards compatibility, use that if no scope is set
 	scope := cfg.OidcAudience
 	if cfg.OidcScope != "" {
 		scope = cfg.OidcScope
