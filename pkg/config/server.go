@@ -46,6 +46,10 @@ type ServerCommonConf struct {
 	// value is 0, the server will not listen for KCP connections. By default,
 	// this value is 0.
 	KCPBindPort int `ini:"kcp_bind_port" json:"kcp_bind_port" validate:"gte=0,lte=65535"`
+	// QUICBindPort specifies the QUIC port that the server listens on.
+	// Set this value to 0 will disable this feature.
+	// By default, the value is 0.
+	QUICBindPort int `ini:"quic_bind_port" json:"quic_bind_port" validate:"gte=0,lte=65535"`
 	// ProxyBindAddr specifies the address that the proxy binds to. This value
 	// may be the same as BindAddr.
 	ProxyBindAddr string `ini:"proxy_bind_addr" json:"proxy_bind_addr"`

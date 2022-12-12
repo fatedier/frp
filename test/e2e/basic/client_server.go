@@ -18,6 +18,15 @@ type generalTestConfigures struct {
 	expectError bool
 }
 
+func renderBindPortConfig(protocol string) string {
+	if protocol == "kcp" {
+		return fmt.Sprintf(`kcp_bind_port = {{ .%s }}`, consts.PortServerName)
+	} else if protocol == "quic" {
+		return fmt.Sprintf(`quic_bind_port = {{ .%s }}`, consts.PortServerName)
+	}
+	return ""
+}
+
 func runClientServerTest(f *framework.Framework, configures *generalTestConfigures) {
 	serverConf := consts.DefaultServerConfig
 	clientConf := consts.DefaultClientConfig
@@ -63,13 +72,12 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 	f := framework.NewDefaultFramework()
 
 	ginkgo.Describe("Protocol", func() {
-		supportProtocols := []string{"tcp", "kcp", "websocket"}
+		supportProtocols := []string{"tcp", "kcp", "quic", "websocket"}
 		for _, protocol := range supportProtocols {
 			configures := &generalTestConfigures{
 				server: fmt.Sprintf(`
-				kcp_bind_port = {{ .%s }}
-				protocol = %s"
-				`, consts.PortServerName, protocol),
+				%s
+				`, renderBindPortConfig(protocol)),
 				client: "protocol = " + protocol,
 			}
 			defineClientServerTest(protocol, f, configures)
@@ -90,14 +98,13 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 	})
 
 	ginkgo.Describe("TLS", func() {
-		supportProtocols := []string{"tcp", "kcp", "websocket"}
+		supportProtocols := []string{"tcp", "kcp", "quic", "websocket"}
 		for _, protocol := range supportProtocols {
 			tmp := protocol
 			defineClientServerTest("TLS over "+strings.ToUpper(tmp), f, &generalTestConfigures{
 				server: fmt.Sprintf(`
-				kcp_bind_port = {{ .%s }}
-				protocol = %s
-				`, consts.PortServerName, protocol),
+				%s
+				`, renderBindPortConfig(protocol)),
 				client: fmt.Sprintf(`tls_enable = true
 				protocol = %s
 				`, protocol),
@@ -115,7 +122,7 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 	})
 
 	ginkgo.Describe("TLS with custom certificate", func() {
-		supportProtocols := []string{"tcp", "kcp", "websocket"}
+		supportProtocols := []string{"tcp", "kcp", "quic", "websocket"}
 
 		var (
 			caCrtPath                    string
@@ -124,14 +131,14 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 		)
 		ginkgo.JustBeforeEach(func() {
 			generator := &cert.SelfSignedCertGenerator{}
-			artifacts, err := generator.Generate("0.0.0.0")
+			artifacts, err := generator.Generate("127.0.0.1")
 			framework.ExpectNoError(err)
 
 			caCrtPath = f.WriteTempFile("ca.crt", string(artifacts.CACert))
 			serverCrtPath = f.WriteTempFile("server.crt", string(artifacts.Cert))
 			serverKeyPath = f.WriteTempFile("server.key", string(artifacts.Key))
 			generator.SetCA(artifacts.CACert, artifacts.CAKey)
-			_, err = generator.Generate("0.0.0.0")
+			_, err = generator.Generate("127.0.0.1")
 			framework.ExpectNoError(err)
 			clientCrtPath = f.WriteTempFile("client.crt", string(artifacts.Cert))
 			clientKeyPath = f.WriteTempFile("client.key", string(artifacts.Key))
@@ -143,10 +150,9 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 			ginkgo.It("one-way authentication: "+tmp, func() {
 				runClientServerTest(f, &generalTestConfigures{
 					server: fmt.Sprintf(`
-						protocol = %s
-						kcp_bind_port = {{ .%s }}
+						%s
 						tls_trusted_ca_file = %s
-					`, tmp, consts.PortServerName, caCrtPath),
+					`, renderBindPortConfig(tmp), caCrtPath),
 					client: fmt.Sprintf(`
 						protocol = %s
 						tls_enable = true
@@ -159,12 +165,11 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 			ginkgo.It("mutual authentication: "+tmp, func() {
 				runClientServerTest(f, &generalTestConfigures{
 					server: fmt.Sprintf(`
-						protocol = %s
-						kcp_bind_port = {{ .%s }}
+						%s
 						tls_cert_file = %s
 						tls_key_file = %s
 						tls_trusted_ca_file = %s
-					`, tmp, consts.PortServerName, serverCrtPath, serverKeyPath, caCrtPath),
+					`, renderBindPortConfig(tmp), serverCrtPath, serverKeyPath, caCrtPath),
 					client: fmt.Sprintf(`
 						protocol = %s
 						tls_enable = true
@@ -235,14 +240,13 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 	})
 
 	ginkgo.Describe("TLS with disable_custom_tls_first_byte", func() {
-		supportProtocols := []string{"tcp", "kcp", "websocket"}
+		supportProtocols := []string{"tcp", "kcp", "quic", "websocket"}
 		for _, protocol := range supportProtocols {
 			tmp := protocol
 			defineClientServerTest("TLS over "+strings.ToUpper(tmp), f, &generalTestConfigures{
 				server: fmt.Sprintf(`
-					kcp_bind_port = {{ .%s }}
-					protocol = %s
-					`, consts.PortServerName, protocol),
+					%s
+					`, renderBindPortConfig(protocol)),
 				client: fmt.Sprintf(`
 					tls_enable = true
 					protocol = %s
@@ -253,15 +257,14 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 	})
 
 	ginkgo.Describe("IPv6 bind address", func() {
-		supportProtocols := []string{"tcp", "kcp", "websocket"}
+		supportProtocols := []string{"tcp", "kcp", "quic", "websocket"}
 		for _, protocol := range supportProtocols {
 			tmp := protocol
 			defineClientServerTest("IPv6 bind address: "+strings.ToUpper(tmp), f, &generalTestConfigures{
 				server: fmt.Sprintf(`
 					bind_addr = ::
-					kcp_bind_port = {{ .%s }}
-					protocol = %s
-					`, consts.PortServerName, protocol),
+					%s
+					`, renderBindPortConfig(protocol)),
 				client: fmt.Sprintf(`
 					tls_enable = true
 					protocol = %s
