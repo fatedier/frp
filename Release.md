@@ -1,3 +1,8 @@
+### New
+
+* Add oidc_scope parameter to frpc when authentication_method = oidc .
+
+
 ### Improve
 
-* Adjust http group load balancing to forward requests to each frpc proxy round robin. Previous behavior is always forwarding requests to single proxy in the case of single concurrency.
+* Upgrade oidc and oauth2 package which is forward compatible.
