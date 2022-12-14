@@ -147,7 +147,7 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 
 	var startMsg msg.StartWorkConn
 	if err = msg.ReadMsgInto(workConn, &startMsg); err != nil {
-		xl.Error("work connection closed before response StartWorkConn message: %v", err)
+		xl.Trace("work connection closed before response StartWorkConn message: %v", err)
 		workConn.Close()
 		return
 	}
