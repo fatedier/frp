@@ -214,7 +214,11 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.QUICBindPort))
 		quicTLSCfg := tlsConfig.Clone()
 		quicTLSCfg.NextProtos = []string{"frp"}
-		svr.quicListener, err = quic.ListenAddr(address, quicTLSCfg, nil)
+		svr.quicListener, err = quic.ListenAddr(address, quicTLSCfg, &quic.Config{
+			MaxIdleTimeout:     time.Duration(cfg.QUICMaxIdleTimeout) * time.Second,
+			MaxIncomingStreams: int64(cfg.QUICMaxIncomingStreams),
+			KeepAlivePeriod:    time.Duration(cfg.QUICKeepalivePeriod) * time.Second,
+		})
 		if err != nil {
 			err = fmt.Errorf("listen on quic udp address %s error: %v", address, err)
 			return

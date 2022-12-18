@@ -374,7 +374,11 @@ func (cm *ConnectionManager) OpenConnection() error {
 
 		conn, err := quic.DialAddr(
 			net.JoinHostPort(cm.cfg.ServerAddr, strconv.Itoa(cm.cfg.ServerPort)),
-			tlsConfig, nil)
+			tlsConfig, &quic.Config{
+				MaxIdleTimeout:     time.Duration(cm.cfg.QUICMaxIdleTimeout) * time.Second,
+				MaxIncomingStreams: int64(cm.cfg.QUICMaxIncomingStreams),
+				KeepAlivePeriod:    time.Duration(cm.cfg.QUICKeepalivePeriod) * time.Second,
+			})
 		if err != nil {
 			return err
 		}
