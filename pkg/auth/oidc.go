@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2/clientcredentials"
 
 	"github.com/fatedier/frp/pkg/msg"
@@ -36,6 +36,9 @@ type OidcClientConfig struct {
 	// OidcAudience specifies the audience of the token in OIDC authentication
 	// if AuthenticationMethod == "oidc". By default, this value is "".
 	OidcAudience string `ini:"oidc_audience" json:"oidc_audience"`
+	// OidcScope specifies the scope of the token in OIDC authentication
+	// if AuthenticationMethod == "oidc". By default, this value is "".
+	OidcScope string `ini:"oidc_scope" json:"oidc_scope"`
 	// OidcTokenEndpointURL specifies the URL which implements OIDC Token Endpoint.
 	// It will be used to get an OIDC token if AuthenticationMethod == "oidc".
 	// By default, this value is "".
@@ -52,6 +55,7 @@ func getDefaultOidcClientConf() OidcClientConfig {
 		OidcClientID:                 "",
 		OidcClientSecret:             "",
 		OidcAudience:                 "",
+		OidcScope:                    "",
 		OidcTokenEndpointURL:         "",
 		OidcAdditionalEndpointParams: make(map[string]string),
 	}
@@ -99,10 +103,14 @@ func NewOidcAuthSetter(baseCfg BaseConfig, cfg OidcClientConfig) *OidcAuthProvid
 		eps[k] = []string{v}
 	}
 
+	if cfg.OidcAudience != "" {
+		eps["audience"] = []string{cfg.OidcAudience}
+	}
+
 	tokenGenerator := &clientcredentials.Config{
 		ClientID:       cfg.OidcClientID,
 		ClientSecret:   cfg.OidcClientSecret,
-		Scopes:         []string{cfg.OidcAudience},
+		Scopes:         []string{cfg.OidcScope},
 		TokenURL:       cfg.OidcTokenEndpointURL,
 		EndpointParams: eps,
 	}

@@ -63,6 +63,7 @@ frp also has a P2P connect mode.
         * [For Each Proxy](#for-each-proxy)
     * [TCP Stream Multiplexing](#tcp-stream-multiplexing)
     * [Support KCP Protocol](#support-kcp-protocol)
+    * [Support QUIC Protocol](#support-quic-protocol)
     * [Connection Pooling](#connection-pooling)
     * [Load balancing](#load-balancing)
     * [Service Health Check](#service-health-check)
@@ -759,6 +760,35 @@ KCP mode uses UDP as the underlying transport. Using KCP in frp:
   # Same as the 'kcp_bind_port' in frps.ini
   server_port = 7000
   protocol = kcp
+  ```
+
+### Support QUIC Protocol
+
+QUIC is a new multiplexed transport built on top of UDP.
+
+Using QUIC in frp:
+
+1. Enable QUIC in frps:
+
+  ```ini
+  # frps.ini
+  [common]
+  bind_port = 7000
+  # Specify a UDP port for QUIC.
+  quic_bind_port = 7000
+  ```
+
+  The `quic_bind_port` number can be the same number as `bind_port`, since `bind_port` field specifies a TCP port.
+
+2. Configure `frpc.ini` to use QUIC to connect to frps:
+
+  ```ini
+  # frpc.ini
+  [common]
+  server_addr = x.x.x.x
+  # Same as the 'quic_bind_port' in frps.ini
+  server_port = 7000
+  protocol = quic
   ```
 
 ### Connection Pooling

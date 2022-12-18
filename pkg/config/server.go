@@ -46,6 +46,14 @@ type ServerCommonConf struct {
 	// value is 0, the server will not listen for KCP connections. By default,
 	// this value is 0.
 	KCPBindPort int `ini:"kcp_bind_port" json:"kcp_bind_port" validate:"gte=0,lte=65535"`
+	// QUICBindPort specifies the QUIC port that the server listens on.
+	// Set this value to 0 will disable this feature.
+	// By default, the value is 0.
+	QUICBindPort int `ini:"quic_bind_port" json:"quic_bind_port" validate:"gte=0,lte=65535"`
+	// QUIC protocol options
+	QUICKeepalivePeriod    int `ini:"quic_keepalive_period" json:"quic_keepalive_period" validate:"gte=0"`
+	QUICMaxIdleTimeout     int `ini:"quic_max_idle_timeout" json:"quic_max_idle_timeout" validate:"gte=0"`
+	QUICMaxIncomingStreams int `ini:"quic_max_incoming_streams" json:"quic_max_incoming_streams" validate:"gte=0"`
 	// ProxyBindAddr specifies the address that the proxy binds to. This value
 	// may be the same as BindAddr.
 	ProxyBindAddr string `ini:"proxy_bind_addr" json:"proxy_bind_addr"`
@@ -195,43 +203,26 @@ func GetDefaultServerConf() ServerCommonConf {
 		ServerConfig:            auth.GetDefaultServerConf(),
 		BindAddr:                "0.0.0.0",
 		BindPort:                7000,
-		BindUDPPort:             0,
-		KCPBindPort:             0,
-		ProxyBindAddr:           "",
-		VhostHTTPPort:           0,
-		VhostHTTPSPort:          0,
-		TCPMuxHTTPConnectPort:   0,
-		TCPMuxPassthrough:       false,
+		QUICKeepalivePeriod:     10,
+		QUICMaxIdleTimeout:      30,
+		QUICMaxIncomingStreams:  100000,
 		VhostHTTPTimeout:        60,
 		DashboardAddr:           "0.0.0.0",
-		DashboardPort:           0,
-		DashboardUser:           "",
-		DashboardPwd:            "",
-		EnablePrometheus:        false,
-		AssetsDir:               "",
 		LogFile:                 "console",
 		LogWay:                  "console",
 		LogLevel:                "info",
 		LogMaxDays:              3,
-		DisableLogColor:         false,
 		DetailedErrorsToClient:  true,
-		SubDomainHost:           "",
 		TCPMux:                  true,
 		TCPMuxKeepaliveInterval: 60,
 		TCPKeepAlive:            7200,
 		AllowPorts:              make(map[int]struct{}),
 		MaxPoolCount:            5,
 		MaxPortsPerClient:       0,
-		TLSOnly:                 false,
-		TLSCertFile:             "",
-		TLSKeyFile:              "",
-		TLSTrustedCaFile:        "",
 		HeartbeatTimeout:        90,
 		UserConnTimeout:         10,
-		Custom404Page:           "",
 		HTTPPlugins:             make(map[string]plugin.HTTPPluginOptions),
 		UDPPacketSize:           1500,
-		PprofEnable:             false,
 	}
 }
 
