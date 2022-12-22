@@ -59,7 +59,8 @@ var sudpCmd = &cobra.Command{
 			prefix = user + "."
 		}
 
-		if role == "server" {
+		switch role {
+		case "server":
 			cfg := &config.SUDPProxyConf{}
 			cfg.ProxyName = prefix + proxyName
 			cfg.ProxyType = consts.SUDPProxy
@@ -75,7 +76,7 @@ var sudpCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			proxyConfs[cfg.ProxyName] = cfg
-		} else if role == "visitor" {
+		case "visitor":
 			cfg := &config.SUDPVisitorConf{}
 			cfg.ProxyName = prefix + proxyName
 			cfg.ProxyType = consts.SUDPProxy
@@ -92,7 +93,7 @@ var sudpCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			visitorConfs[cfg.ProxyName] = cfg
-		} else {
+		default:
 			fmt.Println("invalid role")
 			os.Exit(1)
 		}
