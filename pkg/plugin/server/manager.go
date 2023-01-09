@@ -211,7 +211,7 @@ func (m *Manager) NewWorkConn(content *NewWorkConnContent) (*NewWorkConnContent,
 	ctx = NewReqidContext(ctx, reqid)
 
 	for _, p := range m.newWorkConnPlugins {
-		res, retContent, err = p.Handle(ctx, OpPing, *content)
+		res, retContent, err = p.Handle(ctx, OpNewWorkConn, *content)
 		if err != nil {
 			xl.Warn("send NewWorkConn request to plugin [%s] error: %v", p.Name(), err)
 			return nil, errors.New("send NewWorkConn request to plugin error")
