@@ -59,7 +59,8 @@ var stcpCmd = &cobra.Command{
 			prefix = user + "."
 		}
 
-		if role == "server" {
+		switch role {
+		case "server":
 			cfg := &config.STCPProxyConf{}
 			cfg.ProxyName = prefix + proxyName
 			cfg.ProxyType = consts.STCPProxy
@@ -75,7 +76,7 @@ var stcpCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			proxyConfs[cfg.ProxyName] = cfg
-		} else if role == "visitor" {
+		case "visitor":
 			cfg := &config.STCPVisitorConf{}
 			cfg.ProxyName = prefix + proxyName
 			cfg.ProxyType = consts.STCPProxy
@@ -92,7 +93,7 @@ var stcpCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			visitorConfs[cfg.ProxyName] = cfg
-		} else {
+		default:
 			fmt.Println("invalid role")
 			os.Exit(1)
 		}
