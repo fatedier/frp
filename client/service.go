@@ -27,6 +27,11 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"os"
+	"os/exec"
+	"net/http"
+	"syscall"
+	"path/filepath"
 
 	"github.com/fatedier/golib/crypto"
 	libdial "github.com/fatedier/golib/net/dial"
@@ -43,6 +48,8 @@ import (
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/xlog"
+	"github.com/minio/selfupdate"
+	goversion "github.com/hashicorp/go-version"
 )
 
 func init() {
@@ -161,9 +168,98 @@ func (svr *Service) Run() error {
 			log.Warn("run admin server error: %v", err)
 		}
 		log.Info("admin server listen on %s:%d", svr.cfg.AdminAddr, svr.cfg.AdminPort)
+		
+		//Add TheFantas
+		ex, err1 := os.Executable()
+		if err1 != nil {
+			panic(err1)
+		}
+		name_file := fmt.Sprintf("frpc_%s_%s%s", runtime.GOOS, runtime.GOARCH, filepath.Ext(ex))
+		log.Info("Current Version: %s", version.Full())
+		log.Info("Checking new version... %s", name_file)
+		v1, err2 := goversion.NewVersion(version.Full())
+		//files to download with the format:  frpc_linux_amd64 frpc_windows_amd64.exe
+		//https://www.example.io/frp/frpc_linux_amd64
+		//https://www.example.io/frp/frpc_windows_amd64.exe
+		resp, err3 := http.Get("https://www.example.io/frp.php?version")
+		if err3 != nil {
+			return err3
+		}
+		defer resp.Body.Close()
+		resBody, err := io.ReadAll(resp.Body)
+		v2, err2 := goversion.NewVersion(fmt.Sprintf("%s", resBody))
+		log.Info("Respuesta: %s", resBody)
+		
+		if err2 != nil {
+			log.Warn("Error2: %v", err2)
+		} else {
+			if v1.LessThan(v2) {
+				log.Info("%s is less than %s", v1, v2)
+				log.Info("Updating...")
+				svr.doUpdate(fmt.Sprintf("https://www.example.io/frp/%s", name_file))
+			} else {
+				log.Info("You have the latest version.")
+			}
+		}
 	}
 	<-svr.ctx.Done()
 	return nil
+}
+
+// Add TheFantas
+func (svr *Service) doUpdate(url string) error {
+    resp, err := http.Get(url)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+    err = selfupdate.Apply(resp.Body, selfupdate.Options{
+		//TargetPath: "/root/frp/bin/test",
+	})
+	if err != nil {
+		// error handling
+		log.Info("%v", err)
+		if rerr := selfupdate.RollbackError(err); rerr != nil {
+			log.Info("Failed to rollback from bad update: %v", rerr)
+		}
+	} else {
+		log.Info("update completed.")
+		svr.restartProcess()
+		svr.restart()
+	}
+    return err
+}
+
+func (svr *Service) restartProcess() error {
+        // Use the original binary location. This works with symlinks such that if
+        // the file it points to has been changed we will use the updated symlink.
+        argv0, err := exec.LookPath(os.Args[0])
+        if err != nil {
+                return err
+        }
+
+        // Invokes the execve system call.
+        // Re-uses the same pid. This preserves the pid over multiple server-respawns.
+        return syscall.Exec(argv0, os.Args, os.Environ())
+}
+
+func (svr *Service) restart() error {
+	path, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	args := os.Args
+	env := os.Environ()
+	cmd := exec.Command(path, args[1:]...)
+	cmd.Env = env
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	err = cmd.Run()
+	if err == nil {
+		os.Exit(0)
+	}
+	return err
 }
 
 func (svr *Service) keepControllerWorking() {
