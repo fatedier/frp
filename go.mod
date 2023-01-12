@@ -27,6 +27,8 @@ require (
 	gopkg.in/ini.v1 v1.67.0
 	k8s.io/apimachinery v0.25.0
 	k8s.io/client-go v0.25.0
+	github.com/minio/selfupdate v0.5.0
+	github.com/hashicorp/go-version v1.6.0
 )
 
 require (
