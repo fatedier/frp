@@ -14,7 +14,9 @@
 
 package msg
 
-import "net"
+import (
+	"net"
+)
 
 const (
 	TypeLogin                 = 'o'
@@ -87,6 +89,7 @@ type NewProxy struct {
 	ProxyType      string            `json:"proxy_type,omitempty"`
 	UseEncryption  bool              `json:"use_encryption,omitempty"`
 	UseCompression bool              `json:"use_compression,omitempty"`
+	BandwidthLimit string            `json:"bandwidth_limit,omitempty"`
 	Group          string            `json:"group,omitempty"`
 	GroupKey       string            `json:"group_key,omitempty"`
 	Metas          map[string]string `json:"metas,omitempty"`

@@ -24,10 +24,12 @@ import (
 	"time"
 
 	frpIo "github.com/fatedier/golib/io"
+	"golang.org/x/time/rate"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
+	"github.com/fatedier/frp/pkg/util/limit"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/server/controller"
@@ -287,6 +289,15 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	if cfg.UseCompression {
 		local = frpIo.WithCompression(local)
 	}
+
+	limitBytes := cfg.BandwidthLimit.Bytes()
+	if limitBytes > 0 {
+		limiter := rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
+		local = frpIo.WrapReadWriteCloser(limit.NewReader(local, limiter), limit.NewWriter(local, limiter), func() error {
+			return local.Close()
+		})
+	}
+
 	xl.Debug("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", workConn.LocalAddr().String(),
 		workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 

@@ -389,6 +389,7 @@ func (cfg *BaseProxyConf) marshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.ProxyType = cfg.ProxyType
 	pMsg.UseEncryption = cfg.UseEncryption
 	pMsg.UseCompression = cfg.UseCompression
+	pMsg.BandwidthLimit = cfg.BandwidthLimit.String()
 	pMsg.Group = cfg.Group
 	pMsg.GroupKey = cfg.GroupKey
 	pMsg.Metas = cfg.Metas
@@ -399,6 +400,7 @@ func (cfg *BaseProxyConf) unmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.ProxyType = pMsg.ProxyType
 	cfg.UseEncryption = pMsg.UseEncryption
 	cfg.UseCompression = pMsg.UseCompression
+	cfg.BandwidthLimit, _ = NewBandwidthQuantity(pMsg.BandwidthLimit)
 	cfg.Group = pMsg.Group
 	cfg.GroupKey = pMsg.GroupKey
 	cfg.Metas = pMsg.Metas
