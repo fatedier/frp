@@ -143,7 +143,7 @@ Note that `local_port` (listened on client) and `remote_port` (exposed on server
 
   `./frpc -c ./frpc.ini`
 
-5. From another machine, SSH to server B like this (assuming that username is `test`):
+5. From another machine, SSH to server B via server A  like this (assuming that username is `test`):
 
   `ssh -oPort=6000 test@x.x.x.x`
 
