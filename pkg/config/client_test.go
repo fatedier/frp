@@ -296,7 +296,7 @@ func Test_LoadClientCommonConf(t *testing.T) {
 		},
 		UDPPacketSize:      1509,
 		IncludeConfigFiles: []string{},
-		MaxDelayTime:       60,
+		MaxDelayTime:       20,
 	}
 
 	common, err := UnmarshalClientConfFromIni(testClientBytesWithFull)
