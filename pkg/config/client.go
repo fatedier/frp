@@ -161,6 +161,8 @@ type ClientCommonConf struct {
 	// Enable golang pprof handlers in admin listener.
 	// Admin port must be set first.
 	PprofEnable bool `ini:"pprof_enable" json:"pprof_enable"`
+	// MaxDelayTime specifies the maximum waiting time for frpc to reconnect frps.
+	MaxDelayTime int64 `ini:"max_delay_time" json:"max_delay_time"`
 }
 
 // GetDefaultClientConf returns a client configuration with default values.
@@ -191,6 +193,7 @@ func GetDefaultClientConf() ClientCommonConf {
 		Metas:                   make(map[string]string),
 		UDPPacketSize:           1500,
 		IncludeConfigFiles:      make([]string, 0),
+		MaxDelayTime:            20,
 	}
 }
 

@@ -168,7 +168,7 @@ func (svr *Service) Run() error {
 
 func (svr *Service) keepControllerWorking() {
 	xl := xlog.FromContextSafe(svr.ctx)
-	maxDelayTime := 20 * time.Second
+	maxDelayTime := time.Duration(svr.cfg.MaxDelayTime) * time.Second
 	delayTime := time.Second
 
 	// if frpc reconnect frps, we need to limit retry times in 1min
