@@ -67,6 +67,7 @@ var testClientBytesWithFull = []byte(`
 		meta_var1 = 123
 		meta_var2 = 234
 		udp_packet_size = 1509
+		max_delay_time = 60
 		
 		# all proxy
 		[ssh]
@@ -296,7 +297,7 @@ func Test_LoadClientCommonConf(t *testing.T) {
 		},
 		UDPPacketSize:      1509,
 		IncludeConfigFiles: []string{},
-		MaxDelayTime:       20,
+		MaxDelayTime:       60,
 	}
 
 	common, err := UnmarshalClientConfFromIni(testClientBytesWithFull)
