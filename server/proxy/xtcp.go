@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/fatedier/golib/errors"
+	"golang.org/x/time/rate"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
@@ -86,6 +87,10 @@ func (pxy *XTCPProxy) Run() (remoteAddr string, err error) {
 
 func (pxy *XTCPProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
+}
+
+func (pxy *XTCPProxy) GetLimiter() *rate.Limiter {
+	return pxy.limiter
 }
 
 func (pxy *XTCPProxy) Close() {

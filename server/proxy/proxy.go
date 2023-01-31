@@ -47,6 +47,7 @@ type Proxy interface {
 	GetUsedPortsNum() int
 	GetResourceController() *controller.ResourceController
 	GetUserInfo() plugin.UserInfo
+	GetLimiter() *rate.Limiter
 	Close()
 }
 
@@ -58,6 +59,7 @@ type BaseProxy struct {
 	poolCount     int
 	getWorkConnFn GetWorkConnFn
 	serverCfg     config.ServerCommonConf
+	limiter       *rate.Limiter
 	userInfo      plugin.UserInfo
 
 	mu  sync.RWMutex
@@ -189,6 +191,13 @@ func NewProxy(ctx context.Context, userInfo plugin.UserInfo, rc *controller.Reso
 	getWorkConnFn GetWorkConnFn, pxyConf config.ProxyConf, serverCfg config.ServerCommonConf,
 ) (pxy Proxy, err error) {
 	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(pxyConf.GetBaseInfo().ProxyName)
+
+	var limiter *rate.Limiter
+	limitBytes := pxyConf.GetBaseInfo().BandwidthLimit.Bytes()
+	if limitBytes > 0 {
+		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
+	}
+
 	basePxy := BaseProxy{
 		name:          pxyConf.GetBaseInfo().ProxyName,
 		rc:            rc,
@@ -196,6 +205,7 @@ func NewProxy(ctx context.Context, userInfo plugin.UserInfo, rc *controller.Reso
 		poolCount:     poolCount,
 		getWorkConnFn: getWorkConnFn,
 		serverCfg:     serverCfg,
+		limiter:       limiter,
 		xl:            xl,
 		ctx:           xlog.NewContext(ctx, xl),
 		userInfo:      userInfo,
@@ -290,10 +300,8 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 		local = frpIo.WithCompression(local)
 	}
 
-	limitBytes := cfg.BandwidthLimit.Bytes()
-	if limitBytes > 0 {
-		limiter := rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
-		local = frpIo.WrapReadWriteCloser(limit.NewReader(local, limiter), limit.NewWriter(local, limiter), func() error {
+	if pxy.GetLimiter() != nil {
+		local = frpIo.WrapReadWriteCloser(limit.NewReader(local, pxy.GetLimiter()), limit.NewWriter(local, pxy.GetLimiter()), func() error {
 			return local.Close()
 		})
 	}

@@ -20,6 +20,7 @@ import (
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/vhost"
+	"golang.org/x/time/rate"
 )
 
 type HTTPSProxy struct {
@@ -72,6 +73,10 @@ func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
 
 func (pxy *HTTPSProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
+}
+
+func (pxy *HTTPSProxy) GetLimiter() *rate.Limiter {
+	return pxy.limiter
 }
 
 func (pxy *HTTPSProxy) Close() {

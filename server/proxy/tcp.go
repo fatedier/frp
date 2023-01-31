@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	"github.com/fatedier/frp/pkg/config"
+	"golang.org/x/time/rate"
 )
 
 type TCPProxy struct {
@@ -72,6 +73,10 @@ func (pxy *TCPProxy) Run() (remoteAddr string, err error) {
 
 func (pxy *TCPProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
+}
+
+func (pxy *TCPProxy) GetLimiter() *rate.Limiter {
+	return pxy.limiter
 }
 
 func (pxy *TCPProxy) Close() {

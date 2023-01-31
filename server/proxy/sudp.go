@@ -16,6 +16,7 @@ package proxy
 
 import (
 	"github.com/fatedier/frp/pkg/config"
+	"golang.org/x/time/rate"
 )
 
 type SUDPProxy struct {
@@ -40,6 +41,10 @@ func (pxy *SUDPProxy) Run() (remoteAddr string, err error) {
 
 func (pxy *SUDPProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
+}
+
+func (pxy *SUDPProxy) GetLimiter() *rate.Limiter {
+	return pxy.limiter
 }
 
 func (pxy *SUDPProxy) Close() {
