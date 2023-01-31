@@ -20,6 +20,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -287,6 +288,7 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	if cfg.UseCompression {
 		local = frpIo.WithCompression(local)
 	}
+	startime := time.Now().UnixNano() / 1000000 // time in microseconds
 	xl.Debug("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", workConn.LocalAddr().String(),
 		workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 
@@ -297,7 +299,30 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	metrics.Server.CloseConnection(name, proxyType)
 	metrics.Server.AddTrafficIn(name, proxyType, inCount)
 	metrics.Server.AddTrafficOut(name, proxyType, outCount)
-	xl.Debug("join connections closed")
+
+	if IsTheTypeToLog(serverCfg.LogDurationTypes, name) {
+		endtime := time.Now().UnixNano() / 1000000 // time in microseconds
+		connectionDuration := endtime - startime
+		xl.Debug("join connection closed, it remains [%d]ms, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", connectionDuration,
+			workConn.LocalAddr().String(), workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
+		xl.Info("connection closed, it remains [%d]ms, userConn(l[%s] r[%s])", connectionDuration,
+			userConn.LocalAddr().String(), userConn.RemoteAddr().String())
+	} else {
+		xl.Debug("join connection closed, userConn(l[%s] r[%s])", userConn.LocalAddr().String(), userConn.RemoteAddr().String())
+	}
+}
+
+func IsTheTypeToLog(logDurationTypes string, name string) bool {
+	if strings.Contains(logDurationTypes, "all") {
+		return true
+	}
+	thestrlist := strings.Split(logDurationTypes, ",")
+	for i := 0; i < len(thestrlist); i++ {
+		if strings.Contains(name, thestrlist[i]) {
+			return true
+		}
+	}
+	return false
 }
 
 type Manager struct {
