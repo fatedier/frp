@@ -5,18 +5,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/onsi/ginkgo"
+
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
-
-	. "github.com/onsi/ginkgo"
 )
 
-var _ = Describe("[Feature: Monitor]", func() {
+var _ = ginkgo.Describe("[Feature: Monitor]", func() {
 	f := framework.NewDefaultFramework()
 
-	It("Prometheus metrics", func() {
+	ginkgo.It("Prometheus metrics", func() {
 		dashboardPort := f.AllocPort()
 		serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
 		enable_prometheus = true

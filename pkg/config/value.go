@@ -21,9 +21,7 @@ import (
 	"text/template"
 )
 
-var (
-	glbEnvs map[string]string
-)
+var glbEnvs map[string]string
 
 func init() {
 	glbEnvs = make(map[string]string)

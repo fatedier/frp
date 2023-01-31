@@ -8,25 +8,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
-          go-version: 1.18
+          go-version: 1.19
           
-      - run: |
-          # https://github.com/actions/setup-go/issues/107
-          cp -f `which go` /usr/bin/go
-
       - name: Make All
         run: |
           ./package.sh
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v2
+        uses: goreleaser/goreleaser-action@v3
         with:
           version: latest
           args: release --rm-dist --release-notes=./Release.md

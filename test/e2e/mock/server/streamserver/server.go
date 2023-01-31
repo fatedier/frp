@@ -127,7 +127,7 @@ func (s *Server) handle(c net.Conn) {
 		if len(s.respContent) > 0 {
 			buf = s.respContent
 		}
-		rpc.WriteBytes(c, buf)
+		_, _ = rpc.WriteBytes(c, buf)
 	}
 }
 

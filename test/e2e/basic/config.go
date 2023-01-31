@@ -3,18 +3,18 @@ package basic
 import (
 	"fmt"
 
+	"github.com/onsi/ginkgo"
+
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
-
-	. "github.com/onsi/ginkgo"
 )
 
-var _ = Describe("[Feature: Config]", func() {
+var _ = ginkgo.Describe("[Feature: Config]", func() {
 	f := framework.NewDefaultFramework()
 
-	Describe("Template", func() {
-		It("render by env", func() {
+	ginkgo.Describe("Template", func() {
+		ginkgo.It("render by env", func() {
 			serverConf := consts.DefaultServerConfig
 			clientConf := consts.DefaultClientConfig
 
@@ -39,8 +39,8 @@ var _ = Describe("[Feature: Config]", func() {
 		})
 	})
 
-	Describe("Includes", func() {
-		It("split tcp proxies into different files", func() {
+	ginkgo.Describe("Includes", func() {
+		ginkgo.It("split tcp proxies into different files", func() {
 			serverPort := f.AllocPort()
 			serverConfigPath := f.GenerateConfigFile(fmt.Sprintf(`
 			[common]

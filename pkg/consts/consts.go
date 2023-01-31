@@ -16,26 +16,26 @@ package consts
 
 var (
 	// proxy status
-	Idle    string = "idle"
-	Working string = "working"
-	Closed  string = "closed"
-	Online  string = "online"
-	Offline string = "offline"
+	Idle    = "idle"
+	Working = "working"
+	Closed  = "closed"
+	Online  = "online"
+	Offline = "offline"
 
 	// proxy type
-	TCPProxy    string = "tcp"
-	UDPProxy    string = "udp"
-	TCPMuxProxy string = "tcpmux"
-	HTTPProxy   string = "http"
-	HTTPSProxy  string = "https"
-	STCPProxy   string = "stcp"
-	XTCPProxy   string = "xtcp"
-	SUDPProxy   string = "sudp"
+	TCPProxy    = "tcp"
+	UDPProxy    = "udp"
+	TCPMuxProxy = "tcpmux"
+	HTTPProxy   = "http"
+	HTTPSProxy  = "https"
+	STCPProxy   = "stcp"
+	XTCPProxy   = "xtcp"
+	SUDPProxy   = "sudp"
 
 	// authentication method
-	TokenAuthMethod string = "token"
-	OidcAuthMethod  string = "oidc"
+	TokenAuthMethod = "token"
+	OidcAuthMethod  = "oidc"
 
 	// TCP multiplexer
-	HTTPConnectTCPMultiplexer string = "httpconnect"
+	HTTPConnectTCPMultiplexer = "httpconnect"
 )

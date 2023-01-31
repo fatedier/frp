@@ -21,10 +21,10 @@ import (
 	"strconv"
 	"strings"
 
+	"gopkg.in/ini.v1"
+
 	"github.com/fatedier/frp/pkg/consts"
 	"github.com/fatedier/frp/pkg/msg"
-
-	"gopkg.in/ini.v1"
 )
 
 // Proxy
@@ -417,10 +417,6 @@ func (cfg *BaseProxyConf) checkForCli() (err error) {
 	if err = cfg.HealthCheckConf.checkForCli(); err != nil {
 		return
 	}
-	return nil
-}
-
-func (cfg *BaseProxyConf) checkForSvr(conf ServerCommonConf) error {
 	return nil
 }
 

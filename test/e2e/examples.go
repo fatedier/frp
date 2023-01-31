@@ -3,17 +3,17 @@ package e2e
 import (
 	"fmt"
 
+	"github.com/onsi/ginkgo"
+
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
-
-	. "github.com/onsi/ginkgo"
 )
 
-var _ = Describe("[Feature: Example]", func() {
+var _ = ginkgo.Describe("[Feature: Example]", func() {
 	f := framework.NewDefaultFramework()
 
-	Describe("TCP", func() {
-		It("Expose a TCP echo server", func() {
+	ginkgo.Describe("TCP", func() {
+		ginkgo.It("Expose a TCP echo server", func() {
 			serverConf := consts.DefaultServerConfig
 			clientConf := consts.DefaultClientConfig
 

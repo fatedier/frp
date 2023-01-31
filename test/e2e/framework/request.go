@@ -11,7 +11,7 @@ import (
 
 func SpecifiedHTTPBodyHandler(body []byte) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		w.Write(body)
+		_, _ = w.Write(body)
 	}
 }
 

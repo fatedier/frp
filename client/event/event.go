@@ -6,9 +6,7 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 )
 
-var (
-	ErrPayloadType = errors.New("error payload type")
-)
+var ErrPayloadType = errors.New("error payload type")
 
 type Handler func(payload interface{}) error
 

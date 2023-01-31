@@ -9,6 +9,9 @@ on:
         description: 'Image tag'
         required: true
         default: 'test'
+permissions:
+  contents: read
+
 jobs:
   image:
     name: Build Image from Dockerfile and binaries
@@ -16,15 +19,15 @@ jobs:
     steps:
       # environment
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: '0'
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
 
       # get image tag name
       - name: Get Image Tag Name
@@ -35,13 +38,13 @@ jobs:
             echo "TAG_NAME=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
           fi
       - name: Login to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - name: Login to the GPR
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -58,7 +61,7 @@ jobs:
           echo "TAG_FRPS_GPR=ghcr.io/fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
 
       - name: Build and push frpc
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           context: .
           file: ./dockerfiles/Dockerfile-for-frpc
@@ -69,7 +72,7 @@ jobs:
             ${{ env.TAG_FRPC_GPR }}
 
       - name: Build and push frps
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           context: .
           file: ./dockerfiles/Dockerfile-for-frps

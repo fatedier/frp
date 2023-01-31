@@ -154,9 +154,8 @@ func (m *Manager) CloseProxy(content *CloseProxyContent) error {
 
 	if len(errs) > 0 {
 		return fmt.Errorf("send CloseProxy request to plugin errors: %s", strings.Join(errs, "; "))
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (m *Manager) Ping(content *PingContent) (*PingContent, error) {
@@ -212,7 +211,7 @@ func (m *Manager) NewWorkConn(content *NewWorkConnContent) (*NewWorkConnContent,
 	ctx = NewReqidContext(ctx, reqid)
 
 	for _, p := range m.newWorkConnPlugins {
-		res, retContent, err = p.Handle(ctx, OpPing, *content)
+		res, retContent, err = p.Handle(ctx, OpNewWorkConn, *content)
 		if err != nil {
 			xl.Warn("send NewWorkConn request to plugin [%s] error: %v", p.Name(), err)
 			return nil, errors.New("send NewWorkConn request to plugin error")

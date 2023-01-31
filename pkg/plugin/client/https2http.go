@@ -106,7 +106,9 @@ func NewHTTPS2HTTPPlugin(params map[string]string) (Plugin, error) {
 	}
 	ln := tls.NewListener(listener, tlsConfig)
 
-	go p.s.Serve(ln)
+	go func() {
+		_ = p.s.Serve(ln)
+	}()
 	return p, nil
 }
 
@@ -122,7 +124,7 @@ func (p *HTTPS2HTTPPlugin) genTLSConfig() (*tls.Config, error) {
 
 func (p *HTTPS2HTTPPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
 	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
-	p.l.PutConn(wrapConn)
+	_ = p.l.PutConn(wrapConn)
 }
 
 func (p *HTTPS2HTTPPlugin) Name() string {

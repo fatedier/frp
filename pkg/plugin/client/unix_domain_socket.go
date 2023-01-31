@@ -57,7 +57,9 @@ func (uds *UnixDomainSocketPlugin) Handle(conn io.ReadWriteCloser, realConn net.
 		return
 	}
 	if len(extraBufToLocal) > 0 {
-		localConn.Write(extraBufToLocal)
+		if _, err := localConn.Write(extraBufToLocal); err != nil {
+			return
+		}
 	}
 
 	frpIo.Join(localConn, conn)
