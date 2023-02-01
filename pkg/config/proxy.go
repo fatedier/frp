@@ -141,6 +141,10 @@ type BaseProxyConf struct {
 	// BandwidthLimit limit the bandwidth
 	// 0 means no limit
 	BandwidthLimit BandwidthQuantity `ini:"bandwidth_limit" json:"bandwidth_limit"`
+	// BandwidthLimitMode specifies whether to limit the bandwidth on the
+	// client or server side. Valid values include "client" and "server".
+	// By default, this value is "client".
+	BandwidthLimitMode BandwidthLimitMode `ini:"bandwidth_limit_mode" json:"bandwidth_limit_mode"`
 
 	// meta info for each proxy
 	Metas map[string]string `ini:"-" json:"metas"`
@@ -335,6 +339,7 @@ func (cfg *BaseProxyConf) compare(cmp *BaseProxyConf) bool {
 		cfg.GroupKey != cmp.GroupKey ||
 		cfg.ProxyProtocolVersion != cmp.ProxyProtocolVersion ||
 		!cfg.BandwidthLimit.Equal(&cmp.BandwidthLimit) ||
+		cfg.BandwidthLimitMode != cmp.BandwidthLimitMode ||
 		!reflect.DeepEqual(cfg.Metas, cmp.Metas) {
 		return false
 	}
@@ -365,6 +370,15 @@ func (cfg *BaseProxyConf) decorate(prefix string, name string, section *ini.Sect
 		}
 	}
 
+	if bandwidthMode, err := section.GetKey("bandwidth_limit_mode"); err == nil {
+		cfg.BandwidthLimitMode, err = NewBandwidthLimitMode(bandwidthMode.String())
+		if err != nil {
+			return err
+		}
+	} else {
+		cfg.BandwidthLimitMode = BandwidthLimitModeClient
+	}
+
 	// plugin_xxx
 	cfg.LocalSvrConf.PluginParams = GetMapByPrefix(section.KeysHash(), "plugin_")
 
@@ -390,6 +404,7 @@ func (cfg *BaseProxyConf) marshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.UseEncryption = cfg.UseEncryption
 	pMsg.UseCompression = cfg.UseCompression
 	pMsg.BandwidthLimit = cfg.BandwidthLimit.String()
+	pMsg.BandwidthLimitMode = cfg.BandwidthLimitMode.String()
 	pMsg.Group = cfg.Group
 	pMsg.GroupKey = cfg.GroupKey
 	pMsg.Metas = cfg.Metas
@@ -401,6 +416,7 @@ func (cfg *BaseProxyConf) unmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.UseEncryption = pMsg.UseEncryption
 	cfg.UseCompression = pMsg.UseCompression
 	cfg.BandwidthLimit, _ = NewBandwidthQuantity(pMsg.BandwidthLimit)
+	cfg.BandwidthLimitMode, _ = NewBandwidthLimitMode(pMsg.BandwidthLimitMode)
 	cfg.Group = pMsg.Group
 	cfg.GroupKey = pMsg.GroupKey
 	cfg.Metas = pMsg.Metas

@@ -58,6 +58,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 				local_ip = 127.0.0.9
 				local_port = 29
 				bandwidth_limit = 19MB
+				bandwidth_limit_mode = server
 				use_encryption
 				use_compression
 				remote_port = 6009
@@ -71,13 +72,14 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 				meta_var2 = 234`),
 			expected: &TCPProxyConf{
 				BaseProxyConf: BaseProxyConf{
-					ProxyName:      testProxyPrefix + "ssh",
-					ProxyType:      consts.TCPProxy,
-					UseCompression: true,
-					UseEncryption:  true,
-					Group:          "test_group",
-					GroupKey:       "123456",
-					BandwidthLimit: MustBandwidthQuantity("19MB"),
+					ProxyName:          testProxyPrefix + "ssh",
+					ProxyType:          consts.TCPProxy,
+					UseCompression:     true,
+					UseEncryption:      true,
+					Group:              "test_group",
+					GroupKey:           "123456",
+					BandwidthLimit:     MustBandwidthQuantity("19MB"),
+					BandwidthLimitMode: BandwidthLimitModeServer,
 					Metas: map[string]string{
 						"var1": "123",
 						"var2": "234",

@@ -194,7 +194,7 @@ func NewProxy(ctx context.Context, userInfo plugin.UserInfo, rc *controller.Reso
 
 	var limiter *rate.Limiter
 	limitBytes := pxyConf.GetBaseInfo().BandwidthLimit.Bytes()
-	if limitBytes > 0 {
+	if limitBytes > 0 && pxyConf.GetBaseInfo().BandwidthLimitMode == config.BandwidthLimitModeServer {
 		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
 	}
 
