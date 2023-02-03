@@ -144,7 +144,7 @@ type BaseProxyConf struct {
 	// BandwidthLimitMode specifies whether to limit the bandwidth on the
 	// client or server side. Valid values include "client" and "server".
 	// By default, this value is "client".
-	BandwidthLimitMode BandwidthLimitMode `ini:"bandwidth_limit_mode" json:"bandwidth_limit_mode"`
+	BandwidthLimitMode string `ini:"bandwidth_limit_mode" json:"bandwidth_limit_mode"`
 
 	// meta info for each proxy
 	Metas map[string]string `ini:"-" json:"metas"`
@@ -323,6 +323,7 @@ func defaultBaseProxyConf(proxyType string) BaseProxyConf {
 		LocalSvrConf: LocalSvrConf{
 			LocalIP: "127.0.0.1",
 		},
+		BandwidthLimitMode: BandwidthLimitModeClient,
 	}
 }
 
@@ -370,15 +371,6 @@ func (cfg *BaseProxyConf) decorate(prefix string, name string, section *ini.Sect
 		}
 	}
 
-	if bandwidthMode, err := section.GetKey("bandwidth_limit_mode"); err == nil {
-		cfg.BandwidthLimitMode, err = NewBandwidthLimitMode(bandwidthMode.String())
-		if err != nil {
-			return err
-		}
-	} else {
-		cfg.BandwidthLimitMode = BandwidthLimitModeClient
-	}
-
 	// plugin_xxx
 	cfg.LocalSvrConf.PluginParams = GetMapByPrefix(section.KeysHash(), "plugin_")
 
@@ -404,7 +396,7 @@ func (cfg *BaseProxyConf) marshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.UseEncryption = cfg.UseEncryption
 	pMsg.UseCompression = cfg.UseCompression
 	pMsg.BandwidthLimit = cfg.BandwidthLimit.String()
-	pMsg.BandwidthLimitMode = cfg.BandwidthLimitMode.String()
+	pMsg.BandwidthLimitMode = cfg.BandwidthLimitMode
 	pMsg.Group = cfg.Group
 	pMsg.GroupKey = cfg.GroupKey
 	pMsg.Metas = cfg.Metas
@@ -416,7 +408,7 @@ func (cfg *BaseProxyConf) unmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.UseEncryption = pMsg.UseEncryption
 	cfg.UseCompression = pMsg.UseCompression
 	cfg.BandwidthLimit, _ = NewBandwidthQuantity(pMsg.BandwidthLimit)
-	cfg.BandwidthLimitMode, _ = NewBandwidthLimitMode(pMsg.BandwidthLimitMode)
+	cfg.BandwidthLimitMode = pMsg.BandwidthLimitMode
 	cfg.Group = pMsg.Group
 	cfg.GroupKey = pMsg.GroupKey
 	cfg.Metas = pMsg.Metas
@@ -427,6 +419,10 @@ func (cfg *BaseProxyConf) checkForCli() (err error) {
 		if cfg.ProxyProtocolVersion != "v1" && cfg.ProxyProtocolVersion != "v2" {
 			return fmt.Errorf("no support proxy protocol version: %s", cfg.ProxyProtocolVersion)
 		}
+	}
+
+	if cfg.BandwidthLimitMode != "client" && cfg.BandwidthLimitMode != "server" {
+		return fmt.Errorf("bandwidth_limit_mode should be client or server")
 	}
 
 	if err = cfg.LocalSvrConf.checkForCli(); err != nil {

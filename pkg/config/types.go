@@ -24,6 +24,9 @@ import (
 const (
 	MB = 1024 * 1024
 	KB = 1024
+
+	BandwidthLimitModeClient = "client"
+	BandwidthLimitModeServer = "server"
 )
 
 type BandwidthQuantity struct {
@@ -119,25 +122,4 @@ func (q *BandwidthQuantity) MarshalJSON() ([]byte, error) {
 
 func (q *BandwidthQuantity) Bytes() int64 {
 	return q.i
-}
-
-type BandwidthLimitMode string
-
-const (
-	BandwidthLimitModeClient BandwidthLimitMode = "client"
-	BandwidthLimitModeServer BandwidthLimitMode = "server"
-)
-
-// Create a new BandwidthLimitMode from a string. Default to "client".
-func NewBandwidthLimitMode(s string) (BandwidthLimitMode, error) {
-	switch BandwidthLimitMode(s) {
-	case BandwidthLimitModeClient, BandwidthLimitModeServer:
-		return BandwidthLimitMode(s), nil
-	default:
-		return BandwidthLimitModeClient, errors.New("invalid bandwidth_limit_mode")
-	}
-}
-
-func (m BandwidthLimitMode) String() string {
-	return string(m)
 }

@@ -717,7 +717,7 @@ type = tcp
 local_port = 22
 remote_port = 6000
 bandwidth_limit = 1MB
-bandwidth_limit_mode = server
+bandwidth_limit_mode = client
 ```
 
 Set `bandwidth_limit` in each proxy's configure to enable this feature. Supported units are `MB` and `KB`.
