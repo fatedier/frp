@@ -434,6 +434,13 @@ func (cfg *BaseProxyConf) checkForCli() (err error) {
 	return nil
 }
 
+func (cfg *BaseProxyConf) checkForSvr() (err error) {
+	if cfg.BandwidthLimitMode != "client" && cfg.BandwidthLimitMode != "server" {
+		return fmt.Errorf("bandwidth_limit_mode should be client or server")
+	}
+	return nil
+}
+
 // DomainConf
 func (cfg *DomainConf) check() (err error) {
 	if len(cfg.CustomDomains) == 0 && cfg.SubDomain == "" {
@@ -571,6 +578,9 @@ func (cfg *TCPProxyConf) CheckForCli() (err error) {
 }
 
 func (cfg *TCPProxyConf) CheckForSvr(serverCfg ServerCommonConf) error {
+	if err := cfg.BaseProxyConf.checkForSvr(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -646,6 +656,10 @@ func (cfg *TCPMuxProxyConf) CheckForCli() (err error) {
 }
 
 func (cfg *TCPMuxProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
+	if err := cfg.BaseProxyConf.checkForSvr(); err != nil {
+		return err
+	}
+
 	if cfg.Multiplexer != consts.HTTPConnectTCPMultiplexer {
 		return fmt.Errorf("proxy [%s] incorrect multiplexer [%s]", cfg.ProxyName, cfg.Multiplexer)
 	}
@@ -717,6 +731,9 @@ func (cfg *UDPProxyConf) CheckForCli() (err error) {
 }
 
 func (cfg *UDPProxyConf) CheckForSvr(serverCfg ServerCommonConf) error {
+	if err := cfg.BaseProxyConf.checkForSvr(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -802,6 +819,10 @@ func (cfg *HTTPProxyConf) CheckForCli() (err error) {
 }
 
 func (cfg *HTTPProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
+	if err := cfg.BaseProxyConf.checkForSvr(); err != nil {
+		return err
+	}
+
 	if serverCfg.VhostHTTPPort == 0 {
 		return fmt.Errorf("type [http] not support when vhost_http_port is not set")
 	}
@@ -874,6 +895,10 @@ func (cfg *HTTPSProxyConf) CheckForCli() (err error) {
 }
 
 func (cfg *HTTPSProxyConf) CheckForSvr(serverCfg ServerCommonConf) (err error) {
+	if err := cfg.BaseProxyConf.checkForSvr(); err != nil {
+		return err
+	}
+
 	if serverCfg.VhostHTTPSPort == 0 {
 		return fmt.Errorf("type [https] not support when vhost_https_port is not set")
 	}
@@ -946,6 +971,9 @@ func (cfg *SUDPProxyConf) CheckForCli() (err error) {
 }
 
 func (cfg *SUDPProxyConf) CheckForSvr(serverCfg ServerCommonConf) error {
+	if err := cfg.BaseProxyConf.checkForSvr(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1012,6 +1040,9 @@ func (cfg *STCPProxyConf) CheckForCli() (err error) {
 }
 
 func (cfg *STCPProxyConf) CheckForSvr(serverCfg ServerCommonConf) error {
+	if err := cfg.BaseProxyConf.checkForSvr(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1078,5 +1109,8 @@ func (cfg *XTCPProxyConf) CheckForCli() (err error) {
 }
 
 func (cfg *XTCPProxyConf) CheckForSvr(serverCfg ServerCommonConf) error {
+	if err := cfg.BaseProxyConf.checkForSvr(); err != nil {
+		return err
+	}
 	return nil
 }
