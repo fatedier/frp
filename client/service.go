@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"math/rand"
 	"net"
 	"runtime"
 	"strconv"
@@ -47,7 +46,6 @@ import (
 
 func init() {
 	crypto.DefaultSalt = "frp"
-	rand.Seed(time.Now().UnixNano())
 }
 
 // Service is a client service.
