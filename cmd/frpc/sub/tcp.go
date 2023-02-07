@@ -33,6 +33,8 @@ func init() {
 	tcpCmd.PersistentFlags().IntVarP(&remotePort, "remote_port", "r", 0, "remote port")
 	tcpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	tcpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
+	tcpCmd.PersistentFlags().StringVarP(&bandwidthLimit, "bandwidth_limit", "", "", "bandwidth limit")
+	tcpCmd.PersistentFlags().StringVarP(&bandwidthLimitMode, "bandwidth_limit_mode", "", config.BandwidthLimitModeClient, "bandwidth limit mode")
 
 	rootCmd.AddCommand(tcpCmd)
 }
@@ -59,6 +61,12 @@ var tcpCmd = &cobra.Command{
 		cfg.RemotePort = remotePort
 		cfg.UseEncryption = useEncryption
 		cfg.UseCompression = useCompression
+		cfg.BandwidthLimit, err = config.NewBandwidthQuantity(bandwidthLimit)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		cfg.BandwidthLimitMode = bandwidthLimitMode
 
 		err = cfg.CheckForCli()
 		if err != nil {
