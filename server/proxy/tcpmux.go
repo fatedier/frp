@@ -19,11 +19,12 @@ import (
 	"net"
 	"strings"
 
+	"golang.org/x/time/rate"
+
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/consts"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/vhost"
-	"golang.org/x/time/rate"
 )
 
 type TCPMuxProxy struct {

@@ -17,10 +17,11 @@ package proxy
 import (
 	"strings"
 
+	"golang.org/x/time/rate"
+
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/vhost"
-	"golang.org/x/time/rate"
 )
 
 type HTTPSProxy struct {

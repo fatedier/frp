@@ -15,8 +15,9 @@
 package proxy
 
 import (
-	"github.com/fatedier/frp/pkg/config"
 	"golang.org/x/time/rate"
+
+	"github.com/fatedier/frp/pkg/config"
 )
 
 type SUDPProxy struct {
