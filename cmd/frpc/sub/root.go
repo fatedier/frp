@@ -216,15 +216,16 @@ func startService(
 		return
 	}
 
-	kcpDoneCh := make(chan struct{})
-	// Capture the exit signal if we use kcp.
-	if cfg.Protocol == "kcp" {
-		go handleSignal(svr, kcpDoneCh)
+	closedDoneCh := make(chan struct{})
+	shouldGracefulClose := cfg.Protocol == "kcp" || cfg.Protocol == "quic"
+	// Capture the exit signal if we use kcp or quic.
+	if shouldGracefulClose {
+		go handleSignal(svr, closedDoneCh)
 	}
 
 	err = svr.Run()
-	if err == nil && cfg.Protocol == "kcp" {
-		<-kcpDoneCh
+	if err == nil && shouldGracefulClose {
+		<-closedDoneCh
 	}
 	return
 }

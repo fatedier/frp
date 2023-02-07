@@ -17,10 +17,6 @@
 
 <!--gold sponsors end-->
 
-<h3 align="center">Silver Sponsors</h3>
-
-* Sakura Frp - 欢迎点击 "加入我们"
-
 ## What is frp?
 
 frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the Internet. As of now, it supports **TCP** and **UDP**, as well as **HTTP** and **HTTPS** protocols, where requests can be forwarded to internal services by domain name.
