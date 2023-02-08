@@ -16,6 +16,9 @@ file:
 fmt:
 	go fmt ./...
 
+fmt-more:
+	gofumpt -l -w .
+
 vet:
 	go vet ./...
 
