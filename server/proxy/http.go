@@ -20,8 +20,10 @@ import (
 	"strings"
 
 	frpIo "github.com/fatedier/golib/io"
+	"golang.org/x/time/rate"
 
 	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/util/limit"
 	frpNet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/vhost"
@@ -135,6 +137,10 @@ func (pxy *HTTPProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
 }
 
+func (pxy *HTTPProxy) GetLimiter() *rate.Limiter {
+	return pxy.limiter
+}
+
 func (pxy *HTTPProxy) GetRealConn(remoteAddr string) (workConn net.Conn, err error) {
 	xl := pxy.xl
 	rAddr, errRet := net.ResolveTCPAddr("tcp", remoteAddr)
@@ -160,6 +166,13 @@ func (pxy *HTTPProxy) GetRealConn(remoteAddr string) (workConn net.Conn, err err
 	if pxy.cfg.UseCompression {
 		rwc = frpIo.WithCompression(rwc)
 	}
+
+	if pxy.GetLimiter() != nil {
+		rwc = frpIo.WrapReadWriteCloser(limit.NewReader(rwc, pxy.GetLimiter()), limit.NewWriter(rwc, pxy.GetLimiter()), func() error {
+			return rwc.Close()
+		})
+	}
+
 	workConn = frpNet.WrapReadWriteCloserToConn(rwc, tmpConn)
 	workConn = frpNet.WrapStatsConn(workConn, pxy.updateStatsAfterClosedConn)
 	metrics.Server.OpenConnection(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)

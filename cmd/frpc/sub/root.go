@@ -54,24 +54,26 @@ var (
 	logMaxDays      int
 	disableLogColor bool
 
-	proxyName         string
-	localIP           string
-	localPort         int
-	remotePort        int
-	useEncryption     bool
-	useCompression    bool
-	customDomains     string
-	subDomain         string
-	httpUser          string
-	httpPwd           string
-	locations         string
-	hostHeaderRewrite string
-	role              string
-	sk                string
-	multiplexer       string
-	serverName        string
-	bindAddr          string
-	bindPort          int
+	proxyName          string
+	localIP            string
+	localPort          int
+	remotePort         int
+	useEncryption      bool
+	useCompression     bool
+	bandwidthLimit     string
+	bandwidthLimitMode string
+	customDomains      string
+	subDomain          string
+	httpUser           string
+	httpPwd            string
+	locations          string
+	hostHeaderRewrite  string
+	role               string
+	sk                 string
+	multiplexer        string
+	serverName         string
+	bindAddr           string
+	bindPort           int
 
 	tlsEnable bool
 )

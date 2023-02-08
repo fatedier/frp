@@ -24,6 +24,9 @@ import (
 const (
 	MB = 1024 * 1024
 	KB = 1024
+
+	BandwidthLimitModeClient = "client"
+	BandwidthLimitModeServer = "server"
 )
 
 type BandwidthQuantity struct {

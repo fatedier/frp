@@ -58,6 +58,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 				local_ip = 127.0.0.9
 				local_port = 29
 				bandwidth_limit = 19MB
+				bandwidth_limit_mode = server
 				use_encryption
 				use_compression
 				remote_port = 6009
@@ -71,13 +72,14 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 				meta_var2 = 234`),
 			expected: &TCPProxyConf{
 				BaseProxyConf: BaseProxyConf{
-					ProxyName:      testProxyPrefix + "ssh",
-					ProxyType:      consts.TCPProxy,
-					UseCompression: true,
-					UseEncryption:  true,
-					Group:          "test_group",
-					GroupKey:       "123456",
-					BandwidthLimit: MustBandwidthQuantity("19MB"),
+					ProxyName:          testProxyPrefix + "ssh",
+					ProxyType:          consts.TCPProxy,
+					UseCompression:     true,
+					UseEncryption:      true,
+					Group:              "test_group",
+					GroupKey:           "123456",
+					BandwidthLimit:     MustBandwidthQuantity("19MB"),
+					BandwidthLimitMode: BandwidthLimitModeServer,
 					Metas: map[string]string{
 						"var1": "123",
 						"var2": "234",
@@ -114,6 +116,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 						LocalIP:   "127.0.0.9",
 						LocalPort: 29,
 					},
+					BandwidthLimitMode: BandwidthLimitModeClient,
 				},
 				RemotePort: 9,
 			},
@@ -139,6 +142,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 						LocalIP:   "114.114.114.114",
 						LocalPort: 59,
 					},
+					BandwidthLimitMode: BandwidthLimitModeClient,
 				},
 				RemotePort: 6009,
 			},
@@ -182,6 +186,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 						HealthCheckIntervalS: 19,
 						HealthCheckURL:       "http://127.0.0.9:89/status",
 					},
+					BandwidthLimitMode: BandwidthLimitModeClient,
 				},
 				DomainConf: DomainConf{
 					CustomDomains: []string{"web02.yourdomain.com"},
@@ -220,6 +225,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 						LocalPort: 8009,
 					},
 					ProxyProtocolVersion: "v2",
+					BandwidthLimitMode:   BandwidthLimitModeClient,
 				},
 				DomainConf: DomainConf{
 					CustomDomains: []string{"web02.yourdomain.com"},
@@ -246,6 +252,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 						LocalIP:   "127.0.0.1",
 						LocalPort: 22,
 					},
+					BandwidthLimitMode: BandwidthLimitModeClient,
 				},
 				Role: "server",
 				Sk:   "abcdefg",
@@ -270,6 +277,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 						LocalIP:   "127.0.0.1",
 						LocalPort: 22,
 					},
+					BandwidthLimitMode: BandwidthLimitModeClient,
 				},
 				Role: "server",
 				Sk:   "abcdefg",
@@ -293,6 +301,7 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 						LocalIP:   "127.0.0.1",
 						LocalPort: 10701,
 					},
+					BandwidthLimitMode: BandwidthLimitModeClient,
 				},
 				DomainConf: DomainConf{
 					CustomDomains: []string{"tunnel1"},
@@ -347,6 +356,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 							LocalIP:   "127.0.0.9",
 							LocalPort: 6010,
 						},
+						BandwidthLimitMode: BandwidthLimitModeClient,
 					},
 					RemotePort: 6010,
 				},
@@ -358,6 +368,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 							LocalIP:   "127.0.0.9",
 							LocalPort: 6011,
 						},
+						BandwidthLimitMode: BandwidthLimitModeClient,
 					},
 					RemotePort: 6011,
 				},
@@ -369,6 +380,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 							LocalIP:   "127.0.0.9",
 							LocalPort: 6019,
 						},
+						BandwidthLimitMode: BandwidthLimitModeClient,
 					},
 					RemotePort: 6019,
 				},
@@ -396,6 +408,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 							LocalIP:   "114.114.114.114",
 							LocalPort: 6000,
 						},
+						BandwidthLimitMode: BandwidthLimitModeClient,
 					},
 					RemotePort: 6000,
 				},
@@ -409,6 +422,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 							LocalIP:   "114.114.114.114",
 							LocalPort: 6010,
 						},
+						BandwidthLimitMode: BandwidthLimitModeClient,
 					},
 					RemotePort: 6010,
 				},
@@ -422,6 +436,7 @@ func Test_RangeProxy_UnmarshalFromIni(t *testing.T) {
 							LocalIP:   "114.114.114.114",
 							LocalPort: 6011,
 						},
+						BandwidthLimitMode: BandwidthLimitModeClient,
 					},
 					RemotePort: 6011,
 				},
