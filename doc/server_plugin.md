@@ -110,6 +110,8 @@ Create new proxy
         "proxy_type": <string>,
         "use_encryption": <bool>,
         "use_compression": <bool>,
+        "bandwidth_limit": <string>,
+        "bandwidth_limit_mode": <string>,
         "group": <string>,
         "group_key": <string>,
 

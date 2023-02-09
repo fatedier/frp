@@ -18,10 +18,6 @@ frp 是一个专注于内网穿透的高性能的反向代理应用，支持 TCP
 
 <!--gold sponsors end-->
 
-<h3 align="center">Silver Sponsors</h3>
-
-* Sakura Frp - 欢迎点击 "加入我们"
-
 ## 为什么使用 frp ？
 
 通过在具有公网 IP 的节点上部署 frp 服务端，可以轻松地将内网服务穿透到公网，同时提供诸多专业的功能特性，这包括：

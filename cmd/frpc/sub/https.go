@@ -35,6 +35,8 @@ func init() {
 	httpsCmd.PersistentFlags().StringVarP(&subDomain, "sd", "", "", "sub domain")
 	httpsCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	httpsCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
+	httpsCmd.PersistentFlags().StringVarP(&bandwidthLimit, "bandwidth_limit", "", "", "bandwidth limit")
+	httpsCmd.PersistentFlags().StringVarP(&bandwidthLimitMode, "bandwidth_limit_mode", "", config.BandwidthLimitModeClient, "bandwidth limit mode")
 
 	rootCmd.AddCommand(httpsCmd)
 }
@@ -62,6 +64,12 @@ var httpsCmd = &cobra.Command{
 		cfg.SubDomain = subDomain
 		cfg.UseEncryption = useEncryption
 		cfg.UseCompression = useCompression
+		cfg.BandwidthLimit, err = config.NewBandwidthQuantity(bandwidthLimit)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		cfg.BandwidthLimitMode = bandwidthLimitMode
 
 		err = cfg.CheckForCli()
 		if err != nil {

@@ -54,24 +54,26 @@ var (
 	logMaxDays      int
 	disableLogColor bool
 
-	proxyName         string
-	localIP           string
-	localPort         int
-	remotePort        int
-	useEncryption     bool
-	useCompression    bool
-	customDomains     string
-	subDomain         string
-	httpUser          string
-	httpPwd           string
-	locations         string
-	hostHeaderRewrite string
-	role              string
-	sk                string
-	multiplexer       string
-	serverName        string
-	bindAddr          string
-	bindPort          int
+	proxyName          string
+	localIP            string
+	localPort          int
+	remotePort         int
+	useEncryption      bool
+	useCompression     bool
+	bandwidthLimit     string
+	bandwidthLimitMode string
+	customDomains      string
+	subDomain          string
+	httpUser           string
+	httpPwd            string
+	locations          string
+	hostHeaderRewrite  string
+	role               string
+	sk                 string
+	multiplexer        string
+	serverName         string
+	bindAddr           string
+	bindPort           int
 
 	tlsEnable bool
 )
@@ -216,15 +218,16 @@ func startService(
 		return
 	}
 
-	kcpDoneCh := make(chan struct{})
-	// Capture the exit signal if we use kcp.
-	if cfg.Protocol == "kcp" {
-		go handleSignal(svr, kcpDoneCh)
+	closedDoneCh := make(chan struct{})
+	shouldGracefulClose := cfg.Protocol == "kcp" || cfg.Protocol == "quic"
+	// Capture the exit signal if we use kcp or quic.
+	if shouldGracefulClose {
+		go handleSignal(svr, closedDoneCh)
 	}
 
 	err = svr.Run()
-	if err == nil && cfg.Protocol == "kcp" {
-		<-kcpDoneCh
+	if err == nil && shouldGracefulClose {
+		<-closedDoneCh
 	}
 	return
 }

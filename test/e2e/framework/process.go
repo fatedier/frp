@@ -69,7 +69,7 @@ func (f *Framework) RunFrps(args ...string) (*process.Process, string, error) {
 		return p, p.StdOutput(), err
 	}
 	// sleep for a while to get std output
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(time.Second)
 	return p, p.StdOutput(), nil
 }
 
@@ -80,7 +80,7 @@ func (f *Framework) RunFrpc(args ...string) (*process.Process, string, error) {
 	if err != nil {
 		return p, p.StdOutput(), err
 	}
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(time.Second)
 	return p, p.StdOutput(), nil
 }
 

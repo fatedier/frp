@@ -36,6 +36,8 @@ func init() {
 	tcpMuxCmd.PersistentFlags().StringVarP(&multiplexer, "mux", "", "", "multiplexer")
 	tcpMuxCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	tcpMuxCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
+	tcpMuxCmd.PersistentFlags().StringVarP(&bandwidthLimit, "bandwidth_limit", "", "", "bandwidth limit")
+	tcpMuxCmd.PersistentFlags().StringVarP(&bandwidthLimitMode, "bandwidth_limit_mode", "", config.BandwidthLimitModeClient, "bandwidth limit mode")
 
 	rootCmd.AddCommand(tcpMuxCmd)
 }
@@ -64,6 +66,12 @@ var tcpMuxCmd = &cobra.Command{
 		cfg.Multiplexer = multiplexer
 		cfg.UseEncryption = useEncryption
 		cfg.UseCompression = useCompression
+		cfg.BandwidthLimit, err = config.NewBandwidthQuantity(bandwidthLimit)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		cfg.BandwidthLimitMode = bandwidthLimitMode
 
 		err = cfg.CheckForCli()
 		if err != nil {

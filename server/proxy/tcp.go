@@ -19,6 +19,8 @@ import (
 	"net"
 	"strconv"
 
+	"golang.org/x/time/rate"
+
 	"github.com/fatedier/frp/pkg/config"
 )
 
@@ -72,6 +74,10 @@ func (pxy *TCPProxy) Run() (remoteAddr string, err error) {
 
 func (pxy *TCPProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
+}
+
+func (pxy *TCPProxy) GetLimiter() *rate.Limiter {
+	return pxy.limiter
 }
 
 func (pxy *TCPProxy) Close() {

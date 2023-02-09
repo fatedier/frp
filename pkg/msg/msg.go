@@ -14,7 +14,9 @@
 
 package msg
 
-import "net"
+import (
+	"net"
+)
 
 const (
 	TypeLogin                 = 'o'
@@ -83,13 +85,15 @@ type LoginResp struct {
 
 // When frpc login success, send this message to frps for running a new proxy.
 type NewProxy struct {
-	ProxyName      string            `json:"proxy_name,omitempty"`
-	ProxyType      string            `json:"proxy_type,omitempty"`
-	UseEncryption  bool              `json:"use_encryption,omitempty"`
-	UseCompression bool              `json:"use_compression,omitempty"`
-	Group          string            `json:"group,omitempty"`
-	GroupKey       string            `json:"group_key,omitempty"`
-	Metas          map[string]string `json:"metas,omitempty"`
+	ProxyName          string            `json:"proxy_name,omitempty"`
+	ProxyType          string            `json:"proxy_type,omitempty"`
+	UseEncryption      bool              `json:"use_encryption,omitempty"`
+	UseCompression     bool              `json:"use_compression,omitempty"`
+	BandwidthLimit     string            `json:"bandwidth_limit,omitempty"`
+	BandwidthLimitMode string            `json:"bandwidth_limit_mode,omitempty"`
+	Group              string            `json:"group,omitempty"`
+	GroupKey           string            `json:"group_key,omitempty"`
+	Metas              map[string]string `json:"metas,omitempty"`
 
 	// tcp and udp only
 	RemotePort int `json:"remote_port,omitempty"`

@@ -44,9 +44,9 @@ func RandIDWithLen(idLen int) (id string, err error) {
 }
 
 func GetAuthKey(token string, timestamp int64) (key string) {
-	token += fmt.Sprintf("%d", timestamp)
 	md5Ctx := md5.New()
 	md5Ctx.Write([]byte(token))
+	md5Ctx.Write([]byte(strconv.FormatInt(timestamp, 10)))
 	data := md5Ctx.Sum(nil)
 	return hex.EncodeToString(data)
 }

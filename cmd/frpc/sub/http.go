@@ -39,6 +39,8 @@ func init() {
 	httpCmd.PersistentFlags().StringVarP(&hostHeaderRewrite, "host_header_rewrite", "", "", "host header rewrite")
 	httpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	httpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
+	httpCmd.PersistentFlags().StringVarP(&bandwidthLimit, "bandwidth_limit", "", "", "bandwidth limit")
+	httpCmd.PersistentFlags().StringVarP(&bandwidthLimitMode, "bandwidth_limit_mode", "", config.BandwidthLimitModeClient, "bandwidth limit mode")
 
 	rootCmd.AddCommand(httpCmd)
 }
@@ -70,6 +72,12 @@ var httpCmd = &cobra.Command{
 		cfg.HostHeaderRewrite = hostHeaderRewrite
 		cfg.UseEncryption = useEncryption
 		cfg.UseCompression = useCompression
+		cfg.BandwidthLimit, err = config.NewBandwidthQuantity(bandwidthLimit)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		cfg.BandwidthLimitMode = bandwidthLimitMode
 
 		err = cfg.CheckForCli()
 		if err != nil {

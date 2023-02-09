@@ -17,10 +17,6 @@
 
 <!--gold sponsors end-->
 
-<h3 align="center">Silver Sponsors</h3>
-
-* Sakura Frp - 欢迎点击 "加入我们"
-
 ## What is frp?
 
 frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the Internet. As of now, it supports **TCP** and **UDP**, as well as **HTTP** and **HTTPS** protocols, where requests can be forwarded to internal services by domain name.
@@ -143,7 +139,7 @@ Note that `local_port` (listened on client) and `remote_port` (exposed on server
 
   `./frpc -c ./frpc.ini`
 
-5. From another machine, SSH to server B like this (assuming that username is `test`):
+5. From another machine, SSH to server B via server A  like this (assuming that username is `test`):
 
   `ssh -oPort=6000 test@x.x.x.x`
 
@@ -717,9 +713,12 @@ type = tcp
 local_port = 22
 remote_port = 6000
 bandwidth_limit = 1MB
+bandwidth_limit_mode = client
 ```
 
 Set `bandwidth_limit` in each proxy's configure to enable this feature. Supported units are `MB` and `KB`.
+
+Set `bandwidth_limit_mode` to `client` or `server` to limit bandwidth on the client or server side. Default is `client`.
 
 ### TCP Stream Multiplexing
 
