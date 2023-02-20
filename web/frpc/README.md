@@ -1,4 +1,4 @@
-# frps-dashboard
+# frpc-dashboard
 
 ## Project Setup
 
