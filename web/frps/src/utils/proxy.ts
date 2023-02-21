@@ -9,6 +9,7 @@ class BaseProxy {
   last_start_time: string
   last_close_time: string
   status: string
+  client_version: string
   addr: string
   port: number
 
@@ -33,6 +34,7 @@ class BaseProxy {
     this.last_start_time = proxyStats.last_start_time
     this.last_close_time = proxyStats.last_close_time
     this.status = proxyStats.status
+    this.client_version = proxyStats.client_version
 
     this.addr = ''
     this.port = 0

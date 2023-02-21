@@ -5,7 +5,7 @@
         <div class="source">
           <el-form
             label-position="left"
-            label-width="160px"
+            label-width="220px"
             class="server_info"
           >
             <el-form-item label="Version">
@@ -14,23 +14,47 @@
             <el-form-item label="BindPort">
               <span>{{ data.bind_port }}</span>
             </el-form-item>
-            <el-form-item label="BindUdpPort">
+            <el-form-item label="Bind UDP Port" v-if="data.bind_udp_port != 0">
               <span>{{ data.bind_udp_port }}</span>
             </el-form-item>
-            <el-form-item label="Http Port">
+            <el-form-item label="KCP Bind Port" v-if="data.kcp_bind_port != 0">
+              <span>{{ data.kcp_bind_port }}</span>
+            </el-form-item>
+            <el-form-item
+              label="QUIC Bind Port"
+              v-if="data.quic_bind_port != 0"
+            >
+              <span>{{ data.quic_bind_port }}</span>
+            </el-form-item>
+            <el-form-item label="Http Port" v-if="data.vhost_http_port != 0">
               <span>{{ data.vhost_http_port }}</span>
             </el-form-item>
-            <el-form-item label="Https Port">
+            <el-form-item label="Https Port" v-if="data.vhost_https_port != 0">
               <span>{{ data.vhost_https_port }}</span>
             </el-form-item>
-            <el-form-item label="Subdomain Host">
-              <span>{{ data.subdomain_host }}</span>
+            <el-form-item
+              label="TCPMux HTTPConnect Port"
+              v-if="data.tcpmux_httpconnect_port != 0"
+            >
+              <span>{{ data.tcpmux_httpconnect_port }}</span>
+            </el-form-item>
+            <el-form-item
+              label="Subdomain Host"
+              v-if="data.subdomain_host != ''"
+            >
+              <LongSpan :content="data.subdomain_host" :length="30"></LongSpan>
             </el-form-item>
             <el-form-item label="Max PoolCount">
               <span>{{ data.max_pool_count }}</span>
             </el-form-item>
             <el-form-item label="Max Ports Per Client">
               <span>{{ data.max_ports_per_client }}</span>
+            </el-form-item>
+            <el-form-item label="Allow Ports" v-if="data.allow_ports_str != ''">
+              <LongSpan :content="data.allow_ports_str" :length="30"></LongSpan>
+            </el-form-item>
+            <el-form-item label="TLS Only" v-if="data.tls_only === true">
+              <span>{{ data.tls_only }}</span>
             </el-form-item>
             <el-form-item label="HeartBeat Timeout">
               <span>{{ data.heart_beat_timeout }}</span>
@@ -62,19 +86,25 @@
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { DrawTrafficChart, DrawProxyChart } from '../utils/chart'
+import LongSpan from './LongSpan.vue'
 
 let data = ref({
   version: '',
-  bind_port: '',
-  bind_udp_port: '',
-  vhost_http_port: '',
-  vhost_https_port: '',
+  bind_port: 0,
+  bind_udp_port: 0,
+  kcp_bind_port: 0,
+  quic_bind_port: 0,
+  vhost_http_port: 0,
+  vhost_https_port: 0,
+  tcpmux_httpconnect_port: 0,
   subdomain_host: '',
-  max_pool_count: '',
+  max_pool_count: 0,
   max_ports_per_client: '',
-  heart_beat_timeout: '',
-  client_counts: '',
-  cur_conns: '',
+  allow_ports_str: '',
+  tls_only: false,
+  heart_beat_timeout: 0,
+  client_counts: 0,
+  cur_conns: 0,
   proxy_counts: 0,
 })
 
@@ -85,23 +115,19 @@ const fetchData = () => {
       data.value.version = json.version
       data.value.bind_port = json.bind_port
       data.value.bind_udp_port = json.bind_udp_port
-      if (data.value.bind_udp_port == '0') {
-        data.value.bind_udp_port = 'disable'
-      }
+      data.value.kcp_bind_port = json.kcp_bind_port
+      data.value.quic_bind_port = json.quic_bind_port
       data.value.vhost_http_port = json.vhost_http_port
-      if (data.value.vhost_http_port == '0') {
-        data.value.vhost_http_port = 'disable'
-      }
       data.value.vhost_https_port = json.vhost_https_port
-      if (data.value.vhost_https_port == '0') {
-        data.value.vhost_https_port = 'disable'
-      }
+      data.value.tcpmux_httpconnect_port = json.tcpmux_httpconnect_port
       data.value.subdomain_host = json.subdomain_host
       data.value.max_pool_count = json.max_pool_count
       data.value.max_ports_per_client = json.max_ports_per_client
       if (data.value.max_ports_per_client == '0') {
         data.value.max_ports_per_client = 'no limit'
       }
+      data.value.allow_ports_str = json.allow_ports_str
+      data.value.tls_only = json.tls_only
       data.value.heart_beat_timeout = json.heart_beat_timeout
       data.value.client_counts = json.client_counts
       data.value.cur_conns = json.cur_conns

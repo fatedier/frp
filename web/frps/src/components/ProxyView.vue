@@ -50,7 +50,9 @@
         sortable
       >
       </el-table-column>
-      <el-table-column label="status" prop="status" sortable>
+      <el-table-column label="ClientVersion" prop="client_version" sortable>
+      </el-table-column>
+      <el-table-column label="Status" prop="status" sortable>
         <template #default="scope">
           <el-tag v-if="scope.row.status === 'online'" type="success">{{
             scope.row.status

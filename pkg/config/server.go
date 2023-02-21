@@ -154,6 +154,8 @@ type ServerCommonConf struct {
 	// If the length of this value is 0, all ports are allowed. By default,
 	// this value is an empty set.
 	AllowPorts map[int]struct{} `ini:"-" json:"-"`
+	// Original string.
+	AllowPortsStr string `ini:"-" json:"-"`
 	// MaxPoolCount specifies the maximum pool size for each proxy. By default,
 	// this value is 5.
 	MaxPoolCount int64 `ini:"max_pool_count" json:"max_pool_count"`
@@ -259,6 +261,7 @@ func UnmarshalServerConfFromIni(source interface{}) (ServerCommonConf, error) {
 		for _, port := range allowPorts {
 			common.AllowPorts[int(port)] = struct{}{}
 		}
+		common.AllowPortsStr = allowPortStr
 	}
 
 	// plugin.xxx
