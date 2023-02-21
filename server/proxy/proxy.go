@@ -48,6 +48,7 @@ type Proxy interface {
 	GetResourceController() *controller.ResourceController
 	GetUserInfo() plugin.UserInfo
 	GetLimiter() *rate.Limiter
+	GetLoginMsg() *msg.Login
 	Close()
 }
 
@@ -61,6 +62,7 @@ type BaseProxy struct {
 	serverCfg     config.ServerCommonConf
 	limiter       *rate.Limiter
 	userInfo      plugin.UserInfo
+	loginMsg      *msg.Login
 
 	mu  sync.RWMutex
 	xl  *xlog.Logger
@@ -85,6 +87,10 @@ func (pxy *BaseProxy) GetResourceController() *controller.ResourceController {
 
 func (pxy *BaseProxy) GetUserInfo() plugin.UserInfo {
 	return pxy.userInfo
+}
+
+func (pxy *BaseProxy) GetLoginMsg() *msg.Login {
+	return pxy.loginMsg
 }
 
 func (pxy *BaseProxy) Close() {
@@ -188,7 +194,7 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, 
 }
 
 func NewProxy(ctx context.Context, userInfo plugin.UserInfo, rc *controller.ResourceController, poolCount int,
-	getWorkConnFn GetWorkConnFn, pxyConf config.ProxyConf, serverCfg config.ServerCommonConf,
+	getWorkConnFn GetWorkConnFn, pxyConf config.ProxyConf, serverCfg config.ServerCommonConf, loginMsg *msg.Login,
 ) (pxy Proxy, err error) {
 	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(pxyConf.GetBaseInfo().ProxyName)
 
@@ -209,6 +215,7 @@ func NewProxy(ctx context.Context, userInfo plugin.UserInfo, rc *controller.Reso
 		xl:            xl,
 		ctx:           xlog.NewContext(ctx, xl),
 		userInfo:      userInfo,
+		loginMsg:      loginMsg,
 	}
 	switch cfg := pxyConf.(type) {
 	case *config.TCPProxyConf:

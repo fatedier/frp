@@ -19,6 +19,8 @@ declare module '@vue/runtime-core' {
     ElTable: typeof import('element-plus/es')['ElTable']
     ElTableColumn: typeof import('element-plus/es')['ElTableColumn']
     ElTag: typeof import('element-plus/es')['ElTag']
+    ElTooltip: typeof import('element-plus/es')['ElTooltip']
+    LongSpan: typeof import('./src/components/LongSpan.vue')['default']
     ProxiesHTTP: typeof import('./src/components/ProxiesHTTP.vue')['default']
     ProxiesHTTPS: typeof import('./src/components/ProxiesHTTPS.vue')['default']
     ProxiesSTCP: typeof import('./src/components/ProxiesSTCP.vue')['default']
