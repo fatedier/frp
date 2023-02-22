@@ -173,10 +173,10 @@ fetchData()
 
 <style>
 .source {
-  border: 1px solid #eaeefb;
   border-radius: 4px;
   transition: 0.2s;
-  padding: 24px;
+  padding-left: 24px;
+  padding-right: 24px;
 }
 
 .server_info {
