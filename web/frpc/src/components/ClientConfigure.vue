@@ -14,85 +14,85 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
-let textarea = ref("");
+let textarea = ref('')
 
 const fetchData = () => {
-  fetch("/api/config", { credentials: "include" })
+  fetch('/api/config', { credentials: 'include' })
     .then((res) => {
-      return res.text();
+      return res.text()
     })
     .then((text) => {
-      textarea.value = text;
+      textarea.value = text
     })
     .catch(() => {
       ElMessage({
         showClose: true,
-        message: "Get configure content from frpc failed!",
-        type: "warning",
-      });
-    });
-};
+        message: 'Get configure content from frpc failed!',
+        type: 'warning',
+      })
+    })
+}
 
 const uploadConfig = () => {
   ElMessageBox.confirm(
-    "This operation will upload your frpc configure file content and hot reload it, do you want to continue?",
-    "Notice",
+    'This operation will upload your frpc configure file content and hot reload it, do you want to continue?',
+    'Notice',
     {
-      confirmButtonText: "Yes",
-      cancelButtonText: "No",
-      type: "warning",
+      confirmButtonText: 'Yes',
+      cancelButtonText: 'No',
+      type: 'warning',
     }
   )
     .then(() => {
-      if (textarea.value == "") {
+      if (textarea.value == '') {
         ElMessage({
-          message: "Configure content can not be empty!",
-          type: "warning",
-        });
-        return;
+          message: 'Configure content can not be empty!',
+          type: 'warning',
+        })
+        return
       }
 
-      fetch("/api/config", {
-        credentials: "include",
-        method: "PUT",
+      fetch('/api/config', {
+        credentials: 'include',
+        method: 'PUT',
         body: textarea.value,
       })
         .then(() => {
-          fetch("/api/reload", { credentials: "include" })
+          fetch('/api/reload', { credentials: 'include' })
             .then(() => {
               ElMessage({
-                type: "success",
-                message: "Success",
-              });
+                type: 'success',
+                message: 'Success',
+              })
             })
             .catch((err) => {
               ElMessage({
                 showClose: true,
-                message: "Reload frpc configure file error, " + err,
-                type: "warning",
-              });
-            });
+                message: 'Reload frpc configure file error, ' + err,
+                type: 'warning',
+              })
+            })
         })
         .catch(() => {
           ElMessage({
             showClose: true,
-            message: "Put config to frpc and hot reload failed!",
-            type: "warning",
-          });
-        });
+            message: 'Put config to frpc and hot reload failed!',
+            type: 'warning',
+          })
+        })
     })
     .catch(() => {
       ElMessage({
-        message: "Canceled",
-        type: "info",
-      });
-    });
-};
+        message: 'Canceled',
+        type: 'info',
+      })
+    })
+}
 
-fetchData();
+fetchData()
 </script>
 
 <style>
