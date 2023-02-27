@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/websocket"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/test/e2e/framework"
