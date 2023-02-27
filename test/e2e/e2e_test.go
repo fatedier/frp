@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	_ "github.com/onsi/ginkgo"
+	_ "github.com/onsi/ginkgo/v2"
 
 	"github.com/fatedier/frp/pkg/util/log"
 	// test source
