@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 )
 
@@ -21,6 +22,9 @@ func ReadBytes(r io.Reader) ([]byte, error) {
 	var length int64
 	if err := binary.Read(r, binary.BigEndian, &length); err != nil {
 		return nil, err
+	}
+	if length < 0 || length > 10*1024*1024 {
+		return nil, fmt.Errorf("invalid length")
 	}
 	buffer := make([]byte, length)
 	n, err := io.ReadFull(r, buffer)

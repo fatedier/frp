@@ -28,7 +28,10 @@ type HTTPSMuxer struct {
 }
 
 func NewHTTPSMuxer(listener net.Listener, timeout time.Duration) (*HTTPSMuxer, error) {
-	mux, err := NewMuxer(listener, GetHTTPSHostname, nil, nil, nil, timeout)
+	mux, err := NewMuxer(listener, GetHTTPSHostname, timeout)
+	if err != nil {
+		return nil, err
+	}
 	return &HTTPSMuxer{mux}, err
 }
 

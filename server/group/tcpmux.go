@@ -81,6 +81,8 @@ type TCPMuxGroup struct {
 	groupKey        string
 	domain          string
 	routeByHTTPUser string
+	username        string
+	password        string
 
 	acceptCh chan net.Conn
 	tcpMuxLn net.Listener
@@ -120,6 +122,8 @@ func (tmg *TCPMuxGroup) HTTPConnectListen(
 		tmg.groupKey = groupKey
 		tmg.domain = routeConfig.Domain
 		tmg.routeByHTTPUser = routeConfig.RouteByHTTPUser
+		tmg.username = routeConfig.Username
+		tmg.password = routeConfig.Password
 		tmg.tcpMuxLn = tcpMuxLn
 		tmg.lns = append(tmg.lns, ln)
 		if tmg.acceptCh == nil {
@@ -128,7 +132,10 @@ func (tmg *TCPMuxGroup) HTTPConnectListen(
 		go tmg.worker()
 	} else {
 		// route config in the same group must be equal
-		if tmg.group != group || tmg.domain != routeConfig.Domain || tmg.routeByHTTPUser != routeConfig.RouteByHTTPUser {
+		if tmg.group != group || tmg.domain != routeConfig.Domain ||
+			tmg.routeByHTTPUser != routeConfig.RouteByHTTPUser ||
+			tmg.username != routeConfig.Username ||
+			tmg.password != routeConfig.Password {
 			return nil, ErrGroupParamsInvalid
 		}
 		if tmg.groupKey != groupKey {
