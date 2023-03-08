@@ -1,8 +1,8 @@
 ### New
 
-* Added config `bandwidth_limit_mode` in frpc, default value is `client` which is current behavior. Optional value is `server`, to enable bandwidth limit in server. The major aim is to let server plugin has the ability to modify bandwidth limit for each proxy.
+* The `httpconnect` type in `tcpmux` now supports authentication through the parameters `http_user` and `http_pwd`.
 
-### Improve
+### Improved
 
-* `dns_server` supports ipv6.
-* frpc supports graceful shutdown for protocol `quic`.
+* The web framework has been upgraded to vue3 + element-plus, and the dashboard has added some information display and supports dark mode.
+* The e2e testing has been switched to ginkgo v2.
