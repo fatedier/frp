@@ -81,67 +81,27 @@ func status(clientCfg config.ClientCommonConf) error {
 	if err != nil {
 		return err
 	}
-	res := &client.StatusResp{}
+	res := make(client.StatusResp)
 	err = json.Unmarshal(body, &res)
 	if err != nil {
 		return fmt.Errorf("unmarshal http response error: %s", strings.TrimSpace(string(body)))
 	}
 
 	fmt.Println("Proxy Status...")
-	if len(res.TCP) > 0 {
-		fmt.Println("TCP")
-		tbl := table.New("Name", "Status", "LocalAddr", "Plugin", "RemoteAddr", "Error")
-		for _, ps := range res.TCP {
-			tbl.AddRow(ps.Name, ps.Status, ps.LocalAddr, ps.Plugin, ps.RemoteAddr, ps.Err)
+	types := []string{"tcp", "udp", "tcpmux", "http", "https", "stcp", "sudp", "xtcp"}
+	for _, pxyType := range types {
+		arrs := res[pxyType]
+		if len(arrs) == 0 {
+			continue
 		}
-		tbl.Print()
-		fmt.Println("")
-	}
-	if len(res.UDP) > 0 {
-		fmt.Println("UDP")
-		tbl := table.New("Name", "Status", "LocalAddr", "Plugin", "RemoteAddr", "Error")
-		for _, ps := range res.UDP {
-			tbl.AddRow(ps.Name, ps.Status, ps.LocalAddr, ps.Plugin, ps.RemoteAddr, ps.Err)
-		}
-		tbl.Print()
-		fmt.Println("")
-	}
-	if len(res.HTTP) > 0 {
-		fmt.Println("HTTP")
-		tbl := table.New("Name", "Status", "LocalAddr", "Plugin", "RemoteAddr", "Error")
-		for _, ps := range res.HTTP {
-			tbl.AddRow(ps.Name, ps.Status, ps.LocalAddr, ps.Plugin, ps.RemoteAddr, ps.Err)
-		}
-		tbl.Print()
-		fmt.Println("")
-	}
-	if len(res.HTTPS) > 0 {
-		fmt.Println("HTTPS")
-		tbl := table.New("Name", "Status", "LocalAddr", "Plugin", "RemoteAddr", "Error")
-		for _, ps := range res.HTTPS {
-			tbl.AddRow(ps.Name, ps.Status, ps.LocalAddr, ps.Plugin, ps.RemoteAddr, ps.Err)
-		}
-		tbl.Print()
-		fmt.Println("")
-	}
-	if len(res.STCP) > 0 {
-		fmt.Println("STCP")
-		tbl := table.New("Name", "Status", "LocalAddr", "Plugin", "RemoteAddr", "Error")
-		for _, ps := range res.STCP {
-			tbl.AddRow(ps.Name, ps.Status, ps.LocalAddr, ps.Plugin, ps.RemoteAddr, ps.Err)
-		}
-		tbl.Print()
-		fmt.Println("")
-	}
-	if len(res.XTCP) > 0 {
-		fmt.Println("XTCP")
-		tbl := table.New("Name", "Status", "LocalAddr", "Plugin", "RemoteAddr", "Error")
-		for _, ps := range res.XTCP {
-			tbl.AddRow(ps.Name, ps.Status, ps.LocalAddr, ps.Plugin, ps.RemoteAddr, ps.Err)
-		}
-		tbl.Print()
-		fmt.Println("")
-	}
 
+		fmt.Println(strings.ToUpper(pxyType))
+		tbl := table.New("Name", "Status", "LocalAddr", "Plugin", "RemoteAddr", "Error")
+		for _, ps := range arrs {
+			tbl.AddRow(ps.Name, ps.Status, ps.LocalAddr, ps.Plugin, ps.RemoteAddr, ps.Err)
+		}
+		tbl.Print()
+		fmt.Println("")
+	}
 	return nil
 }

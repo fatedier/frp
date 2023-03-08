@@ -145,7 +145,10 @@ func (r *Request) Do() (*Response, error) {
 		err  error
 	)
 
-	addr := net.JoinHostPort(r.addr, strconv.Itoa(r.port))
+	addr := r.addr
+	if r.port > 0 {
+		addr = net.JoinHostPort(r.addr, strconv.Itoa(r.port))
+	}
 	// for protocol http and https
 	if r.protocol == "http" || r.protocol == "https" {
 		return r.sendHTTPRequest(r.method, fmt.Sprintf("%s://%s%s", r.protocol, addr, r.path),

@@ -38,7 +38,7 @@ func (f *Framework) RunProcesses(serverTemplates []string, clientTemplates []str
 		err = p.Start()
 		ExpectNoError(err)
 	}
-	time.Sleep(time.Second)
+	time.Sleep(2 * time.Second)
 
 	currentClientProcesses := make([]*process.Process, 0, len(clientTemplates))
 	for i := range clientTemplates {
@@ -56,7 +56,7 @@ func (f *Framework) RunProcesses(serverTemplates []string, clientTemplates []str
 		ExpectNoError(err)
 		time.Sleep(500 * time.Millisecond)
 	}
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	return currentServerProcesses, currentClientProcesses
 }

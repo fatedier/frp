@@ -9,8 +9,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
+	"github.com/onsi/ginkgo/v2"
 
 	"github.com/fatedier/frp/test/e2e/mock/server"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
@@ -63,9 +62,10 @@ type Framework struct {
 }
 
 func NewDefaultFramework() *Framework {
+	suiteConfig, _ := ginkgo.GinkgoConfiguration()
 	options := Options{
-		TotalParallelNode: config.GinkgoConfig.ParallelTotal,
-		CurrentNodeIndex:  config.GinkgoConfig.ParallelNode,
+		TotalParallelNode: suiteConfig.ParallelTotal,
+		CurrentNodeIndex:  suiteConfig.ParallelProcess,
 		FromPortIndex:     20000,
 		ToPortIndex:       50000,
 	}

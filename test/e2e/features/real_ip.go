@@ -6,7 +6,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	pp "github.com/pires/go-proxyproto"
 
 	"github.com/fatedier/frp/pkg/util/log"

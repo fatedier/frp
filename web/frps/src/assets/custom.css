@@ -1,0 +1,22 @@
+.el-form-item span {
+  margin-left: 15px;
+}
+
+.proxy-table-expand {
+  font-size: 0;
+}
+
+.proxy-table-expand .el-form-item__label{
+  width: 90px;
+  color: #99a9bf;
+}
+
+.proxy-table-expand .el-form-item {
+  margin-right: 0;
+  margin-bottom: 0;
+  width: 50%;
+}
+
+.el-table .el-table__expanded-cell {
+  padding: 20px 50px;
+}

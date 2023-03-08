@@ -187,6 +187,8 @@ type TCPProxyConf struct {
 type TCPMuxProxyConf struct {
 	BaseProxyConf   `ini:",extends"`
 	DomainConf      `ini:",extends"`
+	HTTPUser        string `ini:"http_user" json:"http_user,omitempty"`
+	HTTPPwd         string `ini:"http_pwd" json:"http_pwd,omitempty"`
 	RouteByHTTPUser string `ini:"route_by_http_user" json:"route_by_http_user"`
 
 	Multiplexer string `ini:"multiplexer"`
@@ -607,7 +609,10 @@ func (cfg *TCPMuxProxyConf) Compare(cmp ProxyConf) bool {
 		return false
 	}
 
-	if cfg.Multiplexer != cmpConf.Multiplexer || cfg.RouteByHTTPUser != cmpConf.RouteByHTTPUser {
+	if cfg.Multiplexer != cmpConf.Multiplexer ||
+		cfg.HTTPUser != cmpConf.HTTPUser ||
+		cfg.HTTPPwd != cmpConf.HTTPPwd ||
+		cfg.RouteByHTTPUser != cmpConf.RouteByHTTPUser {
 		return false
 	}
 
@@ -632,6 +637,8 @@ func (cfg *TCPMuxProxyConf) UnmarshalFromMsg(pMsg *msg.NewProxy) {
 	cfg.CustomDomains = pMsg.CustomDomains
 	cfg.SubDomain = pMsg.SubDomain
 	cfg.Multiplexer = pMsg.Multiplexer
+	cfg.HTTPUser = pMsg.HTTPUser
+	cfg.HTTPPwd = pMsg.HTTPPwd
 	cfg.RouteByHTTPUser = pMsg.RouteByHTTPUser
 }
 
@@ -642,6 +649,8 @@ func (cfg *TCPMuxProxyConf) MarshalToMsg(pMsg *msg.NewProxy) {
 	pMsg.CustomDomains = cfg.CustomDomains
 	pMsg.SubDomain = cfg.SubDomain
 	pMsg.Multiplexer = cfg.Multiplexer
+	pMsg.HTTPUser = cfg.HTTPUser
+	pMsg.HTTPPwd = cfg.HTTPPwd
 	pMsg.RouteByHTTPUser = cfg.RouteByHTTPUser
 }
 
