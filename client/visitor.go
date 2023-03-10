@@ -210,8 +210,12 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		return
 	}
 
+	serverAddr := sv.ctl.clientCfg.NatHoleServerAddr
+	if serverAddr == "" {
+		serverAddr = sv.ctl.clientCfg.ServerAddr
+	}
 	raddr, err := net.ResolveUDPAddr("udp",
-		net.JoinHostPort(sv.ctl.clientCfg.ServerAddr, strconv.Itoa(sv.ctl.serverUDPPort)))
+		net.JoinHostPort(serverAddr, strconv.Itoa(sv.ctl.serverUDPPort)))
 	if err != nil {
 		xl.Error("resolve server UDP addr error")
 		return

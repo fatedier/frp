@@ -305,8 +305,12 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 		ProxyName: pxy.cfg.ProxyName,
 		Sid:       natHoleSidMsg.Sid,
 	}
+	serverAddr := pxy.clientCfg.NatHoleServerAddr
+	if serverAddr == "" {
+		serverAddr = pxy.clientCfg.ServerAddr
+	}
 	raddr, _ := net.ResolveUDPAddr("udp",
-		net.JoinHostPort(pxy.clientCfg.ServerAddr, strconv.Itoa(pxy.serverUDPPort)))
+		net.JoinHostPort(serverAddr, strconv.Itoa(pxy.serverUDPPort)))
 	clientConn, err := net.DialUDP("udp", nil, raddr)
 	if err != nil {
 		xl.Error("dial server udp addr error: %v", err)
