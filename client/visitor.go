@@ -339,8 +339,11 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		muxConnRWCloser = frpIo.WithCompression(muxConnRWCloser)
 	}
 
-	frpIo.Join(userConn, muxConnRWCloser)
+	_, _, errs := frpIo.Join(userConn, muxConnRWCloser)
 	xl.Debug("join connections closed")
+	if len(errs) > 0 {
+		xl.Trace("join connections errors: %v", errs)
+	}
 }
 
 type SUDPVisitor struct {
