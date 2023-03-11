@@ -819,6 +819,9 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 		}
 	}
 
-	frpIo.Join(localConn, remote)
+	_, _, errs := frpIo.Join(localConn, remote)
 	xl.Debug("join connections closed")
+	if len(errs) > 0 {
+		xl.Trace("join connections errors: %v", errs)
+	}
 }
