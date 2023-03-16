@@ -38,6 +38,7 @@ var (
 	showVersion bool
 
 	bindAddr             string
+	allowIps             []string
 	bindPort             int
 	bindUDPPort          int
 	kcpBindPort          int
@@ -69,6 +70,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frps")
 
 	rootCmd.PersistentFlags().StringVarP(&bindAddr, "bind_addr", "", "0.0.0.0", "bind address")
+	rootCmd.PersistentFlags().StringArrayVarP(&allowIps, "allow_ip", "", nil, "ip whitelists")
 	rootCmd.PersistentFlags().IntVarP(&bindPort, "bind_port", "p", 7000, "bind port")
 	rootCmd.PersistentFlags().IntVarP(&bindUDPPort, "bind_udp_port", "", 0, "bind udp port")
 	rootCmd.PersistentFlags().IntVarP(&kcpBindPort, "kcp_bind_port", "", 0, "kcp bind udp port")
@@ -159,6 +161,7 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 
 	cfg.BindAddr = bindAddr
 	cfg.BindPort = bindPort
+	cfg.AllowIps = allowIps
 	cfg.BindUDPPort = bindUDPPort
 	cfg.KCPBindPort = kcpBindPort
 	cfg.ProxyBindAddr = proxyBindAddr

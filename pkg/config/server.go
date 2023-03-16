@@ -50,6 +50,10 @@ type ServerCommonConf struct {
 	// Set this value to 0 will disable this feature.
 	// By default, the value is 0.
 	QUICBindPort int `ini:"quic_bind_port" json:"quic_bind_port" validate:"gte=0,lte=65535"`
+
+	// AllowIps specifies the IP whitelists to limit clients.
+	AllowIps []string `ini:"allow_ips" json:"allow_ips"`
+
 	// QUIC protocol options
 	QUICKeepalivePeriod    int `ini:"quic_keepalive_period" json:"quic_keepalive_period" validate:"gte=0"`
 	QUICMaxIdleTimeout     int `ini:"quic_max_idle_timeout" json:"quic_max_idle_timeout" validate:"gte=0"`

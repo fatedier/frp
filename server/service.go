@@ -431,8 +431,22 @@ func (svr *Service) HandleListener(l net.Listener) {
 		}
 		log.Trace("check TLS connection success, isTLS: %v custom: %v", isTLS, custom)
 
+		allowIps := make(map[string]bool, len(svr.cfg.AllowIps))
+		for _, allowIP := range svr.cfg.AllowIps {
+			allowIps[allowIP] = true
+		}
 		// Start a new goroutine to handle connection.
 		go func(ctx context.Context, frpConn net.Conn) {
+			if len(allowIps) > 0 {
+				if addr, ok := frpConn.RemoteAddr().(*net.TCPAddr); ok {
+					if remoteIP := addr.IP.String(); !allowIps[remoteIP] {
+						log.Warn("Connection from %s is not allowed", remoteIP)
+						frpConn.Close()
+						return
+					}
+				}
+			}
+
 			if svr.cfg.TCPMux {
 				fmuxCfg := fmux.DefaultConfig()
 				fmuxCfg.KeepAliveInterval = time.Duration(svr.cfg.TCPMuxKeepaliveInterval) * time.Second
