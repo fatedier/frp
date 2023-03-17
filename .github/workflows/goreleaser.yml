@@ -1,6 +1,9 @@
 name: goreleaser
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -25,6 +28,6 @@ jobs:
         uses: goreleaser/goreleaser-action@v3
         with:
           version: latest
-          args: release --rm-dist --release-notes=./Release.md
+          args: release --clean --release-notes=./Release.md
         env:
           GITHUB_TOKEN: ${{ secrets.GPR_TOKEN }}
