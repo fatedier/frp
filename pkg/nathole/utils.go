@@ -16,8 +16,11 @@ package nathole
 
 import (
 	"bytes"
+	"net"
+	"strconv"
 
 	"github.com/fatedier/golib/crypto"
+	"github.com/pion/stun"
 
 	"github.com/fatedier/frp/pkg/msg"
 )
@@ -45,4 +48,18 @@ func DecodeMessageInto(data, key []byte, m msg.Message) error {
 		return err
 	}
 	return nil
+}
+
+type ChangedAddress struct {
+	IP   net.IP
+	Port int
+}
+
+func (s *ChangedAddress) GetFrom(m *stun.Message) error {
+	a := (*stun.MappedAddress)(s)
+	return a.GetFromAs(m, stun.AttrChangedAddress)
+}
+
+func (s *ChangedAddress) String() string {
+	return net.JoinHostPort(s.IP.String(), strconv.Itoa(s.Port))
 }
