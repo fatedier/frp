@@ -260,6 +260,7 @@ func Test_LoadClientCommonConf(t *testing.T) {
 		},
 		ServerAddr:              "0.0.0.9",
 		ServerPort:              7009,
+		NatHoleSTUNServer:       "stun.easyvoip.com:3478",
 		DialServerTimeout:       10,
 		DialServerKeepAlive:     7200,
 		HTTPProxy:               "http://user:passwd@192.168.1.128:8080",
