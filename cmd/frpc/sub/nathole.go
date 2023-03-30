@@ -26,11 +26,15 @@ import (
 	"github.com/fatedier/frp/pkg/nathole"
 )
 
+var natHoleSTUNServer string
+
 func init() {
 	RegisterCommonFlags(natholeCmd)
 
 	rootCmd.AddCommand(natholeCmd)
 	natholeCmd.AddCommand(natholeDiscoveryCmd)
+
+	natholeCmd.PersistentFlags().StringVarP(&natHoleSTUNServer, "nat_hole_stun_server", "", "", "STUN server address for nathole")
 }
 
 var natholeCmd = &cobra.Command{
@@ -46,6 +50,9 @@ var natholeDiscoveryCmd = &cobra.Command{
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
+		}
+		if natHoleSTUNServer != "" {
+			cfg.NatHoleSTUNServer = natHoleSTUNServer
 		}
 
 		if err := validateForNatHoleDiscovery(cfg); err != nil {
