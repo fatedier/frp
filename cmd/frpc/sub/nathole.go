@@ -53,13 +53,21 @@ var natholeDiscoveryCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		serverAddr := ""
+		if cfg.ServerUDPPort != 0 {
+			serverAddr = net.JoinHostPort(cfg.ServerAddr, strconv.Itoa(cfg.ServerUDPPort))
+		}
 		addresses, err := nathole.Discover(
-			net.JoinHostPort(cfg.ServerAddr, strconv.Itoa(cfg.ServerUDPPort)),
+			serverAddr,
 			[]string{cfg.NatHoleSTUNServer},
 			[]byte(cfg.Token),
 		)
 		if err != nil {
 			fmt.Println("discover error:", err)
+			os.Exit(1)
+		}
+		if len(addresses) < 2 {
+			fmt.Printf("discover error: can not get enough addresses, need 2, got: %v\n", addresses)
 			os.Exit(1)
 		}
 
@@ -78,9 +86,6 @@ var natholeDiscoveryCmd = &cobra.Command{
 func validateForNatHoleDiscovery(cfg config.ClientCommonConf) error {
 	if cfg.NatHoleSTUNServer == "" {
 		return fmt.Errorf("nat_hole_stun_server can not be empty")
-	}
-	if cfg.ServerUDPPort == 0 {
-		return fmt.Errorf("server udp port can not be empty")
 	}
 	return nil
 }
