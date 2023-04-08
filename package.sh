@@ -15,7 +15,7 @@ rm -rf ./release/packages
 mkdir -p ./release/packages
 
 os_all='linux windows darwin freebsd'
-arch_all='386 amd64 arm arm64 mips64 mips64le mips mipsle riscv64'
+arch_all='386 amd64 arm arm64 mips64 mips64le mips mipsle riscv64 loongarch64'
 
 cd ./release
 
