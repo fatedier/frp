@@ -26,7 +26,10 @@ import (
 	"github.com/fatedier/frp/pkg/nathole"
 )
 
-var natHoleSTUNServer string
+var (
+	natHoleSTUNServer string
+	serverUDPPort     int
+)
 
 func init() {
 	RegisterCommonFlags(natholeCmd)
@@ -34,7 +37,8 @@ func init() {
 	rootCmd.AddCommand(natholeCmd)
 	natholeCmd.AddCommand(natholeDiscoveryCmd)
 
-	natholeCmd.PersistentFlags().StringVarP(&natHoleSTUNServer, "nat_hole_stun_server", "", "", "STUN server address for nathole")
+	natholeCmd.PersistentFlags().StringVarP(&natHoleSTUNServer, "nat_hole_stun_server", "", "stun.easyvoip.com:3478", "STUN server address for nathole")
+	natholeCmd.PersistentFlags().IntVarP(&serverUDPPort, "server_udp_port", "", 0, "UDP port of frps for nathole")
 }
 
 var natholeCmd = &cobra.Command{
@@ -46,13 +50,13 @@ var natholeDiscoveryCmd = &cobra.Command{
 	Use:   "discover",
 	Short: "Discover nathole information by frps and stun server",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, _, _, err := config.ParseClientConfig(cfgFile)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+		// ignore error here, because we can use command line pameters
+		cfg, _, _, _ := config.ParseClientConfig(cfgFile)
 		if natHoleSTUNServer != "" {
 			cfg.NatHoleSTUNServer = natHoleSTUNServer
+		}
+		if serverUDPPort != 0 {
+			cfg.ServerUDPPort = serverUDPPort
 		}
 
 		if err := validateForNatHoleDiscovery(cfg); err != nil {
