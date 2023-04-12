@@ -455,7 +455,12 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 	protocol := cm.cfg.Protocol
 	if protocol == "websocket" {
 		protocol = "tcp"
-		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: frpNet.DialHookWebsocket()}))
+		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{
+			// make sure to do the websocket handshake after the TLS handshake,
+			// to support websocket over TLS.
+			Priority: libdial.WithTLSConfigPriority + 1,
+			Hook:     frpNet.DialHookWebsocket(),
+		}))
 	}
 	if cm.cfg.ConnectServerLocalIP != "" {
 		dialOptions = append(dialOptions, libdial.WithLocalAddr(cm.cfg.ConnectServerLocalIP))
