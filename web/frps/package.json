@@ -13,7 +13,7 @@
   "dependencies": {
     "@types/humanize-plus": "^1.8.0",
     "echarts": "^5.4.1",
-    "element-plus": "^2.2.28",
+    "element-plus": "^2.3.3",
     "humanize-plus": "^1.8.2",
     "vue": "^3.2.45",
     "vue-router": "^4.1.6"
