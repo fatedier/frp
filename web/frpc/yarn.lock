@@ -1136,10 +1136,10 @@ electron-to-chromium@^1.4.284:
   resolved "https://registry.npmjs.org/electron-to-chromium/-/electron-to-chromium-1.4.302.tgz"
   integrity sha512-Uk7C+7aPBryUR1Fwvk9VmipBcN9fVsqBO57jV2ZjTm+IZ6BMNqu7EDVEg2HxCNufk6QcWlFsBkhQyQroB2VWKw==
 
-element-plus@^2.2.28:
-  version "2.2.32"
-  resolved "https://registry.npmjs.org/element-plus/-/element-plus-2.2.32.tgz"
-  integrity sha512-DTJMhYOy6MApbmh6z/95hPTK5WrBiNHGzV4IN+uEkup1WoimQ+Qyt8RxKdTe/X1LWEJ8YgWv/Cl8P4ocrt5z5g==
+element-plus@^2.3.3:
+  version "2.3.3"
+  resolved "https://registry.yarnpkg.com/element-plus/-/element-plus-2.3.3.tgz#33173bbbe84ada40f4d796fe5043c44781198ea4"
+  integrity sha512-Zy61OXrG6b4FF3h29A9ZOUkaEQXjCuFwNa7DlpB3Vo+42Tw5zBbHe5a4BY7i56TVJG5xTbS9UQyA726J91pDqg==
   dependencies:
     "@ctrl/tinycolor" "^3.4.1"
     "@element-plus/icons-vue" "^2.0.6"
@@ -3018,9 +3018,9 @@ vue-tsc@^1.0.12:
     "@volar/vue-language-core" "1.1.4"
     "@volar/vue-typescript" "1.1.4"
 
-vue@^3.2.45:
+vue@^3.2.47:
   version "3.2.47"
-  resolved "https://registry.npmjs.org/vue/-/vue-3.2.47.tgz"
+  resolved "https://registry.yarnpkg.com/vue/-/vue-3.2.47.tgz#3eb736cbc606fc87038dbba6a154707c8a34cff0"
   integrity sha512-60188y/9Dc9WVrAZeUVSDxRQOZ+z+y5nO2ts9jWXSTkMvayiWxCWOWtBQoYjLeccfXkiiPZWAHcV+WTPhkqJHQ==
   dependencies:
     "@vue/compiler-dom" "3.2.47"
