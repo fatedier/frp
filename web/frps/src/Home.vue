@@ -86,7 +86,11 @@ const fetchData = () => {
       return res.json()
     })
     .then((json) => {
-      for (let proxy of json.proxies) {
+      const result = json.proxies.sort(
+        (a: any, b: any) =>
+          parseInt(a.conf.remote_port) - parseInt(b.conf.remote_port)
+      )
+      for (let proxy of result) {
         if (proxy != null && proxy.conf.group != '')
           proxies.value.push(new Item(proxy, `${protocal}//${host}`))
       }
