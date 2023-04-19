@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import Home from '../Home.vue'
 import ServerOverview from '../components/ServerOverview.vue'
 import ProxiesTCP from '../components/ProxiesTCP.vue'
 import ProxiesUDP from '../components/ProxiesUDP.vue'
@@ -12,6 +13,11 @@ const router = createRouter({
   routes: [
     {
       path: '/',
+      name: 'Home',
+      component: Home,
+    },
+    {
+      path: '/overview',
       name: 'ServerOverview',
       component: ServerOverview,
     },

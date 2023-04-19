@@ -6,6 +6,23 @@
 
 [README](README.md) | [中文文档](README_zh.md)
 
+> This version adds a navigation page that automatically reads TCP proxy on the basis of the original Dashboard. The page uses the rarely used empty attributes `group_key` and `group` to pass the direct connection address and navigation image. For non-HTTP links, this content does not need to be configured (such as SSH), in which case the navigation page will ignore the proxy item. The navigation icon can be configured using the group field and can be in BASE64 format or a linkable URL. Here is an example configuration:
+
+```
+[Nextcloud]
+type = tcp
+local_ip = 127.0.0.1
+local_port = 3000
+remote_port = 6000
+group = data:image/svg+xml;base64,PHN2ZyB0PSIxNjgxOTA4ODAyODYxIiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjEyMDgiIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cGF0aCBkPSJNMTAyLjQgMTAyLjRtMzA3LjIgMGwyMDQuOCAwcTMwNy4yIDAgMzA3LjIgMzA3LjJsMCAyMDQuOHEwIDMwNy4yLTMwNy4yIDMwNy4ybC0yMDQuOCAwcS0zMDcuMiAwLTMwNy4yLTMwNy4ybDAtMjA0LjhxMC0zMDcuMiAzMDcuMi0zMDcuMloiIGZpbGw9IiM1MENDQ0MiIHAtaWQ9IjEyMDkiPjwvcGF0aD48cGF0aCBkPSJNNTEzLjcwNDk2IDMwNy4yQzU4OS4xMTIzMiAzMDcuMiA2NTAuMjQgMzY4LjMzMjggNjUwLjI0IDQ0My43MzUwNGM3NS40MDczNiAwIDEzNi41MzUwNCA2MS4xMjc2OCAxMzYuNTM1MDQgMTM2LjUyOTkyIDAgNzUuNDA3MzYtNjEuMTMyOCAxMzYuNTM1MDQtMTM2LjUzNTA0IDEzNi41MzUwNEgzNzcuMTc1MDRDMzAxLjc2NzY4IDcxNi44IDI0MC42NCA2NTUuNjY3MiAyNDAuNjQgNTgwLjI2NDk2YzAtNzUuNDAyMjQgNjEuMTMyOC0xMzYuNTI5OTIgMTM2LjUzNTA0LTEzNi41Mjk5MmwwLjAxNTM2LTIuMjU3OTJDMzc4LjM5ODcyIDM2Ny4xMDQgNDM5LjA1NTM2IDMwNy4yIDUxMy43MDQ5NiAzMDcuMnoiIGZpbGw9IiNGRkZGRkYiIGZpbGwtb3BhY2l0eT0iLjgiIHAtaWQ9IjEyMTAiPjwvcGF0aD48L3N2Zz4=
+group_key = https://nextcloud.domain.com
+
+```
+
+And it looks like:
+
+![image](https://raw.githubusercontent.com/synebula/frp-with-navigation-page/dev/doc/pic/navigation.png)
+
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
 <p align="center">
