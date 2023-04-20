@@ -7,7 +7,7 @@ COPY ./web/frps/package.json .
 RUN npm install --no-audit --progress=false --prefer-offline
 
 COPY ./web/frps/ .
-RUN npm install && npm build
+RUN npm install && npm run build
 
 # step 2: build frps
 FROM golang:1.20 AS building
