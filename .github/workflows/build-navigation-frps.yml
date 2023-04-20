@@ -41,5 +41,4 @@ jobs:
           platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x
           push: true
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/frps:latest
             ${{ secrets.DOCKER_USERNAME }}/frps:${{ env.TAG_NAME }}
