@@ -1,0 +1,6 @@
+.git
+.github
+.circleci
+release
+bin
+**/node_modules
