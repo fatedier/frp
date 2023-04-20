@@ -35,9 +35,17 @@ type ClientCommonConf struct {
 	// ServerAddr specifies the address of the server to connect to. By
 	// default, this value is "0.0.0.0".
 	ServerAddr string `ini:"server_addr" json:"server_addr"`
+	// Specify another address of the server to connect for nat hole. By default, it's same with
+	// ServerAddr.
+	NatHoleServerAddr string `ini:"nat_hole_server_addr" json:"nat_hole_server_addr"`
 	// ServerPort specifies the port to connect to the server on. By default,
 	// this value is 7000.
 	ServerPort int `ini:"server_port" json:"server_port"`
+	// ServerUDPPort specifies the server port to help penetrate NAT hole. By default, this value is 0.
+	// This parameter is only used when executing "nathole discover" in the command line.
+	ServerUDPPort int `ini:"server_udp_port" json:"server_udp_port"`
+	// STUN server to help penetrate NAT hole.
+	NatHoleSTUNServer string `ini:"nat_hole_stun_server" json:"nat_hole_stun_server"`
 	// The maximum amount of time a dial to server will wait for a connect to complete.
 	DialServerTimeout int64 `ini:"dial_server_timeout" json:"dial_server_timeout"`
 	// DialServerKeepAlive specifies the interval between keep-alive probes for an active network connection between frpc and frps.
@@ -169,6 +177,7 @@ func GetDefaultClientConf() ClientCommonConf {
 		ClientConfig:            auth.GetDefaultClientConf(),
 		ServerAddr:              "0.0.0.0",
 		ServerPort:              7000,
+		NatHoleSTUNServer:       "stun.easyvoip.com:3478",
 		DialServerTimeout:       10,
 		DialServerKeepAlive:     7200,
 		HTTPProxy:               os.Getenv("http_proxy"),

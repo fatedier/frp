@@ -6,7 +6,7 @@ require (
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
 	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/fatedier/beego v0.0.0-20171024143340-6c6a4f5bd5eb
-	github.com/fatedier/golib v0.1.1-0.20220321042308-c306138b83ac
+	github.com/fatedier/golib v0.1.1-0.20230320133937-a7edcc8c793d
 	github.com/fatedier/kcp-go v2.0.4-0.20190803094908-fe8645b0a904+incompatible
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/google/uuid v1.3.0
@@ -15,12 +15,13 @@ require (
 	github.com/hashicorp/yamux v0.1.1
 	github.com/onsi/ginkgo/v2 v2.8.3
 	github.com/onsi/gomega v1.27.0
+	github.com/pion/stun v0.4.0
 	github.com/pires/go-proxyproto v0.6.2
 	github.com/prometheus/client_golang v1.13.0
 	github.com/quic-go/quic-go v0.32.0
 	github.com/rodaine/table v1.0.1
 	github.com/spf13/cobra v1.1.3
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.1
 	golang.org/x/net v0.7.0
 	golang.org/x/oauth2 v0.3.0
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8
@@ -48,6 +49,7 @@ require (
 	github.com/klauspost/reedsolomon v1.9.15 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
+	github.com/pion/transport/v2 v2.0.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect

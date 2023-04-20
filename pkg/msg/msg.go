@@ -37,6 +37,8 @@ const (
 	TypeNatHoleResp           = 'm'
 	TypeNatHoleClientDetectOK = 'd'
 	TypeNatHoleSid            = '5'
+	TypeNatHoleBinding        = 'b'
+	TypeNatHoleBindingResp    = '6'
 )
 
 var msgTypeMap = map[byte]interface{}{
@@ -58,6 +60,8 @@ var msgTypeMap = map[byte]interface{}{
 	TypeNatHoleResp:           NatHoleResp{},
 	TypeNatHoleClientDetectOK: NatHoleClientDetectOK{},
 	TypeNatHoleSid:            NatHoleSid{},
+	TypeNatHoleBinding:        NatHoleBinding{},
+	TypeNatHoleBindingResp:    NatHoleBindingResp{},
 }
 
 // When frpc start, client send this message to login to server.
@@ -192,4 +196,14 @@ type NatHoleClientDetectOK struct{}
 
 type NatHoleSid struct {
 	Sid string `json:"sid,omitempty"`
+}
+
+type NatHoleBinding struct {
+	TransactionID string `json:"transaction_id,omitempty"`
+}
+
+type NatHoleBindingResp struct {
+	TransactionID string `json:"transaction_id,omitempty"`
+	Address       string `json:"address,omitempty"`
+	Error         string `json:"error,omitempty"`
 }

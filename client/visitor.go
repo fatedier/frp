@@ -210,8 +210,12 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		return
 	}
 
+	serverAddr := sv.ctl.clientCfg.NatHoleServerAddr
+	if serverAddr == "" {
+		serverAddr = sv.ctl.clientCfg.ServerAddr
+	}
 	raddr, err := net.ResolveUDPAddr("udp",
-		net.JoinHostPort(sv.ctl.clientCfg.ServerAddr, strconv.Itoa(sv.ctl.serverUDPPort)))
+		net.JoinHostPort(serverAddr, strconv.Itoa(sv.ctl.serverUDPPort)))
 	if err != nil {
 		xl.Error("resolve server UDP addr error")
 		return
@@ -335,8 +339,11 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		muxConnRWCloser = frpIo.WithCompression(muxConnRWCloser)
 	}
 
-	frpIo.Join(userConn, muxConnRWCloser)
+	_, _, errs := frpIo.Join(userConn, muxConnRWCloser)
 	xl.Debug("join connections closed")
+	if len(errs) > 0 {
+		xl.Trace("join connections errors: %v", errs)
+	}
 }
 
 type SUDPVisitor struct {

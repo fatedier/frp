@@ -319,7 +319,7 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	name := pxy.GetName()
 	proxyType := pxy.GetConf().GetBaseInfo().ProxyType
 	metrics.Server.OpenConnection(name, proxyType)
-	inCount, outCount := frpIo.Join(local, userConn)
+	inCount, outCount, _ := frpIo.Join(local, userConn)
 	metrics.Server.CloseConnection(name, proxyType)
 	metrics.Server.AddTrafficIn(name, proxyType, inCount)
 	metrics.Server.AddTrafficOut(name, proxyType, outCount)
