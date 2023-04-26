@@ -38,7 +38,7 @@ jobs:
         with:
           context: .
           file: ./dockerfiles/Dockerfile-for-frps-web-build
-          platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x
+          platforms: linux/amd64  #,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/frps:${{ env.TAG_NAME }}

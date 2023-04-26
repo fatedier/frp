@@ -1,5 +1,5 @@
 # step 1: build web
-FROM node:10-alpine as web-build
+FROM node:19-alpine as web-build
 
 WORKDIR /build
 
