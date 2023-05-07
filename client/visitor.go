@@ -37,7 +37,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
-// Visitor is used for forward traffics from local port tot remote service.
+// Visitor is used for forward traffics from local port to remote service.
 type Visitor interface {
 	Run() error
 	Close()
