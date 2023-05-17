@@ -1078,7 +1078,6 @@ func (cfg *XTCPProxyConf) Compare(cmp ProxyConf) bool {
 		cfg.Sk != cmpConf.Sk {
 		return false
 	}
-
 	return true
 }
 
@@ -1092,7 +1091,6 @@ func (cfg *XTCPProxyConf) UnmarshalFromIni(prefix string, name string, section *
 	if cfg.Role == "" {
 		cfg.Role = "server"
 	}
-
 	return nil
 }
 
@@ -1120,7 +1118,6 @@ func (cfg *XTCPProxyConf) CheckForCli() (err error) {
 	if cfg.Role != "server" {
 		return fmt.Errorf("role should be 'server'")
 	}
-
 	return
 }
 

@@ -20,8 +20,6 @@ import (
 	"time"
 
 	"github.com/pion/stun"
-
-	"github.com/fatedier/frp/pkg/msg"
 )
 
 var responseTimeout = 3 * time.Second
@@ -31,35 +29,27 @@ type Message struct {
 	Addr string
 }
 
-func Discover(serverAddress string, stunServers []string, key []byte) ([]string, error) {
+// If the localAddr is empty, it will listen on a random port.
+func Discover(stunServers []string, localAddr string) ([]string, net.Addr, error) {
 	// create a discoverConn and get response from messageChan
-	discoverConn, err := listen()
+	discoverConn, err := listen(localAddr)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer discoverConn.Close()
 
 	go discoverConn.readLoop()
 
-	addresses := make([]string, 0, len(stunServers)+1)
-	if serverAddress != "" {
-		// get external address from frp server
-		externalAddr, err := discoverConn.discoverFromServer(serverAddress, key)
-		if err != nil {
-			return nil, err
-		}
-		addresses = append(addresses, externalAddr)
-	}
-
+	addresses := make([]string, 0, len(stunServers))
 	for _, addr := range stunServers {
 		// get external address from stun server
 		externalAddrs, err := discoverConn.discoverFromStunServer(addr)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		addresses = append(addresses, externalAddrs...)
 	}
-	return addresses, nil
+	return addresses, discoverConn.localAddr, nil
 }
 
 type stunResponse struct {
@@ -74,8 +64,16 @@ type discoverConn struct {
 	messageChan chan *Message
 }
 
-func listen() (*discoverConn, error) {
-	conn, err := net.ListenUDP("udp4", nil)
+func listen(localAddr string) (*discoverConn, error) {
+	var local *net.UDPAddr
+	if localAddr != "" {
+		addr, err := net.ResolveUDPAddr("udp4", localAddr)
+		if err != nil {
+			return nil, err
+		}
+		local = addr
+	}
+	conn, err := net.ListenUDP("udp4", local)
 	if err != nil {
 		return nil, err
 	}
@@ -157,43 +155,6 @@ func (c *discoverConn) doSTUNRequest(addr string) (*stunResponse, error) {
 		resp.otherAddr = otherAddrGetter.String()
 	}
 	return resp, nil
-}
-
-func (c *discoverConn) discoverFromServer(serverAddress string, key []byte) (string, error) {
-	addr, err := net.ResolveUDPAddr("udp4", serverAddress)
-	if err != nil {
-		return "", err
-	}
-	m := &msg.NatHoleBinding{
-		TransactionID: NewTransactionID(),
-	}
-
-	buf, err := EncodeMessage(m, key)
-	if err != nil {
-		return "", err
-	}
-
-	if _, err := c.conn.WriteTo(buf, addr); err != nil {
-		return "", err
-	}
-
-	var respMsg msg.NatHoleBindingResp
-	select {
-	case rawMsg := <-c.messageChan:
-		if err := DecodeMessageInto(rawMsg.Body, key, &respMsg); err != nil {
-			return "", err
-		}
-	case <-time.After(responseTimeout):
-		return "", fmt.Errorf("wait response from frp server timeout")
-	}
-
-	if respMsg.TransactionID == "" {
-		return "", fmt.Errorf("error format: no transaction id found")
-	}
-	if respMsg.Error != "" {
-		return "", fmt.Errorf("get externalAddr from frp server error: %s", respMsg.Error)
-	}
-	return respMsg.Address, nil
 }
 
 func (c *discoverConn) discoverFromStunServer(addr string) ([]string, error) {

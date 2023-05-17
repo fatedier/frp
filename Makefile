@@ -19,6 +19,9 @@ fmt:
 fmt-more:
 	gofumpt -l -w .
 
+gci:
+	gci write -s standard -s default -s "prefix(github.com/fatedier/frp/)" ./
+
 vet:
 	go vet ./...
 

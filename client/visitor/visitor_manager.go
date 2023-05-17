@@ -12,22 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client
+package visitor
 
 import (
 	"context"
+	"net"
 	"sync"
 	"time"
 
 	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
-type VisitorManager struct {
-	ctl *Control
-
-	cfgs     map[string]config.VisitorConf
-	visitors map[string]Visitor
+type Manager struct {
+	clientCfg      config.ClientCommonConf
+	connectServer  func() (net.Conn, error)
+	msgTransporter transport.MessageTransporter
+	cfgs           map[string]config.VisitorConf
+	visitors       map[string]Visitor
 
 	checkInterval time.Duration
 
@@ -37,18 +40,25 @@ type VisitorManager struct {
 	stopCh chan struct{}
 }
 
-func NewVisitorManager(ctx context.Context, ctl *Control) *VisitorManager {
-	return &VisitorManager{
-		ctl:           ctl,
-		cfgs:          make(map[string]config.VisitorConf),
-		visitors:      make(map[string]Visitor),
-		checkInterval: 10 * time.Second,
-		ctx:           ctx,
-		stopCh:        make(chan struct{}),
+func NewManager(
+	ctx context.Context,
+	clientCfg config.ClientCommonConf,
+	connectServer func() (net.Conn, error),
+	msgTransporter transport.MessageTransporter,
+) *Manager {
+	return &Manager{
+		clientCfg:      clientCfg,
+		connectServer:  connectServer,
+		msgTransporter: msgTransporter,
+		cfgs:           make(map[string]config.VisitorConf),
+		visitors:       make(map[string]Visitor),
+		checkInterval:  10 * time.Second,
+		ctx:            ctx,
+		stopCh:         make(chan struct{}),
 	}
 }
 
-func (vm *VisitorManager) Run() {
+func (vm *Manager) Run() {
 	xl := xlog.FromContextSafe(vm.ctx)
 
 	ticker := time.NewTicker(vm.checkInterval)
@@ -74,10 +84,10 @@ func (vm *VisitorManager) Run() {
 }
 
 // Hold lock before calling this function.
-func (vm *VisitorManager) startVisitor(cfg config.VisitorConf) (err error) {
+func (vm *Manager) startVisitor(cfg config.VisitorConf) (err error) {
 	xl := xlog.FromContextSafe(vm.ctx)
 	name := cfg.GetBaseInfo().ProxyName
-	visitor := NewVisitor(vm.ctx, vm.ctl, cfg)
+	visitor := NewVisitor(vm.ctx, cfg, vm.clientCfg, vm.connectServer, vm.msgTransporter)
 	err = visitor.Run()
 	if err != nil {
 		xl.Warn("start error: %v", err)
@@ -88,7 +98,7 @@ func (vm *VisitorManager) startVisitor(cfg config.VisitorConf) (err error) {
 	return
 }
 
-func (vm *VisitorManager) Reload(cfgs map[string]config.VisitorConf) {
+func (vm *Manager) Reload(cfgs map[string]config.VisitorConf) {
 	xl := xlog.FromContextSafe(vm.ctx)
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
@@ -129,7 +139,7 @@ func (vm *VisitorManager) Reload(cfgs map[string]config.VisitorConf) {
 	}
 }
 
-func (vm *VisitorManager) Close() {
+func (vm *Manager) Close() {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 	for _, v := range vm.visitors {
