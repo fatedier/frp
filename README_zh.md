@@ -13,10 +13,6 @@ frp 是一个专注于内网穿透的高性能的反向代理应用，支持 TCP
   <a href="https://workos.com/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
     <img width="350px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_workos.png">
   </a>
-  <a>&nbsp</a>
-  <a href="https://asocks.com/c/vDu6Dk" target="_blank">
-    <img width="350px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_asocks.jpg">
-  </a>
 </p>
 <!--gold sponsors end-->
 
