@@ -72,9 +72,6 @@ type Service struct {
 	// string if no configuration file was used.
 	cfgFile string
 
-	// This is configured by the login response from frps
-	serverUDPPort int
-
 	exit uint32 // 0 means not exit
 
 	// service context
@@ -141,7 +138,7 @@ func (svr *Service) Run() error {
 			util.RandomSleep(10*time.Second, 0.9, 1.1)
 		} else {
 			// login success
-			ctl := NewControl(svr.ctx, svr.runID, conn, cm, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort, svr.authSetter)
+			ctl := NewControl(svr.ctx, svr.runID, conn, cm, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.authSetter)
 			ctl.Run()
 			svr.ctlMu.Lock()
 			svr.ctl = ctl
@@ -223,7 +220,7 @@ func (svr *Service) keepControllerWorking() {
 			// reconnect success, init delayTime
 			delayTime = time.Second
 
-			ctl := NewControl(svr.ctx, svr.runID, conn, cm, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort, svr.authSetter)
+			ctl := NewControl(svr.ctx, svr.runID, conn, cm, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.authSetter)
 			ctl.Run()
 			svr.ctlMu.Lock()
 			if svr.ctl != nil {
@@ -295,8 +292,7 @@ func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 	xl.ResetPrefixes()
 	xl.AppendPrefix(svr.runID)
 
-	svr.serverUDPPort = loginRespMsg.ServerUDPPort
-	xl.Info("login to server success, get run id [%s], server udp port [%d]", loginRespMsg.RunID, loginRespMsg.ServerUDPPort)
+	xl.Info("login to server success, get run id [%s]", loginRespMsg.RunID)
 	return
 }
 

@@ -33,6 +33,7 @@ import (
 	frpErr "github.com/fatedier/frp/pkg/errors"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
+	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -94,6 +95,9 @@ type Control struct {
 
 	// verifies authentication based on selected method
 	authVerifier auth.Verifier
+
+	// other components can use this to communicate with client
+	msgTransporter transport.MessageTransporter
 
 	// login message
 	loginMsg *msg.Login
@@ -158,7 +162,7 @@ func NewControl(
 	if poolCount > int(serverCfg.MaxPoolCount) {
 		poolCount = int(serverCfg.MaxPoolCount)
 	}
-	return &Control{
+	ctl := &Control{
 		rc:              rc,
 		pxyManager:      pxyManager,
 		pluginManager:   pluginManager,
@@ -182,6 +186,8 @@ func NewControl(
 		xl:              xlog.FromContextSafe(ctx),
 		ctx:             ctx,
 	}
+	ctl.msgTransporter = transport.NewMessageTransporter(ctl.sendCh)
+	return ctl
 }
 
 // Start send a login success message to client and start working.
@@ -465,6 +471,12 @@ func (ctl *Control) manager() {
 					metrics.Server.NewProxy(m.ProxyName, m.ProxyType)
 				}
 				ctl.sendCh <- resp
+			case *msg.NatHoleVisitor:
+				go ctl.HandleNatHoleVisitor(m)
+			case *msg.NatHoleClient:
+				go ctl.HandleNatHoleClient(m)
+			case *msg.NatHoleReport:
+				go ctl.HandleNatHoleReport(m)
 			case *msg.CloseProxy:
 				_ = ctl.CloseProxy(m)
 				xl.Info("close proxy [%s] success", m.ProxyName)
@@ -495,6 +507,18 @@ func (ctl *Control) manager() {
 			}
 		}
 	}
+}
+
+func (ctl *Control) HandleNatHoleVisitor(m *msg.NatHoleVisitor) {
+	ctl.rc.NatHoleController.HandleVisitor(m, ctl.msgTransporter)
+}
+
+func (ctl *Control) HandleNatHoleClient(m *msg.NatHoleClient) {
+	ctl.rc.NatHoleController.HandleClient(m, ctl.msgTransporter)
+}
+
+func (ctl *Control) HandleNatHoleReport(m *msg.NatHoleReport) {
+	ctl.rc.NatHoleController.HandleReport(m)
 }
 
 func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err error) {

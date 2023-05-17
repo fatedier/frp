@@ -24,20 +24,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/golib/errors"
 	frpIo "github.com/fatedier/golib/io"
 	libdial "github.com/fatedier/golib/net/dial"
-	"github.com/fatedier/golib/pool"
-	fmux "github.com/hashicorp/yamux"
 	pp "github.com/pires/go-proxyproto"
 	"golang.org/x/time/rate"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/client"
-	"github.com/fatedier/frp/pkg/proto/udp"
+	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/limit"
-	frpNet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
@@ -51,7 +47,12 @@ type Proxy interface {
 	Close()
 }
 
-func NewProxy(ctx context.Context, pxyConf config.ProxyConf, clientCfg config.ClientCommonConf, serverUDPPort int) (pxy Proxy) {
+func NewProxy(
+	ctx context.Context,
+	pxyConf config.ProxyConf,
+	clientCfg config.ClientCommonConf,
+	msgTransporter transport.MessageTransporter,
+) (pxy Proxy) {
 	var limiter *rate.Limiter
 	limitBytes := pxyConf.GetBaseInfo().BandwidthLimit.Bytes()
 	if limitBytes > 0 && pxyConf.GetBaseInfo().BandwidthLimitMode == config.BandwidthLimitModeClient {
@@ -59,11 +60,11 @@ func NewProxy(ctx context.Context, pxyConf config.ProxyConf, clientCfg config.Cl
 	}
 
 	baseProxy := BaseProxy{
-		clientCfg:     clientCfg,
-		serverUDPPort: serverUDPPort,
-		limiter:       limiter,
-		xl:            xlog.FromContextSafe(ctx),
-		ctx:           ctx,
+		clientCfg:      clientCfg,
+		limiter:        limiter,
+		msgTransporter: msgTransporter,
+		xl:             xlog.FromContextSafe(ctx),
+		ctx:            ctx,
 	}
 	switch cfg := pxyConf.(type) {
 	case *config.TCPProxyConf:
@@ -112,10 +113,10 @@ func NewProxy(ctx context.Context, pxyConf config.ProxyConf, clientCfg config.Cl
 }
 
 type BaseProxy struct {
-	closed        bool
-	clientCfg     config.ClientCommonConf
-	serverUDPPort int
-	limiter       *rate.Limiter
+	closed         bool
+	clientCfg      config.ClientCommonConf
+	msgTransporter transport.MessageTransporter
+	limiter        *rate.Limiter
 
 	mu  sync.RWMutex
 	xl  *xlog.Logger
@@ -265,466 +266,6 @@ func (pxy *STCPProxy) Close() {
 func (pxy *STCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
 		conn, []byte(pxy.clientCfg.Token), m)
-}
-
-// XTCP
-type XTCPProxy struct {
-	*BaseProxy
-
-	cfg         *config.XTCPProxyConf
-	proxyPlugin plugin.Plugin
-}
-
-func (pxy *XTCPProxy) Run() (err error) {
-	if pxy.cfg.Plugin != "" {
-		pxy.proxyPlugin, err = plugin.Create(pxy.cfg.Plugin, pxy.cfg.PluginParams)
-		if err != nil {
-			return
-		}
-	}
-	return
-}
-
-func (pxy *XTCPProxy) Close() {
-	if pxy.proxyPlugin != nil {
-		pxy.proxyPlugin.Close()
-	}
-}
-
-func (pxy *XTCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	xl := pxy.xl
-	defer conn.Close()
-	var natHoleSidMsg msg.NatHoleSid
-	err := msg.ReadMsgInto(conn, &natHoleSidMsg)
-	if err != nil {
-		xl.Error("xtcp read from workConn error: %v", err)
-		return
-	}
-
-	natHoleClientMsg := &msg.NatHoleClient{
-		ProxyName: pxy.cfg.ProxyName,
-		Sid:       natHoleSidMsg.Sid,
-	}
-	serverAddr := pxy.clientCfg.NatHoleServerAddr
-	if serverAddr == "" {
-		serverAddr = pxy.clientCfg.ServerAddr
-	}
-	raddr, _ := net.ResolveUDPAddr("udp",
-		net.JoinHostPort(serverAddr, strconv.Itoa(pxy.serverUDPPort)))
-	clientConn, err := net.DialUDP("udp", nil, raddr)
-	if err != nil {
-		xl.Error("dial server udp addr error: %v", err)
-		return
-	}
-	defer clientConn.Close()
-
-	err = msg.WriteMsg(clientConn, natHoleClientMsg)
-	if err != nil {
-		xl.Error("send natHoleClientMsg to server error: %v", err)
-		return
-	}
-
-	// Wait for client address at most 5 seconds.
-	var natHoleRespMsg msg.NatHoleResp
-	_ = clientConn.SetReadDeadline(time.Now().Add(5 * time.Second))
-
-	buf := pool.GetBuf(1024)
-	n, err := clientConn.Read(buf)
-	if err != nil {
-		xl.Error("get natHoleRespMsg error: %v", err)
-		return
-	}
-	err = msg.ReadMsgInto(bytes.NewReader(buf[:n]), &natHoleRespMsg)
-	if err != nil {
-		xl.Error("get natHoleRespMsg error: %v", err)
-		return
-	}
-	_ = clientConn.SetReadDeadline(time.Time{})
-	_ = clientConn.Close()
-
-	if natHoleRespMsg.Error != "" {
-		xl.Error("natHoleRespMsg get error info: %s", natHoleRespMsg.Error)
-		return
-	}
-
-	xl.Trace("get natHoleRespMsg, sid [%s], client address [%s] visitor address [%s]", natHoleRespMsg.Sid, natHoleRespMsg.ClientAddr, natHoleRespMsg.VisitorAddr)
-
-	// Send detect message
-	host, portStr, err := net.SplitHostPort(natHoleRespMsg.VisitorAddr)
-	if err != nil {
-		xl.Error("get NatHoleResp visitor address [%s] error: %v", natHoleRespMsg.VisitorAddr, err)
-	}
-	laddr, _ := net.ResolveUDPAddr("udp", clientConn.LocalAddr().String())
-
-	port, err := strconv.ParseInt(portStr, 10, 64)
-	if err != nil {
-		xl.Error("get natHoleResp visitor address error: %v", natHoleRespMsg.VisitorAddr)
-		return
-	}
-	_ = pxy.sendDetectMsg(host, int(port), laddr, []byte(natHoleRespMsg.Sid))
-	xl.Trace("send all detect msg done")
-
-	if err := msg.WriteMsg(conn, &msg.NatHoleClientDetectOK{}); err != nil {
-		xl.Error("write message error: %v", err)
-		return
-	}
-
-	// Listen for clientConn's address and wait for visitor connection
-	lConn, err := net.ListenUDP("udp", laddr)
-	if err != nil {
-		xl.Error("listen on visitorConn's local address error: %v", err)
-		return
-	}
-	defer lConn.Close()
-
-	_ = lConn.SetReadDeadline(time.Now().Add(8 * time.Second))
-	sidBuf := pool.GetBuf(1024)
-	var uAddr *net.UDPAddr
-	n, uAddr, err = lConn.ReadFromUDP(sidBuf)
-	if err != nil {
-		xl.Warn("get sid from visitor error: %v", err)
-		return
-	}
-	_ = lConn.SetReadDeadline(time.Time{})
-	if string(sidBuf[:n]) != natHoleRespMsg.Sid {
-		xl.Warn("incorrect sid from visitor")
-		return
-	}
-	pool.PutBuf(sidBuf)
-	xl.Info("nat hole connection make success, sid [%s]", natHoleRespMsg.Sid)
-
-	if _, err := lConn.WriteToUDP(sidBuf[:n], uAddr); err != nil {
-		xl.Error("write uaddr error: %v", err)
-		return
-	}
-
-	kcpConn, err := frpNet.NewKCPConnFromUDP(lConn, false, uAddr.String())
-	if err != nil {
-		xl.Error("create kcp connection from udp connection error: %v", err)
-		return
-	}
-
-	fmuxCfg := fmux.DefaultConfig()
-	fmuxCfg.KeepAliveInterval = 5 * time.Second
-	fmuxCfg.LogOutput = io.Discard
-	sess, err := fmux.Server(kcpConn, fmuxCfg)
-	if err != nil {
-		xl.Error("create yamux server from kcp connection error: %v", err)
-		return
-	}
-	defer sess.Close()
-	muxConn, err := sess.Accept()
-	if err != nil {
-		xl.Error("accept for yamux connection error: %v", err)
-		return
-	}
-
-	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
-		muxConn, []byte(pxy.cfg.Sk), m)
-}
-
-func (pxy *XTCPProxy) sendDetectMsg(addr string, port int, laddr *net.UDPAddr, content []byte) (err error) {
-	daddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(addr, strconv.Itoa(port)))
-	if err != nil {
-		return err
-	}
-
-	tConn, err := net.DialUDP("udp", laddr, daddr)
-	if err != nil {
-		return err
-	}
-
-	// uConn := ipv4.NewConn(tConn)
-	// uConn.SetTTL(3)
-
-	if _, err := tConn.Write(content); err != nil {
-		return err
-	}
-	return tConn.Close()
-}
-
-// UDP
-type UDPProxy struct {
-	*BaseProxy
-
-	cfg *config.UDPProxyConf
-
-	localAddr *net.UDPAddr
-	readCh    chan *msg.UDPPacket
-
-	// include msg.UDPPacket and msg.Ping
-	sendCh   chan msg.Message
-	workConn net.Conn
-}
-
-func (pxy *UDPProxy) Run() (err error) {
-	pxy.localAddr, err = net.ResolveUDPAddr("udp", net.JoinHostPort(pxy.cfg.LocalIP, strconv.Itoa(pxy.cfg.LocalPort)))
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (pxy *UDPProxy) Close() {
-	pxy.mu.Lock()
-	defer pxy.mu.Unlock()
-
-	if !pxy.closed {
-		pxy.closed = true
-		if pxy.workConn != nil {
-			pxy.workConn.Close()
-		}
-		if pxy.readCh != nil {
-			close(pxy.readCh)
-		}
-		if pxy.sendCh != nil {
-			close(pxy.sendCh)
-		}
-	}
-}
-
-func (pxy *UDPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	xl := pxy.xl
-	xl.Info("incoming a new work connection for udp proxy, %s", conn.RemoteAddr().String())
-	// close resources releated with old workConn
-	pxy.Close()
-
-	var rwc io.ReadWriteCloser = conn
-	var err error
-	if pxy.limiter != nil {
-		rwc = frpIo.WrapReadWriteCloser(limit.NewReader(conn, pxy.limiter), limit.NewWriter(conn, pxy.limiter), func() error {
-			return conn.Close()
-		})
-	}
-	if pxy.cfg.UseEncryption {
-		rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.clientCfg.Token))
-		if err != nil {
-			conn.Close()
-			xl.Error("create encryption stream error: %v", err)
-			return
-		}
-	}
-	if pxy.cfg.UseCompression {
-		rwc = frpIo.WithCompression(rwc)
-	}
-	conn = frpNet.WrapReadWriteCloserToConn(rwc, conn)
-
-	pxy.mu.Lock()
-	pxy.workConn = conn
-	pxy.readCh = make(chan *msg.UDPPacket, 1024)
-	pxy.sendCh = make(chan msg.Message, 1024)
-	pxy.closed = false
-	pxy.mu.Unlock()
-
-	workConnReaderFn := func(conn net.Conn, readCh chan *msg.UDPPacket) {
-		for {
-			var udpMsg msg.UDPPacket
-			if errRet := msg.ReadMsgInto(conn, &udpMsg); errRet != nil {
-				xl.Warn("read from workConn for udp error: %v", errRet)
-				return
-			}
-			if errRet := errors.PanicToError(func() {
-				xl.Trace("get udp package from workConn: %s", udpMsg.Content)
-				readCh <- &udpMsg
-			}); errRet != nil {
-				xl.Info("reader goroutine for udp work connection closed: %v", errRet)
-				return
-			}
-		}
-	}
-	workConnSenderFn := func(conn net.Conn, sendCh chan msg.Message) {
-		defer func() {
-			xl.Info("writer goroutine for udp work connection closed")
-		}()
-		var errRet error
-		for rawMsg := range sendCh {
-			switch m := rawMsg.(type) {
-			case *msg.UDPPacket:
-				xl.Trace("send udp package to workConn: %s", m.Content)
-			case *msg.Ping:
-				xl.Trace("send ping message to udp workConn")
-			}
-			if errRet = msg.WriteMsg(conn, rawMsg); errRet != nil {
-				xl.Error("udp work write error: %v", errRet)
-				return
-			}
-		}
-	}
-	heartbeatFn := func(sendCh chan msg.Message) {
-		var errRet error
-		for {
-			time.Sleep(time.Duration(30) * time.Second)
-			if errRet = errors.PanicToError(func() {
-				sendCh <- &msg.Ping{}
-			}); errRet != nil {
-				xl.Trace("heartbeat goroutine for udp work connection closed")
-				break
-			}
-		}
-	}
-
-	go workConnSenderFn(pxy.workConn, pxy.sendCh)
-	go workConnReaderFn(pxy.workConn, pxy.readCh)
-	go heartbeatFn(pxy.sendCh)
-	udp.Forwarder(pxy.localAddr, pxy.readCh, pxy.sendCh, int(pxy.clientCfg.UDPPacketSize))
-}
-
-type SUDPProxy struct {
-	*BaseProxy
-
-	cfg *config.SUDPProxyConf
-
-	localAddr *net.UDPAddr
-
-	closeCh chan struct{}
-}
-
-func (pxy *SUDPProxy) Run() (err error) {
-	pxy.localAddr, err = net.ResolveUDPAddr("udp", net.JoinHostPort(pxy.cfg.LocalIP, strconv.Itoa(pxy.cfg.LocalPort)))
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (pxy *SUDPProxy) Close() {
-	pxy.mu.Lock()
-	defer pxy.mu.Unlock()
-	select {
-	case <-pxy.closeCh:
-		return
-	default:
-		close(pxy.closeCh)
-	}
-}
-
-func (pxy *SUDPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	xl := pxy.xl
-	xl.Info("incoming a new work connection for sudp proxy, %s", conn.RemoteAddr().String())
-
-	var rwc io.ReadWriteCloser = conn
-	var err error
-	if pxy.limiter != nil {
-		rwc = frpIo.WrapReadWriteCloser(limit.NewReader(conn, pxy.limiter), limit.NewWriter(conn, pxy.limiter), func() error {
-			return conn.Close()
-		})
-	}
-	if pxy.cfg.UseEncryption {
-		rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.clientCfg.Token))
-		if err != nil {
-			conn.Close()
-			xl.Error("create encryption stream error: %v", err)
-			return
-		}
-	}
-	if pxy.cfg.UseCompression {
-		rwc = frpIo.WithCompression(rwc)
-	}
-	conn = frpNet.WrapReadWriteCloserToConn(rwc, conn)
-
-	workConn := conn
-	readCh := make(chan *msg.UDPPacket, 1024)
-	sendCh := make(chan msg.Message, 1024)
-	isClose := false
-
-	mu := &sync.Mutex{}
-
-	closeFn := func() {
-		mu.Lock()
-		defer mu.Unlock()
-		if isClose {
-			return
-		}
-
-		isClose = true
-		if workConn != nil {
-			workConn.Close()
-		}
-		close(readCh)
-		close(sendCh)
-	}
-
-	// udp service <- frpc <- frps <- frpc visitor <- user
-	workConnReaderFn := func(conn net.Conn, readCh chan *msg.UDPPacket) {
-		defer closeFn()
-
-		for {
-			// first to check sudp proxy is closed or not
-			select {
-			case <-pxy.closeCh:
-				xl.Trace("frpc sudp proxy is closed")
-				return
-			default:
-			}
-
-			var udpMsg msg.UDPPacket
-			if errRet := msg.ReadMsgInto(conn, &udpMsg); errRet != nil {
-				xl.Warn("read from workConn for sudp error: %v", errRet)
-				return
-			}
-
-			if errRet := errors.PanicToError(func() {
-				readCh <- &udpMsg
-			}); errRet != nil {
-				xl.Warn("reader goroutine for sudp work connection closed: %v", errRet)
-				return
-			}
-		}
-	}
-
-	// udp service -> frpc -> frps -> frpc visitor -> user
-	workConnSenderFn := func(conn net.Conn, sendCh chan msg.Message) {
-		defer func() {
-			closeFn()
-			xl.Info("writer goroutine for sudp work connection closed")
-		}()
-
-		var errRet error
-		for rawMsg := range sendCh {
-			switch m := rawMsg.(type) {
-			case *msg.UDPPacket:
-				xl.Trace("frpc send udp package to frpc visitor, [udp local: %v, remote: %v], [tcp work conn local: %v, remote: %v]",
-					m.LocalAddr.String(), m.RemoteAddr.String(), conn.LocalAddr().String(), conn.RemoteAddr().String())
-			case *msg.Ping:
-				xl.Trace("frpc send ping message to frpc visitor")
-			}
-
-			if errRet = msg.WriteMsg(conn, rawMsg); errRet != nil {
-				xl.Error("sudp work write error: %v", errRet)
-				return
-			}
-		}
-	}
-
-	heartbeatFn := func(sendCh chan msg.Message) {
-		ticker := time.NewTicker(30 * time.Second)
-		defer func() {
-			ticker.Stop()
-			closeFn()
-		}()
-
-		var errRet error
-		for {
-			select {
-			case <-ticker.C:
-				if errRet = errors.PanicToError(func() {
-					sendCh <- &msg.Ping{}
-				}); errRet != nil {
-					xl.Warn("heartbeat goroutine for sudp work connection closed")
-					return
-				}
-			case <-pxy.closeCh:
-				xl.Trace("frpc sudp proxy is closed")
-				return
-			}
-		}
-	}
-
-	go workConnSenderFn(workConn, sendCh)
-	go workConnReaderFn(workConn, readCh)
-	go heartbeatFn(sendCh)
-
-	udp.Forwarder(pxy.localAddr, readCh, sendCh, int(pxy.clientCfg.UDPPacketSize))
 }
 
 // Common handler for tcp work connections.

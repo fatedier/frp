@@ -513,8 +513,9 @@ func Test_LoadClientBasicConf(t *testing.T) {
 				},
 				BandwidthLimitMode: BandwidthLimitModeClient,
 			},
-			Role: "server",
-			Sk:   "abcdefg",
+			Role:     "server",
+			Sk:       "abcdefg",
+			Protocol: "quic",
 		},
 		testUser + ".tcpmuxhttpconnect": &TCPMuxProxyConf{
 			BaseProxyConf: BaseProxyConf{
@@ -661,6 +662,7 @@ func Test_LoadClientBasicConf(t *testing.T) {
 				BindAddr:   "127.0.0.1",
 				BindPort:   9001,
 			},
+			Protocol: "quic",
 		},
 	}
 

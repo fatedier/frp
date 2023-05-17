@@ -279,8 +279,9 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 					},
 					BandwidthLimitMode: BandwidthLimitModeClient,
 				},
-				Role: "server",
-				Sk:   "abcdefg",
+				Role:     "server",
+				Sk:       "abcdefg",
+				Protocol: "quic",
 			},
 		},
 		{

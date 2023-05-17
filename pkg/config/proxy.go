@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/samber/lo"
 	"gopkg.in/ini.v1"
 
 	"github.com/fatedier/frp/pkg/consts"
@@ -208,6 +209,8 @@ type XTCPProxyConf struct {
 
 	Role string `ini:"role" json:"role"`
 	Sk   string `ini:"sk" json:"sk"`
+	// Default is quic, can be set to kcp
+	Protocol string `ini:"protocol" json:"protocol,omitempty"`
 }
 
 // UDP
@@ -1075,10 +1078,10 @@ func (cfg *XTCPProxyConf) Compare(cmp ProxyConf) bool {
 
 	// Add custom logic equal if exists.
 	if cfg.Role != cmpConf.Role ||
-		cfg.Sk != cmpConf.Sk {
+		cfg.Sk != cmpConf.Sk ||
+		cfg.Protocol != cmpConf.Protocol {
 		return false
 	}
-
 	return true
 }
 
@@ -1092,7 +1095,9 @@ func (cfg *XTCPProxyConf) UnmarshalFromIni(prefix string, name string, section *
 	if cfg.Role == "" {
 		cfg.Role = "server"
 	}
-
+	if cfg.Protocol == "" {
+		cfg.Protocol = "quic"
+	}
 	return nil
 }
 
@@ -1120,7 +1125,9 @@ func (cfg *XTCPProxyConf) CheckForCli() (err error) {
 	if cfg.Role != "server" {
 		return fmt.Errorf("role should be 'server'")
 	}
-
+	if !lo.Contains([]string{"", "kcp", "quic"}, cfg.Protocol) {
+		return fmt.Errorf("protocol should be 'kcp' or 'quic'")
+	}
 	return
 }
 

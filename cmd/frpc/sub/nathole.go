@@ -16,9 +16,7 @@ package sub
 
 import (
 	"fmt"
-	"net"
 	"os"
-	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -28,7 +26,7 @@ import (
 
 var (
 	natHoleSTUNServer string
-	serverUDPPort     int
+	natHoleLocalAddr  string
 )
 
 func init() {
@@ -37,8 +35,8 @@ func init() {
 	rootCmd.AddCommand(natholeCmd)
 	natholeCmd.AddCommand(natholeDiscoveryCmd)
 
-	natholeCmd.PersistentFlags().StringVarP(&natHoleSTUNServer, "nat_hole_stun_server", "", "stun.easyvoip.com:3478", "STUN server address for nathole")
-	natholeCmd.PersistentFlags().IntVarP(&serverUDPPort, "server_udp_port", "", 0, "UDP port of frps for nathole")
+	natholeCmd.PersistentFlags().StringVarP(&natHoleSTUNServer, "nat_hole_stun_server", "", "", "STUN server address for nathole")
+	natholeCmd.PersistentFlags().StringVarP(&natHoleLocalAddr, "nat_hole_local_addr", "", "", "local address to connect STUN server")
 }
 
 var natholeCmd = &cobra.Command{
@@ -48,15 +46,15 @@ var natholeCmd = &cobra.Command{
 
 var natholeDiscoveryCmd = &cobra.Command{
 	Use:   "discover",
-	Short: "Discover nathole information by frps and stun server",
+	Short: "Discover nathole information from stun server",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// ignore error here, because we can use command line pameters
-		cfg, _, _, _ := config.ParseClientConfig(cfgFile)
+		cfg, _, _, err := config.ParseClientConfig(cfgFile)
+		if err != nil {
+			cfg = config.GetDefaultClientConf()
+		}
 		if natHoleSTUNServer != "" {
 			cfg.NatHoleSTUNServer = natHoleSTUNServer
-		}
-		if serverUDPPort != 0 {
-			cfg.ServerUDPPort = serverUDPPort
 		}
 
 		if err := validateForNatHoleDiscovery(cfg); err != nil {
@@ -64,32 +62,29 @@ var natholeDiscoveryCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		serverAddr := ""
-		if cfg.ServerUDPPort != 0 {
-			serverAddr = net.JoinHostPort(cfg.ServerAddr, strconv.Itoa(cfg.ServerUDPPort))
-		}
-		addresses, err := nathole.Discover(
-			serverAddr,
-			[]string{cfg.NatHoleSTUNServer},
-			[]byte(cfg.Token),
-		)
+		addrs, localAddr, err := nathole.Discover([]string{cfg.NatHoleSTUNServer}, natHoleLocalAddr)
 		if err != nil {
 			fmt.Println("discover error:", err)
 			os.Exit(1)
 		}
-		if len(addresses) < 2 {
-			fmt.Printf("discover error: can not get enough addresses, need 2, got: %v\n", addresses)
+		if len(addrs) < 2 {
+			fmt.Printf("discover error: can not get enough addresses, need 2, got: %v\n", addrs)
 			os.Exit(1)
 		}
 
-		natType, behavior, err := nathole.ClassifyNATType(addresses)
+		localIPs, _ := nathole.ListLocalIPsForNatHole(10)
+
+		natFeature, err := nathole.ClassifyNATFeature(addrs, localIPs)
 		if err != nil {
-			fmt.Println("classify nat type error:", err)
+			fmt.Println("classify nat feature error:", err)
 			os.Exit(1)
 		}
-		fmt.Println("Your NAT type is:", natType)
-		fmt.Println("Behavior is:", behavior)
-		fmt.Println("External address is:", addresses)
+		fmt.Println("STUN server:", cfg.NatHoleSTUNServer)
+		fmt.Println("Your NAT type is:", natFeature.NatType)
+		fmt.Println("Behavior is:", natFeature.Behavior)
+		fmt.Println("External address is:", addrs)
+		fmt.Println("Local address is:", localAddr.String())
+		fmt.Println("Public Network:", natFeature.PublicNetwork)
 		return nil
 	},
 }

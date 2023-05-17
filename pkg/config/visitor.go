@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/samber/lo"
 	"gopkg.in/ini.v1"
 
 	"github.com/fatedier/frp/pkg/consts"
@@ -61,6 +62,11 @@ type STCPVisitorConf struct {
 
 type XTCPVisitorConf struct {
 	BaseVisitorConf `ini:",extends"`
+
+	Protocol string `ini:"protocol" json:"protocol,omitempty"`
+	// TODO
+	KeepTunnelOpen   bool `ini:"keep_tunnel_open" json:"keep_tunnel_open,omitempty"`
+	MaxRetriesAnHour int  `ini:"max_retries_an_hour" json:"max_retries_an_hour,omitempty"`
 }
 
 // DefaultVisitorConf creates a empty VisitorConf object by visitorType.
@@ -259,7 +265,9 @@ func (cfg *XTCPVisitorConf) Compare(cmp VisitorConf) bool {
 	}
 
 	// Add custom login equal, if exists
-
+	if cfg.Protocol != cmpConf.Protocol {
+		return false
+	}
 	return true
 }
 
@@ -270,7 +278,9 @@ func (cfg *XTCPVisitorConf) UnmarshalFromIni(prefix string, name string, section
 	}
 
 	// Add custom logic unmarshal, if exists
-
+	if cfg.Protocol == "" {
+		cfg.Protocol = "quic"
+	}
 	return
 }
 
@@ -280,6 +290,8 @@ func (cfg *XTCPVisitorConf) Check() (err error) {
 	}
 
 	// Add custom logic validate, if exists
-
+	if !lo.Contains([]string{"", "kcp", "quic"}, cfg.Protocol) {
+		return fmt.Errorf("protocol should be 'kcp' or 'quic'")
+	}
 	return
 }

@@ -290,17 +290,12 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	})
 
 	// Create nat hole controller.
-	if cfg.BindUDPPort > 0 {
-		var nc *nathole.Controller
-		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.BindUDPPort))
-		nc, err = nathole.NewController(address, []byte(cfg.Token))
-		if err != nil {
-			err = fmt.Errorf("create nat hole controller error, %v", err)
-			return
-		}
-		svr.rc.NatHoleController = nc
-		log.Info("nat hole udp service listen on %s", address)
+	nc, err := nathole.NewController()
+	if err != nil {
+		err = fmt.Errorf("create nat hole controller error, %v", err)
+		return
 	}
+	svr.rc.NatHoleController = nc
 
 	var statsEnable bool
 	// Create dashboard web server.
@@ -327,9 +322,6 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 }
 
 func (svr *Service) Run() {
-	if svr.rc.NatHoleController != nil {
-		go svr.rc.NatHoleController.Run()
-	}
 	if svr.kcpListener != nil {
 		go svr.HandleListener(svr.kcpListener)
 	}

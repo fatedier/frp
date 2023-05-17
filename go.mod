@@ -18,12 +18,14 @@ require (
 	github.com/pion/stun v0.4.0
 	github.com/pires/go-proxyproto v0.6.2
 	github.com/prometheus/client_golang v1.13.0
-	github.com/quic-go/quic-go v0.32.0
+	github.com/quic-go/quic-go v0.34.0
 	github.com/rodaine/table v1.0.1
+	github.com/samber/lo v1.38.1
 	github.com/spf13/cobra v1.1.3
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/net v0.7.0
 	golang.org/x/oauth2 v0.3.0
+	golang.org/x/sync v0.1.0
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8
 	gopkg.in/ini.v1 v1.67.0
 	k8s.io/apimachinery v0.26.1
@@ -55,9 +57,8 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
-	github.com/quic-go/qtls-go1-18 v0.2.0 // indirect
-	github.com/quic-go/qtls-go1-19 v0.2.0 // indirect
-	github.com/quic-go/qtls-go1-20 v0.1.0 // indirect
+	github.com/quic-go/qtls-go1-19 v0.3.2 // indirect
+	github.com/quic-go/qtls-go1-20 v0.2.2 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/templexxx/cpufeat v0.0.0-20180724012125-cef66df7f161 // indirect
 	github.com/templexxx/xor v0.0.0-20191217153810-f85b25db303b // indirect

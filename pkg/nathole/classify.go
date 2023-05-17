@@ -17,6 +17,9 @@ package nathole
 import (
 	"fmt"
 	"net"
+	"strconv"
+
+	"github.com/samber/lo"
 )
 
 const (
@@ -29,46 +32,96 @@ const (
 	BehaviorBothChanged = "BehaviorBothChanged"
 )
 
-// ClassifyNATType classify NAT type by given addresses.
-func ClassifyNATType(addresses []string) (string, string, error) {
+type NatFeature struct {
+	NatType            string
+	Behavior           string
+	PortsDifference    int
+	RegularPortsChange bool
+	PublicNetwork      bool
+}
+
+func ClassifyNATFeature(addresses []string, localIPs []string) (*NatFeature, error) {
 	if len(addresses) <= 1 {
-		return "", "", fmt.Errorf("not enough addresses")
+		return nil, fmt.Errorf("not enough addresses")
 	}
+	natFeatrue := &NatFeature{}
 	ipChanged := false
 	portChanged := false
 
 	var baseIP, basePort string
+	var portMax, portMin int
 	for _, addr := range addresses {
 		ip, port, err := net.SplitHostPort(addr)
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
+		portNum, err := strconv.Atoi(port)
+		if err != nil {
+			return nil, err
+		}
+		if lo.Contains(localIPs, ip) {
+			natFeatrue.PublicNetwork = true
+		}
+
 		if baseIP == "" {
 			baseIP = ip
 			basePort = port
+			portMax = portNum
+			portMin = portNum
 			continue
 		}
 
+		if portNum > portMax {
+			portMax = portNum
+		}
+		if portNum < portMin {
+			portMin = portNum
+		}
 		if baseIP != ip {
 			ipChanged = true
 		}
 		if basePort != port {
 			portChanged = true
 		}
+	}
 
-		if ipChanged && portChanged {
-			break
-		}
+	natFeatrue.PortsDifference = portMax - portMin
+	if natFeatrue.PortsDifference <= 10 && natFeatrue.PortsDifference >= 1 {
+		natFeatrue.RegularPortsChange = true
 	}
 
 	switch {
 	case ipChanged && portChanged:
-		return HardNAT, BehaviorBothChanged, nil
+		natFeatrue.NatType = HardNAT
+		natFeatrue.Behavior = BehaviorBothChanged
 	case ipChanged:
-		return HardNAT, BehaviorIPChanged, nil
+		natFeatrue.NatType = HardNAT
+		natFeatrue.Behavior = BehaviorIPChanged
 	case portChanged:
-		return HardNAT, BehaviorPortChanged, nil
+		natFeatrue.NatType = HardNAT
+		natFeatrue.Behavior = BehaviorPortChanged
 	default:
-		return EasyNAT, BehaviorNoChange, nil
+		natFeatrue.NatType = EasyNAT
+		natFeatrue.Behavior = BehaviorNoChange
 	}
+	return natFeatrue, nil
+}
+
+func ClassifyFeatureCount(features []*NatFeature) (int, int, int) {
+	easyCount := 0
+	hardCount := 0
+	// for HardNAT
+	portsChangedRegularCount := 0
+	for _, feature := range features {
+		if feature.NatType == EasyNAT {
+			easyCount++
+			continue
+		}
+
+		hardCount++
+		if feature.RegularPortsChange {
+			portsChangedRegularCount++
+		}
+	}
+	return easyCount, hardCount, portsChangedRegularCount
 }
