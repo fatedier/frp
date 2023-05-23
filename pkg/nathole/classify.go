@@ -44,7 +44,7 @@ func ClassifyNATFeature(addresses []string, localIPs []string) (*NatFeature, err
 	if len(addresses) <= 1 {
 		return nil, fmt.Errorf("not enough addresses")
 	}
-	natFeatrue := &NatFeature{}
+	natFeature := &NatFeature{}
 	ipChanged := false
 	portChanged := false
 
@@ -60,7 +60,7 @@ func ClassifyNATFeature(addresses []string, localIPs []string) (*NatFeature, err
 			return nil, err
 		}
 		if lo.Contains(localIPs, ip) {
-			natFeatrue.PublicNetwork = true
+			natFeature.PublicNetwork = true
 		}
 
 		if baseIP == "" {
@@ -85,26 +85,26 @@ func ClassifyNATFeature(addresses []string, localIPs []string) (*NatFeature, err
 		}
 	}
 
-	natFeatrue.PortsDifference = portMax - portMin
-	if natFeatrue.PortsDifference <= 10 && natFeatrue.PortsDifference >= 1 {
-		natFeatrue.RegularPortsChange = true
+	natFeature.PortsDifference = portMax - portMin
+	if natFeature.PortsDifference <= 10 && natFeature.PortsDifference >= 1 {
+		natFeature.RegularPortsChange = true
 	}
 
 	switch {
 	case ipChanged && portChanged:
-		natFeatrue.NatType = HardNAT
-		natFeatrue.Behavior = BehaviorBothChanged
+		natFeature.NatType = HardNAT
+		natFeature.Behavior = BehaviorBothChanged
 	case ipChanged:
-		natFeatrue.NatType = HardNAT
-		natFeatrue.Behavior = BehaviorIPChanged
+		natFeature.NatType = HardNAT
+		natFeature.Behavior = BehaviorIPChanged
 	case portChanged:
-		natFeatrue.NatType = HardNAT
-		natFeatrue.Behavior = BehaviorPortChanged
+		natFeature.NatType = HardNAT
+		natFeature.Behavior = BehaviorPortChanged
 	default:
-		natFeatrue.NatType = EasyNAT
-		natFeatrue.Behavior = BehaviorNoChange
+		natFeature.NatType = EasyNAT
+		natFeature.Behavior = BehaviorNoChange
 	}
-	return natFeatrue, nil
+	return natFeature, nil
 }
 
 func ClassifyFeatureCount(features []*NatFeature) (int, int, int) {
