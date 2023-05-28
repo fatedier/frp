@@ -35,7 +35,6 @@ type GeneralResponse struct {
 type serverInfoResp struct {
 	Version               string `json:"version"`
 	BindPort              int    `json:"bind_port"`
-	BindUDPPort           int    `json:"bind_udp_port"`
 	VhostHTTPPort         int    `json:"vhost_http_port"`
 	VhostHTTPSPort        int    `json:"vhost_https_port"`
 	TCPMuxHTTPConnectPort int    `json:"tcpmux_httpconnect_port"`
@@ -76,7 +75,6 @@ func (svr *Service) APIServerInfo(w http.ResponseWriter, r *http.Request) {
 	svrResp := serverInfoResp{
 		Version:               version.Full(),
 		BindPort:              svr.cfg.BindPort,
-		BindUDPPort:           svr.cfg.BindUDPPort,
 		VhostHTTPPort:         svr.cfg.VhostHTTPPort,
 		VhostHTTPSPort:        svr.cfg.VhostHTTPSPort,
 		TCPMuxHTTPConnectPort: svr.cfg.TCPMuxHTTPConnectPort,

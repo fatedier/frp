@@ -38,10 +38,6 @@ type ServerCommonConf struct {
 	// BindPort specifies the port that the server listens on. By default, this
 	// value is 7000.
 	BindPort int `ini:"bind_port" json:"bind_port" validate:"gte=0,lte=65535"`
-	// BindUDPPort specifies the UDP port that the server listens on. If this
-	// value is 0, the server will not listen for UDP connections. By default,
-	// this value is 0
-	BindUDPPort int `ini:"bind_udp_port" json:"bind_udp_port" validate:"gte=0,lte=65535"`
 	// KCPBindPort specifies the KCP port that the server listens on. If this
 	// value is 0, the server will not listen for KCP connections. By default,
 	// this value is 0.
