@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 
@@ -275,8 +276,8 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 		})
 	})
 
-	ginkgo.Describe("STCP && SUDP", func() {
-		types := []string{"stcp", "sudp"}
+	ginkgo.Describe("STCP && SUDP && XTCP", func() {
+		types := []string{"stcp", "sudp", "xtcp"}
 		for _, t := range types {
 			proxyType := t
 			ginkgo.It(fmt.Sprintf("Expose echo server with %s", strings.ToUpper(proxyType)), func() {
@@ -293,6 +294,9 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 				case "sudp":
 					localPortName = framework.UDPEchoServerPort
 					protocol = "udp"
+				case "xtcp":
+					localPortName = framework.TCPEchoServerPort
+					protocol = "tcp"
 				}
 
 				correctSK := "abc"
@@ -371,6 +375,9 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 
 				for _, test := range tests {
 					framework.NewRequestExpect(f).
+						RequestModify(func(r *request.Request) {
+							r.Timeout(5 * time.Second)
+						}).
 						Protocol(protocol).
 						PortName(test.bindPortName).
 						Explain(test.proxyName).
