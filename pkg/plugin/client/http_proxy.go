@@ -21,11 +21,13 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	frpIo "github.com/fatedier/golib/io"
 	gnet "github.com/fatedier/golib/net"
 
 	frpNet "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/pkg/util/util"
 )
 
 const PluginHTTPProxy = "http_proxy"
@@ -179,7 +181,9 @@ func (hp *HTTPProxy) Auth(req *http.Request) bool {
 		return false
 	}
 
-	if pair[0] != hp.AuthUser || pair[1] != hp.AuthPasswd {
+	if !util.ConstantTimeEqString(pair[0], hp.AuthUser) ||
+		!util.ConstantTimeEqString(pair[1], hp.AuthPasswd) {
+		time.Sleep(200 * time.Millisecond)
 		return false
 	}
 	return true
