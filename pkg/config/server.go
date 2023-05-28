@@ -196,35 +196,38 @@ type ServerCommonConf struct {
 	// Enable golang pprof handlers in dashboard listener.
 	// Dashboard port must be set first.
 	PprofEnable bool `ini:"pprof_enable" json:"pprof_enable"`
+	// NatHoleAnalysisDataReserveHours specifies the hours to reserve nat hole analysis data.
+	NatHoleAnalysisDataReserveHours int64 `ini:"nat_hole_analysis_data_reserve_hours" json:"nat_hole_analysis_data_reserve_hours"`
 }
 
 // GetDefaultServerConf returns a server configuration with reasonable
 // defaults.
 func GetDefaultServerConf() ServerCommonConf {
 	return ServerCommonConf{
-		ServerConfig:            auth.GetDefaultServerConf(),
-		BindAddr:                "0.0.0.0",
-		BindPort:                7000,
-		QUICKeepalivePeriod:     10,
-		QUICMaxIdleTimeout:      30,
-		QUICMaxIncomingStreams:  100000,
-		VhostHTTPTimeout:        60,
-		DashboardAddr:           "0.0.0.0",
-		LogFile:                 "console",
-		LogWay:                  "console",
-		LogLevel:                "info",
-		LogMaxDays:              3,
-		DetailedErrorsToClient:  true,
-		TCPMux:                  true,
-		TCPMuxKeepaliveInterval: 60,
-		TCPKeepAlive:            7200,
-		AllowPorts:              make(map[int]struct{}),
-		MaxPoolCount:            5,
-		MaxPortsPerClient:       0,
-		HeartbeatTimeout:        90,
-		UserConnTimeout:         10,
-		HTTPPlugins:             make(map[string]plugin.HTTPPluginOptions),
-		UDPPacketSize:           1500,
+		ServerConfig:                    auth.GetDefaultServerConf(),
+		BindAddr:                        "0.0.0.0",
+		BindPort:                        7000,
+		QUICKeepalivePeriod:             10,
+		QUICMaxIdleTimeout:              30,
+		QUICMaxIncomingStreams:          100000,
+		VhostHTTPTimeout:                60,
+		DashboardAddr:                   "0.0.0.0",
+		LogFile:                         "console",
+		LogWay:                          "console",
+		LogLevel:                        "info",
+		LogMaxDays:                      3,
+		DetailedErrorsToClient:          true,
+		TCPMux:                          true,
+		TCPMuxKeepaliveInterval:         60,
+		TCPKeepAlive:                    7200,
+		AllowPorts:                      make(map[int]struct{}),
+		MaxPoolCount:                    5,
+		MaxPortsPerClient:               0,
+		HeartbeatTimeout:                90,
+		UserConnTimeout:                 10,
+		HTTPPlugins:                     make(map[string]plugin.HTTPPluginOptions),
+		UDPPacketSize:                   1500,
+		NatHoleAnalysisDataReserveHours: 7 * 24,
 	}
 }
 

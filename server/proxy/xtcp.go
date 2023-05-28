@@ -44,41 +44,20 @@ func (pxy *XTCPProxy) Run() (remoteAddr string, err error) {
 		for {
 			select {
 			case <-pxy.closeCh:
-				break
-			case sidRequest := <-sidCh:
-				sr := sidRequest
+				return
+			case sid := <-sidCh:
 				workConn, errRet := pxy.GetWorkConnFromPool(nil, nil)
 				if errRet != nil {
 					continue
 				}
 				m := &msg.NatHoleSid{
-					Sid: sr.Sid,
+					Sid: sid,
 				}
 				errRet = msg.WriteMsg(workConn, m)
 				if errRet != nil {
 					xl.Warn("write nat hole sid package error, %v", errRet)
-					workConn.Close()
-					break
 				}
-
-				go func() {
-					raw, errRet := msg.ReadMsg(workConn)
-					if errRet != nil {
-						xl.Warn("read nat hole client ok package error: %v", errRet)
-						workConn.Close()
-						return
-					}
-					if _, ok := raw.(*msg.NatHoleClientDetectOK); !ok {
-						xl.Warn("read nat hole client ok package format error")
-						workConn.Close()
-						return
-					}
-
-					select {
-					case sr.NotifyCh <- struct{}{}:
-					default:
-					}
-				}()
+				workConn.Close()
 			}
 		}
 	}()
