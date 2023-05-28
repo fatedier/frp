@@ -343,20 +343,15 @@ Configure `frps` same as above.
 
 Note that it may not work with all types of NAT devices. You might want to fallback to stcp if xtcp doesn't work.
 
-1. In `frps.ini` configure a UDP port for xtcp:
-
-  ```ini
-  # frps.ini
-  bind_udp_port = 7001
-  ```
-
-2. Start `frpc` on machine B, and expose the SSH port. Note that the `remote_port` field is removed:
+1. Start `frpc` on machine B, and expose the SSH port. Note that the `remote_port` field is removed:
 
   ```ini
   # frpc.ini
   [common]
   server_addr = x.x.x.x
   server_port = 7000
+  # set up a new stun server if the default one is not available.
+  # nat_hole_stun_server = xxx
 
   [p2p_ssh]
   type = xtcp
@@ -365,13 +360,15 @@ Note that it may not work with all types of NAT devices. You might want to fallb
   local_port = 22
   ```
 
-3. Start another `frpc` (typically on another machine C) with the configuration to connect to SSH using P2P mode:
+2. Start another `frpc` (typically on another machine C) with the configuration to connect to SSH using P2P mode:
 
   ```ini
   # frpc.ini
   [common]
   server_addr = x.x.x.x
   server_port = 7000
+  # set up a new stun server if the default one is not available.
+  # nat_hole_stun_server = xxx
 
   [p2p_ssh_visitor]
   type = xtcp
@@ -380,9 +377,11 @@ Note that it may not work with all types of NAT devices. You might want to fallb
   sk = abcdefg
   bind_addr = 127.0.0.1
   bind_port = 6000
+  # when automatic tunnel persistence is required, set it to true
+  keep_tunnel_open = false
   ```
 
-4. On machine C, connect to SSH on machine B, using this command:
+3. On machine C, connect to SSH on machine B, using this command:
 
   `ssh -oPort=6000 127.0.0.1`
 

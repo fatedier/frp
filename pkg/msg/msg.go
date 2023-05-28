@@ -80,10 +80,9 @@ type Login struct {
 }
 
 type LoginResp struct {
-	Version       string `json:"version,omitempty"`
-	RunID         string `json:"run_id,omitempty"`
-	ServerUDPPort int    `json:"server_udp_port,omitempty"`
-	Error         string `json:"error,omitempty"`
+	Version string `json:"version,omitempty"`
+	RunID   string `json:"run_id,omitempty"`
+	Error   string `json:"error,omitempty"`
 }
 
 // When frpc login success, send this message to frps for running a new proxy.

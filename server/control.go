@@ -203,10 +203,9 @@ func NewControl(
 // Start send a login success message to client and start working.
 func (ctl *Control) Start() {
 	loginRespMsg := &msg.LoginResp{
-		Version:       version.Full(),
-		RunID:         ctl.runID,
-		ServerUDPPort: ctl.serverCfg.BindUDPPort,
-		Error:         "",
+		Version: version.Full(),
+		RunID:   ctl.runID,
+		Error:   "",
 	}
 	_ = msg.WriteMsg(ctl.conn, loginRespMsg)
 
