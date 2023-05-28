@@ -17,4 +17,4 @@ if [ x${LOG_LEVEL} != x"" ]; then
     logLevel=${LOG_LEVEL}
 fi
 
-ginkgo -nodes=8 --poll-progress-after=20s ${ROOT}/test/e2e -- -frpc-path=${ROOT}/bin/frpc -frps-path=${ROOT}/bin/frps -log-level=${logLevel} -debug=${debug}
+ginkgo -nodes=8 --poll-progress-after=30s ${ROOT}/test/e2e -- -frpc-path=${ROOT}/bin/frpc -frps-path=${ROOT}/bin/frps -log-level=${logLevel} -debug=${debug}
