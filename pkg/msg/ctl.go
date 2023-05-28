@@ -42,3 +42,7 @@ func ReadMsgInto(c io.Reader, msg Message) (err error) {
 func WriteMsg(c io.Writer, msg interface{}) (err error) {
 	return msgCtl.WriteMsg(c, msg)
 }
+
+func Pack(msg interface{}) (data []byte, err error) {
+	return msgCtl.Pack(msg)
+}

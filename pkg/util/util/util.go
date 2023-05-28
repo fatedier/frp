@@ -17,6 +17,7 @@ package util
 import (
 	"crypto/md5"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	mathrand "math/rand"
@@ -28,19 +29,32 @@ import (
 
 // RandID return a rand string used in frp.
 func RandID() (id string, err error) {
-	return RandIDWithLen(8)
+	return RandIDWithLen(16)
 }
 
 // RandIDWithLen return a rand string with idLen length.
 func RandIDWithLen(idLen int) (id string, err error) {
-	b := make([]byte, idLen)
+	if idLen <= 0 {
+		return "", nil
+	}
+	b := make([]byte, idLen/2+1)
 	_, err = rand.Read(b)
 	if err != nil {
 		return
 	}
 
 	id = fmt.Sprintf("%x", b)
-	return
+	return id[:idLen], nil
+}
+
+// RandIDWithRandLen return a rand string with length between [start, end).
+func RandIDWithRandLen(start, end int) (id string, err error) {
+	if start >= end {
+		err = fmt.Errorf("start should be less than end")
+		return
+	}
+	idLen := mathrand.Intn(end-start) + start
+	return RandIDWithLen(idLen)
 }
 
 func GetAuthKey(token string, timestamp int64) (key string) {
@@ -125,4 +139,8 @@ func RandomSleep(duration time.Duration, minRatio, maxRatio float64) time.Durati
 	d := duration * time.Duration(n) / time.Duration(1000)
 	time.Sleep(d)
 	return d
+}
+
+func ConstantTimeEqString(a, b string) bool {
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }

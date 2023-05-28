@@ -66,8 +66,8 @@ func NewDefaultFramework() *Framework {
 	options := Options{
 		TotalParallelNode: suiteConfig.ParallelTotal,
 		CurrentNodeIndex:  suiteConfig.ParallelProcess,
-		FromPortIndex:     20000,
-		ToPortIndex:       50000,
+		FromPortIndex:     10000,
+		ToPortIndex:       60000,
 	}
 	return NewFramework(options)
 }
@@ -118,14 +118,14 @@ func (f *Framework) AfterEach() {
 	// stop processor
 	for _, p := range f.serverProcesses {
 		_ = p.Stop()
-		if TestContext.Debug {
+		if TestContext.Debug || ginkgo.CurrentSpecReport().Failed() {
 			fmt.Println(p.ErrorOutput())
 			fmt.Println(p.StdOutput())
 		}
 	}
 	for _, p := range f.clientProcesses {
 		_ = p.Stop()
-		if TestContext.Debug {
+		if TestContext.Debug || ginkgo.CurrentSpecReport().Failed() {
 			fmt.Println(p.ErrorOutput())
 			fmt.Println(p.StdOutput())
 		}

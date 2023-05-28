@@ -99,6 +99,11 @@ type Service struct {
 	tlsConfig *tls.Config
 
 	cfg config.ServerCommonConf
+
+	// service context
+	ctx context.Context
+	// call cancel to stop service
+	cancel context.CancelFunc
 }
 
 func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
@@ -110,6 +115,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		return
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	svr = &Service{
 		ctlManager:    NewControlManager(),
 		pxyManager:    proxy.NewManager(),
@@ -123,6 +129,8 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		authVerifier:    auth.NewAuthVerifier(cfg.ServerConfig),
 		tlsConfig:       tlsConfig,
 		cfg:             cfg,
+		ctx:             ctx,
+		cancel:          cancel,
 	}
 
 	// Create tcpmux httpconnect multiplexer.
@@ -290,17 +298,12 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	})
 
 	// Create nat hole controller.
-	if cfg.BindUDPPort > 0 {
-		var nc *nathole.Controller
-		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.BindUDPPort))
-		nc, err = nathole.NewController(address)
-		if err != nil {
-			err = fmt.Errorf("create nat hole controller error, %v", err)
-			return
-		}
-		svr.rc.NatHoleController = nc
-		log.Info("nat hole udp service listen on %s", address)
+	nc, err := nathole.NewController(time.Duration(cfg.NatHoleAnalysisDataReserveHours) * time.Hour)
+	if err != nil {
+		err = fmt.Errorf("create nat hole controller error, %v", err)
+		return
 	}
+	svr.rc.NatHoleController = nc
 
 	var statsEnable bool
 	// Create dashboard web server.
@@ -327,20 +330,41 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 }
 
 func (svr *Service) Run() {
-	if svr.rc.NatHoleController != nil {
-		go svr.rc.NatHoleController.Run()
-	}
 	if svr.kcpListener != nil {
 		go svr.HandleListener(svr.kcpListener)
 	}
 	if svr.quicListener != nil {
 		go svr.HandleQUICListener(svr.quicListener)
 	}
-
 	go svr.HandleListener(svr.websocketListener)
 	go svr.HandleListener(svr.tlsListener)
 
+	if svr.rc.NatHoleController != nil {
+		go svr.rc.NatHoleController.CleanWorker(svr.ctx)
+	}
 	svr.HandleListener(svr.listener)
+}
+
+func (svr *Service) Close() error {
+	if svr.kcpListener != nil {
+		svr.kcpListener.Close()
+	}
+	if svr.quicListener != nil {
+		svr.quicListener.Close()
+	}
+	if svr.websocketListener != nil {
+		svr.websocketListener.Close()
+	}
+	if svr.tlsListener != nil {
+		svr.tlsListener.Close()
+	}
+	if svr.listener != nil {
+		svr.listener.Close()
+	}
+	svr.cancel()
+
+	svr.ctlManager.Close()
+	return nil
 }
 
 func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {

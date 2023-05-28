@@ -25,10 +25,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/samber/lo"
+
 	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/util/log"
-	"github.com/fatedier/frp/pkg/util/util"
 )
 
 type GeneralResponse struct {
@@ -98,7 +99,7 @@ func NewProxyStatusResp(status *proxy.WorkingStatus, serverAddr string) ProxySta
 
 	if status.Err == "" {
 		psr.RemoteAddr = status.RemoteAddr
-		if util.InSlice(status.Type, []string{"tcp", "udp"}) {
+		if lo.Contains([]string{"tcp", "udp"}, status.Type) {
 			psr.RemoteAddr = serverAddr + psr.RemoteAddr
 		}
 	}

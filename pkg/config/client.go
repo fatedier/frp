@@ -38,6 +38,8 @@ type ClientCommonConf struct {
 	// ServerPort specifies the port to connect to the server on. By default,
 	// this value is 7000.
 	ServerPort int `ini:"server_port" json:"server_port"`
+	// STUN server to help penetrate NAT hole.
+	NatHoleSTUNServer string `ini:"nat_hole_stun_server" json:"nat_hole_stun_server"`
 	// The maximum amount of time a dial to server will wait for a connect to complete.
 	DialServerTimeout int64 `ini:"dial_server_timeout" json:"dial_server_timeout"`
 	// DialServerKeepAlive specifies the interval between keep-alive probes for an active network connection between frpc and frps.
@@ -169,6 +171,7 @@ func GetDefaultClientConf() ClientCommonConf {
 		ClientConfig:            auth.GetDefaultClientConf(),
 		ServerAddr:              "0.0.0.0",
 		ServerPort:              7000,
+		NatHoleSTUNServer:       "stun.easyvoip.com:3478",
 		DialServerTimeout:       10,
 		DialServerKeepAlive:     7200,
 		HTTPProxy:               os.Getenv("http_proxy"),
