@@ -73,30 +73,30 @@ func (auth *TokenAuthSetterVerifier) SetNewWorkConn(newWorkConnMsg *msg.NewWorkC
 	return nil
 }
 
-func (auth *TokenAuthSetterVerifier) VerifyLogin(loginMsg *msg.Login) error {
-	if util.GetAuthKey(auth.token, loginMsg.Timestamp) != loginMsg.PrivilegeKey {
+func (auth *TokenAuthSetterVerifier) VerifyLogin(m *msg.Login) error {
+	if !util.ConstantTimeEqString(util.GetAuthKey(auth.token, m.Timestamp), m.PrivilegeKey) {
 		return fmt.Errorf("token in login doesn't match token from configuration")
 	}
 	return nil
 }
 
-func (auth *TokenAuthSetterVerifier) VerifyPing(pingMsg *msg.Ping) error {
+func (auth *TokenAuthSetterVerifier) VerifyPing(m *msg.Ping) error {
 	if !auth.AuthenticateHeartBeats {
 		return nil
 	}
 
-	if util.GetAuthKey(auth.token, pingMsg.Timestamp) != pingMsg.PrivilegeKey {
+	if !util.ConstantTimeEqString(util.GetAuthKey(auth.token, m.Timestamp), m.PrivilegeKey) {
 		return fmt.Errorf("token in heartbeat doesn't match token from configuration")
 	}
 	return nil
 }
 
-func (auth *TokenAuthSetterVerifier) VerifyNewWorkConn(newWorkConnMsg *msg.NewWorkConn) error {
+func (auth *TokenAuthSetterVerifier) VerifyNewWorkConn(m *msg.NewWorkConn) error {
 	if !auth.AuthenticateNewWorkConns {
 		return nil
 	}
 
-	if util.GetAuthKey(auth.token, newWorkConnMsg.Timestamp) != newWorkConnMsg.PrivilegeKey {
+	if !util.ConstantTimeEqString(util.GetAuthKey(auth.token, m.Timestamp), m.PrivilegeKey) {
 		return fmt.Errorf("token in NewWorkConn doesn't match token from configuration")
 	}
 	return nil

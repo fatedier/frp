@@ -17,6 +17,7 @@ package util
 import (
 	"crypto/md5"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	mathrand "math/rand"
@@ -138,4 +139,8 @@ func RandomSleep(duration time.Duration, minRatio, maxRatio float64) time.Durati
 	d := duration * time.Duration(n) / time.Duration(1000)
 	time.Sleep(d)
 	return d
+}
+
+func ConstantTimeEqString(a, b string) bool {
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }

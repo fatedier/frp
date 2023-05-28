@@ -50,7 +50,7 @@ func (svr *Service) RunDashboardServer(address string) (err error) {
 	subRouter := router.NewRoute().Subrouter()
 
 	user, passwd := svr.cfg.DashboardUser, svr.cfg.DashboardPwd
-	subRouter.Use(frpNet.NewHTTPAuthMiddleware(user, passwd).Middleware)
+	subRouter.Use(frpNet.NewHTTPAuthMiddleware(user, passwd).SetAuthFailDelay(200 * time.Millisecond).Middleware)
 
 	// metrics
 	if svr.cfg.EnablePrometheus {
