@@ -49,7 +49,10 @@ type BaseVisitorConf struct {
 	Sk             string `ini:"sk" json:"sk"`
 	ServerName     string `ini:"server_name" json:"server_name"`
 	BindAddr       string `ini:"bind_addr" json:"bind_addr"`
-	BindPort       int    `ini:"bind_port" json:"bind_port"`
+	// BindPort is the port that visitor listens on.
+	// It can be less than 0, it means don't bind to the port and only receive connections redirected from
+	// other visitors. (This is not supported for SUDP now)
+	BindPort int `ini:"bind_port" json:"bind_port"`
 }
 
 type SUDPVisitorConf struct {
@@ -63,10 +66,12 @@ type STCPVisitorConf struct {
 type XTCPVisitorConf struct {
 	BaseVisitorConf `ini:",extends"`
 
-	Protocol         string `ini:"protocol" json:"protocol,omitempty"`
-	KeepTunnelOpen   bool   `ini:"keep_tunnel_open" json:"keep_tunnel_open,omitempty"`
-	MaxRetriesAnHour int    `ini:"max_retries_an_hour" json:"max_retries_an_hour,omitempty"`
-	MinRetryInterval int    `ini:"min_retry_interval" json:"min_retry_interval,omitempty"`
+	Protocol          string `ini:"protocol" json:"protocol,omitempty"`
+	KeepTunnelOpen    bool   `ini:"keep_tunnel_open" json:"keep_tunnel_open,omitempty"`
+	MaxRetriesAnHour  int    `ini:"max_retries_an_hour" json:"max_retries_an_hour,omitempty"`
+	MinRetryInterval  int    `ini:"min_retry_interval" json:"min_retry_interval,omitempty"`
+	FallbackTo        string `ini:"fallback_to" json:"fallback_to,omitempty"`
+	FallbackTimeoutMs int    `ini:"fallback_timeout_ms" json:"fallback_timeout_ms,omitempty"`
 }
 
 // DefaultVisitorConf creates a empty VisitorConf object by visitorType.
@@ -134,7 +139,9 @@ func (cfg *BaseVisitorConf) check() (err error) {
 		err = fmt.Errorf("bind_addr shouldn't be empty")
 		return
 	}
-	if cfg.BindPort <= 0 {
+	// BindPort can be less than 0, it means don't bind to the port and only receive connections redirected from
+	// other visitors
+	if cfg.BindPort == 0 {
 		err = fmt.Errorf("bind_port is required")
 		return
 	}
@@ -155,7 +162,6 @@ func (cfg *BaseVisitorConf) unmarshalFromIni(prefix string, name string, section
 	if cfg.BindAddr == "" {
 		cfg.BindAddr = "127.0.0.1"
 	}
-
 	return nil
 }
 
@@ -169,7 +175,6 @@ func preVisitorUnmarshalFromIni(cfg VisitorConf, prefix string, name string, sec
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -268,7 +273,9 @@ func (cfg *XTCPVisitorConf) Compare(cmp VisitorConf) bool {
 	if cfg.Protocol != cmpConf.Protocol ||
 		cfg.KeepTunnelOpen != cmpConf.KeepTunnelOpen ||
 		cfg.MaxRetriesAnHour != cmpConf.MaxRetriesAnHour ||
-		cfg.MinRetryInterval != cmpConf.MinRetryInterval {
+		cfg.MinRetryInterval != cmpConf.MinRetryInterval ||
+		cfg.FallbackTo != cmpConf.FallbackTo ||
+		cfg.FallbackTimeoutMs != cmpConf.FallbackTimeoutMs {
 		return false
 	}
 	return true
@@ -289,6 +296,9 @@ func (cfg *XTCPVisitorConf) UnmarshalFromIni(prefix string, name string, section
 	}
 	if cfg.MinRetryInterval <= 0 {
 		cfg.MinRetryInterval = 90
+	}
+	if cfg.FallbackTimeoutMs <= 0 {
+		cfg.FallbackTimeoutMs = 1000
 	}
 	return
 }

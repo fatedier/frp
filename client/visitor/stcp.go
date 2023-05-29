@@ -35,17 +35,20 @@ type STCPVisitor struct {
 }
 
 func (sv *STCPVisitor) Run() (err error) {
-	sv.l, err = net.Listen("tcp", net.JoinHostPort(sv.cfg.BindAddr, strconv.Itoa(sv.cfg.BindPort)))
-	if err != nil {
-		return
+	if sv.cfg.BindPort > 0 {
+		sv.l, err = net.Listen("tcp", net.JoinHostPort(sv.cfg.BindAddr, strconv.Itoa(sv.cfg.BindPort)))
+		if err != nil {
+			return
+		}
+		go sv.worker()
 	}
 
-	go sv.worker()
+	go sv.internalConnWorker()
 	return
 }
 
 func (sv *STCPVisitor) Close() {
-	sv.l.Close()
+	sv.BaseVisitor.Close()
 }
 
 func (sv *STCPVisitor) worker() {
@@ -56,7 +59,18 @@ func (sv *STCPVisitor) worker() {
 			xl.Warn("stcp local listener closed")
 			return
 		}
+		go sv.handleConn(conn)
+	}
+}
 
+func (sv *STCPVisitor) internalConnWorker() {
+	xl := xlog.FromContextSafe(sv.ctx)
+	for {
+		conn, err := sv.internalLn.Accept()
+		if err != nil {
+			xl.Warn("stcp internal listener closed")
+			return
+		}
 		go sv.handleConn(conn)
 	}
 }
