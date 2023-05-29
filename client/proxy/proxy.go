@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 	libdial "github.com/fatedier/golib/net/dial"
 	pp "github.com/pires/go-proxyproto"
 	"golang.org/x/time/rate"
@@ -279,7 +279,7 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 	)
 	remote = workConn
 	if limiter != nil {
-		remote = frpIo.WrapReadWriteCloser(limit.NewReader(workConn, limiter), limit.NewWriter(workConn, limiter), func() error {
+		remote = libio.WrapReadWriteCloser(limit.NewReader(workConn, limiter), limit.NewWriter(workConn, limiter), func() error {
 			return workConn.Close()
 		})
 	}
@@ -287,7 +287,7 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 	xl.Trace("handle tcp work connection, use_encryption: %t, use_compression: %t",
 		baseInfo.UseEncryption, baseInfo.UseCompression)
 	if baseInfo.UseEncryption {
-		remote, err = frpIo.WithEncryption(remote, encKey)
+		remote, err = libio.WithEncryption(remote, encKey)
 		if err != nil {
 			workConn.Close()
 			xl.Error("create encryption stream error: %v", err)
@@ -295,7 +295,7 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 		}
 	}
 	if baseInfo.UseCompression {
-		remote = frpIo.WithCompression(remote)
+		remote = libio.WithCompression(remote)
 	}
 
 	// check if we need to send proxy protocol info
@@ -360,7 +360,7 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 		}
 	}
 
-	_, _, errs := frpIo.Join(localConn, remote)
+	_, _, errs := libio.Join(localConn, remote)
 	xl.Debug("join connections closed")
 	if len(errs) > 0 {
 		xl.Trace("join connections errors: %v", errs)

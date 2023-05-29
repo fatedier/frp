@@ -30,7 +30,7 @@ import (
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/consts"
-	frpErr "github.com/fatedier/frp/pkg/errors"
+	pkgerr "github.com/fatedier/frp/pkg/errors"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/transport"
@@ -268,7 +268,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 	select {
 	case workConn, ok = <-ctl.workConnCh:
 		if !ok {
-			err = frpErr.ErrCtlClosed
+			err = pkgerr.ErrCtlClosed
 			return
 		}
 		xl.Debug("get work connection from pool")
@@ -283,7 +283,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 		select {
 		case workConn, ok = <-ctl.workConnCh:
 			if !ok {
-				err = frpErr.ErrCtlClosed
+				err = pkgerr.ErrCtlClosed
 				xl.Warn("no work connections available, %v", err)
 				return
 			}

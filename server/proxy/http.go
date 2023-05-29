@@ -19,12 +19,12 @@ import (
 	"net"
 	"strings"
 
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 	"golang.org/x/time/rate"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/util/limit"
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/vhost"
 	"github.com/fatedier/frp/server/metrics"
@@ -157,24 +157,24 @@ func (pxy *HTTPProxy) GetRealConn(remoteAddr string) (workConn net.Conn, err err
 
 	var rwc io.ReadWriteCloser = tmpConn
 	if pxy.cfg.UseEncryption {
-		rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.serverCfg.Token))
+		rwc, err = libio.WithEncryption(rwc, []byte(pxy.serverCfg.Token))
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return
 		}
 	}
 	if pxy.cfg.UseCompression {
-		rwc = frpIo.WithCompression(rwc)
+		rwc = libio.WithCompression(rwc)
 	}
 
 	if pxy.GetLimiter() != nil {
-		rwc = frpIo.WrapReadWriteCloser(limit.NewReader(rwc, pxy.GetLimiter()), limit.NewWriter(rwc, pxy.GetLimiter()), func() error {
+		rwc = libio.WrapReadWriteCloser(limit.NewReader(rwc, pxy.GetLimiter()), limit.NewWriter(rwc, pxy.GetLimiter()), func() error {
 			return rwc.Close()
 		})
 	}
 
-	workConn = frpNet.WrapReadWriteCloserToConn(rwc, tmpConn)
-	workConn = frpNet.WrapStatsConn(workConn, pxy.updateStatsAfterClosedConn)
+	workConn = utilnet.WrapReadWriteCloserToConn(rwc, tmpConn)
+	workConn = utilnet.WrapStatsConn(workConn, pxy.updateStatsAfterClosedConn)
 	metrics.Server.OpenConnection(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
 	return
 }

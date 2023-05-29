@@ -23,14 +23,14 @@ import (
 	"sync"
 	"time"
 
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 	"golang.org/x/time/rate"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/util/limit"
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/metrics"
@@ -113,7 +113,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 		}
 		xl.Debug("get a new work connection: [%s]", workConn.RemoteAddr().String())
 		xl.Spawn().AppendPrefix(pxy.GetName())
-		workConn = frpNet.NewContextConn(pxy.ctx, workConn)
+		workConn = utilnet.NewContextConn(pxy.ctx, workConn)
 
 		var (
 			srcAddr    string
@@ -156,7 +156,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 }
 
 // startListenHandler start a goroutine handler for each listener.
-// p: p will just be passed to handler(Proxy, frpNet.Conn).
+// p: p will just be passed to handler(Proxy, utilnet.Conn).
 // handler: each proxy type can set different handler function to deal with connections accepted from listeners.
 func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, config.ServerCommonConf)) {
 	xl := xlog.FromContextSafe(pxy.ctx)
@@ -297,18 +297,18 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	cfg := pxy.GetConf().GetBaseInfo()
 	xl.Trace("handler user tcp connection, use_encryption: %t, use_compression: %t", cfg.UseEncryption, cfg.UseCompression)
 	if cfg.UseEncryption {
-		local, err = frpIo.WithEncryption(local, []byte(serverCfg.Token))
+		local, err = libio.WithEncryption(local, []byte(serverCfg.Token))
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return
 		}
 	}
 	if cfg.UseCompression {
-		local = frpIo.WithCompression(local)
+		local = libio.WithCompression(local)
 	}
 
 	if pxy.GetLimiter() != nil {
-		local = frpIo.WrapReadWriteCloser(limit.NewReader(local, pxy.GetLimiter()), limit.NewWriter(local, pxy.GetLimiter()), func() error {
+		local = libio.WrapReadWriteCloser(limit.NewReader(local, pxy.GetLimiter()), limit.NewWriter(local, pxy.GetLimiter()), func() error {
 			return local.Close()
 		})
 	}
@@ -319,7 +319,7 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	name := pxy.GetName()
 	proxyType := pxy.GetConf().GetBaseInfo().ProxyType
 	metrics.Server.OpenConnection(name, proxyType)
-	inCount, outCount, _ := frpIo.Join(local, userConn)
+	inCount, outCount, _ := libio.Join(local, userConn)
 	metrics.Server.CloseConnection(name, proxyType)
 	metrics.Server.AddTrafficIn(name, proxyType, inCount)
 	metrics.Server.AddTrafficOut(name, proxyType, outCount)

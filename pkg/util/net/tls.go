@@ -20,7 +20,7 @@ import (
 	"net"
 	"time"
 
-	gnet "github.com/fatedier/golib/net"
+	libnet "github.com/fatedier/golib/net"
 )
 
 var FRPTLSHeadByte = 0x17
@@ -28,7 +28,7 @@ var FRPTLSHeadByte = 0x17
 func CheckAndEnableTLSServerConnWithTimeout(
 	c net.Conn, tlsConfig *tls.Config, tlsOnly bool, timeout time.Duration,
 ) (out net.Conn, isTLS bool, custom bool, err error) {
-	sc, r := gnet.NewSharedConnSize(c, 2)
+	sc, r := libnet.NewSharedConnSize(c, 2)
 	buf := make([]byte, 1)
 	var n int
 	_ = c.SetReadDeadline(time.Now().Add(timeout))

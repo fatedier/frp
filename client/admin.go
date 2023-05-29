@@ -23,7 +23,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/fatedier/frp/assets"
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 )
 
 var (
@@ -48,7 +48,7 @@ func (svr *Service) RunAdminServer(address string) (err error) {
 
 	subRouter := router.NewRoute().Subrouter()
 	user, passwd := svr.cfg.AdminUser, svr.cfg.AdminPwd
-	subRouter.Use(frpNet.NewHTTPAuthMiddleware(user, passwd).SetAuthFailDelay(200 * time.Millisecond).Middleware)
+	subRouter.Use(utilnet.NewHTTPAuthMiddleware(user, passwd).SetAuthFailDelay(200 * time.Millisecond).Middleware)
 
 	// api, see admin_api.go
 	subRouter.HandleFunc("/api/reload", svr.apiReload).Methods("GET")
@@ -58,7 +58,7 @@ func (svr *Service) RunAdminServer(address string) (err error) {
 
 	// view
 	subRouter.Handle("/favicon.ico", http.FileServer(assets.FileSystem)).Methods("GET")
-	subRouter.PathPrefix("/static/").Handler(frpNet.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))).Methods("GET")
+	subRouter.PathPrefix("/static/").Handler(utilnet.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(assets.FileSystem)))).Methods("GET")
 	subRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
 	})
