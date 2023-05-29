@@ -23,12 +23,12 @@ import (
 	"time"
 
 	"github.com/fatedier/golib/errors"
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/udp"
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
@@ -232,16 +232,16 @@ func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
 	var remote io.ReadWriteCloser
 	remote = visitorConn
 	if sv.cfg.UseEncryption {
-		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk))
+		remote, err = libio.WithEncryption(remote, []byte(sv.cfg.Sk))
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return nil, err
 		}
 	}
 	if sv.cfg.UseCompression {
-		remote = frpIo.WithCompression(remote)
+		remote = libio.WithCompression(remote)
 	}
-	return frpNet.WrapReadWriteCloserToConn(remote, visitorConn), nil
+	return utilnet.WrapReadWriteCloserToConn(remote, visitorConn), nil
 }
 
 func (sv *SUDPVisitor) Close() {

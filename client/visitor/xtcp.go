@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 	fmux "github.com/hashicorp/yamux"
 	quic "github.com/quic-go/quic-go"
 	"golang.org/x/time/rate"
@@ -33,7 +33,7 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
 	"github.com/fatedier/frp/pkg/transport"
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
@@ -153,17 +153,17 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 
 	var muxConnRWCloser io.ReadWriteCloser = tunnelConn
 	if sv.cfg.UseEncryption {
-		muxConnRWCloser, err = frpIo.WithEncryption(muxConnRWCloser, []byte(sv.cfg.Sk))
+		muxConnRWCloser, err = libio.WithEncryption(muxConnRWCloser, []byte(sv.cfg.Sk))
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return
 		}
 	}
 	if sv.cfg.UseCompression {
-		muxConnRWCloser = frpIo.WithCompression(muxConnRWCloser)
+		muxConnRWCloser = libio.WithCompression(muxConnRWCloser)
 	}
 
-	_, _, errs := frpIo.Join(userConn, muxConnRWCloser)
+	_, _, errs := libio.Join(userConn, muxConnRWCloser)
 	xl.Debug("join connections closed")
 	if len(errs) > 0 {
 		xl.Trace("join connections errors: %v", errs)
@@ -302,7 +302,7 @@ func (ks *KCPTunnelSession) Init(listenConn *net.UDPConn, raddr *net.UDPAddr) er
 	if err != nil {
 		return fmt.Errorf("dial udp error: %v", err)
 	}
-	remote, err := frpNet.NewKCPConnFromUDP(lConn, true, raddr.String())
+	remote, err := utilnet.NewKCPConnFromUDP(lConn, true, raddr.String())
 	if err != nil {
 		return fmt.Errorf("create kcp connection from udp connection error: %v", err)
 	}
@@ -393,7 +393,7 @@ func (qs *QUICTunnelSession) OpenConn(ctx context.Context) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return frpNet.QuicStreamToNetConn(stream, session), nil
+	return utilnet.QuicStreamToNetConn(stream, session), nil
 }
 
 func (qs *QUICTunnelSession) Close() {

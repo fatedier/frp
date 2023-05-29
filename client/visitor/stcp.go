@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"time"
 
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
@@ -103,7 +103,7 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	var remote io.ReadWriteCloser
 	remote = visitorConn
 	if sv.cfg.UseEncryption {
-		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk))
+		remote, err = libio.WithEncryption(remote, []byte(sv.cfg.Sk))
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return
@@ -111,8 +111,8 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	}
 
 	if sv.cfg.UseCompression {
-		remote = frpIo.WithCompression(remote)
+		remote = libio.WithCompression(remote)
 	}
 
-	frpIo.Join(userConn, remote)
+	libio.Join(userConn, remote)
 }

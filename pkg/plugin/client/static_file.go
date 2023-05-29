@@ -22,7 +22,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 )
 
 const PluginStaticFile = "static_file"
@@ -65,8 +65,8 @@ func NewStaticFilePlugin(params map[string]string) (Plugin, error) {
 	}
 
 	router := mux.NewRouter()
-	router.Use(frpNet.NewHTTPAuthMiddleware(httpUser, httpPasswd).SetAuthFailDelay(200 * time.Millisecond).Middleware)
-	router.PathPrefix(prefix).Handler(frpNet.MakeHTTPGzipHandler(http.StripPrefix(prefix, http.FileServer(http.Dir(localPath))))).Methods("GET")
+	router.Use(utilnet.NewHTTPAuthMiddleware(httpUser, httpPasswd).SetAuthFailDelay(200 * time.Millisecond).Middleware)
+	router.PathPrefix(prefix).Handler(utilnet.MakeHTTPGzipHandler(http.StripPrefix(prefix, http.FileServer(http.Dir(localPath))))).Methods("GET")
 	sp.s = &http.Server{
 		Handler: router,
 	}
@@ -77,7 +77,7 @@ func NewStaticFilePlugin(params map[string]string) (Plugin, error) {
 }
 
 func (sp *StaticFilePlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
-	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
+	wrapConn := utilnet.WrapReadWriteCloserToConn(conn, realConn)
 	_ = sp.l.PutConn(wrapConn)
 }
 

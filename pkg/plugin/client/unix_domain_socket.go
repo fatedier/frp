@@ -19,7 +19,7 @@ import (
 	"io"
 	"net"
 
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 )
 
 const PluginUnixDomainSocket = "unix_domain_socket"
@@ -62,7 +62,7 @@ func (uds *UnixDomainSocketPlugin) Handle(conn io.ReadWriteCloser, realConn net.
 		}
 	}
 
-	frpIo.Join(localConn, conn)
+	libio.Join(localConn, conn)
 }
 
 func (uds *UnixDomainSocketPlugin) Name() string {

@@ -27,7 +27,7 @@ import (
 	"github.com/fatedier/frp/pkg/nathole"
 	plugin "github.com/fatedier/frp/pkg/plugin/client"
 	"github.com/fatedier/frp/pkg/transport"
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 )
 
 // XTCP
@@ -132,7 +132,7 @@ func (pxy *XTCPProxy) listenByKCP(listenConn *net.UDPConn, raddr *net.UDPAddr, s
 	}
 	defer lConn.Close()
 
-	remote, err := frpNet.NewKCPConnFromUDP(lConn, true, raddr.String())
+	remote, err := utilnet.NewKCPConnFromUDP(lConn, true, raddr.String())
 	if err != nil {
 		xl.Warn("create kcp connection from udp connection error: %v", err)
 		return
@@ -195,6 +195,6 @@ func (pxy *XTCPProxy) listenByQUIC(listenConn *net.UDPConn, _ *net.UDPAddr, star
 			return
 		}
 		go HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
-			frpNet.QuicStreamToNetConn(stream, c), []byte(pxy.cfg.Sk), startWorkConnMsg)
+			utilnet.QuicStreamToNetConn(stream, c), []byte(pxy.cfg.Sk), startWorkConnMsg)
 	}
 }

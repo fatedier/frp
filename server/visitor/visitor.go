@@ -20,15 +20,15 @@ import (
 	"net"
 	"sync"
 
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
 // Manager for visitor listeners.
 type Manager struct {
-	visitorListeners map[string]*frpNet.CustomListener
+	visitorListeners map[string]*utilnet.InternalListener
 	skMap            map[string]string
 
 	mu sync.RWMutex
@@ -36,12 +36,12 @@ type Manager struct {
 
 func NewManager() *Manager {
 	return &Manager{
-		visitorListeners: make(map[string]*frpNet.CustomListener),
+		visitorListeners: make(map[string]*utilnet.InternalListener),
 		skMap:            make(map[string]string),
 	}
 }
 
-func (vm *Manager) Listen(name string, sk string) (l *frpNet.CustomListener, err error) {
+func (vm *Manager) Listen(name string, sk string) (l *utilnet.InternalListener, err error) {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
@@ -50,7 +50,7 @@ func (vm *Manager) Listen(name string, sk string) (l *frpNet.CustomListener, err
 		return
 	}
 
-	l = frpNet.NewCustomListener()
+	l = utilnet.NewInternalListener()
 	vm.visitorListeners[name] = l
 	vm.skMap[name] = sk
 	return
@@ -71,15 +71,15 @@ func (vm *Manager) NewConn(name string, conn net.Conn, timestamp int64, signKey 
 
 		var rwc io.ReadWriteCloser = conn
 		if useEncryption {
-			if rwc, err = frpIo.WithEncryption(rwc, []byte(sk)); err != nil {
+			if rwc, err = libio.WithEncryption(rwc, []byte(sk)); err != nil {
 				err = fmt.Errorf("create encryption connection failed: %v", err)
 				return
 			}
 		}
 		if useCompression {
-			rwc = frpIo.WithCompression(rwc)
+			rwc = libio.WithCompression(rwc)
 		}
-		err = l.PutConn(frpNet.WrapReadWriteCloserToConn(rwc, conn))
+		err = l.PutConn(utilnet.WrapReadWriteCloserToConn(rwc, conn))
 	} else {
 		err = fmt.Errorf("custom listener for [%s] doesn't exist", name)
 		return
