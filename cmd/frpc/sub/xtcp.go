@@ -78,7 +78,7 @@ var xtcpCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			cfg.BandwidthLimitMode = bandwidthLimitMode
-			err = cfg.CheckForCli()
+			err = cfg.ValidateForClient()
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
@@ -95,7 +95,7 @@ var xtcpCmd = &cobra.Command{
 			cfg.ServerName = serverName
 			cfg.BindAddr = bindAddr
 			cfg.BindPort = bindPort
-			err = cfg.Check()
+			err = cfg.Validate()
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)

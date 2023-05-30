@@ -199,13 +199,14 @@ func (sv *SUDPVisitor) worker(workConn net.Conn, firstPacket *msg.UDPPacket) {
 
 func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
 	xl := xlog.FromContextSafe(sv.ctx)
-	visitorConn, err := sv.connectServer()
+	visitorConn, err := sv.helper.ConnectServer()
 	if err != nil {
 		return nil, fmt.Errorf("frpc connect frps error: %v", err)
 	}
 
 	now := time.Now().Unix()
 	newVisitorConnMsg := &msg.NewVisitorConn{
+		RunID:          sv.helper.RunID(),
 		ProxyName:      sv.cfg.ServerName,
 		SignKey:        util.GetAuthKey(sv.cfg.Sk, now),
 		Timestamp:      now,

@@ -71,7 +71,7 @@ var httpsCmd = &cobra.Command{
 		}
 		cfg.BandwidthLimitMode = bandwidthLimitMode
 
-		err = cfg.CheckForCli()
+		err = cfg.ValidateForClient()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

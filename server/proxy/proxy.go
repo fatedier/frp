@@ -196,16 +196,16 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, 
 func NewProxy(ctx context.Context, userInfo plugin.UserInfo, rc *controller.ResourceController, poolCount int,
 	getWorkConnFn GetWorkConnFn, pxyConf config.ProxyConf, serverCfg config.ServerCommonConf, loginMsg *msg.Login,
 ) (pxy Proxy, err error) {
-	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(pxyConf.GetBaseInfo().ProxyName)
+	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(pxyConf.GetBaseConfig().ProxyName)
 
 	var limiter *rate.Limiter
-	limitBytes := pxyConf.GetBaseInfo().BandwidthLimit.Bytes()
-	if limitBytes > 0 && pxyConf.GetBaseInfo().BandwidthLimitMode == config.BandwidthLimitModeServer {
+	limitBytes := pxyConf.GetBaseConfig().BandwidthLimit.Bytes()
+	if limitBytes > 0 && pxyConf.GetBaseConfig().BandwidthLimitMode == config.BandwidthLimitModeServer {
 		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
 	}
 
 	basePxy := BaseProxy{
-		name:          pxyConf.GetBaseInfo().ProxyName,
+		name:          pxyConf.GetBaseConfig().ProxyName,
 		rc:            rc,
 		listeners:     make([]net.Listener, 0),
 		poolCount:     poolCount,
@@ -277,7 +277,7 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	content := &plugin.NewUserConnContent{
 		User:       pxy.GetUserInfo(),
 		ProxyName:  pxy.GetName(),
-		ProxyType:  pxy.GetConf().GetBaseInfo().ProxyType,
+		ProxyType:  pxy.GetConf().GetBaseConfig().ProxyType,
 		RemoteAddr: userConn.RemoteAddr().String(),
 	}
 	_, err := rc.PluginManager.NewUserConn(content)
@@ -294,7 +294,7 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	defer workConn.Close()
 
 	var local io.ReadWriteCloser = workConn
-	cfg := pxy.GetConf().GetBaseInfo()
+	cfg := pxy.GetConf().GetBaseConfig()
 	xl.Trace("handler user tcp connection, use_encryption: %t, use_compression: %t", cfg.UseEncryption, cfg.UseCompression)
 	if cfg.UseEncryption {
 		local, err = libio.WithEncryption(local, []byte(serverCfg.Token))
@@ -317,7 +317,7 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 		workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 
 	name := pxy.GetName()
-	proxyType := pxy.GetConf().GetBaseInfo().ProxyType
+	proxyType := pxy.GetConf().GetBaseConfig().ProxyType
 	metrics.Server.OpenConnection(name, proxyType)
 	inCount, outCount, _ := libio.Join(local, userConn)
 	metrics.Server.CloseConnection(name, proxyType)

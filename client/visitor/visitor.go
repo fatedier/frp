@@ -25,6 +25,19 @@ import (
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
+// Helper wrapps some functions for visitor to use.
+type Helper interface {
+	// ConnectServer directly connects to the frp server.
+	ConnectServer() (net.Conn, error)
+	// TransferConn transfers the connection to another visitor.
+	TransferConn(string, net.Conn) error
+	// MsgTransporter returns the message transporter that is used to send and receive messages
+	// to the frp server through the controller.
+	MsgTransporter() transport.MessageTransporter
+	// RunID returns the run id of current controller.
+	RunID() string
+}
+
 // Visitor is used for forward traffics from local port tot remote service.
 type Visitor interface {
 	Run() error
@@ -36,18 +49,14 @@ func NewVisitor(
 	ctx context.Context,
 	cfg config.VisitorConf,
 	clientCfg config.ClientCommonConf,
-	connectServer func() (net.Conn, error),
-	transferConn func(string, net.Conn) error,
-	msgTransporter transport.MessageTransporter,
+	helper Helper,
 ) (visitor Visitor) {
-	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(cfg.GetBaseInfo().ProxyName)
+	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(cfg.GetBaseConfig().ProxyName)
 	baseVisitor := BaseVisitor{
-		clientCfg:      clientCfg,
-		connectServer:  connectServer,
-		transferConn:   transferConn,
-		msgTransporter: msgTransporter,
-		ctx:            xlog.NewContext(ctx, xl),
-		internalLn:     utilnet.NewInternalListener(),
+		clientCfg:  clientCfg,
+		helper:     helper,
+		ctx:        xlog.NewContext(ctx, xl),
+		internalLn: utilnet.NewInternalListener(),
 	}
 	switch cfg := cfg.(type) {
 	case *config.STCPVisitorConf:
@@ -72,12 +81,10 @@ func NewVisitor(
 }
 
 type BaseVisitor struct {
-	clientCfg      config.ClientCommonConf
-	connectServer  func() (net.Conn, error)
-	transferConn   func(string, net.Conn) error
-	msgTransporter transport.MessageTransporter
-	l              net.Listener
-	internalLn     *utilnet.InternalListener
+	clientCfg  config.ClientCommonConf
+	helper     Helper
+	l          net.Listener
+	internalLn *utilnet.InternalListener
 
 	mu  sync.RWMutex
 	ctx context.Context

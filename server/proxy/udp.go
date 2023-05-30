@@ -124,7 +124,7 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 					pxy.readCh <- m
 					metrics.Server.AddTrafficOut(
 						pxy.GetName(),
-						pxy.GetConf().GetBaseInfo().ProxyType,
+						pxy.GetConf().GetBaseConfig().ProxyType,
 						int64(len(m.Content)),
 					)
 				}); errRet != nil {
@@ -154,7 +154,7 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 				xl.Trace("send message to udp workConn: %s", udpMsg.Content)
 				metrics.Server.AddTrafficIn(
 					pxy.GetName(),
-					pxy.GetConf().GetBaseInfo().ProxyType,
+					pxy.GetConf().GetBaseConfig().ProxyType,
 					int64(len(udpMsg.Content)),
 				)
 				continue
