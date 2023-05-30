@@ -17,6 +17,7 @@ package proxy
 import (
 	"io"
 	"net"
+	"reflect"
 	"strconv"
 	"sync"
 	"time"
@@ -31,6 +32,10 @@ import (
 	utilnet "github.com/fatedier/frp/pkg/util/net"
 )
 
+func init() {
+	RegisterProxyFactory(reflect.TypeOf(&config.SUDPProxyConf{}), NewSUDPProxy)
+}
+
 type SUDPProxy struct {
 	*BaseProxy
 
@@ -39,6 +44,18 @@ type SUDPProxy struct {
 	localAddr *net.UDPAddr
 
 	closeCh chan struct{}
+}
+
+func NewSUDPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
+	unwrapped, ok := cfg.(*config.SUDPProxyConf)
+	if !ok {
+		return nil
+	}
+	return &SUDPProxy{
+		BaseProxy: baseProxy,
+		cfg:       unwrapped,
+		closeCh:   make(chan struct{}),
+	}
 }
 
 func (pxy *SUDPProxy) Run() (err error) {
