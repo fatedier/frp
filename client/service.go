@@ -369,7 +369,8 @@ func (cm *ConnectionManager) OpenConnection() error {
 		}
 		tlsConfig.NextProtos = []string{"frp"}
 
-		conn, err := quic.DialAddr(
+		conn, err := quic.DialAddrContext(
+			cm.ctx,
 			net.JoinHostPort(cm.cfg.ServerAddr, strconv.Itoa(cm.cfg.ServerPort)),
 			tlsConfig, &quic.Config{
 				MaxIdleTimeout:     time.Duration(cm.cfg.QUICMaxIdleTimeout) * time.Second,
@@ -467,7 +468,8 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 			Hook: utilnet.DialHookCustomTLSHeadByte(tlsConfig != nil, cm.cfg.DisableCustomTLSFirstByte),
 		}),
 	)
-	conn, err := libdial.Dial(
+	conn, err := libdial.DialContext(
+		cm.ctx,
 		net.JoinHostPort(cm.cfg.ServerAddr, strconv.Itoa(cm.cfg.ServerPort)),
 		dialOptions...,
 	)

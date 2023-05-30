@@ -21,12 +21,14 @@ import (
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/transport"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
 // Visitor is used for forward traffics from local port tot remote service.
 type Visitor interface {
 	Run() error
+	AcceptConn(conn net.Conn) error
 	Close()
 }
 
@@ -35,14 +37,17 @@ func NewVisitor(
 	cfg config.VisitorConf,
 	clientCfg config.ClientCommonConf,
 	connectServer func() (net.Conn, error),
+	transferConn func(string, net.Conn) error,
 	msgTransporter transport.MessageTransporter,
 ) (visitor Visitor) {
 	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(cfg.GetBaseInfo().ProxyName)
 	baseVisitor := BaseVisitor{
 		clientCfg:      clientCfg,
 		connectServer:  connectServer,
+		transferConn:   transferConn,
 		msgTransporter: msgTransporter,
 		ctx:            xlog.NewContext(ctx, xl),
+		internalLn:     utilnet.NewInternalListener(),
 	}
 	switch cfg := cfg.(type) {
 	case *config.STCPVisitorConf:
@@ -69,9 +74,24 @@ func NewVisitor(
 type BaseVisitor struct {
 	clientCfg      config.ClientCommonConf
 	connectServer  func() (net.Conn, error)
+	transferConn   func(string, net.Conn) error
 	msgTransporter transport.MessageTransporter
 	l              net.Listener
+	internalLn     *utilnet.InternalListener
 
 	mu  sync.RWMutex
 	ctx context.Context
+}
+
+func (v *BaseVisitor) AcceptConn(conn net.Conn) error {
+	return v.internalLn.PutConn(conn)
+}
+
+func (v *BaseVisitor) Close() {
+	if v.l != nil {
+		v.l.Close()
+	}
+	if v.internalLn != nil {
+		v.internalLn.Close()
+	}
 }

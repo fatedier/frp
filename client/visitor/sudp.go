@@ -254,6 +254,7 @@ func (sv *SUDPVisitor) Close() {
 	default:
 		close(sv.checkCloseCh)
 	}
+	sv.BaseVisitor.Close()
 	if sv.udpConn != nil {
 		sv.udpConn.Close()
 	}

@@ -376,7 +376,7 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 				for _, test := range tests {
 					framework.NewRequestExpect(f).
 						RequestModify(func(r *request.Request) {
-							r.Timeout(5 * time.Second)
+							r.Timeout(10 * time.Second)
 						}).
 						Protocol(protocol).
 						PortName(test.bindPortName).

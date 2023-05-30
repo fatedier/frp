@@ -59,12 +59,15 @@ func (sv *XTCPVisitor) Run() (err error) {
 		sv.session = NewQUICTunnelSession(&sv.clientCfg)
 	}
 
-	sv.l, err = net.Listen("tcp", net.JoinHostPort(sv.cfg.BindAddr, strconv.Itoa(sv.cfg.BindPort)))
-	if err != nil {
-		return
+	if sv.cfg.BindPort > 0 {
+		sv.l, err = net.Listen("tcp", net.JoinHostPort(sv.cfg.BindAddr, strconv.Itoa(sv.cfg.BindPort)))
+		if err != nil {
+			return
+		}
+		go sv.worker()
 	}
 
-	go sv.worker()
+	go sv.internalConnWorker()
 	go sv.processTunnelStartEvents()
 	if sv.cfg.KeepTunnelOpen {
 		sv.retryLimiter = rate.NewLimiter(rate.Every(time.Hour/time.Duration(sv.cfg.MaxRetriesAnHour)), sv.cfg.MaxRetriesAnHour)
@@ -74,8 +77,12 @@ func (sv *XTCPVisitor) Run() (err error) {
 }
 
 func (sv *XTCPVisitor) Close() {
-	sv.l.Close()
-	sv.cancel()
+	sv.mu.Lock()
+	defer sv.mu.Unlock()
+	sv.BaseVisitor.Close()
+	if sv.cancel != nil {
+		sv.cancel()
+	}
 	if sv.session != nil {
 		sv.session.Close()
 	}
@@ -89,7 +96,18 @@ func (sv *XTCPVisitor) worker() {
 			xl.Warn("xtcp local listener closed")
 			return
 		}
+		go sv.handleConn(conn)
+	}
+}
 
+func (sv *XTCPVisitor) internalConnWorker() {
+	xl := xlog.FromContextSafe(sv.ctx)
+	for {
+		conn, err := sv.internalLn.Accept()
+		if err != nil {
+			xl.Warn("xtcp internal listener closed")
+			return
+		}
 		go sv.handleConn(conn)
 	}
 }
@@ -139,15 +157,37 @@ func (sv *XTCPVisitor) keepTunnelOpenWorker() {
 
 func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 	xl := xlog.FromContextSafe(sv.ctx)
-	defer userConn.Close()
+	isConnTrasfered := false
+	defer func() {
+		if !isConnTrasfered {
+			userConn.Close()
+		}
+	}()
 
 	xl.Debug("get a new xtcp user connection")
 
 	// Open a tunnel connection to the server. If there is already a successful hole-punching connection,
 	// it will be reused. Otherwise, it will block and wait for a successful hole-punching connection until timeout.
-	tunnelConn, err := sv.openTunnel()
+	ctx := context.Background()
+	if sv.cfg.FallbackTo != "" {
+		timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(sv.cfg.FallbackTimeoutMs)*time.Millisecond)
+		defer cancel()
+		ctx = timeoutCtx
+	}
+	tunnelConn, err := sv.openTunnel(ctx)
 	if err != nil {
 		xl.Error("open tunnel error: %v", err)
+		// no fallback, just return
+		if sv.cfg.FallbackTo == "" {
+			return
+		}
+
+		xl.Debug("try to transfer connection to visitor: %s", sv.cfg.FallbackTo)
+		if err := sv.transferConn(sv.cfg.FallbackTo, userConn); err != nil {
+			xl.Error("transfer connection to visitor %s error: %v", sv.cfg.FallbackTo, err)
+			return
+		}
+		isConnTrasfered = true
 		return
 	}
 
@@ -171,7 +211,7 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 }
 
 // openTunnel will open a tunnel connection to the target server.
-func (sv *XTCPVisitor) openTunnel() (conn net.Conn, err error) {
+func (sv *XTCPVisitor) openTunnel(ctx context.Context) (conn net.Conn, err error) {
 	xl := xlog.FromContextSafe(sv.ctx)
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -185,6 +225,8 @@ func (sv *XTCPVisitor) openTunnel() (conn net.Conn, err error) {
 		select {
 		case <-sv.ctx.Done():
 			return nil, sv.ctx.Err()
+		case <-ctx.Done():
+			return nil, ctx.Err()
 		case <-immediateTrigger:
 			conn, err = sv.getTunnelConn()
 		case <-ticker.C:

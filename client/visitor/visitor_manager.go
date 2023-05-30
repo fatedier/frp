@@ -16,6 +16,7 @@ package visitor
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -34,7 +35,7 @@ type Manager struct {
 
 	checkInterval time.Duration
 
-	mu  sync.Mutex
+	mu  sync.RWMutex
 	ctx context.Context
 
 	stopCh chan struct{}
@@ -83,11 +84,24 @@ func (vm *Manager) Run() {
 	}
 }
 
+func (vm *Manager) Close() {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	for _, v := range vm.visitors {
+		v.Close()
+	}
+	select {
+	case <-vm.stopCh:
+	default:
+		close(vm.stopCh)
+	}
+}
+
 // Hold lock before calling this function.
 func (vm *Manager) startVisitor(cfg config.VisitorConf) (err error) {
 	xl := xlog.FromContextSafe(vm.ctx)
 	name := cfg.GetBaseInfo().ProxyName
-	visitor := NewVisitor(vm.ctx, cfg, vm.clientCfg, vm.connectServer, vm.msgTransporter)
+	visitor := NewVisitor(vm.ctx, cfg, vm.clientCfg, vm.connectServer, vm.TransferConn, vm.msgTransporter)
 	err = visitor.Run()
 	if err != nil {
 		xl.Warn("start error: %v", err)
@@ -139,15 +153,13 @@ func (vm *Manager) Reload(cfgs map[string]config.VisitorConf) {
 	}
 }
 
-func (vm *Manager) Close() {
-	vm.mu.Lock()
-	defer vm.mu.Unlock()
-	for _, v := range vm.visitors {
-		v.Close()
+// TransferConn transfers a connection to a visitor.
+func (vm *Manager) TransferConn(name string, conn net.Conn) error {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+	v, ok := vm.visitors[name]
+	if !ok {
+		return fmt.Errorf("visitor [%s] not found", name)
 	}
-	select {
-	case <-vm.stopCh:
-	default:
-		close(vm.stopCh)
-	}
+	return v.AcceptConn(conn)
 }

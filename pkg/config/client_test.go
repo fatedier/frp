@@ -661,9 +661,10 @@ func Test_LoadClientBasicConf(t *testing.T) {
 				BindAddr:   "127.0.0.1",
 				BindPort:   9001,
 			},
-			Protocol:         "quic",
-			MaxRetriesAnHour: 8,
-			MinRetryInterval: 90,
+			Protocol:          "quic",
+			MaxRetriesAnHour:  8,
+			MinRetryInterval:  90,
+			FallbackTimeoutMs: 1000,
 		},
 	}
 
