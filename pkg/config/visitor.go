@@ -34,10 +34,12 @@ var (
 )
 
 type VisitorConf interface {
-	GetBaseInfo() *BaseVisitorConf
-	Compare(cmp VisitorConf) bool
+	// GetBaseConfig returns the base config of visitor.
+	GetBaseConfig() *BaseVisitorConf
+	// UnmarshalFromIni unmarshals config from ini.
 	UnmarshalFromIni(prefix string, name string, section *ini.Section) error
-	Check() error
+	// Validate validates config.
+	Validate() error
 }
 
 type BaseVisitorConf struct {
@@ -47,8 +49,10 @@ type BaseVisitorConf struct {
 	UseCompression bool   `ini:"use_compression" json:"use_compression"`
 	Role           string `ini:"role" json:"role"`
 	Sk             string `ini:"sk" json:"sk"`
-	ServerName     string `ini:"server_name" json:"server_name"`
-	BindAddr       string `ini:"bind_addr" json:"bind_addr"`
+	// if the server user is not set, it defaults to the current user
+	ServerUser string `ini:"server_user" json:"server_user"`
+	ServerName string `ini:"server_name" json:"server_name"`
+	BindAddr   string `ini:"bind_addr" json:"bind_addr"`
 	// BindPort is the port that visitor listens on.
 	// It can be less than 0, it means don't bind to the port and only receive connections redirected from
 	// other visitors. (This is not supported for SUDP now)
@@ -81,7 +85,6 @@ func DefaultVisitorConf(visitorType string) VisitorConf {
 	if !ok {
 		return nil
 	}
-
 	return reflect.New(v).Interface().(VisitorConf)
 }
 
@@ -103,7 +106,7 @@ func NewVisitorConfFromIni(prefix string, name string, section *ini.Section) (Vi
 		return nil, fmt.Errorf("visitor [%s] type [%s] error", name, visitorType)
 	}
 
-	if err := conf.Check(); err != nil {
+	if err := conf.Validate(); err != nil {
 		return nil, err
 	}
 
@@ -111,26 +114,11 @@ func NewVisitorConfFromIni(prefix string, name string, section *ini.Section) (Vi
 }
 
 // Base
-func (cfg *BaseVisitorConf) GetBaseInfo() *BaseVisitorConf {
+func (cfg *BaseVisitorConf) GetBaseConfig() *BaseVisitorConf {
 	return cfg
 }
 
-func (cfg *BaseVisitorConf) compare(cmp *BaseVisitorConf) bool {
-	if cfg.ProxyName != cmp.ProxyName ||
-		cfg.ProxyType != cmp.ProxyType ||
-		cfg.UseEncryption != cmp.UseEncryption ||
-		cfg.UseCompression != cmp.UseCompression ||
-		cfg.Role != cmp.Role ||
-		cfg.Sk != cmp.Sk ||
-		cfg.ServerName != cmp.ServerName ||
-		cfg.BindAddr != cmp.BindAddr ||
-		cfg.BindPort != cmp.BindPort {
-		return false
-	}
-	return true
-}
-
-func (cfg *BaseVisitorConf) check() (err error) {
+func (cfg *BaseVisitorConf) validate() (err error) {
 	if cfg.Role != "visitor" {
 		err = fmt.Errorf("invalid role")
 		return
@@ -156,7 +144,11 @@ func (cfg *BaseVisitorConf) unmarshalFromIni(prefix string, name string, section
 	cfg.ProxyName = prefix + name
 
 	// server_name
-	cfg.ServerName = prefix + cfg.ServerName
+	if cfg.ServerUser == "" {
+		cfg.ServerName = prefix + cfg.ServerName
+	} else {
+		cfg.ServerName = cfg.ServerUser + "." + cfg.ServerName
+	}
 
 	// bind_addr
 	if cfg.BindAddr == "" {
@@ -171,7 +163,7 @@ func preVisitorUnmarshalFromIni(cfg VisitorConf, prefix string, name string, sec
 		return err
 	}
 
-	err = cfg.GetBaseInfo().unmarshalFromIni(prefix, name, section)
+	err = cfg.GetBaseConfig().unmarshalFromIni(prefix, name, section)
 	if err != nil {
 		return err
 	}
@@ -180,21 +172,6 @@ func preVisitorUnmarshalFromIni(cfg VisitorConf, prefix string, name string, sec
 
 // SUDP
 var _ VisitorConf = &SUDPVisitorConf{}
-
-func (cfg *SUDPVisitorConf) Compare(cmp VisitorConf) bool {
-	cmpConf, ok := cmp.(*SUDPVisitorConf)
-	if !ok {
-		return false
-	}
-
-	if !cfg.BaseVisitorConf.compare(&cmpConf.BaseVisitorConf) {
-		return false
-	}
-
-	// Add custom login equal, if exists
-
-	return true
-}
 
 func (cfg *SUDPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) (err error) {
 	err = preVisitorUnmarshalFromIni(cfg, prefix, name, section)
@@ -207,8 +184,8 @@ func (cfg *SUDPVisitorConf) UnmarshalFromIni(prefix string, name string, section
 	return
 }
 
-func (cfg *SUDPVisitorConf) Check() (err error) {
-	if err = cfg.BaseVisitorConf.check(); err != nil {
+func (cfg *SUDPVisitorConf) Validate() (err error) {
+	if err = cfg.BaseVisitorConf.validate(); err != nil {
 		return
 	}
 
@@ -219,21 +196,6 @@ func (cfg *SUDPVisitorConf) Check() (err error) {
 
 // STCP
 var _ VisitorConf = &STCPVisitorConf{}
-
-func (cfg *STCPVisitorConf) Compare(cmp VisitorConf) bool {
-	cmpConf, ok := cmp.(*STCPVisitorConf)
-	if !ok {
-		return false
-	}
-
-	if !cfg.BaseVisitorConf.compare(&cmpConf.BaseVisitorConf) {
-		return false
-	}
-
-	// Add custom login equal, if exists
-
-	return true
-}
 
 func (cfg *STCPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) (err error) {
 	err = preVisitorUnmarshalFromIni(cfg, prefix, name, section)
@@ -246,8 +208,8 @@ func (cfg *STCPVisitorConf) UnmarshalFromIni(prefix string, name string, section
 	return
 }
 
-func (cfg *STCPVisitorConf) Check() (err error) {
-	if err = cfg.BaseVisitorConf.check(); err != nil {
+func (cfg *STCPVisitorConf) Validate() (err error) {
+	if err = cfg.BaseVisitorConf.validate(); err != nil {
 		return
 	}
 
@@ -258,28 +220,6 @@ func (cfg *STCPVisitorConf) Check() (err error) {
 
 // XTCP
 var _ VisitorConf = &XTCPVisitorConf{}
-
-func (cfg *XTCPVisitorConf) Compare(cmp VisitorConf) bool {
-	cmpConf, ok := cmp.(*XTCPVisitorConf)
-	if !ok {
-		return false
-	}
-
-	if !cfg.BaseVisitorConf.compare(&cmpConf.BaseVisitorConf) {
-		return false
-	}
-
-	// Add custom login equal, if exists
-	if cfg.Protocol != cmpConf.Protocol ||
-		cfg.KeepTunnelOpen != cmpConf.KeepTunnelOpen ||
-		cfg.MaxRetriesAnHour != cmpConf.MaxRetriesAnHour ||
-		cfg.MinRetryInterval != cmpConf.MinRetryInterval ||
-		cfg.FallbackTo != cmpConf.FallbackTo ||
-		cfg.FallbackTimeoutMs != cmpConf.FallbackTimeoutMs {
-		return false
-	}
-	return true
-}
 
 func (cfg *XTCPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) (err error) {
 	err = preVisitorUnmarshalFromIni(cfg, prefix, name, section)
@@ -303,8 +243,8 @@ func (cfg *XTCPVisitorConf) UnmarshalFromIni(prefix string, name string, section
 	return
 }
 
-func (cfg *XTCPVisitorConf) Check() (err error) {
-	if err = cfg.BaseVisitorConf.check(); err != nil {
+func (cfg *XTCPVisitorConf) Validate() (err error) {
+	if err = cfg.BaseVisitorConf.validate(); err != nil {
 		return
 	}
 

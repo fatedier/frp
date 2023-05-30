@@ -80,7 +80,7 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	defer userConn.Close()
 
 	xl.Debug("get a new stcp user connection")
-	visitorConn, err := sv.connectServer()
+	visitorConn, err := sv.helper.ConnectServer()
 	if err != nil {
 		return
 	}
@@ -88,6 +88,7 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 
 	now := time.Now().Unix()
 	newVisitorConnMsg := &msg.NewVisitorConn{
+		RunID:          sv.helper.RunID(),
 		ProxyName:      sv.cfg.ServerName,
 		SignKey:        util.GetAuthKey(sv.cfg.Sk, now),
 		Timestamp:      now,

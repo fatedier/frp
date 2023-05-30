@@ -145,6 +145,7 @@ type StartWorkConn struct {
 }
 
 type NewVisitorConn struct {
+	RunID          string `json:"run_id,omitempty"`
 	ProxyName      string `json:"proxy_name,omitempty"`
 	SignKey        string `json:"sign_key,omitempty"`
 	Timestamp      int64  `json:"timestamp,omitempty"`

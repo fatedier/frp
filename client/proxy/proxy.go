@@ -54,8 +54,8 @@ func NewProxy(
 	msgTransporter transport.MessageTransporter,
 ) (pxy Proxy) {
 	var limiter *rate.Limiter
-	limitBytes := pxyConf.GetBaseInfo().BandwidthLimit.Bytes()
-	if limitBytes > 0 && pxyConf.GetBaseInfo().BandwidthLimitMode == config.BandwidthLimitModeClient {
+	limitBytes := pxyConf.GetBaseConfig().BandwidthLimit.Bytes()
+	if limitBytes > 0 && pxyConf.GetBaseConfig().BandwidthLimitMode == config.BandwidthLimitModeClient {
 		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
 	}
 
@@ -148,7 +148,7 @@ func (pxy *TCPProxy) Close() {
 }
 
 func (pxy *TCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
+	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseConfig(), pxy.limiter,
 		conn, []byte(pxy.clientCfg.Token), m)
 }
 
@@ -177,7 +177,7 @@ func (pxy *TCPMuxProxy) Close() {
 }
 
 func (pxy *TCPMuxProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
+	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseConfig(), pxy.limiter,
 		conn, []byte(pxy.clientCfg.Token), m)
 }
 
@@ -206,7 +206,7 @@ func (pxy *HTTPProxy) Close() {
 }
 
 func (pxy *HTTPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
+	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseConfig(), pxy.limiter,
 		conn, []byte(pxy.clientCfg.Token), m)
 }
 
@@ -235,7 +235,7 @@ func (pxy *HTTPSProxy) Close() {
 }
 
 func (pxy *HTTPSProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
+	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseConfig(), pxy.limiter,
 		conn, []byte(pxy.clientCfg.Token), m)
 }
 
@@ -264,7 +264,7 @@ func (pxy *STCPProxy) Close() {
 }
 
 func (pxy *STCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
+	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseConfig(), pxy.limiter,
 		conn, []byte(pxy.clientCfg.Token), m)
 }
 

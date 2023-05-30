@@ -183,7 +183,7 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		}
 
 		xl.Debug("try to transfer connection to visitor: %s", sv.cfg.FallbackTo)
-		if err := sv.transferConn(sv.cfg.FallbackTo, userConn); err != nil {
+		if err := sv.helper.TransferConn(sv.cfg.FallbackTo, userConn); err != nil {
 			xl.Error("transfer connection to visitor %s error: %v", sv.cfg.FallbackTo, err)
 			return
 		}
@@ -266,7 +266,7 @@ func (sv *XTCPVisitor) getTunnelConn() (net.Conn, error) {
 // 4. Create a tunnel session using an underlying UDP connection.
 func (sv *XTCPVisitor) makeNatHole() {
 	xl := xlog.FromContextSafe(sv.ctx)
-	if err := nathole.PreCheck(sv.ctx, sv.msgTransporter, sv.cfg.ServerName, 5*time.Second); err != nil {
+	if err := nathole.PreCheck(sv.ctx, sv.helper.MsgTransporter(), sv.cfg.ServerName, 5*time.Second); err != nil {
 		xl.Warn("nathole precheck error: %v", err)
 		return
 	}
@@ -294,7 +294,7 @@ func (sv *XTCPVisitor) makeNatHole() {
 		AssistedAddrs: prepareResult.AssistedAddrs,
 	}
 
-	natHoleRespMsg, err := nathole.ExchangeInfo(sv.ctx, sv.msgTransporter, transactionID, natHoleVisitorMsg, 5*time.Second)
+	natHoleRespMsg, err := nathole.ExchangeInfo(sv.ctx, sv.helper.MsgTransporter(), transactionID, natHoleVisitorMsg, 5*time.Second)
 	if err != nil {
 		listenConn.Close()
 		xl.Warn("nathole exchange info error: %v", err)

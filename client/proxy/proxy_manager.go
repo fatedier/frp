@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"reflect"
 	"sync"
 
 	"github.com/fatedier/frp/client/event"
@@ -121,21 +122,18 @@ func (pm *Manager) Reload(pxyCfgs map[string]config.ProxyConf) {
 	for name, pxy := range pm.proxies {
 		del := false
 		cfg, ok := pxyCfgs[name]
-		if !ok {
-			del = true
-		} else if !pxy.Cfg.Compare(cfg) {
+		if !ok || !reflect.DeepEqual(pxy.Cfg, cfg) {
 			del = true
 		}
 
 		if del {
 			delPxyNames = append(delPxyNames, name)
 			delete(pm.proxies, name)
-
 			pxy.Stop()
 		}
 	}
 	if len(delPxyNames) > 0 {
-		xl.Info("proxy removed: %v", delPxyNames)
+		xl.Info("proxy removed: %s", delPxyNames)
 	}
 
 	addPxyNames := make([]string, 0)
@@ -149,6 +147,6 @@ func (pm *Manager) Reload(pxyCfgs map[string]config.ProxyConf) {
 		}
 	}
 	if len(addPxyNames) > 0 {
-		xl.Info("proxy added: %v", addPxyNames)
+		xl.Info("proxy added: %s", addPxyNames)
 	}
 }

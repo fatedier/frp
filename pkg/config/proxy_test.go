@@ -254,8 +254,10 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 					},
 					BandwidthLimitMode: BandwidthLimitModeClient,
 				},
-				Role: "server",
-				Sk:   "abcdefg",
+				RoleServerCommonConf: RoleServerCommonConf{
+					Role: "server",
+					Sk:   "abcdefg",
+				},
 			},
 		},
 		{
@@ -279,8 +281,10 @@ func Test_Proxy_UnmarshalFromIni(t *testing.T) {
 					},
 					BandwidthLimitMode: BandwidthLimitModeClient,
 				},
-				Role: "server",
-				Sk:   "abcdefg",
+				RoleServerCommonConf: RoleServerCommonConf{
+					Role: "server",
+					Sk:   "abcdefg",
+				},
 			},
 		},
 		{
