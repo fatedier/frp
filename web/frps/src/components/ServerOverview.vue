@@ -14,9 +14,6 @@
             <el-form-item label="BindPort">
               <span>{{ data.bind_port }}</span>
             </el-form-item>
-            <el-form-item label="Bind UDP Port" v-if="data.bind_udp_port != 0">
-              <span>{{ data.bind_udp_port }}</span>
-            </el-form-item>
             <el-form-item label="KCP Bind Port" v-if="data.kcp_bind_port != 0">
               <span>{{ data.kcp_bind_port }}</span>
             </el-form-item>
@@ -91,7 +88,6 @@ import LongSpan from './LongSpan.vue'
 let data = ref({
   version: '',
   bind_port: 0,
-  bind_udp_port: 0,
   kcp_bind_port: 0,
   quic_bind_port: 0,
   vhost_http_port: 0,
@@ -114,7 +110,6 @@ const fetchData = () => {
     .then((json) => {
       data.value.version = json.version
       data.value.bind_port = json.bind_port
-      data.value.bind_udp_port = json.bind_udp_port
       data.value.kcp_bind_port = json.kcp_bind_port
       data.value.quic_bind_port = json.quic_bind_port
       data.value.vhost_http_port = json.vhost_http_port

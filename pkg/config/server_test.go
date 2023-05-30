@@ -36,7 +36,6 @@ func Test_LoadServerCommonConf(t *testing.T) {
 				[common]
 				bind_addr = 0.0.0.9
 				bind_port = 7009
-				bind_udp_port = 7008
 				kcp_bind_port = 7007
 				proxy_bind_addr = 127.0.0.9
 				vhost_http_port = 89
@@ -170,7 +169,6 @@ func Test_LoadServerCommonConf(t *testing.T) {
 				[common]
 				bind_addr = 0.0.0.9
 				bind_port = 7009
-				bind_udp_port = 7008
 			`),
 			expected: ServerCommonConf{
 				ServerConfig: auth.ServerConfig{
