@@ -17,6 +17,7 @@ package proxy
 import (
 	"io"
 	"net"
+	"reflect"
 	"time"
 
 	fmux "github.com/hashicorp/yamux"
@@ -25,32 +26,28 @@ import (
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
-	plugin "github.com/fatedier/frp/pkg/plugin/client"
 	"github.com/fatedier/frp/pkg/transport"
 	utilnet "github.com/fatedier/frp/pkg/util/net"
 )
 
-// XTCP
+func init() {
+	RegisterProxyFactory(reflect.TypeOf(&config.XTCPProxyConf{}), NewXTCPProxy)
+}
+
 type XTCPProxy struct {
 	*BaseProxy
 
-	cfg         *config.XTCPProxyConf
-	proxyPlugin plugin.Plugin
+	cfg *config.XTCPProxyConf
 }
 
-func (pxy *XTCPProxy) Run() (err error) {
-	if pxy.cfg.Plugin != "" {
-		pxy.proxyPlugin, err = plugin.Create(pxy.cfg.Plugin, pxy.cfg.PluginParams)
-		if err != nil {
-			return
-		}
+func NewXTCPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
+	unwrapped, ok := cfg.(*config.XTCPProxyConf)
+	if !ok {
+		return nil
 	}
-	return
-}
-
-func (pxy *XTCPProxy) Close() {
-	if pxy.proxyPlugin != nil {
-		pxy.proxyPlugin.Close()
+	return &XTCPProxy{
+		BaseProxy: baseProxy,
+		cfg:       unwrapped,
 	}
 }
 
@@ -155,8 +152,7 @@ func (pxy *XTCPProxy) listenByKCP(listenConn *net.UDPConn, raddr *net.UDPAddr, s
 			xl.Error("accept connection error: %v", err)
 			return
 		}
-		go HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseConfig(), pxy.limiter,
-			muxConn, []byte(pxy.cfg.Sk), startWorkConnMsg)
+		go pxy.HandleTCPWorkConnection(muxConn, startWorkConnMsg, []byte(pxy.cfg.Sk))
 	}
 }
 
@@ -194,7 +190,6 @@ func (pxy *XTCPProxy) listenByQUIC(listenConn *net.UDPConn, _ *net.UDPAddr, star
 			_ = c.CloseWithError(0, "")
 			return
 		}
-		go HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseConfig(), pxy.limiter,
-			utilnet.QuicStreamToNetConn(stream, c), []byte(pxy.cfg.Sk), startWorkConnMsg)
+		go pxy.HandleTCPWorkConnection(utilnet.QuicStreamToNetConn(stream, c), startWorkConnMsg, []byte(pxy.cfg.Sk))
 	}
 }

@@ -17,6 +17,7 @@ package proxy
 import (
 	"io"
 	"net"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -30,7 +31,10 @@ import (
 	utilnet "github.com/fatedier/frp/pkg/util/net"
 )
 
-// UDP
+func init() {
+	RegisterProxyFactory(reflect.TypeOf(&config.UDPProxyConf{}), NewUDPProxy)
+}
+
 type UDPProxy struct {
 	*BaseProxy
 
@@ -42,6 +46,18 @@ type UDPProxy struct {
 	// include msg.UDPPacket and msg.Ping
 	sendCh   chan msg.Message
 	workConn net.Conn
+	closed   bool
+}
+
+func NewUDPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
+	unwrapped, ok := cfg.(*config.UDPProxyConf)
+	if !ok {
+		return nil
+	}
+	return &UDPProxy{
+		BaseProxy: baseProxy,
+		cfg:       unwrapped,
+	}
 }
 
 func (pxy *UDPProxy) Run() (err error) {
