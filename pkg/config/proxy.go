@@ -183,6 +183,13 @@ type TCPProxyConf struct {
 	RemotePort    int `ini:"remote_port" json:"remote_port"`
 }
 
+// UDP
+type UDPProxyConf struct {
+	BaseProxyConf `ini:",extends"`
+
+	RemotePort int `ini:"remote_port" json:"remote_port"`
+}
+
 // TCPMux
 type TCPMuxProxyConf struct {
 	BaseProxyConf   `ini:",extends"`
@@ -208,13 +215,6 @@ type XTCPProxyConf struct {
 
 	Role string `ini:"role" json:"role"`
 	Sk   string `ini:"sk" json:"sk"`
-}
-
-// UDP
-type UDPProxyConf struct {
-	BaseProxyConf `ini:",extends"`
-
-	RemotePort int `ini:"remote_port" json:"remote_port"`
 }
 
 // SUDP
