@@ -352,7 +352,7 @@ func LoadAllProxyConfsFromIni(
 		case "visitor":
 			newConf, newErr := NewVisitorConfFromIni(prefix, name, section)
 			if newErr != nil {
-				return nil, nil, newErr
+				return nil, nil, fmt.Errorf("failed to parse visitor %s, err: %v", name, newErr)
 			}
 			visitorConfs[prefix+name] = newConf
 		default:

@@ -587,6 +587,15 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 }
 
 func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVisitorConn) error {
+	visitorUser := ""
+	// TODO: Compatible with old versions, can be without runID, user is empty. In later versions, it will be mandatory to include runID.
+	if newMsg.RunID != "" {
+		ctl, exist := svr.ctlManager.GetByID(newMsg.RunID)
+		if !exist {
+			return fmt.Errorf("no client control found for run id [%s]", newMsg.RunID)
+		}
+		visitorUser = ctl.loginMsg.User
+	}
 	return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
-		newMsg.UseEncryption, newMsg.UseCompression)
+		newMsg.UseEncryption, newMsg.UseCompression, visitorUser)
 }

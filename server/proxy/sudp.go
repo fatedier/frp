@@ -27,8 +27,12 @@ type SUDPProxy struct {
 
 func (pxy *SUDPProxy) Run() (remoteAddr string, err error) {
 	xl := pxy.xl
-
-	listener, errRet := pxy.rc.VisitorManager.Listen(pxy.GetName(), pxy.cfg.Sk)
+	allowUsers := pxy.cfg.AllowUsers
+	// if allowUsers is empty, only allow same user from proxy
+	if len(allowUsers) == 0 {
+		allowUsers = []string{pxy.GetUserInfo().User}
+	}
+	listener, errRet := pxy.rc.VisitorManager.Listen(pxy.GetName(), pxy.cfg.Sk, allowUsers)
 	if errRet != nil {
 		err = errRet
 		return
