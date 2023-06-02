@@ -351,7 +351,7 @@ func (ks *KCPTunnelSession) Init(listenConn *net.UDPConn, raddr *net.UDPAddr) er
 
 	fmuxCfg := fmux.DefaultConfig()
 	fmuxCfg.KeepAliveInterval = 10 * time.Second
-	fmuxCfg.MaxStreamWindowSize = 2 * 1024 * 1024
+	fmuxCfg.MaxStreamWindowSize = 6 * 1024 * 1024
 	fmuxCfg.LogOutput = io.Discard
 	session, err := fmux.Client(remote, fmuxCfg)
 	if err != nil {
