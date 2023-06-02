@@ -94,16 +94,16 @@ func NewVisitorConfFromIni(prefix string, name string, section *ini.Section) (Vi
 	visitorType := section.Key("type").String()
 
 	if visitorType == "" {
-		return nil, fmt.Errorf("visitor [%s] type shouldn't be empty", name)
+		return nil, fmt.Errorf("type shouldn't be empty")
 	}
 
 	conf := DefaultVisitorConf(visitorType)
 	if conf == nil {
-		return nil, fmt.Errorf("visitor [%s] type [%s] error", name, visitorType)
+		return nil, fmt.Errorf("type [%s] error", visitorType)
 	}
 
 	if err := conf.UnmarshalFromIni(prefix, name, section); err != nil {
-		return nil, fmt.Errorf("visitor [%s] type [%s] error", name, visitorType)
+		return nil, fmt.Errorf("type [%s] error", visitorType)
 	}
 
 	if err := conf.Validate(); err != nil {

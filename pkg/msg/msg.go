@@ -110,8 +110,9 @@ type NewProxy struct {
 	Headers           map[string]string `json:"headers,omitempty"`
 	RouteByHTTPUser   string            `json:"route_by_http_user,omitempty"`
 
-	// stcp
-	Sk string `json:"sk,omitempty"`
+	// stcp, sudp, xtcp
+	Sk         string   `json:"sk,omitempty"`
+	AllowUsers []string `json:"allow_users,omitempty"`
 
 	// tcpmux
 	Multiplexer string `json:"multiplexer,omitempty"`

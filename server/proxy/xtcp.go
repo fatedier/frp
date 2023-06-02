@@ -35,11 +35,15 @@ func (pxy *XTCPProxy) Run() (remoteAddr string, err error) {
 	xl := pxy.xl
 
 	if pxy.rc.NatHoleController == nil {
-		xl.Error("udp port for xtcp is not specified.")
 		err = fmt.Errorf("xtcp is not supported in frps")
 		return
 	}
-	sidCh := pxy.rc.NatHoleController.ListenClient(pxy.GetName(), pxy.cfg.Sk)
+	allowUsers := pxy.cfg.AllowUsers
+	// if allowUsers is empty, only allow same user from proxy
+	if len(allowUsers) == 0 {
+		allowUsers = []string{pxy.GetUserInfo().User}
+	}
+	sidCh := pxy.rc.NatHoleController.ListenClient(pxy.GetName(), pxy.cfg.Sk, allowUsers)
 	go func() {
 		for {
 			select {

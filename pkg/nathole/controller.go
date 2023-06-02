@@ -43,9 +43,10 @@ func NewTransactionID() string {
 }
 
 type ClientCfg struct {
-	name  string
-	sk    string
-	sidCh chan string
+	name       string
+	sk         string
+	allowUsers []string
+	sidCh      chan string
 }
 
 type Session struct {
@@ -120,11 +121,12 @@ func (c *Controller) CleanWorker(ctx context.Context) {
 	}
 }
 
-func (c *Controller) ListenClient(name string, sk string) chan string {
+func (c *Controller) ListenClient(name string, sk string, allowUsers []string) chan string {
 	cfg := &ClientCfg{
-		name:  name,
-		sk:    sk,
-		sidCh: make(chan string),
+		name:       name,
+		sk:         sk,
+		allowUsers: allowUsers,
+		sidCh:      make(chan string),
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -144,14 +146,18 @@ func (c *Controller) GenSid() string {
 	return fmt.Sprintf("%d%s", t, id)
 }
 
-func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.MessageTransporter) {
+func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.MessageTransporter, visitorUser string) {
 	if m.PreCheck {
-		_, ok := c.clientCfgs[m.ProxyName]
+		cfg, ok := c.clientCfgs[m.ProxyName]
 		if !ok {
 			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("xtcp server for [%s] doesn't exist", m.ProxyName)))
-		} else {
-			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, ""))
+			return
 		}
+		if !lo.Contains(cfg.allowUsers, visitorUser) && !lo.Contains(cfg.allowUsers, "*") {
+			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("xtcp visitor user [%s] not allowed for [%s]", visitorUser, m.ProxyName)))
+			return
+		}
+		_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, ""))
 		return
 	}
 

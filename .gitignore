@@ -29,6 +29,7 @@ packages/
 release/
 test/bin/
 vendor/
+lastversion/
 dist/
 .idea/
 .vscode/
