@@ -313,7 +313,7 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 				`+extra, proxyName, proxyType, correctSK, localPortName)
 				}
 				getProxyVisitorConf := func(proxyName string, portName, visitorSK, extra string) string {
-					out := fmt.Sprintf(`
+					return fmt.Sprintf(`
 				[%s]
 				type = %s
 				role = visitor
@@ -321,11 +321,6 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 				sk = %s
 				bind_port = {{ .%s }}
 				`+extra, proxyName, proxyType, proxyName, visitorSK, portName)
-					if proxyType == "xtcp" {
-						// Set keep_tunnel_open to reduce testing time.
-						out += "\nkeep_tunnel_open = true"
-					}
-					return out
 				}
 
 				tests := []struct {
