@@ -137,7 +137,7 @@ func (pxy *XTCPProxy) listenByKCP(listenConn *net.UDPConn, raddr *net.UDPAddr, s
 
 	fmuxCfg := fmux.DefaultConfig()
 	fmuxCfg.KeepAliveInterval = 10 * time.Second
-	fmuxCfg.MaxStreamWindowSize = 2 * 1024 * 1024
+	fmuxCfg.MaxStreamWindowSize = 6 * 1024 * 1024
 	fmuxCfg.LogOutput = io.Discard
 	session, err := fmux.Server(remote, fmuxCfg)
 	if err != nil {
