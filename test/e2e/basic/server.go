@@ -37,7 +37,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 			[tcp-port-not-allowed]
 			type = tcp
 			local_port = {{ .%s }}
-			remote_port = 20001
+			remote_port = 25001
 			`, framework.TCPEchoServerPort)
 		clientConf += fmt.Sprintf(`
 			[tcp-port-unavailable]
@@ -55,7 +55,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 			[udp-port-not-allowed]
 			type = udp
 			local_port = {{ .%s }}
-			remote_port = 20003
+			remote_port = 25003
 			`, framework.UDPEchoServerPort)
 
 		f.RunProcesses([]string{serverConf}, []string{clientConf})
@@ -65,7 +65,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 		framework.NewRequestExpect(f).PortName(tcpPortName).Ensure()
 
 		// Not Allowed
-		framework.NewRequestExpect(f).Port(25003).ExpectError(true).Ensure()
+		framework.NewRequestExpect(f).Port(25001).ExpectError(true).Ensure()
 
 		// Unavailable, already bind by frps
 		framework.NewRequestExpect(f).PortName(consts.PortServerName).ExpectError(true).Ensure()

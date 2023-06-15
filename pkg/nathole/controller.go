@@ -121,7 +121,7 @@ func (c *Controller) CleanWorker(ctx context.Context) {
 	}
 }
 
-func (c *Controller) ListenClient(name string, sk string, allowUsers []string) chan string {
+func (c *Controller) ListenClient(name string, sk string, allowUsers []string) (chan string, error) {
 	cfg := &ClientCfg{
 		name:       name,
 		sk:         sk,
@@ -130,9 +130,11 @@ func (c *Controller) ListenClient(name string, sk string, allowUsers []string) c
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	// TODO(fatedier): return error if name already exists
+	if _, ok := c.clientCfgs[name]; ok {
+		return nil, fmt.Errorf("proxy [%s] is repeated", name)
+	}
 	c.clientCfgs[name] = cfg
-	return cfg.sidCh
+	return cfg.sidCh, nil
 }
 
 func (c *Controller) CloseClient(name string) {

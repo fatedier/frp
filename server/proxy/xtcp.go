@@ -58,7 +58,10 @@ func (pxy *XTCPProxy) Run() (remoteAddr string, err error) {
 	if len(allowUsers) == 0 {
 		allowUsers = []string{pxy.GetUserInfo().User}
 	}
-	sidCh := pxy.rc.NatHoleController.ListenClient(pxy.GetName(), pxy.cfg.Sk, allowUsers)
+	sidCh, err := pxy.rc.NatHoleController.ListenClient(pxy.GetName(), pxy.cfg.Sk, allowUsers)
+	if err != nil {
+		return "", err
+	}
 	go func() {
 		for {
 			select {
