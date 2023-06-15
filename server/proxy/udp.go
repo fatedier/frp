@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"reflect"
 	"strconv"
 	"time"
 
 	"github.com/fatedier/golib/errors"
 	libio "github.com/fatedier/golib/io"
-	"golang.org/x/time/rate"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
@@ -34,11 +34,15 @@ import (
 	"github.com/fatedier/frp/server/metrics"
 )
 
+func init() {
+	RegisterProxyFactory(reflect.TypeOf(&config.UDPProxyConf{}), NewUDPProxy)
+}
+
 type UDPProxy struct {
 	*BaseProxy
 	cfg *config.UDPProxyConf
 
-	realPort int
+	realBindPort int
 
 	// udpConn is the listener of udp packages
 	udpConn *net.UDPConn
@@ -59,21 +63,33 @@ type UDPProxy struct {
 	isClosed bool
 }
 
+func NewUDPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
+	unwrapped, ok := cfg.(*config.UDPProxyConf)
+	if !ok {
+		return nil
+	}
+	baseProxy.usedPortsNum = 1
+	return &UDPProxy{
+		BaseProxy: baseProxy,
+		cfg:       unwrapped,
+	}
+}
+
 func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 	xl := pxy.xl
-	pxy.realPort, err = pxy.rc.UDPPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
+	pxy.realBindPort, err = pxy.rc.UDPPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
 	if err != nil {
 		return "", fmt.Errorf("acquire port %d error: %v", pxy.cfg.RemotePort, err)
 	}
 	defer func() {
 		if err != nil {
-			pxy.rc.UDPPortManager.Release(pxy.realPort)
+			pxy.rc.UDPPortManager.Release(pxy.realBindPort)
 		}
 	}()
 
-	remoteAddr = fmt.Sprintf(":%d", pxy.realPort)
-	pxy.cfg.RemotePort = pxy.realPort
-	addr, errRet := net.ResolveUDPAddr("udp", net.JoinHostPort(pxy.serverCfg.ProxyBindAddr, strconv.Itoa(pxy.realPort)))
+	remoteAddr = fmt.Sprintf(":%d", pxy.realBindPort)
+	pxy.cfg.RemotePort = pxy.realBindPort
+	addr, errRet := net.ResolveUDPAddr("udp", net.JoinHostPort(pxy.serverCfg.ProxyBindAddr, strconv.Itoa(pxy.realBindPort)))
 	if errRet != nil {
 		err = errRet
 		return
@@ -233,10 +249,6 @@ func (pxy *UDPProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
 }
 
-func (pxy *UDPProxy) GetLimiter() *rate.Limiter {
-	return pxy.limiter
-}
-
 func (pxy *UDPProxy) Close() {
 	pxy.mu.Lock()
 	defer pxy.mu.Unlock()
@@ -254,5 +266,5 @@ func (pxy *UDPProxy) Close() {
 		close(pxy.readCh)
 		close(pxy.sendCh)
 	}
-	pxy.rc.UDPPortManager.Release(pxy.realPort)
+	pxy.rc.UDPPortManager.Release(pxy.realBindPort)
 }

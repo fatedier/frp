@@ -130,6 +130,7 @@ func (c *Controller) ListenClient(name string, sk string, allowUsers []string) c
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	// TODO(fatedier): return error if name already exists
 	c.clientCfgs[name] = cfg
 	return cfg.sidCh
 }

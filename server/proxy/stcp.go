@@ -15,14 +15,29 @@
 package proxy
 
 import (
-	"golang.org/x/time/rate"
+	"reflect"
 
 	"github.com/fatedier/frp/pkg/config"
 )
 
+func init() {
+	RegisterProxyFactory(reflect.TypeOf(&config.STCPProxyConf{}), NewSTCPProxy)
+}
+
 type STCPProxy struct {
 	*BaseProxy
 	cfg *config.STCPProxyConf
+}
+
+func NewSTCPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
+	unwrapped, ok := cfg.(*config.STCPProxyConf)
+	if !ok {
+		return nil
+	}
+	return &STCPProxy{
+		BaseProxy: baseProxy,
+		cfg:       unwrapped,
+	}
 }
 
 func (pxy *STCPProxy) Run() (remoteAddr string, err error) {
@@ -40,16 +55,12 @@ func (pxy *STCPProxy) Run() (remoteAddr string, err error) {
 	pxy.listeners = append(pxy.listeners, listener)
 	xl.Info("stcp proxy custom listen success")
 
-	pxy.startListenHandler(pxy, HandleUserTCPConnection)
+	pxy.startCommonTCPListenersHandler()
 	return
 }
 
 func (pxy *STCPProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
-}
-
-func (pxy *STCPProxy) GetLimiter() *rate.Limiter {
-	return pxy.limiter
 }
 
 func (pxy *STCPProxy) Close() {

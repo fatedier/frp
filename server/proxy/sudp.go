@@ -15,14 +15,29 @@
 package proxy
 
 import (
-	"golang.org/x/time/rate"
+	"reflect"
 
 	"github.com/fatedier/frp/pkg/config"
 )
 
+func init() {
+	RegisterProxyFactory(reflect.TypeOf(&config.SUDPProxyConf{}), NewSUDPProxy)
+}
+
 type SUDPProxy struct {
 	*BaseProxy
 	cfg *config.SUDPProxyConf
+}
+
+func NewSUDPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
+	unwrapped, ok := cfg.(*config.SUDPProxyConf)
+	if !ok {
+		return nil
+	}
+	return &SUDPProxy{
+		BaseProxy: baseProxy,
+		cfg:       unwrapped,
+	}
 }
 
 func (pxy *SUDPProxy) Run() (remoteAddr string, err error) {
@@ -40,16 +55,12 @@ func (pxy *SUDPProxy) Run() (remoteAddr string, err error) {
 	pxy.listeners = append(pxy.listeners, listener)
 	xl.Info("sudp proxy custom listen success")
 
-	pxy.startListenHandler(pxy, HandleUserTCPConnection)
+	pxy.startCommonTCPListenersHandler()
 	return
 }
 
 func (pxy *SUDPProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
-}
-
-func (pxy *SUDPProxy) GetLimiter() *rate.Limiter {
-	return pxy.limiter
 }
 
 func (pxy *SUDPProxy) Close() {
