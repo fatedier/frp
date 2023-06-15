@@ -324,6 +324,13 @@ func (pm *Manager) Add(name string, pxy Proxy) error {
 	return nil
 }
 
+func (pm *Manager) Exist(name string) bool {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+	_, ok := pm.pxys[name]
+	return ok
+}
+
 func (pm *Manager) Del(name string) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()

@@ -577,6 +577,11 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		}()
 	}
 
+	if ctl.pxyManager.Exist(pxyMsg.ProxyName) {
+		err = fmt.Errorf("proxy [%s] already exists", pxyMsg.ProxyName)
+		return
+	}
+
 	remoteAddr, err = pxy.Run()
 	if err != nil {
 		return
