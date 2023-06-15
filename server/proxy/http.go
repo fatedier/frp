@@ -17,10 +17,10 @@ package proxy
 import (
 	"io"
 	"net"
+	"reflect"
 	"strings"
 
 	libio "github.com/fatedier/golib/io"
-	"golang.org/x/time/rate"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/util/limit"
@@ -30,11 +30,26 @@ import (
 	"github.com/fatedier/frp/server/metrics"
 )
 
+func init() {
+	RegisterProxyFactory(reflect.TypeOf(&config.HTTPProxyConf{}), NewHTTPProxy)
+}
+
 type HTTPProxy struct {
 	*BaseProxy
 	cfg *config.HTTPProxyConf
 
 	closeFuncs []func()
+}
+
+func NewHTTPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
+	unwrapped, ok := cfg.(*config.HTTPProxyConf)
+	if !ok {
+		return nil
+	}
+	return &HTTPProxy{
+		BaseProxy: baseProxy,
+		cfg:       unwrapped,
+	}
 }
 
 func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
@@ -135,10 +150,6 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 
 func (pxy *HTTPProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
-}
-
-func (pxy *HTTPProxy) GetLimiter() *rate.Limiter {
-	return pxy.limiter
 }
 
 func (pxy *HTTPProxy) GetRealConn(remoteAddr string) (workConn net.Conn, err error) {

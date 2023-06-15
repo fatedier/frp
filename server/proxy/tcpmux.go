@@ -17,9 +17,8 @@ package proxy
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"strings"
-
-	"golang.org/x/time/rate"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/consts"
@@ -27,9 +26,24 @@ import (
 	"github.com/fatedier/frp/pkg/util/vhost"
 )
 
+func init() {
+	RegisterProxyFactory(reflect.TypeOf(&config.TCPMuxProxyConf{}), NewTCPMuxProxy)
+}
+
 type TCPMuxProxy struct {
 	*BaseProxy
 	cfg *config.TCPMuxProxyConf
+}
+
+func NewTCPMuxProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
+	unwrapped, ok := cfg.(*config.TCPMuxProxyConf)
+	if !ok {
+		return nil
+	}
+	return &TCPMuxProxy{
+		BaseProxy: baseProxy,
+		cfg:       unwrapped,
+	}
 }
 
 func (pxy *TCPMuxProxy) httpConnectListen(
@@ -78,7 +92,7 @@ func (pxy *TCPMuxProxy) httpConnectRun() (remoteAddr string, err error) {
 		}
 	}
 
-	pxy.startListenHandler(pxy, HandleUserTCPConnection)
+	pxy.startCommonTCPListenersHandler()
 	remoteAddr = strings.Join(addrs, ",")
 	return remoteAddr, err
 }
@@ -99,10 +113,6 @@ func (pxy *TCPMuxProxy) Run() (remoteAddr string, err error) {
 
 func (pxy *TCPMuxProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
-}
-
-func (pxy *TCPMuxProxy) GetLimiter() *rate.Limiter {
-	return pxy.limiter
 }
 
 func (pxy *TCPMuxProxy) Close() {
