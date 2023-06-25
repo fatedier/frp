@@ -409,9 +409,13 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 				f.RunProcesses([]string{serverConf}, []string{clientServerConf, clientVisitorConf, clientUser2VisitorConf})
 
 				for _, test := range tests {
+					timeout := time.Second
+					if t == "xtcp" {
+						timeout = 4 * time.Second
+					}
 					framework.NewRequestExpect(f).
 						RequestModify(func(r *request.Request) {
-							r.Timeout(3 * time.Second)
+							r.Timeout(timeout)
 						}).
 						Protocol(protocol).
 						PortName(test.bindPortName).

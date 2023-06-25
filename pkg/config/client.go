@@ -127,6 +127,7 @@ type ClientCommonConf struct {
 	// TLSEnable specifies whether or not TLS should be used when communicating
 	// with the server. If "tls_cert_file" and "tls_key_file" are valid,
 	// client will load the supplied tls configuration.
+	// Since v0.50.0, the default value has been changed to true, and tls is enabled by default.
 	TLSEnable bool `ini:"tls_enable" json:"tls_enable"`
 	// TLSCertPath specifies the path of the cert file that client will
 	// load. It only works when "tls_enable" is true and "tls_key_file" is valid.
@@ -142,8 +143,9 @@ type ClientCommonConf struct {
 	// TLSServerName specifies the custom server name of tls certificate. By
 	// default, server name if same to ServerAddr.
 	TLSServerName string `ini:"tls_server_name" json:"tls_server_name"`
-	// By default, frpc will connect frps with first custom byte if tls is enabled.
-	// If DisableCustomTLSFirstByte is true, frpc will not send that custom byte.
+	// If the disable_custom_tls_first_byte is set to false, frpc will establish a connection with frps using the
+	// first custom byte when tls is enabled.
+	// Since v0.50.0, the default value has been changed to true, and the first custom byte is disabled by default.
 	DisableCustomTLSFirstByte bool `ini:"disable_custom_tls_first_byte" json:"disable_custom_tls_first_byte"`
 	// HeartBeatInterval specifies at what interval heartbeats are sent to the
 	// server, in seconds. It is not recommended to change this value. By
@@ -168,32 +170,34 @@ type ClientCommonConf struct {
 // GetDefaultClientConf returns a client configuration with default values.
 func GetDefaultClientConf() ClientCommonConf {
 	return ClientCommonConf{
-		ClientConfig:            auth.GetDefaultClientConf(),
-		ServerAddr:              "0.0.0.0",
-		ServerPort:              7000,
-		NatHoleSTUNServer:       "stun.easyvoip.com:3478",
-		DialServerTimeout:       10,
-		DialServerKeepAlive:     7200,
-		HTTPProxy:               os.Getenv("http_proxy"),
-		LogFile:                 "console",
-		LogWay:                  "console",
-		LogLevel:                "info",
-		LogMaxDays:              3,
-		AdminAddr:               "127.0.0.1",
-		PoolCount:               1,
-		TCPMux:                  true,
-		TCPMuxKeepaliveInterval: 60,
-		LoginFailExit:           true,
-		Start:                   make([]string, 0),
-		Protocol:                "tcp",
-		QUICKeepalivePeriod:     10,
-		QUICMaxIdleTimeout:      30,
-		QUICMaxIncomingStreams:  100000,
-		HeartbeatInterval:       30,
-		HeartbeatTimeout:        90,
-		Metas:                   make(map[string]string),
-		UDPPacketSize:           1500,
-		IncludeConfigFiles:      make([]string, 0),
+		ClientConfig:              auth.GetDefaultClientConf(),
+		ServerAddr:                "0.0.0.0",
+		ServerPort:                7000,
+		NatHoleSTUNServer:         "stun.easyvoip.com:3478",
+		DialServerTimeout:         10,
+		DialServerKeepAlive:       7200,
+		HTTPProxy:                 os.Getenv("http_proxy"),
+		LogFile:                   "console",
+		LogWay:                    "console",
+		LogLevel:                  "info",
+		LogMaxDays:                3,
+		AdminAddr:                 "127.0.0.1",
+		PoolCount:                 1,
+		TCPMux:                    true,
+		TCPMuxKeepaliveInterval:   60,
+		LoginFailExit:             true,
+		Start:                     make([]string, 0),
+		Protocol:                  "tcp",
+		QUICKeepalivePeriod:       10,
+		QUICMaxIdleTimeout:        30,
+		QUICMaxIncomingStreams:    100000,
+		TLSEnable:                 true,
+		DisableCustomTLSFirstByte: true,
+		HeartbeatInterval:         30,
+		HeartbeatTimeout:          90,
+		Metas:                     make(map[string]string),
+		UDPPacketSize:             1500,
+		IncludeConfigFiles:        make([]string, 0),
 	}
 }
 

@@ -194,7 +194,7 @@ func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.
 		_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, err.Error()))
 		return
 	}
-	log.Trace("handle visitor message, sid [%s]", sid)
+	log.Trace("handle visitor message, sid [%s], server name: %s", sid, m.ProxyName)
 
 	defer func() {
 		c.mu.Lock()
@@ -256,7 +256,7 @@ func (c *Controller) HandleClient(m *msg.NatHoleClient, transporter transport.Me
 	if !ok {
 		return
 	}
-	log.Trace("handle client message, sid [%s]", session.sid)
+	log.Trace("handle client message, sid [%s], server name: %s", session.sid, m.ProxyName)
 	session.clientMsg = m
 	session.clientTransporter = transporter
 	select {
