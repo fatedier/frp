@@ -46,8 +46,23 @@ e2e:
 e2e-trace:
 	DEBUG=true LOG_LEVEL=trace ./hack/run-e2e.sh
 
+e2e-compatibility-last-frpc:
+	if [ ! -d "./lastversion" ]; then \
+		TARGET_DIRNAME=lastversion ./hack/download.sh; \
+	fi
+	FRPC_PATH="`pwd`/lastversion/frpc" ./hack/run-e2e.sh
+	rm -r ./lastversion
+
+e2e-compatibility-last-frps:
+	if [ ! -d "./lastversion" ]; then \
+		TARGET_DIRNAME=lastversion ./hack/download.sh; \
+	fi
+	FRPS_PATH="`pwd`/lastversion/frps" ./hack/run-e2e.sh
+	rm -r ./lastversion
+
 alltest: vet gotest e2e
 	
 clean:
 	rm -f ./bin/frpc
 	rm -f ./bin/frps
+	rm -rf ./lastversion

@@ -43,9 +43,10 @@ func NewTransactionID() string {
 }
 
 type ClientCfg struct {
-	name  string
-	sk    string
-	sidCh chan string
+	name       string
+	sk         string
+	allowUsers []string
+	sidCh      chan string
 }
 
 type Session struct {
@@ -120,16 +121,20 @@ func (c *Controller) CleanWorker(ctx context.Context) {
 	}
 }
 
-func (c *Controller) ListenClient(name string, sk string) chan string {
+func (c *Controller) ListenClient(name string, sk string, allowUsers []string) (chan string, error) {
 	cfg := &ClientCfg{
-		name:  name,
-		sk:    sk,
-		sidCh: make(chan string),
+		name:       name,
+		sk:         sk,
+		allowUsers: allowUsers,
+		sidCh:      make(chan string),
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if _, ok := c.clientCfgs[name]; ok {
+		return nil, fmt.Errorf("proxy [%s] is repeated", name)
+	}
 	c.clientCfgs[name] = cfg
-	return cfg.sidCh
+	return cfg.sidCh, nil
 }
 
 func (c *Controller) CloseClient(name string) {
@@ -144,14 +149,18 @@ func (c *Controller) GenSid() string {
 	return fmt.Sprintf("%d%s", t, id)
 }
 
-func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.MessageTransporter) {
+func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.MessageTransporter, visitorUser string) {
 	if m.PreCheck {
-		_, ok := c.clientCfgs[m.ProxyName]
+		cfg, ok := c.clientCfgs[m.ProxyName]
 		if !ok {
 			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("xtcp server for [%s] doesn't exist", m.ProxyName)))
-		} else {
-			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, ""))
+			return
 		}
+		if !lo.Contains(cfg.allowUsers, visitorUser) && !lo.Contains(cfg.allowUsers, "*") {
+			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("xtcp visitor user [%s] not allowed for [%s]", visitorUser, m.ProxyName)))
+			return
+		}
+		_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, ""))
 		return
 	}
 
@@ -185,7 +194,7 @@ func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.
 		_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, err.Error()))
 		return
 	}
-	log.Trace("handle visitor message, sid [%s]", sid)
+	log.Trace("handle visitor message, sid [%s], server name: %s", sid, m.ProxyName)
 
 	defer func() {
 		c.mu.Lock()
@@ -247,7 +256,7 @@ func (c *Controller) HandleClient(m *msg.NatHoleClient, transporter transport.Me
 	if !ok {
 		return
 	}
-	log.Trace("handle client message, sid [%s]", session.sid)
+	log.Trace("handle client message, sid [%s], server name: %s", session.sid, m.ProxyName)
 	session.clientMsg = m
 	session.clientTransporter = transporter
 	select {

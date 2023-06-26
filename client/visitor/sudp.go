@@ -23,12 +23,12 @@ import (
 	"time"
 
 	"github.com/fatedier/golib/errors"
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/udp"
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
@@ -199,13 +199,14 @@ func (sv *SUDPVisitor) worker(workConn net.Conn, firstPacket *msg.UDPPacket) {
 
 func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
 	xl := xlog.FromContextSafe(sv.ctx)
-	visitorConn, err := sv.connectServer()
+	visitorConn, err := sv.helper.ConnectServer()
 	if err != nil {
 		return nil, fmt.Errorf("frpc connect frps error: %v", err)
 	}
 
 	now := time.Now().Unix()
 	newVisitorConnMsg := &msg.NewVisitorConn{
+		RunID:          sv.helper.RunID(),
 		ProxyName:      sv.cfg.ServerName,
 		SignKey:        util.GetAuthKey(sv.cfg.Sk, now),
 		Timestamp:      now,
@@ -232,16 +233,16 @@ func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
 	var remote io.ReadWriteCloser
 	remote = visitorConn
 	if sv.cfg.UseEncryption {
-		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk))
+		remote, err = libio.WithEncryption(remote, []byte(sv.cfg.Sk))
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return nil, err
 		}
 	}
 	if sv.cfg.UseCompression {
-		remote = frpIo.WithCompression(remote)
+		remote = libio.WithCompression(remote)
 	}
-	return frpNet.WrapReadWriteCloserToConn(remote, visitorConn), nil
+	return utilnet.WrapReadWriteCloserToConn(remote, visitorConn), nil
 }
 
 func (sv *SUDPVisitor) Close() {
@@ -254,6 +255,7 @@ func (sv *SUDPVisitor) Close() {
 	default:
 		close(sv.checkCloseCh)
 	}
+	sv.BaseVisitor.Close()
 	if sv.udpConn != nil {
 		sv.udpConn.Close()
 	}

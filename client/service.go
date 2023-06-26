@@ -39,7 +39,7 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/log"
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -369,7 +369,8 @@ func (cm *ConnectionManager) OpenConnection() error {
 		}
 		tlsConfig.NextProtos = []string{"frp"}
 
-		conn, err := quic.DialAddr(
+		conn, err := quic.DialAddrContext(
+			cm.ctx,
 			net.JoinHostPort(cm.cfg.ServerAddr, strconv.Itoa(cm.cfg.ServerPort)),
 			tlsConfig, &quic.Config{
 				MaxIdleTimeout:     time.Duration(cm.cfg.QUICMaxIdleTimeout) * time.Second,
@@ -395,6 +396,7 @@ func (cm *ConnectionManager) OpenConnection() error {
 	fmuxCfg := fmux.DefaultConfig()
 	fmuxCfg.KeepAliveInterval = time.Duration(cm.cfg.TCPMuxKeepaliveInterval) * time.Second
 	fmuxCfg.LogOutput = io.Discard
+	fmuxCfg.MaxStreamWindowSize = 6 * 1024 * 1024
 	session, err := fmux.Client(conn, fmuxCfg)
 	if err != nil {
 		return err
@@ -409,7 +411,7 @@ func (cm *ConnectionManager) Connect() (net.Conn, error) {
 		if err != nil {
 			return nil, err
 		}
-		return frpNet.QuicStreamToNetConn(stream, cm.quicConn), nil
+		return utilnet.QuicStreamToNetConn(stream, cm.quicConn), nil
 	} else if cm.muxSession != nil {
 		stream, err := cm.muxSession.OpenStream()
 		if err != nil {
@@ -451,7 +453,7 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 	protocol := cm.cfg.Protocol
 	if protocol == "websocket" {
 		protocol = "tcp"
-		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: frpNet.DialHookWebsocket()}))
+		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: utilnet.DialHookWebsocket()}))
 	}
 	if cm.cfg.ConnectServerLocalIP != "" {
 		dialOptions = append(dialOptions, libdial.WithLocalAddr(cm.cfg.ConnectServerLocalIP))
@@ -464,10 +466,11 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 		libdial.WithProxyAuth(auth),
 		libdial.WithTLSConfig(tlsConfig),
 		libdial.WithAfterHook(libdial.AfterHook{
-			Hook: frpNet.DialHookCustomTLSHeadByte(tlsConfig != nil, cm.cfg.DisableCustomTLSFirstByte),
+			Hook: utilnet.DialHookCustomTLSHeadByte(tlsConfig != nil, cm.cfg.DisableCustomTLSFirstByte),
 		}),
 	)
-	conn, err := libdial.Dial(
+	conn, err := libdial.DialContext(
+		cm.ctx,
 		net.JoinHostPort(cm.cfg.ServerAddr, strconv.Itoa(cm.cfg.ServerPort)),
 		dialOptions...,
 	)

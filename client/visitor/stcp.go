@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"time"
 
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
@@ -35,17 +35,20 @@ type STCPVisitor struct {
 }
 
 func (sv *STCPVisitor) Run() (err error) {
-	sv.l, err = net.Listen("tcp", net.JoinHostPort(sv.cfg.BindAddr, strconv.Itoa(sv.cfg.BindPort)))
-	if err != nil {
-		return
+	if sv.cfg.BindPort > 0 {
+		sv.l, err = net.Listen("tcp", net.JoinHostPort(sv.cfg.BindAddr, strconv.Itoa(sv.cfg.BindPort)))
+		if err != nil {
+			return
+		}
+		go sv.worker()
 	}
 
-	go sv.worker()
+	go sv.internalConnWorker()
 	return
 }
 
 func (sv *STCPVisitor) Close() {
-	sv.l.Close()
+	sv.BaseVisitor.Close()
 }
 
 func (sv *STCPVisitor) worker() {
@@ -56,7 +59,18 @@ func (sv *STCPVisitor) worker() {
 			xl.Warn("stcp local listener closed")
 			return
 		}
+		go sv.handleConn(conn)
+	}
+}
 
+func (sv *STCPVisitor) internalConnWorker() {
+	xl := xlog.FromContextSafe(sv.ctx)
+	for {
+		conn, err := sv.internalLn.Accept()
+		if err != nil {
+			xl.Warn("stcp internal listener closed")
+			return
+		}
 		go sv.handleConn(conn)
 	}
 }
@@ -66,7 +80,7 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	defer userConn.Close()
 
 	xl.Debug("get a new stcp user connection")
-	visitorConn, err := sv.connectServer()
+	visitorConn, err := sv.helper.ConnectServer()
 	if err != nil {
 		return
 	}
@@ -74,6 +88,7 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 
 	now := time.Now().Unix()
 	newVisitorConnMsg := &msg.NewVisitorConn{
+		RunID:          sv.helper.RunID(),
 		ProxyName:      sv.cfg.ServerName,
 		SignKey:        util.GetAuthKey(sv.cfg.Sk, now),
 		Timestamp:      now,
@@ -103,7 +118,7 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	var remote io.ReadWriteCloser
 	remote = visitorConn
 	if sv.cfg.UseEncryption {
-		remote, err = frpIo.WithEncryption(remote, []byte(sv.cfg.Sk))
+		remote, err = libio.WithEncryption(remote, []byte(sv.cfg.Sk))
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return
@@ -111,8 +126,8 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	}
 
 	if sv.cfg.UseCompression {
-		remote = frpIo.WithCompression(remote)
+		remote = libio.WithCompression(remote)
 	}
 
-	frpIo.Join(userConn, remote)
+	libio.Join(userConn, remote)
 }

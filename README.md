@@ -562,11 +562,9 @@ use_compression = true
 
 #### TLS
 
-frp supports the TLS protocol between `frpc` and `frps` since v0.25.0.
+Since v0.50.0, the default value of `tls_enable` and `disable_custom_tls_first_byte` has been changed to true, and tls is enabled by default.
 
-For port multiplexing, frp sends a first byte `0x17` to dial a TLS connection.
-
-Configure `tls_enable = true` in the `[common]` section to `frpc.ini` to enable this feature.
+For port multiplexing, frp sends a first byte `0x17` to dial a TLS connection. This only takes effect when you set `disable_custom_tls_first_byte` to false.
 
 To **enforce** `frps` to only accept TLS connections - configure `tls_only = true` in the `[common]` section in `frps.ini`. **This is optional.**
 
@@ -581,7 +579,6 @@ tls_trusted_ca_file = ca.crt
 **`frps` TLS settings (under the `[common]` section):**
 ```ini
 tls_only = true
-tls_enable = true
 tls_cert_file = certificate.crt
 tls_key_file = certificate.key
 tls_trusted_ca_file = ca.crt

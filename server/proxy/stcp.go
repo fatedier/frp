@@ -15,19 +15,39 @@
 package proxy
 
 import (
-	"golang.org/x/time/rate"
+	"reflect"
 
 	"github.com/fatedier/frp/pkg/config"
 )
+
+func init() {
+	RegisterProxyFactory(reflect.TypeOf(&config.STCPProxyConf{}), NewSTCPProxy)
+}
 
 type STCPProxy struct {
 	*BaseProxy
 	cfg *config.STCPProxyConf
 }
 
+func NewSTCPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
+	unwrapped, ok := cfg.(*config.STCPProxyConf)
+	if !ok {
+		return nil
+	}
+	return &STCPProxy{
+		BaseProxy: baseProxy,
+		cfg:       unwrapped,
+	}
+}
+
 func (pxy *STCPProxy) Run() (remoteAddr string, err error) {
 	xl := pxy.xl
-	listener, errRet := pxy.rc.VisitorManager.Listen(pxy.GetName(), pxy.cfg.Sk)
+	allowUsers := pxy.cfg.AllowUsers
+	// if allowUsers is empty, only allow same user from proxy
+	if len(allowUsers) == 0 {
+		allowUsers = []string{pxy.GetUserInfo().User}
+	}
+	listener, errRet := pxy.rc.VisitorManager.Listen(pxy.GetName(), pxy.cfg.Sk, allowUsers)
 	if errRet != nil {
 		err = errRet
 		return
@@ -35,16 +55,12 @@ func (pxy *STCPProxy) Run() (remoteAddr string, err error) {
 	pxy.listeners = append(pxy.listeners, listener)
 	xl.Info("stcp proxy custom listen success")
 
-	pxy.startListenHandler(pxy, HandleUserTCPConnection)
+	pxy.startCommonTCPListenersHandler()
 	return
 }
 
 func (pxy *STCPProxy) GetConf() config.ProxyConf {
 	return pxy.cfg
-}
-
-func (pxy *STCPProxy) GetLimiter() *rate.Limiter {
-	return pxy.limiter
 }
 
 func (pxy *STCPProxy) Close() {

@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 	fmux "github.com/hashicorp/yamux"
 	quic "github.com/quic-go/quic-go"
 	"golang.org/x/time/rate"
@@ -33,7 +33,7 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
 	"github.com/fatedier/frp/pkg/transport"
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
@@ -59,12 +59,15 @@ func (sv *XTCPVisitor) Run() (err error) {
 		sv.session = NewQUICTunnelSession(&sv.clientCfg)
 	}
 
-	sv.l, err = net.Listen("tcp", net.JoinHostPort(sv.cfg.BindAddr, strconv.Itoa(sv.cfg.BindPort)))
-	if err != nil {
-		return
+	if sv.cfg.BindPort > 0 {
+		sv.l, err = net.Listen("tcp", net.JoinHostPort(sv.cfg.BindAddr, strconv.Itoa(sv.cfg.BindPort)))
+		if err != nil {
+			return
+		}
+		go sv.worker()
 	}
 
-	go sv.worker()
+	go sv.internalConnWorker()
 	go sv.processTunnelStartEvents()
 	if sv.cfg.KeepTunnelOpen {
 		sv.retryLimiter = rate.NewLimiter(rate.Every(time.Hour/time.Duration(sv.cfg.MaxRetriesAnHour)), sv.cfg.MaxRetriesAnHour)
@@ -74,8 +77,12 @@ func (sv *XTCPVisitor) Run() (err error) {
 }
 
 func (sv *XTCPVisitor) Close() {
-	sv.l.Close()
-	sv.cancel()
+	sv.mu.Lock()
+	defer sv.mu.Unlock()
+	sv.BaseVisitor.Close()
+	if sv.cancel != nil {
+		sv.cancel()
+	}
 	if sv.session != nil {
 		sv.session.Close()
 	}
@@ -89,7 +96,18 @@ func (sv *XTCPVisitor) worker() {
 			xl.Warn("xtcp local listener closed")
 			return
 		}
+		go sv.handleConn(conn)
+	}
+}
 
+func (sv *XTCPVisitor) internalConnWorker() {
+	xl := xlog.FromContextSafe(sv.ctx)
+	for {
+		conn, err := sv.internalLn.Accept()
+		if err != nil {
+			xl.Warn("xtcp internal listener closed")
+			return
+		}
 		go sv.handleConn(conn)
 	}
 }
@@ -139,31 +157,53 @@ func (sv *XTCPVisitor) keepTunnelOpenWorker() {
 
 func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 	xl := xlog.FromContextSafe(sv.ctx)
-	defer userConn.Close()
+	isConnTrasfered := false
+	defer func() {
+		if !isConnTrasfered {
+			userConn.Close()
+		}
+	}()
 
 	xl.Debug("get a new xtcp user connection")
 
 	// Open a tunnel connection to the server. If there is already a successful hole-punching connection,
 	// it will be reused. Otherwise, it will block and wait for a successful hole-punching connection until timeout.
-	tunnelConn, err := sv.openTunnel()
+	ctx := context.Background()
+	if sv.cfg.FallbackTo != "" {
+		timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(sv.cfg.FallbackTimeoutMs)*time.Millisecond)
+		defer cancel()
+		ctx = timeoutCtx
+	}
+	tunnelConn, err := sv.openTunnel(ctx)
 	if err != nil {
 		xl.Error("open tunnel error: %v", err)
+		// no fallback, just return
+		if sv.cfg.FallbackTo == "" {
+			return
+		}
+
+		xl.Debug("try to transfer connection to visitor: %s", sv.cfg.FallbackTo)
+		if err := sv.helper.TransferConn(sv.cfg.FallbackTo, userConn); err != nil {
+			xl.Error("transfer connection to visitor %s error: %v", sv.cfg.FallbackTo, err)
+			return
+		}
+		isConnTrasfered = true
 		return
 	}
 
 	var muxConnRWCloser io.ReadWriteCloser = tunnelConn
 	if sv.cfg.UseEncryption {
-		muxConnRWCloser, err = frpIo.WithEncryption(muxConnRWCloser, []byte(sv.cfg.Sk))
+		muxConnRWCloser, err = libio.WithEncryption(muxConnRWCloser, []byte(sv.cfg.Sk))
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return
 		}
 	}
 	if sv.cfg.UseCompression {
-		muxConnRWCloser = frpIo.WithCompression(muxConnRWCloser)
+		muxConnRWCloser = libio.WithCompression(muxConnRWCloser)
 	}
 
-	_, _, errs := frpIo.Join(userConn, muxConnRWCloser)
+	_, _, errs := libio.Join(userConn, muxConnRWCloser)
 	xl.Debug("join connections closed")
 	if len(errs) > 0 {
 		xl.Trace("join connections errors: %v", errs)
@@ -171,7 +211,7 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 }
 
 // openTunnel will open a tunnel connection to the target server.
-func (sv *XTCPVisitor) openTunnel() (conn net.Conn, err error) {
+func (sv *XTCPVisitor) openTunnel(ctx context.Context) (conn net.Conn, err error) {
 	xl := xlog.FromContextSafe(sv.ctx)
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -185,6 +225,8 @@ func (sv *XTCPVisitor) openTunnel() (conn net.Conn, err error) {
 		select {
 		case <-sv.ctx.Done():
 			return nil, sv.ctx.Err()
+		case <-ctx.Done():
+			return nil, ctx.Err()
 		case <-immediateTrigger:
 			conn, err = sv.getTunnelConn()
 		case <-ticker.C:
@@ -224,11 +266,13 @@ func (sv *XTCPVisitor) getTunnelConn() (net.Conn, error) {
 // 4. Create a tunnel session using an underlying UDP connection.
 func (sv *XTCPVisitor) makeNatHole() {
 	xl := xlog.FromContextSafe(sv.ctx)
-	if err := nathole.PreCheck(sv.ctx, sv.msgTransporter, sv.cfg.ServerName, 5*time.Second); err != nil {
+	xl.Trace("makeNatHole start")
+	if err := nathole.PreCheck(sv.ctx, sv.helper.MsgTransporter(), sv.cfg.ServerName, 5*time.Second); err != nil {
 		xl.Warn("nathole precheck error: %v", err)
 		return
 	}
 
+	xl.Trace("nathole prepare start")
 	prepareResult, err := nathole.Prepare([]string{sv.clientCfg.NatHoleSTUNServer})
 	if err != nil {
 		xl.Warn("nathole prepare error: %v", err)
@@ -252,7 +296,8 @@ func (sv *XTCPVisitor) makeNatHole() {
 		AssistedAddrs: prepareResult.AssistedAddrs,
 	}
 
-	natHoleRespMsg, err := nathole.ExchangeInfo(sv.ctx, sv.msgTransporter, transactionID, natHoleVisitorMsg, 5*time.Second)
+	xl.Trace("nathole exchange info start")
+	natHoleRespMsg, err := nathole.ExchangeInfo(sv.ctx, sv.helper.MsgTransporter(), transactionID, natHoleVisitorMsg, 5*time.Second)
 	if err != nil {
 		listenConn.Close()
 		xl.Warn("nathole exchange info error: %v", err)
@@ -302,14 +347,14 @@ func (ks *KCPTunnelSession) Init(listenConn *net.UDPConn, raddr *net.UDPAddr) er
 	if err != nil {
 		return fmt.Errorf("dial udp error: %v", err)
 	}
-	remote, err := frpNet.NewKCPConnFromUDP(lConn, true, raddr.String())
+	remote, err := utilnet.NewKCPConnFromUDP(lConn, true, raddr.String())
 	if err != nil {
 		return fmt.Errorf("create kcp connection from udp connection error: %v", err)
 	}
 
 	fmuxCfg := fmux.DefaultConfig()
 	fmuxCfg.KeepAliveInterval = 10 * time.Second
-	fmuxCfg.MaxStreamWindowSize = 2 * 1024 * 1024
+	fmuxCfg.MaxStreamWindowSize = 6 * 1024 * 1024
 	fmuxCfg.LogOutput = io.Discard
 	session, err := fmux.Client(remote, fmuxCfg)
 	if err != nil {
@@ -393,7 +438,7 @@ func (qs *QUICTunnelSession) OpenConn(ctx context.Context) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return frpNet.QuicStreamToNetConn(stream, session), nil
+	return utilnet.QuicStreamToNetConn(stream, session), nil
 }
 
 func (qs *QUICTunnelSession) Close() {

@@ -110,8 +110,9 @@ type NewProxy struct {
 	Headers           map[string]string `json:"headers,omitempty"`
 	RouteByHTTPUser   string            `json:"route_by_http_user,omitempty"`
 
-	// stcp
-	Sk string `json:"sk,omitempty"`
+	// stcp, sudp, xtcp
+	Sk         string   `json:"sk,omitempty"`
+	AllowUsers []string `json:"allow_users,omitempty"`
 
 	// tcpmux
 	Multiplexer string `json:"multiplexer,omitempty"`
@@ -145,6 +146,7 @@ type StartWorkConn struct {
 }
 
 type NewVisitorConn struct {
+	RunID          string `json:"run_id,omitempty"`
 	ProxyName      string `json:"proxy_name,omitempty"`
 	SignKey        string `json:"sign_key,omitempty"`
 	Timestamp      int64  `json:"timestamp,omitempty"`

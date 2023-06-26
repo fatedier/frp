@@ -17,19 +17,24 @@ package proxy
 import (
 	"io"
 	"net"
+	"reflect"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/fatedier/golib/errors"
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/udp"
 	"github.com/fatedier/frp/pkg/util/limit"
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 )
+
+func init() {
+	RegisterProxyFactory(reflect.TypeOf(&config.SUDPProxyConf{}), NewSUDPProxy)
+}
 
 type SUDPProxy struct {
 	*BaseProxy
@@ -39,6 +44,18 @@ type SUDPProxy struct {
 	localAddr *net.UDPAddr
 
 	closeCh chan struct{}
+}
+
+func NewSUDPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
+	unwrapped, ok := cfg.(*config.SUDPProxyConf)
+	if !ok {
+		return nil
+	}
+	return &SUDPProxy{
+		BaseProxy: baseProxy,
+		cfg:       unwrapped,
+		closeCh:   make(chan struct{}),
+	}
 }
 
 func (pxy *SUDPProxy) Run() (err error) {
@@ -67,12 +84,12 @@ func (pxy *SUDPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	var rwc io.ReadWriteCloser = conn
 	var err error
 	if pxy.limiter != nil {
-		rwc = frpIo.WrapReadWriteCloser(limit.NewReader(conn, pxy.limiter), limit.NewWriter(conn, pxy.limiter), func() error {
+		rwc = libio.WrapReadWriteCloser(limit.NewReader(conn, pxy.limiter), limit.NewWriter(conn, pxy.limiter), func() error {
 			return conn.Close()
 		})
 	}
 	if pxy.cfg.UseEncryption {
-		rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.clientCfg.Token))
+		rwc, err = libio.WithEncryption(rwc, []byte(pxy.clientCfg.Token))
 		if err != nil {
 			conn.Close()
 			xl.Error("create encryption stream error: %v", err)
@@ -80,9 +97,9 @@ func (pxy *SUDPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 		}
 	}
 	if pxy.cfg.UseCompression {
-		rwc = frpIo.WithCompression(rwc)
+		rwc = libio.WithCompression(rwc)
 	}
-	conn = frpNet.WrapReadWriteCloserToConn(rwc, conn)
+	conn = utilnet.WrapReadWriteCloserToConn(rwc, conn)
 
 	workConn := conn
 	readCh := make(chan *msg.UDPPacket, 1024)

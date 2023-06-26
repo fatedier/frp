@@ -17,20 +17,24 @@ package proxy
 import (
 	"io"
 	"net"
+	"reflect"
 	"strconv"
 	"time"
 
 	"github.com/fatedier/golib/errors"
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/udp"
 	"github.com/fatedier/frp/pkg/util/limit"
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 )
 
-// UDP
+func init() {
+	RegisterProxyFactory(reflect.TypeOf(&config.UDPProxyConf{}), NewUDPProxy)
+}
+
 type UDPProxy struct {
 	*BaseProxy
 
@@ -42,6 +46,18 @@ type UDPProxy struct {
 	// include msg.UDPPacket and msg.Ping
 	sendCh   chan msg.Message
 	workConn net.Conn
+	closed   bool
+}
+
+func NewUDPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
+	unwrapped, ok := cfg.(*config.UDPProxyConf)
+	if !ok {
+		return nil
+	}
+	return &UDPProxy{
+		BaseProxy: baseProxy,
+		cfg:       unwrapped,
+	}
 }
 
 func (pxy *UDPProxy) Run() (err error) {
@@ -79,12 +95,12 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	var rwc io.ReadWriteCloser = conn
 	var err error
 	if pxy.limiter != nil {
-		rwc = frpIo.WrapReadWriteCloser(limit.NewReader(conn, pxy.limiter), limit.NewWriter(conn, pxy.limiter), func() error {
+		rwc = libio.WrapReadWriteCloser(limit.NewReader(conn, pxy.limiter), limit.NewWriter(conn, pxy.limiter), func() error {
 			return conn.Close()
 		})
 	}
 	if pxy.cfg.UseEncryption {
-		rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.clientCfg.Token))
+		rwc, err = libio.WithEncryption(rwc, []byte(pxy.clientCfg.Token))
 		if err != nil {
 			conn.Close()
 			xl.Error("create encryption stream error: %v", err)
@@ -92,9 +108,9 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 		}
 	}
 	if pxy.cfg.UseCompression {
-		rwc = frpIo.WithCompression(rwc)
+		rwc = libio.WithCompression(rwc)
 	}
-	conn = frpNet.WrapReadWriteCloserToConn(rwc, conn)
+	conn = utilnet.WrapReadWriteCloserToConn(rwc, conn)
 
 	pxy.mu.Lock()
 	pxy.workConn = conn

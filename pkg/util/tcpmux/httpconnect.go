@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"time"
 
-	gnet "github.com/fatedier/golib/net"
+	libnet "github.com/fatedier/golib/net"
 
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/vhost"
@@ -94,7 +94,7 @@ func (muxer *HTTPConnectTCPMuxer) auth(c net.Conn, username, password string, re
 
 func (muxer *HTTPConnectTCPMuxer) getHostFromHTTPConnect(c net.Conn) (net.Conn, map[string]string, error) {
 	reqInfoMap := make(map[string]string, 0)
-	sc, rd := gnet.NewSharedConn(c)
+	sc, rd := libnet.NewSharedConn(c)
 
 	host, httpUser, httpPwd, err := muxer.readHTTPConnectRequest(rd)
 	if err != nil {

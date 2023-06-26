@@ -30,7 +30,7 @@ import (
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/consts"
-	frpErr "github.com/fatedier/frp/pkg/errors"
+	pkgerr "github.com/fatedier/frp/pkg/errors"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/transport"
@@ -268,7 +268,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 	select {
 	case workConn, ok = <-ctl.workConnCh:
 		if !ok {
-			err = frpErr.ErrCtlClosed
+			err = pkgerr.ErrCtlClosed
 			return
 		}
 		xl.Debug("get work connection from pool")
@@ -283,7 +283,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 		select {
 		case workConn, ok = <-ctl.workConnCh:
 			if !ok {
-				err = frpErr.ErrCtlClosed
+				err = pkgerr.ErrCtlClosed
 				xl.Warn("no work connections available, %v", err)
 				return
 			}
@@ -394,7 +394,7 @@ func (ctl *Control) stoper() {
 	for _, pxy := range ctl.proxies {
 		pxy.Close()
 		ctl.pxyManager.Del(pxy.GetName())
-		metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
+		metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConf().GetBaseConfig().ProxyType)
 
 		notifyContent := &plugin.CloseProxyContent{
 			User: plugin.UserInfo{
@@ -524,7 +524,7 @@ func (ctl *Control) manager() {
 }
 
 func (ctl *Control) HandleNatHoleVisitor(m *msg.NatHoleVisitor) {
-	ctl.rc.NatHoleController.HandleVisitor(m, ctl.msgTransporter)
+	ctl.rc.NatHoleController.HandleVisitor(m, ctl.msgTransporter, ctl.loginMsg.User)
 }
 
 func (ctl *Control) HandleNatHoleClient(m *msg.NatHoleClient) {
@@ -537,7 +537,7 @@ func (ctl *Control) HandleNatHoleReport(m *msg.NatHoleReport) {
 
 func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err error) {
 	var pxyConf config.ProxyConf
-	// Load configures from NewProxy message and check.
+	// Load configures from NewProxy message and validate.
 	pxyConf, err = config.NewProxyConfFromMsg(pxyMsg, ctl.serverCfg)
 	if err != nil {
 		return
@@ -550,8 +550,8 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		RunID: ctl.runID,
 	}
 
-	// NewProxy will return a interface Proxy.
-	// In fact it create different proxies by different proxy type, we just call run() here.
+	// NewProxy will return an interface Proxy.
+	// In fact, it creates different proxies based on the proxy type. We just call run() here.
 	pxy, err := proxy.NewProxy(ctl.ctx, userInfo, ctl.rc, ctl.poolCount, ctl.GetWorkConn, pxyConf, ctl.serverCfg, ctl.loginMsg)
 	if err != nil {
 		return remoteAddr, err
@@ -575,6 +575,11 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 				ctl.mu.Unlock()
 			}
 		}()
+	}
+
+	if ctl.pxyManager.Exist(pxyMsg.ProxyName) {
+		err = fmt.Errorf("proxy [%s] already exists", pxyMsg.ProxyName)
+		return
 	}
 
 	remoteAddr, err = pxy.Run()
@@ -614,7 +619,7 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 	delete(ctl.proxies, closeMsg.ProxyName)
 	ctl.mu.Unlock()
 
-	metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConf().GetBaseInfo().ProxyType)
+	metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConf().GetBaseConfig().ProxyType)
 
 	notifyContent := &plugin.CloseProxyContent{
 		User: plugin.UserInfo{

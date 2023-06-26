@@ -85,11 +85,6 @@ func ClassifyNATFeature(addresses []string, localIPs []string) (*NatFeature, err
 		}
 	}
 
-	natFeature.PortsDifference = portMax - portMin
-	if natFeature.PortsDifference <= 10 && natFeature.PortsDifference >= 1 {
-		natFeature.RegularPortsChange = true
-	}
-
 	switch {
 	case ipChanged && portChanged:
 		natFeature.NatType = HardNAT
@@ -103,6 +98,12 @@ func ClassifyNATFeature(addresses []string, localIPs []string) (*NatFeature, err
 	default:
 		natFeature.NatType = EasyNAT
 		natFeature.Behavior = BehaviorNoChange
+	}
+	if natFeature.Behavior == BehaviorPortChanged {
+		natFeature.PortsDifference = portMax - portMin
+		if natFeature.PortsDifference <= 5 && natFeature.PortsDifference >= 1 {
+			natFeature.RegularPortsChange = true
+		}
 	}
 	return natFeature, nil
 }

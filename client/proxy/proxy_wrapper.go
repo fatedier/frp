@@ -91,7 +91,7 @@ func NewWrapper(
 	eventHandler event.Handler,
 	msgTransporter transport.MessageTransporter,
 ) *Wrapper {
-	baseInfo := cfg.GetBaseInfo()
+	baseInfo := cfg.GetBaseConfig()
 	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(baseInfo.ProxyName)
 	pw := &Wrapper{
 		WorkingStatus: WorkingStatus{

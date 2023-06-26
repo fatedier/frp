@@ -101,11 +101,13 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 		supportProtocols := []string{"tcp", "kcp", "quic", "websocket"}
 		for _, protocol := range supportProtocols {
 			tmp := protocol
-			defineClientServerTest("TLS over "+strings.ToUpper(tmp), f, &generalTestConfigures{
+			// Since v0.50.0, the default value of tls_enable has been changed to true.
+			// Therefore, here it needs to be set as false to test the scenario of turning it off.
+			defineClientServerTest("Disable TLS over "+strings.ToUpper(tmp), f, &generalTestConfigures{
 				server: fmt.Sprintf(`
 				%s
 				`, renderBindPortConfig(protocol)),
-				client: fmt.Sprintf(`tls_enable = true
+				client: fmt.Sprintf(`tls_enable = false
 				protocol = %s
 				`, protocol),
 			})
@@ -113,10 +115,10 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 
 		defineClientServerTest("enable tls_only, client with TLS", f, &generalTestConfigures{
 			server: "tls_only = true",
-			client: "tls_enable = true",
 		})
 		defineClientServerTest("enable tls_only, client without TLS", f, &generalTestConfigures{
 			server:      "tls_only = true",
+			client:      "tls_enable = false",
 			expectError: true,
 		})
 	})
@@ -155,7 +157,6 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 					`, renderBindPortConfig(tmp), caCrtPath),
 					client: fmt.Sprintf(`
 						protocol = %s
-						tls_enable = true
 						tls_cert_file = %s
 						tls_key_file = %s
 					`, tmp, clientCrtPath, clientKeyPath),
@@ -172,7 +173,6 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 					`, renderBindPortConfig(tmp), serverCrtPath, serverKeyPath, caCrtPath),
 					client: fmt.Sprintf(`
 						protocol = %s
-						tls_enable = true
 						tls_cert_file = %s
 						tls_key_file = %s
 						tls_trusted_ca_file = %s
@@ -211,7 +211,6 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 				tls_trusted_ca_file = %s
 				`, serverCrtPath, serverKeyPath, caCrtPath),
 				client: fmt.Sprintf(`
-				tls_enable = true
 				tls_server_name = example.com
 				tls_cert_file = %s
 				tls_key_file = %s
@@ -228,7 +227,6 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 				tls_trusted_ca_file = %s
 				`, serverCrtPath, serverKeyPath, caCrtPath),
 				client: fmt.Sprintf(`
-				tls_enable = true
 				tls_server_name = invalid.com
 				tls_cert_file = %s
 				tls_key_file = %s
@@ -239,7 +237,7 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 		})
 	})
 
-	ginkgo.Describe("TLS with disable_custom_tls_first_byte", func() {
+	ginkgo.Describe("TLS with disable_custom_tls_first_byte set to false", func() {
 		supportProtocols := []string{"tcp", "kcp", "quic", "websocket"}
 		for _, protocol := range supportProtocols {
 			tmp := protocol
@@ -248,9 +246,8 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 					%s
 					`, renderBindPortConfig(protocol)),
 				client: fmt.Sprintf(`
-					tls_enable = true
 					protocol = %s
-					disable_custom_tls_first_byte = true
+					disable_custom_tls_first_byte = false
 					`, protocol),
 			})
 		}
@@ -266,9 +263,7 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 					%s
 					`, renderBindPortConfig(protocol)),
 				client: fmt.Sprintf(`
-					tls_enable = true
 					protocol = %s
-					disable_custom_tls_first_byte = true
 					`, protocol),
 			})
 		}

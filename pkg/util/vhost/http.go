@@ -28,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 	"github.com/fatedier/golib/pool"
 
 	frpLog "github.com/fatedier/frp/pkg/util/log"
@@ -256,7 +256,7 @@ func (rp *HTTPReverseProxy) connectHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 	_ = req.Write(remote)
-	go frpIo.Join(remote, client)
+	go libio.Join(remote, client)
 }
 
 func parseBasicAuth(auth string) (username, password string, ok bool) {

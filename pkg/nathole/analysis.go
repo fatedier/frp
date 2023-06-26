@@ -63,20 +63,20 @@ var (
 	}
 
 	// mode 2, HardNAT is receiver, EasyNAT is sender
-	// sender, portsRandomNumber 1000, sendDelayMs 2000 | receiver, listen 256 ports, ttl 7
-	// sender, portsRandomNumber 1000, sendDelayMs 2000 | receiver, listen 256 ports, ttl 4
-	// sender, portsRandomNumber 1000, sendDelayMs 2000 | receiver, listen 256 ports
+	// sender, portsRandomNumber 1000, sendDelayMs 3000 | receiver, listen 256 ports, ttl 7
+	// sender, portsRandomNumber 1000, sendDelayMs 3000 | receiver, listen 256 ports, ttl 4
+	// sender, portsRandomNumber 1000, sendDelayMs 3000 | receiver, listen 256 ports
 	mode2Behaviors = []lo.Tuple2[RecommandBehavior, RecommandBehavior]{
 		lo.T2(
-			RecommandBehavior{Role: DetectRoleSender, PortsRandomNumber: 1000, SendDelayMs: 2000},
+			RecommandBehavior{Role: DetectRoleSender, PortsRandomNumber: 1000, SendDelayMs: 3000},
 			RecommandBehavior{Role: DetectRoleReceiver, ListenRandomPorts: 256, TTL: 7},
 		),
 		lo.T2(
-			RecommandBehavior{Role: DetectRoleSender, PortsRandomNumber: 1000, SendDelayMs: 2000},
+			RecommandBehavior{Role: DetectRoleSender, PortsRandomNumber: 1000, SendDelayMs: 3000},
 			RecommandBehavior{Role: DetectRoleReceiver, ListenRandomPorts: 256, TTL: 4},
 		),
 		lo.T2(
-			RecommandBehavior{Role: DetectRoleSender, PortsRandomNumber: 1000, SendDelayMs: 2000},
+			RecommandBehavior{Role: DetectRoleSender, PortsRandomNumber: 1000, SendDelayMs: 3000},
 			RecommandBehavior{Role: DetectRoleReceiver, ListenRandomPorts: 256},
 		),
 	}
@@ -98,21 +98,21 @@ var (
 	}
 
 	// mode 4, Regular ports changes are usually the sender.
-	// sender, portsRandomNumber 1000, sendDelayMs: 2000 | receiver, listen 256 ports, ttl 7, portsRangeNumber 10
-	// sender, portsRandomNumber 1000, sendDelayMs: 2000 | receiver, listen 256 ports, ttl 4, portsRangeNumber 10
-	// sender, portsRandomNumber 1000, SendDelayMs: 2000 | receiver, listen 256 ports, portsRangeNumber 10
+	// sender, portsRandomNumber 1000, sendDelayMs: 2000 | receiver, listen 256 ports, ttl 7, portsRangeNumber 2
+	// sender, portsRandomNumber 1000, sendDelayMs: 2000 | receiver, listen 256 ports, ttl 4, portsRangeNumber 2
+	// sender, portsRandomNumber 1000, SendDelayMs: 2000 | receiver, listen 256 ports, portsRangeNumber 2
 	mode4Behaviors = []lo.Tuple2[RecommandBehavior, RecommandBehavior]{
 		lo.T2(
-			RecommandBehavior{Role: DetectRoleSender, PortsRandomNumber: 1000, SendDelayMs: 2000},
-			RecommandBehavior{Role: DetectRoleReceiver, ListenRandomPorts: 256, TTL: 7, PortsRangeNumber: 10},
+			RecommandBehavior{Role: DetectRoleSender, PortsRandomNumber: 1000, SendDelayMs: 3000},
+			RecommandBehavior{Role: DetectRoleReceiver, ListenRandomPorts: 256, TTL: 7, PortsRangeNumber: 2},
 		),
 		lo.T2(
-			RecommandBehavior{Role: DetectRoleSender, PortsRandomNumber: 1000, SendDelayMs: 2000},
-			RecommandBehavior{Role: DetectRoleReceiver, ListenRandomPorts: 256, TTL: 4, PortsRangeNumber: 10},
+			RecommandBehavior{Role: DetectRoleSender, PortsRandomNumber: 1000, SendDelayMs: 3000},
+			RecommandBehavior{Role: DetectRoleReceiver, ListenRandomPorts: 256, TTL: 4, PortsRangeNumber: 2},
 		),
 		lo.T2(
-			RecommandBehavior{Role: DetectRoleSender, PortsRandomNumber: 1000, SendDelayMs: 2000},
-			RecommandBehavior{Role: DetectRoleReceiver, ListenRandomPorts: 256, PortsRangeNumber: 10},
+			RecommandBehavior{Role: DetectRoleSender, PortsRandomNumber: 1000, SendDelayMs: 3000},
+			RecommandBehavior{Role: DetectRoleReceiver, ListenRandomPorts: 256, PortsRangeNumber: 2},
 		),
 	}
 )

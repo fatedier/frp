@@ -384,7 +384,7 @@ func sendSidMessageToRangePorts(
 				if err := sendFunc(conn, detectAddr); err != nil {
 					xl.Trace("send sid message from %s to %s error: %v", conn.LocalAddr(), detectAddr, err)
 				}
-				time.Sleep(5 * time.Millisecond)
+				time.Sleep(2 * time.Millisecond)
 			}
 		}
 	}

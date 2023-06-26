@@ -16,7 +16,9 @@ package visitor
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"reflect"
 	"sync"
 	"time"
 
@@ -26,15 +28,14 @@ import (
 )
 
 type Manager struct {
-	clientCfg      config.ClientCommonConf
-	connectServer  func() (net.Conn, error)
-	msgTransporter transport.MessageTransporter
-	cfgs           map[string]config.VisitorConf
-	visitors       map[string]Visitor
+	clientCfg config.ClientCommonConf
+	cfgs      map[string]config.VisitorConf
+	visitors  map[string]Visitor
+	helper    Helper
 
 	checkInterval time.Duration
 
-	mu  sync.Mutex
+	mu  sync.RWMutex
 	ctx context.Context
 
 	stopCh chan struct{}
@@ -42,20 +43,26 @@ type Manager struct {
 
 func NewManager(
 	ctx context.Context,
+	runID string,
 	clientCfg config.ClientCommonConf,
 	connectServer func() (net.Conn, error),
 	msgTransporter transport.MessageTransporter,
 ) *Manager {
-	return &Manager{
-		clientCfg:      clientCfg,
-		connectServer:  connectServer,
-		msgTransporter: msgTransporter,
-		cfgs:           make(map[string]config.VisitorConf),
-		visitors:       make(map[string]Visitor),
-		checkInterval:  10 * time.Second,
-		ctx:            ctx,
-		stopCh:         make(chan struct{}),
+	m := &Manager{
+		clientCfg:     clientCfg,
+		cfgs:          make(map[string]config.VisitorConf),
+		visitors:      make(map[string]Visitor),
+		checkInterval: 10 * time.Second,
+		ctx:           ctx,
+		stopCh:        make(chan struct{}),
 	}
+	m.helper = &visitorHelperImpl{
+		connectServerFn: connectServer,
+		msgTransporter:  msgTransporter,
+		transferConnFn:  m.TransferConn,
+		runID:           runID,
+	}
+	return m
 }
 
 func (vm *Manager) Run() {
@@ -72,7 +79,7 @@ func (vm *Manager) Run() {
 		case <-ticker.C:
 			vm.mu.Lock()
 			for _, cfg := range vm.cfgs {
-				name := cfg.GetBaseInfo().ProxyName
+				name := cfg.GetBaseConfig().ProxyName
 				if _, exist := vm.visitors[name]; !exist {
 					xl.Info("try to start visitor [%s]", name)
 					_ = vm.startVisitor(cfg)
@@ -83,11 +90,24 @@ func (vm *Manager) Run() {
 	}
 }
 
+func (vm *Manager) Close() {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	for _, v := range vm.visitors {
+		v.Close()
+	}
+	select {
+	case <-vm.stopCh:
+	default:
+		close(vm.stopCh)
+	}
+}
+
 // Hold lock before calling this function.
 func (vm *Manager) startVisitor(cfg config.VisitorConf) (err error) {
 	xl := xlog.FromContextSafe(vm.ctx)
-	name := cfg.GetBaseInfo().ProxyName
-	visitor := NewVisitor(vm.ctx, cfg, vm.clientCfg, vm.connectServer, vm.msgTransporter)
+	name := cfg.GetBaseConfig().ProxyName
+	visitor := NewVisitor(vm.ctx, cfg, vm.clientCfg, vm.helper)
 	err = visitor.Run()
 	if err != nil {
 		xl.Warn("start error: %v", err)
@@ -107,9 +127,7 @@ func (vm *Manager) Reload(cfgs map[string]config.VisitorConf) {
 	for name, oldCfg := range vm.cfgs {
 		del := false
 		cfg, ok := cfgs[name]
-		if !ok {
-			del = true
-		} else if !oldCfg.Compare(cfg) {
+		if !ok || !reflect.DeepEqual(oldCfg, cfg) {
 			del = true
 		}
 
@@ -139,15 +157,36 @@ func (vm *Manager) Reload(cfgs map[string]config.VisitorConf) {
 	}
 }
 
-func (vm *Manager) Close() {
-	vm.mu.Lock()
-	defer vm.mu.Unlock()
-	for _, v := range vm.visitors {
-		v.Close()
+// TransferConn transfers a connection to a visitor.
+func (vm *Manager) TransferConn(name string, conn net.Conn) error {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+	v, ok := vm.visitors[name]
+	if !ok {
+		return fmt.Errorf("visitor [%s] not found", name)
 	}
-	select {
-	case <-vm.stopCh:
-	default:
-		close(vm.stopCh)
-	}
+	return v.AcceptConn(conn)
+}
+
+type visitorHelperImpl struct {
+	connectServerFn func() (net.Conn, error)
+	msgTransporter  transport.MessageTransporter
+	transferConnFn  func(name string, conn net.Conn) error
+	runID           string
+}
+
+func (v *visitorHelperImpl) ConnectServer() (net.Conn, error) {
+	return v.connectServerFn()
+}
+
+func (v *visitorHelperImpl) TransferConn(name string, conn net.Conn) error {
+	return v.transferConnFn(name, conn)
+}
+
+func (v *visitorHelperImpl) MsgTransporter() transport.MessageTransporter {
+	return v.msgTransporter
+}
+
+func (v *visitorHelperImpl) RunID() string {
+	return v.runID
 }

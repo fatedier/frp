@@ -91,7 +91,7 @@ func NewProxyStatusResp(status *proxy.WorkingStatus, serverAddr string) ProxySta
 		Status: status.Phase,
 		Err:    status.Err,
 	}
-	baseCfg := status.Cfg.GetBaseInfo()
+	baseCfg := status.Cfg.GetBaseConfig()
 	if baseCfg.LocalPort != 0 {
 		psr.LocalAddr = net.JoinHostPort(baseCfg.LocalIP, strconv.Itoa(baseCfg.LocalPort))
 	}

@@ -23,10 +23,10 @@ import (
 	"strings"
 	"time"
 
-	frpIo "github.com/fatedier/golib/io"
-	gnet "github.com/fatedier/golib/net"
+	libio "github.com/fatedier/golib/io"
+	libnet "github.com/fatedier/golib/net"
 
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	utilnet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
@@ -69,9 +69,9 @@ func (hp *HTTPProxy) Name() string {
 }
 
 func (hp *HTTPProxy) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
-	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
+	wrapConn := utilnet.WrapReadWriteCloserToConn(conn, realConn)
 
-	sc, rd := gnet.NewSharedConn(wrapConn)
+	sc, rd := libnet.NewSharedConn(wrapConn)
 	firstBytes := make([]byte, 7)
 	_, err := rd.Read(firstBytes)
 	if err != nil {
@@ -86,7 +86,7 @@ func (hp *HTTPProxy) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBuf
 			wrapConn.Close()
 			return
 		}
-		hp.handleConnectReq(request, frpIo.WrapReadWriteCloser(bufRd, wrapConn, wrapConn.Close))
+		hp.handleConnectReq(request, libio.WrapReadWriteCloser(bufRd, wrapConn, wrapConn.Close))
 		return
 	}
 
@@ -158,7 +158,7 @@ func (hp *HTTPProxy) ConnectHandler(rw http.ResponseWriter, req *http.Request) {
 	}
 	_, _ = client.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 
-	go frpIo.Join(remote, client)
+	go libio.Join(remote, client)
 }
 
 func (hp *HTTPProxy) Auth(req *http.Request) bool {
@@ -213,7 +213,7 @@ func (hp *HTTPProxy) handleConnectReq(req *http.Request, rwc io.ReadWriteCloser)
 	}
 	_, _ = rwc.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 
-	frpIo.Join(remote, rwc)
+	libio.Join(remote, rwc)
 }
 
 func copyHeaders(dst, src http.Header) {
