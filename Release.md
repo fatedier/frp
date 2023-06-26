@@ -1,19 +1,18 @@
 ## Notes
 
-We have thoroughly refactored xtcp in this version to improve its penetration rate and stability.
+**For enhanced security, the default values for `tls_enable` and `disable_custom_tls_first_byte` have been set to true.**
 
-In this version, different penetration strategies can be attempted by retrying connections multiple times. Once a hole is successfully punched, the strategy will be recorded in the server cache for future reuse. When new users connect, the successfully penetrated tunnel can be reused instead of punching a new hole.
+If you wish to revert to the previous default values, you need to manually set the values of these two parameters to false.
 
-**Due to a significant refactor of xtcp, this version is not compatible with previous versions of xtcp.**
+### Features
 
-**To use features related to xtcp, both frpc and frps need to be updated to the latest version.**
+* Added support for `allow_users` in stcp, sudp, xtcp. By default, only the same user is allowed to access. Use `*` to allow access from any user. The visitor configuration now supports `server_user` to connect to proxies of other users.
+* Added fallback support to a specified alternative visitor when xtcp connection fails.
 
-### New
+### Improvements
 
-* The frpc has added the `nathole discover` command for testing the NAT type of the current network.
-* `XTCP` has been refactored, resulting in a significant improvement in the success rate of penetration.
-* When verifying passwords, use `subtle.ConstantTimeCompare` and introduce a certain delay when the password is incorrect.
+* Increased the default value of `MaxStreamWindowSize` for yamux to 6MB, improving traffic forwarding rate in high-latency scenarios.
 
-### Fix
+### Fixes
 
-* Fix the problem of lagging when opening multiple table entries in the frps dashboard.
+* Fixed an issue where having proxies with the same name would cause previously working proxies to become ineffective in `xtcp`.
