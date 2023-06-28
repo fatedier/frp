@@ -3,6 +3,7 @@ package basic
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 
@@ -13,9 +14,13 @@ import (
 )
 
 type generalTestConfigures struct {
-	server      string
-	client      string
-	expectError bool
+	server        string
+	client        string
+	clientPrefix  string
+	client2       string
+	client2Prefix string
+	testDelay     time.Duration
+	expectError   bool
 }
 
 func renderBindPortConfig(protocol string) string {
@@ -30,6 +35,9 @@ func renderBindPortConfig(protocol string) string {
 func runClientServerTest(f *framework.Framework, configures *generalTestConfigures) {
 	serverConf := consts.DefaultServerConfig
 	clientConf := consts.DefaultClientConfig
+	if configures.clientPrefix != "" {
+		clientConf = configures.clientPrefix
+	}
 
 	serverConf += fmt.Sprintf(`
 				%s
@@ -54,7 +62,23 @@ func runClientServerTest(f *framework.Framework, configures *generalTestConfigur
 		framework.UDPEchoServerPort, udpPortName,
 	)
 
-	f.RunProcesses([]string{serverConf}, []string{clientConf})
+	clientConfs := []string{clientConf}
+	if configures.client2 != "" {
+		client2Conf := consts.DefaultClientConfig
+		if configures.client2Prefix != "" {
+			client2Conf = configures.client2Prefix
+		}
+		client2Conf += fmt.Sprintf(`
+			%s
+		`, configures.client2)
+		clientConfs = append(clientConfs, client2Conf)
+	}
+
+	f.RunProcesses([]string{serverConf}, clientConfs)
+
+	if configures.testDelay > 0 {
+		time.Sleep(configures.testDelay)
+	}
 
 	framework.NewRequestExpect(f).PortName(tcpPortName).ExpectError(configures.expectError).Explain("tcp proxy").Ensure()
 	framework.NewRequestExpect(f).Protocol("udp").
@@ -82,6 +106,33 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 			}
 			defineClientServerTest(protocol, f, configures)
 		}
+	})
+
+	// wss is special, it needs to be tested separately.
+	// frps only supports ws, so there should be a proxy to terminate TLS before frps.
+	ginkgo.Describe("Protocol wss", func() {
+		wssPort := f.AllocPort()
+		configures := &generalTestConfigures{
+			clientPrefix: fmt.Sprintf(`
+				[common]
+				server_addr = 127.0.0.1
+				server_port = %d
+				protocol = wss
+				log_level = trace
+				login_fail_exit = false
+			`, wssPort),
+			// Due to the fact that frps cannot directly accept wss connections, we use the https2http plugin of another frpc to terminate TLS.
+			client2: fmt.Sprintf(`
+				[wss2ws]
+				type = tcp
+				remote_port = %d
+				plugin = https2http
+				plugin_local_addr = 127.0.0.1:{{ .%s }}
+			`, wssPort, consts.PortServerName),
+			testDelay: 10 * time.Second,
+		}
+
+		defineClientServerTest("wss", f, configures)
 	})
 
 	ginkgo.Describe("Authentication", func() {
