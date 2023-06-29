@@ -15,6 +15,7 @@
 package sub
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"net"
@@ -233,7 +234,7 @@ func startService(
 		go handleSignal(svr, closedDoneCh)
 	}
 
-	err = svr.Run()
+	err = svr.Run(context.Background())
 	if err == nil && shouldGracefulClose {
 		<-closedDoneCh
 	}
