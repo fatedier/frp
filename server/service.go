@@ -115,7 +115,6 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		return
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
 	svr = &Service{
 		ctlManager:    NewControlManager(),
 		pxyManager:    proxy.NewManager(),
@@ -129,8 +128,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		authVerifier:    auth.NewAuthVerifier(cfg.ServerConfig),
 		tlsConfig:       tlsConfig,
 		cfg:             cfg,
-		ctx:             ctx,
-		cancel:          cancel,
+		ctx:             context.Background(),
 	}
 
 	// Create tcpmux httpconnect multiplexer.
@@ -329,7 +327,11 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	return
 }
 
-func (svr *Service) Run() {
+func (svr *Service) Run(ctx context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
+	svr.ctx = ctx
+	svr.cancel = cancel
+
 	if svr.kcpListener != nil {
 		go svr.HandleListener(svr.kcpListener)
 	}
@@ -343,27 +345,39 @@ func (svr *Service) Run() {
 		go svr.rc.NatHoleController.CleanWorker(svr.ctx)
 	}
 	svr.HandleListener(svr.listener)
+
+	<-svr.ctx.Done()
+	// service context may not be canceled by svr.Close(), we should call it here to release resources
+	if svr.listener != nil {
+		svr.Close()
+	}
 }
 
 func (svr *Service) Close() error {
 	if svr.kcpListener != nil {
 		svr.kcpListener.Close()
+		svr.kcpListener = nil
 	}
 	if svr.quicListener != nil {
 		svr.quicListener.Close()
+		svr.quicListener = nil
 	}
 	if svr.websocketListener != nil {
 		svr.websocketListener.Close()
+		svr.websocketListener = nil
 	}
 	if svr.tlsListener != nil {
 		svr.tlsListener.Close()
+		svr.tlsConfig = nil
 	}
 	if svr.listener != nil {
 		svr.listener.Close()
+		svr.listener = nil
 	}
-	svr.cancel()
-
 	svr.ctlManager.Close()
+	if svr.cancel != nil {
+		svr.cancel()
+	}
 	return nil
 }
 

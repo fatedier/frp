@@ -86,16 +86,14 @@ func NewService(
 	visitorCfgs map[string]config.VisitorConf,
 	cfgFile string,
 ) (svr *Service, err error) {
-	ctx, cancel := context.WithCancel(context.Background())
 	svr = &Service{
 		authSetter:  auth.NewAuthSetter(cfg.ClientConfig),
 		cfg:         cfg,
 		cfgFile:     cfgFile,
 		pxyCfgs:     pxyCfgs,
 		visitorCfgs: visitorCfgs,
+		ctx:         context.Background(),
 		exit:        0,
-		ctx:         xlog.NewContext(ctx, xlog.New()),
-		cancel:      cancel,
 	}
 	return
 }
@@ -106,7 +104,11 @@ func (svr *Service) GetController() *Control {
 	return svr.ctl
 }
 
-func (svr *Service) Run() error {
+func (svr *Service) Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	svr.ctx = xlog.NewContext(ctx, xlog.New())
+	svr.cancel = cancel
+
 	xl := xlog.FromContextSafe(svr.ctx)
 
 	// set custom DNSServer
@@ -161,6 +163,10 @@ func (svr *Service) Run() error {
 		log.Info("admin server listen on %s:%d", svr.cfg.AdminAddr, svr.cfg.AdminPort)
 	}
 	<-svr.ctx.Done()
+	// service context may not be canceled by svr.Close(), we should call it here to release resources
+	if atomic.LoadUint32(&svr.exit) == 0 {
+		svr.Close()
+	}
 	return nil
 }
 
@@ -182,7 +188,7 @@ func (svr *Service) keepControllerWorking() {
 			return
 		}
 
-		// the first three retry with no delay
+		// the first three attempts with a low delay
 		if reconnectCounts > 3 {
 			util.RandomSleep(reconnectDelay, 0.9, 1.1)
 			xl.Info("wait %v to reconnect", reconnectDelay)
@@ -322,10 +328,13 @@ func (svr *Service) GracefulClose(d time.Duration) {
 	svr.ctlMu.RLock()
 	if svr.ctl != nil {
 		svr.ctl.GracefulClose(d)
+		svr.ctl = nil
 	}
 	svr.ctlMu.RUnlock()
 
-	svr.cancel()
+	if svr.cancel != nil {
+		svr.cancel()
+	}
 }
 
 type ConnectionManager struct {
