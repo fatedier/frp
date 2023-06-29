@@ -135,7 +135,7 @@ func (svr *Service) Run() error {
 			if svr.cfg.LoginFailExit {
 				return err
 			}
-			util.RandomSleep(10*time.Second, 0.9, 1.1)
+			util.RandomSleep(5*time.Second, 0.9, 1.1)
 		} else {
 			// login success
 			ctl := NewControl(svr.ctx, svr.runID, conn, cm, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.authSetter)
@@ -427,7 +427,11 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 	xl := xlog.FromContextSafe(cm.ctx)
 	var tlsConfig *tls.Config
 	var err error
-	if cm.cfg.TLSEnable {
+	tlsEnable := cm.cfg.TLSEnable
+	if cm.cfg.Protocol == "wss" {
+		tlsEnable = true
+	}
+	if tlsEnable {
 		sn := cm.cfg.TLSServerName
 		if sn == "" {
 			sn = cm.cfg.ServerAddr
@@ -451,10 +455,23 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 	}
 	dialOptions := []libdial.DialOption{}
 	protocol := cm.cfg.Protocol
-	if protocol == "websocket" {
+	switch protocol {
+	case "websocket":
 		protocol = "tcp"
-		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: utilnet.DialHookWebsocket()}))
+		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: utilnet.DialHookWebsocket(protocol, "")}))
+		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{
+			Hook: utilnet.DialHookCustomTLSHeadByte(tlsConfig != nil, cm.cfg.DisableCustomTLSFirstByte),
+		}))
+		dialOptions = append(dialOptions, libdial.WithTLSConfig(tlsConfig))
+	case "wss":
+		protocol = "tcp"
+		dialOptions = append(dialOptions, libdial.WithTLSConfigAndPriority(100, tlsConfig))
+		// Make sure that if it is wss, the websocket hook is executed after the tls hook.
+		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: utilnet.DialHookWebsocket(protocol, tlsConfig.ServerName), Priority: 110}))
+	default:
+		dialOptions = append(dialOptions, libdial.WithTLSConfig(tlsConfig))
 	}
+
 	if cm.cfg.ConnectServerLocalIP != "" {
 		dialOptions = append(dialOptions, libdial.WithLocalAddr(cm.cfg.ConnectServerLocalIP))
 	}
@@ -464,10 +481,6 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 		libdial.WithKeepAlive(time.Duration(cm.cfg.DialServerKeepAlive)*time.Second),
 		libdial.WithProxy(proxyType, addr),
 		libdial.WithProxyAuth(auth),
-		libdial.WithTLSConfig(tlsConfig),
-		libdial.WithAfterHook(libdial.AfterHook{
-			Hook: utilnet.DialHookCustomTLSHeadByte(tlsConfig != nil, cm.cfg.DisableCustomTLSFirstByte),
-		}),
 	)
 	conn, err := libdial.DialContext(
 		cm.ctx,

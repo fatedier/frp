@@ -6,7 +6,7 @@ require (
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
 	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/fatedier/beego v0.0.0-20171024143340-6c6a4f5bd5eb
-	github.com/fatedier/golib v0.1.1-0.20230320133937-a7edcc8c793d
+	github.com/fatedier/golib v0.1.1-0.20230628070619-a1a0c648236a
 	github.com/fatedier/kcp-go v2.0.4-0.20190803094908-fe8645b0a904+incompatible
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/google/uuid v1.3.0
@@ -75,3 +75,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/utils v0.0.0-20221107191617-1a15be271d1d // indirect
 )
+
+// TODO(fatedier): Temporary use the modified version, update to the official version after merging into the official repository.
+replace github.com/hashicorp/yamux => github.com/fatedier/yamux v0.0.0-20230628132301-7aca4898904d
