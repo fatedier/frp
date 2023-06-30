@@ -153,12 +153,11 @@ func Execute() {
 	}
 }
 
-func handleSignal(svr *client.Service, doneCh chan struct{}) {
+func handleTermSignal(svr *client.Service) {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
 	<-ch
 	svr.GracefulClose(500 * time.Millisecond)
-	close(doneCh)
 }
 
 func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
@@ -227,16 +226,12 @@ func startService(
 		return
 	}
 
-	closedDoneCh := make(chan struct{})
 	shouldGracefulClose := cfg.Protocol == "kcp" || cfg.Protocol == "quic"
 	// Capture the exit signal if we use kcp or quic.
 	if shouldGracefulClose {
-		go handleSignal(svr, closedDoneCh)
+		go handleTermSignal(svr)
 	}
 
-	err = svr.Run(context.Background())
-	if err == nil && shouldGracefulClose {
-		<-closedDoneCh
-	}
+	_ = svr.Run(context.Background())
 	return
 }
