@@ -59,7 +59,7 @@ func (svr *Service) Healthz(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 }
 
-// api/serverinfo
+// /api/serverinfo
 func (svr *Service) APIServerInfo(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 	defer func() {
@@ -176,7 +176,7 @@ type GetProxyInfoResp struct {
 	Proxies []*ProxyStatsInfo `json:"proxies"`
 }
 
-// api/proxy/:type
+// /api/proxy/:type
 func (svr *Service) APIProxyByType(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 	params := mux.Vars(r)
@@ -244,7 +244,7 @@ type GetProxyStatsResp struct {
 	Status          string      `json:"status"`
 }
 
-// api/proxy/:type/:name
+// /api/proxy/:type/:name
 func (svr *Service) APIProxyByTypeAndName(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 	params := mux.Vars(r)
@@ -307,7 +307,7 @@ func (svr *Service) getProxyStatsByTypeAndName(proxyType string, proxyName strin
 	return
 }
 
-// api/traffic/:name
+// /api/traffic/:name
 type GetProxyTrafficResp struct {
 	Name       string  `json:"name"`
 	TrafficIn  []int64 `json:"traffic_in"`

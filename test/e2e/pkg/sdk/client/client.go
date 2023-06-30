@@ -62,6 +62,15 @@ func (c *Client) Reload() error {
 	return err
 }
 
+func (c *Client) Stop() error {
+	req, err := http.NewRequest("POST", "http://"+c.address+"/api/stop", nil)
+	if err != nil {
+		return err
+	}
+	_, err = c.do(req)
+	return err
+}
+
 func (c *Client) GetConfig() (string, error) {
 	req, err := http.NewRequest("GET", "http://"+c.address+"/api/config", nil)
 	if err != nil {

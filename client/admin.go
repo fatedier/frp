@@ -52,6 +52,7 @@ func (svr *Service) RunAdminServer(address string) (err error) {
 
 	// api, see admin_api.go
 	subRouter.HandleFunc("/api/reload", svr.apiReload).Methods("GET")
+	subRouter.HandleFunc("/api/stop", svr.apiStop).Methods("POST")
 	subRouter.HandleFunc("/api/status", svr.apiStatus).Methods("GET")
 	subRouter.HandleFunc("/api/config", svr.apiGetConfig).Methods("GET")
 	subRouter.HandleFunc("/api/config", svr.apiPutConfig).Methods("PUT")
