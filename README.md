@@ -25,9 +25,11 @@ frp also offers a P2P connect mode.
 <!-- vim-markdown-toc GFM -->
 
 * [Development Status](#development-status)
+    * [About V2](#about-v2)
 * [Architecture](#architecture)
 * [Example Usage](#example-usage)
     * [Access your computer in a LAN network via SSH](#access-your-computer-in-a-lan-network-via-ssh)
+    * [Multiple SSH services sharing the same port](#multiple-ssh-services-sharing-the-same-port)
     * [Accessing Internal Web Services with Custom Domains in LAN](#accessing-internal-web-services-with-custom-domains-in-lan)
     * [Forward DNS query requests](#forward-dns-query-requests)
     * [Forward Unix Domain Socket](#forward-unix-domain-socket)
@@ -89,6 +91,20 @@ We are currently working on version 2 and attempting to perform some code refact
 
 We will transition from version 0 to version 1 at the appropriate time and will only accept bug fixes and improvements, rather than big feature requests.
 
+### About V2
+
+The overall situation is currently unfavorable, and there is significant pressure in both personal and professional aspects.
+
+The complexity and difficulty of the v2 version are much higher than anticipated. I can only work on its development during fragmented time periods, and the constant interruptions disrupt productivity significantly. Given this situation, we will continue to optimize and iterate on the current version until we have more free time to proceed with the major version overhaul.
+
+The concept behind v2 is based on my years of experience and reflection in the cloud-native domain, particularly in K8s and ServiceMesh. Its core is a modernized four-layer and seven-layer proxy, similar to envoy. This proxy itself is highly scalable, not only capable of implementing the functionality of intranet penetration but also applicable to various other domains. Building upon this highly scalable core, we aim to implement all the capabilities of frp v1 while also addressing the functionalities that were previously unachievable or difficult to implement in an elegant manner. Furthermore, we will maintain efficient development and iteration capabilities.
+
+In addition, I envision frp itself becoming a highly extensible system and platform, similar to how we can provide a range of extension capabilities based on K8s. In K8s, we can customize development according to enterprise needs, utilizing features such as CRD, controller mode, webhook, CSI, and CNI. In frp v1, we introduced the concept of server plugins, which implemented some basic extensibility. However, it relies on a simple HTTP protocol and requires users to start independent processes and manage them on their own. This approach is far from flexible and convenient, and real-world demands vary greatly. It is unrealistic to expect a non-profit open-source project maintained by a few individuals to meet everyone's needs.
+
+Finally, we acknowledge that the current design of modules such as configuration management, permission verification, certificate management, and API management is not modern enough. While we may carry out some optimizations in the v1 version, ensuring compatibility remains a challenging issue that requires a considerable amount of effort to address.
+
+We sincerely appreciate your support for frp.
+
 ## Architecture
 
 ![architecture](/doc/pic/architecture.png)
@@ -140,6 +156,56 @@ Note that the `local_port` (listened on the client) and `remote_port` (exposed o
 
   `ssh -oPort=6000 test@x.x.x.x`
 
+### Multiple SSH services sharing the same port
+
+This example implements multiple SSH services exposed through the same port using a proxy of type tcpmux. Similarly, as long as the client supports the HTTP Connect proxy connection method, port reuse can be achieved in this way.
+
+1. Deploy frps on a machine with a public IP and modify the frps.ini file. Here is a simplified configuration:
+
+  ```ini
+  [common]
+  bind_port = 7000
+  tcpmux_httpconnect_port = 5002
+  ```
+
+2. Deploy frpc on the internal machine A with the following configuration:
+
+  ```ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [ssh1]
+  type = tcpmux
+  multiplexer = httpconnect
+  custom_domains = machine-a.example.com
+  local_ip = 127.0.0.1
+  local_port = 22
+  ```
+
+3. Deploy another frpc on the internal machine B with the following configuration:
+
+  ```ini
+  [common]
+  server_addr = x.x.x.x
+  server_port = 7000
+
+  [ssh2]
+  type = tcpmux
+  multiplexer = httpconnect
+  custom_domains = machine-b.example.com
+  local_ip = 127.0.0.1
+  local_port = 22
+  ```
+
+4. To access internal machine A using SSH ProxyCommand, assuming the username is "test":
+
+  `ssh -o 'proxycommand socat - PROXY:x.x.x.x:machine-a.example.com:22,proxyport=5002' test@machine-a`
+
+5. To access internal machine B, the only difference is the domain name, assuming the username is "test":
+
+  `ssh -o 'proxycommand socat - PROXY:x.x.x.x:machine-b.example.com:22,proxyport=5002' test@machine-b`
+
 ### Accessing Internal Web Services with Custom Domains in LAN
 
 Sometimes we need to expose a local web service behind a NAT network to others for testing purposes with our own domain name.
@@ -154,6 +220,8 @@ Unfortunately, we cannot resolve a domain name to a local IP. However, we can us
   bind_port = 7000
   vhost_http_port = 8080
   ```
+
+  If you want to configure an https proxy, you need to set up the `vhost_https_port`.
 
 2. Start `frps`:
 
@@ -280,6 +348,7 @@ You may substitute `https2https` for the plugin, and point the `plugin_local_add
   [common]
   server_addr = x.x.x.x
   server_port = 7000
+  vhost_https_port = 443
 
   [test_https2http]
   type = https
