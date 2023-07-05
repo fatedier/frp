@@ -1,18 +1,12 @@
-## Notes
-
-**For enhanced security, the default values for `tls_enable` and `disable_custom_tls_first_byte` have been set to true.**
-
-If you wish to revert to the previous default values, you need to manually set the values of these two parameters to false.
-
 ### Features
 
-* Added support for `allow_users` in stcp, sudp, xtcp. By default, only the same user is allowed to access. Use `*` to allow access from any user. The visitor configuration now supports `server_user` to connect to proxies of other users.
-* Added fallback support to a specified alternative visitor when xtcp connection fails.
+* frpc supports connecting to frps via the wss protocol by enabling the configuration `protocol = wss`.
+* frpc supports stopping the service through the stop command.
 
 ### Improvements
 
-* Increased the default value of `MaxStreamWindowSize` for yamux to 6MB, improving traffic forwarding rate in high-latency scenarios.
+* service.Run supports passing in context.
 
 ### Fixes
 
-* Fixed an issue where having proxies with the same name would cause previously working proxies to become ineffective in `xtcp`.
+* Fix an issue caused by a bug in yamux that prevents wss from working properly in certain plugins.

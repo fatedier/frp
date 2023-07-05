@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/samber/lo"
 	"gopkg.in/ini.v1"
 
 	"github.com/fatedier/frp/pkg/auth"
@@ -117,7 +118,7 @@ type ClientCommonConf struct {
 	Start []string `ini:"start" json:"start"`
 	// Start map[string]struct{} `json:"start"`
 	// Protocol specifies the protocol to use when interacting with the server.
-	// Valid values are "tcp", "kcp", "quic" and "websocket". By default, this value
+	// Valid values are "tcp", "kcp", "quic", "websocket" and "wss". By default, this value
 	// is "tcp".
 	Protocol string `ini:"protocol" json:"protocol"`
 	// QUIC protocol options
@@ -230,7 +231,7 @@ func (cfg *ClientCommonConf) Validate() error {
 		}
 	}
 
-	if cfg.Protocol != "tcp" && cfg.Protocol != "kcp" && cfg.Protocol != "websocket" && cfg.Protocol != "quic" {
+	if !lo.Contains([]string{"tcp", "kcp", "quic", "websocket", "wss"}, cfg.Protocol) {
 		return fmt.Errorf("invalid protocol")
 	}
 

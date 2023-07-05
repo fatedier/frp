@@ -15,6 +15,7 @@
 package sub
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"net"
@@ -76,7 +77,8 @@ var (
 	bindAddr           string
 	bindPort           int
 
-	tlsEnable bool
+	tlsEnable     bool
+	tlsServerName string
 )
 
 func init() {
@@ -88,13 +90,14 @@ func init() {
 func RegisterCommonFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVarP(&serverAddr, "server_addr", "s", "127.0.0.1:7000", "frp server's address")
 	cmd.PersistentFlags().StringVarP(&user, "user", "u", "", "user")
-	cmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp or kcp or websocket")
+	cmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", "tcp", "tcp, kcp, quic, websocket, wss")
 	cmd.PersistentFlags().StringVarP(&token, "token", "t", "", "auth token")
 	cmd.PersistentFlags().StringVarP(&logLevel, "log_level", "", "info", "log level")
 	cmd.PersistentFlags().StringVarP(&logFile, "log_file", "", "console", "console or file path")
 	cmd.PersistentFlags().IntVarP(&logMaxDays, "log_max_days", "", 3, "log file reversed days")
 	cmd.PersistentFlags().BoolVarP(&disableLogColor, "disable_log_color", "", false, "disable log color in console")
 	cmd.PersistentFlags().BoolVarP(&tlsEnable, "tls_enable", "", true, "enable frpc tls")
+	cmd.PersistentFlags().StringVarP(&tlsServerName, "tls_server_name", "", "", "specify the custom server name of tls certificate")
 	cmd.PersistentFlags().StringVarP(&dnsServer, "dns_server", "", "", "specify dns server instead of using system default one")
 }
 
@@ -150,12 +153,11 @@ func Execute() {
 	}
 }
 
-func handleSignal(svr *client.Service, doneCh chan struct{}) {
+func handleTermSignal(svr *client.Service) {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
 	<-ch
 	svr.GracefulClose(500 * time.Millisecond)
-	close(doneCh)
 }
 
 func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
@@ -186,6 +188,7 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 	cfg.ClientConfig = auth.GetDefaultClientConf()
 	cfg.Token = token
 	cfg.TLSEnable = tlsEnable
+	cfg.TLSServerName = tlsServerName
 
 	cfg.Complete()
 	if err = cfg.Validate(); err != nil {
@@ -223,16 +226,12 @@ func startService(
 		return
 	}
 
-	closedDoneCh := make(chan struct{})
 	shouldGracefulClose := cfg.Protocol == "kcp" || cfg.Protocol == "quic"
 	// Capture the exit signal if we use kcp or quic.
 	if shouldGracefulClose {
-		go handleSignal(svr, closedDoneCh)
+		go handleTermSignal(svr)
 	}
 
-	err = svr.Run()
-	if err == nil && shouldGracefulClose {
-		<-closedDoneCh
-	}
+	_ = svr.Run(context.Background())
 	return
 }
