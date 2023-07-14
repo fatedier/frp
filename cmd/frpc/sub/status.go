@@ -15,7 +15,6 @@
 package sub
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,6 +22,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cristalhq/base64"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
 

@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"encoding/base64"
+	"github.com/cristalhq/base64"
 )
 
 func BasicAuth(username, passwd string) string {

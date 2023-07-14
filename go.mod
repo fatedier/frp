@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
 	github.com/coreos/go-oidc/v3 v3.4.0
+	github.com/cristalhq/base64 v0.1.2
 	github.com/fatedier/beego v0.0.0-20171024143340-6c6a4f5bd5eb
 	github.com/fatedier/golib v0.1.1-0.20230628070619-a1a0c648236a
 	github.com/fatedier/kcp-go v2.0.4-0.20190803094908-fe8645b0a904+incompatible

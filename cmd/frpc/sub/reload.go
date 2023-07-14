@@ -15,13 +15,13 @@
 package sub
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 
+	"github.com/cristalhq/base64"
 	"github.com/spf13/cobra"
 
 	"github.com/fatedier/frp/pkg/config"

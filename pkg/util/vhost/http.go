@@ -17,7 +17,6 @@ package vhost
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
@@ -27,6 +26,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/cristalhq/base64"
 
 	libio "github.com/fatedier/golib/io"
 	"github.com/fatedier/golib/pool"

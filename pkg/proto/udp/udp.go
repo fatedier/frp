@@ -15,10 +15,11 @@
 package udp
 
 import (
-	"encoding/base64"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/cristalhq/base64"
 
 	"github.com/fatedier/golib/errors"
 	"github.com/fatedier/golib/pool"

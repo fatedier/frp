@@ -16,12 +16,13 @@ package plugin
 
 import (
 	"bufio"
-	"encoding/base64"
 	"io"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/cristalhq/base64"
 
 	libio "github.com/fatedier/golib/io"
 	libnet "github.com/fatedier/golib/net"

@@ -15,10 +15,11 @@
 package util
 
 import (
-	"encoding/base64"
 	"net"
 	"net/http"
 	"strings"
+
+	"github.com/cristalhq/base64"
 )
 
 func OkResponse() *http.Response {
