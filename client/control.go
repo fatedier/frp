@@ -29,6 +29,7 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/transport"
 	utilnet "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/wait"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
@@ -104,6 +105,9 @@ func NewControl(
 
 	ctl.msgDispatcher = msg.NewDispatcher(cryptoRW)
 	ctl.registerMsgHandlers()
+
+	ctl.xl.Info("get pxy cfgs: %v", util.JSONDump(ctl.pxyCfgs))
+
 	ctl.msgTransporter = transport.NewMessageTransporter(ctl.msgDispatcher.SendChannel())
 
 	ctl.pm = proxy.NewManager(ctl.ctx, clientCfg, ctl.msgTransporter)
@@ -133,10 +137,12 @@ func (ctl *Control) handleReqWorkConn(_ msg.Message) {
 	m := &msg.NewWorkConn{
 		RunID: ctl.runID,
 	}
+
 	if err = ctl.authSetter.SetNewWorkConn(m); err != nil {
 		xl.Warn("error during NewWorkConn authentication: %v", err)
 		return
 	}
+
 	if err = msg.WriteMsg(workConn, m); err != nil {
 		xl.Warn("work connection write to server error: %v", err)
 		workConn.Close()
@@ -149,6 +155,7 @@ func (ctl *Control) handleReqWorkConn(_ msg.Message) {
 		workConn.Close()
 		return
 	}
+
 	if startMsg.Error != "" {
 		xl.Error("StartWorkConn contains error: %s", startMsg.Error)
 		workConn.Close()
@@ -161,7 +168,11 @@ func (ctl *Control) handleReqWorkConn(_ msg.Message) {
 
 func (ctl *Control) handleNewProxyResp(m msg.Message) {
 	xl := ctl.xl
+
 	inMsg := m.(*msg.NewProxyResp)
+
+	xl.Info("proxy: %v, remote addr: %v, err: %v", inMsg.ProxyName, inMsg.RemoteAddr, inMsg.Error)
+
 	// Server will return NewProxyResp message to each NewProxy message.
 	// Start a new proxy handler if no error got
 	err := ctl.pm.StartProxy(inMsg.ProxyName, inMsg.RemoteAddr, inMsg.Error)

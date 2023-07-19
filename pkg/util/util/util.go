@@ -19,6 +19,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	mathrand "math/rand"
 	"net"
@@ -143,4 +144,9 @@ func RandomSleep(duration time.Duration, minRatio, maxRatio float64) time.Durati
 
 func ConstantTimeEqString(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
+}
+
+func JSONDump(v interface{}) string {
+	prettyJSON, _ := json.MarshalIndent(v, "", "\t")
+	return string(prettyJSON)
 }

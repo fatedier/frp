@@ -22,6 +22,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	fmux "github.com/hashicorp/yamux"
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/fatedier/frp/assets"
 	"github.com/fatedier/frp/pkg/auth"
@@ -65,6 +67,10 @@ type Service struct {
 
 	// Accept connections from client
 	listener net.Listener
+
+	// Accept connections using ssh
+	sshListener net.Listener
+	sshConfig   *ssh.ServerConfig
 
 	// Accept connections using kcp
 	kcpListener net.Listener
@@ -199,6 +205,56 @@ func NewService(cfg *v1.ServerConfig) (svr *Service, err error) {
 	svr.listener = ln
 	log.Info("frps tcp listen on %s", address)
 
+	if cfg.SSHGatewayConfig.SSHBindPort > 0 {
+		svr.sshConfig = &ssh.ServerConfig{
+			PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+				file := fmt.Sprintf("%v/%v.pub", cfg.SSHGatewayConfig.SSHPublicKeyFilesPath, ssh.FingerprintSHA256(key))
+				authorizedKey, err := os.ReadFile(file)
+				if err != nil {
+					return nil, err
+				}
+
+				parsedAuthorizedKey, _, _, _, err := ssh.ParseAuthorizedKey(authorizedKey)
+				if err != nil {
+					return nil, err
+				}
+
+				if key.Type() == parsedAuthorizedKey.Type() && bytes.Equal(key.Marshal(), parsedAuthorizedKey.Marshal()) {
+					log.Info("ssh file: %v fingerprint sha256: %v", file, ssh.FingerprintSHA256(key))
+
+					return &ssh.Permissions{
+						Extensions: map[string]string{
+							ssh.FingerprintSHA256(key): string(authorizedKey),
+						},
+					}, nil
+				}
+				return nil, fmt.Errorf("unknown public key for %q", conn.User())
+			},
+		}
+
+		privateBytes, err := os.ReadFile(cfg.SSHGatewayConfig.SSHPrivateKeyFilePath)
+		if err != nil {
+			log.Error("Failed to load private key")
+			return nil, err
+		}
+
+		private, err := ssh.ParsePrivateKey(privateBytes)
+		if err != nil {
+			log.Error("Failed to parse private key, error: %v", err)
+			return nil, err
+		}
+
+		svr.sshConfig.AddHostKey(private)
+
+		sshAddr := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.SSHGatewayConfig.SSHBindPort))
+		svr.sshListener, err = net.Listen("tcp", sshAddr)
+		if err != nil {
+			log.Error("Failed to listen on %v, error: %v", sshAddr, err)
+			return nil, err
+		}
+		log.Info("ssh server listening on %v", sshAddr)
+	}
+
 	// Listen for accepting connections from client using kcp protocol.
 	if cfg.KCPBindPort > 0 {
 		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.KCPBindPort))
@@ -326,6 +382,10 @@ func (svr *Service) Run(ctx context.Context) {
 	svr.ctx = ctx
 	svr.cancel = cancel
 
+	if svr.sshListener != nil {
+		go svr.HandleSSHListener(svr.sshListener)
+	}
+
 	if svr.kcpListener != nil {
 		go svr.HandleListener(svr.kcpListener)
 	}
@@ -348,6 +408,10 @@ func (svr *Service) Run(ctx context.Context) {
 }
 
 func (svr *Service) Close() error {
+	if svr.sshListener != nil {
+		svr.sshListener.Close()
+		svr.sshListener = nil
+	}
 	if svr.kcpListener != nil {
 		svr.kcpListener.Close()
 		svr.kcpListener = nil
@@ -490,6 +554,60 @@ func (svr *Service) HandleListener(l net.Listener) {
 				svr.handleConnection(ctx, frpConn)
 			}
 		}(ctx, c)
+	}
+}
+
+func (svr *Service) HandleSSHListener(listener net.Listener) {
+	for {
+		tcpConn, err := listener.Accept()
+		if err != nil {
+			log.Error("failed to accept incoming ssh connection (%s)", err)
+			return
+		}
+		log.Info("new tcp conn connected: %v", tcpConn.RemoteAddr().String())
+
+		pxyPayloadCh := make(chan v1.ProxyConfigurer)
+		replyCh := make(chan interface{})
+
+		ss, err := NewSSHService(tcpConn, svr.sshConfig, pxyPayloadCh, replyCh)
+		if err != nil {
+			log.Error("new ssh service error: %v", err)
+			continue
+		}
+		ss.Run()
+
+		go func() {
+			for {
+				pxyCfg := <-pxyPayloadCh
+
+				ctx := context.Background()
+
+				vs, err := NewVirtualService(
+					ctx,
+					v1.ClientCommonConfig{},
+					*svr.cfg,
+					msg.Login{
+						User: v1.SSHClientLoginUserPrefix + tcpConn.RemoteAddr().String(),
+					},
+					svr.rc,
+					pxyCfg,
+					ss,
+					replyCh,
+				)
+				if err != nil {
+					log.Error("new virtual service error: %v", err)
+					ss.Close()
+					return
+				}
+
+				err = vs.Run(ctx)
+				if err != nil {
+					log.Error("proxy run error: %v", err)
+					vs.Close()
+					return
+				}
+			}
+		}()
 	}
 }
 
