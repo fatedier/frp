@@ -175,7 +175,9 @@ func (pxy *HTTPProxy) GetRealConn(remoteAddr string) (workConn net.Conn, err err
 		}
 	}
 	if pxy.cfg.UseCompression {
-		rwc = libio.WithCompression(rwc)
+		var releaseFn func()
+		rwc, releaseFn = libio.WithCompressionFromPool(rwc)
+		defer releaseFn()
 	}
 
 	if pxy.GetLimiter() != nil {

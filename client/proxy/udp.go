@@ -108,7 +108,9 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 		}
 	}
 	if pxy.cfg.UseCompression {
-		rwc = libio.WithCompression(rwc)
+		var releaseFn func()
+		rwc, releaseFn = libio.WithCompressionFromPool(rwc)
+		defer releaseFn()
 	}
 	conn = utilnet.WrapReadWriteCloserToConn(rwc, conn)
 

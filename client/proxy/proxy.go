@@ -143,7 +143,9 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 		}
 	}
 	if baseConfig.UseCompression {
-		remote = libio.WithCompression(remote)
+		var releaseFn func()
+		remote, releaseFn = libio.WithCompressionFromPool(remote)
+		defer releaseFn()
 	}
 
 	// check if we need to send proxy protocol info
