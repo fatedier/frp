@@ -298,6 +298,7 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 				case "xtcp":
 					localPortName = framework.TCPEchoServerPort
 					protocol = "tcp"
+					ginkgo.Skip("stun server is not stable")
 				}
 
 				correctSK := "abc"
@@ -363,6 +364,7 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 						use_encryption = true
 						use_compression = true
 						`,
+						skipXTCP: true,
 					},
 					{
 						proxyName:    "with-error-sk",

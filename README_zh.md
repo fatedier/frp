@@ -70,13 +70,17 @@ frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进�
 
 **提醒：和项目相关的问题最好在 [issues](https://github.com/fatedier/frp/issues) 中反馈，这样方便其他有类似问题的人可以快速查找解决方法，并且也避免了我们重复回答一些问题。**
 
-## 捐助
+## 赞助
 
 如果您觉得 frp 对你有帮助，欢迎给予我们一定的捐助来维持项目的长期发展。
 
-### GitHub Sponsors
+### Sponsors
+
+长期赞助可以帮助我们保持项目的持续发展。
 
 您可以通过 [GitHub Sponsors](https://github.com/sponsors/fatedier) 赞助我们。
+
+国内用户可以通过 [爱发电](https://afdian.net/a/fatedier) 赞助我们。
 
 企业赞助者可以将贵公司的 Logo 以及链接放置在项目 README 文件中。
 
