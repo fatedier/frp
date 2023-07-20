@@ -25,7 +25,7 @@ import (
 
 const testVisitorPrefix = "test."
 
-func Test_Visitor_Interface(t *testing.T) {
+func Test_Visitor_Interface(_ *testing.T) {
 	for name := range visitorConfTypeMap {
 		DefaultVisitorConf(name)
 	}

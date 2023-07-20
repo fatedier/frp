@@ -77,7 +77,7 @@ func (pxy *SUDPProxy) Close() {
 	}
 }
 
-func (pxy *SUDPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
+func (pxy *SUDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 	xl := pxy.xl
 	xl.Info("incoming a new work connection for sudp proxy, %s", conn.RemoteAddr().String())
 

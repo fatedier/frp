@@ -40,7 +40,7 @@ type GeneralTCPProxy struct {
 	*BaseProxy
 }
 
-func NewGeneralTCPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
+func NewGeneralTCPProxy(baseProxy *BaseProxy, _ config.ProxyConf) Proxy {
 	return &GeneralTCPProxy{
 		BaseProxy: baseProxy,
 	}

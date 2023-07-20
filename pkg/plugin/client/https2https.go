@@ -127,7 +127,7 @@ func (p *HTTPS2HTTPSPlugin) genTLSConfig() (*tls.Config, error) {
 	return config, nil
 }
 
-func (p *HTTPS2HTTPSPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
+func (p *HTTPS2HTTPSPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ []byte) {
 	wrapConn := utilnet.WrapReadWriteCloserToConn(conn, realConn)
 	_ = p.l.PutConn(wrapConn)
 }
@@ -137,8 +137,5 @@ func (p *HTTPS2HTTPSPlugin) Name() string {
 }
 
 func (p *HTTPS2HTTPSPlugin) Close() error {
-	if err := p.s.Close(); err != nil {
-		return err
-	}
-	return nil
+	return p.s.Close()
 }

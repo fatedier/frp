@@ -434,10 +434,9 @@ func (ctl *Control) manager() {
 	defer ctl.managerShutdown.Done()
 
 	var heartbeatCh <-chan time.Time
-	if ctl.serverCfg.TCPMux || ctl.serverCfg.HeartbeatTimeout <= 0 {
-		// Don't need application heartbeat here.
-		// yamux will do same thing.
-	} else {
+	// Don't need application heartbeat if TCPMux is enabled,
+	// yamux will do same thing.
+	if !ctl.serverCfg.TCPMux && ctl.serverCfg.HeartbeatTimeout > 0 {
 		heartbeat := time.NewTicker(time.Second)
 		defer heartbeat.Stop()
 		heartbeatCh = heartbeat.C
