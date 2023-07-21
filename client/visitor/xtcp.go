@@ -413,7 +413,7 @@ func (qs *QUICTunnelSession) Init(listenConn *net.UDPConn, raddr *net.UDPAddr) e
 		return fmt.Errorf("create tls config error: %v", err)
 	}
 	tlsConfig.NextProtos = []string{"frp"}
-	quicConn, err := quic.Dial(listenConn, raddr, raddr.String(), tlsConfig,
+	quicConn, err := quic.Dial(context.Background(), listenConn, raddr, tlsConfig,
 		&quic.Config{
 			MaxIdleTimeout:     time.Duration(qs.clientCfg.QUICMaxIdleTimeout) * time.Second,
 			MaxIncomingStreams: int64(qs.clientCfg.QUICMaxIncomingStreams),
