@@ -35,7 +35,7 @@ var (
 	testProxyPrefix = "test."
 )
 
-func Test_Proxy_Interface(t *testing.T) {
+func Test_Proxy_Interface(_ *testing.T) {
 	for name := range proxyConfTypeMap {
 		NewConfByType(name)
 	}

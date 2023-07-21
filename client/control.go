@@ -124,7 +124,7 @@ func (ctl *Control) Run() {
 	go ctl.vm.Run()
 }
 
-func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
+func (ctl *Control) HandleReqWorkConn(_ *msg.ReqWorkConn) {
 	xl := ctl.xl
 	workConn, err := ctl.connectServer()
 	if err != nil {

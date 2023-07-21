@@ -370,7 +370,7 @@ func (ks *KCPTunnelSession) Init(listenConn *net.UDPConn, raddr *net.UDPAddr) er
 	return nil
 }
 
-func (ks *KCPTunnelSession) OpenConn(ctx context.Context) (net.Conn, error) {
+func (ks *KCPTunnelSession) OpenConn(_ context.Context) (net.Conn, error) {
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
 	session := ks.session

@@ -527,11 +527,8 @@ func (cfg *TCPProxyConf) ValidateForClient() (err error) {
 	return
 }
 
-func (cfg *TCPProxyConf) ValidateForServer(serverCfg ServerCommonConf) error {
-	if err := cfg.BaseProxyConf.validateForServer(); err != nil {
-		return err
-	}
-	return nil
+func (cfg *TCPProxyConf) ValidateForServer(_ ServerCommonConf) error {
+	return cfg.BaseProxyConf.validateForServer()
 }
 
 // TCPMux
@@ -644,11 +641,8 @@ func (cfg *UDPProxyConf) ValidateForClient() (err error) {
 	return
 }
 
-func (cfg *UDPProxyConf) ValidateForServer(serverCfg ServerCommonConf) error {
-	if err := cfg.BaseProxyConf.validateForServer(); err != nil {
-		return err
-	}
-	return nil
+func (cfg *UDPProxyConf) ValidateForServer(_ ServerCommonConf) error {
+	return cfg.BaseProxyConf.validateForServer()
 }
 
 // HTTP
@@ -821,11 +815,8 @@ func (cfg *SUDPProxyConf) ValidateForClient() (err error) {
 	return nil
 }
 
-func (cfg *SUDPProxyConf) ValidateForServer(serverCfg ServerCommonConf) error {
-	if err := cfg.BaseProxyConf.validateForServer(); err != nil {
-		return err
-	}
-	return nil
+func (cfg *SUDPProxyConf) ValidateForServer(_ ServerCommonConf) error {
+	return cfg.BaseProxyConf.validateForServer()
 }
 
 // STCP
@@ -875,11 +866,8 @@ func (cfg *STCPProxyConf) ValidateForClient() (err error) {
 	return
 }
 
-func (cfg *STCPProxyConf) ValidateForServer(serverCfg ServerCommonConf) error {
-	if err := cfg.BaseProxyConf.validateForServer(); err != nil {
-		return err
-	}
-	return nil
+func (cfg *STCPProxyConf) ValidateForServer(_ ServerCommonConf) error {
+	return cfg.BaseProxyConf.validateForServer()
 }
 
 // XTCP
@@ -928,9 +916,6 @@ func (cfg *XTCPProxyConf) ValidateForClient() (err error) {
 	return
 }
 
-func (cfg *XTCPProxyConf) ValidateForServer(serverCfg ServerCommonConf) error {
-	if err := cfg.BaseProxyConf.validateForServer(); err != nil {
-		return err
-	}
-	return nil
+func (cfg *XTCPProxyConf) ValidateForServer(_ ServerCommonConf) error {
+	return cfg.BaseProxyConf.validateForServer()
 }

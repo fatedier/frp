@@ -13,7 +13,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: '1.20'
           
@@ -22,9 +22,9 @@ jobs:
           ./package.sh
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v3
+        uses: goreleaser/goreleaser-action@v4
         with:
           version: latest
-          args: release --rm-dist --release-notes=./Release.md
+          args: release --clean --release-notes=./Release.md
         env:
           GITHUB_TOKEN: ${{ secrets.GPR_TOKEN }}

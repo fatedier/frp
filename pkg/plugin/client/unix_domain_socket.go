@@ -51,7 +51,7 @@ func NewUnixDomainSocketPlugin(params map[string]string) (p Plugin, err error) {
 	return
 }
 
-func (uds *UnixDomainSocketPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
+func (uds *UnixDomainSocketPlugin) Handle(conn io.ReadWriteCloser, _ net.Conn, extraBufToLocal []byte) {
 	localConn, err := net.DialUnix("unix", nil, uds.UnixAddr)
 	if err != nil {
 		return

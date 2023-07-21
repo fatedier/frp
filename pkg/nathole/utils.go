@@ -45,10 +45,7 @@ func DecodeMessageInto(data, key []byte, m msg.Message) error {
 		return err
 	}
 
-	if err := msg.ReadMsgInto(bytes.NewReader(buf), m); err != nil {
-		return err
-	}
-	return nil
+	return msg.ReadMsgInto(bytes.NewReader(buf), m)
 }
 
 type ChangedAddress struct {

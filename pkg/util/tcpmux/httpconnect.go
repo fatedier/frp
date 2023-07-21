@@ -66,7 +66,7 @@ func (muxer *HTTPConnectTCPMuxer) readHTTPConnectRequest(rd io.Reader) (host, ht
 	return
 }
 
-func (muxer *HTTPConnectTCPMuxer) sendConnectResponse(c net.Conn, reqInfo map[string]string) error {
+func (muxer *HTTPConnectTCPMuxer) sendConnectResponse(c net.Conn, _ map[string]string) error {
 	if muxer.passthrough {
 		return nil
 	}
