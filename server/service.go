@@ -70,7 +70,7 @@ type Service struct {
 	kcpListener net.Listener
 
 	// Accept connections using quic
-	quicListener quic.Listener
+	quicListener *quic.Listener
 
 	// Accept connections using websocket
 	websocketListener net.Listener
@@ -499,7 +499,7 @@ func (svr *Service) HandleListener(l net.Listener) {
 	}
 }
 
-func (svr *Service) HandleQUICListener(l quic.Listener) {
+func (svr *Service) HandleQUICListener(l *quic.Listener) {
 	// Listen for incoming connections from client.
 	for {
 		c, err := l.Accept(context.Background())
