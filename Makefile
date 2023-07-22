@@ -27,9 +27,11 @@ vet:
 
 frps:
 	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frps ./cmd/frps
+# go build -trimpath -ldflags "-s -w" -o bin/frps ./cmd/frps
 
 frpc:
-	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/frpc ./cmd/frpc
+	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -buildmode=c-shared  -o bin/frpc ./cmd/frpc
+#env CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -buildmode=c-shared  -o bin/frpc ./cmd/frpc
 
 test: gotest
 

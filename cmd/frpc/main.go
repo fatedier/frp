@@ -14,11 +14,25 @@
 
 package main
 
+import "C"
 import (
+	"fmt"
 	_ "github.com/fatedier/frp/assets/frpc"
 	"github.com/fatedier/frp/cmd/frpc/sub"
+	"os"
+	"time"
 )
 
 func main() {
-	sub.Execute()
+	//sub.Execute()
+}
+
+func frpstart(charargs *C.char) {
+	var stringargs string
+	stringargs = C.GoString(charargs)
+	err := sub.runMultipleClients(stringargs)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
