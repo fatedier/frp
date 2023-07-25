@@ -26,8 +26,8 @@ github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1m
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/fatedier/beego v0.0.0-20171024143340-6c6a4f5bd5eb h1:wCrNShQidLmvVWn/0PikGmpdP0vtQmnvyRg3ZBEhczw=
 github.com/fatedier/beego v0.0.0-20171024143340-6c6a4f5bd5eb/go.mod h1:wx3gB6dbIfBRcucp94PI9Bt3I0F2c/MyNEWuhzpWiwk=
-github.com/fatedier/golib v0.1.1-0.20230720124328-204db2e322f8 h1:8JYzwZ26k1zEsjgits6GHsQxm2tl3K3FYgMMLcIKBKU=
-github.com/fatedier/golib v0.1.1-0.20230720124328-204db2e322f8/go.mod h1:Lmi9U4VfvdRvonSMh1FgXVy1hCXycVyJk4E9ktokknE=
+github.com/fatedier/golib v0.1.1-0.20230725122706-dcbaee8eef40 h1:BVdpWT6viE/mpuRa6txNyRNjtHa1Efrii9Du6/gHfJ0=
+github.com/fatedier/golib v0.1.1-0.20230725122706-dcbaee8eef40/go.mod h1:Lmi9U4VfvdRvonSMh1FgXVy1hCXycVyJk4E9ktokknE=
 github.com/fatedier/kcp-go v2.0.4-0.20190803094908-fe8645b0a904+incompatible h1:ssXat9YXFvigNge/IkkZvFMn8yeYKFX+uI6wn2mLJ74=
 github.com/fatedier/kcp-go v2.0.4-0.20190803094908-fe8645b0a904+incompatible/go.mod h1:YpCOaxj7vvMThhIQ9AfTOPW2sfztQR5WDfs7AflSy4s=
 github.com/fatedier/yamux v0.0.0-20230628132301-7aca4898904d h1:ynk1ra0RUqDWQfvFi5KtMiSobkVQ3cNc0ODb8CfIETo=

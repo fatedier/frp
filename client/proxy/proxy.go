@@ -142,10 +142,9 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 			return
 		}
 	}
+	var compressionResourceRecycleFn func()
 	if baseConfig.UseCompression {
-		var releaseFn func()
-		remote, releaseFn = libio.WithCompressionFromPool(remote)
-		defer releaseFn()
+		remote, compressionResourceRecycleFn = libio.WithCompressionFromPool(remote)
 	}
 
 	// check if we need to send proxy protocol info
@@ -214,5 +213,8 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	xl.Debug("join connections closed")
 	if len(errs) > 0 {
 		xl.Trace("join connections errors: %v", errs)
+	}
+	if compressionResourceRecycleFn != nil {
+		compressionResourceRecycleFn()
 	}
 }

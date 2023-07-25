@@ -200,9 +200,9 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		}
 	}
 	if sv.cfg.UseCompression {
-		var releaseFn func()
-		muxConnRWCloser, releaseFn = libio.WithCompressionFromPool(muxConnRWCloser)
-		defer releaseFn()
+		var recycleFn func()
+		muxConnRWCloser, recycleFn = libio.WithCompressionFromPool(muxConnRWCloser)
+		defer recycleFn()
 	}
 
 	_, _, errs := libio.Join(userConn, muxConnRWCloser)
