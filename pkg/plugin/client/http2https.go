@@ -97,7 +97,7 @@ func NewHTTP2HTTPSPlugin(params map[string]string) (Plugin, error) {
 	return p, nil
 }
 
-func (p *HTTP2HTTPSPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
+func (p *HTTP2HTTPSPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ []byte) {
 	wrapConn := utilnet.WrapReadWriteCloserToConn(conn, realConn)
 	_ = p.l.PutConn(wrapConn)
 }
@@ -107,8 +107,5 @@ func (p *HTTP2HTTPSPlugin) Name() string {
 }
 
 func (p *HTTP2HTTPSPlugin) Close() error {
-	if err := p.s.Close(); err != nil {
-		return err
-	}
-	return nil
+	return p.s.Close()
 }

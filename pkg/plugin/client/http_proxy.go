@@ -68,7 +68,7 @@ func (hp *HTTPProxy) Name() string {
 	return PluginHTTPProxy
 }
 
-func (hp *HTTPProxy) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
+func (hp *HTTPProxy) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ []byte) {
 	wrapConn := utilnet.WrapReadWriteCloserToConn(conn, realConn)
 
 	sc, rd := libnet.NewSharedConn(wrapConn)

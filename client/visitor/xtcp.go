@@ -200,9 +200,9 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		}
 	}
 	if sv.cfg.UseCompression {
-		var releaseFn func()
-		muxConnRWCloser, releaseFn = libio.WithCompressionFromPool(muxConnRWCloser)
-		defer releaseFn()
+		var recycleFn func()
+		muxConnRWCloser, recycleFn = libio.WithCompressionFromPool(muxConnRWCloser)
+		defer recycleFn()
 	}
 
 	_, _, errs := libio.Join(userConn, muxConnRWCloser)
@@ -370,7 +370,7 @@ func (ks *KCPTunnelSession) Init(listenConn *net.UDPConn, raddr *net.UDPAddr) er
 	return nil
 }
 
-func (ks *KCPTunnelSession) OpenConn(ctx context.Context) (net.Conn, error) {
+func (ks *KCPTunnelSession) OpenConn(_ context.Context) (net.Conn, error) {
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
 	session := ks.session
@@ -413,7 +413,7 @@ func (qs *QUICTunnelSession) Init(listenConn *net.UDPConn, raddr *net.UDPAddr) e
 		return fmt.Errorf("create tls config error: %v", err)
 	}
 	tlsConfig.NextProtos = []string{"frp"}
-	quicConn, err := quic.Dial(listenConn, raddr, raddr.String(), tlsConfig,
+	quicConn, err := quic.Dial(context.Background(), listenConn, raddr, tlsConfig,
 		&quic.Config{
 			MaxIdleTimeout:     time.Duration(qs.clientCfg.QUICMaxIdleTimeout) * time.Second,
 			MaxIncomingStreams: int64(qs.clientCfg.QUICMaxIncomingStreams),

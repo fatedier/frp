@@ -39,12 +39,12 @@ type GeneralResponse struct {
 }
 
 // /healthz
-func (svr *Service) healthz(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(200)
 }
 
 // GET /api/reload
-func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) apiReload(w http.ResponseWriter, _ *http.Request) {
 	res := GeneralResponse{Code: 200}
 
 	log.Info("api request [/api/reload]")
@@ -74,7 +74,7 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /api/stop
-func (svr *Service) apiStop(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) apiStop(w http.ResponseWriter, _ *http.Request) {
 	res := GeneralResponse{Code: 200}
 
 	log.Info("api request [/api/stop]")
@@ -124,7 +124,7 @@ func NewProxyStatusResp(status *proxy.WorkingStatus, serverAddr string) ProxySta
 }
 
 // GET /api/status
-func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) apiStatus(w http.ResponseWriter, _ *http.Request) {
 	var (
 		buf []byte
 		res StatusResp = make(map[string][]ProxyStatusResp)
@@ -153,7 +153,7 @@ func (svr *Service) apiStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /api/config
-func (svr *Service) apiGetConfig(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) apiGetConfig(w http.ResponseWriter, _ *http.Request) {
 	res := GeneralResponse{Code: 200}
 
 	log.Info("Http get request [/api/config]")

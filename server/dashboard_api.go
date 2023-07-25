@@ -55,7 +55,7 @@ type serverInfoResp struct {
 }
 
 // /healthz
-func (svr *Service) Healthz(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) Healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(200)
 }
 

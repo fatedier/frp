@@ -103,9 +103,7 @@ func NewServerTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Config, error) {
 	base := &tls.Config{}
 
-	if certPath == "" || keyPath == "" {
-		// client will not generate tls conf by itself
-	} else {
+	if certPath != "" && keyPath != "" {
 		cert, err := newCustomTLSKeyPair(certPath, keyPath)
 		if err != nil {
 			return nil, err

@@ -378,7 +378,7 @@ func (cm *ConnectionManager) OpenConnection() error {
 		}
 		tlsConfig.NextProtos = []string{"frp"}
 
-		conn, err := quic.DialAddrContext(
+		conn, err := quic.DialAddr(
 			cm.ctx,
 			net.JoinHostPort(cm.cfg.ServerAddr, strconv.Itoa(cm.cfg.ServerPort)),
 			tlsConfig, &quic.Config{

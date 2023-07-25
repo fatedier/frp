@@ -77,7 +77,7 @@ func (pxy *SUDPProxy) Close() {
 	}
 }
 
-func (pxy *SUDPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
+func (pxy *SUDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 	xl := pxy.xl
 	xl.Info("incoming a new work connection for sudp proxy, %s", conn.RemoteAddr().String())
 
@@ -97,9 +97,7 @@ func (pxy *SUDPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 		}
 	}
 	if pxy.cfg.UseCompression {
-		var releaseFn func()
-		rwc, releaseFn = libio.WithCompressionFromPool(rwc)
-		defer releaseFn()
+		rwc = libio.WithCompression(rwc)
 	}
 	conn = utilnet.WrapReadWriteCloserToConn(rwc, conn)
 

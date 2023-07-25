@@ -120,8 +120,5 @@ func (p *httpPlugin) do(ctx context.Context, r *Request, res *Response) error {
 	if err != nil {
 		return err
 	}
-	if err = json.Unmarshal(buf, res); err != nil {
-		return err
-	}
-	return nil
+	return json.Unmarshal(buf, res)
 }

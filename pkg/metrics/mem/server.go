@@ -129,7 +129,7 @@ func (m *serverMetrics) CloseProxy(name string, proxyType string) {
 	}
 }
 
-func (m *serverMetrics) OpenConnection(name string, proxyType string) {
+func (m *serverMetrics) OpenConnection(name string, _ string) {
 	m.info.CurConns.Inc(1)
 
 	m.mu.Lock()
@@ -141,7 +141,7 @@ func (m *serverMetrics) OpenConnection(name string, proxyType string) {
 	}
 }
 
-func (m *serverMetrics) CloseConnection(name string, proxyType string) {
+func (m *serverMetrics) CloseConnection(name string, _ string) {
 	m.info.CurConns.Dec(1)
 
 	m.mu.Lock()
@@ -153,7 +153,7 @@ func (m *serverMetrics) CloseConnection(name string, proxyType string) {
 	}
 }
 
-func (m *serverMetrics) AddTrafficIn(name string, proxyType string, trafficBytes int64) {
+func (m *serverMetrics) AddTrafficIn(name string, _ string, trafficBytes int64) {
 	m.info.TotalTrafficIn.Inc(trafficBytes)
 
 	m.mu.Lock()
@@ -166,7 +166,7 @@ func (m *serverMetrics) AddTrafficIn(name string, proxyType string, trafficBytes
 	}
 }
 
-func (m *serverMetrics) AddTrafficOut(name string, proxyType string, trafficBytes int64) {
+func (m *serverMetrics) AddTrafficOut(name string, _ string, trafficBytes int64) {
 	m.info.TotalTrafficOut.Inc(trafficBytes)
 
 	m.mu.Lock()

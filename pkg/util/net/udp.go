@@ -140,15 +140,15 @@ func (c *FakeUDPConn) RemoteAddr() net.Addr {
 	return c.remoteAddr
 }
 
-func (c *FakeUDPConn) SetDeadline(t time.Time) error {
+func (c *FakeUDPConn) SetDeadline(_ time.Time) error {
 	return nil
 }
 
-func (c *FakeUDPConn) SetReadDeadline(t time.Time) error {
+func (c *FakeUDPConn) SetReadDeadline(_ time.Time) error {
 	return nil
 }
 
-func (c *FakeUDPConn) SetWriteDeadline(t time.Time) error {
+func (c *FakeUDPConn) SetWriteDeadline(_ time.Time) error {
 	return nil
 }
 
@@ -263,4 +263,4 @@ func (l *UDPListener) Addr() net.Addr {
 type ConnectedUDPConn struct{ *net.UDPConn }
 
 // WriteTo redirects all writes to the Write syscall, which is 4 times faster.
-func (c *ConnectedUDPConn) WriteTo(b []byte, addr net.Addr) (int, error) { return c.Write(b) }
+func (c *ConnectedUDPConn) WriteTo(b []byte, _ net.Addr) (int, error) { return c.Write(b) }
