@@ -126,9 +126,9 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	}
 
 	if sv.cfg.UseCompression {
-		var releaseFn func()
-		remote, releaseFn = libio.WithCompressionFromPool(remote)
-		defer releaseFn()
+		var recycleFn func()
+		remote, recycleFn = libio.WithCompressionFromPool(remote)
+		defer recycleFn()
 	}
 
 	libio.Join(userConn, remote)
