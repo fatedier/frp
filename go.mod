@@ -18,7 +18,7 @@ require (
 	github.com/pion/stun v0.6.1
 	github.com/pires/go-proxyproto v0.7.0
 	github.com/prometheus/client_golang v1.16.0
-	github.com/quic-go/quic-go v0.36.2
+	github.com/quic-go/quic-go v0.37.4
 	github.com/rodaine/table v1.1.0
 	github.com/samber/lo v1.38.1
 	github.com/spf13/cobra v1.7.0
@@ -62,8 +62,7 @@ require (
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
 	github.com/prometheus/procfs v0.10.1 // indirect
-	github.com/quic-go/qtls-go1-19 v0.3.2 // indirect
-	github.com/quic-go/qtls-go1-20 v0.2.2 // indirect
+	github.com/quic-go/qtls-go1-20 v0.3.1 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/templexxx/cpufeat v0.0.0-20180724012125-cef66df7f161 // indirect
