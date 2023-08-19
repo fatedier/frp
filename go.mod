@@ -54,6 +54,7 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
+	github.com/parnurzeal/gorequest v0.2.16 // indirect
 	github.com/pion/dtls/v2 v2.2.7 // indirect
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/transport/v2 v2.2.1 // indirect
@@ -78,6 +79,7 @@ require (
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491 // indirect
+	moul.io/http2curl v1.0.0 // indirect
 )
 
 // TODO(fatedier): Temporary use the modified version, update to the official version after merging into the official repository.

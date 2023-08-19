@@ -62,6 +62,7 @@ var (
 	dashboardTLSMode     bool
 	dashboardTLSCertFile string
 	dashboardTLSKeyFile  string
+	webhookURL           string
 )
 
 func init() {
@@ -93,6 +94,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&dashboardTLSMode, "dashboard_tls_mode", "", false, "dashboard tls mode")
 	rootCmd.PersistentFlags().StringVarP(&dashboardTLSCertFile, "dashboard_tls_cert_file", "", "", "dashboard tls cert file")
 	rootCmd.PersistentFlags().StringVarP(&dashboardTLSKeyFile, "dashboard_tls_key_file", "", "", "dashboard tls key file")
+	rootCmd.PersistentFlags().StringVarP(&webhookURL, "webhook_url", "w", "", "webhook")
 }
 
 var rootCmd = &cobra.Command{
@@ -176,6 +178,7 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 	cfg.LogMaxDays = logMaxDays
 	cfg.SubDomainHost = subDomainHost
 	cfg.TLSOnly = tlsOnly
+	cfg.WebhookURL = webhookURL
 
 	// Only token authentication is supported in cmd mode
 	cfg.ServerConfig = auth.GetDefaultServerConf()

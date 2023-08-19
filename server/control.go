@@ -153,8 +153,9 @@ type Control struct {
 	// Server configuration information
 	serverCfg config.ServerCommonConf
 
-	xl  *xlog.Logger
-	ctx context.Context
+	xl      *xlog.Logger
+	ctx     context.Context
+	webhook *Webhook
 }
 
 func NewControl(
@@ -193,6 +194,7 @@ func NewControl(
 		serverCfg:       serverCfg,
 		xl:              xlog.FromContextSafe(ctx),
 		ctx:             ctx,
+		webhook:         NewWebhook(serverCfg.WebhookURL),
 	}
 	ctl.msgTransporter = transport.NewMessageTransporter(ctl.sendCh)
 	return ctl
@@ -401,6 +403,7 @@ func (ctl *Control) stoper() {
 		pxy.Close()
 		ctl.pxyManager.Del(pxy.GetName())
 		metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConf().GetBaseConfig().ProxyType)
+		ctl.webhook.OnDisconnect(ctl.loginMsg.RunID)
 
 		notifyContent := &plugin.CloseProxyContent{
 			User: plugin.UserInfo{
@@ -496,6 +499,7 @@ func (ctl *Control) manager() {
 					resp.RemoteAddr = remoteAddr
 					xl.Info("new proxy [%s] type [%s] success", m.ProxyName, m.ProxyType)
 					metrics.Server.NewProxy(m.ProxyName, m.ProxyType)
+					ctl.webhook.OnConnect(ctl.conn, m, ctl.loginMsg)
 				}
 				ctl.sendCh <- resp
 			case *msg.NatHoleVisitor:
@@ -623,6 +627,8 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 		ctl.mu.Unlock()
 		return
 	}
+
+	ctl.webhook.OnDisconnect(ctl.loginMsg.RunID)
 
 	if ctl.serverCfg.MaxPortsPerClient > 0 {
 		ctl.portsUsedNum -= pxy.GetUsedPortsNum()
