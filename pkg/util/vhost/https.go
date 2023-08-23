@@ -36,7 +36,7 @@ func NewHTTPSMuxer(listener net.Listener, timeout time.Duration) (*HTTPSMuxer, e
 }
 
 func GetHTTPSHostname(c net.Conn) (_ net.Conn, _ map[string]string, err error) {
-	reqInfoMap := make(map[string]string, 0)
+	reqInfoMap := make(map[string]string)
 	sc, rd := libnet.NewSharedConn(c)
 
 	clientHello, err := readClientHello(rd)

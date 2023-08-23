@@ -93,7 +93,7 @@ func (muxer *HTTPConnectTCPMuxer) auth(c net.Conn, username, password string, re
 }
 
 func (muxer *HTTPConnectTCPMuxer) getHostFromHTTPConnect(c net.Conn) (net.Conn, map[string]string, error) {
-	reqInfoMap := make(map[string]string, 0)
+	reqInfoMap := make(map[string]string)
 	sc, rd := libnet.NewSharedConn(c)
 
 	host, httpUser, httpPwd, err := muxer.readHTTPConnectRequest(rd)
