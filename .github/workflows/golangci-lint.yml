@@ -14,9 +14,10 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v4
+      - name: Set up Go
+        uses: kevincobain2000/action-gobrew@v2.2
         with:
-          go-version: '1.21'
+          version: 'mod'
       - uses: actions/checkout@v3
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
