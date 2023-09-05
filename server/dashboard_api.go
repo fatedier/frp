@@ -20,7 +20,8 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/config/types"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/consts"
 	"github.com/fatedier/frp/pkg/metrics/mem"
 	"github.com/fatedier/frp/pkg/util/log"
@@ -81,11 +82,11 @@ func (svr *Service) APIServerInfo(w http.ResponseWriter, r *http.Request) {
 		KCPBindPort:           svr.cfg.KCPBindPort,
 		QUICBindPort:          svr.cfg.QUICBindPort,
 		SubdomainHost:         svr.cfg.SubDomainHost,
-		MaxPoolCount:          svr.cfg.MaxPoolCount,
+		MaxPoolCount:          svr.cfg.Transport.MaxPoolCount,
 		MaxPortsPerClient:     svr.cfg.MaxPortsPerClient,
-		HeartBeatTimeout:      svr.cfg.HeartbeatTimeout,
-		AllowPortsStr:         svr.cfg.AllowPortsStr,
-		TLSOnly:               svr.cfg.TLSOnly,
+		HeartBeatTimeout:      svr.cfg.Transport.HeartbeatTimeout,
+		AllowPortsStr:         types.PortsRangeSlice(svr.cfg.AllowPorts).String(),
+		TLSOnly:               svr.cfg.TLS.Force,
 
 		TotalTrafficIn:  serverStats.TotalTrafficIn,
 		TotalTrafficOut: serverStats.TotalTrafficOut,
@@ -99,7 +100,7 @@ func (svr *Service) APIServerInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 type BaseOutConf struct {
-	config.BaseProxyConf
+	v1.ProxyBaseConfig
 }
 
 type TCPOutConf struct {
@@ -109,7 +110,7 @@ type TCPOutConf struct {
 
 type TCPMuxOutConf struct {
 	BaseOutConf
-	config.DomainConf
+	v1.DomainConfig
 	Multiplexer string `json:"multiplexer"`
 }
 
@@ -120,14 +121,14 @@ type UDPOutConf struct {
 
 type HTTPOutConf struct {
 	BaseOutConf
-	config.DomainConf
+	v1.DomainConfig
 	Locations         []string `json:"locations"`
 	HostHeaderRewrite string   `json:"host_header_rewrite"`
 }
 
 type HTTPSOutConf struct {
 	BaseOutConf
-	config.DomainConf
+	v1.DomainConfig
 }
 
 type STCPOutConf struct {
@@ -204,7 +205,7 @@ func (svr *Service) getProxyStatsByType(proxyType string) (proxyInfos []*ProxySt
 	for _, ps := range proxyStats {
 		proxyInfo := &ProxyStatsInfo{}
 		if pxy, ok := svr.pxyManager.GetByName(ps.Name); ok {
-			content, err := json.Marshal(pxy.GetConf())
+			content, err := json.Marshal(pxy.GetConfigurer())
 			if err != nil {
 				log.Warn("marshal proxy [%s] conf info error: %v", ps.Name, err)
 				continue
@@ -278,7 +279,7 @@ func (svr *Service) getProxyStatsByTypeAndName(proxyType string, proxyName strin
 		msg = "no proxy info found"
 	} else {
 		if pxy, ok := svr.pxyManager.GetByName(proxyName); ok {
-			content, err := json.Marshal(pxy.GetConf())
+			content, err := json.Marshal(pxy.GetConfigurer())
 			if err != nil {
 				log.Warn("marshal proxy [%s] conf info error: %v", ps.Name, err)
 				code = 400

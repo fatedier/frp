@@ -22,7 +22,7 @@ import (
 
 	libio "github.com/fatedier/golib/io"
 
-	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -31,7 +31,7 @@ import (
 type STCPVisitor struct {
 	*BaseVisitor
 
-	cfg *config.STCPVisitorConf
+	cfg *v1.STCPVisitorConfig
 }
 
 func (sv *STCPVisitor) Run() (err error) {
@@ -90,10 +90,10 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	newVisitorConnMsg := &msg.NewVisitorConn{
 		RunID:          sv.helper.RunID(),
 		ProxyName:      sv.cfg.ServerName,
-		SignKey:        util.GetAuthKey(sv.cfg.Sk, now),
+		SignKey:        util.GetAuthKey(sv.cfg.SecretKey, now),
 		Timestamp:      now,
-		UseEncryption:  sv.cfg.UseEncryption,
-		UseCompression: sv.cfg.UseCompression,
+		UseEncryption:  sv.cfg.Transport.UseEncryption,
+		UseCompression: sv.cfg.Transport.UseCompression,
 	}
 	err = msg.WriteMsg(visitorConn, newVisitorConnMsg)
 	if err != nil {
@@ -117,15 +117,15 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 
 	var remote io.ReadWriteCloser
 	remote = visitorConn
-	if sv.cfg.UseEncryption {
-		remote, err = libio.WithEncryption(remote, []byte(sv.cfg.Sk))
+	if sv.cfg.Transport.UseEncryption {
+		remote, err = libio.WithEncryption(remote, []byte(sv.cfg.SecretKey))
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return
 		}
 	}
 
-	if sv.cfg.UseCompression {
+	if sv.cfg.Transport.UseCompression {
 		var recycleFn func()
 		remote, recycleFn = libio.WithCompressionFromPool(remote)
 		defer recycleFn()

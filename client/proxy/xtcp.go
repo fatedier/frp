@@ -23,7 +23,7 @@ import (
 	fmux "github.com/hashicorp/yamux"
 	"github.com/quic-go/quic-go"
 
-	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
 	"github.com/fatedier/frp/pkg/transport"
@@ -31,17 +31,17 @@ import (
 )
 
 func init() {
-	RegisterProxyFactory(reflect.TypeOf(&config.XTCPProxyConf{}), NewXTCPProxy)
+	RegisterProxyFactory(reflect.TypeOf(&v1.XTCPProxyConfig{}), NewXTCPProxy)
 }
 
 type XTCPProxy struct {
 	*BaseProxy
 
-	cfg *config.XTCPProxyConf
+	cfg *v1.XTCPProxyConfig
 }
 
-func NewXTCPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
-	unwrapped, ok := cfg.(*config.XTCPProxyConf)
+func NewXTCPProxy(baseProxy *BaseProxy, cfg v1.ProxyConfigurer) Proxy {
+	unwrapped, ok := cfg.(*v1.XTCPProxyConfig)
 	if !ok {
 		return nil
 	}
@@ -75,7 +75,7 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, startWorkConnMsg *msg.StartWorkC
 	transactionID := nathole.NewTransactionID()
 	natHoleClientMsg := &msg.NatHoleClient{
 		TransactionID: transactionID,
-		ProxyName:     pxy.cfg.ProxyName,
+		ProxyName:     pxy.cfg.Name,
 		Sid:           natHoleSidMsg.Sid,
 		MappedAddrs:   prepareResult.Addrs,
 		AssistedAddrs: prepareResult.AssistedAddrs,
@@ -93,7 +93,7 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, startWorkConnMsg *msg.StartWorkC
 		natHoleRespMsg.AssistedAddrs, natHoleRespMsg.DetectBehavior)
 
 	listenConn := prepareResult.ListenConn
-	newListenConn, raddr, err := nathole.MakeHole(pxy.ctx, listenConn, natHoleRespMsg, []byte(pxy.cfg.Sk))
+	newListenConn, raddr, err := nathole.MakeHole(pxy.ctx, listenConn, natHoleRespMsg, []byte(pxy.cfg.Secretkey))
 	if err != nil {
 		listenConn.Close()
 		xl.Warn("make hole error: %v", err)
@@ -154,7 +154,7 @@ func (pxy *XTCPProxy) listenByKCP(listenConn *net.UDPConn, raddr *net.UDPAddr, s
 			xl.Error("accept connection error: %v", err)
 			return
 		}
-		go pxy.HandleTCPWorkConnection(muxConn, startWorkConnMsg, []byte(pxy.cfg.Sk))
+		go pxy.HandleTCPWorkConnection(muxConn, startWorkConnMsg, []byte(pxy.cfg.Secretkey))
 	}
 }
 
@@ -170,9 +170,9 @@ func (pxy *XTCPProxy) listenByQUIC(listenConn *net.UDPConn, _ *net.UDPAddr, star
 	tlsConfig.NextProtos = []string{"frp"}
 	quicListener, err := quic.Listen(listenConn, tlsConfig,
 		&quic.Config{
-			MaxIdleTimeout:     time.Duration(pxy.clientCfg.QUICMaxIdleTimeout) * time.Second,
-			MaxIncomingStreams: int64(pxy.clientCfg.QUICMaxIncomingStreams),
-			KeepAlivePeriod:    time.Duration(pxy.clientCfg.QUICKeepalivePeriod) * time.Second,
+			MaxIdleTimeout:     time.Duration(pxy.clientCfg.Transport.QUIC.MaxIdleTimeout) * time.Second,
+			MaxIncomingStreams: int64(pxy.clientCfg.Transport.QUIC.MaxIncomingStreams),
+			KeepAlivePeriod:    time.Duration(pxy.clientCfg.Transport.QUIC.KeepalivePeriod) * time.Second,
 		},
 	)
 	if err != nil {
@@ -192,6 +192,6 @@ func (pxy *XTCPProxy) listenByQUIC(listenConn *net.UDPConn, _ *net.UDPAddr, star
 			_ = c.CloseWithError(0, "")
 			return
 		}
-		go pxy.HandleTCPWorkConnection(utilnet.QuicStreamToNetConn(stream, c), startWorkConnMsg, []byte(pxy.cfg.Sk))
+		go pxy.HandleTCPWorkConnection(utilnet.QuicStreamToNetConn(stream, c), startWorkConnMsg, []byte(pxy.cfg.Secretkey))
 	}
 }

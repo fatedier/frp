@@ -27,18 +27,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
 	"github.com/fatedier/frp/client"
-	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/version"
-)
-
-const (
-	CfgFileTypeIni = iota
-	CfgFileTypeCmd
 )
 
 var (
@@ -160,78 +157,89 @@ func handleTermSignal(svr *client.Service) {
 	svr.GracefulClose(500 * time.Millisecond)
 }
 
-func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
-	cfg = config.GetDefaultClientConf()
+func parseClientCommonCfgFromCmd() (*v1.ClientCommonConfig, error) {
+	cfg := &v1.ClientCommonConfig{}
 
 	ipStr, portStr, err := net.SplitHostPort(serverAddr)
 	if err != nil {
-		err = fmt.Errorf("invalid server_addr: %v", err)
-		return
+		return nil, fmt.Errorf("invalid server_addr: %v", err)
 	}
 
 	cfg.ServerAddr = ipStr
 	cfg.ServerPort, err = strconv.Atoi(portStr)
 	if err != nil {
-		err = fmt.Errorf("invalid server_addr: %v", err)
-		return
+		return nil, fmt.Errorf("invalid server_addr: %v", err)
 	}
 
 	cfg.User = user
-	cfg.Protocol = protocol
-	cfg.LogLevel = logLevel
-	cfg.LogFile = logFile
-	cfg.LogMaxDays = int64(logMaxDays)
-	cfg.DisableLogColor = disableLogColor
+	cfg.Transport.Protocol = protocol
+	cfg.Log.Level = logLevel
+	cfg.Log.To = logFile
+	cfg.Log.MaxDays = int64(logMaxDays)
+	cfg.Log.DisablePrintColor = disableLogColor
 	cfg.DNSServer = dnsServer
 
 	// Only token authentication is supported in cmd mode
-	cfg.ClientConfig = auth.GetDefaultClientConf()
-	cfg.Token = token
-	cfg.TLSEnable = tlsEnable
-	cfg.TLSServerName = tlsServerName
+	cfg.Auth.Token = token
+	cfg.Transport.TLS.Enable = lo.ToPtr(tlsEnable)
+	cfg.Transport.TLS.ServerName = tlsServerName
 
 	cfg.Complete()
-	if err = cfg.Validate(); err != nil {
-		err = fmt.Errorf("parse config error: %v", err)
-		return
+
+	err, warning := validation.ValidateClientCommonConfig(cfg)
+	if warning != nil {
+		fmt.Printf("WARNING: %v\n", warning)
 	}
-	return
+	if err != nil {
+		return nil, fmt.Errorf("parse config error: %v", err)
+	}
+	return cfg, nil
 }
 
 func runClient(cfgFilePath string) error {
-	cfg, pxyCfgs, visitorCfgs, err := config.ParseClientConfig(cfgFilePath)
+	cfg, pxyCfgs, visitorCfgs, isLegacyFormat, err := config.LoadClientConfig(cfgFilePath)
 	if err != nil {
 		fmt.Println(err)
+		return err
+	}
+	if isLegacyFormat {
+		fmt.Printf("WARNING: ini format is deprecated and the support will be removed in the future, " +
+			"please use yaml/json/toml format instead!\n")
+	}
+
+	warning, err := validation.ValidateAllClientConfig(cfg, pxyCfgs, visitorCfgs)
+	if warning != nil {
+		fmt.Printf("WARNING: %v\n", warning)
+	}
+	if err != nil {
 		return err
 	}
 	return startService(cfg, pxyCfgs, visitorCfgs, cfgFilePath)
 }
 
 func startService(
-	cfg config.ClientCommonConf,
-	pxyCfgs map[string]config.ProxyConf,
-	visitorCfgs map[string]config.VisitorConf,
+	cfg *v1.ClientCommonConfig,
+	pxyCfgs []v1.ProxyConfigurer,
+	visitorCfgs []v1.VisitorConfigurer,
 	cfgFile string,
-) (err error) {
-	log.InitLog(cfg.LogWay, cfg.LogFile, cfg.LogLevel,
-		cfg.LogMaxDays, cfg.DisableLogColor)
+) error {
+	log.InitLog(cfg.Log.To, cfg.Log.Level, cfg.Log.MaxDays, cfg.Log.DisablePrintColor)
 
 	if cfgFile != "" {
 		log.Info("start frpc service for config file [%s]", cfgFile)
 		defer log.Info("frpc service for config file [%s] stopped", cfgFile)
 	}
-	svr, errRet := client.NewService(cfg, pxyCfgs, visitorCfgs, cfgFile)
-	if errRet != nil {
-		err = errRet
-		return
+	svr, err := client.NewService(cfg, pxyCfgs, visitorCfgs, cfgFile)
+	if err != nil {
+		return err
 	}
 
-	shouldGracefulClose := cfg.Protocol == "kcp" || cfg.Protocol == "quic"
+	shouldGracefulClose := cfg.Transport.Protocol == "kcp" || cfg.Transport.Protocol == "quic"
 	// Capture the exit signal if we use kcp or quic.
 	if shouldGracefulClose {
 		go handleTermSignal(svr)
 	}
 
 	_ = svr.Run(context.Background())
-	return
+	return nil
 }

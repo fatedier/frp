@@ -21,28 +21,26 @@ import (
 
 	gosocks5 "github.com/armon/go-socks5"
 
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	utilnet "github.com/fatedier/frp/pkg/util/net"
 )
 
-const PluginSocks5 = "socks5"
-
 func init() {
-	Register(PluginSocks5, NewSocks5Plugin)
+	Register(v1.PluginSocks5, NewSocks5Plugin)
 }
 
 type Socks5Plugin struct {
 	Server *gosocks5.Server
 }
 
-func NewSocks5Plugin(params map[string]string) (p Plugin, err error) {
-	user := params["plugin_user"]
-	passwd := params["plugin_passwd"]
+func NewSocks5Plugin(options v1.ClientPluginOptions) (p Plugin, err error) {
+	opts := options.(*v1.Socks5PluginOptions)
 
 	cfg := &gosocks5.Config{
 		Logger: log.New(io.Discard, "", log.LstdFlags),
 	}
-	if user != "" || passwd != "" {
-		cfg.Credentials = gosocks5.StaticCredentials(map[string]string{user: passwd})
+	if opts.Username != "" || opts.Password != "" {
+		cfg.Credentials = gosocks5.StaticCredentials(map[string]string{opts.Username: opts.Password})
 	}
 	sp := &Socks5Plugin{}
 	sp.Server, err = gosocks5.New(cfg)
@@ -57,7 +55,7 @@ func (sp *Socks5Plugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ []b
 }
 
 func (sp *Socks5Plugin) Name() string {
-	return PluginSocks5
+	return v1.PluginSocks5
 }
 
 func (sp *Socks5Plugin) Close() error {

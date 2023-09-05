@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package types
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -122,4 +123,63 @@ func (q *BandwidthQuantity) MarshalJSON() ([]byte, error) {
 
 func (q *BandwidthQuantity) Bytes() int64 {
 	return q.i
+}
+
+type PortsRange struct {
+	Start  int `json:"start,omitempty"`
+	End    int `json:"end,omitempty"`
+	Single int `json:"single,omitempty"`
+}
+
+type PortsRangeSlice []PortsRange
+
+func (p PortsRangeSlice) String() string {
+	strs := []string{}
+	for _, v := range p {
+		if v.Single > 0 {
+			strs = append(strs, strconv.Itoa(v.Single))
+		} else {
+			strs = append(strs, strconv.Itoa(v.Start)+"-"+strconv.Itoa(v.End))
+		}
+	}
+	return strings.Join(strs, ",")
+}
+
+// the format of str is like "1000-2000,3000,4000-5000"
+func NewPortsRangeSliceFromString(str string) ([]PortsRange, error) {
+	str = strings.TrimSpace(str)
+	out := []PortsRange{}
+	numRanges := strings.Split(str, ",")
+	for _, numRangeStr := range numRanges {
+		// 1000-2000 or 2001
+		numArray := strings.Split(numRangeStr, "-")
+		// length: only 1 or 2 is correct
+		rangeType := len(numArray)
+		switch rangeType {
+		case 1:
+			// single number
+			singleNum, err := strconv.ParseInt(strings.TrimSpace(numArray[0]), 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("range number is invalid, %v", err)
+			}
+			out = append(out, PortsRange{Single: int(singleNum)})
+		case 2:
+			// range numbers
+			min, err := strconv.ParseInt(strings.TrimSpace(numArray[0]), 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("range number is invalid, %v", err)
+			}
+			max, err := strconv.ParseInt(strings.TrimSpace(numArray[1]), 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("range number is invalid, %v", err)
+			}
+			if max < min {
+				return nil, fmt.Errorf("range number is invalid")
+			}
+			out = append(out, PortsRange{Start: int(min), End: int(max)})
+		default:
+			return nil, fmt.Errorf("range number is invalid")
+		}
+	}
+	return out, nil
 }

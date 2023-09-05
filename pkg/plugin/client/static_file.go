@@ -22,51 +22,41 @@ import (
 
 	"github.com/gorilla/mux"
 
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	utilnet "github.com/fatedier/frp/pkg/util/net"
 )
 
-const PluginStaticFile = "static_file"
-
 func init() {
-	Register(PluginStaticFile, NewStaticFilePlugin)
+	Register(v1.PluginStaticFile, NewStaticFilePlugin)
 }
 
 type StaticFilePlugin struct {
-	localPath   string
-	stripPrefix string
-	httpUser    string
-	httpPasswd  string
+	opts *v1.StaticFilePluginOptions
 
 	l *Listener
 	s *http.Server
 }
 
-func NewStaticFilePlugin(params map[string]string) (Plugin, error) {
-	localPath := params["plugin_local_path"]
-	stripPrefix := params["plugin_strip_prefix"]
-	httpUser := params["plugin_http_user"]
-	httpPasswd := params["plugin_http_passwd"]
+func NewStaticFilePlugin(options v1.ClientPluginOptions) (Plugin, error) {
+	opts := options.(*v1.StaticFilePluginOptions)
 
 	listener := NewProxyListener()
 
 	sp := &StaticFilePlugin{
-		localPath:   localPath,
-		stripPrefix: stripPrefix,
-		httpUser:    httpUser,
-		httpPasswd:  httpPasswd,
+		opts: opts,
 
 		l: listener,
 	}
 	var prefix string
-	if stripPrefix != "" {
-		prefix = "/" + stripPrefix + "/"
+	if opts.StripPrefix != "" {
+		prefix = "/" + opts.StripPrefix + "/"
 	} else {
 		prefix = "/"
 	}
 
 	router := mux.NewRouter()
-	router.Use(utilnet.NewHTTPAuthMiddleware(httpUser, httpPasswd).SetAuthFailDelay(200 * time.Millisecond).Middleware)
-	router.PathPrefix(prefix).Handler(utilnet.MakeHTTPGzipHandler(http.StripPrefix(prefix, http.FileServer(http.Dir(localPath))))).Methods("GET")
+	router.Use(utilnet.NewHTTPAuthMiddleware(opts.HTTPUser, opts.HTTPPassword).SetAuthFailDelay(200 * time.Millisecond).Middleware)
+	router.PathPrefix(prefix).Handler(utilnet.MakeHTTPGzipHandler(http.StripPrefix(prefix, http.FileServer(http.Dir(opts.LocalPath))))).Methods("GET")
 	sp.s = &http.Server{
 		Handler: router,
 	}
@@ -82,7 +72,7 @@ func (sp *StaticFilePlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _
 }
 
 func (sp *StaticFilePlugin) Name() string {
-	return PluginStaticFile
+	return v1.PluginStaticFile
 }
 
 func (sp *StaticFilePlugin) Close() error {

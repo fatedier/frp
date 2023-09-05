@@ -19,105 +19,40 @@ import (
 	"fmt"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/samber/lo"
 	"golang.org/x/oauth2/clientcredentials"
 
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 )
 
-type OidcClientConfig struct {
-	// OidcClientID specifies the client ID to use to get a token in OIDC
-	// authentication if AuthenticationMethod == "oidc". By default, this value
-	// is "".
-	OidcClientID string `ini:"oidc_client_id" json:"oidc_client_id"`
-	// OidcClientSecret specifies the client secret to use to get a token in OIDC
-	// authentication if AuthenticationMethod == "oidc". By default, this value
-	// is "".
-	OidcClientSecret string `ini:"oidc_client_secret" json:"oidc_client_secret"`
-	// OidcAudience specifies the audience of the token in OIDC authentication
-	// if AuthenticationMethod == "oidc". By default, this value is "".
-	OidcAudience string `ini:"oidc_audience" json:"oidc_audience"`
-	// OidcScope specifies the scope of the token in OIDC authentication
-	// if AuthenticationMethod == "oidc". By default, this value is "".
-	OidcScope string `ini:"oidc_scope" json:"oidc_scope"`
-	// OidcTokenEndpointURL specifies the URL which implements OIDC Token Endpoint.
-	// It will be used to get an OIDC token if AuthenticationMethod == "oidc".
-	// By default, this value is "".
-	OidcTokenEndpointURL string `ini:"oidc_token_endpoint_url" json:"oidc_token_endpoint_url"`
-
-	// OidcAdditionalEndpointParams specifies additional parameters to be sent
-	// this field will be transfer to map[string][]string in OIDC token generator
-	// The field will be set by prefix "oidc_additional_"
-	OidcAdditionalEndpointParams map[string]string `ini:"-" json:"oidc_additional_endpoint_params"`
-}
-
-func getDefaultOidcClientConf() OidcClientConfig {
-	return OidcClientConfig{
-		OidcClientID:                 "",
-		OidcClientSecret:             "",
-		OidcAudience:                 "",
-		OidcScope:                    "",
-		OidcTokenEndpointURL:         "",
-		OidcAdditionalEndpointParams: make(map[string]string),
-	}
-}
-
-type OidcServerConfig struct {
-	// OidcIssuer specifies the issuer to verify OIDC tokens with. This issuer
-	// will be used to load public keys to verify signature and will be compared
-	// with the issuer claim in the OIDC token. It will be used if
-	// AuthenticationMethod == "oidc". By default, this value is "".
-	OidcIssuer string `ini:"oidc_issuer" json:"oidc_issuer"`
-	// OidcAudience specifies the audience OIDC tokens should contain when validated.
-	// If this value is empty, audience ("client ID") verification will be skipped.
-	// It will be used when AuthenticationMethod == "oidc". By default, this
-	// value is "".
-	OidcAudience string `ini:"oidc_audience" json:"oidc_audience"`
-	// OidcSkipExpiryCheck specifies whether to skip checking if the OIDC token is
-	// expired. It will be used when AuthenticationMethod == "oidc". By default, this
-	// value is false.
-	OidcSkipExpiryCheck bool `ini:"oidc_skip_expiry_check" json:"oidc_skip_expiry_check"`
-	// OidcSkipIssuerCheck specifies whether to skip checking if the OIDC token's
-	// issuer claim matches the issuer specified in OidcIssuer. It will be used when
-	// AuthenticationMethod == "oidc". By default, this value is false.
-	OidcSkipIssuerCheck bool `ini:"oidc_skip_issuer_check" json:"oidc_skip_issuer_check"`
-}
-
-func getDefaultOidcServerConf() OidcServerConfig {
-	return OidcServerConfig{
-		OidcIssuer:          "",
-		OidcAudience:        "",
-		OidcSkipExpiryCheck: false,
-		OidcSkipIssuerCheck: false,
-	}
-}
-
 type OidcAuthProvider struct {
-	BaseConfig
+	additionalAuthScopes []v1.AuthScope
 
 	tokenGenerator *clientcredentials.Config
 }
 
-func NewOidcAuthSetter(baseCfg BaseConfig, cfg OidcClientConfig) *OidcAuthProvider {
+func NewOidcAuthSetter(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCClientConfig) *OidcAuthProvider {
 	eps := make(map[string][]string)
-	for k, v := range cfg.OidcAdditionalEndpointParams {
+	for k, v := range cfg.AdditionalEndpointParams {
 		eps[k] = []string{v}
 	}
 
-	if cfg.OidcAudience != "" {
-		eps["audience"] = []string{cfg.OidcAudience}
+	if cfg.Audience != "" {
+		eps["audience"] = []string{cfg.Audience}
 	}
 
 	tokenGenerator := &clientcredentials.Config{
-		ClientID:       cfg.OidcClientID,
-		ClientSecret:   cfg.OidcClientSecret,
-		Scopes:         []string{cfg.OidcScope},
-		TokenURL:       cfg.OidcTokenEndpointURL,
+		ClientID:       cfg.ClientID,
+		ClientSecret:   cfg.ClientSecret,
+		Scopes:         []string{cfg.Scope},
+		TokenURL:       cfg.TokenEndpointURL,
 		EndpointParams: eps,
 	}
 
 	return &OidcAuthProvider{
-		BaseConfig:     baseCfg,
-		tokenGenerator: tokenGenerator,
+		additionalAuthScopes: additionalAuthScopes,
+		tokenGenerator:       tokenGenerator,
 	}
 }
 
@@ -135,7 +70,7 @@ func (auth *OidcAuthProvider) SetLogin(loginMsg *msg.Login) (err error) {
 }
 
 func (auth *OidcAuthProvider) SetPing(pingMsg *msg.Ping) (err error) {
-	if !auth.AuthenticateHeartBeats {
+	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeHeartBeats) {
 		return nil
 	}
 
@@ -144,7 +79,7 @@ func (auth *OidcAuthProvider) SetPing(pingMsg *msg.Ping) (err error) {
 }
 
 func (auth *OidcAuthProvider) SetNewWorkConn(newWorkConnMsg *msg.NewWorkConn) (err error) {
-	if !auth.AuthenticateNewWorkConns {
+	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeNewWorkConns) {
 		return nil
 	}
 
@@ -153,26 +88,26 @@ func (auth *OidcAuthProvider) SetNewWorkConn(newWorkConnMsg *msg.NewWorkConn) (e
 }
 
 type OidcAuthConsumer struct {
-	BaseConfig
+	additionalAuthScopes []v1.AuthScope
 
 	verifier         *oidc.IDTokenVerifier
 	subjectFromLogin string
 }
 
-func NewOidcAuthVerifier(baseCfg BaseConfig, cfg OidcServerConfig) *OidcAuthConsumer {
-	provider, err := oidc.NewProvider(context.Background(), cfg.OidcIssuer)
+func NewOidcAuthVerifier(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCServerConfig) *OidcAuthConsumer {
+	provider, err := oidc.NewProvider(context.Background(), cfg.Issuer)
 	if err != nil {
 		panic(err)
 	}
 	verifierConf := oidc.Config{
-		ClientID:          cfg.OidcAudience,
-		SkipClientIDCheck: cfg.OidcAudience == "",
-		SkipExpiryCheck:   cfg.OidcSkipExpiryCheck,
-		SkipIssuerCheck:   cfg.OidcSkipIssuerCheck,
+		ClientID:          cfg.Audience,
+		SkipClientIDCheck: cfg.Audience == "",
+		SkipExpiryCheck:   cfg.SkipExpiryCheck,
+		SkipIssuerCheck:   cfg.SkipIssuerCheck,
 	}
 	return &OidcAuthConsumer{
-		BaseConfig: baseCfg,
-		verifier:   provider.Verifier(&verifierConf),
+		additionalAuthScopes: additionalAuthScopes,
+		verifier:             provider.Verifier(&verifierConf),
 	}
 }
 
@@ -200,7 +135,7 @@ func (auth *OidcAuthConsumer) verifyPostLoginToken(privilegeKey string) (err err
 }
 
 func (auth *OidcAuthConsumer) VerifyPing(pingMsg *msg.Ping) (err error) {
-	if !auth.AuthenticateHeartBeats {
+	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeHeartBeats) {
 		return nil
 	}
 
@@ -208,7 +143,7 @@ func (auth *OidcAuthConsumer) VerifyPing(pingMsg *msg.Ping) (err error) {
 }
 
 func (auth *OidcAuthConsumer) VerifyNewWorkConn(newWorkConnMsg *msg.NewWorkConn) (err error) {
-	if !auth.AuthenticateNewWorkConns {
+	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeNewWorkConns) {
 		return nil
 	}
 

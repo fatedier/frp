@@ -1,4 +1,4 @@
-// Copyright 2020 The frp Authors
+// Copyright 2023 The frp Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,25 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package legacy
 
 import (
-	"fmt"
 	"strings"
 
-	"github.com/go-playground/validator/v10"
 	"gopkg.in/ini.v1"
 
-	"github.com/fatedier/frp/pkg/auth"
-	plugin "github.com/fatedier/frp/pkg/plugin/server"
-	"github.com/fatedier/frp/pkg/util/util"
+	legacyauth "github.com/fatedier/frp/pkg/auth/legacy"
 )
+
+type HTTPPluginOptions struct {
+	Name      string   `ini:"name"`
+	Addr      string   `ini:"addr"`
+	Path      string   `ini:"path"`
+	Ops       []string `ini:"ops"`
+	TLSVerify bool     `ini:"tls_verify"`
+}
 
 // ServerCommonConf contains information for a server service. It is
 // recommended to use GetDefaultServerConf instead of creating this object
 // directly, so that all unspecified fields have reasonable default values.
 type ServerCommonConf struct {
-	auth.ServerConfig `ini:",extends"`
+	legacyauth.ServerConfig `ini:",extends"`
 
 	// BindAddr specifies the address that the server binds to. By default,
 	// this value is "0.0.0.0".
@@ -185,7 +189,7 @@ type ServerCommonConf struct {
 	// connection. By default, this value is 10.
 	UserConnTimeout int64 `ini:"user_conn_timeout" json:"user_conn_timeout"`
 	// HTTPPlugins specify the server plugins support HTTP protocol.
-	HTTPPlugins map[string]plugin.HTTPPluginOptions `ini:"-" json:"http_plugins"`
+	HTTPPlugins map[string]HTTPPluginOptions `ini:"-" json:"http_plugins"`
 	// UDPPacketSize specifies the UDP packet size
 	// By default, this value is 1500
 	UDPPacketSize int64 `ini:"udp_packet_size" json:"udp_packet_size"`
@@ -200,7 +204,7 @@ type ServerCommonConf struct {
 // defaults.
 func GetDefaultServerConf() ServerCommonConf {
 	return ServerCommonConf{
-		ServerConfig:                    auth.GetDefaultServerConf(),
+		ServerConfig:                    legacyauth.GetDefaultServerConf(),
 		BindAddr:                        "0.0.0.0",
 		BindPort:                        7000,
 		QUICKeepalivePeriod:             10,
@@ -221,7 +225,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		MaxPortsPerClient:               0,
 		HeartbeatTimeout:                90,
 		UserConnTimeout:                 10,
-		HTTPPlugins:                     make(map[string]plugin.HTTPPluginOptions),
+		HTTPPlugins:                     make(map[string]HTTPPluginOptions),
 		UDPPacketSize:                   1500,
 		NatHoleAnalysisDataReserveHours: 7 * 24,
 	}
@@ -253,18 +257,11 @@ func UnmarshalServerConfFromIni(source interface{}) (ServerCommonConf, error) {
 	// allow_ports
 	allowPortStr := s.Key("allow_ports").String()
 	if allowPortStr != "" {
-		allowPorts, err := util.ParseRangeNumbers(allowPortStr)
-		if err != nil {
-			return ServerCommonConf{}, fmt.Errorf("invalid allow_ports: %v", err)
-		}
-		for _, port := range allowPorts {
-			common.AllowPorts[int(port)] = struct{}{}
-		}
 		common.AllowPortsStr = allowPortStr
 	}
 
 	// plugin.xxx
-	pluginOpts := make(map[string]plugin.HTTPPluginOptions)
+	pluginOpts := make(map[string]HTTPPluginOptions)
 	for _, section := range f.Sections() {
 		name := section.Name()
 		if !strings.HasPrefix(name, "plugin.") {
@@ -283,47 +280,10 @@ func UnmarshalServerConfFromIni(source interface{}) (ServerCommonConf, error) {
 	return common, nil
 }
 
-func (cfg *ServerCommonConf) Complete() {
-	if cfg.LogFile == "console" {
-		cfg.LogWay = "console"
-	} else {
-		cfg.LogWay = "file"
-	}
-
-	if cfg.ProxyBindAddr == "" {
-		cfg.ProxyBindAddr = cfg.BindAddr
-	}
-
-	if cfg.TLSTrustedCaFile != "" {
-		cfg.TLSOnly = true
-	}
-}
-
-func (cfg *ServerCommonConf) Validate() error {
-	if !cfg.DashboardTLSMode {
-		if cfg.DashboardTLSCertFile != "" {
-			fmt.Println("WARNING! dashboard_tls_cert_file is invalid when dashboard_tls_mode is false")
-		}
-
-		if cfg.DashboardTLSKeyFile != "" {
-			fmt.Println("WARNING! dashboard_tls_key_file is invalid when dashboard_tls_mode is false")
-		}
-	} else {
-		if cfg.DashboardTLSCertFile == "" {
-			return fmt.Errorf("ERROR! dashboard_tls_cert_file must be specified when dashboard_tls_mode is true")
-		}
-
-		if cfg.DashboardTLSKeyFile == "" {
-			return fmt.Errorf("ERROR! dashboard_tls_cert_file must be specified when dashboard_tls_mode is true")
-		}
-	}
-	return validator.New().Struct(cfg)
-}
-
-func loadHTTPPluginOpt(section *ini.Section) (*plugin.HTTPPluginOptions, error) {
+func loadHTTPPluginOpt(section *ini.Section) (*HTTPPluginOptions, error) {
 	name := strings.TrimSpace(strings.TrimPrefix(section.Name(), "plugin."))
 
-	opt := new(plugin.HTTPPluginOptions)
+	opt := &HTTPPluginOptions{}
 	err := section.MapTo(opt)
 	if err != nil {
 		return nil, err

@@ -15,31 +15,26 @@
 package plugin
 
 import (
-	"fmt"
 	"io"
 	"net"
 
 	libio "github.com/fatedier/golib/io"
+
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
 
-const PluginUnixDomainSocket = "unix_domain_socket"
-
 func init() {
-	Register(PluginUnixDomainSocket, NewUnixDomainSocketPlugin)
+	Register(v1.PluginUnixDomainSocket, NewUnixDomainSocketPlugin)
 }
 
 type UnixDomainSocketPlugin struct {
 	UnixAddr *net.UnixAddr
 }
 
-func NewUnixDomainSocketPlugin(params map[string]string) (p Plugin, err error) {
-	unixPath, ok := params["plugin_unix_path"]
-	if !ok {
-		err = fmt.Errorf("plugin_unix_path not found")
-		return
-	}
+func NewUnixDomainSocketPlugin(options v1.ClientPluginOptions) (p Plugin, err error) {
+	opts := options.(*v1.UnixDomainSocketPluginOptions)
 
-	unixAddr, errRet := net.ResolveUnixAddr("unix", unixPath)
+	unixAddr, errRet := net.ResolveUnixAddr("unix", opts.UnixPath)
 	if errRet != nil {
 		err = errRet
 		return
@@ -66,7 +61,7 @@ func (uds *UnixDomainSocketPlugin) Handle(conn io.ReadWriteCloser, _ net.Conn, e
 }
 
 func (uds *UnixDomainSocketPlugin) Name() string {
-	return PluginUnixDomainSocket
+	return v1.PluginUnixDomainSocket
 }
 
 func (uds *UnixDomainSocketPlugin) Close() error {

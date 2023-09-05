@@ -15,9 +15,6 @@
 package main
 
 import (
-	"math/rand"
-	"time"
-
 	"github.com/fatedier/golib/crypto"
 
 	_ "github.com/fatedier/frp/assets/frps"
@@ -26,8 +23,5 @@ import (
 
 func main() {
 	crypto.DefaultSalt = "frp"
-	// TODO: remove this when we drop support for go1.19
-	rand.Seed(time.Now().UnixNano())
-
 	Execute()
 }

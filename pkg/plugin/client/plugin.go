@@ -21,21 +21,23 @@ import (
 	"sync"
 
 	"github.com/fatedier/golib/errors"
+
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
 
 // Creators is used for create plugins to handle connections.
 var creators = make(map[string]CreatorFn)
 
 // params has prefix "plugin_"
-type CreatorFn func(params map[string]string) (Plugin, error)
+type CreatorFn func(options v1.ClientPluginOptions) (Plugin, error)
 
 func Register(name string, fn CreatorFn) {
 	creators[name] = fn
 }
 
-func Create(name string, params map[string]string) (p Plugin, err error) {
+func Create(name string, options v1.ClientPluginOptions) (p Plugin, err error) {
 	if fn, ok := creators[name]; ok {
-		p, err = fn(params)
+		p, err = fn(options)
 	} else {
 		err = fmt.Errorf("plugin [%s] is not registered", name)
 	}

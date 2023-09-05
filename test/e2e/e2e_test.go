@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	log.InitLog("console", "", framework.TestContext.LogLevel, 0, true)
+	log.InitLog("console", framework.TestContext.LogLevel, 0, true)
 	os.Exit(m.Run())
 }
 

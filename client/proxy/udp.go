@@ -24,7 +24,7 @@ import (
 	"github.com/fatedier/golib/errors"
 	libio "github.com/fatedier/golib/io"
 
-	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/udp"
 	"github.com/fatedier/frp/pkg/util/limit"
@@ -32,13 +32,13 @@ import (
 )
 
 func init() {
-	RegisterProxyFactory(reflect.TypeOf(&config.UDPProxyConf{}), NewUDPProxy)
+	RegisterProxyFactory(reflect.TypeOf(&v1.UDPProxyConfig{}), NewUDPProxy)
 }
 
 type UDPProxy struct {
 	*BaseProxy
 
-	cfg *config.UDPProxyConf
+	cfg *v1.UDPProxyConfig
 
 	localAddr *net.UDPAddr
 	readCh    chan *msg.UDPPacket
@@ -49,8 +49,8 @@ type UDPProxy struct {
 	closed   bool
 }
 
-func NewUDPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
-	unwrapped, ok := cfg.(*config.UDPProxyConf)
+func NewUDPProxy(baseProxy *BaseProxy, cfg v1.ProxyConfigurer) Proxy {
+	unwrapped, ok := cfg.(*v1.UDPProxyConfig)
 	if !ok {
 		return nil
 	}
@@ -99,15 +99,15 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 			return conn.Close()
 		})
 	}
-	if pxy.cfg.UseEncryption {
-		rwc, err = libio.WithEncryption(rwc, []byte(pxy.clientCfg.Token))
+	if pxy.cfg.Transport.UseEncryption {
+		rwc, err = libio.WithEncryption(rwc, []byte(pxy.clientCfg.Auth.Token))
 		if err != nil {
 			conn.Close()
 			xl.Error("create encryption stream error: %v", err)
 			return
 		}
 	}
-	if pxy.cfg.UseCompression {
+	if pxy.cfg.Transport.UseCompression {
 		rwc = libio.WithCompression(rwc)
 	}
 	conn = utilnet.WrapReadWriteCloserToConn(rwc, conn)

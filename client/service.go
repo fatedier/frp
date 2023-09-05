@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"math/rand"
 	"net"
 	"runtime"
 	"strconv"
@@ -32,10 +31,11 @@ import (
 	libdial "github.com/fatedier/golib/net/dial"
 	fmux "github.com/hashicorp/yamux"
 	quic "github.com/quic-go/quic-go"
+	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/assets"
 	"github.com/fatedier/frp/pkg/auth"
-	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/log"
@@ -47,8 +47,6 @@ import (
 
 func init() {
 	crypto.DefaultSalt = "frp"
-	// TODO: remove this when we drop support for go1.19
-	rand.Seed(time.Now().UnixNano())
 }
 
 // Service is a client service.
@@ -63,9 +61,9 @@ type Service struct {
 	// Sets authentication based on selected method
 	authSetter auth.Setter
 
-	cfg         config.ClientCommonConf
-	pxyCfgs     map[string]config.ProxyConf
-	visitorCfgs map[string]config.VisitorConf
+	cfg         *v1.ClientCommonConfig
+	pxyCfgs     []v1.ProxyConfigurer
+	visitorCfgs []v1.VisitorConfigurer
 	cfgMu       sync.RWMutex
 
 	// The configuration file used to initialize this client, or an empty
@@ -81,13 +79,13 @@ type Service struct {
 }
 
 func NewService(
-	cfg config.ClientCommonConf,
-	pxyCfgs map[string]config.ProxyConf,
-	visitorCfgs map[string]config.VisitorConf,
+	cfg *v1.ClientCommonConfig,
+	pxyCfgs []v1.ProxyConfigurer,
+	visitorCfgs []v1.VisitorConfigurer,
 	cfgFile string,
 ) (svr *Service, err error) {
 	svr = &Service{
-		authSetter:  auth.NewAuthSetter(cfg.ClientConfig),
+		authSetter:  auth.NewAuthSetter(cfg.Auth),
 		cfg:         cfg,
 		cfgFile:     cfgFile,
 		pxyCfgs:     pxyCfgs,
@@ -134,7 +132,7 @@ func (svr *Service) Run(ctx context.Context) error {
 
 			// if login_fail_exit is true, just exit this program
 			// otherwise sleep a while and try again to connect to server
-			if svr.cfg.LoginFailExit {
+			if lo.FromPtr(svr.cfg.LoginFailExit) {
 				return err
 			}
 			util.RandomSleep(5*time.Second, 0.9, 1.1)
@@ -151,16 +149,16 @@ func (svr *Service) Run(ctx context.Context) error {
 
 	go svr.keepControllerWorking()
 
-	if svr.cfg.AdminPort != 0 {
+	if svr.cfg.WebServer.Port != 0 {
 		// Init admin server assets
-		assets.Load(svr.cfg.AssetsDir)
+		assets.Load(svr.cfg.WebServer.AssetsDir)
 
-		address := net.JoinHostPort(svr.cfg.AdminAddr, strconv.Itoa(svr.cfg.AdminPort))
+		address := net.JoinHostPort(svr.cfg.WebServer.Addr, strconv.Itoa(svr.cfg.WebServer.Port))
 		err := svr.RunAdminServer(address)
 		if err != nil {
 			log.Warn("run admin server error: %v", err)
 		}
-		log.Info("admin server listen on %s:%d", svr.cfg.AdminAddr, svr.cfg.AdminPort)
+		log.Info("admin server listen on %s:%d", svr.cfg.WebServer.Addr, svr.cfg.WebServer.Port)
 	}
 	<-svr.ctx.Done()
 	// service context may not be canceled by svr.Close(), we should call it here to release resources
@@ -244,7 +242,7 @@ func (svr *Service) keepControllerWorking() {
 // session: if it's not nil, using tcp mux
 func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 	xl := xlog.FromContextSafe(svr.ctx)
-	cm = NewConnectionManager(svr.ctx, &svr.cfg)
+	cm = NewConnectionManager(svr.ctx, svr.cfg)
 
 	if err = cm.OpenConnection(); err != nil {
 		return nil, nil, err
@@ -264,12 +262,12 @@ func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 	loginMsg := &msg.Login{
 		Arch:      runtime.GOARCH,
 		Os:        runtime.GOOS,
-		PoolCount: svr.cfg.PoolCount,
+		PoolCount: svr.cfg.Transport.PoolCount,
 		User:      svr.cfg.User,
 		Version:   version.Full(),
 		Timestamp: time.Now().Unix(),
 		RunID:     svr.runID,
-		Metas:     svr.cfg.Metas,
+		Metas:     svr.cfg.Metadatas,
 	}
 
 	// Add auth
@@ -302,7 +300,7 @@ func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 	return
 }
 
-func (svr *Service) ReloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) error {
+func (svr *Service) ReloadConf(pxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error {
 	svr.cfgMu.Lock()
 	svr.pxyCfgs = pxyCfgs
 	svr.visitorCfgs = visitorCfgs
@@ -339,13 +337,13 @@ func (svr *Service) GracefulClose(d time.Duration) {
 
 type ConnectionManager struct {
 	ctx context.Context
-	cfg *config.ClientCommonConf
+	cfg *v1.ClientCommonConfig
 
 	muxSession *fmux.Session
 	quicConn   quic.Connection
 }
 
-func NewConnectionManager(ctx context.Context, cfg *config.ClientCommonConf) *ConnectionManager {
+func NewConnectionManager(ctx context.Context, cfg *v1.ClientCommonConfig) *ConnectionManager {
 	return &ConnectionManager{
 		ctx: ctx,
 		cfg: cfg,
@@ -356,18 +354,18 @@ func (cm *ConnectionManager) OpenConnection() error {
 	xl := xlog.FromContextSafe(cm.ctx)
 
 	// special for quic
-	if strings.EqualFold(cm.cfg.Protocol, "quic") {
+	if strings.EqualFold(cm.cfg.Transport.Protocol, "quic") {
 		var tlsConfig *tls.Config
 		var err error
-		sn := cm.cfg.TLSServerName
+		sn := cm.cfg.Transport.TLS.ServerName
 		if sn == "" {
 			sn = cm.cfg.ServerAddr
 		}
-		if cm.cfg.TLSEnable {
+		if lo.FromPtr(cm.cfg.Transport.TLS.Enable) {
 			tlsConfig, err = transport.NewClientTLSConfig(
-				cm.cfg.TLSCertFile,
-				cm.cfg.TLSKeyFile,
-				cm.cfg.TLSTrustedCaFile,
+				cm.cfg.Transport.TLS.CertFile,
+				cm.cfg.Transport.TLS.KeyFile,
+				cm.cfg.Transport.TLS.TrustedCaFile,
 				sn)
 		} else {
 			tlsConfig, err = transport.NewClientTLSConfig("", "", "", sn)
@@ -382,9 +380,9 @@ func (cm *ConnectionManager) OpenConnection() error {
 			cm.ctx,
 			net.JoinHostPort(cm.cfg.ServerAddr, strconv.Itoa(cm.cfg.ServerPort)),
 			tlsConfig, &quic.Config{
-				MaxIdleTimeout:     time.Duration(cm.cfg.QUICMaxIdleTimeout) * time.Second,
-				MaxIncomingStreams: int64(cm.cfg.QUICMaxIncomingStreams),
-				KeepAlivePeriod:    time.Duration(cm.cfg.QUICKeepalivePeriod) * time.Second,
+				MaxIdleTimeout:     time.Duration(cm.cfg.Transport.QUIC.MaxIdleTimeout) * time.Second,
+				MaxIncomingStreams: int64(cm.cfg.Transport.QUIC.MaxIncomingStreams),
+				KeepAlivePeriod:    time.Duration(cm.cfg.Transport.QUIC.KeepalivePeriod) * time.Second,
 			})
 		if err != nil {
 			return err
@@ -393,7 +391,7 @@ func (cm *ConnectionManager) OpenConnection() error {
 		return nil
 	}
 
-	if !cm.cfg.TCPMux {
+	if !lo.FromPtr(cm.cfg.Transport.TCPMux) {
 		return nil
 	}
 
@@ -403,7 +401,7 @@ func (cm *ConnectionManager) OpenConnection() error {
 	}
 
 	fmuxCfg := fmux.DefaultConfig()
-	fmuxCfg.KeepAliveInterval = time.Duration(cm.cfg.TCPMuxKeepaliveInterval) * time.Second
+	fmuxCfg.KeepAliveInterval = time.Duration(cm.cfg.Transport.TCPMuxKeepaliveInterval) * time.Second
 	fmuxCfg.LogOutput = io.Discard
 	fmuxCfg.MaxStreamWindowSize = 6 * 1024 * 1024
 	session, err := fmux.Client(conn, fmuxCfg)
@@ -436,20 +434,20 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 	xl := xlog.FromContextSafe(cm.ctx)
 	var tlsConfig *tls.Config
 	var err error
-	tlsEnable := cm.cfg.TLSEnable
-	if cm.cfg.Protocol == "wss" {
+	tlsEnable := lo.FromPtr(cm.cfg.Transport.TLS.Enable)
+	if cm.cfg.Transport.Protocol == "wss" {
 		tlsEnable = true
 	}
 	if tlsEnable {
-		sn := cm.cfg.TLSServerName
+		sn := cm.cfg.Transport.TLS.ServerName
 		if sn == "" {
 			sn = cm.cfg.ServerAddr
 		}
 
 		tlsConfig, err = transport.NewClientTLSConfig(
-			cm.cfg.TLSCertFile,
-			cm.cfg.TLSKeyFile,
-			cm.cfg.TLSTrustedCaFile,
+			cm.cfg.Transport.TLS.CertFile,
+			cm.cfg.Transport.TLS.KeyFile,
+			cm.cfg.Transport.TLS.TrustedCaFile,
 			sn)
 		if err != nil {
 			xl.Warn("fail to build tls configuration, err: %v", err)
@@ -457,19 +455,19 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 		}
 	}
 
-	proxyType, addr, auth, err := libdial.ParseProxyURL(cm.cfg.HTTPProxy)
+	proxyType, addr, auth, err := libdial.ParseProxyURL(cm.cfg.Transport.ProxyURL)
 	if err != nil {
 		xl.Error("fail to parse proxy url")
 		return nil, err
 	}
 	dialOptions := []libdial.DialOption{}
-	protocol := cm.cfg.Protocol
+	protocol := cm.cfg.Transport.Protocol
 	switch protocol {
 	case "websocket":
 		protocol = "tcp"
 		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: utilnet.DialHookWebsocket(protocol, "")}))
 		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{
-			Hook: utilnet.DialHookCustomTLSHeadByte(tlsConfig != nil, cm.cfg.DisableCustomTLSFirstByte),
+			Hook: utilnet.DialHookCustomTLSHeadByte(tlsConfig != nil, lo.FromPtr(cm.cfg.Transport.TLS.DisableCustomTLSFirstByte)),
 		}))
 		dialOptions = append(dialOptions, libdial.WithTLSConfig(tlsConfig))
 	case "wss":
@@ -481,13 +479,13 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 		dialOptions = append(dialOptions, libdial.WithTLSConfig(tlsConfig))
 	}
 
-	if cm.cfg.ConnectServerLocalIP != "" {
-		dialOptions = append(dialOptions, libdial.WithLocalAddr(cm.cfg.ConnectServerLocalIP))
+	if cm.cfg.Transport.ConnectServerLocalIP != "" {
+		dialOptions = append(dialOptions, libdial.WithLocalAddr(cm.cfg.Transport.ConnectServerLocalIP))
 	}
 	dialOptions = append(dialOptions,
 		libdial.WithProtocol(protocol),
-		libdial.WithTimeout(time.Duration(cm.cfg.DialServerTimeout)*time.Second),
-		libdial.WithKeepAlive(time.Duration(cm.cfg.DialServerKeepAlive)*time.Second),
+		libdial.WithTimeout(time.Duration(cm.cfg.Transport.DialServerTimeout)*time.Second),
+		libdial.WithKeepAlive(time.Duration(cm.cfg.Transport.DialServerKeepAlive)*time.Second),
 		libdial.WithProxy(proxyType, addr),
 		libdial.WithProxyAuth(auth),
 	)

@@ -29,7 +29,7 @@ import (
 	quic "github.com/quic-go/quic-go"
 	"golang.org/x/time/rate"
 
-	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
 	"github.com/fatedier/frp/pkg/transport"
@@ -47,7 +47,7 @@ type XTCPVisitor struct {
 	retryLimiter  *rate.Limiter
 	cancel        context.CancelFunc
 
-	cfg *config.XTCPVisitorConf
+	cfg *v1.XTCPVisitorConfig
 }
 
 func (sv *XTCPVisitor) Run() (err error) {
@@ -56,7 +56,7 @@ func (sv *XTCPVisitor) Run() (err error) {
 	if sv.cfg.Protocol == "kcp" {
 		sv.session = NewKCPTunnelSession()
 	} else {
-		sv.session = NewQUICTunnelSession(&sv.clientCfg)
+		sv.session = NewQUICTunnelSession(sv.clientCfg)
 	}
 
 	if sv.cfg.BindPort > 0 {
@@ -192,14 +192,14 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 	}
 
 	var muxConnRWCloser io.ReadWriteCloser = tunnelConn
-	if sv.cfg.UseEncryption {
-		muxConnRWCloser, err = libio.WithEncryption(muxConnRWCloser, []byte(sv.cfg.Sk))
+	if sv.cfg.Transport.UseEncryption {
+		muxConnRWCloser, err = libio.WithEncryption(muxConnRWCloser, []byte(sv.cfg.SecretKey))
 		if err != nil {
 			xl.Error("create encryption stream error: %v", err)
 			return
 		}
 	}
-	if sv.cfg.UseCompression {
+	if sv.cfg.Transport.UseCompression {
 		var recycleFn func()
 		muxConnRWCloser, recycleFn = libio.WithCompressionFromPool(muxConnRWCloser)
 		defer recycleFn()
@@ -292,7 +292,7 @@ func (sv *XTCPVisitor) makeNatHole() {
 		TransactionID: transactionID,
 		ProxyName:     sv.cfg.ServerName,
 		Protocol:      sv.cfg.Protocol,
-		SignKey:       util.GetAuthKey(sv.cfg.Sk, now),
+		SignKey:       util.GetAuthKey(sv.cfg.SecretKey, now),
 		Timestamp:     now,
 		MappedAddrs:   prepareResult.Addrs,
 		AssistedAddrs: prepareResult.AssistedAddrs,
@@ -310,7 +310,7 @@ func (sv *XTCPVisitor) makeNatHole() {
 		natHoleRespMsg.Sid, natHoleRespMsg.Protocol, natHoleRespMsg.CandidateAddrs,
 		natHoleRespMsg.AssistedAddrs, natHoleRespMsg.DetectBehavior)
 
-	newListenConn, raddr, err := nathole.MakeHole(sv.ctx, listenConn, natHoleRespMsg, []byte(sv.cfg.Sk))
+	newListenConn, raddr, err := nathole.MakeHole(sv.ctx, listenConn, natHoleRespMsg, []byte(sv.cfg.SecretKey))
 	if err != nil {
 		listenConn.Close()
 		xl.Warn("make hole error: %v", err)
@@ -398,10 +398,10 @@ type QUICTunnelSession struct {
 	listenConn *net.UDPConn
 	mu         sync.RWMutex
 
-	clientCfg *config.ClientCommonConf
+	clientCfg *v1.ClientCommonConfig
 }
 
-func NewQUICTunnelSession(clientCfg *config.ClientCommonConf) TunnelSession {
+func NewQUICTunnelSession(clientCfg *v1.ClientCommonConfig) TunnelSession {
 	return &QUICTunnelSession{
 		clientCfg: clientCfg,
 	}
@@ -415,9 +415,9 @@ func (qs *QUICTunnelSession) Init(listenConn *net.UDPConn, raddr *net.UDPAddr) e
 	tlsConfig.NextProtos = []string{"frp"}
 	quicConn, err := quic.Dial(context.Background(), listenConn, raddr, tlsConfig,
 		&quic.Config{
-			MaxIdleTimeout:     time.Duration(qs.clientCfg.QUICMaxIdleTimeout) * time.Second,
-			MaxIncomingStreams: int64(qs.clientCfg.QUICMaxIncomingStreams),
-			KeepAlivePeriod:    time.Duration(qs.clientCfg.QUICKeepalivePeriod) * time.Second,
+			MaxIdleTimeout:     time.Duration(qs.clientCfg.Transport.QUIC.MaxIdleTimeout) * time.Second,
+			MaxIncomingStreams: int64(qs.clientCfg.Transport.QUIC.MaxIncomingStreams),
+			KeepAlivePeriod:    time.Duration(qs.clientCfg.Transport.QUIC.KeepalivePeriod) * time.Second,
 		})
 	if err != nil {
 		return fmt.Errorf("dial quic error: %v", err)

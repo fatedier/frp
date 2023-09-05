@@ -1,4 +1,4 @@
-// Copyright 2018 fatedier, fatedier@gmail.com
+// Copyright 2023 The frp Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package legacy
 
 import (
 	"fmt"
 	"reflect"
 
-	"github.com/samber/lo"
 	"gopkg.in/ini.v1"
 
 	"github.com/fatedier/frp/pkg/consts"
@@ -38,8 +37,16 @@ type VisitorConf interface {
 	GetBaseConfig() *BaseVisitorConf
 	// UnmarshalFromIni unmarshals config from ini.
 	UnmarshalFromIni(prefix string, name string, section *ini.Section) error
-	// Validate validates config.
-	Validate() error
+}
+
+// DefaultVisitorConf creates a empty VisitorConf object by visitorType.
+// If visitorType doesn't exist, return nil.
+func DefaultVisitorConf(visitorType string) VisitorConf {
+	v, ok := visitorConfTypeMap[visitorType]
+	if !ok {
+		return nil
+	}
+	return reflect.New(v).Interface().(VisitorConf)
 }
 
 type BaseVisitorConf struct {
@@ -59,96 +66,14 @@ type BaseVisitorConf struct {
 	BindPort int `ini:"bind_port" json:"bind_port"`
 }
 
-type SUDPVisitorConf struct {
-	BaseVisitorConf `ini:",extends"`
-}
-
-type STCPVisitorConf struct {
-	BaseVisitorConf `ini:",extends"`
-}
-
-type XTCPVisitorConf struct {
-	BaseVisitorConf `ini:",extends"`
-
-	Protocol          string `ini:"protocol" json:"protocol,omitempty"`
-	KeepTunnelOpen    bool   `ini:"keep_tunnel_open" json:"keep_tunnel_open,omitempty"`
-	MaxRetriesAnHour  int    `ini:"max_retries_an_hour" json:"max_retries_an_hour,omitempty"`
-	MinRetryInterval  int    `ini:"min_retry_interval" json:"min_retry_interval,omitempty"`
-	FallbackTo        string `ini:"fallback_to" json:"fallback_to,omitempty"`
-	FallbackTimeoutMs int    `ini:"fallback_timeout_ms" json:"fallback_timeout_ms,omitempty"`
-}
-
-// DefaultVisitorConf creates a empty VisitorConf object by visitorType.
-// If visitorType doesn't exist, return nil.
-func DefaultVisitorConf(visitorType string) VisitorConf {
-	v, ok := visitorConfTypeMap[visitorType]
-	if !ok {
-		return nil
-	}
-	return reflect.New(v).Interface().(VisitorConf)
-}
-
-// Visitor loaded from ini
-func NewVisitorConfFromIni(prefix string, name string, section *ini.Section) (VisitorConf, error) {
-	// section.Key: if key not exists, section will set it with default value.
-	visitorType := section.Key("type").String()
-
-	if visitorType == "" {
-		return nil, fmt.Errorf("type shouldn't be empty")
-	}
-
-	conf := DefaultVisitorConf(visitorType)
-	if conf == nil {
-		return nil, fmt.Errorf("type [%s] error", visitorType)
-	}
-
-	if err := conf.UnmarshalFromIni(prefix, name, section); err != nil {
-		return nil, fmt.Errorf("type [%s] error", visitorType)
-	}
-
-	if err := conf.Validate(); err != nil {
-		return nil, err
-	}
-
-	return conf, nil
-}
-
 // Base
 func (cfg *BaseVisitorConf) GetBaseConfig() *BaseVisitorConf {
 	return cfg
 }
 
-func (cfg *BaseVisitorConf) validate() (err error) {
-	if cfg.Role != "visitor" {
-		err = fmt.Errorf("invalid role")
-		return
-	}
-	if cfg.BindAddr == "" {
-		err = fmt.Errorf("bind_addr shouldn't be empty")
-		return
-	}
-	// BindPort can be less than 0, it means don't bind to the port and only receive connections redirected from
-	// other visitors
-	if cfg.BindPort == 0 {
-		err = fmt.Errorf("bind_port is required")
-		return
-	}
-	return
-}
-
-func (cfg *BaseVisitorConf) unmarshalFromIni(prefix string, name string, section *ini.Section) error {
-	_ = section
-
+func (cfg *BaseVisitorConf) unmarshalFromIni(_ string, name string, _ *ini.Section) error {
 	// Custom decoration after basic unmarshal:
-	// proxy name
-	cfg.ProxyName = prefix + name
-
-	// server_name
-	if cfg.ServerUser == "" {
-		cfg.ServerName = prefix + cfg.ServerName
-	} else {
-		cfg.ServerName = cfg.ServerUser + "." + cfg.ServerName
-	}
+	cfg.ProxyName = name
 
 	// bind_addr
 	if cfg.BindAddr == "" {
@@ -170,8 +95,9 @@ func preVisitorUnmarshalFromIni(cfg VisitorConf, prefix string, name string, sec
 	return nil
 }
 
-// SUDP
-var _ VisitorConf = &SUDPVisitorConf{}
+type SUDPVisitorConf struct {
+	BaseVisitorConf `ini:",extends"`
+}
 
 func (cfg *SUDPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) (err error) {
 	err = preVisitorUnmarshalFromIni(cfg, prefix, name, section)
@@ -184,18 +110,9 @@ func (cfg *SUDPVisitorConf) UnmarshalFromIni(prefix string, name string, section
 	return
 }
 
-func (cfg *SUDPVisitorConf) Validate() (err error) {
-	if err = cfg.BaseVisitorConf.validate(); err != nil {
-		return
-	}
-
-	// Add custom logic validate, if exists
-
-	return
+type STCPVisitorConf struct {
+	BaseVisitorConf `ini:",extends"`
 }
-
-// STCP
-var _ VisitorConf = &STCPVisitorConf{}
 
 func (cfg *STCPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) (err error) {
 	err = preVisitorUnmarshalFromIni(cfg, prefix, name, section)
@@ -208,18 +125,16 @@ func (cfg *STCPVisitorConf) UnmarshalFromIni(prefix string, name string, section
 	return
 }
 
-func (cfg *STCPVisitorConf) Validate() (err error) {
-	if err = cfg.BaseVisitorConf.validate(); err != nil {
-		return
-	}
+type XTCPVisitorConf struct {
+	BaseVisitorConf `ini:",extends"`
 
-	// Add custom logic validate, if exists
-
-	return
+	Protocol          string `ini:"protocol" json:"protocol,omitempty"`
+	KeepTunnelOpen    bool   `ini:"keep_tunnel_open" json:"keep_tunnel_open,omitempty"`
+	MaxRetriesAnHour  int    `ini:"max_retries_an_hour" json:"max_retries_an_hour,omitempty"`
+	MinRetryInterval  int    `ini:"min_retry_interval" json:"min_retry_interval,omitempty"`
+	FallbackTo        string `ini:"fallback_to" json:"fallback_to,omitempty"`
+	FallbackTimeoutMs int    `ini:"fallback_timeout_ms" json:"fallback_timeout_ms,omitempty"`
 }
-
-// XTCP
-var _ VisitorConf = &XTCPVisitorConf{}
 
 func (cfg *XTCPVisitorConf) UnmarshalFromIni(prefix string, name string, section *ini.Section) (err error) {
 	err = preVisitorUnmarshalFromIni(cfg, prefix, name, section)
@@ -243,14 +158,22 @@ func (cfg *XTCPVisitorConf) UnmarshalFromIni(prefix string, name string, section
 	return
 }
 
-func (cfg *XTCPVisitorConf) Validate() (err error) {
-	if err = cfg.BaseVisitorConf.validate(); err != nil {
-		return
+// Visitor loaded from ini
+func NewVisitorConfFromIni(prefix string, name string, section *ini.Section) (VisitorConf, error) {
+	// section.Key: if key not exists, section will set it with default value.
+	visitorType := section.Key("type").String()
+
+	if visitorType == "" {
+		return nil, fmt.Errorf("type shouldn't be empty")
 	}
 
-	// Add custom logic validate, if exists
-	if !lo.Contains([]string{"", "kcp", "quic"}, cfg.Protocol) {
-		return fmt.Errorf("protocol should be 'kcp' or 'quic'")
+	conf := DefaultVisitorConf(visitorType)
+	if conf == nil {
+		return nil, fmt.Errorf("type [%s] error", visitorType)
 	}
-	return
+
+	if err := conf.UnmarshalFromIni(prefix, name, section); err != nil {
+		return nil, fmt.Errorf("type [%s] error", visitorType)
+	}
+	return conf, nil
 }

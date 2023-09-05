@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package legacy
 
 import (
 	"bytes"
@@ -40,7 +40,6 @@ func ParseClientConfig(filePath string) (
 	if err != nil {
 		return
 	}
-	cfg.Complete()
 	if err = cfg.Validate(); err != nil {
 		err = fmt.Errorf("parse config error: %v", err)
 		return

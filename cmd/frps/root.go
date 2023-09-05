@@ -21,17 +21,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/config/types"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/util/log"
-	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/server"
-)
-
-const (
-	CfgFileTypeIni = iota
-	CfgFileTypeCmd
 )
 
 var (
@@ -104,24 +100,35 @@ var rootCmd = &cobra.Command{
 			return nil
 		}
 
-		var cfg config.ServerCommonConf
-		var err error
+		var (
+			svrCfg         *v1.ServerConfig
+			isLegacyFormat bool
+			err            error
+		)
 		if cfgFile != "" {
-			var content []byte
-			content, err = config.GetRenderedConfFromFile(cfgFile)
+			svrCfg, isLegacyFormat, err = config.LoadServerConfig(cfgFile)
 			if err != nil {
 				return err
 			}
-			cfg, err = parseServerCommonCfg(CfgFileTypeIni, content)
+			if isLegacyFormat {
+				fmt.Printf("WARNING: ini format is deprecated and the support will be removed in the future, " +
+					"please use yaml/json/toml format instead!\n")
+			}
 		} else {
-			cfg, err = parseServerCommonCfg(CfgFileTypeCmd, nil)
+			if svrCfg, err = parseServerConfigFromCmd(); err != nil {
+				return err
+			}
+		}
+
+		warning, err := validation.ValidateServerConfig(svrCfg)
+		if warning != nil {
+			fmt.Printf("WARNING: %v\n", warning)
 		}
 		if err != nil {
 			return err
 		}
 
-		err = runServer(cfg)
-		if err != nil {
+		if err := runServer(svrCfg); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
@@ -135,26 +142,8 @@ func Execute() {
 	}
 }
 
-func parseServerCommonCfg(fileType int, source []byte) (cfg config.ServerCommonConf, err error) {
-	if fileType == CfgFileTypeIni {
-		cfg, err = config.UnmarshalServerConfFromIni(source)
-	} else if fileType == CfgFileTypeCmd {
-		cfg, err = parseServerCommonCfgFromCmd()
-	}
-	if err != nil {
-		return
-	}
-	cfg.Complete()
-	err = cfg.Validate()
-	if err != nil {
-		err = fmt.Errorf("parse config error: %v", err)
-		return
-	}
-	return
-}
-
-func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
-	cfg = config.GetDefaultServerConf()
+func parseServerConfigFromCmd() (*v1.ServerConfig, error) {
+	cfg := &v1.ServerConfig{}
 
 	cfg.BindAddr = bindAddr
 	cfg.BindPort = bindPort
@@ -163,42 +152,42 @@ func parseServerCommonCfgFromCmd() (cfg config.ServerCommonConf, err error) {
 	cfg.VhostHTTPPort = vhostHTTPPort
 	cfg.VhostHTTPSPort = vhostHTTPSPort
 	cfg.VhostHTTPTimeout = vhostHTTPTimeout
-	cfg.DashboardAddr = dashboardAddr
-	cfg.DashboardPort = dashboardPort
-	cfg.DashboardUser = dashboardUser
-	cfg.DashboardPwd = dashboardPwd
+	cfg.WebServer.Addr = dashboardAddr
+	cfg.WebServer.Port = dashboardPort
+	cfg.WebServer.User = dashboardUser
+	cfg.WebServer.Password = dashboardPwd
 	cfg.EnablePrometheus = enablePrometheus
-	cfg.DashboardTLSCertFile = dashboardTLSCertFile
-	cfg.DashboardTLSKeyFile = dashboardTLSKeyFile
-	cfg.DashboardTLSMode = dashboardTLSMode
-	cfg.LogFile = logFile
-	cfg.LogLevel = logLevel
-	cfg.LogMaxDays = logMaxDays
-	cfg.SubDomainHost = subDomainHost
-	cfg.TLSOnly = tlsOnly
-
-	// Only token authentication is supported in cmd mode
-	cfg.ServerConfig = auth.GetDefaultServerConf()
-	cfg.Token = token
-	if len(allowPorts) > 0 {
-		// e.g. 1000-2000,2001,2002,3000-4000
-		ports, errRet := util.ParseRangeNumbers(allowPorts)
-		if errRet != nil {
-			err = fmt.Errorf("parse conf error: allow_ports: %v", errRet)
-			return
-		}
-
-		for _, port := range ports {
-			cfg.AllowPorts[int(port)] = struct{}{}
+	if dashboardTLSMode {
+		cfg.WebServer.TLS = &v1.TLSConfig{
+			CertFile: dashboardTLSCertFile,
+			KeyFile:  dashboardTLSKeyFile,
 		}
 	}
+	cfg.Log.To = logFile
+	cfg.Log.Level = logLevel
+	cfg.Log.MaxDays = logMaxDays
+	cfg.Log.DisablePrintColor = disableLogColor
+	cfg.SubDomainHost = subDomainHost
+	cfg.TLS.Force = tlsOnly
 	cfg.MaxPortsPerClient = maxPortsPerClient
-	cfg.DisableLogColor = disableLogColor
-	return
+
+	// Only token authentication is supported in cmd mode
+	cfg.Auth.Token = token
+
+	if len(allowPorts) > 0 {
+		portsRanges, err := types.NewPortsRangeSliceFromString(allowPorts)
+		if err != nil {
+			return cfg, fmt.Errorf("allow_ports format error: %v", err)
+		}
+		cfg.AllowPorts = portsRanges
+	}
+
+	cfg.Complete()
+	return cfg, nil
 }
 
-func runServer(cfg config.ServerCommonConf) (err error) {
-	log.InitLog(cfg.LogWay, cfg.LogFile, cfg.LogLevel, cfg.LogMaxDays, cfg.DisableLogColor)
+func runServer(cfg *v1.ServerConfig) (err error) {
+	log.InitLog(cfg.Log.To, cfg.Log.Level, cfg.Log.MaxDays, cfg.Log.DisablePrintColor)
 
 	if cfgFile != "" {
 		log.Info("frps uses config file: %s", cfgFile)
