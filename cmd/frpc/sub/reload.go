@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
 
 func init() {
@@ -35,7 +36,7 @@ var reloadCmd = &cobra.Command{
 	Use:   "reload",
 	Short: "Hot-Reload frpc configuration",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, _, _, err := config.ParseClientConfig(cfgFile)
+		cfg, _, _, _, err := config.LoadClientConfig(cfgFile)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -51,19 +52,20 @@ var reloadCmd = &cobra.Command{
 	},
 }
 
-func reload(clientCfg config.ClientCommonConf) error {
-	if clientCfg.AdminPort == 0 {
-		return fmt.Errorf("admin_port shoud be set if you want to use reload feature")
+func reload(clientCfg *v1.ClientCommonConfig) error {
+	if clientCfg.WebServer.Port == 0 {
+		return fmt.Errorf("the port of web server shoud be set if you want to use reload feature")
 	}
 
 	req, err := http.NewRequest("GET", "http://"+
-		clientCfg.AdminAddr+":"+fmt.Sprintf("%d", clientCfg.AdminPort)+"/api/reload", nil)
+		clientCfg.WebServer.Addr+":"+
+		fmt.Sprintf("%d", clientCfg.WebServer.Port)+"/api/reload", nil)
 	if err != nil {
 		return err
 	}
 
-	authStr := "Basic " + base64.StdEncoding.EncodeToString([]byte(clientCfg.AdminUser+":"+
-		clientCfg.AdminPwd))
+	authStr := "Basic " + base64.StdEncoding.EncodeToString(
+		[]byte(clientCfg.WebServer.User+":"+clientCfg.WebServer.Password))
 
 	req.Header.Add("Authorization", authStr)
 	resp, err := http.DefaultClient.Do(req)

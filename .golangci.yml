@@ -120,16 +120,18 @@ issues:
   #  - composite literal uses unkeyed fields
 
   exclude-rules:
-    # Exclude some linters from running on test files.
-    - path: _test\.go$|^tests/|^samples/
-      linters:
-        - errcheck
-        - maligned
-
-    # keep it until we only support go1.20
-    - linters:
-        - staticcheck
-      text: "SA1019: rand.Seed has been deprecated"
+  # Exclude some linters from running on test files.
+  - path: _test\.go$|^tests/|^samples/
+    linters:
+    - errcheck
+    - maligned
+  - linters:
+    - revive
+    - stylecheck
+    text: "use underscores in Go names"
+  - linters:
+    - revive
+    text: "unused-parameter"
 
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all

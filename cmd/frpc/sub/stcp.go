@@ -20,7 +20,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/config/types"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/consts"
 )
 
@@ -38,7 +40,7 @@ func init() {
 	stcpCmd.PersistentFlags().BoolVarP(&useEncryption, "ue", "", false, "use encryption")
 	stcpCmd.PersistentFlags().BoolVarP(&useCompression, "uc", "", false, "use compression")
 	stcpCmd.PersistentFlags().StringVarP(&bandwidthLimit, "bandwidth_limit", "", "", "bandwidth limit")
-	stcpCmd.PersistentFlags().StringVarP(&bandwidthLimitMode, "bandwidth_limit_mode", "", config.BandwidthLimitModeClient, "bandwidth limit mode")
+	stcpCmd.PersistentFlags().StringVarP(&bandwidthLimitMode, "bandwidth_limit_mode", "", types.BandwidthLimitModeClient, "bandwidth limit mode")
 
 	rootCmd.AddCommand(stcpCmd)
 }
@@ -53,8 +55,8 @@ var stcpCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		proxyConfs := make(map[string]config.ProxyConf)
-		visitorConfs := make(map[string]config.VisitorConf)
+		pxyCfgs := make([]v1.ProxyConfigurer, 0)
+		visitorCfgs := make([]v1.VisitorConfigurer, 0)
 
 		var prefix string
 		if user != "" {
@@ -63,50 +65,46 @@ var stcpCmd = &cobra.Command{
 
 		switch role {
 		case "server":
-			cfg := &config.STCPProxyConf{}
-			cfg.ProxyName = prefix + proxyName
-			cfg.ProxyType = consts.STCPProxy
-			cfg.UseEncryption = useEncryption
-			cfg.UseCompression = useCompression
-			cfg.Role = role
-			cfg.Sk = sk
+			cfg := &v1.STCPProxyConfig{}
+			cfg.Name = prefix + proxyName
+			cfg.Type = consts.STCPProxy
+			cfg.Transport.UseEncryption = useEncryption
+			cfg.Transport.UseCompression = useCompression
+			cfg.Secretkey = sk
 			cfg.LocalIP = localIP
 			cfg.LocalPort = localPort
-			cfg.BandwidthLimit, err = config.NewBandwidthQuantity(bandwidthLimit)
+			cfg.Transport.BandwidthLimit, err = types.NewBandwidthQuantity(bandwidthLimit)
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
-			cfg.BandwidthLimitMode = bandwidthLimitMode
-			err = cfg.ValidateForClient()
-			if err != nil {
+			cfg.Transport.BandwidthLimitMode = bandwidthLimitMode
+			if err := validation.ValidateProxyConfigurerForClient(cfg); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
-			proxyConfs[cfg.ProxyName] = cfg
+			pxyCfgs = append(pxyCfgs, cfg)
 		case "visitor":
-			cfg := &config.STCPVisitorConf{}
-			cfg.ProxyName = prefix + proxyName
-			cfg.ProxyType = consts.STCPProxy
-			cfg.UseEncryption = useEncryption
-			cfg.UseCompression = useCompression
-			cfg.Role = role
-			cfg.Sk = sk
+			cfg := &v1.STCPVisitorConfig{}
+			cfg.Name = prefix + proxyName
+			cfg.Type = consts.STCPProxy
+			cfg.Transport.UseEncryption = useEncryption
+			cfg.Transport.UseCompression = useCompression
+			cfg.SecretKey = sk
 			cfg.ServerName = serverName
 			cfg.BindAddr = bindAddr
 			cfg.BindPort = bindPort
-			err = cfg.Validate()
-			if err != nil {
+			if err := validation.ValidateVisitorConfigurer(cfg); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
-			visitorConfs[cfg.ProxyName] = cfg
+			visitorCfgs = append(visitorCfgs, cfg)
 		default:
 			fmt.Println("invalid role")
 			os.Exit(1)
 		}
 
-		err = startService(clientCfg, proxyConfs, visitorConfs, "")
+		err = startService(clientCfg, pxyCfgs, visitorCfgs, "")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

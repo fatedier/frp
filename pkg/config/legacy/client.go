@@ -1,4 +1,4 @@
-// Copyright 2020 The frp Authors
+// Copyright 2023 The frp Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package legacy
 
 import (
 	"fmt"
@@ -23,15 +23,16 @@ import (
 	"github.com/samber/lo"
 	"gopkg.in/ini.v1"
 
-	"github.com/fatedier/frp/pkg/auth"
+	legacyauth "github.com/fatedier/frp/pkg/auth/legacy"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
-// ClientCommonConf contains information for a client service. It is
+// ClientCommonConf is the configuration parsed from ini.
+// It contains information for a client service. It is
 // recommended to use GetDefaultClientConf instead of creating this object
 // directly, so that all unspecified fields have reasonable default values.
 type ClientCommonConf struct {
-	auth.ClientConfig `ini:",extends"`
+	legacyauth.ClientConfig `ini:",extends"`
 
 	// ServerAddr specifies the address of the server to connect to. By
 	// default, this value is "0.0.0.0".
@@ -166,85 +167,6 @@ type ClientCommonConf struct {
 	// Enable golang pprof handlers in admin listener.
 	// Admin port must be set first.
 	PprofEnable bool `ini:"pprof_enable" json:"pprof_enable"`
-}
-
-// GetDefaultClientConf returns a client configuration with default values.
-func GetDefaultClientConf() ClientCommonConf {
-	return ClientCommonConf{
-		ClientConfig:              auth.GetDefaultClientConf(),
-		ServerAddr:                "0.0.0.0",
-		ServerPort:                7000,
-		NatHoleSTUNServer:         "stun.easyvoip.com:3478",
-		DialServerTimeout:         10,
-		DialServerKeepAlive:       7200,
-		HTTPProxy:                 os.Getenv("http_proxy"),
-		LogFile:                   "console",
-		LogWay:                    "console",
-		LogLevel:                  "info",
-		LogMaxDays:                3,
-		AdminAddr:                 "127.0.0.1",
-		PoolCount:                 1,
-		TCPMux:                    true,
-		TCPMuxKeepaliveInterval:   60,
-		LoginFailExit:             true,
-		Start:                     make([]string, 0),
-		Protocol:                  "tcp",
-		QUICKeepalivePeriod:       10,
-		QUICMaxIdleTimeout:        30,
-		QUICMaxIncomingStreams:    100000,
-		TLSEnable:                 true,
-		DisableCustomTLSFirstByte: true,
-		HeartbeatInterval:         30,
-		HeartbeatTimeout:          90,
-		Metas:                     make(map[string]string),
-		UDPPacketSize:             1500,
-		IncludeConfigFiles:        make([]string, 0),
-	}
-}
-
-func (cfg *ClientCommonConf) Complete() {
-	if cfg.LogFile == "console" {
-		cfg.LogWay = "console"
-	} else {
-		cfg.LogWay = "file"
-	}
-}
-
-func (cfg *ClientCommonConf) Validate() error {
-	if cfg.HeartbeatTimeout > 0 && cfg.HeartbeatInterval > 0 {
-		if cfg.HeartbeatTimeout < cfg.HeartbeatInterval {
-			return fmt.Errorf("invalid heartbeat_timeout, heartbeat_timeout is less than heartbeat_interval")
-		}
-	}
-
-	if !cfg.TLSEnable {
-		if cfg.TLSCertFile != "" {
-			fmt.Println("WARNING! tls_cert_file is invalid when tls_enable is false")
-		}
-
-		if cfg.TLSKeyFile != "" {
-			fmt.Println("WARNING! tls_key_file is invalid when tls_enable is false")
-		}
-
-		if cfg.TLSTrustedCaFile != "" {
-			fmt.Println("WARNING! tls_trusted_ca_file is invalid when tls_enable is false")
-		}
-	}
-
-	if !lo.Contains([]string{"tcp", "kcp", "quic", "websocket", "wss"}, cfg.Protocol) {
-		return fmt.Errorf("invalid protocol")
-	}
-
-	for _, f := range cfg.IncludeConfigFiles {
-		absDir, err := filepath.Abs(filepath.Dir(f))
-		if err != nil {
-			return fmt.Errorf("include: parse directory of %s failed: %v", f, absDir)
-		}
-		if _, err := os.Stat(absDir); os.IsNotExist(err) {
-			return fmt.Errorf("include: directory of %s not exist", f)
-		}
-	}
-	return nil
 }
 
 // Supported sources including: string(file path), []byte, Reader interface.
@@ -420,4 +342,75 @@ func copySection(source, target *ini.Section) {
 	for key, value := range source.KeysHash() {
 		_, _ = target.NewKey(key, value)
 	}
+}
+
+// GetDefaultClientConf returns a client configuration with default values.
+func GetDefaultClientConf() ClientCommonConf {
+	return ClientCommonConf{
+		ClientConfig:              legacyauth.GetDefaultClientConf(),
+		ServerAddr:                "0.0.0.0",
+		ServerPort:                7000,
+		NatHoleSTUNServer:         "stun.easyvoip.com:3478",
+		DialServerTimeout:         10,
+		DialServerKeepAlive:       7200,
+		HTTPProxy:                 os.Getenv("http_proxy"),
+		LogFile:                   "console",
+		LogWay:                    "console",
+		LogLevel:                  "info",
+		LogMaxDays:                3,
+		AdminAddr:                 "127.0.0.1",
+		PoolCount:                 1,
+		TCPMux:                    true,
+		TCPMuxKeepaliveInterval:   60,
+		LoginFailExit:             true,
+		Start:                     make([]string, 0),
+		Protocol:                  "tcp",
+		QUICKeepalivePeriod:       10,
+		QUICMaxIdleTimeout:        30,
+		QUICMaxIncomingStreams:    100000,
+		TLSEnable:                 true,
+		DisableCustomTLSFirstByte: true,
+		HeartbeatInterval:         30,
+		HeartbeatTimeout:          90,
+		Metas:                     make(map[string]string),
+		UDPPacketSize:             1500,
+		IncludeConfigFiles:        make([]string, 0),
+	}
+}
+
+func (cfg *ClientCommonConf) Validate() error {
+	if cfg.HeartbeatTimeout > 0 && cfg.HeartbeatInterval > 0 {
+		if cfg.HeartbeatTimeout < cfg.HeartbeatInterval {
+			return fmt.Errorf("invalid heartbeat_timeout, heartbeat_timeout is less than heartbeat_interval")
+		}
+	}
+
+	if !cfg.TLSEnable {
+		if cfg.TLSCertFile != "" {
+			fmt.Println("WARNING! tls_cert_file is invalid when tls_enable is false")
+		}
+
+		if cfg.TLSKeyFile != "" {
+			fmt.Println("WARNING! tls_key_file is invalid when tls_enable is false")
+		}
+
+		if cfg.TLSTrustedCaFile != "" {
+			fmt.Println("WARNING! tls_trusted_ca_file is invalid when tls_enable is false")
+		}
+	}
+
+	if !lo.Contains([]string{"tcp", "kcp", "quic", "websocket", "wss"}, cfg.Protocol) {
+		return fmt.Errorf("invalid protocol")
+	}
+
+	for _, f := range cfg.IncludeConfigFiles {
+		absDir, err := filepath.Abs(filepath.Dir(f))
+		if err != nil {
+			return fmt.Errorf("include: parse directory of %s failed: %v", f, err)
+		}
+		if _, err := os.Stat(absDir); os.IsNotExist(err) {
+			return fmt.Errorf("include: directory of %s not exist", f)
+		}
+	}
+	return nil
 }

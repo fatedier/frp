@@ -20,22 +20,22 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
 
 func init() {
-	RegisterProxyFactory(reflect.TypeOf(&config.TCPProxyConf{}), NewTCPProxy)
+	RegisterProxyFactory(reflect.TypeOf(&v1.TCPProxyConfig{}), NewTCPProxy)
 }
 
 type TCPProxy struct {
 	*BaseProxy
-	cfg *config.TCPProxyConf
+	cfg *v1.TCPProxyConfig
 
 	realBindPort int
 }
 
-func NewTCPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
-	unwrapped, ok := cfg.(*config.TCPProxyConf)
+func NewTCPProxy(baseProxy *BaseProxy) Proxy {
+	unwrapped, ok := baseProxy.GetConfigurer().(*v1.TCPProxyConfig)
 	if !ok {
 		return nil
 	}
@@ -48,8 +48,9 @@ func NewTCPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
 
 func (pxy *TCPProxy) Run() (remoteAddr string, err error) {
 	xl := pxy.xl
-	if pxy.cfg.Group != "" {
-		l, realBindPort, errRet := pxy.rc.TCPGroupCtl.Listen(pxy.name, pxy.cfg.Group, pxy.cfg.GroupKey, pxy.serverCfg.ProxyBindAddr, pxy.cfg.RemotePort)
+	if pxy.cfg.LoadBalancer.Group != "" {
+		l, realBindPort, errRet := pxy.rc.TCPGroupCtl.Listen(pxy.name, pxy.cfg.LoadBalancer.Group, pxy.cfg.LoadBalancer.GroupKey,
+			pxy.serverCfg.ProxyBindAddr, pxy.cfg.RemotePort)
 		if errRet != nil {
 			err = errRet
 			return
@@ -61,7 +62,7 @@ func (pxy *TCPProxy) Run() (remoteAddr string, err error) {
 		}()
 		pxy.realBindPort = realBindPort
 		pxy.listeners = append(pxy.listeners, l)
-		xl.Info("tcp proxy listen port [%d] in group [%s]", pxy.cfg.RemotePort, pxy.cfg.Group)
+		xl.Info("tcp proxy listen port [%d] in group [%s]", pxy.cfg.RemotePort, pxy.cfg.LoadBalancer.Group)
 	} else {
 		pxy.realBindPort, err = pxy.rc.TCPPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
 		if err != nil {
@@ -87,13 +88,9 @@ func (pxy *TCPProxy) Run() (remoteAddr string, err error) {
 	return
 }
 
-func (pxy *TCPProxy) GetConf() config.ProxyConf {
-	return pxy.cfg
-}
-
 func (pxy *TCPProxy) Close() {
 	pxy.BaseProxy.Close()
-	if pxy.cfg.Group == "" {
+	if pxy.cfg.LoadBalancer.Group == "" {
 		pxy.rc.TCPPortManager.Release(pxy.realBindPort)
 	}
 }

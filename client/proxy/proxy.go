@@ -30,7 +30,8 @@ import (
 	pp "github.com/pires/go-proxyproto"
 	"golang.org/x/time/rate"
 
-	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/config/types"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/client"
 	"github.com/fatedier/frp/pkg/transport"
@@ -38,9 +39,9 @@ import (
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
-var proxyFactoryRegistry = map[reflect.Type]func(*BaseProxy, config.ProxyConf) Proxy{}
+var proxyFactoryRegistry = map[reflect.Type]func(*BaseProxy, v1.ProxyConfigurer) Proxy{}
 
-func RegisterProxyFactory(proxyConfType reflect.Type, factory func(*BaseProxy, config.ProxyConf) Proxy) {
+func RegisterProxyFactory(proxyConfType reflect.Type, factory func(*BaseProxy, v1.ProxyConfigurer) Proxy) {
 	proxyFactoryRegistry[proxyConfType] = factory
 }
 
@@ -56,23 +57,23 @@ type Proxy interface {
 
 func NewProxy(
 	ctx context.Context,
-	pxyConf config.ProxyConf,
-	clientCfg config.ClientCommonConf,
+	pxyConf v1.ProxyConfigurer,
+	clientCfg *v1.ClientCommonConfig,
 	msgTransporter transport.MessageTransporter,
 ) (pxy Proxy) {
 	var limiter *rate.Limiter
-	limitBytes := pxyConf.GetBaseConfig().BandwidthLimit.Bytes()
-	if limitBytes > 0 && pxyConf.GetBaseConfig().BandwidthLimitMode == config.BandwidthLimitModeClient {
+	limitBytes := pxyConf.GetBaseConfig().Transport.BandwidthLimit.Bytes()
+	if limitBytes > 0 && pxyConf.GetBaseConfig().Transport.BandwidthLimitMode == types.BandwidthLimitModeClient {
 		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
 	}
 
 	baseProxy := BaseProxy{
-		baseProxyConfig: pxyConf.GetBaseConfig(),
-		clientCfg:       clientCfg,
-		limiter:         limiter,
-		msgTransporter:  msgTransporter,
-		xl:              xlog.FromContextSafe(ctx),
-		ctx:             ctx,
+		baseCfg:        pxyConf.GetBaseConfig(),
+		clientCfg:      clientCfg,
+		limiter:        limiter,
+		msgTransporter: msgTransporter,
+		xl:             xlog.FromContextSafe(ctx),
+		ctx:            ctx,
 	}
 
 	factory := proxyFactoryRegistry[reflect.TypeOf(pxyConf)]
@@ -83,10 +84,10 @@ func NewProxy(
 }
 
 type BaseProxy struct {
-	baseProxyConfig *config.BaseProxyConf
-	clientCfg       config.ClientCommonConf
-	msgTransporter  transport.MessageTransporter
-	limiter         *rate.Limiter
+	baseCfg        *v1.ProxyBaseConfig
+	clientCfg      *v1.ClientCommonConfig
+	msgTransporter transport.MessageTransporter
+	limiter        *rate.Limiter
 	// proxyPlugin is used to handle connections instead of dialing to local service.
 	// It's only validate for TCP protocol now.
 	proxyPlugin plugin.Plugin
@@ -97,8 +98,8 @@ type BaseProxy struct {
 }
 
 func (pxy *BaseProxy) Run() error {
-	if pxy.baseProxyConfig.Plugin != "" {
-		p, err := plugin.Create(pxy.baseProxyConfig.Plugin, pxy.baseProxyConfig.PluginParams)
+	if pxy.baseCfg.Plugin.Type != "" {
+		p, err := plugin.Create(pxy.baseCfg.Plugin.Type, pxy.baseCfg.Plugin.ClientPluginOptions)
 		if err != nil {
 			return err
 		}
@@ -114,13 +115,13 @@ func (pxy *BaseProxy) Close() {
 }
 
 func (pxy *BaseProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
-	pxy.HandleTCPWorkConnection(conn, m, []byte(pxy.clientCfg.Token))
+	pxy.HandleTCPWorkConnection(conn, m, []byte(pxy.clientCfg.Auth.Token))
 }
 
 // Common handler for tcp work connections.
 func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWorkConn, encKey []byte) {
 	xl := pxy.xl
-	baseConfig := pxy.baseProxyConfig
+	baseCfg := pxy.baseCfg
 	var (
 		remote io.ReadWriteCloser
 		err    error
@@ -133,8 +134,8 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	}
 
 	xl.Trace("handle tcp work connection, use_encryption: %t, use_compression: %t",
-		baseConfig.UseEncryption, baseConfig.UseCompression)
-	if baseConfig.UseEncryption {
+		baseCfg.Transport.UseEncryption, baseCfg.Transport.UseCompression)
+	if baseCfg.Transport.UseEncryption {
 		remote, err = libio.WithEncryption(remote, encKey)
 		if err != nil {
 			workConn.Close()
@@ -143,13 +144,13 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 		}
 	}
 	var compressionResourceRecycleFn func()
-	if baseConfig.UseCompression {
+	if baseCfg.Transport.UseCompression {
 		remote, compressionResourceRecycleFn = libio.WithCompressionFromPool(remote)
 	}
 
 	// check if we need to send proxy protocol info
 	var extraInfo []byte
-	if baseConfig.ProxyProtocolVersion != "" {
+	if baseCfg.Transport.ProxyProtocolVersion != "" {
 		if m.SrcAddr != "" && m.SrcPort != 0 {
 			if m.DstAddr == "" {
 				m.DstAddr = "127.0.0.1"
@@ -168,9 +169,9 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 				h.TransportProtocol = pp.TCPv6
 			}
 
-			if baseConfig.ProxyProtocolVersion == "v1" {
+			if baseCfg.Transport.ProxyProtocolVersion == "v1" {
 				h.Version = 1
-			} else if baseConfig.ProxyProtocolVersion == "v2" {
+			} else if baseCfg.Transport.ProxyProtocolVersion == "v2" {
 				h.Version = 2
 			}
 
@@ -189,12 +190,12 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	}
 
 	localConn, err := libdial.Dial(
-		net.JoinHostPort(baseConfig.LocalIP, strconv.Itoa(baseConfig.LocalPort)),
+		net.JoinHostPort(baseCfg.LocalIP, strconv.Itoa(baseCfg.LocalPort)),
 		libdial.WithTimeout(10*time.Second),
 	)
 	if err != nil {
 		workConn.Close()
-		xl.Error("connect to local service [%s:%d] error: %v", baseConfig.LocalIP, baseConfig.LocalPort, err)
+		xl.Error("connect to local service [%s:%d] error: %v", baseCfg.LocalIP, baseCfg.LocalPort, err)
 		return
 	}
 

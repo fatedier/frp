@@ -30,6 +30,7 @@ import (
 
 	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/util/log"
 )
 
@@ -56,15 +57,21 @@ func (svr *Service) apiReload(w http.ResponseWriter, _ *http.Request) {
 		}
 	}()
 
-	_, pxyCfgs, visitorCfgs, err := config.ParseClientConfig(svr.cfgFile)
+	cliCfg, pxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(svr.cfgFile)
 	if err != nil {
 		res.Code = 400
 		res.Msg = err.Error()
 		log.Warn("reload frpc proxy config error: %s", res.Msg)
 		return
 	}
+	if _, err := validation.ValidateAllClientConfig(cliCfg, pxyCfgs, visitorCfgs); err != nil {
+		res.Code = 400
+		res.Msg = err.Error()
+		log.Warn("reload frpc proxy config error: %s", res.Msg)
+		return
+	}
 
-	if err = svr.ReloadConf(pxyCfgs, visitorCfgs); err != nil {
+	if err := svr.ReloadConf(pxyCfgs, visitorCfgs); err != nil {
 		res.Code = 500
 		res.Msg = err.Error()
 		log.Warn("reload frpc proxy config error: %s", res.Msg)
@@ -112,7 +119,7 @@ func NewProxyStatusResp(status *proxy.WorkingStatus, serverAddr string) ProxySta
 	if baseCfg.LocalPort != 0 {
 		psr.LocalAddr = net.JoinHostPort(baseCfg.LocalIP, strconv.Itoa(baseCfg.LocalPort))
 	}
-	psr.Plugin = baseCfg.Plugin
+	psr.Plugin = baseCfg.Plugin.Type
 
 	if status.Err == "" {
 		psr.RemoteAddr = status.RemoteAddr
@@ -172,24 +179,14 @@ func (svr *Service) apiGetConfig(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	content, err := config.GetRenderedConfFromFile(svr.cfgFile)
+	content, err := os.ReadFile(svr.cfgFile)
 	if err != nil {
 		res.Code = 400
 		res.Msg = err.Error()
 		log.Warn("load frpc config file error: %s", res.Msg)
 		return
 	}
-
-	rows := strings.Split(string(content), "\n")
-	newRows := make([]string, 0, len(rows))
-	for _, row := range rows {
-		row = strings.TrimSpace(row)
-		if strings.HasPrefix(row, "token") {
-			continue
-		}
-		newRows = append(newRows, row)
-	}
-	res.Msg = strings.Join(newRows, "\n")
+	res.Msg = string(content)
 }
 
 // PUT /api/config
@@ -221,49 +218,7 @@ func (svr *Service) apiPutConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get token from origin content
-	token := ""
-	b, err := os.ReadFile(svr.cfgFile)
-	if err != nil {
-		res.Code = 400
-		res.Msg = err.Error()
-		log.Warn("load frpc config file error: %s", res.Msg)
-		return
-	}
-	content := string(b)
-
-	for _, row := range strings.Split(content, "\n") {
-		row = strings.TrimSpace(row)
-		if strings.HasPrefix(row, "token") {
-			token = row
-			break
-		}
-	}
-
-	tmpRows := make([]string, 0)
-	for _, row := range strings.Split(string(body), "\n") {
-		row = strings.TrimSpace(row)
-		if strings.HasPrefix(row, "token") {
-			continue
-		}
-		tmpRows = append(tmpRows, row)
-	}
-
-	newRows := make([]string, 0)
-	if token != "" {
-		for _, row := range tmpRows {
-			newRows = append(newRows, row)
-			if strings.HasPrefix(row, "[common]") {
-				newRows = append(newRows, token)
-			}
-		}
-	} else {
-		newRows = tmpRows
-	}
-	content = strings.Join(newRows, "\n")
-
-	err = os.WriteFile(svr.cfgFile, []byte(content), 0o644)
-	if err != nil {
+	if err := os.WriteFile(svr.cfgFile, body, 0o644); err != nil {
 		res.Code = 500
 		res.Msg = fmt.Sprintf("write content to frpc config file error: %v", err)
 		log.Warn("%s", res.Msg)

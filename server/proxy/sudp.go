@@ -17,20 +17,20 @@ package proxy
 import (
 	"reflect"
 
-	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
 
 func init() {
-	RegisterProxyFactory(reflect.TypeOf(&config.SUDPProxyConf{}), NewSUDPProxy)
+	RegisterProxyFactory(reflect.TypeOf(&v1.SUDPProxyConfig{}), NewSUDPProxy)
 }
 
 type SUDPProxy struct {
 	*BaseProxy
-	cfg *config.SUDPProxyConf
+	cfg *v1.SUDPProxyConfig
 }
 
-func NewSUDPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
-	unwrapped, ok := cfg.(*config.SUDPProxyConf)
+func NewSUDPProxy(baseProxy *BaseProxy) Proxy {
+	unwrapped, ok := baseProxy.GetConfigurer().(*v1.SUDPProxyConfig)
 	if !ok {
 		return nil
 	}
@@ -47,7 +47,7 @@ func (pxy *SUDPProxy) Run() (remoteAddr string, err error) {
 	if len(allowUsers) == 0 {
 		allowUsers = []string{pxy.GetUserInfo().User}
 	}
-	listener, errRet := pxy.rc.VisitorManager.Listen(pxy.GetName(), pxy.cfg.Sk, allowUsers)
+	listener, errRet := pxy.rc.VisitorManager.Listen(pxy.GetName(), pxy.cfg.Secretkey, allowUsers)
 	if errRet != nil {
 		err = errRet
 		return
@@ -57,10 +57,6 @@ func (pxy *SUDPProxy) Run() (remoteAddr string, err error) {
 
 	pxy.startCommonTCPListenersHandler()
 	return
-}
-
-func (pxy *SUDPProxy) GetConf() config.ProxyConf {
-	return pxy.cfg
 }
 
 func (pxy *SUDPProxy) Close() {

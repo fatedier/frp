@@ -20,23 +20,23 @@ import (
 
 	"github.com/fatedier/golib/errors"
 
-	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 )
 
 func init() {
-	RegisterProxyFactory(reflect.TypeOf(&config.XTCPProxyConf{}), NewXTCPProxy)
+	RegisterProxyFactory(reflect.TypeOf(&v1.XTCPProxyConfig{}), NewXTCPProxy)
 }
 
 type XTCPProxy struct {
 	*BaseProxy
-	cfg *config.XTCPProxyConf
+	cfg *v1.XTCPProxyConfig
 
 	closeCh chan struct{}
 }
 
-func NewXTCPProxy(baseProxy *BaseProxy, cfg config.ProxyConf) Proxy {
-	unwrapped, ok := cfg.(*config.XTCPProxyConf)
+func NewXTCPProxy(baseProxy *BaseProxy) Proxy {
+	unwrapped, ok := baseProxy.GetConfigurer().(*v1.XTCPProxyConfig)
 	if !ok {
 		return nil
 	}
@@ -58,7 +58,7 @@ func (pxy *XTCPProxy) Run() (remoteAddr string, err error) {
 	if len(allowUsers) == 0 {
 		allowUsers = []string{pxy.GetUserInfo().User}
 	}
-	sidCh, err := pxy.rc.NatHoleController.ListenClient(pxy.GetName(), pxy.cfg.Sk, allowUsers)
+	sidCh, err := pxy.rc.NatHoleController.ListenClient(pxy.GetName(), pxy.cfg.Secretkey, allowUsers)
 	if err != nil {
 		return "", err
 	}
@@ -84,10 +84,6 @@ func (pxy *XTCPProxy) Run() (remoteAddr string, err error) {
 		}
 	}()
 	return
-}
-
-func (pxy *XTCPProxy) GetConf() config.ProxyConf {
-	return pxy.cfg
 }
 
 func (pxy *XTCPProxy) Close() {

@@ -18,43 +18,32 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/samber/lo"
+
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
-type TokenConfig struct {
-	// Token specifies the authorization token used to create keys to be sent
-	// to the server. The server must have a matching token for authorization
-	// to succeed.  By default, this value is "".
-	Token string `ini:"token" json:"token"`
-}
-
-func getDefaultTokenConf() TokenConfig {
-	return TokenConfig{
-		Token: "",
-	}
-}
-
 type TokenAuthSetterVerifier struct {
-	BaseConfig
-
-	token string
+	additionalAuthScopes []v1.AuthScope
+	token                string
 }
 
-func NewTokenAuth(baseCfg BaseConfig, cfg TokenConfig) *TokenAuthSetterVerifier {
+func NewTokenAuth(additionalAuthScopes []v1.AuthScope, token string) *TokenAuthSetterVerifier {
 	return &TokenAuthSetterVerifier{
-		BaseConfig: baseCfg,
-		token:      cfg.Token,
+		additionalAuthScopes: additionalAuthScopes,
+		token:                token,
 	}
 }
 
-func (auth *TokenAuthSetterVerifier) SetLogin(loginMsg *msg.Login) (err error) {
+func (auth *TokenAuthSetterVerifier) SetLogin(loginMsg *msg.Login) error {
 	loginMsg.PrivilegeKey = util.GetAuthKey(auth.token, loginMsg.Timestamp)
 	return nil
 }
 
 func (auth *TokenAuthSetterVerifier) SetPing(pingMsg *msg.Ping) error {
-	if !auth.AuthenticateHeartBeats {
+	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeHeartBeats) {
 		return nil
 	}
 
@@ -64,7 +53,7 @@ func (auth *TokenAuthSetterVerifier) SetPing(pingMsg *msg.Ping) error {
 }
 
 func (auth *TokenAuthSetterVerifier) SetNewWorkConn(newWorkConnMsg *msg.NewWorkConn) error {
-	if !auth.AuthenticateNewWorkConns {
+	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeNewWorkConns) {
 		return nil
 	}
 
@@ -81,7 +70,7 @@ func (auth *TokenAuthSetterVerifier) VerifyLogin(m *msg.Login) error {
 }
 
 func (auth *TokenAuthSetterVerifier) VerifyPing(m *msg.Ping) error {
-	if !auth.AuthenticateHeartBeats {
+	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeHeartBeats) {
 		return nil
 	}
 
@@ -92,7 +81,7 @@ func (auth *TokenAuthSetterVerifier) VerifyPing(m *msg.Ping) error {
 }
 
 func (auth *TokenAuthSetterVerifier) VerifyNewWorkConn(m *msg.NewWorkConn) error {
-	if !auth.AuthenticateNewWorkConns {
+	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeNewWorkConns) {
 		return nil
 	}
 

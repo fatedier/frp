@@ -1,4 +1,4 @@
-// Copyright 2019 fatedier, fatedier@gmail.com
+// Copyright 2023 The frp Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,29 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package v1
 
 import (
-	"encoding/json"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/samber/lo"
+	"github.com/stretchr/testify/require"
 )
 
-type Wrap struct {
-	B   BandwidthQuantity `json:"b"`
-	Int int               `json:"int"`
-}
+func TestClientConfigComplete(t *testing.T) {
+	require := require.New(t)
+	c := &ClientConfig{}
+	c.Complete()
 
-func TestBandwidthQuantity(t *testing.T) {
-	assert := assert.New(t)
-
-	var w Wrap
-	err := json.Unmarshal([]byte(`{"b":"1KB","int":5}`), &w)
-	assert.NoError(err)
-	assert.EqualValues(1*KB, w.B.Bytes())
-
-	buf, err := json.Marshal(&w)
-	assert.NoError(err)
-	assert.Equal(`{"b":"1KB","int":5}`, string(buf))
+	require.Equal("token", c.Auth.Method)
+	require.Equal(true, lo.FromPtr(c.Transport.TCPMux))
+	require.Equal(true, lo.FromPtr(c.LoginFailExit))
+	require.Equal(true, lo.FromPtr(c.Transport.TLS.Enable))
+	require.Equal(true, lo.FromPtr(c.Transport.TLS.DisableCustomTLSFirstByte))
 }
