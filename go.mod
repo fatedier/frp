@@ -3,7 +3,6 @@ module github.com/fatedier/frp
 go 1.20
 
 require (
-	github.com/BurntSushi/toml v0.3.1
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
 	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/fatedier/beego v0.0.0-20171024143340-6c6a4f5bd5eb
@@ -15,6 +14,7 @@ require (
 	github.com/hashicorp/yamux v0.1.1
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.8
+	github.com/pelletier/go-toml/v2 v2.1.0
 	github.com/pion/stun v0.6.1
 	github.com/pires/go-proxyproto v0.7.0
 	github.com/prometheus/client_golang v1.16.0

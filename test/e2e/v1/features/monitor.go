@@ -19,18 +19,19 @@ var _ = ginkgo.Describe("[Feature: Monitor]", func() {
 	ginkgo.It("Prometheus metrics", func() {
 		dashboardPort := f.AllocPort()
 		serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
-		enable_prometheus = true
-		dashboard_addr = 0.0.0.0
-		dashboard_port = %d
+		enablePrometheus = true
+		webServer.addr = "0.0.0.0"
+		webServer.port = %d
 		`, dashboardPort)
 
 		clientConf := consts.DefaultClientConfig
 		remotePort := f.AllocPort()
 		clientConf += fmt.Sprintf(`
-		[tcp]
-		type = tcp
-		local_port = {{ .%s }}
-		remote_port = %d
+		[[proxies]]
+		name = "tcp"
+		type = "tcp"
+		localPort = {{ .%s }}
+		remotePort = %d
 		`, framework.TCPEchoServerPort, remotePort)
 
 		f.RunProcesses([]string{serverConf}, []string{clientConf})

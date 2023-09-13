@@ -33,8 +33,8 @@ func renderBindPortConfig(protocol string) string {
 }
 
 func runClientServerTest(f *framework.Framework, configures *generalTestConfigures) {
-	serverConf := consts.DefaultServerConfig
-	clientConf := consts.DefaultClientConfig
+	serverConf := consts.LegacyDefaultServerConfig
+	clientConf := consts.LegacyDefaultClientConfig
 	if configures.clientPrefix != "" {
 		clientConf = configures.clientPrefix
 	}
@@ -64,7 +64,7 @@ func runClientServerTest(f *framework.Framework, configures *generalTestConfigur
 
 	clientConfs := []string{clientConf}
 	if configures.client2 != "" {
-		client2Conf := consts.DefaultClientConfig
+		client2Conf := consts.LegacyDefaultClientConfig
 		if configures.client2Prefix != "" {
 			client2Conf = configures.client2Prefix
 		}

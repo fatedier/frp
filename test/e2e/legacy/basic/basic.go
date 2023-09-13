@@ -25,8 +25,8 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 		for _, t := range types {
 			proxyType := t
 			ginkgo.It(fmt.Sprintf("Expose a %s echo server", strings.ToUpper(proxyType)), func() {
-				serverConf := consts.DefaultServerConfig
-				clientConf := consts.DefaultClientConfig
+				serverConf := consts.LegacyDefaultServerConfig
+				clientConf := consts.LegacyDefaultClientConfig
 
 				localPortName := ""
 				protocol := "tcp"
@@ -96,13 +96,13 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 
 	ginkgo.Describe("HTTP", func() {
 		ginkgo.It("proxy to HTTP server", func() {
-			serverConf := consts.DefaultServerConfig
+			serverConf := consts.LegacyDefaultServerConfig
 			vhostHTTPPort := f.AllocPort()
 			serverConf += fmt.Sprintf(`
 			vhost_http_port = %d
 			`, vhostHTTPPort)
 
-			clientConf := consts.DefaultClientConfig
+			clientConf := consts.LegacyDefaultClientConfig
 
 			getProxyConf := func(proxyName string, customDomains string, extra string) string {
 				return fmt.Sprintf(`
@@ -178,14 +178,14 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 
 	ginkgo.Describe("HTTPS", func() {
 		ginkgo.It("proxy to HTTPS server", func() {
-			serverConf := consts.DefaultServerConfig
+			serverConf := consts.LegacyDefaultServerConfig
 			vhostHTTPSPort := f.AllocPort()
 			serverConf += fmt.Sprintf(`
 			vhost_https_port = %d
 			`, vhostHTTPSPort)
 
 			localPort := f.AllocPort()
-			clientConf := consts.DefaultClientConfig
+			clientConf := consts.LegacyDefaultClientConfig
 			getProxyConf := func(proxyName string, customDomains string, extra string) string {
 				return fmt.Sprintf(`
 				[%s]
@@ -281,10 +281,10 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 		for _, t := range types {
 			proxyType := t
 			ginkgo.It(fmt.Sprintf("Expose echo server with %s", strings.ToUpper(proxyType)), func() {
-				serverConf := consts.DefaultServerConfig
-				clientServerConf := consts.DefaultClientConfig + "\nuser = user1"
-				clientVisitorConf := consts.DefaultClientConfig + "\nuser = user1"
-				clientUser2VisitorConf := consts.DefaultClientConfig + "\nuser = user2"
+				serverConf := consts.LegacyDefaultServerConfig
+				clientServerConf := consts.LegacyDefaultClientConfig + "\nuser = user1"
+				clientVisitorConf := consts.LegacyDefaultClientConfig + "\nuser = user1"
+				clientUser2VisitorConf := consts.LegacyDefaultClientConfig + "\nuser = user2"
 
 				localPortName := ""
 				protocol := "tcp"
@@ -439,8 +439,8 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 
 	ginkgo.Describe("TCPMUX", func() {
 		ginkgo.It("Type tcpmux", func() {
-			serverConf := consts.DefaultServerConfig
-			clientConf := consts.DefaultClientConfig
+			serverConf := consts.LegacyDefaultServerConfig
+			clientConf := consts.LegacyDefaultClientConfig
 
 			tcpmuxHTTPConnectPortName := port.GenName("TCPMUX")
 			serverConf += fmt.Sprintf(`

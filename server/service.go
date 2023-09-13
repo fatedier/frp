@@ -108,9 +108,9 @@ type Service struct {
 
 func NewService(cfg *v1.ServerConfig) (svr *Service, err error) {
 	tlsConfig, err := transport.NewServerTLSConfig(
-		cfg.TLS.CertFile,
-		cfg.TLS.KeyFile,
-		cfg.TLS.TrustedCaFile)
+		cfg.Transport.TLS.CertFile,
+		cfg.Transport.TLS.KeyFile,
+		cfg.Transport.TLS.TrustedCaFile)
 	if err != nil {
 		return
 	}
@@ -455,7 +455,7 @@ func (svr *Service) HandleListener(l net.Listener) {
 		log.Trace("start check TLS connection...")
 		originConn := c
 		var isTLS, custom bool
-		c, isTLS, custom, err = utilnet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, svr.cfg.TLS.Force, connReadTimeout)
+		c, isTLS, custom, err = utilnet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, svr.cfg.Transport.TLS.Force, connReadTimeout)
 		if err != nil {
 			log.Warn("CheckAndEnableTLSServerConnWithTimeout error: %v", err)
 			originConn.Close()

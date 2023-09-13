@@ -23,7 +23,7 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 
 	ginkgo.It("HTTP X-Forwarded-For", func() {
 		vhostHTTPPort := f.AllocPort()
-		serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+		serverConf := consts.LegacyDefaultServerConfig + fmt.Sprintf(`
 		vhost_http_port = %d
 		`, vhostHTTPPort)
 
@@ -36,7 +36,7 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 		)
 		f.RunServer("", localServer)
 
-		clientConf := consts.DefaultClientConfig
+		clientConf := consts.LegacyDefaultClientConfig
 		clientConf += fmt.Sprintf(`
 		[test]
 		type = http
@@ -56,8 +56,8 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 
 	ginkgo.Describe("Proxy Protocol", func() {
 		ginkgo.It("TCP", func() {
-			serverConf := consts.DefaultServerConfig
-			clientConf := consts.DefaultClientConfig
+			serverConf := consts.LegacyDefaultServerConfig
+			clientConf := consts.LegacyDefaultClientConfig
 
 			localPort := f.AllocPort()
 			localServer := streamserver.New(streamserver.TCP, streamserver.WithBindPort(localPort),
@@ -107,11 +107,11 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 
 		ginkgo.It("HTTP", func() {
 			vhostHTTPPort := f.AllocPort()
-			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			serverConf := consts.LegacyDefaultServerConfig + fmt.Sprintf(`
 		vhost_http_port = %d
 		`, vhostHTTPPort)
 
-			clientConf := consts.DefaultClientConfig
+			clientConf := consts.LegacyDefaultClientConfig
 
 			localPort := f.AllocPort()
 			var srcAddrRecord string

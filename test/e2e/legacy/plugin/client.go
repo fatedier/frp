@@ -21,8 +21,8 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 
 	ginkgo.Describe("UnixDomainSocket", func() {
 		ginkgo.It("Expose a unix domain socket echo server", func() {
-			serverConf := consts.DefaultServerConfig
-			clientConf := consts.DefaultClientConfig
+			serverConf := consts.LegacyDefaultServerConfig
+			clientConf := consts.LegacyDefaultClientConfig
 
 			getProxyConf := func(proxyName string, portName string, extra string) string {
 				return fmt.Sprintf(`
@@ -77,8 +77,8 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 	})
 
 	ginkgo.It("http_proxy", func() {
-		serverConf := consts.DefaultServerConfig
-		clientConf := consts.DefaultClientConfig
+		serverConf := consts.LegacyDefaultServerConfig
+		clientConf := consts.LegacyDefaultClientConfig
 
 		remotePort := f.AllocPort()
 		clientConf += fmt.Sprintf(`
@@ -109,8 +109,8 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 	})
 
 	ginkgo.It("socks5 proxy", func() {
-		serverConf := consts.DefaultServerConfig
-		clientConf := consts.DefaultClientConfig
+		serverConf := consts.LegacyDefaultServerConfig
+		clientConf := consts.LegacyDefaultClientConfig
 
 		remotePort := f.AllocPort()
 		clientConf += fmt.Sprintf(`
@@ -137,10 +137,10 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 
 	ginkgo.It("static_file", func() {
 		vhostPort := f.AllocPort()
-		serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+		serverConf := consts.LegacyDefaultServerConfig + fmt.Sprintf(`
 		vhost_http_port = %d
 		`, vhostPort)
-		clientConf := consts.DefaultClientConfig
+		clientConf := consts.LegacyDefaultClientConfig
 
 		remotePort := f.AllocPort()
 		f.WriteTempFile("test_static_file", "foo")
@@ -185,14 +185,14 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 	})
 
 	ginkgo.It("http2https", func() {
-		serverConf := consts.DefaultServerConfig
+		serverConf := consts.LegacyDefaultServerConfig
 		vhostHTTPPort := f.AllocPort()
 		serverConf += fmt.Sprintf(`
 		vhost_http_port = %d
 		`, vhostHTTPPort)
 
 		localPort := f.AllocPort()
-		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+		clientConf := consts.LegacyDefaultClientConfig + fmt.Sprintf(`
 		[http2https]
 		type = http
 		custom_domains = example.com
@@ -227,14 +227,14 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 		crtPath := f.WriteTempFile("server.crt", string(artifacts.Cert))
 		keyPath := f.WriteTempFile("server.key", string(artifacts.Key))
 
-		serverConf := consts.DefaultServerConfig
+		serverConf := consts.LegacyDefaultServerConfig
 		vhostHTTPSPort := f.AllocPort()
 		serverConf += fmt.Sprintf(`
 		vhost_https_port = %d
 		`, vhostHTTPSPort)
 
 		localPort := f.AllocPort()
-		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+		clientConf := consts.LegacyDefaultClientConfig + fmt.Sprintf(`
 		[https2http]
 		type = https
 		custom_domains = example.com
@@ -271,14 +271,14 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 		crtPath := f.WriteTempFile("server.crt", string(artifacts.Cert))
 		keyPath := f.WriteTempFile("server.key", string(artifacts.Key))
 
-		serverConf := consts.DefaultServerConfig
+		serverConf := consts.LegacyDefaultServerConfig
 		vhostHTTPSPort := f.AllocPort()
 		serverConf += fmt.Sprintf(`
 		vhost_https_port = %d
 		`, vhostHTTPSPort)
 
 		localPort := f.AllocPort()
-		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+		clientConf := consts.LegacyDefaultClientConfig + fmt.Sprintf(`
 		[https2https]
 		type = https
 		custom_domains = example.com

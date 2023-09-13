@@ -32,6 +32,9 @@ var creators = make(map[string]CreatorFn)
 type CreatorFn func(options v1.ClientPluginOptions) (Plugin, error)
 
 func Register(name string, fn CreatorFn) {
+	if _, exist := creators[name]; exist {
+		panic(fmt.Sprintf("plugin [%s] is already registered", name))
+	}
 	creators[name] = fn
 }
 

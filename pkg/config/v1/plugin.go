@@ -46,10 +46,11 @@ func (c *TypedClientPluginOptions) UnmarshalJSON(b []byte) error {
 	if !ok {
 		return fmt.Errorf("unknown plugin type: %s", typeStruct.Type)
 	}
-	if err := json.Unmarshal(b, v); err != nil {
+	options := reflect.New(v).Interface().(ClientPluginOptions)
+	if err := json.Unmarshal(b, options); err != nil {
 		return err
 	}
-	c.ClientPluginOptions = v
+	c.ClientPluginOptions = options
 	return nil
 }
 

@@ -10,9 +10,9 @@ import (
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
+	plugintest "github.com/fatedier/frp/test/e2e/legacy/plugin"
 	"github.com/fatedier/frp/test/e2e/mock/server/streamserver"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
-	plugintest "github.com/fatedier/frp/test/e2e/plugin"
 )
 
 var _ = ginkgo.Describe("[Feature: Bandwidth Limit]", func() {
@@ -28,11 +28,12 @@ var _ = ginkgo.Describe("[Feature: Bandwidth Limit]", func() {
 
 		remotePort := f.AllocPort()
 		clientConf += fmt.Sprintf(`
-			[tcp]
-			type = tcp
-			local_port = %d
-			remote_port = %d
-			bandwidth_limit = 10KB
+			[[proxies]]
+			name = "tcp"
+			type = "tcp"
+			localPort = %d
+			remotePort = %d
+			transport.bandwidthLimit = "10KB"
 			`, localPort, remotePort)
 
 		f.RunProcesses([]string{serverConf}, []string{clientConf})
@@ -70,10 +71,11 @@ var _ = ginkgo.Describe("[Feature: Bandwidth Limit]", func() {
 		f.RunServer("", pluginServer)
 
 		serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
-		[plugin.test]
-		addr = 127.0.0.1:%d
-		path = /handler
-		ops = NewProxy
+		[[httpPlugins]]
+		name = "test"
+		addr = "127.0.0.1:%d"
+		path = "/handler"
+		ops = ["NewProxy"]
 		`, pluginPort)
 		clientConf := consts.DefaultClientConfig
 
@@ -83,10 +85,11 @@ var _ = ginkgo.Describe("[Feature: Bandwidth Limit]", func() {
 
 		remotePort := f.AllocPort()
 		clientConf += fmt.Sprintf(`
-			[tcp]
-			type = tcp
-			local_port = %d
-			remote_port = %d
+			[[proxies]]
+			name = "tcp"
+			type = "tcp"
+			localPort = %d
+			remotePort = %d
 			`, localPort, remotePort)
 
 		f.RunProcesses([]string{serverConf}, []string{clientConf})

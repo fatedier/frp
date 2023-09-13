@@ -27,22 +27,25 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 		p3Port := f.AllocPort()
 
 		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
-		admin_port = %d
+		webServer.port = %d
 
-		[p1]
-		type = tcp
-		local_port = {{ .%s }}
-		remote_port = %d
+		[[proxies]]
+		name = "p1"
+		type = "tcp"
+		localPort = {{ .%s }}
+		remotePort = %d
 
-		[p2]
-		type = tcp
-		local_port = {{ .%s }}
-		remote_port = %d
+		[[proxies]]
+		name = "p2"
+		type = "tcp"
+		localPort = {{ .%s }}
+		remotePort = %d
 
-		[p3]
-		type = tcp
-		local_port = {{ .%s }}
-		remote_port = %d
+		[[proxies]]
+		name = "p3"
+		type = "tcp"
+		localPort = {{ .%s }}
+		remotePort = %d
 		`, adminPort,
 			framework.TCPEchoServerPort, p1Port,
 			framework.TCPEchoServerPort, p2Port,
@@ -61,7 +64,7 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 		newP2Port := f.AllocPort()
 		// change p2 port and remove p3 proxy
 		newClientConf := strings.ReplaceAll(conf, strconv.Itoa(p2Port), strconv.Itoa(newP2Port))
-		p3Index := strings.Index(newClientConf, "[p3]")
+		p3Index := strings.LastIndex(newClientConf, "[[proxies]]")
 		if p3Index >= 0 {
 			newClientConf = newClientConf[:p3Index]
 		}
@@ -84,10 +87,10 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 
 		dashboardPort := f.AllocPort()
 		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
-		admin_addr = 0.0.0.0
-		admin_port = %d
-		admin_user = admin
-		admin_pwd = admin
+        webServer.addr = "0.0.0.0"
+		webServer.port = %d
+		webServer.user = "admin"
+		webServer.password = "admin"
 		`, dashboardPort)
 
 		f.RunProcesses([]string{serverConf}, []string{clientConf})
@@ -108,12 +111,13 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 		adminPort := f.AllocPort()
 		testPort := f.AllocPort()
 		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
-		admin_port = %d
+		webServer.port = %d
 
-		[test]
-		type = tcp
-		local_port = {{ .%s }}
-		remote_port = %d
+		[[proxies]]
+		name = "test"
+		type = "tcp"
+		localPort = {{ .%s }}
+		remotePort = %d
 		`, adminPort, framework.TCPEchoServerPort, testPort)
 
 		f.RunProcesses([]string{serverConf}, []string{clientConf})

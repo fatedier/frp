@@ -71,7 +71,7 @@ func ValidateAllClientConfig(c *v1.ClientCommonConfig, pxyCfgs []v1.ProxyConfigu
 		warning, err := ValidateClientCommonConfig(c)
 		warnings = AppendError(warnings, warning)
 		if err != nil {
-			return err, warnings
+			return warnings, err
 		}
 	}
 

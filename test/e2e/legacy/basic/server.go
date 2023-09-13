@@ -18,8 +18,8 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 	f := framework.NewDefaultFramework()
 
 	ginkgo.It("Ports Whitelist", func() {
-		serverConf := consts.DefaultServerConfig
-		clientConf := consts.DefaultClientConfig
+		serverConf := consts.LegacyDefaultServerConfig
+		clientConf := consts.LegacyDefaultClientConfig
 
 		serverConf += `
 			allow_ports = 20000-25000,25002,30000-50000
@@ -81,8 +81,8 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 	})
 
 	ginkgo.It("Alloc Random Port", func() {
-		serverConf := consts.DefaultServerConfig
-		clientConf := consts.DefaultClientConfig
+		serverConf := consts.LegacyDefaultServerConfig
+		clientConf := consts.LegacyDefaultClientConfig
 
 		adminPort := f.AllocPort()
 		clientConf += fmt.Sprintf(`
@@ -125,13 +125,13 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 	})
 
 	ginkgo.It("Port Reuse", func() {
-		serverConf := consts.DefaultServerConfig
+		serverConf := consts.LegacyDefaultServerConfig
 		// Use same port as PortServer
 		serverConf += fmt.Sprintf(`
 		vhost_http_port = {{ .%s }}
 		`, consts.PortServerName)
 
-		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+		clientConf := consts.LegacyDefaultClientConfig + fmt.Sprintf(`
 		[http]
 		type = http
 		local_port = {{ .%s }}
@@ -146,7 +146,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 	})
 
 	ginkgo.It("healthz", func() {
-		serverConf := consts.DefaultServerConfig
+		serverConf := consts.LegacyDefaultServerConfig
 		dashboardPort := f.AllocPort()
 
 		// Use same port as PortServer
@@ -158,7 +158,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 		dashboard_pwd = admin
 		`, consts.PortServerName, dashboardPort)
 
-		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+		clientConf := consts.LegacyDefaultClientConfig + fmt.Sprintf(`
 		[http]
 		type = http
 		local_port = {{ .%s }}

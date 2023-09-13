@@ -76,8 +76,6 @@ type ServerConfig struct {
 
 	Transport ServerTransportConfig `json:"transport,omitempty"`
 
-	TLS TLSServerConfig `json:"tls,omitempty"`
-
 	// DetailedErrorsToClient defines whether to send the specific error (with
 	// debug info) to frpc. By default, this value is true.
 	DetailedErrorsToClient *bool `json:"detailedErrorsToClient,omitempty"`
@@ -109,9 +107,6 @@ func (c *ServerConfig) Complete() {
 	if c.ProxyBindAddr == "" {
 		c.ProxyBindAddr = c.BindAddr
 	}
-	if c.TLS.TrustedCaFile != "" {
-		c.TLS.Force = true
-	}
 
 	if c.WebServer.Port > 0 {
 		c.WebServer.Addr = util.EmptyOr(c.WebServer.Addr, "0.0.0.0")
@@ -125,10 +120,10 @@ func (c *ServerConfig) Complete() {
 }
 
 type AuthServerConfig struct {
-	Method               string               `json:"method,omitempty"`
-	AdditionalAuthScopes []AuthScope          `json:"additionalAuthScopes,omitempty"`
-	Token                string               `json:"token,omitempty"`
-	OIDC                 AuthOIDCServerConfig `json:"oidc,omitempty"`
+	Method           string               `json:"method,omitempty"`
+	AdditionalScopes []AuthScope          `json:"additionalScopes,omitempty"`
+	Token            string               `json:"token,omitempty"`
+	OIDC             AuthOIDCServerConfig `json:"oidc,omitempty"`
 }
 
 func (c *AuthServerConfig) Complete() {
@@ -171,6 +166,8 @@ type ServerTransportConfig struct {
 	HeartbeatTimeout int64 `json:"heartbeatTimeout,omitempty"`
 	// QUIC options.
 	QUIC QUICOptions `json:"quic,omitempty"`
+	// TLS specifies TLS settings for the connection from the client.
+	TLS TLSServerConfig `json:"tls,omitempty"`
 }
 
 func (c *ServerTransportConfig) Complete() {
@@ -180,6 +177,9 @@ func (c *ServerTransportConfig) Complete() {
 	c.MaxPoolCount = util.EmptyOr(c.MaxPoolCount, 5)
 	c.HeartbeatTimeout = util.EmptyOr(c.HeartbeatTimeout, 90)
 	c.QUIC.Complete()
+	if c.TLS.TrustedCaFile != "" {
+		c.TLS.Force = true
+	}
 }
 
 type TLSServerConfig struct {

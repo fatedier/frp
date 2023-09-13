@@ -168,7 +168,7 @@ type AuthClientConfig struct {
 	Method string `json:"method,omitempty"`
 	// Specify whether to include auth info in additional scope.
 	// Current supported scopes are: "HeartBeats", "NewWorkConns".
-	AdditionalAuthScopes []AuthScope `json:"additionalAuthScopes,omitempty"`
+	AdditionalScopes []AuthScope `json:"additionalScopes,omitempty"`
 	// Token specifies the authorization token used to create keys to be sent
 	// to the server. The server must have a matching token for authorization
 	// to succeed.  By default, this value is "".

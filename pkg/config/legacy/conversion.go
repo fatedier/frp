@@ -29,10 +29,10 @@ func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConf
 	out.Auth.Method = conf.ClientConfig.AuthenticationMethod
 	out.Auth.Token = conf.ClientConfig.Token
 	if conf.ClientConfig.AuthenticateHeartBeats {
-		out.Auth.AdditionalAuthScopes = append(out.Auth.AdditionalAuthScopes, v1.AuthScopeHeartBeats)
+		out.Auth.AdditionalScopes = append(out.Auth.AdditionalScopes, v1.AuthScopeHeartBeats)
 	}
 	if conf.ClientConfig.AuthenticateNewWorkConns {
-		out.Auth.AdditionalAuthScopes = append(out.Auth.AdditionalAuthScopes, v1.AuthScopeNewWorkConns)
+		out.Auth.AdditionalScopes = append(out.Auth.AdditionalScopes, v1.AuthScopeNewWorkConns)
 	}
 	out.Auth.OIDC.ClientID = conf.ClientConfig.OidcClientID
 	out.Auth.OIDC.ClientSecret = conf.ClientConfig.OidcClientSecret
@@ -89,10 +89,10 @@ func Convert_ServerCommonConf_To_v1(conf *ServerCommonConf) *v1.ServerConfig {
 	out.Auth.Method = conf.ServerConfig.AuthenticationMethod
 	out.Auth.Token = conf.ServerConfig.Token
 	if conf.ServerConfig.AuthenticateHeartBeats {
-		out.Auth.AdditionalAuthScopes = append(out.Auth.AdditionalAuthScopes, v1.AuthScopeHeartBeats)
+		out.Auth.AdditionalScopes = append(out.Auth.AdditionalScopes, v1.AuthScopeHeartBeats)
 	}
 	if conf.ServerConfig.AuthenticateNewWorkConns {
-		out.Auth.AdditionalAuthScopes = append(out.Auth.AdditionalAuthScopes, v1.AuthScopeNewWorkConns)
+		out.Auth.AdditionalScopes = append(out.Auth.AdditionalScopes, v1.AuthScopeNewWorkConns)
 	}
 	out.Auth.OIDC.Audience = conf.ServerConfig.OidcAudience
 	out.Auth.OIDC.Issuer = conf.ServerConfig.OidcIssuer
@@ -146,12 +146,12 @@ func Convert_ServerCommonConf_To_v1(conf *ServerCommonConf) *v1.ServerConfig {
 	out.Transport.MaxPoolCount = conf.MaxPoolCount
 	out.Transport.HeartbeatTimeout = conf.HeartbeatTimeout
 
-	out.MaxPortsPerClient = conf.MaxPortsPerClient
+	out.Transport.TLS.Force = conf.TLSOnly
+	out.Transport.TLS.CertFile = conf.TLSCertFile
+	out.Transport.TLS.KeyFile = conf.TLSKeyFile
+	out.Transport.TLS.TrustedCaFile = conf.TLSTrustedCaFile
 
-	out.TLS.Force = conf.TLSOnly
-	out.TLS.CertFile = conf.TLSCertFile
-	out.TLS.KeyFile = conf.TLSKeyFile
-	out.TLS.TrustedCaFile = conf.TLSTrustedCaFile
+	out.MaxPortsPerClient = conf.MaxPortsPerClient
 
 	for _, v := range conf.HTTPPlugins {
 		out.HTTPPlugins = append(out.HTTPPlugins, v1.HTTPPluginOptions{
