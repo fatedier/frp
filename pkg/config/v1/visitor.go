@@ -99,7 +99,7 @@ func (c *TypedVisitorConfig) UnmarshalJSON(b []byte) error {
 	c.Type = typeStruct.Type
 	configurer := NewVisitorConfigurerByType(typeStruct.Type)
 	if configurer == nil {
-		return fmt.Errorf("unknown visitor type: %s" + typeStruct.Type)
+		return fmt.Errorf("unknown visitor type: %s", typeStruct.Type)
 	}
 	if err := json.Unmarshal(b, configurer); err != nil {
 		return err

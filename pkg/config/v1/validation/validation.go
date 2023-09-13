@@ -16,6 +16,46 @@ package validation
 
 import (
 	"errors"
+
+	v1 "github.com/fatedier/frp/pkg/config/v1"
+	splugin "github.com/fatedier/frp/pkg/plugin/server"
+)
+
+var (
+	supportedTransportProtocols = []string{
+		"tcp",
+		"kcp",
+		"quic",
+		"websocket",
+		"wss",
+	}
+
+	supportedAuthMethods = []string{
+		"token",
+		"oidc",
+	}
+
+	supportedAuthAdditionalScopes = []v1.AuthScope{
+		"HeartBeats",
+		"NewWorkConns",
+	}
+
+	supportedLogLevels = []string{
+		"trace",
+		"debug",
+		"info",
+		"warn",
+		"error",
+	}
+
+	supportedHTTPPluginOps = []string{
+		splugin.OpLogin,
+		splugin.OpNewProxy,
+		splugin.OpCloseProxy,
+		splugin.OpPing,
+		splugin.OpNewWorkConn,
+		splugin.OpNewUserConn,
+	}
 )
 
 type Warning error
