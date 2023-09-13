@@ -81,4 +81,42 @@ var _ = ginkgo.Describe("[Feature: Config]", func() {
 			framework.NewRequestExpect(f).Port(remotePort2).Ensure()
 		})
 	})
+
+	ginkgo.Describe("Support Formats", func() {
+		ginkgo.It("YAML", func() {
+			serverConf := fmt.Sprintf(`
+bindPort: {{ .%s }}
+log:
+  level: trace
+`, port.GenName("Server"))
+
+			remotePort := f.AllocPort()
+			clientConf := fmt.Sprintf(`
+serverPort: {{ .%s }}
+log:
+  level: trace
+
+proxies:
+- name: tcp
+  type: tcp
+  localPort: {{ .%s }}
+  remotePort: %d
+`, port.GenName("Server"), framework.TCPEchoServerPort, remotePort)
+
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			framework.NewRequestExpect(f).Port(remotePort).Ensure()
+		})
+
+		ginkgo.It("JSON", func() {
+			serverConf := fmt.Sprintf(`{"bindPort": {{ .%s }}, "log": {"level": "trace"}}`, port.GenName("Server"))
+
+			remotePort := f.AllocPort()
+			clientConf := fmt.Sprintf(`{"serverPort": {{ .%s }}, "log": {"level": "trace"},
+"proxies": [{"name": "tcp", "type": "tcp", "localPort": {{ .%s }}, "remotePort": %d}]}`,
+				port.GenName("Server"), framework.TCPEchoServerPort, remotePort)
+
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			framework.NewRequestExpect(f).Port(remotePort).Ensure()
+		})
+	})
 })

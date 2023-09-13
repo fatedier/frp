@@ -29,6 +29,21 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 		warnings Warning
 		errs     error
 	)
+	if !lo.Contains(supportedAuthMethods, c.Auth.Method) {
+		errs = AppendError(errs, fmt.Errorf("invalid auth method, optional values are %v", supportedAuthMethods))
+	}
+	if !lo.Every(supportedAuthAdditionalScopes, c.Auth.AdditionalScopes) {
+		errs = AppendError(errs, fmt.Errorf("invalid auth additional scopes, optional values are %v", supportedAuthAdditionalScopes))
+	}
+
+	if err := validateLogConfig(&c.Log); err != nil {
+		errs = AppendError(errs, err)
+	}
+
+	if err := validateWebServerConfig(&c.WebServer); err != nil {
+		errs = AppendError(errs, err)
+	}
+
 	if c.Transport.HeartbeatTimeout > 0 && c.Transport.HeartbeatInterval > 0 {
 		if c.Transport.HeartbeatTimeout < c.Transport.HeartbeatInterval {
 			errs = AppendError(errs, fmt.Errorf("invalid transport.heartbeatTimeout, heartbeat timeout should not less than heartbeat interval"))
@@ -48,8 +63,8 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 		warnings = AppendError(warnings, checkTLSConfig("transport.tls.trustedCaFile", c.Transport.TLS.TrustedCaFile))
 	}
 
-	if !lo.Contains([]string{"tcp", "kcp", "quic", "websocket", "wss"}, c.Transport.Protocol) {
-		errs = AppendError(errs, fmt.Errorf("invalid transport.protocol, only support tcp, kcp, quic, websocket, wss"))
+	if !lo.Contains(supportedTransportProtocols, c.Transport.Protocol) {
+		errs = AppendError(errs, fmt.Errorf("invalid transport.protocol, optional values are %v", supportedTransportProtocols))
 	}
 
 	for _, f := range c.IncludeConfigFiles {

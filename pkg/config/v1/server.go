@@ -30,32 +30,32 @@ type ServerConfig struct {
 	BindAddr string `json:"bindAddr,omitempty"`
 	// BindPort specifies the port that the server listens on. By default, this
 	// value is 7000.
-	BindPort int `json:"bindPort,omitempty" validate:"gte=0,lte=65535"`
+	BindPort int `json:"bindPort,omitempty"`
 	// KCPBindPort specifies the KCP port that the server listens on. If this
 	// value is 0, the server will not listen for KCP connections.
-	KCPBindPort int `json:"kcpBindPort,omitempty" validate:"gte=0,lte=65535"`
+	KCPBindPort int `json:"kcpBindPort,omitempty"`
 	// QUICBindPort specifies the QUIC port that the server listens on.
 	// Set this value to 0 will disable this feature.
-	QUICBindPort int `json:"quicBindPort,omitempty" validate:"gte=0,lte=65535"`
+	QUICBindPort int `json:"quicBindPort,omitempty"`
 	// ProxyBindAddr specifies the address that the proxy binds to. This value
 	// may be the same as BindAddr.
 	ProxyBindAddr string `json:"proxyBindAddr,omitempty"`
 	// VhostHTTPPort specifies the port that the server listens for HTTP Vhost
 	// requests. If this value is 0, the server will not listen for HTTP
 	// requests.
-	VhostHTTPPort int `json:"vhostHTTPPort,omitempty" validate:"gte=0,lte=65535"`
+	VhostHTTPPort int `json:"vhostHTTPPort,omitempty"`
 	// VhostHTTPTimeout specifies the response header timeout for the Vhost
 	// HTTP server, in seconds. By default, this value is 60.
 	VhostHTTPTimeout int64 `json:"vhostHTTPTimeout,omitempty"`
 	// VhostHTTPSPort specifies the port that the server listens for HTTPS
 	// Vhost requests. If this value is 0, the server will not listen for HTTPS
 	// requests.
-	VhostHTTPSPort int `json:"vhostHTTPSPort,omitempty" validate:"gte=0,lte=65535"`
+	VhostHTTPSPort int `json:"vhostHTTPSPort,omitempty"`
 	// TCPMuxHTTPConnectPort specifies the port that the server listens for TCP
 	// HTTP CONNECT requests. If the value is 0, the server will not multiplex TCP
 	// requests on one single port. If it's not - it will listen on this value for
 	// HTTP CONNECT requests.
-	TCPMuxHTTPConnectPort int `json:"tcpmuxHTTPConnectPort,omitempty" validate:"gte=0,lte=65535"`
+	TCPMuxHTTPConnectPort int `json:"tcpmuxHTTPConnectPort,omitempty"`
 	// If TCPMuxPassthrough is true, frps won't do any update on traffic.
 	TCPMuxPassthrough bool `json:"tcpmuxPassthrough,omitempty"`
 	// SubDomainHost specifies the domain that will be attached to sub-domains

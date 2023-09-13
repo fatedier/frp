@@ -15,6 +15,10 @@
 package validation
 
 import (
+	"fmt"
+
+	"github.com/samber/lo"
+
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
 
@@ -23,15 +27,32 @@ func ValidateServerConfig(c *v1.ServerConfig) (Warning, error) {
 		warnings Warning
 		errs     error
 	)
+	if !lo.Contains(supportedAuthMethods, c.Auth.Method) {
+		errs = AppendError(errs, fmt.Errorf("invalid auth method, optional values are %v", supportedAuthMethods))
+	}
+	if !lo.Every(supportedAuthAdditionalScopes, c.Auth.AdditionalScopes) {
+		errs = AppendError(errs, fmt.Errorf("invalid auth additional scopes, optional values are %v", supportedAuthAdditionalScopes))
+	}
+
+	if err := validateLogConfig(&c.Log); err != nil {
+		errs = AppendError(errs, err)
+	}
+
 	if err := validateWebServerConfig(&c.WebServer); err != nil {
 		errs = AppendError(errs, err)
 	}
 
-	errs = AppendError(errs, ValidatePort(c.BindPort))
-	errs = AppendError(errs, ValidatePort(c.KCPBindPort))
-	errs = AppendError(errs, ValidatePort(c.QUICBindPort))
-	errs = AppendError(errs, ValidatePort(c.VhostHTTPPort))
-	errs = AppendError(errs, ValidatePort(c.VhostHTTPSPort))
-	errs = AppendError(errs, ValidatePort(c.TCPMuxHTTPConnectPort))
+	errs = AppendError(errs, ValidatePort(c.BindPort, "bindPort"))
+	errs = AppendError(errs, ValidatePort(c.KCPBindPort, "kcpBindPort"))
+	errs = AppendError(errs, ValidatePort(c.QUICBindPort, "quicBindPort"))
+	errs = AppendError(errs, ValidatePort(c.VhostHTTPPort, "vhostHTTPPort"))
+	errs = AppendError(errs, ValidatePort(c.VhostHTTPSPort, "vhostHTTPSPort"))
+	errs = AppendError(errs, ValidatePort(c.TCPMuxHTTPConnectPort, "tcpMuxHTTPConnectPort"))
+
+	for _, p := range c.HTTPPlugins {
+		if !lo.Every(supportedHTTPPluginOps, p.Ops) {
+			errs = AppendError(errs, fmt.Errorf("invalid http plugin ops, optional values are %v", supportedHTTPPluginOps))
+		}
+	}
 	return warnings, errs
 }

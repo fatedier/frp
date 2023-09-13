@@ -39,7 +39,7 @@ func validateProxyBaseConfigForClient(c *v1.ProxyBaseConfig) error {
 	}
 
 	if c.Plugin.Type == "" {
-		if err := ValidatePort(c.LocalPort); err != nil {
+		if err := ValidatePort(c.LocalPort, "localPort"); err != nil {
 			return fmt.Errorf("localPort: %v", err)
 		}
 	}
