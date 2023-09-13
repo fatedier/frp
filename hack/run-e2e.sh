@@ -6,7 +6,7 @@ ROOT=$(unset CDPATH && cd "$(dirname "$SCRIPT")/.." && pwd)
 ginkgo_command=$(which ginkgo 2>/dev/null)
 if [ -z "$ginkgo_command" ]; then
     echo "ginkgo not found, try to install..."
-    go install github.com/onsi/ginkgo/v2/ginkgo@v2.8.3
+    go install github.com/onsi/ginkgo/v2/ginkgo@v2.11.0
 fi
 
 debug=false

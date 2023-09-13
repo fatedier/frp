@@ -62,8 +62,8 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 
 	ginkgo.Describe("Load Balancing", func() {
 		ginkgo.It("TCP", func() {
-			serverConf := consts.DefaultServerConfig
-			clientConf := consts.DefaultClientConfig
+			serverConf := consts.LegacyDefaultServerConfig
+			clientConf := consts.LegacyDefaultClientConfig
 
 			fooPort := f.AllocPort()
 			fooServer := streamserver.New(streamserver.TCP, streamserver.WithBindPort(fooPort), streamserver.WithRespContent([]byte("foo")))
@@ -114,8 +114,8 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 
 	ginkgo.Describe("Health Check", func() {
 		ginkgo.It("TCP", func() {
-			serverConf := consts.DefaultServerConfig
-			clientConf := consts.DefaultClientConfig
+			serverConf := consts.LegacyDefaultServerConfig
+			clientConf := consts.LegacyDefaultClientConfig
 
 			fooPort := f.AllocPort()
 			fooServer := streamserver.New(streamserver.TCP, streamserver.WithBindPort(fooPort), streamserver.WithRespContent([]byte("foo")))
@@ -180,10 +180,10 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 
 		ginkgo.It("HTTP", func() {
 			vhostPort := f.AllocPort()
-			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			serverConf := consts.LegacyDefaultServerConfig + fmt.Sprintf(`
 			vhost_http_port = %d
 			`, vhostPort)
-			clientConf := consts.DefaultClientConfig
+			clientConf := consts.LegacyDefaultClientConfig
 
 			fooPort := f.AllocPort()
 			fooServer := newHTTPServer(fooPort, "foo")

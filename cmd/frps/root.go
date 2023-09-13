@@ -108,7 +108,8 @@ var rootCmd = &cobra.Command{
 		if cfgFile != "" {
 			svrCfg, isLegacyFormat, err = config.LoadServerConfig(cfgFile)
 			if err != nil {
-				return err
+				fmt.Println(err)
+				os.Exit(1)
 			}
 			if isLegacyFormat {
 				fmt.Printf("WARNING: ini format is deprecated and the support will be removed in the future, " +
@@ -116,7 +117,8 @@ var rootCmd = &cobra.Command{
 			}
 		} else {
 			if svrCfg, err = parseServerConfigFromCmd(); err != nil {
-				return err
+				fmt.Println(err)
+				os.Exit(1)
 			}
 		}
 
@@ -125,7 +127,8 @@ var rootCmd = &cobra.Command{
 			fmt.Printf("WARNING: %v\n", warning)
 		}
 		if err != nil {
-			return err
+			fmt.Println(err)
+			os.Exit(1)
 		}
 
 		if err := runServer(svrCfg); err != nil {
@@ -168,7 +171,7 @@ func parseServerConfigFromCmd() (*v1.ServerConfig, error) {
 	cfg.Log.MaxDays = logMaxDays
 	cfg.Log.DisablePrintColor = disableLogColor
 	cfg.SubDomainHost = subDomainHost
-	cfg.TLS.Force = tlsOnly
+	cfg.Transport.TLS.Force = tlsOnly
 	cfg.MaxPortsPerClient = maxPortsPerClient
 
 	// Only token authentication is supported in cmd mode

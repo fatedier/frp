@@ -20,16 +20,17 @@ var _ = ginkgo.Describe("[Feature: Config]", func() {
 
 			portName := port.GenName("TCP")
 			serverConf += fmt.Sprintf(`
-			token = {{ %s{{ .Envs.FRP_TOKEN }}%s }}
+			auth.token = "{{ %s{{ .Envs.FRP_TOKEN }}%s }}"
 			`, "`", "`")
 
 			clientConf += fmt.Sprintf(`
-			token = {{ %s{{ .Envs.FRP_TOKEN }}%s }}
+			auth.token = "{{ %s{{ .Envs.FRP_TOKEN }}%s }}"
 
-			[tcp]
-			type = tcp
-			local_port = {{ .%s }}
-			remote_port = {{ .%s }}
+			[[proxies]]
+			name = "tcp"
+			type = "tcp"
+			localPort = {{ .%s }}
+			remotePort = {{ .%s }}
 			`, "`", "`", framework.TCPEchoServerPort, portName)
 
 			f.SetEnvs([]string{"FRP_TOKEN=123"})
@@ -43,31 +44,31 @@ var _ = ginkgo.Describe("[Feature: Config]", func() {
 		ginkgo.It("split tcp proxies into different files", func() {
 			serverPort := f.AllocPort()
 			serverConfigPath := f.GenerateConfigFile(fmt.Sprintf(`
-			[common]
-			bind_addr = 0.0.0.0
-			bind_port = %d
+			bindAddr = "0.0.0.0"
+			bindPort = %d
 			`, serverPort))
 
 			remotePort := f.AllocPort()
 			proxyConfigPath := f.GenerateConfigFile(fmt.Sprintf(`
-			[tcp]
-			type = tcp
-			local_port = %d
-			remote_port = %d
+			[[proxies]]
+			name = "tcp"
+			type = "tcp"
+			localPort = %d
+			remotePort = %d
 			`, f.PortByName(framework.TCPEchoServerPort), remotePort))
 
 			remotePort2 := f.AllocPort()
 			proxyConfigPath2 := f.GenerateConfigFile(fmt.Sprintf(`
-			[tcp2]
-			type = tcp
-			local_port = %d
-			remote_port = %d
+			[[proxies]]
+			name = "tcp2"
+			type = "tcp"
+			localPort = %d
+			remotePort = %d
 			`, f.PortByName(framework.TCPEchoServerPort), remotePort2))
 
 			clientConfigPath := f.GenerateConfigFile(fmt.Sprintf(`
-			[common]
-			server_port = %d
-			includes = %s,%s
+			serverPort = %d
+			includes = ["%s","%s"]
 			`, serverPort, proxyConfigPath, proxyConfigPath2))
 
 			_, _, err := f.RunFrps("-c", serverConfigPath)

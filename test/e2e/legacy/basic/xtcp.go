@@ -16,8 +16,8 @@ var _ = ginkgo.Describe("[Feature: XTCP]", func() {
 	f := framework.NewDefaultFramework()
 
 	ginkgo.It("Fallback To STCP", func() {
-		serverConf := consts.DefaultServerConfig
-		clientConf := consts.DefaultClientConfig
+		serverConf := consts.LegacyDefaultServerConfig
+		clientConf := consts.LegacyDefaultClientConfig
 
 		bindPortName := port.GenName("XTCP")
 		clientConf += fmt.Sprintf(`

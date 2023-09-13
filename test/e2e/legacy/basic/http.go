@@ -19,7 +19,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 	f := framework.NewDefaultFramework()
 
 	getDefaultServerConf := func(vhostHTTPPort int) string {
-		conf := consts.DefaultServerConfig + `
+		conf := consts.LegacyDefaultServerConfig + `
 		vhost_http_port = %d
 		`
 		return fmt.Sprintf(conf, vhostHTTPPort)
@@ -41,7 +41,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 		barPort := f.AllocPort()
 		f.RunServer("", newHTTPServer(barPort, "bar"))
 
-		clientConf := consts.DefaultClientConfig
+		clientConf := consts.LegacyDefaultClientConfig
 		clientConf += fmt.Sprintf(`
 			[foo]
 			type = http
@@ -91,7 +91,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 		otherPort := f.AllocPort()
 		f.RunServer("", newHTTPServer(otherPort, "other"))
 
-		clientConf := consts.DefaultClientConfig
+		clientConf := consts.LegacyDefaultClientConfig
 		clientConf += fmt.Sprintf(`
 			[foo]
 			type = http
@@ -142,7 +142,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostHTTPPort)
 
-		clientConf := consts.DefaultClientConfig
+		clientConf := consts.LegacyDefaultClientConfig
 		clientConf += fmt.Sprintf(`
 			[test]
 			type = http
@@ -180,7 +180,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostHTTPPort)
 
-		clientConf := consts.DefaultClientConfig
+		clientConf := consts.LegacyDefaultClientConfig
 		clientConf += fmt.Sprintf(`
 			[test]
 			type = http
@@ -225,7 +225,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 		barPort := f.AllocPort()
 		f.RunServer("", newHTTPServer(barPort, "bar"))
 
-		clientConf := consts.DefaultClientConfig
+		clientConf := consts.LegacyDefaultClientConfig
 		clientConf += fmt.Sprintf(`
 			[foo]
 			type = http
@@ -270,7 +270,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 		)
 		f.RunServer("", localServer)
 
-		clientConf := consts.DefaultClientConfig
+		clientConf := consts.LegacyDefaultClientConfig
 		clientConf += fmt.Sprintf(`
 			[test]
 			type = http
@@ -303,7 +303,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 		)
 		f.RunServer("", localServer)
 
-		clientConf := consts.DefaultClientConfig
+		clientConf := consts.LegacyDefaultClientConfig
 		clientConf += fmt.Sprintf(`
 			[test]
 			type = http
@@ -352,7 +352,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 
 		f.RunServer("", localServer)
 
-		clientConf := consts.DefaultClientConfig
+		clientConf := consts.LegacyDefaultClientConfig
 		clientConf += fmt.Sprintf(`
 			[test]
 			type = http

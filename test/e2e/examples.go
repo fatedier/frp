@@ -19,10 +19,11 @@ var _ = ginkgo.Describe("[Feature: Example]", func() {
 
 			remotePort := f.AllocPort()
 			clientConf += fmt.Sprintf(`
-			[tcp]
-			type = tcp
-			local_port = {{ .%s }}
-			remote_port = %d
+			[[proxies]]
+			name = "tcp"
+			type = "tcp"
+			localPort = {{ .%s }}
+			remotePort = %d
 			`, framework.TCPEchoServerPort, remotePort)
 
 			f.RunProcesses([]string{serverConf}, []string{clientConf})

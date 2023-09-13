@@ -21,7 +21,7 @@ var _ = ginkgo.Describe("[Feature: TCPMUX httpconnect]", func() {
 
 	getDefaultServerConf := func(httpconnectPort int) string {
 		conf := consts.DefaultServerConfig + `
-		tcpmux_httpconnect_port = %d
+		tcpmuxHTTPConnectPort = %d
 		`
 		return fmt.Sprintf(conf, httpconnectPort)
 	}
@@ -55,25 +55,28 @@ var _ = ginkgo.Describe("[Feature: TCPMUX httpconnect]", func() {
 
 		clientConf := consts.DefaultClientConfig
 		clientConf += fmt.Sprintf(`
-			[foo]
-			type = tcpmux
-			multiplexer = httpconnect
-			local_port = %d
-			custom_domains = normal.example.com
-			route_by_http_user = user1
+			[[proxies]]
+			name = "foo"
+			type = "tcpmux"
+			multiplexer = "httpconnect"
+			localPort = %d
+			customDomains = ["normal.example.com"]
+			routeByHTTPUser = "user1"
 
-			[bar]
-			type = tcpmux
-			multiplexer = httpconnect
-			local_port = %d
-			custom_domains = normal.example.com
-			route_by_http_user = user2
+			[[proxies]]
+			name = "bar"
+			type = "tcpmux"
+			multiplexer = "httpconnect"
+			localPort = %d
+			customDomains = ["normal.example.com"]
+			routeByHTTPUser = "user2"
 
-			[catchAll]
-			type = tcpmux
-			multiplexer = httpconnect
-			local_port = %d
-			custom_domains = normal.example.com
+			[[proxies]]
+			name = "catchAll"
+			type = "tcpmux"
+			multiplexer = "httpconnect"
+			localPort = %d
+			customDomains = ["normal.example.com"]
 			`, fooPort, barPort, otherPort)
 
 		f.RunProcesses([]string{serverConf}, []string{clientConf})
@@ -112,13 +115,14 @@ var _ = ginkgo.Describe("[Feature: TCPMUX httpconnect]", func() {
 
 		clientConf := consts.DefaultClientConfig
 		clientConf += fmt.Sprintf(`
-			[test]
-			type = tcpmux
-			multiplexer = httpconnect
-			local_port = %d
-			custom_domains = normal.example.com
-			http_user = test
-			http_pwd = test
+			[[proxies]]
+			name = "test"
+			type = "tcpmux"
+			multiplexer = "httpconnect"
+			localPort = %d
+			customDomains = ["normal.example.com"]
+			httpUser = "test"
+			httpPassword = "test"
 		`, fooPort)
 
 		f.RunProcesses([]string{serverConf}, []string{clientConf})
@@ -152,7 +156,7 @@ var _ = ginkgo.Describe("[Feature: TCPMUX httpconnect]", func() {
 		vhostPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostPort)
 		serverConf += `
-			tcpmux_passthrough = true
+		tcpmuxPassthrough = true
 		`
 
 		var (
@@ -197,11 +201,12 @@ var _ = ginkgo.Describe("[Feature: TCPMUX httpconnect]", func() {
 
 		clientConf := consts.DefaultClientConfig
 		clientConf += fmt.Sprintf(`
-			[test]
-			type = tcpmux
-			multiplexer = httpconnect
-			local_port = %d
-			custom_domains = normal.example.com
+			[[proxies]]
+			name = "test"
+			type = "tcpmux"
+			multiplexer = "httpconnect"
+			localPort = %d
+			customDomains = ["normal.example.com"]
 			`, localPort)
 
 		f.RunProcesses([]string{serverConf}, []string{clientConf})

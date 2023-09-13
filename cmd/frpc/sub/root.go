@@ -186,7 +186,7 @@ func parseClientCommonCfgFromCmd() (*v1.ClientCommonConfig, error) {
 
 	cfg.Complete()
 
-	err, warning := validation.ValidateClientCommonConfig(cfg)
+	warning, err := validation.ValidateClientCommonConfig(cfg)
 	if warning != nil {
 		fmt.Printf("WARNING: %v\n", warning)
 	}

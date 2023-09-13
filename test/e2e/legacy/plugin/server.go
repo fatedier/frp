@@ -44,13 +44,13 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 
 			f.RunServer("", pluginServer)
 
-			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			serverConf := consts.LegacyDefaultServerConfig + fmt.Sprintf(`
 			[plugin.user-manager]
 			addr = 127.0.0.1:%d
 			path = /handler
 			ops = Login
 			`, localPort)
-			clientConf := consts.DefaultClientConfig
+			clientConf := consts.LegacyDefaultClientConfig
 
 			remotePort := f.AllocPort()
 			clientConf += fmt.Sprintf(`
@@ -63,7 +63,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			`, framework.TCPEchoServerPort, remotePort)
 
 			remotePort2 := f.AllocPort()
-			invalidTokenClientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+			invalidTokenClientConf := consts.LegacyDefaultClientConfig + fmt.Sprintf(`
 			[tcp2]
 			type = tcp
 			local_port = {{ .%s }}
@@ -102,13 +102,13 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 
 			f.RunServer("", pluginServer)
 
-			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			serverConf := consts.LegacyDefaultServerConfig + fmt.Sprintf(`
 			[plugin.test]
 			addr = 127.0.0.1:%d
 			path = /handler
 			ops = NewProxy
 			`, localPort)
-			clientConf := consts.DefaultClientConfig
+			clientConf := consts.LegacyDefaultClientConfig
 
 			remotePort := f.AllocPort()
 			clientConf += fmt.Sprintf(`
@@ -137,13 +137,13 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 
 			f.RunServer("", pluginServer)
 
-			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			serverConf := consts.LegacyDefaultServerConfig + fmt.Sprintf(`
 			[plugin.test]
 			addr = 127.0.0.1:%d
 			path = /handler
 			ops = NewProxy
 			`, localPort)
-			clientConf := consts.DefaultClientConfig
+			clientConf := consts.LegacyDefaultClientConfig
 
 			clientConf += fmt.Sprintf(`
 			[tcp]
@@ -178,13 +178,13 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 
 			f.RunServer("", pluginServer)
 
-			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			serverConf := consts.LegacyDefaultServerConfig + fmt.Sprintf(`
 			[plugin.test]
 			addr = 127.0.0.1:%d
 			path = /handler
 			ops = CloseProxy
 			`, localPort)
-			clientConf := consts.DefaultClientConfig
+			clientConf := consts.LegacyDefaultClientConfig
 
 			remotePort := f.AllocPort()
 			clientConf += fmt.Sprintf(`
@@ -230,7 +230,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 
 			f.RunServer("", pluginServer)
 
-			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			serverConf := consts.LegacyDefaultServerConfig + fmt.Sprintf(`
 			[plugin.test]
 			addr = 127.0.0.1:%d
 			path = /handler
@@ -238,7 +238,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			`, localPort)
 
 			remotePort := f.AllocPort()
-			clientConf := consts.DefaultClientConfig
+			clientConf := consts.LegacyDefaultClientConfig
 			clientConf += fmt.Sprintf(`
 			heartbeat_interval = 1
 			authenticate_heartbeats = true
@@ -280,7 +280,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 
 			f.RunServer("", pluginServer)
 
-			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			serverConf := consts.LegacyDefaultServerConfig + fmt.Sprintf(`
 			[plugin.test]
 			addr = 127.0.0.1:%d
 			path = /handler
@@ -288,7 +288,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			`, localPort)
 
 			remotePort := f.AllocPort()
-			clientConf := consts.DefaultClientConfig
+			clientConf := consts.LegacyDefaultClientConfig
 			clientConf += fmt.Sprintf(`
 			[tcp]
 			type = tcp
@@ -325,7 +325,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 
 			f.RunServer("", pluginServer)
 
-			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			serverConf := consts.LegacyDefaultServerConfig + fmt.Sprintf(`
 			[plugin.test]
 			addr = 127.0.0.1:%d
 			path = /handler
@@ -333,7 +333,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			`, localPort)
 
 			remotePort := f.AllocPort()
-			clientConf := consts.DefaultClientConfig
+			clientConf := consts.LegacyDefaultClientConfig
 			clientConf += fmt.Sprintf(`
 			[tcp]
 			type = tcp
@@ -372,7 +372,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 
 			f.RunServer("", pluginServer)
 
-			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			serverConf := consts.LegacyDefaultServerConfig + fmt.Sprintf(`
 			[plugin.test]
 			addr = https://127.0.0.1:%d
 			path = /handler
@@ -380,7 +380,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			`, localPort)
 
 			remotePort := f.AllocPort()
-			clientConf := consts.DefaultClientConfig
+			clientConf := consts.LegacyDefaultClientConfig
 			clientConf += fmt.Sprintf(`
 			[tcp]
 			type = tcp

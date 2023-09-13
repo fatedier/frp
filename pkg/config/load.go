@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/BurntSushi/toml"
+	toml "github.com/pelletier/go-toml/v2"
 	"github.com/samber/lo"
 	"gopkg.in/ini.v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -119,7 +119,6 @@ func LoadConfigure(b []byte, c any) error {
 			return err
 		}
 	}
-
 	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewBuffer(b), 4096)
 	return decoder.Decode(c)
 }

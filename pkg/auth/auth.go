@@ -31,9 +31,9 @@ type Setter interface {
 func NewAuthSetter(cfg v1.AuthClientConfig) (authProvider Setter) {
 	switch cfg.Method {
 	case consts.TokenAuthMethod:
-		authProvider = NewTokenAuth(cfg.AdditionalAuthScopes, cfg.Token)
+		authProvider = NewTokenAuth(cfg.AdditionalScopes, cfg.Token)
 	case consts.OidcAuthMethod:
-		authProvider = NewOidcAuthSetter(cfg.AdditionalAuthScopes, cfg.OIDC)
+		authProvider = NewOidcAuthSetter(cfg.AdditionalScopes, cfg.OIDC)
 	default:
 		panic(fmt.Sprintf("wrong method: '%s'", cfg.Method))
 	}
@@ -49,9 +49,9 @@ type Verifier interface {
 func NewAuthVerifier(cfg v1.AuthServerConfig) (authVerifier Verifier) {
 	switch cfg.Method {
 	case consts.TokenAuthMethod:
-		authVerifier = NewTokenAuth(cfg.AdditionalAuthScopes, cfg.Token)
+		authVerifier = NewTokenAuth(cfg.AdditionalScopes, cfg.Token)
 	case consts.OidcAuthMethod:
-		authVerifier = NewOidcAuthVerifier(cfg.AdditionalAuthScopes, cfg.OIDC)
+		authVerifier = NewOidcAuthVerifier(cfg.AdditionalScopes, cfg.OIDC)
 	}
 	return authVerifier
 }

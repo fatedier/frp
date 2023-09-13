@@ -18,12 +18,23 @@ var (
 	PortClientAdmin string
 
 	DefaultServerConfig = `
+bindPort = {{ .%s }}
+log.level = "trace"
+`
+
+	DefaultClientConfig = `
+serverAddr = "127.0.0.1"
+serverPort = {{ .%s }}
+log.level = "trace"
+`
+
+	LegacyDefaultServerConfig = `
 	[common]
 	bind_port = {{ .%s }}
 	log_level = trace
 	`
 
-	DefaultClientConfig = `
+	LegacyDefaultClientConfig = `
 	[common]
 	server_addr = 127.0.0.1
 	server_port = {{ .%s }}
@@ -34,6 +45,9 @@ var (
 func init() {
 	PortServerName = port.GenName("Server")
 	PortClientAdmin = port.GenName("ClientAdmin")
+	LegacyDefaultServerConfig = fmt.Sprintf(LegacyDefaultServerConfig, port.GenName("Server"))
+	LegacyDefaultClientConfig = fmt.Sprintf(LegacyDefaultClientConfig, port.GenName("Server"))
+
 	DefaultServerConfig = fmt.Sprintf(DefaultServerConfig, port.GenName("Server"))
 	DefaultClientConfig = fmt.Sprintf(DefaultClientConfig, port.GenName("Server"))
 }

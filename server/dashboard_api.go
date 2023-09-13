@@ -86,7 +86,7 @@ func (svr *Service) APIServerInfo(w http.ResponseWriter, r *http.Request) {
 		MaxPortsPerClient:     svr.cfg.MaxPortsPerClient,
 		HeartBeatTimeout:      svr.cfg.Transport.HeartbeatTimeout,
 		AllowPortsStr:         types.PortsRangeSlice(svr.cfg.AllowPorts).String(),
-		TLSOnly:               svr.cfg.TLS.Force,
+		TLSOnly:               svr.cfg.Transport.TLS.Force,
 
 		TotalTrafficIn:  serverStats.TotalTrafficIn,
 		TotalTrafficOut: serverStats.TotalTrafficOut,
