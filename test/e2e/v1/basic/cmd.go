@@ -1,7 +1,6 @@
 package basic
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -66,7 +65,7 @@ var _ = ginkgo.Describe("[Feature: Cmd]", func() {
 
 			localPort := f.PortByName(framework.TCPEchoServerPort)
 			remotePort := f.AllocPort()
-			_, _, err = f.RunFrpc("tcp", "-s", fmt.Sprintf("127.0.0.1:%d", serverPort), "-t", "123", "-u", "test",
+			_, _, err = f.RunFrpc("tcp", "-s", "127.0.0.1", "-P", strconv.Itoa(serverPort), "-t", "123", "-u", "test",
 				"-l", strconv.Itoa(localPort), "-r", strconv.Itoa(remotePort), "-n", "tcp_test")
 			framework.ExpectNoError(err)
 
@@ -80,7 +79,7 @@ var _ = ginkgo.Describe("[Feature: Cmd]", func() {
 
 			localPort := f.PortByName(framework.UDPEchoServerPort)
 			remotePort := f.AllocPort()
-			_, _, err = f.RunFrpc("udp", "-s", fmt.Sprintf("127.0.0.1:%d", serverPort), "-t", "123", "-u", "test",
+			_, _, err = f.RunFrpc("udp", "-s", "127.0.0.1", "-P", strconv.Itoa(serverPort), "-t", "123", "-u", "test",
 				"-l", strconv.Itoa(localPort), "-r", strconv.Itoa(remotePort), "-n", "udp_test")
 			framework.ExpectNoError(err)
 
@@ -94,7 +93,7 @@ var _ = ginkgo.Describe("[Feature: Cmd]", func() {
 			_, _, err := f.RunFrps("-t", "123", "-p", strconv.Itoa(serverPort), "--vhost_http_port", strconv.Itoa(vhostHTTPPort))
 			framework.ExpectNoError(err)
 
-			_, _, err = f.RunFrpc("http", "-s", "127.0.0.1:"+strconv.Itoa(serverPort), "-t", "123", "-u", "test",
+			_, _, err = f.RunFrpc("http", "-s", "127.0.0.1", "-P", strconv.Itoa(serverPort), "-t", "123", "-u", "test",
 				"-n", "udp_test", "-l", strconv.Itoa(f.PortByName(framework.HTTPSimpleServerPort)),
 				"--custom_domain", "test.example.com")
 			framework.ExpectNoError(err)

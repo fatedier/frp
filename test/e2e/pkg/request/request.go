@@ -14,8 +14,8 @@ import (
 
 	libdial "github.com/fatedier/golib/net/dial"
 
+	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/test/e2e/pkg/rpc"
-	"github.com/fatedier/frp/test/e2e/pkg/utils"
 )
 
 type Request struct {
@@ -115,7 +115,7 @@ func (r *Request) HTTPHeaders(headers map[string]string) *Request {
 }
 
 func (r *Request) HTTPAuth(user, password string) *Request {
-	r.authValue = utils.BasicAuth(user, password)
+	r.authValue = util.BasicAuth(user, password)
 	return r
 }
 

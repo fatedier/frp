@@ -44,8 +44,8 @@ func ValidatePort(port int, fieldPath string) error {
 }
 
 func validateLogConfig(c *v1.LogConfig) error {
-	if !lo.Contains(supportedLogLevels, c.Level) {
-		return fmt.Errorf("invalid log level, optional values are %v", supportedLogLevels)
+	if !lo.Contains(SupportedLogLevels, c.Level) {
+		return fmt.Errorf("invalid log level, optional values are %v", SupportedLogLevels)
 	}
 	return nil
 }

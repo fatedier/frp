@@ -42,7 +42,11 @@ func ValidateVisitorConfigurer(c v1.VisitorConfigurer) error {
 
 func validateVisitorBaseConfig(c *v1.VisitorBaseConfig) error {
 	if c.Name == "" {
-		return errors.New("name should not be empty")
+		return errors.New("name is required")
+	}
+
+	if c.ServerName == "" {
+		return errors.New("server name is required")
 	}
 
 	if c.BindPort == 0 {

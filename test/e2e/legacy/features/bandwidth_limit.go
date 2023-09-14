@@ -10,8 +10,8 @@ import (
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
-	plugintest "github.com/fatedier/frp/test/e2e/legacy/plugin"
 	"github.com/fatedier/frp/test/e2e/mock/server/streamserver"
+	pluginpkg "github.com/fatedier/frp/test/e2e/pkg/plugin"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
 )
 
@@ -65,7 +65,7 @@ var _ = ginkgo.Describe("[Feature: Bandwidth Limit]", func() {
 			ret.Content = content
 			return &ret
 		}
-		pluginServer := plugintest.NewHTTPPluginServer(pluginPort, newFunc, handler, nil)
+		pluginServer := pluginpkg.NewHTTPPluginServer(pluginPort, newFunc, handler, nil)
 
 		f.RunServer("", pluginServer)
 

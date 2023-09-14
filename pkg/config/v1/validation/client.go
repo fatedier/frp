@@ -29,11 +29,11 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 		warnings Warning
 		errs     error
 	)
-	if !lo.Contains(supportedAuthMethods, c.Auth.Method) {
-		errs = AppendError(errs, fmt.Errorf("invalid auth method, optional values are %v", supportedAuthMethods))
+	if !lo.Contains(SupportedAuthMethods, c.Auth.Method) {
+		errs = AppendError(errs, fmt.Errorf("invalid auth method, optional values are %v", SupportedAuthMethods))
 	}
-	if !lo.Every(supportedAuthAdditionalScopes, c.Auth.AdditionalScopes) {
-		errs = AppendError(errs, fmt.Errorf("invalid auth additional scopes, optional values are %v", supportedAuthAdditionalScopes))
+	if !lo.Every(SupportedAuthAdditionalScopes, c.Auth.AdditionalScopes) {
+		errs = AppendError(errs, fmt.Errorf("invalid auth additional scopes, optional values are %v", SupportedAuthAdditionalScopes))
 	}
 
 	if err := validateLogConfig(&c.Log); err != nil {
@@ -63,8 +63,8 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 		warnings = AppendError(warnings, checkTLSConfig("transport.tls.trustedCaFile", c.Transport.TLS.TrustedCaFile))
 	}
 
-	if !lo.Contains(supportedTransportProtocols, c.Transport.Protocol) {
-		errs = AppendError(errs, fmt.Errorf("invalid transport.protocol, optional values are %v", supportedTransportProtocols))
+	if !lo.Contains(SupportedTransportProtocols, c.Transport.Protocol) {
+		errs = AppendError(errs, fmt.Errorf("invalid transport.protocol, optional values are %v", SupportedTransportProtocols))
 	}
 
 	for _, f := range c.IncludeConfigFiles {
