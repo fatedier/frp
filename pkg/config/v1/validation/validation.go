@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	supportedTransportProtocols = []string{
+	SupportedTransportProtocols = []string{
 		"tcp",
 		"kcp",
 		"quic",
@@ -30,17 +30,17 @@ var (
 		"wss",
 	}
 
-	supportedAuthMethods = []string{
+	SupportedAuthMethods = []string{
 		"token",
 		"oidc",
 	}
 
-	supportedAuthAdditionalScopes = []v1.AuthScope{
+	SupportedAuthAdditionalScopes = []v1.AuthScope{
 		"HeartBeats",
 		"NewWorkConns",
 	}
 
-	supportedLogLevels = []string{
+	SupportedLogLevels = []string{
 		"trace",
 		"debug",
 		"info",
@@ -48,7 +48,7 @@ var (
 		"error",
 	}
 
-	supportedHTTPPluginOps = []string{
+	SupportedHTTPPluginOps = []string{
 		splugin.OpLogin,
 		splugin.OpNewProxy,
 		splugin.OpCloseProxy,

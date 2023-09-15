@@ -134,6 +134,9 @@ type PortsRange struct {
 type PortsRangeSlice []PortsRange
 
 func (p PortsRangeSlice) String() string {
+	if len(p) == 0 {
+		return ""
+	}
 	strs := []string{}
 	for _, v := range p {
 		if v.Single > 0 {

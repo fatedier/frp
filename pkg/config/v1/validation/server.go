@@ -27,11 +27,11 @@ func ValidateServerConfig(c *v1.ServerConfig) (Warning, error) {
 		warnings Warning
 		errs     error
 	)
-	if !lo.Contains(supportedAuthMethods, c.Auth.Method) {
-		errs = AppendError(errs, fmt.Errorf("invalid auth method, optional values are %v", supportedAuthMethods))
+	if !lo.Contains(SupportedAuthMethods, c.Auth.Method) {
+		errs = AppendError(errs, fmt.Errorf("invalid auth method, optional values are %v", SupportedAuthMethods))
 	}
-	if !lo.Every(supportedAuthAdditionalScopes, c.Auth.AdditionalScopes) {
-		errs = AppendError(errs, fmt.Errorf("invalid auth additional scopes, optional values are %v", supportedAuthAdditionalScopes))
+	if !lo.Every(SupportedAuthAdditionalScopes, c.Auth.AdditionalScopes) {
+		errs = AppendError(errs, fmt.Errorf("invalid auth additional scopes, optional values are %v", SupportedAuthAdditionalScopes))
 	}
 
 	if err := validateLogConfig(&c.Log); err != nil {
@@ -50,8 +50,8 @@ func ValidateServerConfig(c *v1.ServerConfig) (Warning, error) {
 	errs = AppendError(errs, ValidatePort(c.TCPMuxHTTPConnectPort, "tcpMuxHTTPConnectPort"))
 
 	for _, p := range c.HTTPPlugins {
-		if !lo.Every(supportedHTTPPluginOps, p.Ops) {
-			errs = AppendError(errs, fmt.Errorf("invalid http plugin ops, optional values are %v", supportedHTTPPluginOps))
+		if !lo.Every(SupportedHTTPPluginOps, p.Ops) {
+			errs = AppendError(errs, fmt.Errorf("invalid http plugin ops, optional values are %v", SupportedHTTPPluginOps))
 		}
 	}
 	return warnings, errs

@@ -31,8 +31,6 @@ var (
 )
 
 func init() {
-	RegisterCommonFlags(natholeCmd)
-
 	rootCmd.AddCommand(natholeCmd)
 	natholeCmd.AddCommand(natholeDiscoveryCmd)
 

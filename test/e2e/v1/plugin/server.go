@@ -10,6 +10,7 @@ import (
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
+	pluginpkg "github.com/fatedier/frp/test/e2e/pkg/plugin"
 )
 
 var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
@@ -40,7 +41,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 				}
 				return &ret
 			}
-			pluginServer := NewHTTPPluginServer(localPort, newFunc, handler, nil)
+			pluginServer := pluginpkg.NewHTTPPluginServer(localPort, newFunc, handler, nil)
 
 			f.RunServer("", pluginServer)
 
@@ -101,7 +102,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 				}
 				return &ret
 			}
-			pluginServer := NewHTTPPluginServer(localPort, newFunc, handler, nil)
+			pluginServer := pluginpkg.NewHTTPPluginServer(localPort, newFunc, handler, nil)
 
 			f.RunServer("", pluginServer)
 
@@ -138,7 +139,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 				ret.Content = content
 				return &ret
 			}
-			pluginServer := NewHTTPPluginServer(localPort, newFunc, handler, nil)
+			pluginServer := pluginpkg.NewHTTPPluginServer(localPort, newFunc, handler, nil)
 
 			f.RunServer("", pluginServer)
 
@@ -181,7 +182,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 				recordProxyName = content.ProxyName
 				return &ret
 			}
-			pluginServer := NewHTTPPluginServer(localPort, newFunc, handler, nil)
+			pluginServer := pluginpkg.NewHTTPPluginServer(localPort, newFunc, handler, nil)
 
 			f.RunServer("", pluginServer)
 
@@ -235,7 +236,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 				ret.Unchange = true
 				return &ret
 			}
-			pluginServer := NewHTTPPluginServer(localPort, newFunc, handler, nil)
+			pluginServer := pluginpkg.NewHTTPPluginServer(localPort, newFunc, handler, nil)
 
 			f.RunServer("", pluginServer)
 
@@ -287,7 +288,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 				ret.Unchange = true
 				return &ret
 			}
-			pluginServer := NewHTTPPluginServer(localPort, newFunc, handler, nil)
+			pluginServer := pluginpkg.NewHTTPPluginServer(localPort, newFunc, handler, nil)
 
 			f.RunServer("", pluginServer)
 
@@ -334,7 +335,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 				ret.Unchange = true
 				return &ret
 			}
-			pluginServer := NewHTTPPluginServer(localPort, newFunc, handler, nil)
+			pluginServer := pluginpkg.NewHTTPPluginServer(localPort, newFunc, handler, nil)
 
 			f.RunServer("", pluginServer)
 
@@ -383,7 +384,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			}
 			tlsConfig, err := transport.NewServerTLSConfig("", "", "")
 			framework.ExpectNoError(err)
-			pluginServer := NewHTTPPluginServer(localPort, newFunc, handler, tlsConfig)
+			pluginServer := pluginpkg.NewHTTPPluginServer(localPort, newFunc, handler, tlsConfig)
 
 			f.RunServer("", pluginServer)
 

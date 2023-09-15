@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/fatedier/frp/client"
-	"github.com/fatedier/frp/test/e2e/pkg/utils"
+	"github.com/fatedier/frp/pkg/util/util"
 )
 
 type Client struct {
@@ -53,6 +53,22 @@ func (c *Client) GetProxyStatus(name string) (*client.ProxyStatusResp, error) {
 	return nil, fmt.Errorf("no proxy status found")
 }
 
+func (c *Client) GetAllProxyStatus() (client.StatusResp, error) {
+	req, err := http.NewRequest("GET", "http://"+c.address+"/api/status", nil)
+	if err != nil {
+		return nil, err
+	}
+	content, err := c.do(req)
+	if err != nil {
+		return nil, err
+	}
+	allStatus := make(client.StatusResp)
+	if err = json.Unmarshal([]byte(content), &allStatus); err != nil {
+		return nil, fmt.Errorf("unmarshal http response error: %s", strings.TrimSpace(content))
+	}
+	return allStatus, nil
+}
+
 func (c *Client) Reload() error {
 	req, err := http.NewRequest("GET", "http://"+c.address+"/api/reload", nil)
 	if err != nil {
@@ -90,7 +106,7 @@ func (c *Client) UpdateConfig(content string) error {
 
 func (c *Client) setAuthHeader(req *http.Request) {
 	if c.authUser != "" || c.authPwd != "" {
-		req.Header.Set("Authorization", utils.BasicAuth(c.authUser, c.authPwd))
+		req.Header.Set("Authorization", util.BasicAuth(c.authUser, c.authPwd))
 	}
 }
 

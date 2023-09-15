@@ -95,3 +95,8 @@ func ParseBasicAuth(auth string) (username, password string, ok bool) {
 	}
 	return cs[:s], cs[s+1:], true
 }
+
+func BasicAuth(username, passwd string) string {
+	auth := username + ":" + passwd
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+}
