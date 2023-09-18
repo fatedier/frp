@@ -251,7 +251,7 @@ func (rp *HTTPReverseProxy) connectHandler(rw http.ResponseWriter, req *http.Req
 
 	remote, err := rp.CreateConnection(req.Context().Value(RouteInfoKey).(*RequestRouteInfo), false)
 	if err != nil {
-		_ = notFoundResponse().Write(client)
+		_ = NotFoundResponse().Write(client)
 		client.Close()
 		return
 	}

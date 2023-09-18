@@ -29,6 +29,7 @@ type HTTPSMuxer struct {
 
 func NewHTTPSMuxer(listener net.Listener, timeout time.Duration) (*HTTPSMuxer, error) {
 	mux, err := NewMuxer(listener, GetHTTPSHostname, timeout)
+	mux.SetFailHookFunc(vhostFailed)
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +68,12 @@ func readClientHello(reader io.Reader) (*tls.ClientHelloInfo, error) {
 		return nil, err
 	}
 	return hello, nil
+}
+
+func vhostFailed(c net.Conn) {
+	// Alert with alertUnrecognizedName
+	_ = tls.Server(c, &tls.Config{}).Handshake()
+	c.Close()
 }
 
 type readOnlyConn struct {

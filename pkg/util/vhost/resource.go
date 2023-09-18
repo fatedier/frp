@@ -67,7 +67,7 @@ func getNotFoundPageContent() []byte {
 	return buf
 }
 
-func notFoundResponse() *http.Response {
+func NotFoundResponse() *http.Response {
 	header := make(http.Header)
 	header.Set("server", "frp/"+version.Full())
 	header.Set("Content-Type", "text/html")
