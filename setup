@@ -1,0 +1,373 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+[[ $@ =~ (^| )-d( |$) ]] && set -x || :
+
+for i in GITHUB_USER GITHUB_TOKEN GOPATH; do
+  [[ -n ${!i:-} ]] || {
+    [[ ${i} == GITHUB_USER && -n ${GITHUB_USERNAME} ]] && GITHUB_USER=${GITHUB_USERNAME} && continue
+    [[ ${i} == GITHUB_TOKEN && -n ${GITHUB_PASSWORD} ]] && GITHUB_TOKEN=${GITHUB_PASSWORD} && continue
+    echo "${i} is not defined."; exit 1;
+  }
+done
+
+setup_yaml=`cat setup.yaml | yq '... comments=""'`
+
+function get_config() {
+  if [[ -n "${1:-}" ]]; then
+    if [[ -z "${2:-}" ]]; then
+      yq "${1}" <<<${setup_yaml} 2>/dev/null || return 1
+    else
+      yq "${1} // \"${2}\"" <<<${setup_yaml} 2>/dev/null
+    fi
+  else
+    return 1
+  fi
+}
+
+# Define global variables or load them from yaml config
+build_dir=$(get_config .build-dir "./build")
+tools=${build_dir}/tools
+specs_dir=${build_dir}/api-specs
+clients_dir=${build_dir}/clients
+
+do_not_download=false
+generate_server=false
+generate_client=false
+clients_to_generate=()
+client_api_spec_urls=""
+build_binary=false
+build_image=false
+push_image=false
+
+service_name=$(get_config .service-name)
+
+# Docker image
+dockerhub_org=${DOCKERHUB_ORG:-tesselldev}
+docker_image_tag_versioned=${service_name}:$(get_config .docker-image-tag "v0.0.1")
+docker_image_tag_latest=${service_name}:latest
+
+# Flyway docker image
+if [[ -d ${script_dir}/flyway && $(get_config .flyway-docker-image) != null && $(get_config .flyway-docker-image.name) != null ]]; then
+  build_flyway_image=true
+  flyway_image=${dockerhub_org}/$(get_config .flyway-docker-image.name):$(get_config .flyway-docker-image.tag "latest")
+  flyway_dir=$(get_config .flyway-docker-image.dir "${script_dir}/flyway")
+fi
+
+# Github url
+github_url=https://${GITHUB_TOKEN}@raw.githubusercontent.com/TessellDevelopment/tessell-api-specifications
+service_api_spec_url=${github_url}/$(get_config .service-api-spec.branch "main")/$(get_config .service-api-spec.filepath)
+common_api_spec_url=""
+if [[ -n $(get_config '. | has("common-api-spec")') ]]; then
+  common_api_spec_url=${github_url}/$(get_config .common-api-spec.branch "main")/$(get_config .common-api-spec.filepath)
+fi
+
+
+function item_in_array () {
+  local i match="${1}"
+  shift
+  for i; do [[ "${i}" == "${match}" ]] && return 0; done
+  return 1
+}
+
+function download() {
+  [[ $# -ge 2 ]] || { echo "Atleast two args need for function download, the 1st arg being the dest dir"; return 1; }
+  mkdir -p ${1}
+  pushd ${1} > /dev/null
+  while [[ $# -gt 1 ]]; do shift; curl ${1} -O; done
+  popd > /dev/null
+}
+
+function download_generator_jars() {
+  for url in ${oag_cli_jar_url_client} ${oag_cli_jar_url_server} `[[ ${1:-} == client_only ]] || echo ${oag_gofiber_jar_url}` `[[ ${1:-} == server_only ]] || echo ${oag_client_jar_url}`; do
+    [[ -s ${tools}/$(basename ${url}) ]] || download ${tools} ${url}
+  done
+}
+
+function download_common_api_spec() {
+  echo "[*] Downloading common API spec."
+  download ${specs_dir} ${common_api_spec_url}
+  echo "[*] Completed download of common API spec."
+}
+
+function generate_gofiber_boilerplate() {
+  download_generator_jars server_only
+
+  if ! ${do_not_download}; then
+    echo "[*] Downloading service API spec for generating GoFiber server boilerplate."
+    download ${specs_dir} ${service_api_spec_url}
+    echo "[*] Completed download of service API spec."
+    download_common_api_spec
+  fi
+
+  echo "[*] Generating GoFiber server boilerplate from OpenAPI spec."
+  rm -rf ${build_dir}/server ./server
+  java -cp "${tools}/${oag_gofiber_jar}:${tools}/${oag_cli_jar_for_server}" ${oag_gen_server} \
+      -e pebble \
+      --enable-post-process-file \
+      --package-name server \
+      -o ${build_dir} \
+      -i ${specs_dir}/$(basename ${service_api_spec_url})
+
+  echo "[*] Completed GoFiber server boilerplate generation."
+
+  if $(get_config .create-symlinks "false"); then
+    ln -sfn ${build_dir}/server ${script_dir}/server
+  fi
+}
+
+function add_all_clients_to_generate() {
+  local filepath branch
+  while read filepath branch; do
+    client_api_spec_urls+="${github_url}/${branch}/${filepath/:} "
+  done < <(get_config '.clients-specs | to_entries | .[].value | {.filepath: .branch // "main"}')
+  while read filepath branch; do
+    client_api_spec_urls+="${github_url}/${branch}/${filepath/:} "
+  done < <(get_config '.clients-specs | to_entries | .[].value.deps[] | {.filepath: .branch // "main"}' | sort | uniq)
+  echo ${client_api_spec_urls[@]}
+}
+
+function add_client_to_generate() {
+  local k=${1}
+  local v=$(get_config ".client-key-map.${k} // \"\"")
+  if [[ -z ${v} ]]; then
+    if $(get_config ".clients-specs | has(\"${k}\")"); then
+      v=${k}
+    else
+      echo "Unrecognized client (${k}) provided for specifying client to generate"
+      exit 1
+    fi
+  fi
+
+  clients_to_generate+=(${v})
+  filepath=$(get_config ".clients-specs.${v}.filepath")
+  branch=$(get_config ".clients-specs.${v}.branch // \"main\"")
+  client_api_spec_urls+="${github_url}/${branch}/${filepath} "
+
+  while read filepath branch; do
+    client_api_spec_urls+="${github_url}/${branch}/${filepath/:} "
+  done < <(get_config ".clients-specs.${v}.deps[] | {.filepath: .branch // \"main\"}")
+}
+
+function generate_required_api_clients() {
+  download_generator_jars client_only
+
+  if ! ${do_not_download}; then
+    if [[ ${#clients_to_generate[@]} -gt 0 ]]; then
+      echo "[*] Starting download of API specs for only the following specified clients: ${clients_to_generate[@]}"
+    else
+      echo "[*] Starting download of API specs for all required clients."
+    fi
+    download ${specs_dir} ${client_api_spec_urls}
+    download_common_api_spec
+    echo "[*] Completed download of API specs for all required clients."
+  fi
+
+  if [[ ${#clients_to_generate[@]} -gt 0 ]]; then
+    echo "[*] Generating only the following specified clients: ${clients_to_generate[@]}"
+  else
+    echo "[*] Generating all required clients."
+  fi
+
+  mkdir -p ${clients_dir}
+
+  local client filepath output_dir
+  while read client filepath; do
+    client=${client/:}
+    [[ ${#clients_to_generate[@]} -gt 0 ]] && ! item_in_array "${client}" "${clients_to_generate[@]}" && continue || :
+    output_dir=${clients_dir}/${client/:}
+    rm -rf ${output_dir}
+
+    java -cp "${tools}/${oag_client_jar}:${tools}/${oag_cli_jar_for_client}" ${oag_gen_client} \
+        -g go \
+        --additional-properties isGoSubmodule=true \
+        --additional-properties structPrefix=true \
+        -i ${specs_dir}/$(basename ${filepath}) -o ${output_dir} --package-name ${client/:}
+
+    if $(get_config .create-symlinks "false"); then
+      ln -sfn ${output_dir} ${script_dir}/${client/:}
+    fi
+
+    rm -f ${output_dir}/go.*
+  done < <(get_config '.clients-specs | to_entries | .[].value |= .filepath | from_entries')
+  echo "[*] Completed generating all required clients."
+}
+
+function go_fmt() {
+  go fmt ./...
+  goimports -w .
+}
+
+function build_bin() {
+  echo "[*] Building ${service_name} binary"
+  go mod tidy
+  go_fmt
+  go build -o ${service_name}
+  echo "[*] Binary for ${service_name} ready at ./${service_name}"
+}
+
+function build_docker_image() {
+  echo "[*] Building docker image"
+  go mod tidy
+  go_fmt
+  docker build -t ${docker_image_tag_versioned} --build-arg GITHUB_USER=${GITHUB_USER} --build-arg GITHUB_TOKEN=${GITHUB_TOKEN} ${no_cache:-} .
+  docker tag ${docker_image_tag_versioned} ${docker_image_tag_latest}
+  echo "[*] Built docker image with tag ${docker_image_tag_versioned}"
+  echo "[*] Tagged docker image ${docker_image_tag_versioned} as ${docker_image_tag_latest}"
+  if [[ ${dockerhub_org} == tesselldev ]]; then
+    docker tag ${docker_image_tag_versioned} ${dockerhub_org}/${docker_image_tag_versioned}
+    echo "[*] Tagged docker image ${docker_image_tag_versioned} as ${dockerhub_org}/${docker_image_tag_versioned}"
+  fi
+  if ${build_flyway_image:-false}; then
+    cd ${flyway_dir}
+    docker build --tag ${flyway_image} .
+    cd - &>/dev/null
+  fi
+}
+
+function push_docker_image() {
+  echo "[*] Pushing docker image with tag ${dockerhub_org}/${docker_image_tag_versioned}"
+  docker push ${dockerhub_org}/${docker_image_tag_versioned} && \
+    echo "[*] Successfully pushed docker image" || \
+    echo "[*] Failed to push docker image"
+  if ${build_flyway_image:-false}; then
+	  docker push ${flyway_image}
+  fi
+}
+
+function cleanup() {
+  echo "[*] Cleaning up all generated code and downloaded artifacts."
+  cd ${clients_dir}
+  for d in `ls`; do rm -rf ${script_dir}/${d}; done
+  cd - &>/dev/null
+  rm -rf ${build_dir} vendor server
+}
+
+# Main execution
+if [[ $@ =~ (^| )--(cln|clean|cleanup)( |$) ]]; then
+  cleanup
+fi
+
+while [[ $# -gt 0 ]]; do
+  case "${1}" in
+    --dnd)
+      do_not_download=true
+      echo "[*] Received flag --dnd for 'Do not download'. Will not download any artifact."
+      echo "[*] Note: Generator Jars will still be downloaded, if not present locally."
+      ;;
+    -g|--gen|--generate)
+      gen_or_build=true
+      generate_server=true
+      generate_client=true
+      add_all_clients_to_generate
+      ;;
+    -s|--server)
+      gen_or_build=true
+      generate_server=true
+      ;;
+    -c|--client)
+      gen_or_build=true
+      generate_client=true
+      if [[ -n ${2:-} && ${2} != -* ]]; then
+        while [[ -n ${2:-} && ${2} != -* ]]; do
+          shift
+          add_client_to_generate ${1}
+        done
+      else
+        add_all_clients_to_generate
+      fi
+      ;;
+    -b|--binary)
+      gen_or_build=true
+      build_binary=true
+      ;;
+    -i|--di|--docker-image)
+      build_image=true
+      ;;
+    -p|--push|--push-image)
+      push_image=true
+      ;;
+    --nc|--no-cache)
+      no_cache=--no-cache
+      ;;
+    --cln|--clean|--cleanup)
+      :
+      ;;
+    -d)
+      :
+      ;;
+    *)
+      echo "Encountered unexpected parameter"
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+
+
+if ! ${gen_or_build:-false}; then
+  if ${build_image}; then
+    build_docker_image
+  fi
+  if ${push_image}; then
+    push_docker_image
+  fi
+  exit 0
+fi
+
+# OpenAPI Generator GoFiber
+oag_gofiber_ver=$(get_config .openapi-generator-gofiber-version "0.1.3")
+oag_gofiber_jar=openapi-generator-gofiber-generator-${oag_gofiber_ver}.jar
+oag_gofiber_jar_url=https://${GITHUB_USER}:${GITHUB_TOKEN}@nexus.tessell.cloud/repository/tessell-repos-m2-component/
+oag_gofiber_jar_url+=org/openapi/openapi-generator-gofiber-generator/${oag_gofiber_ver}/${oag_gofiber_jar}
+
+# GoCLient OpenAPI Generator
+oag_client_ver=$(get_config .openapi-generator-goclient-version "1.0.4")
+oag_client_jar=go-client-openapi-generator-${oag_client_ver}.jar
+oag_client_jar_url=https://${GITHUB_USER}:${GITHUB_TOKEN}@nexus.tessell.cloud/repository/tessell-repos-m2-development/
+oag_client_jar_url+=org/openapi/go-client-openapi-generator/${oag_client_ver}/${oag_client_jar}
+
+# OpenAPI CLI Jar for Client
+oag_cli_ver_for_client=$(get_config .openapi-generator-cli-version.for-client "6.1.0")
+oag_cli_jar_for_client=openapi-generator-cli-${oag_cli_ver_for_client}.jar
+oag_cli_jar_url_client=https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/${oag_cli_ver_for_client}/${oag_cli_jar_for_client}
+
+# OpenAPI CLI Jar for Server
+oag_cli_ver_for_server=$(get_config .openapi-generator-cli-version.for-server "5.4.0")
+oag_cli_jar_for_server=openapi-generator-cli-${oag_cli_ver_for_server}.jar
+oag_cli_jar_url_server=https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/${oag_cli_ver_for_server}/${oag_cli_jar_for_server}
+
+# OpenAPI generate cmd base
+oag_gen_server="org.openapitools.codegen.OpenAPIGenerator generate -ggo-fiber --global-property skipFormModel=false --additional-properties enumClassPrefix=true"
+oag_gen_client="org.openapitools.codegen.OpenAPIGenerator generate --global-property skipFormModel=false --additional-properties enumClassPrefix=true"
+
+if ${build_binary}; then
+  build_bin
+fi
+
+if ${generate_server}; then
+  generate_gofiber_boilerplate
+fi
+
+if ${generate_client} && [[ $(get_config .clients-specs) != null ]]; then
+  generate_required_api_clients
+fi
+
+if ${gen_or_build:-false}; then
+  patch_files=$(get_config .build-patch[])
+  for patch_file in ${patch_files:-}; do
+    cp build-patch/${patch_file}-patch build/${patch_file}
+  done
+
+  go_fmt
+fi
+
+if ${build_image}; then
+  build_docker_image
+fi
+
+if ${push_image}; then
+  push_docker_image
+fi
