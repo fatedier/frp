@@ -203,7 +203,25 @@ function build_bin() {
   echo "[*] Building ${service_name} binary"
   go mod tidy
   go_fmt
-  go build -o ${service_name}
+  go get -u github.com/quic-go/quic-go
+  go clean -modcache
+  go get -u github.com/go-playground/validator/v10@v10.14.1
+  go mod tidy
+  
+  echo "[*] Binary for ${service_name} ready at ./${service_name}"
+  GOOS=linux GOARCH=amd64 go build -o frpc_linux_amd64 ./cmd/frpc
+  echo "[*] Binary for ${service_name} ready at ./${service_name}"
+
+  echo "[*] Binary for ${service_name} ready at ./${service_name}"
+  GOOS=linux GOARCH=amd64 go build -o frpc_linux_amd64 ./cmd/frpc
+  echo "[*] Binary for ${service_name} ready at ./${service_name}"
+
+  echo "[*] Binary for ${service_name} ready at ./${service_name}"
+  GOOS=linux GOARCH=amd64 go build -o frpc_linux_amd64 ./cmd/frpc
+  echo "[*] Binary for ${service_name} ready at ./${service_name}"
+
+  echo "[*] Binary for ${service_name} ready at ./${service_name}"
+  GOOS=linux GOARCH=amd64 go build -o frpc_linux_amd64 ./cmd/frpc
   echo "[*] Binary for ${service_name} ready at ./${service_name}"
 }
 
@@ -232,7 +250,7 @@ function push_docker_image() {
     echo "[*] Successfully pushed docker image" || \
     echo "[*] Failed to push docker image"
   if ${build_flyway_image:-false}; then
-	  docker push ${flyway_image}
+    docker push ${flyway_image}
   fi
 }
 
@@ -279,7 +297,6 @@ while [[ $# -gt 0 ]]; do
       fi
       ;;
     -b|--binary)
-      gen_or_build=true
       build_binary=true
       ;;
     -i|--di|--docker-image)

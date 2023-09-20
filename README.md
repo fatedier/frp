@@ -5,15 +5,6 @@
 
 [README](README.md) | [中文文档](README_zh.md)
 
-<h3 align="center">Gold Sponsors</h3>
-<!--gold sponsors start-->
-<p align="center">
-  <a href="https://workos.com/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
-    <img width="350px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_workos.png">
-  </a>
-</p>
-<!--gold sponsors end-->
-
 ## What is frp?
 
 frp is a fast reverse proxy that allows you to expose a local server located behind a NAT or firewall to the Internet. It currently supports **TCP** and **UDP**, as well as **HTTP** and **HTTPS** protocols, enabling requests to be forwarded to internal services via domain name.
@@ -24,8 +15,6 @@ frp also offers a P2P connect mode.
 
 <!-- vim-markdown-toc GFM -->
 
-* [Development Status](#development-status)
-    * [About V2](#about-v2)
 * [Architecture](#architecture)
 * [Example Usage](#example-usage)
     * [Access your computer in a LAN network via SSH](#access-your-computer-in-a-lan-network-via-ssh)
@@ -75,35 +64,6 @@ frp also offers a P2P connect mode.
     * [Range ports mapping](#range-ports-mapping)
     * [Client Plugins](#client-plugins)
     * [Server Manage Plugins](#server-manage-plugins)
-* [Development Plan](#development-plan)
-* [Contributing](#contributing)
-* [Donation](#donation)
-    * [GitHub Sponsors](#github-sponsors)
-    * [PayPal](#paypal)
-
-<!-- vim-markdown-toc -->
-
-## Development Status
-
-frp is currently under development. You can try the latest release version in the `master` branch, or use the `dev` branch to access the version currently in development.
-
-We are currently working on version 2 and attempting to perform some code refactoring and improvements. However, please note that it will not be compatible with version 1.
-
-We will transition from version 0 to version 1 at the appropriate time and will only accept bug fixes and improvements, rather than big feature requests.
-
-### About V2
-
-The overall situation is currently unfavorable, and there is significant pressure in both personal and professional aspects.
-
-The complexity and difficulty of the v2 version are much higher than anticipated. I can only work on its development during fragmented time periods, and the constant interruptions disrupt productivity significantly. Given this situation, we will continue to optimize and iterate on the current version until we have more free time to proceed with the major version overhaul.
-
-The concept behind v2 is based on my years of experience and reflection in the cloud-native domain, particularly in K8s and ServiceMesh. Its core is a modernized four-layer and seven-layer proxy, similar to envoy. This proxy itself is highly scalable, not only capable of implementing the functionality of intranet penetration but also applicable to various other domains. Building upon this highly scalable core, we aim to implement all the capabilities of frp v1 while also addressing the functionalities that were previously unachievable or difficult to implement in an elegant manner. Furthermore, we will maintain efficient development and iteration capabilities.
-
-In addition, I envision frp itself becoming a highly extensible system and platform, similar to how we can provide a range of extension capabilities based on K8s. In K8s, we can customize development according to enterprise needs, utilizing features such as CRD, controller mode, webhook, CSI, and CNI. In frp v1, we introduced the concept of server plugins, which implemented some basic extensibility. However, it relies on a simple HTTP protocol and requires users to start independent processes and manage them on their own. This approach is far from flexible and convenient, and real-world demands vary greatly. It is unrealistic to expect a non-profit open-source project maintained by a few individuals to meet everyone's needs.
-
-Finally, we acknowledge that the current design of modules such as configuration management, permission verification, certificate management, and API management is not modern enough. While we may carry out some optimizations in the v1 version, ensuring compatibility remains a challenging issue that requires a considerable amount of effort to address.
-
-We sincerely appreciate your support for frp.
 
 ## Architecture
 
@@ -1177,31 +1137,3 @@ Read the [document](/doc/server_plugin.md).
 
 Find more plugins in [gofrp/plugin](https://github.com/gofrp/plugin).
 
-## Development Plan
-
-* Log HTTP request information in frps.
-
-## Contributing
-
-Interested in getting involved? We would like to help you!
-
-* Take a look at our [issues list](https://github.com/fatedier/frp/issues) and consider sending a Pull Request to **dev branch**.
-* If you want to add a new feature, please create an issue first to describe the new feature, as well as the implementation approach. Once a proposal is accepted, create an implementation of the new features and submit it as a pull request.
-* Sorry for my poor English. Improvements for this document are welcome, even some typo fixes.
-* If you have great ideas, send an email to fatedier@gmail.com.
-
-**Note: We prefer you to give your advise in [issues](https://github.com/fatedier/frp/issues), so others with a same question can search it quickly and we don't need to answer them repeatedly.**
-
-## Donation
-
-If frp helps you a lot, you can support us by:
-
-### GitHub Sponsors
-
-Support us by [Github Sponsors](https://github.com/sponsors/fatedier).
-
-You can have your company's logo placed on README file of this project.
-
-### PayPal
-
-Donate money by [PayPal](https://www.paypal.me/fatedier) to my account **fatedier@gmail.com**.
