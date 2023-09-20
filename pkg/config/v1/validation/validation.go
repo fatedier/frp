@@ -30,7 +30,7 @@ var (
 		"wss",
 	}
 
-	SupportedAuthMethods = []string{
+	SupportedAuthMethods = []v1.AuthMethod{
 		"token",
 		"oidc",
 	}

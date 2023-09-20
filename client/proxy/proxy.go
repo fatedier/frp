@@ -15,7 +15,6 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"net"
@@ -149,7 +148,7 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	}
 
 	// check if we need to send proxy protocol info
-	var extraInfo []byte
+	var extraInfo plugin.ExtraInfo
 	if baseCfg.Transport.ProxyProtocolVersion != "" {
 		if m.SrcAddr != "" && m.SrcPort != 0 {
 			if m.DstAddr == "" {
@@ -175,16 +174,14 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 				h.Version = 2
 			}
 
-			buf := bytes.NewBuffer(nil)
-			_, _ = h.WriteTo(buf)
-			extraInfo = buf.Bytes()
+			extraInfo.ProxyProtocolHeader = h
 		}
 	}
 
 	if pxy.proxyPlugin != nil {
 		// if plugin is set, let plugin handle connection first
 		xl.Debug("handle by plugin: %s", pxy.proxyPlugin.Name())
-		pxy.proxyPlugin.Handle(remote, workConn, extraInfo)
+		pxy.proxyPlugin.Handle(remote, workConn, &extraInfo)
 		xl.Debug("handle by plugin finished")
 		return
 	}
@@ -202,10 +199,10 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	xl.Debug("join connections, localConn(l[%s] r[%s]) workConn(l[%s] r[%s])", localConn.LocalAddr().String(),
 		localConn.RemoteAddr().String(), workConn.LocalAddr().String(), workConn.RemoteAddr().String())
 
-	if len(extraInfo) > 0 {
-		if _, err := localConn.Write(extraInfo); err != nil {
+	if extraInfo.ProxyProtocolHeader != nil {
+		if _, err := extraInfo.ProxyProtocolHeader.WriteTo(localConn); err != nil {
 			workConn.Close()
-			xl.Error("write extraInfo to local conn error: %v", err)
+			xl.Error("write proxy protocol header to local conn error: %v", err)
 			return
 		}
 	}

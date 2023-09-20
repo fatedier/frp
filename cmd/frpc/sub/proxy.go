@@ -23,24 +23,23 @@ import (
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
-	"github.com/fatedier/frp/pkg/consts"
 )
 
-var proxyTypes = []string{
-	consts.TCPProxy,
-	consts.UDPProxy,
-	consts.TCPMuxProxy,
-	consts.HTTPProxy,
-	consts.HTTPSProxy,
-	consts.STCPProxy,
-	consts.SUDPProxy,
-	consts.XTCPProxy,
+var proxyTypes = []v1.ProxyType{
+	v1.ProxyTypeTCP,
+	v1.ProxyTypeUDP,
+	v1.ProxyTypeTCPMUX,
+	v1.ProxyTypeHTTP,
+	v1.ProxyTypeHTTPS,
+	v1.ProxyTypeSTCP,
+	v1.ProxyTypeSUDP,
+	v1.ProxyTypeXTCP,
 }
 
-var visitorTypes = []string{
-	consts.STCPProxy,
-	consts.SUDPProxy,
-	consts.XTCPProxy,
+var visitorTypes = []v1.VisitorType{
+	v1.VisitorTypeSTCP,
+	v1.VisitorTypeSUDP,
+	v1.VisitorTypeXTCP,
 }
 
 func init() {
@@ -50,17 +49,17 @@ func init() {
 			panic("proxy type: " + typ + " not support")
 		}
 		clientCfg := v1.ClientCommonConfig{}
-		cmd := NewProxyCommand(typ, c, &clientCfg)
+		cmd := NewProxyCommand(string(typ), c, &clientCfg)
 		RegisterClientCommonConfigFlags(cmd, &clientCfg)
 		RegisterProxyFlags(cmd, c)
 
 		// add sub command for visitor
-		if lo.Contains(visitorTypes, typ) {
-			vc := v1.NewVisitorConfigurerByType(typ)
+		if lo.Contains(visitorTypes, v1.VisitorType(typ)) {
+			vc := v1.NewVisitorConfigurerByType(v1.VisitorType(typ))
 			if vc == nil {
 				panic("visitor type: " + typ + " not support")
 			}
-			visitorCmd := NewVisitorCommand(typ, vc, &clientCfg)
+			visitorCmd := NewVisitorCommand(string(typ), vc, &clientCfg)
 			RegisterVisitorFlags(visitorCmd, vc)
 			cmd.AddCommand(visitorCmd)
 		}

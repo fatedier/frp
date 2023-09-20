@@ -26,7 +26,7 @@ import (
 func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConfig {
 	out := &v1.ClientCommonConfig{}
 	out.User = conf.User
-	out.Auth.Method = conf.ClientConfig.AuthenticationMethod
+	out.Auth.Method = v1.AuthMethod(conf.ClientConfig.AuthenticationMethod)
 	out.Auth.Token = conf.ClientConfig.Token
 	if conf.ClientConfig.AuthenticateHeartBeats {
 		out.Auth.AdditionalScopes = append(out.Auth.AdditionalScopes, v1.AuthScopeHeartBeats)
@@ -86,7 +86,7 @@ func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConf
 
 func Convert_ServerCommonConf_To_v1(conf *ServerCommonConf) *v1.ServerConfig {
 	out := &v1.ServerConfig{}
-	out.Auth.Method = conf.ServerConfig.AuthenticationMethod
+	out.Auth.Method = v1.AuthMethod(conf.ServerConfig.AuthenticationMethod)
 	out.Auth.Token = conf.ServerConfig.Token
 	if conf.ServerConfig.AuthenticateHeartBeats {
 		out.Auth.AdditionalScopes = append(out.Auth.AdditionalScopes, v1.AuthScopeHeartBeats)

@@ -19,16 +19,22 @@ import (
 	"reflect"
 
 	"gopkg.in/ini.v1"
+)
 
-	"github.com/fatedier/frp/pkg/consts"
+type VisitorType string
+
+const (
+	VisitorTypeSTCP VisitorType = "stcp"
+	VisitorTypeXTCP VisitorType = "xtcp"
+	VisitorTypeSUDP VisitorType = "sudp"
 )
 
 // Visitor
 var (
-	visitorConfTypeMap = map[string]reflect.Type{
-		consts.STCPProxy: reflect.TypeOf(STCPVisitorConf{}),
-		consts.XTCPProxy: reflect.TypeOf(XTCPVisitorConf{}),
-		consts.SUDPProxy: reflect.TypeOf(SUDPVisitorConf{}),
+	visitorConfTypeMap = map[VisitorType]reflect.Type{
+		VisitorTypeSTCP: reflect.TypeOf(STCPVisitorConf{}),
+		VisitorTypeXTCP: reflect.TypeOf(XTCPVisitorConf{}),
+		VisitorTypeSUDP: reflect.TypeOf(SUDPVisitorConf{}),
 	}
 )
 
@@ -41,7 +47,7 @@ type VisitorConf interface {
 
 // DefaultVisitorConf creates a empty VisitorConf object by visitorType.
 // If visitorType doesn't exist, return nil.
-func DefaultVisitorConf(visitorType string) VisitorConf {
+func DefaultVisitorConf(visitorType VisitorType) VisitorConf {
 	v, ok := visitorConfTypeMap[visitorType]
 	if !ok {
 		return nil
@@ -161,7 +167,7 @@ func (cfg *XTCPVisitorConf) UnmarshalFromIni(prefix string, name string, section
 // Visitor loaded from ini
 func NewVisitorConfFromIni(prefix string, name string, section *ini.Section) (VisitorConf, error) {
 	// section.Key: if key not exists, section will set it with default value.
-	visitorType := section.Key("type").String()
+	visitorType := VisitorType(section.Key("type").String())
 
 	if visitorType == "" {
 		return nil, fmt.Errorf("type shouldn't be empty")

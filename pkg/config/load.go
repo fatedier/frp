@@ -32,7 +32,6 @@ import (
 	"github.com/fatedier/frp/pkg/config/legacy"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
-	"github.com/fatedier/frp/pkg/consts"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/util"
 )
@@ -124,9 +123,9 @@ func LoadConfigure(b []byte, c any) error {
 }
 
 func NewProxyConfigurerFromMsg(m *msg.NewProxy, serverCfg *v1.ServerConfig) (v1.ProxyConfigurer, error) {
-	m.ProxyType = util.EmptyOr(m.ProxyType, consts.TCPProxy)
+	m.ProxyType = util.EmptyOr(m.ProxyType, string(v1.ProxyTypeTCP))
 
-	configurer := v1.NewProxyConfigurerByType(m.ProxyType)
+	configurer := v1.NewProxyConfigurerByType(v1.ProxyType(m.ProxyType))
 	if configurer == nil {
 		return nil, fmt.Errorf("unknown proxy type: %s", m.ProxyType)
 	}

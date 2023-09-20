@@ -48,7 +48,7 @@ func NewSocks5Plugin(options v1.ClientPluginOptions) (p Plugin, err error) {
 	return
 }
 
-func (sp *Socks5Plugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ []byte) {
+func (sp *Socks5Plugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
 	defer conn.Close()
 	wrapConn := utilnet.WrapReadWriteCloserToConn(conn, realConn)
 	_ = sp.Server.ServeConn(wrapConn)

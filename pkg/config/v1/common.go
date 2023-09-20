@@ -25,6 +25,13 @@ const (
 	AuthScopeNewWorkConns AuthScope = "NewWorkConns"
 )
 
+type AuthMethod string
+
+const (
+	AuthMethodToken AuthMethod = "token"
+	AuthMethodOIDC  AuthMethod = "oidc"
+)
+
 // QUIC protocol options
 type QUICOptions struct {
 	KeepalivePeriod    int `json:"quicKeepalivePeriod,omitempty" validate:"gte=0"`

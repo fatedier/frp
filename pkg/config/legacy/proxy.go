@@ -21,20 +21,32 @@ import (
 	"gopkg.in/ini.v1"
 
 	"github.com/fatedier/frp/pkg/config/types"
-	"github.com/fatedier/frp/pkg/consts"
+)
+
+type ProxyType string
+
+const (
+	ProxyTypeTCP    ProxyType = "tcp"
+	ProxyTypeUDP    ProxyType = "udp"
+	ProxyTypeTCPMUX ProxyType = "tcpmux"
+	ProxyTypeHTTP   ProxyType = "http"
+	ProxyTypeHTTPS  ProxyType = "https"
+	ProxyTypeSTCP   ProxyType = "stcp"
+	ProxyTypeXTCP   ProxyType = "xtcp"
+	ProxyTypeSUDP   ProxyType = "sudp"
 )
 
 // Proxy
 var (
-	proxyConfTypeMap = map[string]reflect.Type{
-		consts.TCPProxy:    reflect.TypeOf(TCPProxyConf{}),
-		consts.TCPMuxProxy: reflect.TypeOf(TCPMuxProxyConf{}),
-		consts.UDPProxy:    reflect.TypeOf(UDPProxyConf{}),
-		consts.HTTPProxy:   reflect.TypeOf(HTTPProxyConf{}),
-		consts.HTTPSProxy:  reflect.TypeOf(HTTPSProxyConf{}),
-		consts.STCPProxy:   reflect.TypeOf(STCPProxyConf{}),
-		consts.XTCPProxy:   reflect.TypeOf(XTCPProxyConf{}),
-		consts.SUDPProxy:   reflect.TypeOf(SUDPProxyConf{}),
+	proxyConfTypeMap = map[ProxyType]reflect.Type{
+		ProxyTypeTCP:    reflect.TypeOf(TCPProxyConf{}),
+		ProxyTypeUDP:    reflect.TypeOf(UDPProxyConf{}),
+		ProxyTypeTCPMUX: reflect.TypeOf(TCPMuxProxyConf{}),
+		ProxyTypeHTTP:   reflect.TypeOf(HTTPProxyConf{}),
+		ProxyTypeHTTPS:  reflect.TypeOf(HTTPSProxyConf{}),
+		ProxyTypeSTCP:   reflect.TypeOf(STCPProxyConf{}),
+		ProxyTypeXTCP:   reflect.TypeOf(XTCPProxyConf{}),
+		ProxyTypeSUDP:   reflect.TypeOf(SUDPProxyConf{}),
 	}
 )
 
@@ -46,7 +58,7 @@ type ProxyConf interface {
 	UnmarshalFromIni(string, string, *ini.Section) error
 }
 
-func NewConfByType(proxyType string) ProxyConf {
+func NewConfByType(proxyType ProxyType) ProxyConf {
 	v, ok := proxyConfTypeMap[proxyType]
 	if !ok {
 		return nil
@@ -58,16 +70,16 @@ func NewConfByType(proxyType string) ProxyConf {
 // Proxy Conf Loader
 // DefaultProxyConf creates a empty ProxyConf object by proxyType.
 // If proxyType doesn't exist, return nil.
-func DefaultProxyConf(proxyType string) ProxyConf {
+func DefaultProxyConf(proxyType ProxyType) ProxyConf {
 	return NewConfByType(proxyType)
 }
 
 // Proxy loaded from ini
 func NewProxyConfFromIni(prefix, name string, section *ini.Section) (ProxyConf, error) {
 	// section.Key: if key not exists, section will set it with default value.
-	proxyType := section.Key("type").String()
+	proxyType := ProxyType(section.Key("type").String())
 	if proxyType == "" {
-		proxyType = consts.TCPProxy
+		proxyType = ProxyTypeTCP
 	}
 
 	conf := DefaultProxyConf(proxyType)

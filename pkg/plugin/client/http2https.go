@@ -76,7 +76,7 @@ func NewHTTP2HTTPSPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	return p, nil
 }
 
-func (p *HTTP2HTTPSPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ []byte) {
+func (p *HTTP2HTTPSPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
 	wrapConn := utilnet.WrapReadWriteCloserToConn(conn, realConn)
 	_ = p.l.PutConn(wrapConn)
 }

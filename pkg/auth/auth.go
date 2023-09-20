@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
-	"github.com/fatedier/frp/pkg/consts"
 	"github.com/fatedier/frp/pkg/msg"
 )
 
@@ -30,9 +29,9 @@ type Setter interface {
 
 func NewAuthSetter(cfg v1.AuthClientConfig) (authProvider Setter) {
 	switch cfg.Method {
-	case consts.TokenAuthMethod:
+	case v1.AuthMethodToken:
 		authProvider = NewTokenAuth(cfg.AdditionalScopes, cfg.Token)
-	case consts.OidcAuthMethod:
+	case v1.AuthMethodOIDC:
 		authProvider = NewOidcAuthSetter(cfg.AdditionalScopes, cfg.OIDC)
 	default:
 		panic(fmt.Sprintf("wrong method: '%s'", cfg.Method))
@@ -48,9 +47,9 @@ type Verifier interface {
 
 func NewAuthVerifier(cfg v1.AuthServerConfig) (authVerifier Verifier) {
 	switch cfg.Method {
-	case consts.TokenAuthMethod:
+	case v1.AuthMethodToken:
 		authVerifier = NewTokenAuth(cfg.AdditionalScopes, cfg.Token)
-	case consts.OidcAuthMethod:
+	case v1.AuthMethodOIDC:
 		authVerifier = NewOidcAuthVerifier(cfg.AdditionalScopes, cfg.OIDC)
 	}
 	return authVerifier

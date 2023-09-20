@@ -101,7 +101,7 @@ func (p *HTTPS2HTTPSPlugin) genTLSConfig() (*tls.Config, error) {
 	return config, nil
 }
 
-func (p *HTTPS2HTTPSPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ []byte) {
+func (p *HTTPS2HTTPSPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
 	wrapConn := utilnet.WrapReadWriteCloserToConn(conn, realConn)
 	_ = p.l.PutConn(wrapConn)
 }
