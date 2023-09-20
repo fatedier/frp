@@ -22,7 +22,6 @@ import (
 	"github.com/samber/lo"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
-	"github.com/fatedier/frp/pkg/consts"
 )
 
 func validateProxyBaseConfigForClient(c *v1.ProxyBaseConfig) error {
@@ -134,7 +133,7 @@ func validateTCPMuxProxyConfigForClient(c *v1.TCPMuxProxyConfig) error {
 		return err
 	}
 
-	if !lo.Contains([]string{consts.HTTPConnectTCPMultiplexer}, c.Multiplexer) {
+	if !lo.Contains([]string{string(v1.TCPMultiplexerHTTPConnect)}, c.Multiplexer) {
 		return fmt.Errorf("not support multiplexer: %s", c.Multiplexer)
 	}
 	return nil
@@ -197,7 +196,7 @@ func validateUDPProxyConfigForServer(c *v1.UDPProxyConfig, s *v1.ServerConfig) e
 }
 
 func validateTCPMuxProxyConfigForServer(c *v1.TCPMuxProxyConfig, s *v1.ServerConfig) error {
-	if c.Multiplexer == consts.HTTPConnectTCPMultiplexer &&
+	if c.Multiplexer == string(v1.TCPMultiplexerHTTPConnect) &&
 		s.TCPMuxHTTPConnectPort == 0 {
 		return fmt.Errorf("tcpmux with multiplexer httpconnect not supported because this feature is not enabled in server")
 	}

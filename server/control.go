@@ -568,7 +568,15 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 
 	// NewProxy will return an interface Proxy.
 	// In fact, it creates different proxies based on the proxy type. We just call run() here.
-	pxy, err := proxy.NewProxy(ctl.ctx, userInfo, ctl.rc, ctl.poolCount, ctl.GetWorkConn, pxyConf, ctl.serverCfg, ctl.loginMsg)
+	pxy, err := proxy.NewProxy(ctl.ctx, &proxy.Options{
+		UserInfo:           userInfo,
+		LoginMsg:           ctl.loginMsg,
+		PoolCount:          ctl.poolCount,
+		ResourceController: ctl.rc,
+		GetWorkConnFn:      ctl.GetWorkConn,
+		Configurer:         pxyConf,
+		ServerCfg:          ctl.serverCfg,
+	})
 	if err != nil {
 		return remoteAddr, err
 	}

@@ -90,12 +90,12 @@ func StatusHandler(clientCfg *v1.ClientCommonConfig) error {
 
 	fmt.Printf("Proxy Status...\n\n")
 	for _, typ := range proxyTypes {
-		arrs := res[typ]
+		arrs := res[string(typ)]
 		if len(arrs) == 0 {
 			continue
 		}
 
-		fmt.Println(strings.ToUpper(typ))
+		fmt.Println(strings.ToUpper(string(typ)))
 		tbl := table.New("Name", "Status", "LocalAddr", "Plugin", "RemoteAddr", "Error")
 		for _, ps := range arrs {
 			tbl.AddRow(ps.Name, ps.Status, ps.LocalAddr, ps.Plugin, ps.RemoteAddr, ps.Err)

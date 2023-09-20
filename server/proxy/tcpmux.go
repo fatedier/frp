@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
-	"github.com/fatedier/frp/pkg/consts"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/vhost"
 )
@@ -99,8 +98,8 @@ func (pxy *TCPMuxProxy) httpConnectRun() (remoteAddr string, err error) {
 }
 
 func (pxy *TCPMuxProxy) Run() (remoteAddr string, err error) {
-	switch pxy.cfg.Multiplexer {
-	case consts.HTTPConnectTCPMultiplexer:
+	switch v1.TCPMultiplexerType(pxy.cfg.Multiplexer) {
+	case v1.TCPMultiplexerHTTPConnect:
 		remoteAddr, err = pxy.httpConnectRun()
 	default:
 		err = fmt.Errorf("unknown multiplexer [%s]", pxy.cfg.Multiplexer)

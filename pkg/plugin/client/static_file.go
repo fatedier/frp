@@ -66,7 +66,7 @@ func NewStaticFilePlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	return sp, nil
 }
 
-func (sp *StaticFilePlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ []byte) {
+func (sp *StaticFilePlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
 	wrapConn := utilnet.WrapReadWriteCloserToConn(conn, realConn)
 	_ = sp.l.PutConn(wrapConn)
 }

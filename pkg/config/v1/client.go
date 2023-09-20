@@ -165,7 +165,7 @@ type AuthClientConfig struct {
 	// authenticate frpc with frps. If "token" is specified - token will be
 	// read into login message. If "oidc" is specified - OIDC (Open ID Connect)
 	// token will be issued using OIDC settings. By default, this value is "token".
-	Method string `json:"method,omitempty"`
+	Method AuthMethod `json:"method,omitempty"`
 	// Specify whether to include auth info in additional scope.
 	// Current supported scopes are: "HeartBeats", "NewWorkConns".
 	AdditionalScopes []AuthScope `json:"additionalScopes,omitempty"`

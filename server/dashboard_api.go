@@ -22,7 +22,6 @@ import (
 
 	"github.com/fatedier/frp/pkg/config/types"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
-	"github.com/fatedier/frp/pkg/consts"
 	"github.com/fatedier/frp/pkg/metrics/mem"
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/version"
@@ -139,21 +138,21 @@ type XTCPOutConf struct {
 	BaseOutConf
 }
 
-func getConfByType(proxyType string) interface{} {
-	switch proxyType {
-	case consts.TCPProxy:
+func getConfByType(proxyType string) any {
+	switch v1.ProxyType(proxyType) {
+	case v1.ProxyTypeTCP:
 		return &TCPOutConf{}
-	case consts.TCPMuxProxy:
+	case v1.ProxyTypeTCPMUX:
 		return &TCPMuxOutConf{}
-	case consts.UDPProxy:
+	case v1.ProxyTypeUDP:
 		return &UDPOutConf{}
-	case consts.HTTPProxy:
+	case v1.ProxyTypeHTTP:
 		return &HTTPOutConf{}
-	case consts.HTTPSProxy:
+	case v1.ProxyTypeHTTPS:
 		return &HTTPSOutConf{}
-	case consts.STCPProxy:
+	case v1.ProxyTypeSTCP:
 		return &STCPOutConf{}
-	case consts.XTCPProxy:
+	case v1.ProxyTypeXTCP:
 		return &XTCPOutConf{}
 	default:
 		return nil
@@ -215,12 +214,12 @@ func (svr *Service) getProxyStatsByType(proxyType string) (proxyInfos []*ProxySt
 				log.Warn("unmarshal proxy [%s] conf info error: %v", ps.Name, err)
 				continue
 			}
-			proxyInfo.Status = consts.Online
+			proxyInfo.Status = "online"
 			if pxy.GetLoginMsg() != nil {
 				proxyInfo.ClientVersion = pxy.GetLoginMsg().Version
 			}
 		} else {
-			proxyInfo.Status = consts.Offline
+			proxyInfo.Status = "offline"
 		}
 		proxyInfo.Name = ps.Name
 		proxyInfo.TodayTrafficIn = ps.TodayTrafficIn
@@ -293,9 +292,9 @@ func (svr *Service) getProxyStatsByTypeAndName(proxyType string, proxyName strin
 				msg = "parse conf error"
 				return
 			}
-			proxyInfo.Status = consts.Online
+			proxyInfo.Status = "online"
 		} else {
-			proxyInfo.Status = consts.Offline
+			proxyInfo.Status = "offline"
 		}
 		proxyInfo.TodayTrafficIn = ps.TodayTrafficIn
 		proxyInfo.TodayTrafficOut = ps.TodayTrafficOut

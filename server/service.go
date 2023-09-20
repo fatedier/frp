@@ -533,12 +533,6 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 	xl.Info("client login info: ip [%s] version [%s] hostname [%s] os [%s] arch [%s]",
 		ctlConn.RemoteAddr().String(), loginMsg.Version, loginMsg.Hostname, loginMsg.Os, loginMsg.Arch)
 
-	// Check client version.
-	if ok, msg := version.Compat(loginMsg.Version); !ok {
-		err = fmt.Errorf("%s", msg)
-		return
-	}
-
 	// Check auth.
 	if err = svr.authVerifier.VerifyLogin(loginMsg); err != nil {
 		return

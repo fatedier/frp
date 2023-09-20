@@ -271,9 +271,18 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	xl.Debug("join connections closed")
 }
 
-func NewProxy(ctx context.Context, userInfo plugin.UserInfo, rc *controller.ResourceController, poolCount int,
-	getWorkConnFn GetWorkConnFn, configurer v1.ProxyConfigurer, serverCfg *v1.ServerConfig, loginMsg *msg.Login,
-) (pxy Proxy, err error) {
+type Options struct {
+	UserInfo           plugin.UserInfo
+	LoginMsg           *msg.Login
+	PoolCount          int
+	ResourceController *controller.ResourceController
+	GetWorkConnFn      GetWorkConnFn
+	Configurer         v1.ProxyConfigurer
+	ServerCfg          *v1.ServerConfig
+}
+
+func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
+	configurer := options.Configurer
 	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(configurer.GetBaseConfig().Name)
 
 	var limiter *rate.Limiter
@@ -284,16 +293,16 @@ func NewProxy(ctx context.Context, userInfo plugin.UserInfo, rc *controller.Reso
 
 	basePxy := BaseProxy{
 		name:          configurer.GetBaseConfig().Name,
-		rc:            rc,
+		rc:            options.ResourceController,
 		listeners:     make([]net.Listener, 0),
-		poolCount:     poolCount,
-		getWorkConnFn: getWorkConnFn,
-		serverCfg:     serverCfg,
+		poolCount:     options.PoolCount,
+		getWorkConnFn: options.GetWorkConnFn,
+		serverCfg:     options.ServerCfg,
 		limiter:       limiter,
 		xl:            xl,
 		ctx:           xlog.NewContext(ctx, xl),
-		userInfo:      userInfo,
-		loginMsg:      loginMsg,
+		userInfo:      options.UserInfo,
+		loginMsg:      options.LoginMsg,
 		configurer:    configurer,
 	}
 
