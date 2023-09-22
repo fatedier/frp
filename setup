@@ -217,15 +217,15 @@ function build_bin() {
   echo "[*] Binary for ${service_name} ready at ./${service_name}"
 
   echo "[*] Binary for ${service_name} ready at ./${service_name}"
-  GOOS=linux GOARCH=amd64 go build -o frpc_linux_amd64 ./cmd/frpc
+  GOOS=darwin GOARCH=amd64 go build -o frpc_darwin_amd64 ./cmd/frpc
   echo "[*] Binary for ${service_name} ready at ./${service_name}"
 
   echo "[*] Binary for ${service_name} ready at ./${service_name}"
-  GOOS=linux GOARCH=amd64 go build -o frpc_linux_amd64 ./cmd/frpc
+  GOOS=windows GOARCH=amd64 go build -o frpc_windows_amd64 ./cmd/frpc
   echo "[*] Binary for ${service_name} ready at ./${service_name}"
 
   echo "[*] Binary for ${service_name} ready at ./${service_name}"
-  GOOS=linux GOARCH=amd64 go build -o frpc_linux_amd64 ./cmd/frpc
+  GOOS=linux GOARCH=amd64 go build -o frps_linux_amd64 ./cmd/frps
   echo "[*] Binary for ${service_name} ready at ./${service_name}"
 }
 
