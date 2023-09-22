@@ -22,6 +22,7 @@ func TestGetHTTPSHostname(t *testing.T) {
 		require.NotNil(conn)
 	}()
 
+	// #nosec G402
 	go func() {
 		time.Sleep(100 * time.Millisecond)
 		tls.Dial("tcp", l.Addr().String(), &tls.Config{

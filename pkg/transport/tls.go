@@ -72,7 +72,9 @@ func newCertPool(caPath string) (*x509.CertPool, error) {
 }
 
 func NewServerTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
-	base := &tls.Config{}
+	base := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
 
 	if certPath == "" || keyPath == "" {
 		// server will generate tls conf by itself
@@ -101,7 +103,9 @@ func NewServerTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 }
 
 func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Config, error) {
-	base := &tls.Config{}
+	base := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
 
 	if certPath != "" && keyPath != "" {
 		cert, err := newCustomTLSKeyPair(certPath, keyPath)
@@ -122,7 +126,7 @@ func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Conf
 
 		base.RootCAs = pool
 		base.InsecureSkipVerify = false
-	} else {
+	} else { // #nosec G402
 		base.InsecureSkipVerify = true
 	}
 

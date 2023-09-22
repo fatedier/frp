@@ -88,6 +88,7 @@ func (svr *Service) RunDashboardServer(address string) (err error) {
 			return err
 		}
 		tlsCfg := &tls.Config{
+			MinVersion:   tls.VersionTLS12,
 			Certificates: []tls.Certificate{cert},
 		}
 		ln = tls.NewListener(ln, tlsCfg)

@@ -249,7 +249,7 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 					framework.NewRequestExpect(f).
 						Explain(test.proxyName + "-" + domain).
 						Port(vhostHTTPSPort).
-						RequestModify(func(r *request.Request) {
+						RequestModify(func(r *request.Request) { // #nosec G402
 							r.HTTPS().HTTPHost(domain).TLSConfig(&tls.Config{
 								ServerName:         domain,
 								InsecureSkipVerify: true,
@@ -265,7 +265,7 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 			framework.NewRequestExpect(f).
 				Explain("not exist host").
 				Port(vhostHTTPSPort).
-				RequestModify(func(r *request.Request) {
+				RequestModify(func(r *request.Request) { // #nosec G402
 					r.HTTPS().HTTPHost(notExistDomain).TLSConfig(&tls.Config{
 						ServerName:         notExistDomain,
 						InsecureSkipVerify: true,

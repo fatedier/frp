@@ -107,9 +107,9 @@ linters-settings:
     - G112
     - G306
     - G401
-    - G402
     - G404
     - G501
+    - G602
 
 issues:
   # List of regexps of issue texts to exclude, empty list by default.

@@ -118,7 +118,10 @@ func (p *HTTPS2HTTPPlugin) genTLSConfig() (*tls.Config, error) {
 		return nil, err
 	}
 
-	config := &tls.Config{Certificates: []tls.Certificate{cert}}
+	config := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	}
 	return config, nil
 }
 

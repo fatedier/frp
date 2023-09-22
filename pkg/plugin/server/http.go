@@ -46,7 +46,7 @@ func NewHTTPPluginOptions(options HTTPPluginOptions) Plugin {
 	url := fmt.Sprintf("%s%s", options.Addr, options.Path)
 
 	var client *http.Client
-	if strings.HasPrefix(url, "https://") {
+	if strings.HasPrefix(url, "https://") { // #nosec G402
 		tr := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: !options.TLSVerify},
 		}

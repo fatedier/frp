@@ -74,6 +74,7 @@ func NewHTTPS2HTTPSPlugin(params map[string]string) (Plugin, error) {
 		l:                 listener,
 	}
 
+	// #nosec G402
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
@@ -123,7 +124,10 @@ func (p *HTTPS2HTTPSPlugin) genTLSConfig() (*tls.Config, error) {
 		return nil, err
 	}
 
-	config := &tls.Config{Certificates: []tls.Certificate{cert}}
+	config := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	}
 	return config, nil
 }
 

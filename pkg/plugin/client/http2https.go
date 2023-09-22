@@ -67,6 +67,7 @@ func NewHTTP2HTTPSPlugin(params map[string]string) (Plugin, error) {
 		l:                 listener,
 	}
 
+	// #nosec G402
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}

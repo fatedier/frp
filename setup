@@ -207,7 +207,11 @@ function build_bin() {
   go clean -modcache
   go get -u github.com/go-playground/validator/v10@v10.14.1
   go mod tidy
-  
+
+  go get -u github.com/securego/gosec/v2/cmd/gosec
+  curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.54.2
+  golangci-lint run
+
   echo "[*] Binary for ${service_name} ready at ./${service_name}"
   GOOS=linux GOARCH=amd64 go build -o frpc_linux_amd64 ./cmd/frpc
   echo "[*] Binary for ${service_name} ready at ./${service_name}"

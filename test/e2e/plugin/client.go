@@ -254,7 +254,7 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 
 		framework.NewRequestExpect(f).
 			Port(vhostHTTPSPort).
-			RequestModify(func(r *request.Request) {
+			RequestModify(func(r *request.Request) { // #nosec G402
 				r.HTTPS().HTTPHost("example.com").TLSConfig(&tls.Config{
 					ServerName:         "example.com",
 					InsecureSkipVerify: true,
@@ -301,7 +301,7 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 
 		framework.NewRequestExpect(f).
 			Port(vhostHTTPSPort).
-			RequestModify(func(r *request.Request) {
+			RequestModify(func(r *request.Request) { // #nosec G402
 				r.HTTPS().HTTPHost("example.com").TLSConfig(&tls.Config{
 					ServerName:         "example.com",
 					InsecureSkipVerify: true,
