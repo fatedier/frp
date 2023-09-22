@@ -56,7 +56,7 @@ func readClientHello(reader io.Reader) (*tls.ClientHelloInfo, error) {
 	// As long as the Client Hello is successfully read, the failure should only happen after GetConfigForClient is called,
 	// so we only care about the error if hello was never set.
 	err := tls.Server(readOnlyConn{reader: reader}, &tls.Config{
-		MinVersion: tls.VersionTLS12,
+		MinVersion: tls.VersionTLS13,
 		GetConfigForClient: func(argHello *tls.ClientHelloInfo) (*tls.Config, error) {
 			hello = &tls.ClientHelloInfo{}
 			*hello = *argHello
