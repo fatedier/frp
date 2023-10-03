@@ -460,9 +460,9 @@ Note that it may not work with all types of NAT devices. You might want to fallb
 
 Read the full example configuration files to find out even more features not described here.
 
-[Full configuration file for frps (Server)](./conf/frps_full.ini)
+[Full configuration file for frps (Server)](./conf/frps_legacy_full.ini)
 
-[Full configuration file for frpc (Client)](./conf/frpc_full.ini)
+[Full configuration file for frpc (Client)](./conf/frpc_legacy_full.ini)
 
 ### Using Environment Variables
 
