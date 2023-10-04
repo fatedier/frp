@@ -55,7 +55,7 @@ func NewHTTP2HTTPSPlugin(params map[string]string) (Plugin, error) {
 	}
 
 	if localAddr == "" {
-		return nil, fmt.Errorf("plugin_local_addr is required")
+		return nil, fmt.Errorf("plugin_local_addr is require")
 	}
 
 	listener := NewProxyListener()
