@@ -117,6 +117,8 @@ Next, place the `frps` binary and `frps.ini` configuration file on Server A, whi
 
 Finally, place the `frpc` binary and `frpc.ini` configuration file on Server B, which is located on a LAN that cannot be directly accessed from the public internet.
 
+Some antiviruses improperly mark frpc as malware and delete it. This is due to frp being a networking tool capable of creating reverse proxies. Antiviruses sometimes flag reverse proxies due to their ability to bypass firewall port restrictions. If you are using antivirus, then you may need to whitelist/exclude frpc in your antivirus settings to avoid accidental quarantine/deletion. See [issue 3637](https://github.com/fatedier/frp/issues/3637) for more details.
+
 ### Access your computer in a LAN network via SSH
 
 1. Modify `frps.ini` on server A by setting the `bind_port` for frp clients to connect to:
