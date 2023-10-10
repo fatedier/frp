@@ -90,10 +90,6 @@ frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进�
 
 ![zsxq](/doc/pic/zsxq.jpg)
 
-### 支付宝扫码捐赠
-
-![donate-alipay](/doc/pic/donate-alipay.png)
-
 ### 微信支付捐赠
 
 ![donate-wechatpay](/doc/pic/donate-wechatpay.png)

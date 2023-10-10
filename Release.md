@@ -6,3 +6,4 @@
 
 * Change the way to start the visitor through the command line from `frpc stcp --role=visitor xxx` to `frpc stcp visitor xxx`.
 * Modified the semantics of the `server_addr` in the command line, no longer including the port. Added the `server_port` parameter to configure the port.
+* No longer support range ports mapping in TOML/YAML/JSON.

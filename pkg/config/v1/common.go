@@ -34,9 +34,9 @@ const (
 
 // QUIC protocol options
 type QUICOptions struct {
-	KeepalivePeriod    int `json:"quicKeepalivePeriod,omitempty" validate:"gte=0"`
-	MaxIdleTimeout     int `json:"quicMaxIdleTimeout,omitempty" validate:"gte=0"`
-	MaxIncomingStreams int `json:"quicMaxIncomingStreams,omitempty" validate:"gte=0"`
+	KeepalivePeriod    int `json:"keepalivePeriod,omitempty"`
+	MaxIdleTimeout     int `json:"maxIdleTimeout,omitempty"`
+	MaxIncomingStreams int `json:"maxIncomingStreams,omitempty"`
 }
 
 func (c *QUICOptions) Complete() {
