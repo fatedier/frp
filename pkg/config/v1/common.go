@@ -109,7 +109,7 @@ type HTTPPluginOptions struct {
 	Addr      string   `json:"addr"`
 	Path      string   `json:"path"`
 	Ops       []string `json:"ops"`
-	TLSVerify bool     `json:"tls_verify,omitempty"`
+	TLSVerify bool     `json:"tlsVerify,omitempty"`
 }
 
 type HeaderOperations struct {
