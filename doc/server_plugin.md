@@ -216,49 +216,50 @@ New user connection received from proxy (support `tcp`, `stcp`, `https` and `tcp
 
 ### Server Plugin Configuration
 
-```ini
-# frps.ini
-[common]
-bind_port = 7000
+```toml
+# frps.toml
+bindPort = 7000
 
-[plugin.user-manager]
-addr = 127.0.0.1:9000
-path = /handler
-ops = Login
+[[httpPlugins]]
+name = "user-manager"
+addr = "127.0.0.1:9000"
+path = "/handler"
+ops = ["Login"]
 
-[plugin.port-manager]
-addr = 127.0.0.1:9001
-path = /handler
-ops = NewProxy
+[[httpPlugins]]
+name = "port-manager"
+addr = "127.0.0.1:9001"
+path = "/handler"
+ops = ["NewProxy"]
 ```
 
-- addr: the address where the external RPC service listens. Defaults to http. For https, specify the schema: `addr = https://127.0.0.1:9001`.
+- addr: the address where the external RPC service listens. Defaults to http. For https, specify the schema: `addr = "https://127.0.0.1:9001"`.
 - path: http request url path for the POST request.
 - ops: operations plugin needs to handle (e.g. "Login", "NewProxy", ...).
-- tls_verify: When the schema is https, we verify by default. Set this value to false if you want to skip verification.
+- tlsVerify: When the schema is https, we verify by default. Set this value to false if you want to skip verification.
 
 ### Metadata
 
 Metadata will be sent to the server plugin in each RPC request.
 
-There are 2 types of metadata entries - 1 under `[common]` and the other under each proxy configuration.
-Metadata entries under `[common]` will be sent in `Login` under the key `metas`, and in any other RPC request under `user.metas`.
+There are 2 types of metadata entries - global one and the other under each proxy configuration.
+Global metadata entries will be sent in `Login` under the key `metas`, and in any other RPC request under `user.metas`.
 Metadata entries under each proxy configuration will be sent in `NewProxy` op only, under `metas`.
 
-Metadata entries start with `meta_`. This is an example of metadata entries in `[common]` and under the proxy named `[ssh]`:
+This is an example of metadata entries:
 
-```
-# frpc.ini
-[common]
-server_addr = 127.0.0.1
-server_port = 7000
-user = fake
-meta_token = fake
-meta_version = 1.0.0
+```toml
+# frpc.toml
+serverAddr = "127.0.0.1"
+serverPort = 7000
+user = "fake"
+metadatas.token = "fake"
+metadatas.version = "1.0.0"
 
-[ssh]
-type = tcp
-local_port = 22
-remote_port = 6000
-meta_id = 123
+[[proxies]]
+name = "ssh"
+type = "tcp"
+localPort = 22
+remotePort = 6000
+metadatas.id = "123"
 ```

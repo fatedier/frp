@@ -41,35 +41,35 @@ type ServerCommonConf struct {
 	BindAddr string `ini:"bind_addr" json:"bind_addr"`
 	// BindPort specifies the port that the server listens on. By default, this
 	// value is 7000.
-	BindPort int `ini:"bind_port" json:"bind_port" validate:"gte=0,lte=65535"`
+	BindPort int `ini:"bind_port" json:"bind_port"`
 	// KCPBindPort specifies the KCP port that the server listens on. If this
 	// value is 0, the server will not listen for KCP connections. By default,
 	// this value is 0.
-	KCPBindPort int `ini:"kcp_bind_port" json:"kcp_bind_port" validate:"gte=0,lte=65535"`
+	KCPBindPort int `ini:"kcp_bind_port" json:"kcp_bind_port"`
 	// QUICBindPort specifies the QUIC port that the server listens on.
 	// Set this value to 0 will disable this feature.
 	// By default, the value is 0.
-	QUICBindPort int `ini:"quic_bind_port" json:"quic_bind_port" validate:"gte=0,lte=65535"`
+	QUICBindPort int `ini:"quic_bind_port" json:"quic_bind_port"`
 	// QUIC protocol options
-	QUICKeepalivePeriod    int `ini:"quic_keepalive_period" json:"quic_keepalive_period" validate:"gte=0"`
-	QUICMaxIdleTimeout     int `ini:"quic_max_idle_timeout" json:"quic_max_idle_timeout" validate:"gte=0"`
-	QUICMaxIncomingStreams int `ini:"quic_max_incoming_streams" json:"quic_max_incoming_streams" validate:"gte=0"`
+	QUICKeepalivePeriod    int `ini:"quic_keepalive_period" json:"quic_keepalive_period"`
+	QUICMaxIdleTimeout     int `ini:"quic_max_idle_timeout" json:"quic_max_idle_timeout"`
+	QUICMaxIncomingStreams int `ini:"quic_max_incoming_streams" json:"quic_max_incoming_streams"`
 	// ProxyBindAddr specifies the address that the proxy binds to. This value
 	// may be the same as BindAddr.
 	ProxyBindAddr string `ini:"proxy_bind_addr" json:"proxy_bind_addr"`
 	// VhostHTTPPort specifies the port that the server listens for HTTP Vhost
 	// requests. If this value is 0, the server will not listen for HTTP
 	// requests. By default, this value is 0.
-	VhostHTTPPort int `ini:"vhost_http_port" json:"vhost_http_port" validate:"gte=0,lte=65535"`
+	VhostHTTPPort int `ini:"vhost_http_port" json:"vhost_http_port"`
 	// VhostHTTPSPort specifies the port that the server listens for HTTPS
 	// Vhost requests. If this value is 0, the server will not listen for HTTPS
 	// requests. By default, this value is 0.
-	VhostHTTPSPort int `ini:"vhost_https_port" json:"vhost_https_port" validate:"gte=0,lte=65535"`
+	VhostHTTPSPort int `ini:"vhost_https_port" json:"vhost_https_port"`
 	// TCPMuxHTTPConnectPort specifies the port that the server listens for TCP
 	// HTTP CONNECT requests. If the value is 0, the server will not multiplex TCP
 	// requests on one single port. If it's not - it will listen on this value for
 	// HTTP CONNECT requests. By default, this value is 0.
-	TCPMuxHTTPConnectPort int `ini:"tcpmux_httpconnect_port" json:"tcpmux_httpconnect_port" validate:"gte=0,lte=65535"`
+	TCPMuxHTTPConnectPort int `ini:"tcpmux_httpconnect_port" json:"tcpmux_httpconnect_port"`
 	// If TCPMuxPassthrough is true, frps won't do any update on traffic.
 	TCPMuxPassthrough bool `ini:"tcpmux_passthrough" json:"tcpmux_passthrough"`
 	// VhostHTTPTimeout specifies the response header timeout for the Vhost
@@ -81,7 +81,7 @@ type ServerCommonConf struct {
 	// DashboardPort specifies the port that the dashboard listens on. If this
 	// value is 0, the dashboard will not be started. By default, this value is
 	// 0.
-	DashboardPort int `ini:"dashboard_port" json:"dashboard_port" validate:"gte=0,lte=65535"`
+	DashboardPort int `ini:"dashboard_port" json:"dashboard_port"`
 	// DashboardTLSCertFile specifies the path of the cert file that the server will
 	// load. If "dashboard_tls_cert_file", "dashboard_tls_key_file" are valid, the server will use this
 	// supplied tls configuration.

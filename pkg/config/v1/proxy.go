@@ -278,7 +278,7 @@ type HTTPProxyConfig struct {
 	HTTPPassword      string           `json:"httpPassword,omitempty"`
 	HostHeaderRewrite string           `json:"hostHeaderRewrite,omitempty"`
 	RequestHeaders    HeaderOperations `json:"requestHeaders,omitempty"`
-	RouteByHTTPUser   string           `json:"routeByHttpUser,omitempty"`
+	RouteByHTTPUser   string           `json:"routeByHTTPUser,omitempty"`
 }
 
 func (c *HTTPProxyConfig) MarshalToMsg(m *msg.NewProxy) {
@@ -342,7 +342,7 @@ type TCPMuxProxyConfig struct {
 
 	HTTPUser        string `json:"httpUser,omitempty"`
 	HTTPPassword    string `json:"httpPassword,omitempty"`
-	RouteByHTTPUser string `json:"routeByHttpUser,omitempty"`
+	RouteByHTTPUser string `json:"routeByHTTPUser,omitempty"`
 	Multiplexer     string `json:"multiplexer,omitempty"`
 }
 

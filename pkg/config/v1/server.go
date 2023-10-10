@@ -62,7 +62,7 @@ type ServerConfig struct {
 	// requested by the client when using Vhost proxying. For example, if this
 	// value is set to "frps.com" and the client requested the subdomain
 	// "test", the resulting URL would be "test.frps.com".
-	SubDomainHost string `json:"subdomainHost,omitempty"`
+	SubDomainHost string `json:"subDomainHost,omitempty"`
 	// Custom404Page specifies a path to a custom 404 page to display. If this
 	// value is "", a default page will be displayed.
 	Custom404Page string `json:"custom404Page,omitempty"`
