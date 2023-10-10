@@ -83,7 +83,7 @@ enablePrometheus = true
 # console or real logFile path like ./frps.log
 log.to = "./frps.log"
 # trace, debug, info, warn, error
-log.level = info
+log.level = "info"
 log.maxDays = 3
 # disable log colors when log.to is console, default is false
 log.disablePrintColor = false
