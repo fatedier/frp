@@ -26,32 +26,29 @@ import (
 	libio "github.com/fatedier/golib/io"
 	libnet "github.com/fatedier/golib/net"
 
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	utilnet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
-const PluginHTTPProxy = "http_proxy"
-
 func init() {
-	Register(PluginHTTPProxy, NewHTTPProxyPlugin)
+	Register(v1.PluginHTTPProxy, NewHTTPProxyPlugin)
 }
 
 type HTTPProxy struct {
-	l          *Listener
-	s          *http.Server
-	AuthUser   string
-	AuthPasswd string
+	opts *v1.HTTPProxyPluginOptions
+
+	l *Listener
+	s *http.Server
 }
 
-func NewHTTPProxyPlugin(params map[string]string) (Plugin, error) {
-	user := params["plugin_http_user"]
-	passwd := params["plugin_http_passwd"]
+func NewHTTPProxyPlugin(options v1.ClientPluginOptions) (Plugin, error) {
+	opts := options.(*v1.HTTPProxyPluginOptions)
 	listener := NewProxyListener()
 
 	hp := &HTTPProxy{
-		l:          listener,
-		AuthUser:   user,
-		AuthPasswd: passwd,
+		l:    listener,
+		opts: opts,
 	}
 
 	hp.s = &http.Server{
@@ -65,10 +62,10 @@ func NewHTTPProxyPlugin(params map[string]string) (Plugin, error) {
 }
 
 func (hp *HTTPProxy) Name() string {
-	return PluginHTTPProxy
+	return v1.PluginHTTPProxy
 }
 
-func (hp *HTTPProxy) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ []byte) {
+func (hp *HTTPProxy) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
 	wrapConn := utilnet.WrapReadWriteCloserToConn(conn, realConn)
 
 	sc, rd := libnet.NewSharedConn(wrapConn)
@@ -162,7 +159,7 @@ func (hp *HTTPProxy) ConnectHandler(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (hp *HTTPProxy) Auth(req *http.Request) bool {
-	if hp.AuthUser == "" && hp.AuthPasswd == "" {
+	if hp.opts.HTTPUser == "" && hp.opts.HTTPPassword == "" {
 		return true
 	}
 
@@ -181,8 +178,8 @@ func (hp *HTTPProxy) Auth(req *http.Request) bool {
 		return false
 	}
 
-	if !util.ConstantTimeEqString(pair[0], hp.AuthUser) ||
-		!util.ConstantTimeEqString(pair[1], hp.AuthPasswd) {
+	if !util.ConstantTimeEqString(pair[0], hp.opts.HTTPUser) ||
+		!util.ConstantTimeEqString(pair[1], hp.opts.HTTPPassword) {
 		time.Sleep(200 * time.Millisecond)
 		return false
 	}

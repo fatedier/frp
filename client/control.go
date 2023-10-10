@@ -23,11 +23,12 @@ import (
 
 	"github.com/fatedier/golib/control/shutdown"
 	"github.com/fatedier/golib/crypto"
+	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/client/visitor"
 	"github.com/fatedier/frp/pkg/auth"
-	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -43,7 +44,7 @@ type Control struct {
 	runID string
 
 	// manage all proxies
-	pxyCfgs map[string]config.ProxyConf
+	pxyCfgs []v1.ProxyConfigurer
 	pm      *proxy.Manager
 
 	// manage all visitors
@@ -69,7 +70,7 @@ type Control struct {
 	lastPong time.Time
 
 	// The client configuration
-	clientCfg config.ClientCommonConf
+	clientCfg *v1.ClientCommonConfig
 
 	readerShutdown     *shutdown.Shutdown
 	writerShutdown     *shutdown.Shutdown
@@ -83,9 +84,9 @@ type Control struct {
 
 func NewControl(
 	ctx context.Context, runID string, conn net.Conn, cm *ConnectionManager,
-	clientCfg config.ClientCommonConf,
-	pxyCfgs map[string]config.ProxyConf,
-	visitorCfgs map[string]config.VisitorConf,
+	clientCfg *v1.ClientCommonConfig,
+	pxyCfgs []v1.ProxyConfigurer,
+	visitorCfgs []v1.VisitorConfigurer,
 	authSetter auth.Setter,
 ) *Control {
 	// new xlog instance
@@ -220,7 +221,7 @@ func (ctl *Control) reader() {
 	defer ctl.readerShutdown.Done()
 	defer close(ctl.closedCh)
 
-	encReader := crypto.NewReader(ctl.conn, []byte(ctl.clientCfg.Token))
+	encReader := crypto.NewReader(ctl.conn, []byte(ctl.clientCfg.Auth.Token))
 	for {
 		m, err := msg.ReadMsg(encReader)
 		if err != nil {
@@ -240,7 +241,7 @@ func (ctl *Control) reader() {
 func (ctl *Control) writer() {
 	xl := ctl.xl
 	defer ctl.writerShutdown.Done()
-	encWriter, err := crypto.NewWriter(ctl.conn, []byte(ctl.clientCfg.Token))
+	encWriter, err := crypto.NewWriter(ctl.conn, []byte(ctl.clientCfg.Auth.Token))
 	if err != nil {
 		xl.Error("crypto new writer error: %v", err)
 		ctl.conn.Close()
@@ -274,15 +275,16 @@ func (ctl *Control) msgHandler() {
 	var hbSendCh <-chan time.Time
 	// TODO(fatedier): disable heartbeat if TCPMux is enabled.
 	// Just keep it here to keep compatible with old version frps.
-	if ctl.clientCfg.HeartbeatInterval > 0 {
-		hbSend := time.NewTicker(time.Duration(ctl.clientCfg.HeartbeatInterval) * time.Second)
+	if ctl.clientCfg.Transport.HeartbeatInterval > 0 {
+		hbSend := time.NewTicker(time.Duration(ctl.clientCfg.Transport.HeartbeatInterval) * time.Second)
 		defer hbSend.Stop()
 		hbSendCh = hbSend.C
 	}
 
 	var hbCheckCh <-chan time.Time
 	// Check heartbeat timeout only if TCPMux is not enabled and users don't disable heartbeat feature.
-	if ctl.clientCfg.HeartbeatInterval > 0 && ctl.clientCfg.HeartbeatTimeout > 0 && !ctl.clientCfg.TCPMux {
+	if ctl.clientCfg.Transport.HeartbeatInterval > 0 && ctl.clientCfg.Transport.HeartbeatTimeout > 0 &&
+		!lo.FromPtr(ctl.clientCfg.Transport.TCPMux) {
 		hbCheck := time.NewTicker(time.Second)
 		defer hbCheck.Stop()
 		hbCheckCh = hbCheck.C
@@ -301,7 +303,7 @@ func (ctl *Control) msgHandler() {
 			}
 			ctl.sendCh <- pingMsg
 		case <-hbCheckCh:
-			if time.Since(ctl.lastPong) > time.Duration(ctl.clientCfg.HeartbeatTimeout)*time.Second {
+			if time.Since(ctl.lastPong) > time.Duration(ctl.clientCfg.Transport.HeartbeatTimeout)*time.Second {
 				xl.Warn("heartbeat timeout")
 				// let reader() stop
 				ctl.conn.Close()
@@ -354,7 +356,7 @@ func (ctl *Control) worker() {
 	ctl.cm.Close()
 }
 
-func (ctl *Control) ReloadConf(pxyCfgs map[string]config.ProxyConf, visitorCfgs map[string]config.VisitorConf) error {
+func (ctl *Control) ReloadConf(pxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error {
 	ctl.vm.Reload(visitorCfgs)
 	ctl.pm.Reload(pxyCfgs)
 	return nil

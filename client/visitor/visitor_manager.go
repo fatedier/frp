@@ -22,14 +22,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fatedier/frp/pkg/config"
+	"github.com/samber/lo"
+
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
 type Manager struct {
-	clientCfg config.ClientCommonConf
-	cfgs      map[string]config.VisitorConf
+	clientCfg *v1.ClientCommonConfig
+	cfgs      map[string]v1.VisitorConfigurer
 	visitors  map[string]Visitor
 	helper    Helper
 
@@ -44,13 +46,13 @@ type Manager struct {
 func NewManager(
 	ctx context.Context,
 	runID string,
-	clientCfg config.ClientCommonConf,
+	clientCfg *v1.ClientCommonConfig,
 	connectServer func() (net.Conn, error),
 	msgTransporter transport.MessageTransporter,
 ) *Manager {
 	m := &Manager{
 		clientCfg:     clientCfg,
-		cfgs:          make(map[string]config.VisitorConf),
+		cfgs:          make(map[string]v1.VisitorConfigurer),
 		visitors:      make(map[string]Visitor),
 		checkInterval: 10 * time.Second,
 		ctx:           ctx,
@@ -79,7 +81,7 @@ func (vm *Manager) Run() {
 		case <-ticker.C:
 			vm.mu.Lock()
 			for _, cfg := range vm.cfgs {
-				name := cfg.GetBaseConfig().ProxyName
+				name := cfg.GetBaseConfig().Name
 				if _, exist := vm.visitors[name]; !exist {
 					xl.Info("try to start visitor [%s]", name)
 					_ = vm.startVisitor(cfg)
@@ -104,9 +106,9 @@ func (vm *Manager) Close() {
 }
 
 // Hold lock before calling this function.
-func (vm *Manager) startVisitor(cfg config.VisitorConf) (err error) {
+func (vm *Manager) startVisitor(cfg v1.VisitorConfigurer) (err error) {
 	xl := xlog.FromContextSafe(vm.ctx)
-	name := cfg.GetBaseConfig().ProxyName
+	name := cfg.GetBaseConfig().Name
 	visitor := NewVisitor(vm.ctx, cfg, vm.clientCfg, vm.helper)
 	err = visitor.Run()
 	if err != nil {
@@ -118,15 +120,18 @@ func (vm *Manager) startVisitor(cfg config.VisitorConf) (err error) {
 	return
 }
 
-func (vm *Manager) Reload(cfgs map[string]config.VisitorConf) {
+func (vm *Manager) Reload(cfgs []v1.VisitorConfigurer) {
 	xl := xlog.FromContextSafe(vm.ctx)
+	cfgsMap := lo.KeyBy(cfgs, func(c v1.VisitorConfigurer) string {
+		return c.GetBaseConfig().Name
+	})
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
 	delNames := make([]string, 0)
 	for name, oldCfg := range vm.cfgs {
 		del := false
-		cfg, ok := cfgs[name]
+		cfg, ok := cfgsMap[name]
 		if !ok || !reflect.DeepEqual(oldCfg, cfg) {
 			del = true
 		}
@@ -145,7 +150,8 @@ func (vm *Manager) Reload(cfgs map[string]config.VisitorConf) {
 	}
 
 	addNames := make([]string, 0)
-	for name, cfg := range cfgs {
+	for _, cfg := range cfgs {
+		name := cfg.GetBaseConfig().Name
 		if _, ok := vm.cfgs[name]; !ok {
 			vm.cfgs[name] = cfg
 			addNames = append(addNames, name)

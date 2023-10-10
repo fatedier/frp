@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/nathole"
 )
 
@@ -30,8 +31,6 @@ var (
 )
 
 func init() {
-	RegisterCommonFlags(natholeCmd)
-
 	rootCmd.AddCommand(natholeCmd)
 	natholeCmd.AddCommand(natholeDiscoveryCmd)
 
@@ -49,9 +48,9 @@ var natholeDiscoveryCmd = &cobra.Command{
 	Short: "Discover nathole information from stun server",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// ignore error here, because we can use command line pameters
-		cfg, _, _, err := config.ParseClientConfig(cfgFile)
+		cfg, _, _, _, err := config.LoadClientConfig(cfgFile)
 		if err != nil {
-			cfg = config.GetDefaultClientConf()
+			cfg = &v1.ClientCommonConfig{}
 		}
 		if natHoleSTUNServer != "" {
 			cfg.NatHoleSTUNServer = natHoleSTUNServer
@@ -89,7 +88,7 @@ var natholeDiscoveryCmd = &cobra.Command{
 	},
 }
 
-func validateForNatHoleDiscovery(cfg config.ClientCommonConf) error {
+func validateForNatHoleDiscovery(cfg *v1.ClientCommonConfig) error {
 	if cfg.NatHoleSTUNServer == "" {
 		return fmt.Errorf("nat_hole_stun_server can not be empty")
 	}

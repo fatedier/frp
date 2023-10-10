@@ -47,6 +47,7 @@ for os in $os_all; do
         fi  
         cp ../LICENSE ${frp_path}
         cp -rf ../conf/* ${frp_path}
+        rm -rf ${frp_path}/legacy
 
         # packages
         cd ./packages

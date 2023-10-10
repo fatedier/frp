@@ -26,9 +26,11 @@ import (
 	"github.com/fatedier/golib/control/shutdown"
 	"github.com/fatedier/golib/crypto"
 	"github.com/fatedier/golib/errors"
+	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	pkgerr "github.com/fatedier/frp/pkg/errors"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
@@ -151,7 +153,7 @@ type Control struct {
 	mu sync.RWMutex
 
 	// Server configuration information
-	serverCfg config.ServerCommonConf
+	serverCfg *v1.ServerConfig
 
 	xl  *xlog.Logger
 	ctx context.Context
@@ -165,11 +167,11 @@ func NewControl(
 	authVerifier auth.Verifier,
 	ctlConn net.Conn,
 	loginMsg *msg.Login,
-	serverCfg config.ServerCommonConf,
+	serverCfg *v1.ServerConfig,
 ) *Control {
 	poolCount := loginMsg.PoolCount
-	if poolCount > int(serverCfg.MaxPoolCount) {
-		poolCount = int(serverCfg.MaxPoolCount)
+	if poolCount > int(serverCfg.Transport.MaxPoolCount) {
+		poolCount = int(serverCfg.Transport.MaxPoolCount)
 	}
 	ctl := &Control{
 		rc:              rc,
@@ -320,7 +322,7 @@ func (ctl *Control) writer() {
 	defer ctl.allShutdown.Start()
 	defer ctl.writerShutdown.Done()
 
-	encWriter, err := crypto.NewWriter(ctl.conn, []byte(ctl.serverCfg.Token))
+	encWriter, err := crypto.NewWriter(ctl.conn, []byte(ctl.serverCfg.Auth.Token))
 	if err != nil {
 		xl.Error("crypto new writer error: %v", err)
 		ctl.allShutdown.Start()
@@ -352,7 +354,7 @@ func (ctl *Control) reader() {
 	defer ctl.allShutdown.Start()
 	defer ctl.readerShutdown.Done()
 
-	encReader := crypto.NewReader(ctl.conn, []byte(ctl.serverCfg.Token))
+	encReader := crypto.NewReader(ctl.conn, []byte(ctl.serverCfg.Auth.Token))
 	for {
 		m, err := msg.ReadMsg(encReader)
 		if err != nil {
@@ -400,7 +402,7 @@ func (ctl *Control) stoper() {
 	for _, pxy := range ctl.proxies {
 		pxy.Close()
 		ctl.pxyManager.Del(pxy.GetName())
-		metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConf().GetBaseConfig().ProxyType)
+		metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
 
 		notifyContent := &plugin.CloseProxyContent{
 			User: plugin.UserInfo{
@@ -450,7 +452,7 @@ func (ctl *Control) manager() {
 	var heartbeatCh <-chan time.Time
 	// Don't need application heartbeat if TCPMux is enabled,
 	// yamux will do same thing.
-	if !ctl.serverCfg.TCPMux && ctl.serverCfg.HeartbeatTimeout > 0 {
+	if !lo.FromPtr(ctl.serverCfg.Transport.TCPMux) && ctl.serverCfg.Transport.HeartbeatTimeout > 0 {
 		heartbeat := time.NewTicker(time.Second)
 		defer heartbeat.Stop()
 		heartbeatCh = heartbeat.C
@@ -459,7 +461,7 @@ func (ctl *Control) manager() {
 	for {
 		select {
 		case <-heartbeatCh:
-			if time.Since(ctl.lastPing) > time.Duration(ctl.serverCfg.HeartbeatTimeout)*time.Second {
+			if time.Since(ctl.lastPing) > time.Duration(ctl.serverCfg.Transport.HeartbeatTimeout)*time.Second {
 				xl.Warn("heartbeat timeout")
 				return
 			}
@@ -491,7 +493,8 @@ func (ctl *Control) manager() {
 				}
 				if err != nil {
 					xl.Warn("new proxy [%s] type [%s] error: %v", m.ProxyName, m.ProxyType, err)
-					resp.Error = util.GenerateResponseErrorString(fmt.Sprintf("new proxy [%s] error", m.ProxyName), err, ctl.serverCfg.DetailedErrorsToClient)
+					resp.Error = util.GenerateResponseErrorString(fmt.Sprintf("new proxy [%s] error", m.ProxyName),
+						err, lo.FromPtr(ctl.serverCfg.DetailedErrorsToClient))
 				} else {
 					resp.RemoteAddr = remoteAddr
 					xl.Info("new proxy [%s] type [%s] success", m.ProxyName, m.ProxyType)
@@ -524,7 +527,7 @@ func (ctl *Control) manager() {
 				if err != nil {
 					xl.Warn("received invalid ping: %v", err)
 					ctl.sendCh <- &msg.Pong{
-						Error: util.GenerateResponseErrorString("invalid ping", err, ctl.serverCfg.DetailedErrorsToClient),
+						Error: util.GenerateResponseErrorString("invalid ping", err, lo.FromPtr(ctl.serverCfg.DetailedErrorsToClient)),
 					}
 					return
 				}
@@ -549,9 +552,9 @@ func (ctl *Control) HandleNatHoleReport(m *msg.NatHoleReport) {
 }
 
 func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err error) {
-	var pxyConf config.ProxyConf
+	var pxyConf v1.ProxyConfigurer
 	// Load configures from NewProxy message and validate.
-	pxyConf, err = config.NewProxyConfFromMsg(pxyMsg, ctl.serverCfg)
+	pxyConf, err = config.NewProxyConfigurerFromMsg(pxyMsg, ctl.serverCfg)
 	if err != nil {
 		return
 	}
@@ -565,7 +568,15 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 
 	// NewProxy will return an interface Proxy.
 	// In fact, it creates different proxies based on the proxy type. We just call run() here.
-	pxy, err := proxy.NewProxy(ctl.ctx, userInfo, ctl.rc, ctl.poolCount, ctl.GetWorkConn, pxyConf, ctl.serverCfg, ctl.loginMsg)
+	pxy, err := proxy.NewProxy(ctl.ctx, &proxy.Options{
+		UserInfo:           userInfo,
+		LoginMsg:           ctl.loginMsg,
+		PoolCount:          ctl.poolCount,
+		ResourceController: ctl.rc,
+		GetWorkConnFn:      ctl.GetWorkConn,
+		Configurer:         pxyConf,
+		ServerCfg:          ctl.serverCfg,
+	})
 	if err != nil {
 		return remoteAddr, err
 	}
@@ -632,7 +643,7 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 	delete(ctl.proxies, closeMsg.ProxyName)
 	ctl.mu.Unlock()
 
-	metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConf().GetBaseConfig().ProxyType)
+	metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
 
 	notifyContent := &plugin.CloseProxyContent{
 		User: plugin.UserInfo{

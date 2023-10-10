@@ -1,4 +1,4 @@
-// Copyright 2020 guylewin, guy@lewin.co.il
+// Copyright 2023 The frp Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -94,4 +94,9 @@ func ParseBasicAuth(auth string) (username, password string, ok bool) {
 		return
 	}
 	return cs[:s], cs[s+1:], true
+}
+
+func BasicAuth(username, passwd string) string {
+	auth := username + ":" + passwd
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
 }

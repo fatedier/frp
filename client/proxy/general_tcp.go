@@ -17,16 +17,16 @@ package proxy
 import (
 	"reflect"
 
-	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
 
 func init() {
-	pxyConfs := []config.ProxyConf{
-		&config.TCPProxyConf{},
-		&config.HTTPProxyConf{},
-		&config.HTTPSProxyConf{},
-		&config.STCPProxyConf{},
-		&config.TCPMuxProxyConf{},
+	pxyConfs := []v1.ProxyConfigurer{
+		&v1.TCPProxyConfig{},
+		&v1.HTTPProxyConfig{},
+		&v1.HTTPSProxyConfig{},
+		&v1.STCPProxyConfig{},
+		&v1.TCPMuxProxyConfig{},
 	}
 	for _, cfg := range pxyConfs {
 		RegisterProxyFactory(reflect.TypeOf(cfg), NewGeneralTCPProxy)
@@ -40,7 +40,7 @@ type GeneralTCPProxy struct {
 	*BaseProxy
 }
 
-func NewGeneralTCPProxy(baseProxy *BaseProxy, _ config.ProxyConf) Proxy {
+func NewGeneralTCPProxy(baseProxy *BaseProxy, _ v1.ProxyConfigurer) Proxy {
 	return &GeneralTCPProxy{
 		BaseProxy: baseProxy,
 	}
