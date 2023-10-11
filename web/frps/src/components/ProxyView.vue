@@ -14,7 +14,7 @@
             trigger="click"
           >
             <template #default>
-              <Traffic :proxy_name="props.row.name" />
+              <Traffic :proxyName="props.row.name" />
             </template>
 
             <template #reference>
@@ -37,19 +37,19 @@
       </el-table-column>
       <el-table-column
         label="Traffic In"
-        prop="traffic_in"
+        prop="trafficIn"
         :formatter="formatTrafficIn"
         sortable
       >
       </el-table-column>
       <el-table-column
         label="Traffic Out"
-        prop="traffic_out"
+        prop="trafficOut"
         :formatter="formatTrafficOut"
         sortable
       >
       </el-table-column>
-      <el-table-column label="ClientVersion" prop="client_version" sortable>
+      <el-table-column label="ClientVersion" prop="clientVersion" sortable>
       </el-table-column>
       <el-table-column label="Status" prop="status" sortable>
         <template #default="scope">
@@ -75,10 +75,10 @@ defineProps<{
 }>()
 
 const formatTrafficIn = (row: BaseProxy, _: TableColumnCtx<BaseProxy>) => {
-  return Humanize.fileSize(row.traffic_in)
+  return Humanize.fileSize(row.trafficIn)
 }
 
 const formatTrafficOut = (row: BaseProxy, _: TableColumnCtx<BaseProxy>) => {
-  return Humanize.fileSize(row.traffic_out)
+  return Humanize.fileSize(row.trafficOut)
 }
 </script>

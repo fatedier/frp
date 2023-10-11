@@ -306,6 +306,7 @@ func Convert_ProxyConf_To_v1(conf ProxyConf) v1.ProxyConfigurer {
 		c := &v1.XTCPProxyConfig{ProxyBaseConfig: *outBase}
 		c.Secretkey = v.Sk
 		c.AllowUsers = v.AllowUsers
+		out = c
 	}
 	return out
 }

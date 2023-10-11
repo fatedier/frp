@@ -27,7 +27,7 @@ type HTTPPluginOptions struct {
 	Addr      string   `ini:"addr"`
 	Path      string   `ini:"path"`
 	Ops       []string `ini:"ops"`
-	TLSVerify bool     `ini:"tls_verify"`
+	TLSVerify bool     `ini:"tlsVerify"`
 }
 
 // ServerCommonConf contains information for a server service. It is

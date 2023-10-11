@@ -12,7 +12,7 @@
       <span>{{ row.type }}</span>
     </el-form-item>
     <el-form-item label="Domains">
-      <span>{{ row.custom_domains }}</span>
+      <span>{{ row.customDomains }}</span>
     </el-form-item>
     <el-form-item label="SubDomain">
       <span>{{ row.subdomain }}</span>
@@ -21,7 +21,7 @@
       <span>{{ row.locations }}</span>
     </el-form-item>
     <el-form-item label="HostRewrite">
-      <span>{{ row.host_header_rewrite }}</span>
+      <span>{{ row.hostHeaderRewrite }}</span>
     </el-form-item>
     <el-form-item label="Encryption">
       <span>{{ row.encryption }}</span>
@@ -30,10 +30,10 @@
       <span>{{ row.compression }}</span>
     </el-form-item>
     <el-form-item label="Last Start">
-      <span>{{ row.last_start_time }}</span>
+      <span>{{ row.lastStartTime }}</span>
     </el-form-item>
     <el-form-item label="Last Close">
-      <span>{{ row.last_close_time }}</span>
+      <span>{{ row.lastCloseTime }}</span>
     </el-form-item>
   </el-form>
 
@@ -54,10 +54,10 @@
       <span>{{ row.compression }}</span>
     </el-form-item>
     <el-form-item label="Last Start">
-      <span>{{ row.last_start_time }}</span>
+      <span>{{ row.lastStartTime }}</span>
     </el-form-item>
     <el-form-item label="Last Close">
-      <span>{{ row.last_close_time }}</span>
+      <span>{{ row.lastCloseTime }}</span>
     </el-form-item>
   </el-form>
 </template>
