@@ -34,24 +34,24 @@ type GeneralResponse struct {
 
 type serverInfoResp struct {
 	Version               string `json:"version"`
-	BindPort              int    `json:"bind_port"`
-	VhostHTTPPort         int    `json:"vhost_http_port"`
-	VhostHTTPSPort        int    `json:"vhost_https_port"`
-	TCPMuxHTTPConnectPort int    `json:"tcpmux_httpconnect_port"`
-	KCPBindPort           int    `json:"kcp_bind_port"`
-	QUICBindPort          int    `json:"quic_bind_port"`
-	SubdomainHost         string `json:"subdomain_host"`
-	MaxPoolCount          int64  `json:"max_pool_count"`
-	MaxPortsPerClient     int64  `json:"max_ports_per_client"`
-	HeartBeatTimeout      int64  `json:"heart_beat_timeout"`
-	AllowPortsStr         string `json:"allow_ports_str,omitempty"`
-	TLSOnly               bool   `json:"tls_only,omitempty"`
+	BindPort              int    `json:"bindPort"`
+	VhostHTTPPort         int    `json:"vhostHTTPPort"`
+	VhostHTTPSPort        int    `json:"vhostHTTPSPort"`
+	TCPMuxHTTPConnectPort int    `json:"tcpmuxHTTPConnectPort"`
+	KCPBindPort           int    `json:"kcpBindPort"`
+	QUICBindPort          int    `json:"quicBindPort"`
+	SubdomainHost         string `json:"subdomainHost"`
+	MaxPoolCount          int64  `json:"maxPoolCount"`
+	MaxPortsPerClient     int64  `json:"maxPortsPerClient"`
+	HeartBeatTimeout      int64  `json:"heartbeatTimeout"`
+	AllowPortsStr         string `json:"allowPortsStr,omitempty"`
+	TLSForce              bool   `json:"tlsForce,omitempty"`
 
-	TotalTrafficIn  int64            `json:"total_traffic_in"`
-	TotalTrafficOut int64            `json:"total_traffic_out"`
-	CurConns        int64            `json:"cur_conns"`
-	ClientCounts    int64            `json:"client_counts"`
-	ProxyTypeCounts map[string]int64 `json:"proxy_type_count"`
+	TotalTrafficIn  int64            `json:"totalTrafficIn"`
+	TotalTrafficOut int64            `json:"totalTrafficOut"`
+	CurConns        int64            `json:"curConns"`
+	ClientCounts    int64            `json:"clientCounts"`
+	ProxyTypeCounts map[string]int64 `json:"proxyTypeCount"`
 }
 
 // /healthz
@@ -85,7 +85,7 @@ func (svr *Service) APIServerInfo(w http.ResponseWriter, r *http.Request) {
 		MaxPortsPerClient:     svr.cfg.MaxPortsPerClient,
 		HeartBeatTimeout:      svr.cfg.Transport.HeartbeatTimeout,
 		AllowPortsStr:         types.PortsRangeSlice(svr.cfg.AllowPorts).String(),
-		TLSOnly:               svr.cfg.Transport.TLS.Force,
+		TLSForce:              svr.cfg.Transport.TLS.Force,
 
 		TotalTrafficIn:  serverStats.TotalTrafficIn,
 		TotalTrafficOut: serverStats.TotalTrafficOut,
@@ -104,7 +104,7 @@ type BaseOutConf struct {
 
 type TCPOutConf struct {
 	BaseOutConf
-	RemotePort int `json:"remote_port"`
+	RemotePort int `json:"remotePort"`
 }
 
 type TCPMuxOutConf struct {
@@ -115,14 +115,14 @@ type TCPMuxOutConf struct {
 
 type UDPOutConf struct {
 	BaseOutConf
-	RemotePort int `json:"remote_port"`
+	RemotePort int `json:"remotePort"`
 }
 
 type HTTPOutConf struct {
 	BaseOutConf
 	v1.DomainConfig
 	Locations         []string `json:"locations"`
-	HostHeaderRewrite string   `json:"host_header_rewrite"`
+	HostHeaderRewrite string   `json:"hostHeaderRewrite"`
 }
 
 type HTTPSOutConf struct {
@@ -163,12 +163,12 @@ func getConfByType(proxyType string) any {
 type ProxyStatsInfo struct {
 	Name            string      `json:"name"`
 	Conf            interface{} `json:"conf"`
-	ClientVersion   string      `json:"client_version,omitempty"`
-	TodayTrafficIn  int64       `json:"today_traffic_in"`
-	TodayTrafficOut int64       `json:"today_traffic_out"`
-	CurConns        int64       `json:"cur_conns"`
-	LastStartTime   string      `json:"last_start_time"`
-	LastCloseTime   string      `json:"last_close_time"`
+	ClientVersion   string      `json:"clientVersion,omitempty"`
+	TodayTrafficIn  int64       `json:"todayTrafficIn"`
+	TodayTrafficOut int64       `json:"todayTrafficOut"`
+	CurConns        int64       `json:"curConns"`
+	LastStartTime   string      `json:"lastStartTime"`
+	LastCloseTime   string      `json:"lastCloseTime"`
 	Status          string      `json:"status"`
 }
 
@@ -236,11 +236,11 @@ func (svr *Service) getProxyStatsByType(proxyType string) (proxyInfos []*ProxySt
 type GetProxyStatsResp struct {
 	Name            string      `json:"name"`
 	Conf            interface{} `json:"conf"`
-	TodayTrafficIn  int64       `json:"today_traffic_in"`
-	TodayTrafficOut int64       `json:"today_traffic_out"`
-	CurConns        int64       `json:"cur_conns"`
-	LastStartTime   string      `json:"last_start_time"`
-	LastCloseTime   string      `json:"last_close_time"`
+	TodayTrafficIn  int64       `json:"todayTrafficIn"`
+	TodayTrafficOut int64       `json:"todayTrafficOut"`
+	CurConns        int64       `json:"curConns"`
+	LastStartTime   string      `json:"lastStartTime"`
+	LastCloseTime   string      `json:"lastCloseTime"`
 	Status          string      `json:"status"`
 }
 
@@ -310,8 +310,8 @@ func (svr *Service) getProxyStatsByTypeAndName(proxyType string, proxyName strin
 // /api/traffic/:name
 type GetProxyTrafficResp struct {
 	Name       string  `json:"name"`
-	TrafficIn  []int64 `json:"traffic_in"`
-	TrafficOut []int64 `json:"traffic_out"`
+	TrafficIn  []int64 `json:"trafficIn"`
+	TrafficOut []int64 `json:"trafficOut"`
 }
 
 func (svr *Service) APIProxyTraffic(w http.ResponseWriter, r *http.Request) {

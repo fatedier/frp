@@ -121,71 +121,71 @@ function DrawProxyChart(elementId: string, serverInfo: any) {
   }
 
   if (
-    serverInfo.proxy_type_count.tcp != null &&
-    serverInfo.proxy_type_count.tcp != 0
+    serverInfo.proxyTypeCount.tcp != null &&
+    serverInfo.proxyTypeCount.tcp != 0
   ) {
     option.series[0].data.push({
-      value: serverInfo.proxy_type_count.tcp,
+      value: serverInfo.proxyTypeCount.tcp,
       name: 'TCP',
     })
     option.legend.data.push('TCP')
   }
   if (
-    serverInfo.proxy_type_count.udp != null &&
-    serverInfo.proxy_type_count.udp != 0
+    serverInfo.proxyTypeCount.udp != null &&
+    serverInfo.proxyTypeCount.udp != 0
   ) {
     option.series[0].data.push({
-      value: serverInfo.proxy_type_count.udp,
+      value: serverInfo.proxyTypeCount.udp,
       name: 'UDP',
     })
     option.legend.data.push('UDP')
   }
   if (
-    serverInfo.proxy_type_count.http != null &&
-    serverInfo.proxy_type_count.http != 0
+    serverInfo.proxyTypeCount.http != null &&
+    serverInfo.proxyTypeCount.http != 0
   ) {
     option.series[0].data.push({
-      value: serverInfo.proxy_type_count.http,
+      value: serverInfo.proxyTypeCount.http,
       name: 'HTTP',
     })
     option.legend.data.push('HTTP')
   }
   if (
-    serverInfo.proxy_type_count.https != null &&
-    serverInfo.proxy_type_count.https != 0
+    serverInfo.proxyTypeCount.https != null &&
+    serverInfo.proxyTypeCount.https != 0
   ) {
     option.series[0].data.push({
-      value: serverInfo.proxy_type_count.https,
+      value: serverInfo.proxyTypeCount.https,
       name: 'HTTPS',
     })
     option.legend.data.push('HTTPS')
   }
   if (
-    serverInfo.proxy_type_count.stcp != null &&
-    serverInfo.proxy_type_count.stcp != 0
+    serverInfo.proxyTypeCount.stcp != null &&
+    serverInfo.proxyTypeCount.stcp != 0
   ) {
     option.series[0].data.push({
-      value: serverInfo.proxy_type_count.stcp,
+      value: serverInfo.proxyTypeCount.stcp,
       name: 'STCP',
     })
     option.legend.data.push('STCP')
   }
   if (
-    serverInfo.proxy_type_count.sudp != null &&
-    serverInfo.proxy_type_count.sudp != 0
+    serverInfo.proxyTypeCount.sudp != null &&
+    serverInfo.proxyTypeCount.sudp != 0
   ) {
     option.series[0].data.push({
-      value: serverInfo.proxy_type_count.sudp,
+      value: serverInfo.proxyTypeCount.sudp,
       name: 'SUDP',
     })
     option.legend.data.push('SUDP')
   }
   if (
-    serverInfo.proxy_type_count.xtcp != null &&
-    serverInfo.proxy_type_count.xtcp != 0
+    serverInfo.proxyTypeCount.xtcp != null &&
+    serverInfo.proxyTypeCount.xtcp != 0
   ) {
     option.series[0].data.push({
-      value: serverInfo.proxy_type_count.xtcp,
+      value: serverInfo.proxyTypeCount.xtcp,
       name: 'XTCP',
     })
     option.legend.data.push('XTCP')
