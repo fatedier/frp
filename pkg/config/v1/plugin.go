@@ -16,7 +16,6 @@ package v1
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 )
@@ -30,7 +29,7 @@ type TypedClientPluginOptions struct {
 
 func (c *TypedClientPluginOptions) UnmarshalJSON(b []byte) error {
 	if len(b) == 4 && string(b) == "null" {
-		return errors.New("type is required")
+		return nil
 	}
 
 	typeStruct := struct {
@@ -41,6 +40,9 @@ func (c *TypedClientPluginOptions) UnmarshalJSON(b []byte) error {
 	}
 
 	c.Type = typeStruct.Type
+	if c.Type == "" {
+		return nil
+	}
 
 	v, ok := clientPluginOptionsTypeMap[typeStruct.Type]
 	if !ok {
