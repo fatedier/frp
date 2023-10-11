@@ -476,6 +476,9 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 		// Make sure that if it is wss, the websocket hook is executed after the tls hook.
 		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: utilnet.DialHookWebsocket(protocol, tlsConfig.ServerName), Priority: 110}))
 	default:
+		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{
+			Hook: utilnet.DialHookCustomTLSHeadByte(tlsConfig != nil, lo.FromPtr(cm.cfg.Transport.TLS.DisableCustomTLSFirstByte)),
+		}))
 		dialOptions = append(dialOptions, libdial.WithTLSConfig(tlsConfig))
 	}
 

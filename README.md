@@ -761,6 +761,8 @@ allowPorts = [
 
 `vhostHTTPPort` and `vhostHTTPSPort` in frps can use same port with `bindPort`. frps will detect the connection's protocol and handle it correspondingly.
 
+What you need to pay attention to is that if you want to configure `vhostHTTPSPort` and `bindPort` to the same port, you need to first set `transport.tls.disableCustomTLSFirstByte` to false.
+
 We would like to try to allow multiple proxies bind a same remote port with different protocols in the future.
 
 ### Bandwidth Limit
