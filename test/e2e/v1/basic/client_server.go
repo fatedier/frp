@@ -291,7 +291,7 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 		})
 	})
 
-	ginkgo.Describe("TLS with disable_custom_tls_first_byte set to false", func() {
+	ginkgo.Describe("TLS with disableCustomTLSFirstByte set to false", func() {
 		supportProtocols := []string{"tcp", "kcp", "quic", "websocket"}
 		for _, protocol := range supportProtocols {
 			tmp := protocol
@@ -318,6 +318,24 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 					`, renderBindPortConfig(protocol)),
 				client: fmt.Sprintf(`
 					transport.protocol = "%s"
+					`, protocol),
+			})
+		}
+	})
+
+	ginkgo.Describe("Use same port for bindPort and vhostHTTPSPort", func() {
+		supportProtocols := []string{"tcp", "kcp", "quic", "websocket"}
+		for _, protocol := range supportProtocols {
+			tmp := protocol
+			defineClientServerTest("Use same port for bindPort and vhostHTTPSPort: "+strings.ToUpper(tmp), f, &generalTestConfigures{
+				server: fmt.Sprintf(`
+					vhostHTTPSPort = {{ .%s }}
+					%s
+					`, consts.PortServerName, renderBindPortConfig(protocol)),
+				// transport.tls.disableCustomTLSFirstByte should set to false when vhostHTTPSPort is same as bindPort
+				client: fmt.Sprintf(`
+					transport.protocol = "%s"
+					transport.tls.disableCustomTLSFirstByte = false
 					`, protocol),
 			})
 		}
