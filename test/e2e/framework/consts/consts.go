@@ -25,6 +25,7 @@ log.level = "trace"
 	DefaultClientConfig = `
 serverAddr = "127.0.0.1"
 serverPort = {{ .%s }}
+loginFailExit = false
 log.level = "trace"
 `
 
@@ -38,6 +39,7 @@ log.level = "trace"
 	[common]
 	server_addr = 127.0.0.1
 	server_port = {{ .%s }}
+	login_fail_exit = false
 	log_level = trace
 	`
 )
