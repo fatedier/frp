@@ -369,7 +369,7 @@ To mitigate risks associated with exposing certain services directly to the publ
 
 Configure `frps` same as above.
 
-1. Start `frpc` on machine B with the following config. This example is for exposing the SSH service (port 22), and note the `sk` field for the preshared key, and that the `remote_port` field is removed here:
+1. Start `frpc` on machine B with the following config. This example is for exposing the SSH service (port 22), and note the `secretKey` field for the preshared key, and that the `remote_port` field is removed here:
 
   ```toml
   # frpc.toml
@@ -384,7 +384,7 @@ Configure `frps` same as above.
   localPort = 22
   ```
 
-2. Start another `frpc` (typically on another machine C) with the following config to access the SSH service with a security key (`sk` field):
+2. Start another `frpc` (typically on another machine C) with the following config to access the SSH service with a security key (`secretKey` field):
 
   ```toml
   # frpc.toml
