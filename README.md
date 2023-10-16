@@ -218,7 +218,7 @@ Unfortunately, we cannot resolve a domain name to a local IP. However, we can us
   vhostHTTPPort = 8080
   ```
 
-  If you want to configure an https proxy, you need to set up the `vhost_https_port`.
+  If you want to configure an https proxy, you need to set up the `vhostHTTPSPort`.
 
 2. Start `frps`:
 
@@ -337,7 +337,7 @@ Configure `frps` as described above, then:
 
 ### Enable HTTPS for a local HTTP(S) service
 
-You may substitute `https2https` for the plugin, and point the `plugin_local_addr` to a HTTPS endpoint.
+You may substitute `https2https` for the plugin, and point the `localAddr` to a HTTPS endpoint.
 
 1. Start `frpc` with the following configuration:
 
@@ -369,7 +369,7 @@ To mitigate risks associated with exposing certain services directly to the publ
 
 Configure `frps` same as above.
 
-1. Start `frpc` on machine B with the following config. This example is for exposing the SSH service (port 22), and note the `secretKey` field for the preshared key, and that the `remote_port` field is removed here:
+1. Start `frpc` on machine B with the following config. This example is for exposing the SSH service (port 22), and note the `secretKey` field for the preshared key, and that the `remotePort` field is removed here:
 
   ```toml
   # frpc.toml
@@ -526,7 +526,7 @@ webServer.user = "admin"
 webServer.password = "admin"
 ```
 
-Then visit `http://[server_addr]:7500` to see the dashboard, with username and password both being `admin`.
+Then visit `http://[serverAddr]:7500` to see the dashboard, with username and password both being `admin`.
 
 Additionally, you can use HTTPS port by using your domains wildcard or normal SSL certificate:
 
@@ -539,7 +539,7 @@ webServer.tls.certFile = "server.crt"
 webServer.tls.keyFile = "server.key"
 ```
 
-Then visit `https://[server_addr]:7500` to see the dashboard in secure HTTPS connection, with username and password both being `admin`.
+Then visit `https://[serverAddr]:7500` to see the dashboard in secure HTTPS connection, with username and password both being `admin`.
 
 ![dashboard](/doc/pic/dashboard.png)
 
@@ -836,7 +836,7 @@ Using QUIC in frp:
   quicBindPort = 7000
   ```
 
-  The `quicBindPort` number can be the same number as `bind_port`, since `bind_port` field specifies a TCP port.
+  The `quicBindPort` number can be the same number as `bindPort`, since `bindPort` field specifies a TCP port.
 
 2. Configure `frpc.toml` to use QUIC to connect to frps:
 
