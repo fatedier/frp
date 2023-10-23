@@ -150,6 +150,7 @@ type ServerTransportConfig struct {
 	// TCPMux toggles TCP stream multiplexing. This allows multiple requests
 	// from a client to share a single TCP connection. By default, this value
 	// is true.
+	// $HideFromDoc
 	TCPMux *bool `json:"tcpMux,omitempty"`
 	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multipler.
 	// If TCPMux is true, heartbeat of application layer is unnecessary because it can only rely on heartbeat in TCPMux.
