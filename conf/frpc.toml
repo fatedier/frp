@@ -1,3 +1,5 @@
+# This configuration file is for reference only. Please do not use this configuration directly to run the program as it may have various issues.
+
 # your proxy name will be changed to {user}.{proxy}
 user = "your_name"
 
