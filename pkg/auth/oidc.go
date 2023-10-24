@@ -17,6 +17,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/samber/lo"
@@ -56,12 +57,27 @@ func NewOidcAuthSetter(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCClien
 	}
 }
 
-func (auth *OidcAuthProvider) generateAccessToken() (accessToken string, err error) {
-	tokenObj, err := auth.tokenGenerator.Token(context.Background())
-	if err != nil {
-		return "", fmt.Errorf("couldn't generate OIDC token for login: %v", err)
+func withRetries(retries int, fn func() (accessToken string, error error)) (accessToken string, err error) {
+	exponentialBackOff := time.Second * 1
+	for i := 0; i < retries; i++ {
+		accessToken, err = fn()
+		if err == nil {
+			return accessToken, nil
+		}
+		time.Sleep(exponentialBackOff)
+		exponentialBackOff *= 2
 	}
-	return tokenObj.AccessToken, nil
+	return "", err
+}
+
+func (auth *OidcAuthProvider) generateAccessToken() (accessToken string, err error) {
+	return withRetries(10, func() (accessToken string, error error) {
+		tokenObj, err := auth.tokenGenerator.Token(context.Background())
+		if err != nil {
+			return "", fmt.Errorf("couldn't generate OIDC token for login: %v", err)
+		}
+		return tokenObj.AccessToken, nil
+	})
 }
 
 func (auth *OidcAuthProvider) SetLogin(loginMsg *msg.Login) (err error) {
