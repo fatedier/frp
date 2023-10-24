@@ -459,9 +459,11 @@ Read the full example configuration files to find out even more features not des
 
 Examples use TOML format, but you can still use YAML or JSON.
 
-[Full configuration file for frps (Server)](./conf/frps.toml)
+These configuration files is for reference only. Please do not use this configuration directly to run the program as it may have various issues.
 
-[Full configuration file for frpc (Client)](./conf/frpc.toml)
+[Full configuration file for frps (Server)](./conf/frps_full_example.toml)
+
+[Full configuration file for frpc (Client)](./conf/frpc_full_example.toml)
 
 ### Using Environment Variables
 
