@@ -1,3 +1,3 @@
 ### Fixes
 
-* Encryption and compression are not displayed correctly in the dashboard.
+* `admin_user` is not effective in the INI configuration.
