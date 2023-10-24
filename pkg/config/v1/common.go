@@ -16,6 +16,7 @@ package v1
 
 import (
 	"github.com/fatedier/frp/pkg/util/util"
+	"time"
 )
 
 type AuthScope string
@@ -114,4 +115,13 @@ type HTTPPluginOptions struct {
 
 type HeaderOperations struct {
 	Set map[string]string `json:"set,omitempty"`
+}
+
+type AuthRetryConfig struct {
+	// MaxRetries specifies the maximum number of retries to authenticate
+	// with frps. By default, this value is 0.
+	MaxRetries int `json:"maxRetries,omitempty"`
+	// RetryDelay specifies the delay between retries to authenticate with
+	// frps, in seconds. By default, this value is 1.
+	RetryDelay time.Duration `json:"retryDelay,omitempty"`
 }

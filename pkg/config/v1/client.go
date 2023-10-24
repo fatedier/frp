@@ -38,6 +38,9 @@ type ClientCommonConfig struct {
 	// changed to "{user}.{proxy_name}".
 	User string `json:"user,omitempty"`
 
+	// AuthRetryConfig specifies the retry strategy for retrieving access tokens.
+	AuthRetryConfig AuthRetryConfig `json:"authRetry,omitempty"`
+
 	// ServerAddr specifies the address of the server to connect to. By
 	// default, this value is "0.0.0.0".
 	ServerAddr string `json:"serverAddr,omitempty"`
@@ -197,4 +200,6 @@ type AuthOIDCClientConfig struct {
 	// AdditionalEndpointParams specifies additional parameters to be sent
 	// this field will be transfer to map[string][]string in OIDC token generator.
 	AdditionalEndpointParams map[string]string `json:"additionalEndpointParams,omitempty"`
+	// AuthRetryConfig specifies the retry strategy for retrieving access tokens.
+	AuthRetryConfig AuthRetryConfig `json:"authRetry,omitempty"`
 }

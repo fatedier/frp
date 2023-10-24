@@ -17,6 +17,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"github.com/fatedier/frp/pkg/util/xlog"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -31,6 +32,8 @@ type OidcAuthProvider struct {
 	additionalAuthScopes []v1.AuthScope
 
 	tokenGenerator *clientcredentials.Config
+
+	retryConfig v1.AuthRetryConfig
 }
 
 func NewOidcAuthSetter(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCClientConfig) *OidcAuthProvider {
@@ -54,16 +57,19 @@ func NewOidcAuthSetter(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCClien
 	return &OidcAuthProvider{
 		additionalAuthScopes: additionalAuthScopes,
 		tokenGenerator:       tokenGenerator,
+		retryConfig:          cfg.AuthRetryConfig,
 	}
 }
 
-func withRetries(retries int, fn func() (accessToken string, error error)) (accessToken string, err error) {
-	exponentialBackOff := time.Second * 1
+func withRetries(retries int, delay time.Duration, fn func() (accessToken string, error error)) (accessToken string, err error) {
+	xl := xlog.FromContextSafe(context.Background())
+	exponentialBackOff := time.Second * delay
 	for i := 0; i < retries; i++ {
 		accessToken, err = fn()
 		if err == nil {
 			return accessToken, nil
 		}
+		xl.Warn("Failed to generate OIDC token for login: %v. Retrying %i more times", err, retries-i)
 		time.Sleep(exponentialBackOff)
 		exponentialBackOff *= 2
 	}
@@ -71,7 +77,7 @@ func withRetries(retries int, fn func() (accessToken string, error error)) (acce
 }
 
 func (auth *OidcAuthProvider) generateAccessToken() (accessToken string, err error) {
-	return withRetries(10, func() (accessToken string, error error) {
+	return withRetries(auth.retryConfig.MaxRetries, auth.retryConfig.RetryDelay, func() (accessToken string, error error) {
 		tokenObj, err := auth.tokenGenerator.Token(context.Background())
 		if err != nil {
 			return "", fmt.Errorf("couldn't generate OIDC token for login: %v", err)
