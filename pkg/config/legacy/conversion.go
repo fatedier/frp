@@ -71,6 +71,7 @@ func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConf
 
 	out.WebServer.Addr = conf.AdminAddr
 	out.WebServer.Port = conf.AdminPort
+	out.WebServer.User = conf.AdminUser
 	out.WebServer.Password = conf.AdminPwd
 	out.WebServer.AssetsDir = conf.AssetsDir
 	out.WebServer.PprofEnable = conf.PprofEnable
