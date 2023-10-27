@@ -18,6 +18,9 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
+	"github.com/fsnotify/fsnotify"
 	"io"
 	"net"
 	"runtime"
@@ -93,7 +96,59 @@ func NewService(
 		ctx:         context.Background(),
 		exit:        0,
 	}
+	if cfg.ReloadOnUpdate {
+		go svr.WatchClientConfig(cfgFile)
+	}
 	return
+}
+
+func (svr *Service) WatchClientConfig(cfgFilePath string) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Error(err.Error())
+	}
+	defer watcher.Close()
+
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				if event.Op&fsnotify.Write == fsnotify.Write {
+					log.Info("config file changed: %s", event.Name)
+					cliCfg, pxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(cfgFilePath)
+					if err != nil {
+						log.Warn("reload frpc proxy config error: %s", err.Error())
+						return
+					}
+					if _, err := validation.ValidateAllClientConfig(cliCfg, pxyCfgs, visitorCfgs); err != nil {
+						log.Warn("reload frpc proxy config error: %s", err.Error())
+						return
+					}
+
+					if err := svr.ReloadConf(pxyCfgs, visitorCfgs); err != nil {
+						log.Warn("reload frpc proxy config error: %s", err.Error())
+						return
+					}
+					log.Info("success reload conf")
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				log.Error(err.Error())
+			}
+		}
+	}()
+
+	err = watcher.Add(cfgFilePath)
+	if err != nil {
+		log.Error(err.Error())
+	}
+	<-done
 }
 
 func (svr *Service) GetController() *Control {

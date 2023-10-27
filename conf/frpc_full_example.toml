@@ -9,6 +9,9 @@ user = "your_name"
 serverAddr = "0.0.0.0"
 serverPort = 7000
 
+# If true, the configuration file will be automatically reloaded
+reloadOnUpdate = true
+
 # STUN server to help penetrate NAT hole.
 # natHoleStunServer = "stun.easyvoip.com:3478"
 

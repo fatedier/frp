@@ -38,6 +38,8 @@ type ClientCommonConfig struct {
 	// changed to "{user}.{proxy_name}".
 	User string `json:"user,omitempty"`
 
+	ReloadOnUpdate bool `json:"reloadOnUpdate,omitempty"`
+
 	// ServerAddr specifies the address of the server to connect to. By
 	// default, this value is "0.0.0.0".
 	ServerAddr string `json:"serverAddr,omitempty"`
