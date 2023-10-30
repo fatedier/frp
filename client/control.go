@@ -298,8 +298,8 @@ func (ctl *Control) msgHandler() {
 			xl.Debug("send heartbeat to server")
 			pingMsg := &msg.Ping{}
 			if err := ctl.authSetter.SetPing(pingMsg); err != nil {
-				xl.Warn("error during ping authentication: %v", err)
-				return
+				xl.Warn("error during ping authentication: %v. skip sending ping message", err)
+				continue
 			}
 			ctl.sendCh <- pingMsg
 		case <-hbCheckCh:
