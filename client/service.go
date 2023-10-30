@@ -268,6 +268,7 @@ func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 		Timestamp: time.Now().Unix(),
 		RunID:     svr.runID,
 		Metas:     svr.cfg.Metadatas,
+		ApiKey:    svr.cfg.ApiKey,
 	}
 
 	// Add auth

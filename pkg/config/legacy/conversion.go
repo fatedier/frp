@@ -25,6 +25,7 @@ import (
 
 func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConfig {
 	out := &v1.ClientCommonConfig{}
+	out.ApiKey = conf.ApiKey
 	out.User = conf.User
 	out.Auth.Method = v1.AuthMethod(conf.ClientConfig.AuthenticationMethod)
 	out.Auth.Token = conf.ClientConfig.Token

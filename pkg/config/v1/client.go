@@ -70,6 +70,8 @@ type ClientCommonConfig struct {
 
 	// Include other config files for proxies.
 	IncludeConfigFiles []string `json:"includes,omitempty"`
+
+	ApiKey string `json:"api_key,omitempty"`
 }
 
 func (c *ClientCommonConfig) Complete() {

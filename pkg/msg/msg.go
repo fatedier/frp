@@ -74,6 +74,7 @@ type Login struct {
 	Timestamp    int64             `json:"timestamp,omitempty"`
 	RunID        string            `json:"run_id,omitempty"`
 	Metas        map[string]string `json:"metas,omitempty"`
+	ApiKey       string            `json:"api_key,omitempty"`
 
 	// Some global configures.
 	PoolCount int `json:"pool_count,omitempty"`
