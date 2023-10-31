@@ -1,12 +1,24 @@
-FROM golang:1.21 AS building
+FROM golang:1.21 AS builder
 
-COPY . /building
 WORKDIR /building
+COPY . .
 
-RUN make frpc
+RUN groupadd -g 1000 frpc && useradd -u 1000 -g frpc frpc \
+ && make frpc
 
-FROM alpine:3
+FROM alpine:3.18
 
-COPY --from=building /building/bin/frpc /usr/bin/frpc
+LABEL org.opencontainers.image.authors="fatedier <fatedier@gmail.com>"
+LABEL org.opencontainers.image.base.name="docker.io/library/alpine:3.18"
+LABEL org.opencontainers.image.description="A fast reverse proxy to help you expose a local server behind a NAT or firewall to the internet."
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.source="https://github.com/fatedier/frp"
+LABEL org.opencontainers.image.title="frpc (client)"
 
-ENTRYPOINT ["/usr/bin/frpc"]
+WORKDIR /
+COPY --from=builder /etc/passwd /etc/
+COPY --from=builder --chown=1000:1000 /building/bin/frpc /usr/local/bin/
+
+USER frpc
+
+ENTRYPOINT ["/usr/local/bin/frpc"]
