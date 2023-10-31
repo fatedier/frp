@@ -5,7 +5,6 @@
 .vscode/
 conf/
 doc/
-dockerfiles/
 hack/
 test/
 web/
@@ -15,5 +14,6 @@ web/
 .gitignore
 .golangci.yml
 .goreleaser.yml
+Dockerfile
 LICENSE
 Makefile.cross-compiles

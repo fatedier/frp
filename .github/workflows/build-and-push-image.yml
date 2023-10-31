@@ -50,34 +50,28 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GPR_TOKEN }}
 
-      # prepare image tags
-      - name: Prepare Image Tags
-        run: |
-          echo "DOCKERFILE_FRPC_PATH=dockerfiles/Dockerfile-for-frpc" >> $GITHUB_ENV
-          echo "DOCKERFILE_FRPS_PATH=dockerfiles/Dockerfile-for-frps" >> $GITHUB_ENV
-          echo "TAG_FRPC=fatedier/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
-          echo "TAG_FRPS=fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
-          echo "TAG_FRPC_GPR=ghcr.io/fatedier/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
-          echo "TAG_FRPS_GPR=ghcr.io/fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
-
       - name: Build and push frpc
         uses: docker/build-push-action@v4
         with:
           context: .
-          file: ./dockerfiles/Dockerfile-for-frpc
           platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x
           push: true
           tags: |
-            ${{ env.TAG_FRPC }}
-            ${{ env.TAG_FRPC_GPR }}
+            fatedier/frpc:${{ env.TAG_NAME }}
+            ghcr.io/fatedier/frpc:${{ env.TAG_NAME }}
+          build-args: |
+            APP=frpc
+            TITLE=frpc (client)
 
       - name: Build and push frps
         uses: docker/build-push-action@v4
         with:
           context: .
-          file: ./dockerfiles/Dockerfile-for-frps
           platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x
           push: true
           tags: |
-            ${{ env.TAG_FRPS }}
-            ${{ env.TAG_FRPS_GPR }}
+            fatedier/frps:${{ env.TAG_NAME }}
+            ghcr.io/fatedier/frps:${{ env.TAG_NAME }}
+          build-args: |
+            APP=frps
+            TITLE=frps (server)
