@@ -10,7 +10,7 @@ FROM alpine:3.18 AS runtime
 
 ARG APP
 RUN addgroup -g 1000 -S ${APP} && adduser -u 1000 -S ${APP} -G ${APP} --home /app \
- && echo -e "#!/bin/sh\nexec /usr/local/bin/${APP} \$@" > /app/entrypoint.sh \
+ && printf "#!/bin/sh\nexec /usr/local/bin/%s \$@" "${APP}" > /app/entrypoint.sh \
  && chmod +x /app/entrypoint.sh
 
 FROM alpine:3.18
