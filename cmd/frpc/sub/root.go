@@ -139,10 +139,7 @@ func startService(
 		log.Info("start frpc service for config file [%s]", cfgFile)
 		defer log.Info("frpc service for config file [%s] stopped", cfgFile)
 	}
-	svr, err := client.NewService(cfg, pxyCfgs, visitorCfgs, cfgFile)
-	if err != nil {
-		return err
-	}
+	svr := client.NewService(cfg, pxyCfgs, visitorCfgs, cfgFile)
 
 	shouldGracefulClose := cfg.Transport.Protocol == "kcp" || cfg.Transport.Protocol == "quic"
 	// Capture the exit signal if we use kcp or quic.
@@ -150,6 +147,5 @@ func startService(
 		go handleTermSignal(svr)
 	}
 
-	_ = svr.Run(context.Background())
-	return nil
+	return svr.Run(context.Background())
 }

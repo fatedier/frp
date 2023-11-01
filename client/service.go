@@ -83,8 +83,8 @@ func NewService(
 	pxyCfgs []v1.ProxyConfigurer,
 	visitorCfgs []v1.VisitorConfigurer,
 	cfgFile string,
-) (svr *Service, err error) {
-	svr = &Service{
+) *Service {
+	return &Service{
 		authSetter:  auth.NewAuthSetter(cfg.Auth),
 		cfg:         cfg,
 		cfgFile:     cfgFile,
@@ -93,7 +93,6 @@ func NewService(
 		ctx:         context.Background(),
 		exit:        0,
 	}
-	return
 }
 
 func (svr *Service) GetController() *Control {
