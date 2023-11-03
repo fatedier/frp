@@ -144,7 +144,14 @@ func (svr *Service) apiStatus(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(buf)
 	}()
 
-	ps := svr.ctl.pm.GetAllProxyStatus()
+	svr.ctlMu.RLock()
+	ctl := svr.ctl
+	svr.ctlMu.RUnlock()
+	if ctl == nil {
+		return
+	}
+
+	ps := ctl.pm.GetAllProxyStatus()
 	for _, status := range ps {
 		res[status.Type] = append(res[status.Type], NewProxyStatusResp(status, svr.cfg.ServerAddr))
 	}
