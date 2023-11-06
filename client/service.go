@@ -17,6 +17,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -24,7 +25,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/fatedier/golib/crypto"
@@ -40,8 +40,8 @@ import (
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/log"
 	utilnet "github.com/fatedier/frp/pkg/util/net"
-	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
+	"github.com/fatedier/frp/pkg/util/wait"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
@@ -70,12 +70,11 @@ type Service struct {
 	// string if no configuration file was used.
 	cfgFile string
 
-	exit uint32 // 0 means not exit
-
 	// service context
 	ctx context.Context
 	// call cancel to stop service
-	cancel context.CancelFunc
+	cancel           context.CancelFunc
+	gracefulDuration time.Duration
 }
 
 func NewService(
@@ -91,7 +90,6 @@ func NewService(
 		pxyCfgs:     pxyCfgs,
 		visitorCfgs: visitorCfgs,
 		ctx:         context.Background(),
-		exit:        0,
 	}
 }
 
@@ -105,8 +103,6 @@ func (svr *Service) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	svr.ctx = xlog.NewContext(ctx, xlog.New())
 	svr.cancel = cancel
-
-	xl := xlog.FromContextSafe(svr.ctx)
 
 	// set custom DNSServer
 	if svr.cfg.DNSServer != "" {
@@ -124,26 +120,9 @@ func (svr *Service) Run(ctx context.Context) error {
 	}
 
 	// login to frps
-	for {
-		conn, cm, err := svr.login()
-		if err != nil {
-			xl.Warn("login to server failed: %v", err)
-
-			// if login_fail_exit is true, just exit this program
-			// otherwise sleep a while and try again to connect to server
-			if lo.FromPtr(svr.cfg.LoginFailExit) {
-				return err
-			}
-			util.RandomSleep(5*time.Second, 0.9, 1.1)
-		} else {
-			// login success
-			ctl := NewControl(svr.ctx, svr.runID, conn, cm, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.authSetter)
-			ctl.Run()
-			svr.ctlMu.Lock()
-			svr.ctl = ctl
-			svr.ctlMu.Unlock()
-			break
-		}
+	svr.loopLoginUntilSuccess(10*time.Second, lo.FromPtr(svr.cfg.LoginFailExit))
+	if svr.ctl == nil {
+		return fmt.Errorf("the process exited because the first login to the server failed, and the loginFailExit feature is enabled")
 	}
 
 	go svr.keepControllerWorking()
@@ -160,80 +139,35 @@ func (svr *Service) Run(ctx context.Context) error {
 		log.Info("admin server listen on %s:%d", svr.cfg.WebServer.Addr, svr.cfg.WebServer.Port)
 	}
 	<-svr.ctx.Done()
-	// service context may not be canceled by svr.Close(), we should call it here to release resources
-	if atomic.LoadUint32(&svr.exit) == 0 {
-		svr.Close()
-	}
+	svr.stop()
 	return nil
 }
 
 func (svr *Service) keepControllerWorking() {
-	xl := xlog.FromContextSafe(svr.ctx)
-	maxDelayTime := 20 * time.Second
-	delayTime := time.Second
+	<-svr.ctl.Done()
 
-	// if frpc reconnect frps, we need to limit retry times in 1min
-	// current retry logic is sleep 0s, 0s, 0s, 1s, 2s, 4s, 8s, ...
-	// when exceed 1min, we will reset delay and counts
-	cutoffTime := time.Now().Add(time.Minute)
-	reconnectDelay := time.Second
-	reconnectCounts := 1
-
-	for {
-		<-svr.ctl.ClosedDoneCh()
-		if atomic.LoadUint32(&svr.exit) != 0 {
-			return
-		}
-
-		// the first three attempts with a low delay
-		if reconnectCounts > 3 {
-			util.RandomSleep(reconnectDelay, 0.9, 1.1)
-			xl.Info("wait %v to reconnect", reconnectDelay)
-			reconnectDelay *= 2
-		} else {
-			util.RandomSleep(time.Second, 0, 0.5)
-		}
-		reconnectCounts++
-
-		now := time.Now()
-		if now.After(cutoffTime) {
-			// reset
-			cutoffTime = now.Add(time.Minute)
-			reconnectDelay = time.Second
-			reconnectCounts = 1
-		}
-
-		for {
-			if atomic.LoadUint32(&svr.exit) != 0 {
-				return
-			}
-
-			xl.Info("try to reconnect to server...")
-			conn, cm, err := svr.login()
-			if err != nil {
-				xl.Warn("reconnect to server error: %v, wait %v for another retry", err, delayTime)
-				util.RandomSleep(delayTime, 0.9, 1.1)
-
-				delayTime *= 2
-				if delayTime > maxDelayTime {
-					delayTime = maxDelayTime
-				}
-				continue
-			}
-			// reconnect success, init delayTime
-			delayTime = time.Second
-
-			ctl := NewControl(svr.ctx, svr.runID, conn, cm, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.authSetter)
-			ctl.Run()
-			svr.ctlMu.Lock()
-			if svr.ctl != nil {
-				svr.ctl.Close()
-			}
-			svr.ctl = ctl
-			svr.ctlMu.Unlock()
-			break
-		}
-	}
+	// There is a situation where the login is successful but due to certain reasons,
+	// the control immediately exits. It is necessary to limit the frequency of reconnection in this case.
+	// The interval for the first three retries in 1 minute will be very short, and then it will increase exponentially.
+	// The maximum interval is 20 seconds.
+	wait.BackoffUntil(func() error {
+		// loopLoginUntilSuccess is another layer of loop that will continuously attempt to
+		// login to the server until successful.
+		svr.loopLoginUntilSuccess(20*time.Second, false)
+		<-svr.ctl.Done()
+		return errors.New("control is closed and try another loop")
+	}, wait.NewFastBackoffManager(
+		wait.FastBackoffOptions{
+			Duration:        time.Second,
+			Factor:          2,
+			Jitter:          0.1,
+			MaxDuration:     20 * time.Second,
+			FastRetryCount:  3,
+			FastRetryDelay:  200 * time.Millisecond,
+			FastRetryWindow: time.Minute,
+			FastRetryJitter: 0.5,
+		},
+	), true, svr.ctx.Done())
 }
 
 // login creates a connection to frps and registers it self as a client
@@ -299,6 +233,54 @@ func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 	return
 }
 
+func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginExit bool) {
+	xl := xlog.FromContextSafe(svr.ctx)
+	successCh := make(chan struct{})
+
+	loginFunc := func() error {
+		xl.Info("try to connect to server...")
+		conn, cm, err := svr.login()
+		if err != nil {
+			xl.Warn("connect to server error: %v", err)
+			if firstLoginExit {
+				svr.cancel()
+			}
+			return err
+		}
+
+		ctl, err := NewControl(svr.ctx, svr.runID, conn, cm,
+			svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.authSetter)
+		if err != nil {
+			conn.Close()
+			xl.Error("NewControl error: %v", err)
+			return err
+		}
+
+		ctl.Run()
+		// close and replace previous control
+		svr.ctlMu.Lock()
+		if svr.ctl != nil {
+			svr.ctl.Close()
+		}
+		svr.ctl = ctl
+		svr.ctlMu.Unlock()
+
+		close(successCh)
+		return nil
+	}
+
+	// try to reconnect to server until success
+	wait.BackoffUntil(loginFunc, wait.NewFastBackoffManager(
+		wait.FastBackoffOptions{
+			Duration:    time.Second,
+			Factor:      2,
+			Jitter:      0.1,
+			MaxDuration: maxInterval,
+		}),
+		true,
+		wait.MergeAndCloseOnAnyStopChannel(svr.ctx.Done(), successCh))
+}
+
 func (svr *Service) ReloadConf(pxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error {
 	svr.cfgMu.Lock()
 	svr.pxyCfgs = pxyCfgs
@@ -320,20 +302,20 @@ func (svr *Service) Close() {
 }
 
 func (svr *Service) GracefulClose(d time.Duration) {
-	atomic.StoreUint32(&svr.exit, 1)
+	svr.gracefulDuration = d
+	svr.cancel()
+}
 
-	svr.ctlMu.RLock()
+func (svr *Service) stop() {
+	svr.ctlMu.Lock()
+	defer svr.ctlMu.Unlock()
 	if svr.ctl != nil {
-		svr.ctl.GracefulClose(d)
+		svr.ctl.GracefulClose(svr.gracefulDuration)
 		svr.ctl = nil
-	}
-	svr.ctlMu.RUnlock()
-
-	if svr.cancel != nil {
-		svr.cancel()
 	}
 }
 
+// ConnectionManager is a wrapper for establishing connections to the server.
 type ConnectionManager struct {
 	ctx context.Context
 	cfg *v1.ClientCommonConfig
@@ -349,6 +331,10 @@ func NewConnectionManager(ctx context.Context, cfg *v1.ClientCommonConfig) *Conn
 	}
 }
 
+// OpenConnection opens a underlying connection to the server.
+// The underlying connection is either a TCP connection or a QUIC connection.
+// After the underlying connection is established, you can call Connect() to get a stream.
+// If TCPMux isn't enabled, the underlying connection is nil, you will get a new real TCP connection every time you call Connect().
 func (cm *ConnectionManager) OpenConnection() error {
 	xl := xlog.FromContextSafe(cm.ctx)
 
@@ -411,6 +397,7 @@ func (cm *ConnectionManager) OpenConnection() error {
 	return nil
 }
 
+// Connect returns a stream from the underlying connection, or a new TCP connection if TCPMux isn't enabled.
 func (cm *ConnectionManager) Connect() (net.Conn, error) {
 	if cm.quicConn != nil {
 		stream, err := cm.quicConn.OpenStreamSync(context.Background())
