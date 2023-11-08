@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"syscall"
 	"time"
@@ -32,19 +33,22 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/util/log"
+	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 )
 
 var (
-	cfgFile     string
-	cfgDir      string
-	showVersion bool
+	cfgFile        string
+	cfgDir         string
+	showVersion    bool
+	showJSONSchema bool
 )
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "./frpc.ini", "config file of frpc")
 	rootCmd.PersistentFlags().StringVarP(&cfgDir, "config_dir", "", "", "config directory, run one frpc service for each file in config directory")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
+	rootCmd.PersistentFlags().BoolVarP(&showJSONSchema, "json_schema", "", false, "dump configuration JSON schema")
 }
 
 var rootCmd = &cobra.Command{
@@ -53,6 +57,10 @@ var rootCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if showVersion {
 			fmt.Println(version.Full())
+			return nil
+		}
+		if showJSONSchema {
+			util.DumpJSONSchema(reflect.TypeOf(v1.ClientConfig{}))
 			return nil
 		}
 
