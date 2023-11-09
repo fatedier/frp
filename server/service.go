@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -205,26 +206,33 @@ func NewService(cfg *v1.ServerConfig) (svr *Service, err error) {
 	svr.listener = ln
 	log.Info("frps tcp listen on %s", address)
 
-	if cfg.SSHGatewayConfig.SSHBindPort > 0 {
-		svr.sshConfig = &ssh.ServerConfig{
-			PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
-				file := fmt.Sprintf("%v/%v.pub", cfg.SSHGatewayConfig.SSHPublicKeyFilesPath, ssh.FingerprintSHA256(key))
-				authorizedKey, err := os.ReadFile(file)
-				if err != nil {
-					return nil, err
-				}
+	if cfg.SSHTunnelGateway.BindPort > 0 {
 
-				parsedAuthorizedKey, _, _, _, err := ssh.ParseAuthorizedKey(authorizedKey)
+		if cfg.SSHTunnelGateway.PublicKeyFilesPath != "" {
+			cfg.SSHTunnelGateway.PublicKeyFilesMap, err = v1.LoadFilesInDirectory(cfg.SSHTunnelGateway.PublicKeyFilesPath)
+			if err != nil {
+				return nil, fmt.Errorf("load ssh all public key files error: %v", err)
+			}
+			log.Info("load %v public key files success", cfg.SSHTunnelGateway.PublicKeyFilesPath)
+		}
+
+		svr.sshConfig = &ssh.ServerConfig{
+			NoClientAuth: lo.If(cfg.SSHTunnelGateway.PublicKeyFilesPath == "", true).Else(false),
+
+			PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+				keyContent, ok := cfg.SSHTunnelGateway.PublicKeyFilesMap[ssh.FingerprintSHA256(key)]
+				if !ok {
+					return nil, errors.New("cannot find public key file")
+				}
+				parsedAuthorizedKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(keyContent))
 				if err != nil {
 					return nil, err
 				}
 
 				if key.Type() == parsedAuthorizedKey.Type() && bytes.Equal(key.Marshal(), parsedAuthorizedKey.Marshal()) {
-					log.Info("ssh file: %v fingerprint sha256: %v", file, ssh.FingerprintSHA256(key))
-
 					return &ssh.Permissions{
 						Extensions: map[string]string{
-							ssh.FingerprintSHA256(key): string(authorizedKey),
+							ssh.FingerprintSHA256(key): keyContent,
 						},
 					}, nil
 				}
@@ -232,12 +240,22 @@ func NewService(cfg *v1.ServerConfig) (svr *Service, err error) {
 			},
 		}
 
-		privateBytes, err := os.ReadFile(cfg.SSHGatewayConfig.SSHPrivateKeyFilePath)
-		if err != nil {
-			log.Error("Failed to load private key")
-			return nil, err
+		var privateBytes []byte
+		if cfg.SSHTunnelGateway.PrivateKeyFilePath != "" {
+			privateBytes, err = os.ReadFile(cfg.SSHTunnelGateway.PrivateKeyFilePath)
+			if err != nil {
+				log.Error("Failed to load private key")
+				return nil, err
+			}
+			log.Info("load %v private key file success", cfg.SSHTunnelGateway.PrivateKeyFilePath)
+		} else {
+			privateBytes, err = v1.GeneratePrivateKey()
+			if err != nil {
+				log.Error("Failed to load private key")
+				return nil, err
+			}
+			log.Info("auto gen private key file success")
 		}
-
 		private, err := ssh.ParsePrivateKey(privateBytes)
 		if err != nil {
 			log.Error("Failed to parse private key, error: %v", err)
@@ -246,7 +264,7 @@ func NewService(cfg *v1.ServerConfig) (svr *Service, err error) {
 
 		svr.sshConfig.AddHostKey(private)
 
-		sshAddr := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.SSHGatewayConfig.SSHBindPort))
+		sshAddr := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.SSHTunnelGateway.BindPort))
 		svr.sshListener, err = net.Listen("tcp", sshAddr)
 		if err != nil {
 			log.Error("Failed to listen on %v, error: %v", sshAddr, err)
@@ -582,18 +600,9 @@ func (svr *Service) HandleSSHListener(listener net.Listener) {
 
 				ctx := context.Background()
 
-				vs, err := NewVirtualService(
-					ctx,
-					v1.ClientCommonConfig{},
-					*svr.cfg,
-					msg.Login{
-						User: v1.SSHClientLoginUserPrefix + tcpConn.RemoteAddr().String(),
-					},
-					svr.rc,
-					pxyCfg,
-					ss,
-					replyCh,
-				)
+				vs, err := NewVirtualService(ctx, v1.ClientCommonConfig{}, *svr.cfg,
+					msg.Login{User: v1.SSHClientLoginUserPrefix + tcpConn.RemoteAddr().String()},
+					svr.rc, pxyCfg, ss, replyCh)
 				if err != nil {
 					log.Error("new virtual service error: %v", err)
 					ss.Close()

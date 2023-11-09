@@ -18,7 +18,6 @@ import (
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/util/log"
-	"github.com/fatedier/frp/pkg/util/util"
 )
 
 const (
@@ -174,7 +173,7 @@ func (ss *SSHService) loopParseCmdPayload() {
 				if req.Type == RequestTypeHeartbeat {
 					log.Debug("ssh heartbeat data")
 				} else {
-					log.Info("default req, data: %v", util.JSONDump(req))
+					log.Info("default req, data: %v", req)
 				}
 			}
 			if req.WantReply {
@@ -231,14 +230,17 @@ func (ss *SSHService) loopParseExtraPayload() {
 					log.Info("r.payload is less than 4")
 					continue
 				}
-
-				dataLen := binary.BigEndian.Uint32(r.Payload[:4])
-				p := string(r.Payload[4 : 4+dataLen])
-
-				if !strings.Contains(p, "frpc") {
-					log.Info("payload not contains frp keyword: %v", p)
+				if !strings.Contains(string(r.Payload), "tcp") && !strings.Contains(string(r.Payload), "http") {
+					log.Info("ssh protocol exchange data")
 					continue
 				}
+
+				// [4byte data_len|data]
+				end := 4 + binary.BigEndian.Uint32(r.Payload[:4])
+				if end > uint32(len(r.Payload)) {
+					end = uint32(len(r.Payload))
+				}
+				p := string(r.Payload[4:end])
 
 				msg, err := parseSSHExtraMessage(p)
 				if err != nil {
@@ -331,35 +333,42 @@ func (ss *SSHService) loopGenerateProxy() {
 				ProxyBaseConfig: v1.ProxyBaseConfig{
 					Name: fmt.Sprintf("ssh-proxy-%v-%v", ss.tcpConn.RemoteAddr().String(), time.Now().UnixNano()),
 					Type: p2.Type,
+
+					ProxyBackend: v1.ProxyBackend{
+						LocalIP: p1.Address,
+					},
 				},
 				RemotePort: int(p1.Port),
 			}
 		default:
 			log.Warn("invalid frp proxy type: %v", p2.Type)
 		}
-
 	}
 }
 
 func parseSSHExtraMessage(s string) (p SSHExtraPayload, err error) {
+	sn := len(s)
+
+	log.Info("parse ssh extra message: %v", s)
+
 	ss := strings.Fields(s)
-	if len(ss) <= 1 {
-		return p, fmt.Errorf("invalid ssh input, args: %v", ss)
+	if len(ss) == 0 {
+		if sn != 0 {
+			ss = append(ss, s)
+		} else {
+			return p, fmt.Errorf("invalid ssh input, args: %v", ss)
+		}
 	}
 
 	for i, v := range ss {
 		ss[i] = strings.TrimSpace(v)
 	}
 
-	if ss[0] != "frpc" {
-		return p, fmt.Errorf("first input should be frpc, but got: %v", ss[0])
-	}
-
-	if ss[1] != "tcp" && ss[1] != "http" {
+	if ss[0] != "tcp" && ss[0] != "http" {
 		return p, fmt.Errorf("only support tcp/http now")
 	}
 
-	switch ss[1] {
+	switch ss[0] {
 	case "tcp":
 		tcpCmd, err := ParseTCPCommand(ss)
 		if err != nil {
@@ -407,7 +416,7 @@ func ParseHTTPCommand(params []string) (*HTTPCommand, error) {
 		basicAuthPass string
 	)
 
-	fs := flag.NewFlagSet("frpc http", flag.ContinueOnError)
+	fs := flag.NewFlagSet("http", flag.ContinueOnError)
 	fs.StringVar(&basicAuth, "basic-auth", "", "")
 	fs.StringVar(&domainURL, "domain", "", "")
 
@@ -442,8 +451,12 @@ type TCPCommand struct {
 }
 
 func ParseTCPCommand(params []string) (*TCPCommand, error) {
-	if len(params) < 2 || params[0] != "frpc" || params[1] != "tcp" {
+	if len(params) == 0 || params[0] != "tcp" {
 		return nil, errors.New("invalid TCP command")
+	}
+
+	if len(params) == 1 {
+		return &TCPCommand{}, nil
 	}
 
 	var (
@@ -451,12 +464,12 @@ func ParseTCPCommand(params []string) (*TCPCommand, error) {
 		port    string
 	)
 
-	fs := flag.NewFlagSet("frpc tcp", flag.ContinueOnError)
+	fs := flag.NewFlagSet("tcp", flag.ContinueOnError)
 	fs.StringVar(&address, "address", "", "The IP address to listen on")
 	fs.StringVar(&port, "port", "", "The port to listen on")
 	fs.SetOutput(&nullWriter{}) // Disables usage output
 
-	args := params[2:]
+	args := params[1:]
 	err := fs.Parse(args)
 	if err != nil {
 		if !errors.Is(err, flag.ErrHelp) {

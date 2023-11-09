@@ -87,8 +87,6 @@ func (svr *VirtualService) Run(ctx context.Context) (err error) {
 	svr.ctx = xlog.NewContext(ctx, xlog.New())
 	svr.cancel = cancel
 
-	log.Info("get svr pxy: %v", util.JSONDump(svr.pxyCfg))
-
 	remoteAddr, err := svr.RegisterProxy(&msg.NewProxy{
 		ProxyName:  svr.pxyCfg.(*v1.TCPProxyConfig).Name,
 		ProxyType:  svr.pxyCfg.(*v1.TCPProxyConfig).Type,
@@ -172,9 +170,11 @@ func (svr *VirtualService) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr strin
 func (svr *VirtualService) GetWorkConn() (workConn net.Conn, err error) {
 	// tell ssh client open a new stream for work
 	payload := forwardedTCPPayload{
-		Addr: svr.serverCfg.BindAddr,
+		Addr: svr.serverCfg.BindAddr, // TODO refine
 		Port: uint32(svr.pxyCfg.(*v1.TCPProxyConfig).RemotePort),
 	}
+
+	log.Info("get work conn payload: %v", payload)
 
 	channel, reqs, err := svr.sshSvc.SSHConn().OpenChannel(ChannelTypeServerOpenChannel, ssh.Marshal(payload))
 	if err != nil {

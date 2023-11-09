@@ -29,7 +29,6 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/transport"
 	utilnet "github.com/fatedier/frp/pkg/util/net"
-	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/wait"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
@@ -106,8 +105,6 @@ func NewControl(
 	ctl.msgDispatcher = msg.NewDispatcher(cryptoRW)
 	ctl.registerMsgHandlers()
 
-	ctl.xl.Info("get pxy cfgs: %v", util.JSONDump(ctl.pxyCfgs))
-
 	ctl.msgTransporter = transport.NewMessageTransporter(ctl.msgDispatcher.SendChannel())
 
 	ctl.pm = proxy.NewManager(ctl.ctx, clientCfg, ctl.msgTransporter)
@@ -170,8 +167,6 @@ func (ctl *Control) handleNewProxyResp(m msg.Message) {
 	xl := ctl.xl
 
 	inMsg := m.(*msg.NewProxyResp)
-
-	xl.Info("proxy: %v, remote addr: %v, err: %v", inMsg.ProxyName, inMsg.RemoteAddr, inMsg.Error)
 
 	// Server will return NewProxyResp message to each NewProxy message.
 	// Start a new proxy handler if no error got

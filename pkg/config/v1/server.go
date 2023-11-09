@@ -21,10 +21,13 @@ import (
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
-type SSHGatewayConfig struct {
-	SSHBindPort           int    `json:"sshBindPort,omitempty" validate:"gte=0,lte=65535"`
-	SSHPrivateKeyFilePath string `json:"sshPrivateKeyFilePath,omitempty"`
-	SSHPublicKeyFilesPath string `json:"sshPublicKeyFilesPath,omitempty"`
+type SSHTunnelGateway struct {
+	BindPort           int    `json:"bindPort,omitempty" validate:"gte=0,lte=65535"`
+	PrivateKeyFilePath string `json:"privateKeyFilePath,omitempty"`
+	PublicKeyFilesPath string `json:"publicKeyFilesPath,omitempty"`
+
+	// store all public key file. load all when init
+	PublicKeyFilesMap map[string]string
 }
 
 type ServerConfig struct {
@@ -38,7 +41,7 @@ type ServerConfig struct {
 	// value is 7000.
 	BindPort int `json:"bindPort,omitempty"`
 
-	SSHGatewayConfig SSHGatewayConfig `json:"sshGatewayConfig"`
+	SSHTunnelGateway SSHTunnelGateway `json:"sshGatewayConfig,omitempty"`
 
 	// KCPBindPort specifies the KCP port that the server listens on. If this
 	// value is 0, the server will not listen for KCP connections.
