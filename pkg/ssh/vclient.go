@@ -27,7 +27,7 @@ type VirtualService struct {
 	pxyCfg    v1.ProxyConfigurer
 	serverCfg v1.ServerConfig
 
-	sshSvc *SSHService
+	sshSvc *Service
 
 	// uniq id got from frps, attach it in loginMsg
 	runID    string
@@ -53,7 +53,7 @@ func NewVirtualService(
 	logMsg msg.Login,
 	rc *controller.ResourceController,
 	pxyCfg v1.ProxyConfigurer,
-	sshSvc *SSHService,
+	sshSvc *Service,
 	replyCh chan interface{},
 ) (svr *VirtualService, err error) {
 	svr = &VirtualService{

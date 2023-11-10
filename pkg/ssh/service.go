@@ -49,14 +49,14 @@ type forwardedTCPPayload struct {
 
 // custom define
 // parse ssh client cmds input
-type SSHCmdPayload struct {
+type CmdPayload struct {
 	Address string
 	Port    uint32
 }
 
 // custom define
 // with frp control cmds
-type SSHExtraPayload struct {
+type ExtraPayload struct {
 	Type string
 
 	// TODO port can be set by extra message and priority to ssh raw cmd
@@ -64,7 +64,7 @@ type SSHExtraPayload struct {
 	Port    uint32
 }
 
-type SSHService struct {
+type Service struct {
 	tcpConn net.Conn
 	cfg     *ssh.ServerConfig
 
@@ -72,8 +72,8 @@ type SSHService struct {
 	gChannel <-chan ssh.NewChannel
 	gReq     <-chan *ssh.Request
 
-	addrPayloadCh  chan SSHCmdPayload
-	extraPayloadCh chan SSHExtraPayload
+	addrPayloadCh  chan CmdPayload
+	extraPayloadCh chan ExtraPayload
 
 	proxyPayloadCh chan v1.ProxyConfigurer
 	replyCh        chan interface{}
@@ -87,13 +87,13 @@ func NewSSHService(
 	cfg *ssh.ServerConfig,
 	proxyPayloadCh chan v1.ProxyConfigurer,
 	replyCh chan interface{},
-) (ss *SSHService, err error) {
-	ss = &SSHService{
+) (ss *Service, err error) {
+	ss = &Service{
 		tcpConn: tcpConn,
 		cfg:     cfg,
 
-		addrPayloadCh:  make(chan SSHCmdPayload),
-		extraPayloadCh: make(chan SSHExtraPayload),
+		addrPayloadCh:  make(chan CmdPayload),
+		extraPayloadCh: make(chan ExtraPayload),
 
 		proxyPayloadCh: proxyPayloadCh,
 		replyCh:        replyCh,
@@ -113,18 +113,18 @@ func NewSSHService(
 	return ss, nil
 }
 
-func (ss *SSHService) Run() {
+func (ss *Service) Run() {
 	go ss.loopGenerateProxy()
 	go ss.loopParseCmdPayload()
 	go ss.loopParseExtraPayload()
 	go ss.loopReply()
 }
 
-func (ss *SSHService) Exit() <-chan struct{} {
+func (ss *Service) Exit() <-chan struct{} {
 	return ss.closeCh
 }
 
-func (ss *SSHService) Close() {
+func (ss *Service) Close() {
 	if atomic.LoadInt32(&ss.exit) == 1 {
 		return
 	}
@@ -149,7 +149,7 @@ func (ss *SSHService) Close() {
 	log.Info("ssh service close")
 }
 
-func (ss *SSHService) loopParseCmdPayload() {
+func (ss *Service) loopParseCmdPayload() {
 	for {
 		select {
 		case req, ok := <-ss.gReq:
@@ -161,7 +161,7 @@ func (ss *SSHService) loopParseCmdPayload() {
 
 			switch req.Type {
 			case RequestTypeForward:
-				var addrPayload SSHCmdPayload
+				var addrPayload CmdPayload
 				if err := ssh.Unmarshal(req.Payload, &addrPayload); err != nil {
 					log.Error("ssh unmarshal error: %v", err)
 					return
@@ -189,7 +189,7 @@ func (ss *SSHService) loopParseCmdPayload() {
 	}
 }
 
-func (ss *SSHService) loopSendHeartbeat(ch ssh.Channel) {
+func (ss *Service) loopSendHeartbeat(ch ssh.Channel) {
 	tk := time.NewTicker(time.Second * 60)
 	defer tk.Stop()
 
@@ -212,7 +212,7 @@ func (ss *SSHService) loopSendHeartbeat(ch ssh.Channel) {
 	}
 }
 
-func (ss *SSHService) loopParseExtraPayload() {
+func (ss *Service) loopParseExtraPayload() {
 	log.Info("loop parse extra payload start")
 
 	for newChannel := range ss.gChannel {
@@ -256,15 +256,15 @@ func (ss *SSHService) loopParseExtraPayload() {
 	}
 }
 
-func (ss *SSHService) SSHConn() *ssh.ServerConn {
+func (ss *Service) SSHConn() *ssh.ServerConn {
 	return ss.sshConn
 }
 
-func (ss *SSHService) TCPConn() net.Conn {
+func (ss *Service) TCPConn() net.Conn {
 	return ss.tcpConn
 }
 
-func (ss *SSHService) loopReply() {
+func (ss *Service) loopReply() {
 	for {
 		select {
 		case <-ss.closeCh:
@@ -282,7 +282,7 @@ func (ss *SSHService) loopReply() {
 	}
 }
 
-func (ss *SSHService) loopGenerateProxy() {
+func (ss *Service) loopGenerateProxy() {
 	log.Info("loop generate proxy start")
 
 	for {
@@ -293,8 +293,8 @@ func (ss *SSHService) loopGenerateProxy() {
 		wg := new(sync.WaitGroup)
 		wg.Add(2)
 
-		var p1 SSHCmdPayload
-		var p2 SSHExtraPayload
+		var p1 CmdPayload
+		var p2 ExtraPayload
 
 		go func() {
 			defer wg.Done()
@@ -346,7 +346,7 @@ func (ss *SSHService) loopGenerateProxy() {
 	}
 }
 
-func parseSSHExtraMessage(s string) (p SSHExtraPayload, err error) {
+func parseSSHExtraMessage(s string) (p ExtraPayload, err error) {
 	sn := len(s)
 
 	log.Info("parse ssh extra message: %v", s)
@@ -372,12 +372,12 @@ func parseSSHExtraMessage(s string) (p SSHExtraPayload, err error) {
 	case "tcp":
 		tcpCmd, err := ParseTCPCommand(ss)
 		if err != nil {
-			return SSHExtraPayload{}, fmt.Errorf("invalid ssh input: %v", err)
+			return ExtraPayload{}, fmt.Errorf("invalid ssh input: %v", err)
 		}
 
 		port, _ := strconv.Atoi(tcpCmd.Port)
 
-		p = SSHExtraPayload{
+		p = ExtraPayload{
 			Type:    "tcp",
 			Address: tcpCmd.Address,
 			Port:    uint32(port),
@@ -385,12 +385,12 @@ func parseSSHExtraMessage(s string) (p SSHExtraPayload, err error) {
 	case "http":
 		httpCmd, err := ParseHTTPCommand(ss)
 		if err != nil {
-			return SSHExtraPayload{}, fmt.Errorf("invalid ssh input: %v", err)
+			return ExtraPayload{}, fmt.Errorf("invalid ssh input: %v", err)
 		}
 
 		_ = httpCmd
 
-		p = SSHExtraPayload{
+		p = ExtraPayload{
 			Type: "http",
 		}
 	}
