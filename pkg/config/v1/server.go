@@ -16,6 +16,7 @@ package v1
 
 import (
 	"github.com/samber/lo"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/fatedier/frp/pkg/config/types"
 	"github.com/fatedier/frp/pkg/util/util"
@@ -27,7 +28,7 @@ type SSHTunnelGateway struct {
 	PublicKeyFilesPath string `json:"publicKeyFilesPath,omitempty"`
 
 	// store all public key file. load all when init
-	PublicKeyFilesMap map[string]string
+	PublicKeyFilesMap map[string]ssh.PublicKey
 }
 
 type ServerConfig struct {

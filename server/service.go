@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -40,6 +41,7 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
+	frpssh "github.com/fatedier/frp/pkg/ssh"
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/log"
 	utilnet "github.com/fatedier/frp/pkg/util/net"
@@ -209,7 +211,7 @@ func NewService(cfg *v1.ServerConfig) (svr *Service, err error) {
 	if cfg.SSHTunnelGateway.BindPort > 0 {
 
 		if cfg.SSHTunnelGateway.PublicKeyFilesPath != "" {
-			cfg.SSHTunnelGateway.PublicKeyFilesMap, err = v1.LoadFilesInDirectory(cfg.SSHTunnelGateway.PublicKeyFilesPath)
+			cfg.SSHTunnelGateway.PublicKeyFilesMap, err = v1.LoadSSHPublicKeyFilesInDir(cfg.SSHTunnelGateway.PublicKeyFilesPath)
 			if err != nil {
 				return nil, fmt.Errorf("load ssh all public key files error: %v", err)
 			}
@@ -220,20 +222,14 @@ func NewService(cfg *v1.ServerConfig) (svr *Service, err error) {
 			NoClientAuth: lo.If(cfg.SSHTunnelGateway.PublicKeyFilesPath == "", true).Else(false),
 
 			PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
-				keyContent, ok := cfg.SSHTunnelGateway.PublicKeyFilesMap[ssh.FingerprintSHA256(key)]
+				parsedAuthorizedKey, ok := cfg.SSHTunnelGateway.PublicKeyFilesMap[ssh.FingerprintSHA256(key)]
 				if !ok {
 					return nil, errors.New("cannot find public key file")
 				}
-				parsedAuthorizedKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(keyContent))
-				if err != nil {
-					return nil, err
-				}
 
-				if key.Type() == parsedAuthorizedKey.Type() && bytes.Equal(key.Marshal(), parsedAuthorizedKey.Marshal()) {
+				if key.Type() == parsedAuthorizedKey.Type() && reflect.DeepEqual(parsedAuthorizedKey, key) {
 					return &ssh.Permissions{
-						Extensions: map[string]string{
-							ssh.FingerprintSHA256(key): keyContent,
-						},
+						Extensions: map[string]string{},
 					}, nil
 				}
 				return nil, fmt.Errorf("unknown public key for %q", conn.User())
@@ -587,7 +583,7 @@ func (svr *Service) HandleSSHListener(listener net.Listener) {
 		pxyPayloadCh := make(chan v1.ProxyConfigurer)
 		replyCh := make(chan interface{})
 
-		ss, err := NewSSHService(tcpConn, svr.sshConfig, pxyPayloadCh, replyCh)
+		ss, err := frpssh.NewSSHService(tcpConn, svr.sshConfig, pxyPayloadCh, replyCh)
 		if err != nil {
 			log.Error("new ssh service error: %v", err)
 			continue
@@ -600,7 +596,8 @@ func (svr *Service) HandleSSHListener(listener net.Listener) {
 
 				ctx := context.Background()
 
-				vs, err := NewVirtualService(ctx, v1.ClientCommonConfig{}, *svr.cfg,
+				// TODO fill client common config and login msg
+				vs, err := frpssh.NewVirtualService(ctx, v1.ClientCommonConfig{}, *svr.cfg,
 					msg.Login{User: v1.SSHClientLoginUserPrefix + tcpConn.RemoteAddr().String()},
 					svr.rc, pxyCfg, ss, replyCh)
 				if err != nil {

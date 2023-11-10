@@ -8,6 +8,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+
+	"golang.org/x/crypto/ssh"
 )
 
 const (
@@ -45,24 +47,25 @@ func generatePrivateKey() (*rsa.PrivateKey, error) {
 	return privateKey, nil
 }
 
-func LoadFilesInDirectory(dirPath string) (map[string]string, error) {
-	fileMap := make(map[string]string)
-
+func LoadSSHPublicKeyFilesInDir(dirPath string) (map[string]ssh.PublicKey, error) {
+	fileMap := make(map[string]ssh.PublicKey)
 	files, err := os.ReadDir(dirPath)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, file := range files {
-		filename := file.Name()
-		filePath := filepath.Join(dirPath, filename)
-
+		filePath := filepath.Join(dirPath, file.Name())
 		content, err := os.ReadFile(filePath)
 		if err != nil {
 			return nil, err
 		}
 
-		fileMap[filename] = string(content)
+		parsedAuthorizedKey, _, _, _, err := ssh.ParseAuthorizedKey(content)
+		if err != nil {
+			continue
+		}
+		fileMap[ssh.FingerprintSHA256(parsedAuthorizedKey)] = parsedAuthorizedKey
 	}
 
 	return fileMap, nil

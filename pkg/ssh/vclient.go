@@ -1,4 +1,4 @@
-package server
+package ssh
 
 import (
 	"context"
@@ -173,8 +173,6 @@ func (svr *VirtualService) GetWorkConn() (workConn net.Conn, err error) {
 		Addr: svr.serverCfg.BindAddr, // TODO refine
 		Port: uint32(svr.pxyCfg.(*v1.TCPProxyConfig).RemotePort),
 	}
-
-	log.Info("get work conn payload: %v", payload)
 
 	channel, reqs, err := svr.sshSvc.SSHConn().OpenChannel(ChannelTypeServerOpenChannel, ssh.Marshal(payload))
 	if err != nil {
