@@ -63,18 +63,18 @@ func IsClientCertificateSubjectValid(c net.Conn, tlsConfig v1.TLSServerConfig) b
 	subjectRegex := tlsConfig.ClientCertificateSubjectRegex
 	regex, err := regexp.Compile(subjectRegex)
 	if err != nil {
-		log.Trace("Client certificate subject validation is disabled")
+		log.Trace("TLS client certificate subject validation is disabled")
 		return true
 	}
 
 	tlsConn, ok := c.(*tls.Conn)
 	if !ok {
-		log.Warn("Skip client certificate subject validation because its not a tls connection")
+		log.Warn("Skip TLS client certificate subject validation because its non-TLS connection")
 		return true
 	}
 
 	state := tlsConn.ConnectionState()
-	log.Trace("Validating client certificate subject using regex: %v", subjectRegex)
+	log.Trace("Validating TLS client certificate subject using regex: %v", subjectRegex)
 	if len(state.PeerCertificates) == 0 {
 		log.Warn("No client certificates found in TLS connection, the verification was probably called to early.")
 		return false
@@ -83,10 +83,10 @@ func IsClientCertificateSubjectValid(c net.Conn, tlsConfig v1.TLSServerConfig) b
 	for _, v := range state.PeerCertificates {
 		subject := fmt.Sprintf("%v", v.Subject)
 		if !regex.MatchString(subject) {
-			log.Warn("Client certificate subject %v doesn't match regex %v", v.Subject, subjectRegex)
+			log.Warn("TLS client certificate subject %v doesn't match regex %v", v.Subject, subjectRegex)
 			return false
 		}
-		log.Trace("Client certificate subject is valid")
+		log.Trace("TLS client certificate subject is valid")
 	}
 	return true
 }
