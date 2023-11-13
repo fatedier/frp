@@ -47,6 +47,9 @@ tls.force = false
 # transport.tls.keyFile = "server.key"
 # transport.tls.trustedCaFile = "ca.crt"
 
+# Validates the subject of the TLS client certificate using regex. By default, this value is not set and the validation is disabled.
+# transport.tls.clientCertSubjectRegex = "CN=client.com(.+)"
+
 # If you want to support virtual host, you must set the http port for listening (optional)
 # Note: http port and https port can be same with bindPort
 vhostHTTPPort = 80
