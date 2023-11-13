@@ -649,6 +649,7 @@ transport.tls.force = true
 transport.tls.certFile = "certificate.crt"
 transport.tls.keyFile = "certificate.key"
 transport.tls.trustedCaFile = "ca.crt"
+transport.tls.clientCertSubjectRegex = "CN=client.com(.+)"
 ```
 
 You will need **a root CA cert** and **at least one SSL/TLS certificate**. It **can** be self-signed or regular (such as Let's Encrypt or another SSL/TLS certificate provider).

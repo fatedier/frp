@@ -17,7 +17,10 @@ package net
 import (
 	"crypto/tls"
 	"fmt"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/util/log"
 	"net"
+	"regexp"
 	"time"
 
 	libnet "github.com/fatedier/golib/net"
@@ -54,4 +57,36 @@ func CheckAndEnableTLSServerConnWithTimeout(
 		out = sc
 	}
 	return
+}
+
+func IsClientCertificateSubjectValid(c net.Conn, tlsConfig v1.TLSServerConfig) bool {
+	subjectRegex := tlsConfig.ClientCertificateSubjectRegex
+	regex, err := regexp.Compile(subjectRegex)
+	if err != nil {
+		log.Trace("Client certificate subject validation is disabled")
+		return true
+	}
+
+	tlsConn, ok := c.(*tls.Conn)
+	if !ok {
+		log.Warn("Skip client certificate subject validation because its not a tls connection")
+		return true
+	}
+
+	state := tlsConn.ConnectionState()
+	log.Trace("Validating client certificate subject using regex: %v", subjectRegex)
+	if len(state.PeerCertificates) == 0 {
+		log.Warn("No client certificates found in TLS connection, the verification was probably called to early.")
+		return false
+	}
+
+	for _, v := range state.PeerCertificates {
+		subject := fmt.Sprintf("%v", v.Subject)
+		if !regex.MatchString(subject) {
+			log.Warn("Client certificate subject %v doesn't match regex %v", v.Subject, subjectRegex)
+			return false
+		}
+		log.Trace("Client certificate subject is valid")
+	}
+	return true
 }

@@ -484,6 +484,13 @@ func (svr *Service) HandleListener(l net.Listener) {
 						session.Close()
 						return
 					}
+
+					// Has to be called after session.AcceptStream() so that the client certificates are available
+					if !utilnet.IsClientCertificateSubjectValid(c, svr.cfg.Transport.TLS) {
+						session.Close()
+						return
+					}
+
 					go svr.handleConnection(ctx, stream)
 				}
 			} else {

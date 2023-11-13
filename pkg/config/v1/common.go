@@ -80,6 +80,9 @@ type TLSConfig struct {
 	// ServerName specifies the custom server name of tls certificate. By
 	// default, server name if same to ServerAddr.
 	ServerName string `json:"serverName,omitempty"`
+	// ClientCertificateSubjectRegex specifies the regex that is used to validate the client certificate subject.
+	// If it's not set, the validation of the subject is disabled.
+	ClientCertificateSubjectRegex string `json:"clientCertSubjectRegex,omitempty"`
 }
 
 type LogConfig struct {
