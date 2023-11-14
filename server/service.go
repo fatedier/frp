@@ -18,10 +18,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"os"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -29,6 +32,7 @@ import (
 	fmux "github.com/hashicorp/yamux"
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/fatedier/frp/assets"
 	"github.com/fatedier/frp/pkg/auth"
@@ -37,6 +41,7 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
+	frpssh "github.com/fatedier/frp/pkg/ssh"
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/log"
 	utilnet "github.com/fatedier/frp/pkg/util/net"
@@ -65,6 +70,10 @@ type Service struct {
 
 	// Accept connections from client
 	listener net.Listener
+
+	// Accept connections using ssh
+	sshListener net.Listener
+	sshConfig   *ssh.ServerConfig
 
 	// Accept connections using kcp
 	kcpListener net.Listener
@@ -199,6 +208,67 @@ func NewService(cfg *v1.ServerConfig) (svr *Service, err error) {
 	svr.listener = ln
 	log.Info("frps tcp listen on %s", address)
 
+	if cfg.SSHTunnelGateway.BindPort > 0 {
+
+		if cfg.SSHTunnelGateway.PublicKeyFilesPath != "" {
+			cfg.SSHTunnelGateway.PublicKeyFilesMap, err = v1.LoadSSHPublicKeyFilesInDir(cfg.SSHTunnelGateway.PublicKeyFilesPath)
+			if err != nil {
+				return nil, fmt.Errorf("load ssh all public key files error: %v", err)
+			}
+			log.Info("load %v public key files success", cfg.SSHTunnelGateway.PublicKeyFilesPath)
+		}
+
+		svr.sshConfig = &ssh.ServerConfig{
+			NoClientAuth: lo.If(cfg.SSHTunnelGateway.PublicKeyFilesPath == "", true).Else(false),
+
+			PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+				parsedAuthorizedKey, ok := cfg.SSHTunnelGateway.PublicKeyFilesMap[ssh.FingerprintSHA256(key)]
+				if !ok {
+					return nil, errors.New("cannot find public key file")
+				}
+
+				if key.Type() == parsedAuthorizedKey.Type() && reflect.DeepEqual(parsedAuthorizedKey, key) {
+					return &ssh.Permissions{
+						Extensions: map[string]string{},
+					}, nil
+				}
+				return nil, fmt.Errorf("unknown public key for %q", conn.User())
+			},
+		}
+
+		var privateBytes []byte
+		if cfg.SSHTunnelGateway.PrivateKeyFilePath != "" {
+			privateBytes, err = os.ReadFile(cfg.SSHTunnelGateway.PrivateKeyFilePath)
+			if err != nil {
+				log.Error("Failed to load private key")
+				return nil, err
+			}
+			log.Info("load %v private key file success", cfg.SSHTunnelGateway.PrivateKeyFilePath)
+		} else {
+			privateBytes, err = v1.GeneratePrivateKey()
+			if err != nil {
+				log.Error("Failed to load private key")
+				return nil, err
+			}
+			log.Info("auto gen private key file success")
+		}
+		private, err := ssh.ParsePrivateKey(privateBytes)
+		if err != nil {
+			log.Error("Failed to parse private key, error: %v", err)
+			return nil, err
+		}
+
+		svr.sshConfig.AddHostKey(private)
+
+		sshAddr := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.SSHTunnelGateway.BindPort))
+		svr.sshListener, err = net.Listen("tcp", sshAddr)
+		if err != nil {
+			log.Error("Failed to listen on %v, error: %v", sshAddr, err)
+			return nil, err
+		}
+		log.Info("ssh server listening on %v", sshAddr)
+	}
+
 	// Listen for accepting connections from client using kcp protocol.
 	if cfg.KCPBindPort > 0 {
 		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.KCPBindPort))
@@ -326,6 +396,10 @@ func (svr *Service) Run(ctx context.Context) {
 	svr.ctx = ctx
 	svr.cancel = cancel
 
+	if svr.sshListener != nil {
+		go svr.HandleSSHListener(svr.sshListener)
+	}
+
 	if svr.kcpListener != nil {
 		go svr.HandleListener(svr.kcpListener)
 	}
@@ -348,6 +422,10 @@ func (svr *Service) Run(ctx context.Context) {
 }
 
 func (svr *Service) Close() error {
+	if svr.sshListener != nil {
+		svr.sshListener.Close()
+		svr.sshListener = nil
+	}
 	if svr.kcpListener != nil {
 		svr.kcpListener.Close()
 		svr.kcpListener = nil
@@ -490,6 +568,52 @@ func (svr *Service) HandleListener(l net.Listener) {
 				svr.handleConnection(ctx, frpConn)
 			}
 		}(ctx, c)
+	}
+}
+
+func (svr *Service) HandleSSHListener(listener net.Listener) {
+	for {
+		tcpConn, err := listener.Accept()
+		if err != nil {
+			log.Error("failed to accept incoming ssh connection (%s)", err)
+			return
+		}
+		log.Info("new tcp conn connected: %v", tcpConn.RemoteAddr().String())
+
+		pxyPayloadCh := make(chan v1.ProxyConfigurer)
+		replyCh := make(chan interface{})
+
+		ss, err := frpssh.NewSSHService(tcpConn, svr.sshConfig, pxyPayloadCh, replyCh)
+		if err != nil {
+			log.Error("new ssh service error: %v", err)
+			continue
+		}
+		ss.Run()
+
+		go func() {
+			for {
+				pxyCfg := <-pxyPayloadCh
+
+				ctx := context.Background()
+
+				// TODO fill client common config and login msg
+				vs, err := frpssh.NewVirtualService(ctx, v1.ClientCommonConfig{}, *svr.cfg,
+					msg.Login{User: v1.SSHClientLoginUserPrefix + tcpConn.RemoteAddr().String()},
+					svr.rc, pxyCfg, ss, replyCh)
+				if err != nil {
+					log.Error("new virtual service error: %v", err)
+					ss.Close()
+					return
+				}
+
+				err = vs.Run(ctx)
+				if err != nil {
+					log.Error("proxy run error: %v", err)
+					vs.Close()
+					return
+				}
+			}
+		}()
 	}
 }
 
