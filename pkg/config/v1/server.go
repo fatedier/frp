@@ -16,10 +16,20 @@ package v1
 
 import (
 	"github.com/samber/lo"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/fatedier/frp/pkg/config/types"
 	"github.com/fatedier/frp/pkg/util/util"
 )
+
+type SSHTunnelGateway struct {
+	BindPort           int    `json:"bindPort,omitempty" validate:"gte=0,lte=65535"`
+	PrivateKeyFilePath string `json:"privateKeyFilePath,omitempty"`
+	PublicKeyFilesPath string `json:"publicKeyFilesPath,omitempty"`
+
+	// store all public key file. load all when init
+	PublicKeyFilesMap map[string]ssh.PublicKey
+}
 
 type ServerConfig struct {
 	APIMetadata
@@ -31,6 +41,9 @@ type ServerConfig struct {
 	// BindPort specifies the port that the server listens on. By default, this
 	// value is 7000.
 	BindPort int `json:"bindPort,omitempty"`
+
+	SSHTunnelGateway SSHTunnelGateway `json:"sshGatewayConfig,omitempty"`
+
 	// KCPBindPort specifies the KCP port that the server listens on. If this
 	// value is 0, the server will not listen for KCP connections.
 	KCPBindPort int `json:"kcpBindPort,omitempty"`
