@@ -15,6 +15,7 @@
 package config
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -57,7 +58,7 @@ const jsonServerContent = `
 func TestLoadServerConfig(t *testing.T) {
 	for _, content := range []string{tomlServerContent, yamlServerContent, jsonServerContent} {
 		svrCfg := v1.ServerConfig{}
-		err := LoadConfigure([]byte(content), &svrCfg)
+		err := LoadConfigure([]byte(content), &svrCfg, true)
 		require := require.New(t)
 		require.NoError(err)
 		require.EqualValues("127.0.0.1", svrCfg.BindAddr)
@@ -66,5 +67,25 @@ func TestLoadServerConfig(t *testing.T) {
 		require.EqualValues(7005, svrCfg.TCPMuxHTTPConnectPort)
 		require.EqualValues("/abc.html", svrCfg.Custom404Page)
 		require.EqualValues(10, svrCfg.Transport.TCPKeepAlive)
+	}
+}
+
+// Test that loading in strict mode fails when the config is invalid.
+func TestLoadServerConfigErrorMode(t *testing.T) {
+	for strict := range []bool{false, true} {
+		for _, content := range []string{tomlServerContent, yamlServerContent, jsonServerContent} {
+			// Break the content with an innocent typo
+			brokenContent := strings.Replace(content, "bindAddr", "bindAdur", 1)
+			svrCfg := v1.ServerConfig{}
+			err := LoadConfigure([]byte(brokenContent), &svrCfg, strict == 1)
+			require := require.New(t)
+			if strict == 1 {
+				require.ErrorContains(err, "bindAdur")
+			} else {
+				require.NoError(err)
+				// BindAddr didn't get parsed because of the typo.
+				require.EqualValues("", svrCfg.BindAddr)
+			}
+		}
 	}
 }

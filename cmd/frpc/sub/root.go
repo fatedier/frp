@@ -36,15 +36,17 @@ import (
 )
 
 var (
-	cfgFile     string
-	cfgDir      string
-	showVersion bool
+	cfgFile      string
+	cfgDir       string
+	showVersion  bool
+	strictConfig bool
 )
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "./frpc.ini", "config file of frpc")
 	rootCmd.PersistentFlags().StringVarP(&cfgDir, "config_dir", "", "", "config directory, run one frpc service for each file in config directory")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
+	rootCmd.PersistentFlags().BoolVarP(&strictConfig, "strict_config", "", false, "strict config parsing mode")
 }
 
 var rootCmd = &cobra.Command{
@@ -108,7 +110,7 @@ func handleTermSignal(svr *client.Service) {
 }
 
 func runClient(cfgFilePath string) error {
-	cfg, pxyCfgs, visitorCfgs, isLegacyFormat, err := config.LoadClientConfig(cfgFilePath)
+	cfg, pxyCfgs, visitorCfgs, isLegacyFormat, err := config.LoadClientConfig(cfgFilePath, strictConfig)
 	if err != nil {
 		return err
 	}
@@ -120,11 +122,14 @@ func runClient(cfgFilePath string) error {
 	warning, err := validation.ValidateAllClientConfig(cfg, pxyCfgs, visitorCfgs)
 	if warning != nil {
 		fmt.Printf("WARNING: %v\n", warning)
+		if strictConfig {
+			return fmt.Errorf("warning: %v", warning)
+		}
 	}
 	if err != nil {
 		return err
 	}
-	return startService(cfg, pxyCfgs, visitorCfgs, cfgFilePath)
+	return startService(cfg, pxyCfgs, visitorCfgs, cfgFilePath, strictConfig)
 }
 
 func startService(
@@ -132,6 +137,7 @@ func startService(
 	pxyCfgs []v1.ProxyConfigurer,
 	visitorCfgs []v1.VisitorConfigurer,
 	cfgFile string,
+	strictConfig bool,
 ) error {
 	log.InitLog(cfg.Log.To, cfg.Log.Level, cfg.Log.MaxDays, cfg.Log.DisablePrintColor)
 
@@ -139,7 +145,7 @@ func startService(
 		log.Info("start frpc service for config file [%s]", cfgFile)
 		defer log.Info("frpc service for config file [%s] stopped", cfgFile)
 	}
-	svr := client.NewService(cfg, pxyCfgs, visitorCfgs, cfgFile)
+	svr := client.NewService(cfg, pxyCfgs, visitorCfgs, cfgFile, strictConfig)
 
 	shouldGracefulClose := cfg.Transport.Protocol == "kcp" || cfg.Transport.Protocol == "quic"
 	// Capture the exit signal if we use kcp or quic.
