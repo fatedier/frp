@@ -30,8 +30,9 @@ import (
 )
 
 var (
-	cfgFile     string
-	showVersion bool
+	cfgFile      string
+	showVersion  bool
+	strictConfig bool
 
 	serverCfg v1.ServerConfig
 )
@@ -39,6 +40,7 @@ var (
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file of frps")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frps")
+	rootCmd.PersistentFlags().BoolVarP(&strictConfig, "strict_config", "", false, "strict config parsing mode")
 
 	RegisterServerConfigFlags(rootCmd, &serverCfg)
 }
@@ -58,7 +60,7 @@ var rootCmd = &cobra.Command{
 			err            error
 		)
 		if cfgFile != "" {
-			svrCfg, isLegacyFormat, err = config.LoadServerConfig(cfgFile)
+			svrCfg, isLegacyFormat, err = config.LoadServerConfig(cfgFile, strictConfig)
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)

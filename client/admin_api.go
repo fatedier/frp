@@ -57,7 +57,7 @@ func (svr *Service) apiReload(w http.ResponseWriter, _ *http.Request) {
 		}
 	}()
 
-	cliCfg, pxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(svr.cfgFile)
+	cliCfg, pxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(svr.cfgFile, svr.strictConfig)
 	if err != nil {
 		res.Code = 400
 		res.Msg = err.Error()

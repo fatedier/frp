@@ -70,6 +70,9 @@ type Service struct {
 	// string if no configuration file was used.
 	cfgFile string
 
+	// Whether strict configuration parsing had been requested.
+	strictConfig bool
+
 	// service context
 	ctx context.Context
 	// call cancel to stop service
@@ -82,14 +85,16 @@ func NewService(
 	pxyCfgs []v1.ProxyConfigurer,
 	visitorCfgs []v1.VisitorConfigurer,
 	cfgFile string,
+	strictConfig bool,
 ) *Service {
 	return &Service{
-		authSetter:  auth.NewAuthSetter(cfg.Auth),
-		cfg:         cfg,
-		cfgFile:     cfgFile,
-		pxyCfgs:     pxyCfgs,
-		visitorCfgs: visitorCfgs,
-		ctx:         context.Background(),
+		authSetter:   auth.NewAuthSetter(cfg.Auth),
+		cfg:          cfg,
+		cfgFile:      cfgFile,
+		strictConfig: strictConfig,
+		pxyCfgs:      pxyCfgs,
+		visitorCfgs:  visitorCfgs,
+		ctx:          context.Background(),
 	}
 }
 

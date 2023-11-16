@@ -37,7 +37,7 @@ var verifyCmd = &cobra.Command{
 			return nil
 		}
 
-		cliCfg, pxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(cfgFile)
+		cliCfg, pxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(cfgFile, strictConfig)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
