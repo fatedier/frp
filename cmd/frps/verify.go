@@ -36,7 +36,7 @@ var verifyCmd = &cobra.Command{
 			fmt.Println("frps: the configuration file is not specified")
 			return nil
 		}
-		svrCfg, _, err := config.LoadServerConfig(cfgFile, strictConfig)
+		svrCfg, _, err := config.LoadServerConfig(cfgFile, strictConfigMode)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

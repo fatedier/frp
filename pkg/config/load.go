@@ -27,7 +27,7 @@ import (
 	"github.com/samber/lo"
 	"gopkg.in/ini.v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	yaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/fatedier/frp/pkg/config/legacy"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
@@ -113,7 +113,6 @@ func LoadConfigureFromFile(path string, c any, strict bool) error {
 func LoadConfigure(b []byte, c any, strict bool) error {
 	var tomlObj interface{}
 	// Try to unmarshal as TOML first; swallow errors from that (assume it's not valid TOML).
-	// TODO: caller should probably be able to specify the format, so we don't need to swallow errors.
 	if err := toml.Unmarshal(b, &tomlObj); err == nil {
 		b, err = json.Marshal(&tomlObj)
 		if err != nil {

@@ -15,6 +15,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -56,36 +57,57 @@ const jsonServerContent = `
 `
 
 func TestLoadServerConfig(t *testing.T) {
-	for _, content := range []string{tomlServerContent, yamlServerContent, jsonServerContent} {
-		svrCfg := v1.ServerConfig{}
-		err := LoadConfigure([]byte(content), &svrCfg, true)
-		require := require.New(t)
-		require.NoError(err)
-		require.EqualValues("127.0.0.1", svrCfg.BindAddr)
-		require.EqualValues(7000, svrCfg.KCPBindPort)
-		require.EqualValues(7001, svrCfg.QUICBindPort)
-		require.EqualValues(7005, svrCfg.TCPMuxHTTPConnectPort)
-		require.EqualValues("/abc.html", svrCfg.Custom404Page)
-		require.EqualValues(10, svrCfg.Transport.TCPKeepAlive)
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{"toml", tomlServerContent},
+		{"yaml", yamlServerContent},
+		{"json", jsonServerContent},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require := require.New(t)
+			svrCfg := v1.ServerConfig{}
+			err := LoadConfigure([]byte(test.content), &svrCfg, true)
+			require.NoError(err)
+			require.EqualValues("127.0.0.1", svrCfg.BindAddr)
+			require.EqualValues(7000, svrCfg.KCPBindPort)
+			require.EqualValues(7001, svrCfg.QUICBindPort)
+			require.EqualValues(7005, svrCfg.TCPMuxHTTPConnectPort)
+			require.EqualValues("/abc.html", svrCfg.Custom404Page)
+			require.EqualValues(10, svrCfg.Transport.TCPKeepAlive)
+		})
 	}
 }
 
 // Test that loading in strict mode fails when the config is invalid.
-func TestLoadServerConfigErrorMode(t *testing.T) {
-	for strict := range []bool{false, true} {
-		for _, content := range []string{tomlServerContent, yamlServerContent, jsonServerContent} {
-			// Break the content with an innocent typo
-			brokenContent := strings.Replace(content, "bindAddr", "bindAdur", 1)
-			svrCfg := v1.ServerConfig{}
-			err := LoadConfigure([]byte(brokenContent), &svrCfg, strict == 1)
-			require := require.New(t)
-			if strict == 1 {
-				require.ErrorContains(err, "bindAdur")
-			} else {
-				require.NoError(err)
-				// BindAddr didn't get parsed because of the typo.
-				require.EqualValues("", svrCfg.BindAddr)
-			}
+func TestLoadServerConfigStrictMode(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{"toml", tomlServerContent},
+		{"yaml", yamlServerContent},
+		{"json", jsonServerContent},
+	}
+
+	for _, strict := range []bool{false, true} {
+		for _, test := range tests {
+			t.Run(fmt.Sprintf("%s-strict-%t", test.name, strict), func(t *testing.T) {
+				require := require.New(t)
+				// Break the content with an innocent typo
+				brokenContent := strings.Replace(test.content, "bindAddr", "bindAdur", 1)
+				svrCfg := v1.ServerConfig{}
+				err := LoadConfigure([]byte(brokenContent), &svrCfg, strict)
+				if strict {
+					require.ErrorContains(err, "bindAdur")
+				} else {
+					require.NoError(err)
+					// BindAddr didn't get parsed because of the typo.
+					require.EqualValues("", svrCfg.BindAddr)
+				}
+			})
 		}
 	}
 }
