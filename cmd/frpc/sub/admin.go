@@ -52,7 +52,7 @@ func NewAdminCommand(name, short string, handler func(*v1.ClientCommonConfig) er
 		Use:   name,
 		Short: short,
 		Run: func(cmd *cobra.Command, args []string) {
-			cfg, _, _, _, err := config.LoadClientConfig(cfgFile, strictConfig)
+			cfg, _, _, _, err := config.LoadClientConfig(cfgFile, strictConfigMode)
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
@@ -73,7 +73,7 @@ func NewAdminCommand(name, short string, handler func(*v1.ClientCommonConfig) er
 func ReloadHandler(clientCfg *v1.ClientCommonConfig) error {
 	client := clientsdk.New(clientCfg.WebServer.Addr, clientCfg.WebServer.Port)
 	client.SetAuth(clientCfg.WebServer.User, clientCfg.WebServer.Password)
-	if err := client.Reload(); err != nil {
+	if err := client.Reload(strictConfigMode); err != nil {
 		return err
 	}
 	fmt.Println("reload success")
