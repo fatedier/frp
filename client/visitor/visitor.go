@@ -25,7 +25,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
-// Helper wrapps some functions for visitor to use.
+// Helper wraps some functions for visitor to use.
 type Helper interface {
 	// ConnectServer directly connects to the frp server.
 	ConnectServer() (net.Conn, error)

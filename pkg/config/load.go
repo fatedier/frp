@@ -221,7 +221,7 @@ func LoadClientConfig(path string, strict bool) (
 	}
 
 	// Load additional config from includes.
-	// legacy ini format alredy handle this in ParseClientConfig.
+	// legacy ini format already handle this in ParseClientConfig.
 	if len(cliCfg.IncludeConfigFiles) > 0 && !isLegacyFormat {
 		extPxyCfgs, extVisitorCfgs, err := LoadAdditionalClientConfigs(cliCfg.IncludeConfigFiles, isLegacyFormat, strict)
 		if err != nil {

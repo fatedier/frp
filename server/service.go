@@ -543,7 +543,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) error
 	if err != nil {
 		xl.Warn("create new controller error: %v", err)
 		// don't return detailed errors to client
-		return fmt.Errorf("unexpect error when creating new controller")
+		return fmt.Errorf("unexpected error when creating new controller")
 	}
 	if oldCtl := svr.ctlManager.Add(loginMsg.RunID, ctl); oldCtl != nil {
 		oldCtl.WaitClosed()

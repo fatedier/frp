@@ -38,7 +38,7 @@ auth.token = "12345678"
 # auth.oidc.clientSecret = ""
 # oidc.audience specifies the audience of the token in OIDC authentication.
 # auth.oidc.audience = ""
-# oidc.scope specifies the permisssions of the token in OIDC authentication if AuthenticationMethod == "oidc". By default, this value is "".
+# oidc.scope specifies the permissions of the token in OIDC authentication if AuthenticationMethod == "oidc". By default, this value is "".
 # auth.oidc.scope = ""
 # oidc.tokenEndpointURL specifies the URL which implements OIDC Token Endpoint.
 # It will be used to get an OIDC token.

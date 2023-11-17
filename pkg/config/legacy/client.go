@@ -99,7 +99,7 @@ type ClientCommonConf struct {
 	// the server must have TCP multiplexing enabled as well. By default, this
 	// value is true.
 	TCPMux bool `ini:"tcp_mux" json:"tcp_mux"`
-	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multipler.
+	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multiplier.
 	// If TCPMux is true, heartbeat of application layer is unnecessary because it can only rely on heartbeat in TCPMux.
 	TCPMuxKeepaliveInterval int64 `ini:"tcp_mux_keepalive_interval" json:"tcp_mux_keepalive_interval"`
 	// User specifies a prefix for proxy names to distinguish them from other

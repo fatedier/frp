@@ -188,7 +188,7 @@ func (rp *HTTPReverseProxy) CheckAuth(domain, location, routeByHTTPUser, user, p
 	return true
 }
 
-// getVhost trys to get vhost router by route policy.
+// getVhost tries to get vhost router by route policy.
 func (rp *HTTPReverseProxy) getVhost(domain, location, routeByHTTPUser string) (*Router, bool) {
 	findRouter := func(inDomain, inLocation, inRouteByHTTPUser string) (*Router, bool) {
 		vr, ok := rp.vhostRouter.Get(inDomain, inLocation, inRouteByHTTPUser)
