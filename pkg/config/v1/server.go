@@ -16,20 +16,10 @@ package v1
 
 import (
 	"github.com/samber/lo"
-	"golang.org/x/crypto/ssh"
 
 	"github.com/fatedier/frp/pkg/config/types"
 	"github.com/fatedier/frp/pkg/util/util"
 )
-
-type SSHTunnelGateway struct {
-	BindPort           int    `json:"bindPort,omitempty" validate:"gte=0,lte=65535"`
-	PrivateKeyFilePath string `json:"privateKeyFilePath,omitempty"`
-	PublicKeyFilesPath string `json:"publicKeyFilesPath,omitempty"`
-
-	// store all public key file. load all when init
-	PublicKeyFilesMap map[string]ssh.PublicKey
-}
 
 type ServerConfig struct {
 	APIMetadata
@@ -41,9 +31,6 @@ type ServerConfig struct {
 	// BindPort specifies the port that the server listens on. By default, this
 	// value is 7000.
 	BindPort int `json:"bindPort,omitempty"`
-
-	SSHTunnelGateway SSHTunnelGateway `json:"sshGatewayConfig,omitempty"`
-
 	// KCPBindPort specifies the KCP port that the server listens on. If this
 	// value is 0, the server will not listen for KCP connections.
 	KCPBindPort int `json:"kcpBindPort,omitempty"`
@@ -80,6 +67,8 @@ type ServerConfig struct {
 	// value is "", a default page will be displayed.
 	Custom404Page string `json:"custom404Page,omitempty"`
 
+	SSHTunnelGateway SSHTunnelGateway `json:"sshTunnelGateway,omitempty"`
+
 	WebServer WebServerConfig `json:"webServer,omitempty"`
 	// EnablePrometheus will export prometheus metrics on webserver address
 	// in /metrics api.
@@ -114,6 +103,7 @@ func (c *ServerConfig) Complete() {
 	c.Log.Complete()
 	c.Transport.Complete()
 	c.WebServer.Complete()
+	c.SSHTunnelGateway.Complete()
 
 	c.BindAddr = util.EmptyOr(c.BindAddr, "0.0.0.0")
 	c.BindPort = util.EmptyOr(c.BindPort, 7000)
@@ -201,4 +191,15 @@ type TLSServerConfig struct {
 	Force bool `json:"force,omitempty"`
 
 	TLSConfig
+}
+
+type SSHTunnelGateway struct {
+	BindPort              int    `json:"bindPort,omitempty"`
+	PrivateKeyFile        string `json:"privateKeyFile,omitempty"`
+	AutoGenPrivateKeyPath string `json:"autoGenPrivateKeyPath,omitempty"`
+	AuthorizedKeysFile    string `json:"authorizedKeysFile,omitempty"`
+}
+
+func (c *SSHTunnelGateway) Complete() {
+	c.AutoGenPrivateKeyPath = util.EmptyOr(c.AutoGenPrivateKeyPath, "./.autogen_ssh_key")
 }

@@ -58,8 +58,8 @@ type Control struct {
 	// control connection. Once conn is closed, the msgDispatcher and the entire Control will exit.
 	conn net.Conn
 
-	// use cm to create new connections, which could be real TCP connections or virtual streams.
-	cm *ConnectionManager
+	// use connector to create new connections, which could be real TCP connections or virtual streams.
+	connector Connector
 
 	doneCh chan struct{}
 
@@ -77,7 +77,7 @@ type Control struct {
 }
 
 func NewControl(
-	ctx context.Context, runID string, conn net.Conn, cm *ConnectionManager,
+	ctx context.Context, runID string, conn net.Conn, connector Connector,
 	clientCfg *v1.ClientCommonConfig,
 	pxyCfgs []v1.ProxyConfigurer,
 	visitorCfgs []v1.VisitorConfigurer,
@@ -92,7 +92,7 @@ func NewControl(
 		runID:      runID,
 		pxyCfgs:    pxyCfgs,
 		conn:       conn,
-		cm:         cm,
+		connector:  connector,
 		doneCh:     make(chan struct{}),
 	}
 	ctl.lastPong.Store(time.Now())
@@ -120,6 +120,10 @@ func (ctl *Control) Run() {
 
 	// start all visitors
 	go ctl.vm.Run()
+}
+
+func (ctl *Control) SetInWorkConnCallback(cb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool) {
+	ctl.pm.SetInWorkConnCallback(cb)
 }
 
 func (ctl *Control) handleReqWorkConn(_ msg.Message) {
@@ -207,7 +211,7 @@ func (ctl *Control) GracefulClose(d time.Duration) error {
 	time.Sleep(d)
 
 	ctl.conn.Close()
-	ctl.cm.Close()
+	ctl.connector.Close()
 	return nil
 }
 
@@ -218,7 +222,7 @@ func (ctl *Control) Done() <-chan struct{} {
 
 // connectServer return a new connection to frps
 func (ctl *Control) connectServer() (conn net.Conn, err error) {
-	return ctl.cm.Connect()
+	return ctl.connector.Connect()
 }
 
 func (ctl *Control) registerMsgHandlers() {
@@ -282,7 +286,7 @@ func (ctl *Control) worker() {
 
 	ctl.pm.Close()
 	ctl.vm.Close()
-	ctl.cm.Close()
+	ctl.connector.Close()
 
 	close(ctl.doneCh)
 }

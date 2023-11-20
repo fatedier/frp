@@ -21,6 +21,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
+	"github.com/fatedier/frp/pkg/config"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
 )
@@ -50,8 +51,8 @@ func init() {
 		}
 		clientCfg := v1.ClientCommonConfig{}
 		cmd := NewProxyCommand(string(typ), c, &clientCfg)
-		RegisterClientCommonConfigFlags(cmd, &clientCfg)
-		RegisterProxyFlags(cmd, c)
+		config.RegisterClientCommonConfigFlags(cmd, &clientCfg)
+		config.RegisterProxyFlags(cmd, c)
 
 		// add sub command for visitor
 		if lo.Contains(visitorTypes, v1.VisitorType(typ)) {
@@ -60,7 +61,7 @@ func init() {
 				panic("visitor type: " + typ + " not support")
 			}
 			visitorCmd := NewVisitorCommand(string(typ), vc, &clientCfg)
-			RegisterVisitorFlags(visitorCmd, vc)
+			config.RegisterVisitorFlags(visitorCmd, vc)
 			cmd.AddCommand(visitorCmd)
 		}
 		rootCmd.AddCommand(cmd)
