@@ -31,8 +31,9 @@ import (
 )
 
 type Manager struct {
-	proxies        map[string]*Wrapper
-	msgTransporter transport.MessageTransporter
+	proxies            map[string]*Wrapper
+	msgTransporter     transport.MessageTransporter
+	inWorkConnCallback func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool
 
 	closed bool
 	mu     sync.RWMutex
@@ -69,6 +70,10 @@ func (pm *Manager) StartProxy(name string, remoteAddr string, serverRespErr stri
 		return err
 	}
 	return nil
+}
+
+func (pm *Manager) SetInWorkConnCallback(cb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool) {
+	pm.inWorkConnCallback = cb
 }
 
 func (pm *Manager) Close() {
@@ -146,6 +151,9 @@ func (pm *Manager) Reload(pxyCfgs []v1.ProxyConfigurer) {
 		name := cfg.GetBaseConfig().Name
 		if _, ok := pm.proxies[name]; !ok {
 			pxy := NewWrapper(pm.ctx, cfg, pm.clientCfg, pm.HandleEvent, pm.msgTransporter)
+			if pm.inWorkConnCallback != nil {
+				pxy.SetInWorkConnCallback(pm.inWorkConnCallback)
+			}
 			pm.proxies[name] = pxy
 			addPxyNames = append(addPxyNames, name)
 

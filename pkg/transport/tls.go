@@ -128,3 +128,15 @@ func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Conf
 
 	return base, nil
 }
+
+func NewRandomPrivateKey() ([]byte, error) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(key),
+	})
+	return keyPEM, nil
+}
