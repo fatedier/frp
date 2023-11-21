@@ -47,10 +47,9 @@ func RegisterProxyFactory(proxyConfType reflect.Type, factory func(*BaseProxy, v
 // Proxy defines how to handle work connections for different proxy type.
 type Proxy interface {
 	Run() error
-
 	// InWorkConn accept work connections registered to server.
 	InWorkConn(net.Conn, *msg.StartWorkConn)
-
+	SetInWorkConnCallback(func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) /* continue */ bool)
 	Close()
 }
 
@@ -89,7 +88,8 @@ type BaseProxy struct {
 	limiter        *rate.Limiter
 	// proxyPlugin is used to handle connections instead of dialing to local service.
 	// It's only validate for TCP protocol now.
-	proxyPlugin plugin.Plugin
+	proxyPlugin        plugin.Plugin
+	inWorkConnCallback func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) /* continue */ bool
 
 	mu  sync.RWMutex
 	xl  *xlog.Logger
@@ -113,7 +113,16 @@ func (pxy *BaseProxy) Close() {
 	}
 }
 
+func (pxy *BaseProxy) SetInWorkConnCallback(cb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool) {
+	pxy.inWorkConnCallback = cb
+}
+
 func (pxy *BaseProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
+	if pxy.inWorkConnCallback != nil {
+		if !pxy.inWorkConnCallback(pxy.baseCfg, conn, m) {
+			return
+		}
+	}
 	pxy.HandleTCPWorkConnection(conn, m, []byte(pxy.clientCfg.Auth.Token))
 }
 
@@ -132,7 +141,7 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 		})
 	}
 
-	xl.Trace("handle tcp work connection, use_encryption: %t, use_compression: %t",
+	xl.Trace("handle tcp work connection, useEncryption: %t, useCompression: %t",
 		baseCfg.Transport.UseEncryption, baseCfg.Transport.UseCompression)
 	if baseCfg.Transport.UseEncryption {
 		remote, err = libio.WithEncryption(remote, encKey)

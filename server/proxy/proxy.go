@@ -21,7 +21,6 @@ import (
 	"net"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -230,14 +229,8 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 		return
 	}
 
-	var workConn net.Conn
-
 	// try all connections from the pool
-	if strings.HasPrefix(pxy.GetLoginMsg().User, v1.SSHClientLoginUserPrefix) {
-		workConn, err = pxy.getWorkConnFn()
-	} else {
-		workConn, err = pxy.GetWorkConnFromPool(userConn.RemoteAddr(), userConn.LocalAddr())
-	}
+	workConn, err := pxy.GetWorkConnFromPool(userConn.RemoteAddr(), userConn.LocalAddr())
 	if err != nil {
 		return
 	}

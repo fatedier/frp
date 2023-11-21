@@ -21,7 +21,7 @@ require (
 	github.com/quic-go/quic-go v0.37.4
 	github.com/rodaine/table v1.1.0
 	github.com/samber/lo v1.38.1
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/crypto v0.15.0
 	golang.org/x/net v0.17.0

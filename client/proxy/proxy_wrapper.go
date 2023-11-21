@@ -121,6 +121,10 @@ func NewWrapper(
 	return pw
 }
 
+func (pw *Wrapper) SetInWorkConnCallback(cb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool) {
+	pw.pxy.SetInWorkConnCallback(cb)
+}
+
 func (pw *Wrapper) SetRunningStatus(remoteAddr string, respErr string) error {
 	pw.mu.Lock()
 	defer pw.mu.Unlock()

@@ -42,7 +42,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frps")
 	rootCmd.PersistentFlags().BoolVarP(&strictConfigMode, "strict_config", "", false, "strict config parsing mode, unknown fields will cause error")
 
-	RegisterServerConfigFlags(rootCmd, &serverCfg)
+	config.RegisterServerConfigFlags(rootCmd, &serverCfg)
 }
 
 var rootCmd = &cobra.Command{
