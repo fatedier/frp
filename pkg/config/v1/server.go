@@ -152,7 +152,7 @@ type ServerTransportConfig struct {
 	// is true.
 	// $HideFromDoc
 	TCPMux *bool `json:"tcpMux,omitempty"`
-	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multipler.
+	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multiplier.
 	// If TCPMux is true, heartbeat of application layer is unnecessary because it can only rely on heartbeat in TCPMux.
 	TCPMuxKeepaliveInterval int64 `json:"tcpMuxKeepaliveInterval,omitempty"`
 	// TCPKeepAlive specifies the interval between keep-alive probes for an active network connection between frpc and frps.

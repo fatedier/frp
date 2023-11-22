@@ -129,7 +129,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 		})
 
-		ginkgo.It("Mofify RemotePort", func() {
+		ginkgo.It("Modify RemotePort", func() {
 			localPort := f.AllocPort()
 			remotePort := f.AllocPort()
 			handler := func(req *plugin.Request) *plugin.Response {

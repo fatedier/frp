@@ -83,7 +83,7 @@ type TLSConfig struct {
 }
 
 type LogConfig struct {
-	// This is destination where frp should wirte the logs.
+	// This is destination where frp should write the logs.
 	// If "console" is used, logs will be printed to stdout, otherwise,
 	// logs will be written to the specified file.
 	// By default, this value is "console".

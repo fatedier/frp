@@ -139,7 +139,7 @@ type ServerCommonConf struct {
 	// from a client to share a single TCP connection. By default, this value
 	// is true.
 	TCPMux bool `ini:"tcp_mux" json:"tcp_mux"`
-	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multipler.
+	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multiplier.
 	// If TCPMux is true, heartbeat of application layer is unnecessary because it can only rely on heartbeat in TCPMux.
 	TCPMuxKeepaliveInterval int64 `ini:"tcp_mux_keepalive_interval" json:"tcp_mux_keepalive_interval"`
 	// TCPKeepAlive specifies the interval between keep-alive probes for an active network connection between frpc and frps.
