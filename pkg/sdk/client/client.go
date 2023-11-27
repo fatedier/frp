@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/fatedier/frp/client"
-	"github.com/fatedier/frp/pkg/util/util"
+	httppkg "github.com/fatedier/frp/pkg/util/http"
 )
 
 type Client struct {
@@ -115,7 +115,7 @@ func (c *Client) UpdateConfig(content string) error {
 
 func (c *Client) setAuthHeader(req *http.Request) {
 	if c.authUser != "" || c.authPwd != "" {
-		req.Header.Set("Authorization", util.BasicAuth(c.authUser, c.authPwd))
+		req.Header.Set("Authorization", httppkg.BasicAuth(c.authUser, c.authPwd))
 	}
 }
 

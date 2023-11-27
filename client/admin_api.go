@@ -31,12 +31,37 @@ import (
 	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
+	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
 type GeneralResponse struct {
 	Code int
 	Msg  string
+}
+
+func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) {
+	helper.Router.HandleFunc("/healthz", svr.healthz)
+	subRouter := helper.Router.NewRoute().Subrouter()
+
+	subRouter.Use(helper.AuthMiddleware.Middleware)
+
+	// api, see admin_api.go
+	subRouter.HandleFunc("/api/reload", svr.apiReload).Methods("GET")
+	subRouter.HandleFunc("/api/stop", svr.apiStop).Methods("POST")
+	subRouter.HandleFunc("/api/status", svr.apiStatus).Methods("GET")
+	subRouter.HandleFunc("/api/config", svr.apiGetConfig).Methods("GET")
+	subRouter.HandleFunc("/api/config", svr.apiPutConfig).Methods("PUT")
+
+	// view
+	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")
+	subRouter.PathPrefix("/static/").Handler(
+		netpkg.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(helper.AssetsFS))),
+	).Methods("GET")
+	subRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
+	})
 }
 
 // /healthz
@@ -62,21 +87,21 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	cliCfg, pxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(svr.cfgFile, strictConfigMode)
+	cliCfg, proxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(svr.configFilePath, strictConfigMode)
 	if err != nil {
 		res.Code = 400
 		res.Msg = err.Error()
 		log.Warn("reload frpc proxy config error: %s", res.Msg)
 		return
 	}
-	if _, err := validation.ValidateAllClientConfig(cliCfg, pxyCfgs, visitorCfgs); err != nil {
+	if _, err := validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs); err != nil {
 		res.Code = 400
 		res.Msg = err.Error()
 		log.Warn("reload frpc proxy config error: %s", res.Msg)
 		return
 	}
 
-	if err := svr.ReloadConf(pxyCfgs, visitorCfgs); err != nil {
+	if err := svr.UpdateAllConfigurer(proxyCfgs, visitorCfgs); err != nil {
 		res.Code = 500
 		res.Msg = err.Error()
 		log.Warn("reload frpc proxy config error: %s", res.Msg)
@@ -158,7 +183,7 @@ func (svr *Service) apiStatus(w http.ResponseWriter, _ *http.Request) {
 
 	ps := ctl.pm.GetAllProxyStatus()
 	for _, status := range ps {
-		res[status.Type] = append(res[status.Type], NewProxyStatusResp(status, svr.cfg.ServerAddr))
+		res[status.Type] = append(res[status.Type], NewProxyStatusResp(status, svr.common.ServerAddr))
 	}
 
 	for _, arrs := range res {
@@ -184,14 +209,14 @@ func (svr *Service) apiGetConfig(w http.ResponseWriter, _ *http.Request) {
 		}
 	}()
 
-	if svr.cfgFile == "" {
+	if svr.configFilePath == "" {
 		res.Code = 400
 		res.Msg = "frpc has no config file path"
 		log.Warn("%s", res.Msg)
 		return
 	}
 
-	content, err := os.ReadFile(svr.cfgFile)
+	content, err := os.ReadFile(svr.configFilePath)
 	if err != nil {
 		res.Code = 400
 		res.Msg = err.Error()
@@ -230,7 +255,7 @@ func (svr *Service) apiPutConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := os.WriteFile(svr.cfgFile, body, 0o644); err != nil {
+	if err := os.WriteFile(svr.configFilePath, body, 0o644); err != nil {
 		res.Code = 500
 		res.Msg = fmt.Sprintf("write content to frpc config file error: %v", err)
 		log.Warn("%s", res.Msg)

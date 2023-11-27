@@ -24,7 +24,7 @@ import (
 
 	libnet "github.com/fatedier/golib/net"
 
-	"github.com/fatedier/frp/pkg/util/util"
+	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/vhost"
 )
 
@@ -59,10 +59,10 @@ func (muxer *HTTPConnectTCPMuxer) readHTTPConnectRequest(rd io.Reader) (host, ht
 		return
 	}
 
-	host, _ = util.CanonicalHost(req.Host)
+	host, _ = httppkg.CanonicalHost(req.Host)
 	proxyAuth := req.Header.Get("Proxy-Authorization")
 	if proxyAuth != "" {
-		httpUser, httpPwd, _ = util.ParseBasicAuth(proxyAuth)
+		httpUser, httpPwd, _ = httppkg.ParseBasicAuth(proxyAuth)
 	}
 	return
 }
@@ -71,7 +71,7 @@ func (muxer *HTTPConnectTCPMuxer) sendConnectResponse(c net.Conn, _ map[string]s
 	if muxer.passthrough {
 		return nil
 	}
-	res := util.OkResponse()
+	res := httppkg.OkResponse()
 	if res.Body != nil {
 		defer res.Body.Close()
 	}
@@ -85,7 +85,7 @@ func (muxer *HTTPConnectTCPMuxer) auth(c net.Conn, username, password string, re
 		return true, nil
 	}
 
-	resp := util.ProxyUnauthorizedResponse()
+	resp := httppkg.ProxyUnauthorizedResponse()
 	if resp.Body != nil {
 		defer resp.Body.Close()
 	}

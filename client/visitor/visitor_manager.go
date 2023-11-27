@@ -35,7 +35,8 @@ type Manager struct {
 	visitors  map[string]Visitor
 	helper    Helper
 
-	checkInterval time.Duration
+	checkInterval           time.Duration
+	keepVisitorsRunningOnce sync.Once
 
 	mu  sync.RWMutex
 	ctx context.Context
@@ -67,7 +68,9 @@ func NewManager(
 	return m
 }
 
-func (vm *Manager) Run() {
+// keepVisitorsRunning checks all visitors' status periodically, if some visitor is not running, start it.
+// It will only start after Reload is called and a new visitor is added.
+func (vm *Manager) keepVisitorsRunning() {
 	xl := xlog.FromContextSafe(vm.ctx)
 
 	ticker := time.NewTicker(vm.checkInterval)
@@ -76,7 +79,7 @@ func (vm *Manager) Run() {
 	for {
 		select {
 		case <-vm.stopCh:
-			xl.Info("gracefully shutdown visitor manager")
+			xl.Trace("gracefully shutdown visitor manager")
 			return
 		case <-ticker.C:
 			vm.mu.Lock()
@@ -120,7 +123,14 @@ func (vm *Manager) startVisitor(cfg v1.VisitorConfigurer) (err error) {
 	return
 }
 
-func (vm *Manager) Reload(cfgs []v1.VisitorConfigurer) {
+func (vm *Manager) UpdateAll(cfgs []v1.VisitorConfigurer) {
+	if len(cfgs) > 0 {
+		// Only start keepVisitorsRunning goroutine once and only when there is at least one visitor.
+		vm.keepVisitorsRunningOnce.Do(func() {
+			go vm.keepVisitorsRunning()
+		})
+	}
+
 	xl := xlog.FromContextSafe(vm.ctx)
 	cfgsMap := lo.KeyBy(cfgs, func(c v1.VisitorConfigurer) string {
 		return c.GetBaseConfig().Name

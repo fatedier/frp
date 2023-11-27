@@ -224,7 +224,9 @@ func NewProxyConfigurerByType(proxyType ProxyType) ProxyConfigurer {
 	if !ok {
 		return nil
 	}
-	return reflect.New(v).Interface().(ProxyConfigurer)
+	pc := reflect.New(v).Interface().(ProxyConfigurer)
+	pc.GetBaseConfig().Type = string(proxyType)
+	return pc
 }
 
 var _ ProxyConfigurer = &TCPProxyConfig{}

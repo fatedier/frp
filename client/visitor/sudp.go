@@ -28,7 +28,7 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/udp"
-	utilnet "github.com/fatedier/frp/pkg/util/net"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
@@ -242,7 +242,7 @@ func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
 	if sv.cfg.Transport.UseCompression {
 		remote = libio.WithCompression(remote)
 	}
-	return utilnet.WrapReadWriteCloserToConn(remote, visitorConn), nil
+	return netpkg.WrapReadWriteCloserToConn(remote, visitorConn), nil
 }
 
 func (sv *SUDPVisitor) Close() {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
-	"github.com/fatedier/frp/pkg/util/util"
+	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
 	"github.com/fatedier/frp/test/e2e/mock/server/streamserver"
@@ -180,7 +180,7 @@ var _ = ginkgo.Describe("[Feature: TCPMUX httpconnect]", func() {
 					connectRequestHost = req.Host
 
 					// return ok response
-					res := util.OkResponse()
+					res := httppkg.OkResponse()
 					if res.Body != nil {
 						defer res.Body.Close()
 					}

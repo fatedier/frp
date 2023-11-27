@@ -32,7 +32,7 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/transport"
-	utilnet "github.com/fatedier/frp/pkg/util/net"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/wait"
@@ -150,6 +150,7 @@ type Control struct {
 	doneCh chan struct{}
 }
 
+// TODO(fatedier): Referencing the implementation of frpc, encapsulate the input parameters as SessionContext.
 func NewControl(
 	ctx context.Context,
 	rc *controller.ResourceController,
@@ -157,6 +158,7 @@ func NewControl(
 	pluginManager *plugin.Manager,
 	authVerifier auth.Verifier,
 	ctlConn net.Conn,
+	ctlConnEncrypted bool,
 	loginMsg *msg.Login,
 	serverCfg *v1.ServerConfig,
 ) (*Control, error) {
@@ -183,11 +185,15 @@ func NewControl(
 	}
 	ctl.lastPing.Store(time.Now())
 
-	cryptoRW, err := utilnet.NewCryptoReadWriter(ctl.conn, []byte(ctl.serverCfg.Auth.Token))
-	if err != nil {
-		return nil, err
+	if ctlConnEncrypted {
+		cryptoRW, err := netpkg.NewCryptoReadWriter(ctl.conn, []byte(ctl.serverCfg.Auth.Token))
+		if err != nil {
+			return nil, err
+		}
+		ctl.msgDispatcher = msg.NewDispatcher(cryptoRW)
+	} else {
+		ctl.msgDispatcher = msg.NewDispatcher(ctl.conn)
 	}
-	ctl.msgDispatcher = msg.NewDispatcher(cryptoRW)
 	ctl.registerMsgHandlers()
 	ctl.msgTransporter = transport.NewMessageTransporter(ctl.msgDispatcher.SendChannel())
 	return ctl, nil
@@ -300,6 +306,7 @@ func (ctl *Control) heartbeatWorker() {
 		go wait.Until(func() {
 			if time.Since(ctl.lastPing.Load().(time.Time)) > time.Duration(ctl.serverCfg.Transport.HeartbeatTimeout)*time.Second {
 				xl.Warn("heartbeat timeout")
+				ctl.conn.Close()
 				return
 			}
 		}, time.Second, ctl.doneCh)
@@ -555,6 +562,5 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 	go func() {
 		_ = ctl.pluginManager.CloseProxy(notifyContent)
 	}()
-
 	return
 }
