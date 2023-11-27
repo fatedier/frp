@@ -21,6 +21,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	libdial "github.com/fatedier/golib/net/dial"
@@ -30,7 +31,7 @@ import (
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/transport"
-	utilnet "github.com/fatedier/frp/pkg/util/net"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
@@ -48,6 +49,7 @@ type defaultConnectorImpl struct {
 
 	muxSession *fmux.Session
 	quicConn   quic.Connection
+	closeOnce  sync.Once
 }
 
 func NewConnector(ctx context.Context, cfg *v1.ClientCommonConfig) Connector {
@@ -130,7 +132,7 @@ func (c *defaultConnectorImpl) Connect() (net.Conn, error) {
 		if err != nil {
 			return nil, err
 		}
-		return utilnet.QuicStreamToNetConn(stream, c.quicConn), nil
+		return netpkg.QuicStreamToNetConn(stream, c.quicConn), nil
 	} else if c.muxSession != nil {
 		stream, err := c.muxSession.OpenStream()
 		if err != nil {
@@ -177,19 +179,19 @@ func (c *defaultConnectorImpl) realConnect() (net.Conn, error) {
 	switch protocol {
 	case "websocket":
 		protocol = "tcp"
-		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: utilnet.DialHookWebsocket(protocol, "")}))
+		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: netpkg.DialHookWebsocket(protocol, "")}))
 		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{
-			Hook: utilnet.DialHookCustomTLSHeadByte(tlsConfig != nil, lo.FromPtr(c.cfg.Transport.TLS.DisableCustomTLSFirstByte)),
+			Hook: netpkg.DialHookCustomTLSHeadByte(tlsConfig != nil, lo.FromPtr(c.cfg.Transport.TLS.DisableCustomTLSFirstByte)),
 		}))
 		dialOptions = append(dialOptions, libdial.WithTLSConfig(tlsConfig))
 	case "wss":
 		protocol = "tcp"
 		dialOptions = append(dialOptions, libdial.WithTLSConfigAndPriority(100, tlsConfig))
 		// Make sure that if it is wss, the websocket hook is executed after the tls hook.
-		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: utilnet.DialHookWebsocket(protocol, tlsConfig.ServerName), Priority: 110}))
+		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: netpkg.DialHookWebsocket(protocol, tlsConfig.ServerName), Priority: 110}))
 	default:
 		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{
-			Hook: utilnet.DialHookCustomTLSHeadByte(tlsConfig != nil, lo.FromPtr(c.cfg.Transport.TLS.DisableCustomTLSFirstByte)),
+			Hook: netpkg.DialHookCustomTLSHeadByte(tlsConfig != nil, lo.FromPtr(c.cfg.Transport.TLS.DisableCustomTLSFirstByte)),
 		}))
 		dialOptions = append(dialOptions, libdial.WithTLSConfig(tlsConfig))
 	}
@@ -213,11 +215,13 @@ func (c *defaultConnectorImpl) realConnect() (net.Conn, error) {
 }
 
 func (c *defaultConnectorImpl) Close() error {
-	if c.quicConn != nil {
-		_ = c.quicConn.CloseWithError(0, "")
-	}
-	if c.muxSession != nil {
-		_ = c.muxSession.Close()
-	}
+	c.closeOnce.Do(func() {
+		if c.quicConn != nil {
+			_ = c.quicConn.CloseWithError(0, "")
+		}
+		if c.muxSession != nil {
+			_ = c.muxSession.Close()
+		}
+	})
 	return nil
 }

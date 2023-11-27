@@ -19,17 +19,50 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/fatedier/frp/pkg/config/types"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/metrics/mem"
+	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/version"
 )
+
+// TODO(fatedier): add an API to clean status of all offline proxies.
 
 type GeneralResponse struct {
 	Code int
 	Msg  string
+}
+
+func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) {
+	helper.Router.HandleFunc("/healthz", svr.healthz)
+	subRouter := helper.Router.NewRoute().Subrouter()
+
+	subRouter.Use(helper.AuthMiddleware.Middleware)
+
+	// metrics
+	if svr.cfg.EnablePrometheus {
+		subRouter.Handle("/metrics", promhttp.Handler())
+	}
+
+	// apis
+	subRouter.HandleFunc("/api/serverinfo", svr.apiServerInfo).Methods("GET")
+	subRouter.HandleFunc("/api/proxy/{type}", svr.apiProxyByType).Methods("GET")
+	subRouter.HandleFunc("/api/proxy/{type}/{name}", svr.apiProxyByTypeAndName).Methods("GET")
+	subRouter.HandleFunc("/api/traffic/{name}", svr.apiProxyTraffic).Methods("GET")
+
+	// view
+	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")
+	subRouter.PathPrefix("/static/").Handler(
+		netpkg.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(helper.AssetsFS))),
+	).Methods("GET")
+
+	subRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
+	})
 }
 
 type serverInfoResp struct {
@@ -55,12 +88,12 @@ type serverInfoResp struct {
 }
 
 // /healthz
-func (svr *Service) Healthz(w http.ResponseWriter, _ *http.Request) {
+func (svr *Service) healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(200)
 }
 
 // /api/serverinfo
-func (svr *Service) APIServerInfo(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) apiServerInfo(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 	defer func() {
 		log.Info("Http response [%s]: code [%d]", r.URL.Path, res.Code)
@@ -177,7 +210,7 @@ type GetProxyInfoResp struct {
 }
 
 // /api/proxy/:type
-func (svr *Service) APIProxyByType(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) apiProxyByType(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 	params := mux.Vars(r)
 	proxyType := params["type"]
@@ -245,7 +278,7 @@ type GetProxyStatsResp struct {
 }
 
 // /api/proxy/:type/:name
-func (svr *Service) APIProxyByTypeAndName(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) apiProxyByTypeAndName(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 	params := mux.Vars(r)
 	proxyType := params["type"]
@@ -314,7 +347,7 @@ type GetProxyTrafficResp struct {
 	TrafficOut []int64 `json:"trafficOut"`
 }
 
-func (svr *Service) APIProxyTraffic(w http.ResponseWriter, r *http.Request) {
+func (svr *Service) apiProxyTraffic(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 	params := mux.Vars(r)
 	name := params["name"]

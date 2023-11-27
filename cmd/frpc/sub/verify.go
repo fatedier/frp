@@ -37,12 +37,12 @@ var verifyCmd = &cobra.Command{
 			return nil
 		}
 
-		cliCfg, pxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(cfgFile, strictConfigMode)
+		cliCfg, proxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(cfgFile, strictConfigMode)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		warning, err := validation.ValidateAllClientConfig(cliCfg, pxyCfgs, visitorCfgs)
+		warning, err := validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs)
 		if warning != nil {
 			fmt.Printf("WARNING: %v\n", warning)
 		}

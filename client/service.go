@@ -20,18 +20,19 @@ import (
 	"fmt"
 	"net"
 	"runtime"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/fatedier/golib/crypto"
 	"github.com/samber/lo"
 
-	"github.com/fatedier/frp/assets"
+	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
+	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/wait"
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -41,66 +42,106 @@ func init() {
 	crypto.DefaultSalt = "frp"
 }
 
-// Service is a client service.
-type Service struct {
-	// uniq id got from frps, attach it in loginMsg
-	runID string
+// ServiceOptions contains options for creating a new client service.
+type ServiceOptions struct {
+	Common      *v1.ClientCommonConfig
+	ProxyCfgs   []v1.ProxyConfigurer
+	VisitorCfgs []v1.VisitorConfigurer
 
-	// manager control connection with server
-	ctl   *Control
+	// ConfigFilePath is the path to the configuration file used to initialize.
+	// If it is empty, it means that the configuration file is not used for initialization.
+	// It may be initialized using command line parameters or called directly.
+	ConfigFilePath string
+
+	// ClientSpec is the client specification that control the client behavior.
+	ClientSpec *msg.ClientSpec
+
+	// ConnectorCreator is a function that creates a new connector to make connections to the server.
+	// The Connector shields the underlying connection details, whether it is through TCP or QUIC connection,
+	// and regardless of whether multiplexing is used.
+	//
+	// If it is not set, the default frpc connector will be used.
+	// By using a custom Connector, it can be used to implement a VirtualClient, which connects to frps
+	// through a pipe instead of a real physical connection.
+	ConnectorCreator func(context.Context, *v1.ClientCommonConfig) Connector
+
+	// HandleWorkConnCb is a callback function that is called when a new work connection is created.
+	//
+	// If it is not set, the default frpc implementation will be used.
+	HandleWorkConnCb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool
+}
+
+// setServiceOptionsDefault sets the default values for ServiceOptions.
+func setServiceOptionsDefault(options *ServiceOptions) {
+	if options.Common != nil {
+		options.Common.Complete()
+	}
+	if options.ConnectorCreator == nil {
+		options.ConnectorCreator = NewConnector
+	}
+}
+
+// Service is the client service that connects to frps and provides proxy services.
+type Service struct {
 	ctlMu sync.RWMutex
+	// manager control connection with server
+	ctl *Control
+	// Uniq id got from frps, it will be attached to loginMsg.
+	runID string
 
 	// Sets authentication based on selected method
 	authSetter auth.Setter
 
-	cfg         *v1.ClientCommonConfig
-	pxyCfgs     []v1.ProxyConfigurer
-	visitorCfgs []v1.VisitorConfigurer
+	// web server for admin UI and apis
+	webServer *httppkg.Server
+
 	cfgMu       sync.RWMutex
+	common      *v1.ClientCommonConfig
+	proxyCfgs   []v1.ProxyConfigurer
+	visitorCfgs []v1.VisitorConfigurer
+	clientSpec  *msg.ClientSpec
 
 	// The configuration file used to initialize this client, or an empty
 	// string if no configuration file was used.
-	cfgFile string
+	configFilePath string
 
 	// service context
 	ctx context.Context
 	// call cancel to stop service
-	cancel           context.CancelFunc
-	gracefulDuration time.Duration
+	cancel                   context.CancelFunc
+	gracefulShutdownDuration time.Duration
 
-	connectorCreator   func(context.Context, *v1.ClientCommonConfig) Connector
-	inWorkConnCallback func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool
+	connectorCreator func(context.Context, *v1.ClientCommonConfig) Connector
+	handleWorkConnCb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool
 }
 
-func NewService(
-	cfg *v1.ClientCommonConfig,
-	pxyCfgs []v1.ProxyConfigurer,
-	visitorCfgs []v1.VisitorConfigurer,
-	cfgFile string,
-) *Service {
-	return &Service{
-		authSetter:       auth.NewAuthSetter(cfg.Auth),
-		cfg:              cfg,
-		cfgFile:          cfgFile,
-		pxyCfgs:          pxyCfgs,
-		visitorCfgs:      visitorCfgs,
-		ctx:              context.Background(),
-		connectorCreator: NewConnector,
+func NewService(options ServiceOptions) (*Service, error) {
+	setServiceOptionsDefault(&options)
+
+	var webServer *httppkg.Server
+	if options.Common.WebServer.Port > 0 {
+		ws, err := httppkg.NewServer(options.Common.WebServer)
+		if err != nil {
+			return nil, err
+		}
+		webServer = ws
 	}
-}
-
-func (svr *Service) SetConnectorCreator(h func(context.Context, *v1.ClientCommonConfig) Connector) {
-	svr.connectorCreator = h
-}
-
-func (svr *Service) SetInWorkConnCallback(cb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool) {
-	svr.inWorkConnCallback = cb
-}
-
-func (svr *Service) GetController() *Control {
-	svr.ctlMu.RLock()
-	defer svr.ctlMu.RUnlock()
-	return svr.ctl
+	s := &Service{
+		ctx:              context.Background(),
+		authSetter:       auth.NewAuthSetter(options.Common.Auth),
+		webServer:        webServer,
+		common:           options.Common,
+		configFilePath:   options.ConfigFilePath,
+		proxyCfgs:        options.ProxyCfgs,
+		visitorCfgs:      options.VisitorCfgs,
+		clientSpec:       options.ClientSpec,
+		connectorCreator: options.ConnectorCreator,
+		handleWorkConnCb: options.HandleWorkConnCb,
+	}
+	if webServer != nil {
+		webServer.RouteRegister(s.registerRouteHandlers)
+	}
+	return s, nil
 }
 
 func (svr *Service) Run(ctx context.Context) error {
@@ -109,38 +150,25 @@ func (svr *Service) Run(ctx context.Context) error {
 	svr.cancel = cancel
 
 	// set custom DNSServer
-	if svr.cfg.DNSServer != "" {
-		dnsAddr := svr.cfg.DNSServer
-		if _, _, err := net.SplitHostPort(dnsAddr); err != nil {
-			dnsAddr = net.JoinHostPort(dnsAddr, "53")
-		}
-		// Change default dns server for frpc
-		net.DefaultResolver = &net.Resolver{
-			PreferGo: true,
-			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-				return net.Dial("udp", dnsAddr)
-			},
-		}
+	if svr.common.DNSServer != "" {
+		netpkg.SetDefaultDNSAddress(svr.common.DNSServer)
 	}
 
-	// login to frps
-	svr.loopLoginUntilSuccess(10*time.Second, lo.FromPtr(svr.cfg.LoginFailExit))
+	// first login to frps
+	svr.loopLoginUntilSuccess(10*time.Second, lo.FromPtr(svr.common.LoginFailExit))
 	if svr.ctl == nil {
 		return fmt.Errorf("the process exited because the first login to the server failed, and the loginFailExit feature is enabled")
 	}
 
 	go svr.keepControllerWorking()
 
-	if svr.cfg.WebServer.Port != 0 {
-		// Init admin server assets
-		assets.Load(svr.cfg.WebServer.AssetsDir)
-
-		address := net.JoinHostPort(svr.cfg.WebServer.Addr, strconv.Itoa(svr.cfg.WebServer.Port))
-		err := svr.RunAdminServer(address)
-		if err != nil {
-			log.Warn("run admin server error: %v", err)
-		}
-		log.Info("admin server listen on %s:%d", svr.cfg.WebServer.Addr, svr.cfg.WebServer.Port)
+	if svr.webServer != nil {
+		go func() {
+			log.Info("admin server listen on %s", svr.webServer.Address())
+			if err := svr.webServer.Run(); err != nil {
+				log.Warn("admin server exit with error: %v", err)
+			}
+		}()
 	}
 	<-svr.ctx.Done()
 	svr.stop()
@@ -158,8 +186,12 @@ func (svr *Service) keepControllerWorking() {
 		// loopLoginUntilSuccess is another layer of loop that will continuously attempt to
 		// login to the server until successful.
 		svr.loopLoginUntilSuccess(20*time.Second, false)
-		<-svr.ctl.Done()
-		return errors.New("control is closed and try another loop")
+		if svr.ctl != nil {
+			<-svr.ctl.Done()
+			return errors.New("control is closed and try another loop")
+		}
+		// If the control is nil, it means that the login failed and the service is also closed.
+		return nil
 	}, wait.NewFastBackoffManager(
 		wait.FastBackoffOptions{
 			Duration:        time.Second,
@@ -179,7 +211,7 @@ func (svr *Service) keepControllerWorking() {
 // session: if it's not nil, using tcp mux
 func (svr *Service) login() (conn net.Conn, connector Connector, err error) {
 	xl := xlog.FromContextSafe(svr.ctx)
-	connector = svr.connectorCreator(svr.ctx, svr.cfg)
+	connector = svr.connectorCreator(svr.ctx, svr.common)
 	if err = connector.Open(); err != nil {
 		return nil, nil, err
 	}
@@ -198,12 +230,15 @@ func (svr *Service) login() (conn net.Conn, connector Connector, err error) {
 	loginMsg := &msg.Login{
 		Arch:      runtime.GOARCH,
 		Os:        runtime.GOOS,
-		PoolCount: svr.cfg.Transport.PoolCount,
-		User:      svr.cfg.User,
+		PoolCount: svr.common.Transport.PoolCount,
+		User:      svr.common.User,
 		Version:   version.Full(),
 		Timestamp: time.Now().Unix(),
 		RunID:     svr.runID,
-		Metas:     svr.cfg.Metadatas,
+		Metas:     svr.common.Metadatas,
+	}
+	if svr.clientSpec != nil {
+		loginMsg.ClientSpec = *svr.clientSpec
 	}
 
 	// Add auth
@@ -250,16 +285,31 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 			return err
 		}
 
-		ctl, err := NewControl(svr.ctx, svr.runID, conn, connector,
-			svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.authSetter)
+		svr.cfgMu.RLock()
+		proxyCfgs := svr.proxyCfgs
+		visitorCfgs := svr.visitorCfgs
+		svr.cfgMu.RUnlock()
+		connEncrypted := true
+		if svr.clientSpec != nil && svr.clientSpec.Type == "ssh-tunnel" {
+			connEncrypted = false
+		}
+		sessionCtx := &SessionContext{
+			Common:        svr.common,
+			RunID:         svr.runID,
+			Conn:          conn,
+			ConnEncrypted: connEncrypted,
+			AuthSetter:    svr.authSetter,
+			Connector:     connector,
+		}
+		ctl, err := NewControl(svr.ctx, sessionCtx)
 		if err != nil {
 			conn.Close()
 			xl.Error("NewControl error: %v", err)
 			return err
 		}
-		ctl.SetInWorkConnCallback(svr.inWorkConnCallback)
+		ctl.SetInWorkConnCallback(svr.handleWorkConnCb)
 
-		ctl.Run()
+		ctl.Run(proxyCfgs, visitorCfgs)
 		// close and replace previous control
 		svr.ctlMu.Lock()
 		if svr.ctl != nil {
@@ -284,9 +334,9 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		wait.MergeAndCloseOnAnyStopChannel(svr.ctx.Done(), successCh))
 }
 
-func (svr *Service) ReloadConf(pxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error {
+func (svr *Service) UpdateAllConfigurer(proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error {
 	svr.cfgMu.Lock()
-	svr.pxyCfgs = pxyCfgs
+	svr.proxyCfgs = proxyCfgs
 	svr.visitorCfgs = visitorCfgs
 	svr.cfgMu.Unlock()
 
@@ -295,7 +345,7 @@ func (svr *Service) ReloadConf(pxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.Vi
 	svr.ctlMu.RUnlock()
 
 	if ctl != nil {
-		return svr.ctl.ReloadConf(pxyCfgs, visitorCfgs)
+		return svr.ctl.UpdateAllConfigurer(proxyCfgs, visitorCfgs)
 	}
 	return nil
 }
@@ -305,7 +355,7 @@ func (svr *Service) Close() {
 }
 
 func (svr *Service) GracefulClose(d time.Duration) {
-	svr.gracefulDuration = d
+	svr.gracefulShutdownDuration = d
 	svr.cancel()
 }
 
@@ -313,7 +363,23 @@ func (svr *Service) stop() {
 	svr.ctlMu.Lock()
 	defer svr.ctlMu.Unlock()
 	if svr.ctl != nil {
-		svr.ctl.GracefulClose(svr.gracefulDuration)
+		svr.ctl.GracefulClose(svr.gracefulShutdownDuration)
 		svr.ctl = nil
 	}
+}
+
+// TODO(fatedier): Use StatusExporter to provide query interfaces instead of directly using methods from the Service.
+func (svr *Service) GetProxyStatus(name string) (*proxy.WorkingStatus, error) {
+	svr.ctlMu.RLock()
+	ctl := svr.ctl
+	svr.ctlMu.RUnlock()
+
+	if ctl == nil {
+		return nil, fmt.Errorf("control is not running")
+	}
+	ws, ok := ctl.pm.GetProxyStatus(name)
+	if !ok {
+		return nil, fmt.Errorf("proxy [%s] is not found", name)
+	}
+	return ws, nil
 }

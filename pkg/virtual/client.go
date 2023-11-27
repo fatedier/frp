@@ -21,55 +21,70 @@ import (
 	"github.com/fatedier/frp/client"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
-	utilnet "github.com/fatedier/frp/pkg/util/net"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
+type ClientOptions struct {
+	Common           *v1.ClientCommonConfig
+	Spec             *msg.ClientSpec
+	HandleWorkConnCb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool
+}
+
 type Client struct {
-	l   *utilnet.InternalListener
+	l   *netpkg.InternalListener
 	svr *client.Service
 }
 
-func NewClient(cfg *v1.ClientCommonConfig) *Client {
-	cfg.Complete()
+func NewClient(options ClientOptions) (*Client, error) {
+	if options.Common != nil {
+		options.Common.Complete()
+	}
 
-	ln := utilnet.NewInternalListener()
+	ln := netpkg.NewInternalListener()
 
-	svr := client.NewService(cfg, nil, nil, "")
-	svr.SetConnectorCreator(func(context.Context, *v1.ClientCommonConfig) client.Connector {
-		return &pipeConnector{
-			peerListener: ln,
-		}
-	})
-
+	serviceOptions := client.ServiceOptions{
+		Common:     options.Common,
+		ClientSpec: options.Spec,
+		ConnectorCreator: func(context.Context, *v1.ClientCommonConfig) client.Connector {
+			return &pipeConnector{
+				peerListener: ln,
+			}
+		},
+		HandleWorkConnCb: options.HandleWorkConnCb,
+	}
+	svr, err := client.NewService(serviceOptions)
+	if err != nil {
+		return nil, err
+	}
 	return &Client{
 		l:   ln,
 		svr: svr,
-	}
+	}, nil
 }
 
 func (c *Client) PeerListener() net.Listener {
 	return c.l
 }
 
-func (c *Client) SetInWorkConnCallback(cb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool) {
-	c.svr.SetInWorkConnCallback(cb)
-}
-
 func (c *Client) UpdateProxyConfigurer(proxyCfgs []v1.ProxyConfigurer) {
-	_ = c.svr.ReloadConf(proxyCfgs, nil)
+	_ = c.svr.UpdateAllConfigurer(proxyCfgs, nil)
 }
 
 func (c *Client) Run(ctx context.Context) error {
 	return c.svr.Run(ctx)
 }
 
+func (c *Client) Service() *client.Service {
+	return c.svr
+}
+
 func (c *Client) Close() {
-	c.l.Close()
 	c.svr.Close()
+	c.l.Close()
 }
 
 type pipeConnector struct {
-	peerListener *utilnet.InternalListener
+	peerListener *netpkg.InternalListener
 }
 
 func (pc *pipeConnector) Open() error {

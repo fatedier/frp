@@ -120,9 +120,18 @@ func (pm *Manager) GetAllProxyStatus() []*WorkingStatus {
 	return ps
 }
 
-func (pm *Manager) Reload(pxyCfgs []v1.ProxyConfigurer) {
+func (pm *Manager) GetProxyStatus(name string) (*WorkingStatus, bool) {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+	if pxy, ok := pm.proxies[name]; ok {
+		return pxy.GetStatus(), true
+	}
+	return nil, false
+}
+
+func (pm *Manager) UpdateAll(proxyCfgs []v1.ProxyConfigurer) {
 	xl := xlog.FromContextSafe(pm.ctx)
-	pxyCfgsMap := lo.KeyBy(pxyCfgs, func(c v1.ProxyConfigurer) string {
+	proxyCfgsMap := lo.KeyBy(proxyCfgs, func(c v1.ProxyConfigurer) string {
 		return c.GetBaseConfig().Name
 	})
 	pm.mu.Lock()
@@ -131,7 +140,7 @@ func (pm *Manager) Reload(pxyCfgs []v1.ProxyConfigurer) {
 	delPxyNames := make([]string, 0)
 	for name, pxy := range pm.proxies {
 		del := false
-		cfg, ok := pxyCfgsMap[name]
+		cfg, ok := proxyCfgsMap[name]
 		if !ok || !reflect.DeepEqual(pxy.Cfg, cfg) {
 			del = true
 		}
@@ -147,7 +156,7 @@ func (pm *Manager) Reload(pxyCfgs []v1.ProxyConfigurer) {
 	}
 
 	addPxyNames := make([]string, 0)
-	for _, cfg := range pxyCfgs {
+	for _, cfg := range proxyCfgs {
 		name := cfg.GetBaseConfig().Name
 		if _, ok := pm.proxies[name]; !ok {
 			pxy := NewWrapper(pm.ctx, cfg, pm.clientCfg, pm.HandleEvent, pm.msgTransporter)

@@ -59,12 +59,17 @@ func RegisterProxyFlags(cmd *cobra.Command, c v1.ProxyConfigurer) {
 	case *v1.TCPMuxProxyConfig:
 		registerProxyDomainConfigFlags(cmd, &cc.DomainConfig)
 		cmd.Flags().StringVarP(&cc.Multiplexer, "mux", "", "", "multiplexer")
+		cmd.Flags().StringVarP(&cc.HTTPUser, "http_user", "", "", "http auth user")
+		cmd.Flags().StringVarP(&cc.HTTPPassword, "http_pwd", "", "", "http auth password")
 	case *v1.STCPProxyConfig:
 		cmd.Flags().StringVarP(&cc.Secretkey, "sk", "", "", "secret key")
+		cmd.Flags().StringSliceVarP(&cc.AllowUsers, "allow_users", "", []string{}, "allow visitor users")
 	case *v1.SUDPProxyConfig:
 		cmd.Flags().StringVarP(&cc.Secretkey, "sk", "", "", "secret key")
+		cmd.Flags().StringSliceVarP(&cc.AllowUsers, "allow_users", "", []string{}, "allow visitor users")
 	case *v1.XTCPProxyConfig:
 		cmd.Flags().StringVarP(&cc.Secretkey, "sk", "", "", "secret key")
+		cmd.Flags().StringSliceVarP(&cc.AllowUsers, "allow_users", "", []string{}, "allow visitor users")
 	}
 }
 

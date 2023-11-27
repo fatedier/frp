@@ -33,7 +33,7 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
 	"github.com/fatedier/frp/pkg/transport"
-	utilnet "github.com/fatedier/frp/pkg/util/net"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
@@ -349,7 +349,7 @@ func (ks *KCPTunnelSession) Init(listenConn *net.UDPConn, raddr *net.UDPAddr) er
 	if err != nil {
 		return fmt.Errorf("dial udp error: %v", err)
 	}
-	remote, err := utilnet.NewKCPConnFromUDP(lConn, true, raddr.String())
+	remote, err := netpkg.NewKCPConnFromUDP(lConn, true, raddr.String())
 	if err != nil {
 		return fmt.Errorf("create kcp connection from udp connection error: %v", err)
 	}
@@ -440,7 +440,7 @@ func (qs *QUICTunnelSession) OpenConn(ctx context.Context) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return utilnet.QuicStreamToNetConn(stream, session), nil
+	return netpkg.QuicStreamToNetConn(stream, session), nil
 }
 
 func (qs *QUICTunnelSession) Close() {

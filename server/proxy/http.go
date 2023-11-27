@@ -24,7 +24,7 @@ import (
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/util/limit"
-	utilnet "github.com/fatedier/frp/pkg/util/net"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/vhost"
 	"github.com/fatedier/frp/server/metrics"
@@ -180,8 +180,8 @@ func (pxy *HTTPProxy) GetRealConn(remoteAddr string) (workConn net.Conn, err err
 		})
 	}
 
-	workConn = utilnet.WrapReadWriteCloserToConn(rwc, tmpConn)
-	workConn = utilnet.WrapStatsConn(workConn, pxy.updateStatsAfterClosedConn)
+	workConn = netpkg.WrapReadWriteCloserToConn(rwc, tmpConn)
+	workConn = netpkg.WrapStatsConn(workConn, pxy.updateStatsAfterClosedConn)
 	metrics.Server.OpenConnection(pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
 	return
 }

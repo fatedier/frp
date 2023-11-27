@@ -30,7 +30,7 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/udp"
 	"github.com/fatedier/frp/pkg/util/limit"
-	utilnet "github.com/fatedier/frp/pkg/util/net"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/server/metrics"
 )
 
@@ -222,7 +222,7 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 				})
 			}
 
-			pxy.workConn = utilnet.WrapReadWriteCloserToConn(rwc, workConn)
+			pxy.workConn = netpkg.WrapReadWriteCloserToConn(rwc, workConn)
 			ctx, cancel := context.WithCancel(context.Background())
 			go workConnReaderFn(pxy.workConn)
 			go workConnSenderFn(pxy.workConn, ctx)

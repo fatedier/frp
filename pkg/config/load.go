@@ -110,6 +110,7 @@ func LoadConfigureFromFile(path string, c any, strict bool) error {
 
 // LoadConfigure loads configuration from bytes and unmarshal into c.
 // Now it supports json, yaml and toml format.
+// TODO(fatedier): strict is not valide for ProxyConfigurer/VisitorConfigurer/ClientPluginOptions.
 func LoadConfigure(b []byte, c any, strict bool) error {
 	var tomlObj interface{}
 	// Try to unmarshal as TOML first; swallow errors from that (assume it's not valid TOML).
@@ -188,19 +189,19 @@ func LoadClientConfig(path string, strict bool) (
 ) {
 	var (
 		cliCfg         *v1.ClientCommonConfig
-		pxyCfgs        = make([]v1.ProxyConfigurer, 0)
+		proxyCfgs      = make([]v1.ProxyConfigurer, 0)
 		visitorCfgs    = make([]v1.VisitorConfigurer, 0)
 		isLegacyFormat bool
 	)
 
 	if DetectLegacyINIFormatFromFile(path) {
-		legacyCommon, legacyPxyCfgs, legacyVisitorCfgs, err := legacy.ParseClientConfig(path)
+		legacyCommon, legacyProxyCfgs, legacyVisitorCfgs, err := legacy.ParseClientConfig(path)
 		if err != nil {
 			return nil, nil, nil, true, err
 		}
 		cliCfg = legacy.Convert_ClientCommonConf_To_v1(&legacyCommon)
-		for _, c := range legacyPxyCfgs {
-			pxyCfgs = append(pxyCfgs, legacy.Convert_ProxyConf_To_v1(c))
+		for _, c := range legacyProxyCfgs {
+			proxyCfgs = append(proxyCfgs, legacy.Convert_ProxyConf_To_v1(c))
 		}
 		for _, c := range legacyVisitorCfgs {
 			visitorCfgs = append(visitorCfgs, legacy.Convert_VisitorConf_To_v1(c))
@@ -213,7 +214,7 @@ func LoadClientConfig(path string, strict bool) (
 		}
 		cliCfg = &allCfg.ClientCommonConfig
 		for _, c := range allCfg.Proxies {
-			pxyCfgs = append(pxyCfgs, c.ProxyConfigurer)
+			proxyCfgs = append(proxyCfgs, c.ProxyConfigurer)
 		}
 		for _, c := range allCfg.Visitors {
 			visitorCfgs = append(visitorCfgs, c.VisitorConfigurer)
@@ -223,18 +224,18 @@ func LoadClientConfig(path string, strict bool) (
 	// Load additional config from includes.
 	// legacy ini format already handle this in ParseClientConfig.
 	if len(cliCfg.IncludeConfigFiles) > 0 && !isLegacyFormat {
-		extPxyCfgs, extVisitorCfgs, err := LoadAdditionalClientConfigs(cliCfg.IncludeConfigFiles, isLegacyFormat, strict)
+		extProxyCfgs, extVisitorCfgs, err := LoadAdditionalClientConfigs(cliCfg.IncludeConfigFiles, isLegacyFormat, strict)
 		if err != nil {
 			return nil, nil, nil, isLegacyFormat, err
 		}
-		pxyCfgs = append(pxyCfgs, extPxyCfgs...)
+		proxyCfgs = append(proxyCfgs, extProxyCfgs...)
 		visitorCfgs = append(visitorCfgs, extVisitorCfgs...)
 	}
 
 	// Filter by start
 	if len(cliCfg.Start) > 0 {
 		startSet := sets.New(cliCfg.Start...)
-		pxyCfgs = lo.Filter(pxyCfgs, func(c v1.ProxyConfigurer, _ int) bool {
+		proxyCfgs = lo.Filter(proxyCfgs, func(c v1.ProxyConfigurer, _ int) bool {
 			return startSet.Has(c.GetBaseConfig().Name)
 		})
 		visitorCfgs = lo.Filter(visitorCfgs, func(c v1.VisitorConfigurer, _ int) bool {
@@ -245,17 +246,17 @@ func LoadClientConfig(path string, strict bool) (
 	if cliCfg != nil {
 		cliCfg.Complete()
 	}
-	for _, c := range pxyCfgs {
+	for _, c := range proxyCfgs {
 		c.Complete(cliCfg.User)
 	}
 	for _, c := range visitorCfgs {
 		c.Complete(cliCfg)
 	}
-	return cliCfg, pxyCfgs, visitorCfgs, isLegacyFormat, nil
+	return cliCfg, proxyCfgs, visitorCfgs, isLegacyFormat, nil
 }
 
 func LoadAdditionalClientConfigs(paths []string, isLegacyFormat bool, strict bool) ([]v1.ProxyConfigurer, []v1.VisitorConfigurer, error) {
-	pxyCfgs := make([]v1.ProxyConfigurer, 0)
+	proxyCfgs := make([]v1.ProxyConfigurer, 0)
 	visitorCfgs := make([]v1.VisitorConfigurer, 0)
 	for _, path := range paths {
 		absDir, err := filepath.Abs(filepath.Dir(path))
@@ -281,7 +282,7 @@ func LoadAdditionalClientConfigs(paths []string, isLegacyFormat bool, strict boo
 					return nil, nil, fmt.Errorf("load additional config from %s error: %v", absFile, err)
 				}
 				for _, c := range cfg.Proxies {
-					pxyCfgs = append(pxyCfgs, c.ProxyConfigurer)
+					proxyCfgs = append(proxyCfgs, c.ProxyConfigurer)
 				}
 				for _, c := range cfg.Visitors {
 					visitorCfgs = append(visitorCfgs, c.VisitorConfigurer)
@@ -289,5 +290,5 @@ func LoadAdditionalClientConfigs(paths []string, isLegacyFormat bool, strict boo
 			}
 		}
 	}
-	return pxyCfgs, visitorCfgs, nil
+	return proxyCfgs, visitorCfgs, nil
 }

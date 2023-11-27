@@ -110,7 +110,7 @@ func handleTermSignal(svr *client.Service) {
 }
 
 func runClient(cfgFilePath string) error {
-	cfg, pxyCfgs, visitorCfgs, isLegacyFormat, err := config.LoadClientConfig(cfgFilePath, strictConfigMode)
+	cfg, proxyCfgs, visitorCfgs, isLegacyFormat, err := config.LoadClientConfig(cfgFilePath, strictConfigMode)
 	if err != nil {
 		return err
 	}
@@ -119,19 +119,19 @@ func runClient(cfgFilePath string) error {
 			"please use yaml/json/toml format instead!\n")
 	}
 
-	warning, err := validation.ValidateAllClientConfig(cfg, pxyCfgs, visitorCfgs)
+	warning, err := validation.ValidateAllClientConfig(cfg, proxyCfgs, visitorCfgs)
 	if warning != nil {
 		fmt.Printf("WARNING: %v\n", warning)
 	}
 	if err != nil {
 		return err
 	}
-	return startService(cfg, pxyCfgs, visitorCfgs, cfgFilePath)
+	return startService(cfg, proxyCfgs, visitorCfgs, cfgFilePath)
 }
 
 func startService(
 	cfg *v1.ClientCommonConfig,
-	pxyCfgs []v1.ProxyConfigurer,
+	proxyCfgs []v1.ProxyConfigurer,
 	visitorCfgs []v1.VisitorConfigurer,
 	cfgFile string,
 ) error {
@@ -141,7 +141,15 @@ func startService(
 		log.Info("start frpc service for config file [%s]", cfgFile)
 		defer log.Info("frpc service for config file [%s] stopped", cfgFile)
 	}
-	svr := client.NewService(cfg, pxyCfgs, visitorCfgs, cfgFile)
+	svr, err := client.NewService(client.ServiceOptions{
+		Common:         cfg,
+		ProxyCfgs:      proxyCfgs,
+		VisitorCfgs:    visitorCfgs,
+		ConfigFilePath: cfgFile,
+	})
+	if err != nil {
+		return err
+	}
 
 	shouldGracefulClose := cfg.Transport.Protocol == "kcp" || cfg.Transport.Protocol == "quic"
 	// Capture the exit signal if we use kcp or quic.

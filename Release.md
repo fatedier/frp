@@ -1,6 +1,9 @@
 ### Features
 
-* New command line parameter `--strict_config` is added to enable strict configuration validation mode. It will throw an error for non-existent fields instead of ignoring them.
+* New command line parameter `--strict_config` is added to enable strict configuration validation mode. It will throw an error for non-existent fields instead of ignoring them. In future versions, we may set the default value of this parameter to true.
+* Support `SSH reverse tunneling`. With this feature, you can expose your local service without running frpc, only using SSH. The SSH reverse tunnel agent has many functional limitations compared to the frpc agent. The currently supported proxy types are tcp, http, https, tcpmux, and stcp.
+* The frpc tcpmux command line parameters have been updated to support configuring `http_user` and `http_pwd`.
+* The frpc stcp/sudp/xtcp command line parameters have been updated to support configuring `allow_users`.
 
 ### Fixes
 

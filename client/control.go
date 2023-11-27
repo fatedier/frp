@@ -28,38 +28,41 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/transport"
-	utilnet "github.com/fatedier/frp/pkg/util/net"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/wait"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
+
+type SessionContext struct {
+	// The client common configuration.
+	Common *v1.ClientCommonConfig
+
+	// Unique ID obtained from frps.
+	// It should be attached to the login message when reconnecting.
+	RunID string
+	// Underlying control connection. Once conn is closed, the msgDispatcher and the entire Control will exit.
+	Conn net.Conn
+	// Indicates whether the connection is encrypted.
+	ConnEncrypted bool
+	// Sets authentication based on selected method
+	AuthSetter auth.Setter
+	// Connector is used to create new connections, which could be real TCP connections or virtual streams.
+	Connector Connector
+}
 
 type Control struct {
 	// service context
 	ctx context.Context
 	xl  *xlog.Logger
 
-	// The client configuration
-	clientCfg *v1.ClientCommonConfig
-
-	// sets authentication based on selected method
-	authSetter auth.Setter
-
-	// Unique ID obtained from frps.
-	// It should be attached to the login message when reconnecting.
-	runID string
+	// session context
+	sessionCtx *SessionContext
 
 	// manage all proxies
-	pxyCfgs []v1.ProxyConfigurer
-	pm      *proxy.Manager
+	pm *proxy.Manager
 
 	// manage all visitors
 	vm *visitor.Manager
-
-	// control connection. Once conn is closed, the msgDispatcher and the entire Control will exit.
-	conn net.Conn
-
-	// use connector to create new connections, which could be real TCP connections or virtual streams.
-	connector Connector
 
 	doneCh chan struct{}
 
@@ -76,50 +79,41 @@ type Control struct {
 	msgDispatcher *msg.Dispatcher
 }
 
-func NewControl(
-	ctx context.Context, runID string, conn net.Conn, connector Connector,
-	clientCfg *v1.ClientCommonConfig,
-	pxyCfgs []v1.ProxyConfigurer,
-	visitorCfgs []v1.VisitorConfigurer,
-	authSetter auth.Setter,
-) (*Control, error) {
+func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, error) {
 	// new xlog instance
 	ctl := &Control{
 		ctx:        ctx,
 		xl:         xlog.FromContextSafe(ctx),
-		clientCfg:  clientCfg,
-		authSetter: authSetter,
-		runID:      runID,
-		pxyCfgs:    pxyCfgs,
-		conn:       conn,
-		connector:  connector,
+		sessionCtx: sessionCtx,
 		doneCh:     make(chan struct{}),
 	}
 	ctl.lastPong.Store(time.Now())
 
-	cryptoRW, err := utilnet.NewCryptoReadWriter(conn, []byte(clientCfg.Auth.Token))
-	if err != nil {
-		return nil, err
+	if sessionCtx.ConnEncrypted {
+		cryptoRW, err := netpkg.NewCryptoReadWriter(sessionCtx.Conn, []byte(sessionCtx.Common.Auth.Token))
+		if err != nil {
+			return nil, err
+		}
+		ctl.msgDispatcher = msg.NewDispatcher(cryptoRW)
+	} else {
+		ctl.msgDispatcher = msg.NewDispatcher(sessionCtx.Conn)
 	}
-
-	ctl.msgDispatcher = msg.NewDispatcher(cryptoRW)
 	ctl.registerMsgHandlers()
 	ctl.msgTransporter = transport.NewMessageTransporter(ctl.msgDispatcher.SendChannel())
 
-	ctl.pm = proxy.NewManager(ctl.ctx, clientCfg, ctl.msgTransporter)
-	ctl.vm = visitor.NewManager(ctl.ctx, ctl.runID, ctl.clientCfg, ctl.connectServer, ctl.msgTransporter)
-	ctl.vm.Reload(visitorCfgs)
+	ctl.pm = proxy.NewManager(ctl.ctx, sessionCtx.Common, ctl.msgTransporter)
+	ctl.vm = visitor.NewManager(ctl.ctx, sessionCtx.RunID, sessionCtx.Common, ctl.connectServer, ctl.msgTransporter)
 	return ctl, nil
 }
 
-func (ctl *Control) Run() {
+func (ctl *Control) Run(proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) {
 	go ctl.worker()
 
 	// start all proxies
-	ctl.pm.Reload(ctl.pxyCfgs)
+	ctl.pm.UpdateAll(proxyCfgs)
 
 	// start all visitors
-	go ctl.vm.Run()
+	ctl.vm.UpdateAll(visitorCfgs)
 }
 
 func (ctl *Control) SetInWorkConnCallback(cb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool) {
@@ -135,9 +129,9 @@ func (ctl *Control) handleReqWorkConn(_ msg.Message) {
 	}
 
 	m := &msg.NewWorkConn{
-		RunID: ctl.runID,
+		RunID: ctl.sessionCtx.RunID,
 	}
-	if err = ctl.authSetter.SetNewWorkConn(m); err != nil {
+	if err = ctl.sessionCtx.AuthSetter.SetNewWorkConn(m); err != nil {
 		xl.Warn("error during NewWorkConn authentication: %v", err)
 		return
 	}
@@ -193,11 +187,17 @@ func (ctl *Control) handlePong(m msg.Message) {
 
 	if inMsg.Error != "" {
 		xl.Error("Pong message contains error: %s", inMsg.Error)
-		ctl.conn.Close()
+		ctl.closeSession()
 		return
 	}
 	ctl.lastPong.Store(time.Now())
 	xl.Debug("receive heartbeat from server")
+}
+
+// closeSession closes the control connection.
+func (ctl *Control) closeSession() {
+	ctl.sessionCtx.Conn.Close()
+	ctl.sessionCtx.Connector.Close()
 }
 
 func (ctl *Control) Close() error {
@@ -210,8 +210,7 @@ func (ctl *Control) GracefulClose(d time.Duration) error {
 
 	time.Sleep(d)
 
-	ctl.conn.Close()
-	ctl.connector.Close()
+	ctl.closeSession()
 	return nil
 }
 
@@ -221,8 +220,8 @@ func (ctl *Control) Done() <-chan struct{} {
 }
 
 // connectServer return a new connection to frps
-func (ctl *Control) connectServer() (conn net.Conn, err error) {
-	return ctl.connector.Connect()
+func (ctl *Control) connectServer() (net.Conn, error) {
+	return ctl.sessionCtx.Connector.Connect()
 }
 
 func (ctl *Control) registerMsgHandlers() {
@@ -238,12 +237,12 @@ func (ctl *Control) heartbeatWorker() {
 
 	// TODO(fatedier): Change default value of HeartbeatInterval to -1 if tcpmux is enabled.
 	// Users can still enable heartbeat feature by setting HeartbeatInterval to a positive value.
-	if ctl.clientCfg.Transport.HeartbeatInterval > 0 {
+	if ctl.sessionCtx.Common.Transport.HeartbeatInterval > 0 {
 		// send heartbeat to server
 		sendHeartBeat := func() error {
 			xl.Debug("send heartbeat to server")
 			pingMsg := &msg.Ping{}
-			if err := ctl.authSetter.SetPing(pingMsg); err != nil {
+			if err := ctl.sessionCtx.AuthSetter.SetPing(pingMsg); err != nil {
 				xl.Warn("error during ping authentication: %v, skip sending ping message", err)
 				return err
 			}
@@ -253,24 +252,24 @@ func (ctl *Control) heartbeatWorker() {
 
 		go wait.BackoffUntil(sendHeartBeat,
 			wait.NewFastBackoffManager(wait.FastBackoffOptions{
-				Duration:           time.Duration(ctl.clientCfg.Transport.HeartbeatInterval) * time.Second,
+				Duration:           time.Duration(ctl.sessionCtx.Common.Transport.HeartbeatInterval) * time.Second,
 				InitDurationIfFail: time.Second,
 				Factor:             2.0,
 				Jitter:             0.1,
-				MaxDuration:        time.Duration(ctl.clientCfg.Transport.HeartbeatInterval) * time.Second,
+				MaxDuration:        time.Duration(ctl.sessionCtx.Common.Transport.HeartbeatInterval) * time.Second,
 			}),
 			true, ctl.doneCh,
 		)
 	}
 
 	// Check heartbeat timeout only if TCPMux is not enabled and users don't disable heartbeat feature.
-	if ctl.clientCfg.Transport.HeartbeatInterval > 0 && ctl.clientCfg.Transport.HeartbeatTimeout > 0 &&
-		!lo.FromPtr(ctl.clientCfg.Transport.TCPMux) {
+	if ctl.sessionCtx.Common.Transport.HeartbeatInterval > 0 && ctl.sessionCtx.Common.Transport.HeartbeatTimeout > 0 &&
+		!lo.FromPtr(ctl.sessionCtx.Common.Transport.TCPMux) {
 
 		go wait.Until(func() {
-			if time.Since(ctl.lastPong.Load().(time.Time)) > time.Duration(ctl.clientCfg.Transport.HeartbeatTimeout)*time.Second {
+			if time.Since(ctl.lastPong.Load().(time.Time)) > time.Duration(ctl.sessionCtx.Common.Transport.HeartbeatTimeout)*time.Second {
 				xl.Warn("heartbeat timeout")
-				ctl.conn.Close()
+				ctl.closeSession()
 				return
 			}
 		}, time.Second, ctl.doneCh)
@@ -282,17 +281,15 @@ func (ctl *Control) worker() {
 	go ctl.msgDispatcher.Run()
 
 	<-ctl.msgDispatcher.Done()
-	ctl.conn.Close()
+	ctl.closeSession()
 
 	ctl.pm.Close()
 	ctl.vm.Close()
-	ctl.connector.Close()
-
 	close(ctl.doneCh)
 }
 
-func (ctl *Control) ReloadConf(pxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error {
-	ctl.vm.Reload(visitorCfgs)
-	ctl.pm.Reload(pxyCfgs)
+func (ctl *Control) UpdateAllConfigurer(proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error {
+	ctl.vm.UpdateAll(visitorCfgs)
+	ctl.pm.UpdateAll(proxyCfgs)
 	return nil
 }
