@@ -111,3 +111,56 @@ func TestLoadServerConfigStrictMode(t *testing.T) {
 		}
 	}
 }
+
+func TestCustomStructStrictMode(t *testing.T) {
+	require := require.New(t)
+
+	proxyStr := `
+serverPort = 7000
+
+[[proxies]]
+name = "test"
+type = "tcp"
+remotePort = 6000
+`
+	clientCfg := v1.ClientConfig{}
+	err := LoadConfigure([]byte(proxyStr), &clientCfg, true)
+	require.NoError(err)
+
+	proxyStr += `unknown = "unknown"`
+	err = LoadConfigure([]byte(proxyStr), &clientCfg, true)
+	require.Error(err)
+
+	visitorStr := `
+serverPort = 7000
+
+[[visitors]]
+name = "test"
+type = "stcp"
+bindPort = 6000
+serverName = "server"
+`
+	err = LoadConfigure([]byte(visitorStr), &clientCfg, true)
+	require.NoError(err)
+
+	visitorStr += `unknown = "unknown"`
+	err = LoadConfigure([]byte(visitorStr), &clientCfg, true)
+	require.Error(err)
+
+	pluginStr := `
+serverPort = 7000
+
+[[proxies]]
+name = "test"
+type = "tcp"
+remotePort = 6000
+[proxies.plugin]
+type = "unix_domain_socket"
+unixPath = "/tmp/uds.sock"
+`
+	err = LoadConfigure([]byte(pluginStr), &clientCfg, true)
+	require.NoError(err)
+	pluginStr += `unknown = "unknown"`
+	err = LoadConfigure([]byte(pluginStr), &clientCfg, true)
+	require.Error(err)
+}
