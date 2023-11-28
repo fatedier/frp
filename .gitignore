@@ -33,6 +33,7 @@ lastversion/
 dist/
 .idea/
 .vscode/
+.autogen_ssh_key
 
 # Cache
 *.swp
