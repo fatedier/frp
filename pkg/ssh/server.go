@@ -56,8 +56,6 @@ type forwardedTCPPayload struct {
 	Addr string
 	Port uint32
 
-	// can be default empty value but do not delete it
-	// because ssh protocol shoule be reserved
 	OriginAddr string
 	OriginPort uint32
 }
@@ -117,6 +115,8 @@ func (s *TunnelServer) Run() error {
 			// join workConn and ssh channel
 			c, err := s.openConn(addr)
 			if err != nil {
+				log.Trace("open conn error: %v", err)
+				workConn.Close()
 				return false
 			}
 			libio.Join(c, workConn)
@@ -180,20 +180,16 @@ func (s *TunnelServer) waitForwardAddrAndExtraPayload(
 	go func() {
 		addrGot := false
 		for req := range requests {
-			switch req.Type {
-			case RequestTypeForward:
-				if !addrGot {
-					payload := tcpipForward{}
-					if err := ssh.Unmarshal(req.Payload, &payload); err != nil {
-						return
-					}
-					addrGot = true
-					addrCh <- &payload
+			if req.Type == RequestTypeForward && !addrGot {
+				payload := tcpipForward{}
+				if err := ssh.Unmarshal(req.Payload, &payload); err != nil {
+					return
 				}
-			default:
-				if req.WantReply {
-					_ = req.Reply(true, nil)
-				}
+				addrGot = true
+				addrCh <- &payload
+			}
+			if req.WantReply {
+				_ = req.Reply(true, nil)
 			}
 		}
 	}()
@@ -271,10 +267,10 @@ func (s *TunnelServer) handleNewChannel(channel ssh.NewChannel, extraPayloadCh c
 	go s.keepAlive(ch)
 
 	for req := range reqs {
-		if req.Type != "exec" {
-			continue
+		if req.WantReply {
+			_ = req.Reply(true, nil)
 		}
-		if len(req.Payload) <= 4 {
+		if req.Type != "exec" || len(req.Payload) <= 4 {
 			continue
 		}
 		end := 4 + binary.BigEndian.Uint32(req.Payload[:4])
@@ -310,6 +306,9 @@ func (s *TunnelServer) openConn(addr *tcpipForward) (net.Conn, error) {
 	payload := forwardedTCPPayload{
 		Addr: addr.Host,
 		Port: addr.Port,
+		// Note: Here is just for compatibility, not the real source address.
+		OriginAddr: addr.Host,
+		OriginPort: addr.Port,
 	}
 	channel, reqs, err := s.sshConn.OpenChannel(ChannelTypeServerOpenChannel, ssh.Marshal(&payload))
 	if err != nil {
