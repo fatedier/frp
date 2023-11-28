@@ -110,8 +110,11 @@ func LoadConfigureFromFile(path string, c any, strict bool) error {
 
 // LoadConfigure loads configuration from bytes and unmarshal into c.
 // Now it supports json, yaml and toml format.
-// TODO(fatedier): strict is not valide for ProxyConfigurer/VisitorConfigurer/ClientPluginOptions.
 func LoadConfigure(b []byte, c any, strict bool) error {
+	v1.DisallowUnknownFieldsMu.Lock()
+	defer v1.DisallowUnknownFieldsMu.Unlock()
+	v1.DisallowUnknownFields = strict
+
 	var tomlObj interface{}
 	// Try to unmarshal as TOML first; swallow errors from that (assume it's not valid TOML).
 	if err := toml.Unmarshal(b, &tomlObj); err == nil {

@@ -15,6 +15,7 @@
 package v1
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -49,7 +50,13 @@ func (c *TypedClientPluginOptions) UnmarshalJSON(b []byte) error {
 		return fmt.Errorf("unknown plugin type: %s", typeStruct.Type)
 	}
 	options := reflect.New(v).Interface().(ClientPluginOptions)
-	if err := json.Unmarshal(b, options); err != nil {
+
+	decoder := json.NewDecoder(bytes.NewBuffer(b))
+	if DisallowUnknownFields {
+		decoder.DisallowUnknownFields()
+	}
+
+	if err := decoder.Decode(options); err != nil {
 		return err
 	}
 	c.ClientPluginOptions = options
@@ -77,17 +84,20 @@ var clientPluginOptionsTypeMap = map[string]reflect.Type{
 }
 
 type HTTP2HTTPSPluginOptions struct {
+	Type              string           `json:"type,omitempty"`
 	LocalAddr         string           `json:"localAddr,omitempty"`
 	HostHeaderRewrite string           `json:"hostHeaderRewrite,omitempty"`
 	RequestHeaders    HeaderOperations `json:"requestHeaders,omitempty"`
 }
 
 type HTTPProxyPluginOptions struct {
+	Type         string `json:"type,omitempty"`
 	HTTPUser     string `json:"httpUser,omitempty"`
 	HTTPPassword string `json:"httpPassword,omitempty"`
 }
 
 type HTTPS2HTTPPluginOptions struct {
+	Type              string           `json:"type,omitempty"`
 	LocalAddr         string           `json:"localAddr,omitempty"`
 	HostHeaderRewrite string           `json:"hostHeaderRewrite,omitempty"`
 	RequestHeaders    HeaderOperations `json:"requestHeaders,omitempty"`
@@ -96,6 +106,7 @@ type HTTPS2HTTPPluginOptions struct {
 }
 
 type HTTPS2HTTPSPluginOptions struct {
+	Type              string           `json:"type,omitempty"`
 	LocalAddr         string           `json:"localAddr,omitempty"`
 	HostHeaderRewrite string           `json:"hostHeaderRewrite,omitempty"`
 	RequestHeaders    HeaderOperations `json:"requestHeaders,omitempty"`
@@ -104,11 +115,13 @@ type HTTPS2HTTPSPluginOptions struct {
 }
 
 type Socks5PluginOptions struct {
+	Type     string `json:"type,omitempty"`
 	Username string `json:"username,omitempty"`
 	Password string `json:"password,omitempty"`
 }
 
 type StaticFilePluginOptions struct {
+	Type         string `json:"type,omitempty"`
 	LocalPath    string `json:"localPath,omitempty"`
 	StripPrefix  string `json:"stripPrefix,omitempty"`
 	HTTPUser     string `json:"httpUser,omitempty"`
@@ -116,5 +129,6 @@ type StaticFilePluginOptions struct {
 }
 
 type UnixDomainSocketPluginOptions struct {
+	Type     string `json:"type,omitempty"`
 	UnixPath string `json:"unixPath,omitempty"`
 }
