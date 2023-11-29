@@ -46,9 +46,7 @@ type Server struct {
 }
 
 func NewServer(cfg v1.WebServerConfig) (*Server, error) {
-	if cfg.AssetsDir != "" {
-		assets.Load(cfg.AssetsDir)
-	}
+	assets.Load(cfg.AssetsDir)
 
 	addr := net.JoinHostPort(cfg.Addr, strconv.Itoa(cfg.Port))
 	if addr == ":" {
