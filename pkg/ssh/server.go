@@ -27,6 +27,7 @@ import (
 	libio "github.com/fatedier/golib/io"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/fatedier/frp/client/proxy"
@@ -64,6 +65,7 @@ type TunnelServer struct {
 	underlyingConn net.Conn
 	sshConn        *ssh.ServerConn
 	sc             *ssh.ServerConfig
+	firstChannel   ssh.Channel
 
 	vc                 *virtual.Client
 	peerServerListener *netpkg.InternalListener
@@ -86,6 +88,7 @@ func (s *TunnelServer) Run() error {
 	if err != nil {
 		return err
 	}
+
 	s.sshConn = sshConn
 
 	addr, extraPayload, err := s.waitForwardAddrAndExtraPayload(channels, requests, 3*time.Second)
@@ -93,9 +96,14 @@ func (s *TunnelServer) Run() error {
 		return err
 	}
 
-	clientCfg, pc, err := s.parseClientAndProxyConfigurer(addr, extraPayload)
+	clientCfg, pc, helpMessage, err := s.parseClientAndProxyConfigurer(addr, extraPayload)
 	if err != nil {
-		return err
+		if errors.Is(err, flag.ErrHelp) {
+			s.writeToClient(helpMessage)
+			return nil
+		}
+		s.writeToClient(err.Error())
+		return fmt.Errorf("parse flags from ssh client error: %v", err)
 	}
 	clientCfg.Complete()
 	if sshConn.Permissions != nil {
@@ -142,7 +150,11 @@ func (s *TunnelServer) Run() error {
 	xl := xlog.New().AddPrefix(xlog.LogPrefix{Name: "sshVirtualClient", Value: "sshVirtualClient", Priority: 100})
 	ctx := xlog.NewContext(context.Background(), xl)
 	go func() {
-		_ = s.vc.Run(ctx)
+		vcErr := s.vc.Run(ctx)
+		if vcErr != nil {
+			s.writeToClient(vcErr.Error())
+		}
+
 		// If vc.Run returns, it means that the virtual client has been closed, and the ssh tunnel connection should be closed.
 		// One scenario is that the virtual client exits due to login failure.
 		s.closeDoneChOnce.Do(func() {
@@ -153,9 +165,12 @@ func (s *TunnelServer) Run() error {
 
 	s.vc.UpdateProxyConfigurer([]v1.ProxyConfigurer{pc})
 
-	if err := s.waitProxyStatusReady(pc.GetBaseConfig().Name, time.Second); err != nil {
+	if ps, err := s.waitProxyStatusReady(pc.GetBaseConfig().Name, time.Second); err != nil {
+		s.writeToClient(err.Error())
 		log.Warn("wait proxy status ready error: %v", err)
 	} else {
+		// success
+		s.writeToClient(createSuccessInfo(clientCfg.User, pc, ps))
 		_ = sshConn.Wait()
 	}
 
@@ -166,6 +181,13 @@ func (s *TunnelServer) Run() error {
 		close(s.doneCh)
 	})
 	return nil
+}
+
+func (s *TunnelServer) writeToClient(data string) {
+	if s.firstChannel == nil {
+		return
+	}
+	_, _ = s.firstChannel.Write([]byte(data + "\n"))
 }
 
 func (s *TunnelServer) waitForwardAddrAndExtraPayload(
@@ -225,44 +247,56 @@ func (s *TunnelServer) waitForwardAddrAndExtraPayload(
 	return addr, extraPayload, nil
 }
 
-func (s *TunnelServer) parseClientAndProxyConfigurer(_ *tcpipForward, extraPayload string) (*v1.ClientCommonConfig, v1.ProxyConfigurer, error) {
-	cmd := &cobra.Command{}
+func (s *TunnelServer) parseClientAndProxyConfigurer(_ *tcpipForward, extraPayload string) (*v1.ClientCommonConfig, v1.ProxyConfigurer, string, error) {
+	helpMessage := ""
+	cmd := &cobra.Command{
+		Use:   "ssh v0@{address} [command]",
+		Short: "ssh v0@{address} [command]",
+		Run:   func(*cobra.Command, []string) {},
+	}
 	args := strings.Split(extraPayload, " ")
 	if len(args) < 1 {
-		return nil, nil, fmt.Errorf("invalid extra payload")
+		return nil, nil, helpMessage, fmt.Errorf("invalid extra payload")
 	}
 	proxyType := strings.TrimSpace(args[0])
 	supportTypes := []string{"tcp", "http", "https", "tcpmux", "stcp"}
 	if !lo.Contains(supportTypes, proxyType) {
-		return nil, nil, fmt.Errorf("invalid proxy type: %s, support types: %v", proxyType, supportTypes)
+		return nil, nil, helpMessage, fmt.Errorf("invalid proxy type: %s, support types: %v", proxyType, supportTypes)
 	}
 	pc := v1.NewProxyConfigurerByType(v1.ProxyType(proxyType))
 	if pc == nil {
-		return nil, nil, fmt.Errorf("new proxy configurer error")
+		return nil, nil, helpMessage, fmt.Errorf("new proxy configurer error")
 	}
-	config.RegisterProxyFlags(cmd, pc)
+	config.RegisterProxyFlags(cmd, pc, config.WithSSHMode())
 
 	clientCfg := v1.ClientCommonConfig{}
-	config.RegisterClientCommonConfigFlags(cmd, &clientCfg)
+	config.RegisterClientCommonConfigFlags(cmd, &clientCfg, config.WithSSHMode())
 
+	cmd.InitDefaultHelpCmd()
 	if err := cmd.ParseFlags(args); err != nil {
-		return nil, nil, fmt.Errorf("parse flags from ssh client error: %v", err)
+		if errors.Is(err, flag.ErrHelp) {
+			helpMessage = cmd.UsageString()
+		}
+		return nil, nil, helpMessage, err
 	}
 	// if name is not set, generate a random one
 	if pc.GetBaseConfig().Name == "" {
 		id, err := util.RandIDWithLen(8)
 		if err != nil {
-			return nil, nil, fmt.Errorf("generate random id error: %v", err)
+			return nil, nil, helpMessage, fmt.Errorf("generate random id error: %v", err)
 		}
 		pc.GetBaseConfig().Name = fmt.Sprintf("sshtunnel-%s-%s", proxyType, id)
 	}
-	return &clientCfg, pc, nil
+	return &clientCfg, pc, helpMessage, nil
 }
 
 func (s *TunnelServer) handleNewChannel(channel ssh.NewChannel, extraPayloadCh chan string) {
 	ch, reqs, err := channel.Accept()
 	if err != nil {
 		return
+	}
+	if s.firstChannel == nil {
+		s.firstChannel = ch
 	}
 	go s.keepAlive(ch)
 
@@ -320,7 +354,7 @@ func (s *TunnelServer) openConn(addr *tcpipForward) (net.Conn, error) {
 	return conn, nil
 }
 
-func (s *TunnelServer) waitProxyStatusReady(name string, timeout time.Duration) error {
+func (s *TunnelServer) waitProxyStatusReady(name string, timeout time.Duration) (*proxy.WorkingStatus, error) {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -336,14 +370,14 @@ func (s *TunnelServer) waitProxyStatusReady(name string, timeout time.Duration) 
 			}
 			switch ps.Phase {
 			case proxy.ProxyPhaseRunning:
-				return nil
+				return ps, nil
 			case proxy.ProxyPhaseStartErr, proxy.ProxyPhaseClosed:
-				return errors.New(ps.Err)
+				return ps, errors.New(ps.Err)
 			}
 		case <-timer.C:
-			return fmt.Errorf("wait proxy status ready timeout")
+			return nil, fmt.Errorf("wait proxy status ready timeout")
 		case <-s.doneCh:
-			return fmt.Errorf("ssh tunnel server closed")
+			return nil, fmt.Errorf("ssh tunnel server closed")
 		}
 	}
 }

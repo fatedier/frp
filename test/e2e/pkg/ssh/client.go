@@ -41,7 +41,7 @@ func (c *TunnelClient) Start() error {
 		return err
 	}
 	c.ln = l
-	ch, req, err := conn.OpenChannel("direct", []byte(""))
+	ch, req, err := conn.OpenChannel("session", []byte(""))
 	if err != nil {
 		return err
 	}

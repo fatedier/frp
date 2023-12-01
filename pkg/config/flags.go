@@ -25,6 +25,18 @@ import (
 	"github.com/fatedier/frp/pkg/config/v1/validation"
 )
 
+type RegisterFlagOption func(*registerFlagOptions)
+
+type registerFlagOptions struct {
+	sshMode bool
+}
+
+func WithSSHMode() RegisterFlagOption {
+	return func(o *registerFlagOptions) {
+		o.sshMode = true
+	}
+}
+
 type BandwidthQuantityFlag struct {
 	V *types.BandwidthQuantity
 }
@@ -41,8 +53,9 @@ func (f *BandwidthQuantityFlag) Type() string {
 	return "string"
 }
 
-func RegisterProxyFlags(cmd *cobra.Command, c v1.ProxyConfigurer) {
-	registerProxyBaseConfigFlags(cmd, c.GetBaseConfig())
+func RegisterProxyFlags(cmd *cobra.Command, c v1.ProxyConfigurer, opts ...RegisterFlagOption) {
+	registerProxyBaseConfigFlags(cmd, c.GetBaseConfig(), opts...)
+
 	switch cc := c.(type) {
 	case *v1.TCPProxyConfig:
 		cmd.Flags().IntVarP(&cc.RemotePort, "remote_port", "r", 0, "remote port")
@@ -73,17 +86,25 @@ func RegisterProxyFlags(cmd *cobra.Command, c v1.ProxyConfigurer) {
 	}
 }
 
-func registerProxyBaseConfigFlags(cmd *cobra.Command, c *v1.ProxyBaseConfig) {
+func registerProxyBaseConfigFlags(cmd *cobra.Command, c *v1.ProxyBaseConfig, opts ...RegisterFlagOption) {
 	if c == nil {
 		return
 	}
+	options := &registerFlagOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	cmd.Flags().StringVarP(&c.Name, "proxy_name", "n", "", "proxy name")
-	cmd.Flags().StringVarP(&c.LocalIP, "local_ip", "i", "127.0.0.1", "local ip")
-	cmd.Flags().IntVarP(&c.LocalPort, "local_port", "l", 0, "local port")
-	cmd.Flags().BoolVarP(&c.Transport.UseEncryption, "ue", "", false, "use encryption")
-	cmd.Flags().BoolVarP(&c.Transport.UseCompression, "uc", "", false, "use compression")
-	cmd.Flags().StringVarP(&c.Transport.BandwidthLimitMode, "bandwidth_limit_mode", "", types.BandwidthLimitModeClient, "bandwidth limit mode")
-	cmd.Flags().VarP(&BandwidthQuantityFlag{V: &c.Transport.BandwidthLimit}, "bandwidth_limit", "", "bandwidth limit (e.g. 100KB or 1MB)")
+
+	if !options.sshMode {
+		cmd.Flags().StringVarP(&c.LocalIP, "local_ip", "i", "127.0.0.1", "local ip")
+		cmd.Flags().IntVarP(&c.LocalPort, "local_port", "l", 0, "local port")
+		cmd.Flags().BoolVarP(&c.Transport.UseEncryption, "ue", "", false, "use encryption")
+		cmd.Flags().BoolVarP(&c.Transport.UseCompression, "uc", "", false, "use compression")
+		cmd.Flags().StringVarP(&c.Transport.BandwidthLimitMode, "bandwidth_limit_mode", "", types.BandwidthLimitModeClient, "bandwidth limit mode")
+		cmd.Flags().VarP(&BandwidthQuantityFlag{V: &c.Transport.BandwidthLimit}, "bandwidth_limit", "", "bandwidth limit (e.g. 100KB or 1MB)")
+	}
 }
 
 func registerProxyDomainConfigFlags(cmd *cobra.Command, c *v1.DomainConfig) {
@@ -94,13 +115,13 @@ func registerProxyDomainConfigFlags(cmd *cobra.Command, c *v1.DomainConfig) {
 	cmd.Flags().StringVarP(&c.SubDomain, "sd", "", "", "sub domain")
 }
 
-func RegisterVisitorFlags(cmd *cobra.Command, c v1.VisitorConfigurer) {
-	registerVisitorBaseConfigFlags(cmd, c.GetBaseConfig())
+func RegisterVisitorFlags(cmd *cobra.Command, c v1.VisitorConfigurer, opts ...RegisterFlagOption) {
+	registerVisitorBaseConfigFlags(cmd, c.GetBaseConfig(), opts...)
 
 	// add visitor flags if exist
 }
 
-func registerVisitorBaseConfigFlags(cmd *cobra.Command, c *v1.VisitorBaseConfig) {
+func registerVisitorBaseConfigFlags(cmd *cobra.Command, c *v1.VisitorBaseConfig, _ ...RegisterFlagOption) {
 	if c == nil {
 		return
 	}
@@ -113,21 +134,27 @@ func registerVisitorBaseConfigFlags(cmd *cobra.Command, c *v1.VisitorBaseConfig)
 	cmd.Flags().IntVarP(&c.BindPort, "bind_port", "", 0, "bind port")
 }
 
-func RegisterClientCommonConfigFlags(cmd *cobra.Command, c *v1.ClientCommonConfig) {
-	cmd.PersistentFlags().StringVarP(&c.ServerAddr, "server_addr", "s", "127.0.0.1", "frp server's address")
-	cmd.PersistentFlags().IntVarP(&c.ServerPort, "server_port", "P", 7000, "frp server's port")
-	cmd.PersistentFlags().StringVarP(&c.User, "user", "u", "", "user")
-	cmd.PersistentFlags().StringVarP(&c.Transport.Protocol, "protocol", "p", "tcp",
-		fmt.Sprintf("optional values are %v", validation.SupportedTransportProtocols))
-	cmd.PersistentFlags().StringVarP(&c.Auth.Token, "token", "t", "", "auth token")
-	cmd.PersistentFlags().StringVarP(&c.Log.Level, "log_level", "", "info", "log level")
-	cmd.PersistentFlags().StringVarP(&c.Log.To, "log_file", "", "console", "console or file path")
-	cmd.PersistentFlags().Int64VarP(&c.Log.MaxDays, "log_max_days", "", 3, "log file reversed days")
-	cmd.PersistentFlags().BoolVarP(&c.Log.DisablePrintColor, "disable_log_color", "", false, "disable log color in console")
-	cmd.PersistentFlags().StringVarP(&c.Transport.TLS.ServerName, "tls_server_name", "", "", "specify the custom server name of tls certificate")
-	cmd.PersistentFlags().StringVarP(&c.DNSServer, "dns_server", "", "", "specify dns server instead of using system default one")
+func RegisterClientCommonConfigFlags(cmd *cobra.Command, c *v1.ClientCommonConfig, opts ...RegisterFlagOption) {
+	options := &registerFlagOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
 
-	c.Transport.TLS.Enable = cmd.PersistentFlags().BoolP("tls_enable", "", true, "enable frpc tls")
+	if !options.sshMode {
+		cmd.PersistentFlags().StringVarP(&c.ServerAddr, "server_addr", "s", "127.0.0.1", "frp server's address")
+		cmd.PersistentFlags().IntVarP(&c.ServerPort, "server_port", "P", 7000, "frp server's port")
+		cmd.PersistentFlags().StringVarP(&c.Transport.Protocol, "protocol", "p", "tcp",
+			fmt.Sprintf("optional values are %v", validation.SupportedTransportProtocols))
+		cmd.PersistentFlags().StringVarP(&c.Log.Level, "log_level", "", "info", "log level")
+		cmd.PersistentFlags().StringVarP(&c.Log.To, "log_file", "", "console", "console or file path")
+		cmd.PersistentFlags().Int64VarP(&c.Log.MaxDays, "log_max_days", "", 3, "log file reversed days")
+		cmd.PersistentFlags().BoolVarP(&c.Log.DisablePrintColor, "disable_log_color", "", false, "disable log color in console")
+		cmd.PersistentFlags().StringVarP(&c.Transport.TLS.ServerName, "tls_server_name", "", "", "specify the custom server name of tls certificate")
+		cmd.PersistentFlags().StringVarP(&c.DNSServer, "dns_server", "", "", "specify dns server instead of using system default one")
+		c.Transport.TLS.Enable = cmd.PersistentFlags().BoolP("tls_enable", "", true, "enable frpc tls")
+	}
+	cmd.PersistentFlags().StringVarP(&c.User, "user", "u", "", "user")
+	cmd.PersistentFlags().StringVarP(&c.Auth.Token, "token", "t", "", "auth token")
 }
 
 type PortsRangeSliceFlag struct {
@@ -185,7 +212,7 @@ func (f *BoolFuncFlag) Type() string {
 	return "bool"
 }
 
-func RegisterServerConfigFlags(cmd *cobra.Command, c *v1.ServerConfig) {
+func RegisterServerConfigFlags(cmd *cobra.Command, c *v1.ServerConfig, opts ...RegisterFlagOption) {
 	cmd.PersistentFlags().StringVarP(&c.BindAddr, "bind_addr", "", "0.0.0.0", "bind address")
 	cmd.PersistentFlags().IntVarP(&c.BindPort, "bind_port", "p", 7000, "bind port")
 	cmd.PersistentFlags().IntVarP(&c.KCPBindPort, "kcp_bind_port", "", 0, "kcp bind udp port")
