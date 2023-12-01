@@ -42,6 +42,14 @@ func init() {
 	crypto.DefaultSalt = "frp"
 }
 
+type cancelErr struct {
+	Err error
+}
+
+func (e cancelErr) Error() string {
+	return e.Err.Error()
+}
+
 // ServiceOptions contains options for creating a new client service.
 type ServiceOptions struct {
 	Common      *v1.ClientCommonConfig
@@ -108,7 +116,7 @@ type Service struct {
 	// service context
 	ctx context.Context
 	// call cancel to stop service
-	cancel                   context.CancelFunc
+	cancel                   context.CancelCauseFunc
 	gracefulShutdownDuration time.Duration
 
 	connectorCreator func(context.Context, *v1.ClientCommonConfig) Connector
@@ -145,7 +153,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 }
 
 func (svr *Service) Run(ctx context.Context) error {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancelCause(ctx)
 	svr.ctx = xlog.NewContext(ctx, xlog.FromContextSafe(ctx))
 	svr.cancel = cancel
 
@@ -157,7 +165,9 @@ func (svr *Service) Run(ctx context.Context) error {
 	// first login to frps
 	svr.loopLoginUntilSuccess(10*time.Second, lo.FromPtr(svr.common.LoginFailExit))
 	if svr.ctl == nil {
-		return fmt.Errorf("the process exited because the first login to the server failed, and the loginFailExit feature is enabled")
+		cancelCause := cancelErr{}
+		_ = errors.As(context.Cause(svr.ctx), &cancelCause)
+		return fmt.Errorf("login to the server failed: %v. With loginFailExit enabled, no additional retries will be attempted", cancelCause.Err)
 	}
 
 	go svr.keepControllerWorking()
@@ -280,7 +290,7 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		if err != nil {
 			xl.Warn("connect to server error: %v", err)
 			if firstLoginExit {
-				svr.cancel()
+				svr.cancel(cancelErr{Err: err})
 			}
 			return err
 		}
@@ -356,7 +366,7 @@ func (svr *Service) Close() {
 
 func (svr *Service) GracefulClose(d time.Duration) {
 	svr.gracefulShutdownDuration = d
-	svr.cancel()
+	svr.cancel(nil)
 }
 
 func (svr *Service) stop() {
