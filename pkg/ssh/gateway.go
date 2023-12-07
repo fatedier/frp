@@ -75,6 +75,7 @@ func NewGateway(
 	sshConfig.PublicKeyCallback = func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 		authorizedKeysMap, err := loadAuthorizedKeysFromFile(cfg.AuthorizedKeysFile)
 		if err != nil {
+			log.Error("load authorized keys file error: %v", err)
 			return nil, fmt.Errorf("internal error")
 		}
 
