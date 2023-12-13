@@ -78,6 +78,7 @@ frp also offers a P2P connect mode.
     * [Connecting to frps via HTTP PROXY](#connecting-to-frps-via-http-proxy)
     * [Client Plugins](#client-plugins)
     * [Server Manage Plugins](#server-manage-plugins)
+    * [SSH Tunnel Gateway](#ssh-tunnel-gateway)
 * [Contributing](#contributing)
 * [Donation](#donation)
     * [GitHub Sponsors](#github-sponsors)
@@ -1168,6 +1169,44 @@ httpPassword = "abc"
 Read the [document](/doc/server_plugin.md).
 
 Find more plugins in [gofrp/plugin](https://github.com/gofrp/plugin).
+
+### SSH Tunnel Gateway
+*added in v0.53.0*
+
+frp supports listening to an SSH port on the frps side and achieves TCP protocol proxying through the SSH -R protocol, without relying on frpc.
+
+```toml
+# frps.toml
+sshTunnelGateway.bindPort = 2200
+```
+
+When running ./frps -c frps.toml, a private key file named .autogen_ssh_key will be automatically created in the current working directory. This generated private key file will be used by the SSH server in frps.
+
+Executing the command
+
+```bash
+ssh -R :80:127.0.0.1:8080 v0@{frp address} -p 2200 tcp --proxy_name "test-tcp" --remote_port 9090
+```
+
+sets up a proxy on frps that forwards the local 8080 service to the port 9090.
+
+```bash
+frp (via SSH) (Ctrl+C to quit)
+
+User:
+ProxyName: test-tcp
+Type: tcp
+RemoteAddress: :9090
+
+```
+
+This is equivalent to:
+
+```bash
+frpc tcp --proxy_name "test-tcp" --local_ip 127.0.0.1 --local_port 8080 --remote_port 9090
+```
+
+Find more arguments in [document](/doc/ssh_tunnel_gateway.md).
 
 ## Contributing
 
