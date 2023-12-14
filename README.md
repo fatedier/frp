@@ -46,7 +46,7 @@ frp also offers a P2P connect mode.
     * [Using Environment Variables](#using-environment-variables)
     * [Split Configures Into Different Files](#split-configures-into-different-files)
     * [Server Dashboard](#server-dashboard)
-    * [Admin UI](#admin-ui)
+    * [Client Admin UI](#client-admin-ui)
     * [Monitor](#monitor)
         * [Prometheus](#prometheus)
     * [Authenticating the Client](#authenticating-the-client)
@@ -75,7 +75,7 @@ frp also offers a P2P connect mode.
     * [Custom Subdomain Names](#custom-subdomain-names)
     * [URL Routing](#url-routing)
     * [TCP Port Multiplexing](#tcp-port-multiplexing)
-    * [Connecting to frps via HTTP PROXY](#connecting-to-frps-via-http-proxy)
+    * [Connecting to frps via PROXY](#connecting-to-frps-via-proxy)
     * [Client Plugins](#client-plugins)
     * [Server Manage Plugins](#server-manage-plugins)
     * [SSH Tunnel Gateway](#ssh-tunnel-gateway)
@@ -510,6 +510,7 @@ includes = ["./confd/*.toml"]
 
 ```toml
 # ./confd/test.toml
+
 [[proxies]]
 name = "ssh"
 type = "tcp"
@@ -621,6 +622,7 @@ The features are off by default. You can turn on encryption and/or compression:
 
 ```toml
 # frpc.toml
+
 [[proxies]]
 name = "ssh"
 type = "tcp"
@@ -776,6 +778,7 @@ We would like to try to allow multiple proxies bind a same remote port with diff
 
 ```toml
 # frpc.toml
+
 [[proxies]]
 name = "ssh"
 type = "tcp"
@@ -881,6 +884,7 @@ This feature is only available for types `tcp`, `http`, `tcpmux` now.
 
 ```toml
 # frpc.toml
+
 [[proxies]]
 name = "test1"
 type = "tcp"
@@ -916,6 +920,7 @@ With health check type **tcp**, the service port will be pinged (TCPing):
 
 ```toml
 # frpc.toml
+
 [[proxies]]
 name = "test1"
 type = "tcp"
@@ -935,6 +940,7 @@ With health check type **http**, an HTTP request will be sent to the service and
 
 ```toml
 # frpc.toml
+
 [[proxies]]
 name = "web"
 type = "http"
@@ -959,6 +965,7 @@ However, speaking of web servers and HTTP requests, your web server might rely o
 
 ```toml
 # frpc.toml
+
 [[proxies]]
 name = "web"
 type = "http"
@@ -975,6 +982,7 @@ Similar to `Host`, You can override other HTTP request headers with proxy type `
 
 ```toml
 # frpc.toml
+
 [[proxies]]
 name = "web"
 type = "http"
@@ -1002,6 +1010,7 @@ Here is an example for https service:
 
 ```toml
 # frpc.toml
+
 [[proxies]]
 name = "web"
 type = "https"
@@ -1024,6 +1033,7 @@ It can only be enabled when proxy type is http.
 
 ```toml
 # frpc.toml
+
 [[proxies]]
 name = "web"
 type = "http"
@@ -1048,6 +1058,7 @@ Resolve `*.frps.com` to the frps server's IP. This is usually called a Wildcard 
 
 ```toml
 # frpc.toml
+
 [[proxies]]
 name = "web"
 type = "http"
@@ -1067,6 +1078,7 @@ frp supports forwarding HTTP requests to different backend web services by url r
 
 ```toml
 # frpc.toml
+
 [[proxies]]
 name = "web01"
 type = "http"
@@ -1152,6 +1164,7 @@ Using plugin **http_proxy**:
 
 ```toml
 # frpc.toml
+
 [[proxies]]
 name = "http_proxy"
 type = "tcp"
@@ -1171,6 +1184,7 @@ Read the [document](/doc/server_plugin.md).
 Find more plugins in [gofrp/plugin](https://github.com/gofrp/plugin).
 
 ### SSH Tunnel Gateway
+
 *added in v0.53.0*
 
 frp supports listening to an SSH port on the frps side and achieves TCP protocol proxying through the SSH -R protocol, without relying on frpc.
@@ -1180,7 +1194,7 @@ frp supports listening to an SSH port on the frps side and achieves TCP protocol
 sshTunnelGateway.bindPort = 2200
 ```
 
-When running ./frps -c frps.toml, a private key file named .autogen_ssh_key will be automatically created in the current working directory. This generated private key file will be used by the SSH server in frps.
+When running `./frps -c frps.toml`, a private key file named `.autogen_ssh_key` will be automatically created in the current working directory. This generated private key file will be used by the SSH server in frps.
 
 Executing the command
 
@@ -1197,7 +1211,6 @@ User:
 ProxyName: test-tcp
 Type: tcp
 RemoteAddress: :9090
-
 ```
 
 This is equivalent to:
@@ -1206,7 +1219,7 @@ This is equivalent to:
 frpc tcp --proxy_name "test-tcp" --local_ip 127.0.0.1 --local_port 8080 --remote_port 9090
 ```
 
-Find more arguments in [document](/doc/ssh_tunnel_gateway.md).
+Please refer to this [document](/doc/ssh_tunnel_gateway.md) for more information.
 
 ## Contributing
 
