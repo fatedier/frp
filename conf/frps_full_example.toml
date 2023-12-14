@@ -143,6 +143,14 @@ udpPacketSize = 1500
 # Retention time for NAT hole punching strategy data.
 natholeAnalysisDataReserveHours = 168
 
+# ssh tunnel gateway
+# If you want to enable this feature, the bindPort parameter is required, while others are optional.
+# By default, this feature is disabled. It will be enabled if bindPort is greater than 0.
+# sshTunnelGateway.bindPort = 2200
+# sshTunnelGateway.privateKeyFile = "/home/frp-user/.ssh/id_rsa"
+# sshTunnelGateway.autoGenPrivateKeyPath = ""
+# sshTunnelGateway.authorizedKeysFile = "/home/frp-user/.ssh/authorized_keys"
+
 [[httpPlugins]]
 name = "user-manager"
 addr = "127.0.0.1:9000"
