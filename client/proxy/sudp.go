@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !frps
+
 package proxy
 
 import (
@@ -29,7 +31,7 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/udp"
 	"github.com/fatedier/frp/pkg/util/limit"
-	utilnet "github.com/fatedier/frp/pkg/util/net"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
 func init() {
@@ -99,7 +101,7 @@ func (pxy *SUDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 	if pxy.cfg.Transport.UseCompression {
 		rwc = libio.WithCompression(rwc)
 	}
-	conn = utilnet.WrapReadWriteCloserToConn(rwc, conn)
+	conn = netpkg.WrapReadWriteCloserToConn(rwc, conn)
 
 	workConn := conn
 	readCh := make(chan *msg.UDPPacket, 1024)

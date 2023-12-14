@@ -29,7 +29,9 @@ type MessageTransporter interface {
 	// Recv(ctx context.Context, laneKey string, msgType string) (Message, error)
 	// Do will first send msg, then recv msg with the same laneKey and specified msgType.
 	Do(ctx context.Context, req msg.Message, laneKey, recvMsgType string) (msg.Message, error)
+	// Dispatch will dispatch message to related channel registered in Do function by its message type and laneKey.
 	Dispatch(m msg.Message, laneKey string) bool
+	// Same with Dispatch but with specified message type.
 	DispatchWithType(m msg.Message, msgType, laneKey string) bool
 }
 
@@ -44,7 +46,7 @@ type transporterImpl struct {
 	sendCh chan msg.Message
 
 	// First key is message type and second key is lane key.
-	// Dispatch will dispatch message to releated channel by its message type
+	// Dispatch will dispatch message to related channel by its message type
 	// and lane key.
 	registry map[string]map[string]chan msg.Message
 	mu       sync.RWMutex

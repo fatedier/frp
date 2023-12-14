@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !frps
+
 package plugin
 
 import (
@@ -22,7 +24,7 @@ import (
 	gosocks5 "github.com/armon/go-socks5"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
-	utilnet "github.com/fatedier/frp/pkg/util/net"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
 func init() {
@@ -50,7 +52,7 @@ func NewSocks5Plugin(options v1.ClientPluginOptions) (p Plugin, err error) {
 
 func (sp *Socks5Plugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
 	defer conn.Close()
-	wrapConn := utilnet.WrapReadWriteCloserToConn(conn, realConn)
+	wrapConn := netpkg.WrapReadWriteCloserToConn(conn, realConn)
 	_ = sp.Server.ServeConn(wrapConn)
 }
 

@@ -111,7 +111,7 @@ type ClientTransportConfig struct {
 	// the server must have TCP multiplexing enabled as well. By default, this
 	// value is true.
 	TCPMux *bool `json:"tcpMux,omitempty"`
-	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multipler.
+	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multiplier.
 	// If TCPMux is true, heartbeat of application layer is unnecessary because it can only rely on heartbeat in TCPMux.
 	TCPMuxKeepaliveInterval int64 `json:"tcpMuxKeepaliveInterval,omitempty"`
 	// QUIC protocol options.

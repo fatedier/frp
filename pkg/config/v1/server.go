@@ -67,6 +67,8 @@ type ServerConfig struct {
 	// value is "", a default page will be displayed.
 	Custom404Page string `json:"custom404Page,omitempty"`
 
+	SSHTunnelGateway SSHTunnelGateway `json:"sshTunnelGateway,omitempty"`
+
 	WebServer WebServerConfig `json:"webServer,omitempty"`
 	// EnablePrometheus will export prometheus metrics on webserver address
 	// in /metrics api.
@@ -101,6 +103,7 @@ func (c *ServerConfig) Complete() {
 	c.Log.Complete()
 	c.Transport.Complete()
 	c.WebServer.Complete()
+	c.SSHTunnelGateway.Complete()
 
 	c.BindAddr = util.EmptyOr(c.BindAddr, "0.0.0.0")
 	c.BindPort = util.EmptyOr(c.BindPort, 7000)
@@ -152,7 +155,7 @@ type ServerTransportConfig struct {
 	// is true.
 	// $HideFromDoc
 	TCPMux *bool `json:"tcpMux,omitempty"`
-	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multipler.
+	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multiplier.
 	// If TCPMux is true, heartbeat of application layer is unnecessary because it can only rely on heartbeat in TCPMux.
 	TCPMuxKeepaliveInterval int64 `json:"tcpMuxKeepaliveInterval,omitempty"`
 	// TCPKeepAlive specifies the interval between keep-alive probes for an active network connection between frpc and frps.
@@ -188,4 +191,15 @@ type TLSServerConfig struct {
 	Force bool `json:"force,omitempty"`
 
 	TLSConfig
+}
+
+type SSHTunnelGateway struct {
+	BindPort              int    `json:"bindPort,omitempty"`
+	PrivateKeyFile        string `json:"privateKeyFile,omitempty"`
+	AutoGenPrivateKeyPath string `json:"autoGenPrivateKeyPath,omitempty"`
+	AuthorizedKeysFile    string `json:"authorizedKeysFile,omitempty"`
+}
+
+func (c *SSHTunnelGateway) Complete() {
+	c.AutoGenPrivateKeyPath = util.EmptyOr(c.AutoGenPrivateKeyPath, "./.autogen_ssh_key")
 }

@@ -23,7 +23,7 @@ import (
 
 func ParseClientConfig(filePath string) (
 	cfg ClientCommonConf,
-	pxyCfgs map[string]ProxyConf,
+	proxyCfgs map[string]ProxyConf,
 	visitorCfgs map[string]VisitorConf,
 	err error,
 ) {
@@ -56,7 +56,7 @@ func ParseClientConfig(filePath string) (
 	configBuffer.Write(buf)
 
 	// Parse all proxy and visitor configs.
-	pxyCfgs, visitorCfgs, err = LoadAllProxyConfsFromIni(cfg.User, configBuffer.Bytes(), cfg.Start)
+	proxyCfgs, visitorCfgs, err = LoadAllProxyConfsFromIni(cfg.User, configBuffer.Bytes(), cfg.Start)
 	if err != nil {
 		return
 	}

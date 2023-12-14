@@ -23,12 +23,12 @@ import (
 	libio "github.com/fatedier/golib/io"
 	"github.com/samber/lo"
 
-	utilnet "github.com/fatedier/frp/pkg/util/net"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
 type listenerBundle struct {
-	l          *utilnet.InternalListener
+	l          *netpkg.InternalListener
 	sk         string
 	allowUsers []string
 }
@@ -46,22 +46,21 @@ func NewManager() *Manager {
 	}
 }
 
-func (vm *Manager) Listen(name string, sk string, allowUsers []string) (l *utilnet.InternalListener, err error) {
+func (vm *Manager) Listen(name string, sk string, allowUsers []string) (*netpkg.InternalListener, error) {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
 	if _, ok := vm.listeners[name]; ok {
-		err = fmt.Errorf("custom listener for [%s] is repeated", name)
-		return
+		return nil, fmt.Errorf("custom listener for [%s] is repeated", name)
 	}
 
-	l = utilnet.NewInternalListener()
+	l := netpkg.NewInternalListener()
 	vm.listeners[name] = &listenerBundle{
 		l:          l,
 		sk:         sk,
 		allowUsers: allowUsers,
 	}
-	return
+	return l, nil
 }
 
 func (vm *Manager) NewConn(name string, conn net.Conn, timestamp int64, signKey string,
@@ -91,7 +90,7 @@ func (vm *Manager) NewConn(name string, conn net.Conn, timestamp int64, signKey 
 		if useCompression {
 			rwc = libio.WithCompression(rwc)
 		}
-		err = l.l.PutConn(utilnet.WrapReadWriteCloserToConn(rwc, conn))
+		err = l.l.PutConn(netpkg.WrapReadWriteCloserToConn(rwc, conn))
 	} else {
 		err = fmt.Errorf("custom listener for [%s] doesn't exist", name)
 		return

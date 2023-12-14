@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"os"
 
-	frpLog "github.com/fatedier/frp/pkg/util/log"
+	logpkg "github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/version"
 )
 
@@ -58,7 +58,7 @@ func getNotFoundPageContent() []byte {
 	if NotFoundPagePath != "" {
 		buf, err = os.ReadFile(NotFoundPagePath)
 		if err != nil {
-			frpLog.Warn("read custom 404 page error: %v", err)
+			logpkg.Warn("read custom 404 page error: %v", err)
 			buf = []byte(NotFound)
 		}
 	} else {

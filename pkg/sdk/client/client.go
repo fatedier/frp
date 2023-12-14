@@ -6,11 +6,12 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/fatedier/frp/client"
-	"github.com/fatedier/frp/pkg/util/util"
+	httppkg "github.com/fatedier/frp/pkg/util/http"
 )
 
 type Client struct {
@@ -69,8 +70,16 @@ func (c *Client) GetAllProxyStatus() (client.StatusResp, error) {
 	return allStatus, nil
 }
 
-func (c *Client) Reload() error {
-	req, err := http.NewRequest("GET", "http://"+c.address+"/api/reload", nil)
+func (c *Client) Reload(strictMode bool) error {
+	v := url.Values{}
+	if strictMode {
+		v.Set("strictConfig", "true")
+	}
+	queryStr := ""
+	if len(v) > 0 {
+		queryStr = "?" + v.Encode()
+	}
+	req, err := http.NewRequest("GET", "http://"+c.address+"/api/reload"+queryStr, nil)
 	if err != nil {
 		return err
 	}
@@ -106,7 +115,7 @@ func (c *Client) UpdateConfig(content string) error {
 
 func (c *Client) setAuthHeader(req *http.Request) {
 	if c.authUser != "" || c.authPwd != "" {
-		req.Header.Set("Authorization", util.BasicAuth(c.authUser, c.authPwd))
+		req.Header.Set("Authorization", httppkg.BasicAuth(c.authUser, c.authPwd))
 	}
 }
 

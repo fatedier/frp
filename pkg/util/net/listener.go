@@ -52,7 +52,10 @@ func (l *InternalListener) PutConn(conn net.Conn) error {
 			conn.Close()
 		}
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("put conn error: listener is closed")
+	}
+	return nil
 }
 
 func (l *InternalListener) Close() error {

@@ -63,6 +63,15 @@ var msgTypeMap = map[byte]interface{}{
 
 var TypeNameNatHoleResp = reflect.TypeOf(&NatHoleResp{}).Elem().Name()
 
+type ClientSpec struct {
+	// Due to the support of VirtualClient, frps needs to know the client type in order to
+	// differentiate the processing logic.
+	// Optional values: ssh-tunnel
+	Type string `json:"type,omitempty"`
+	// If the value is true, the client will not require authentication.
+	AlwaysAuthPass bool `json:"always_auth_pass,omitempty"`
+}
+
 // When frpc start, client send this message to login to server.
 type Login struct {
 	Version      string            `json:"version,omitempty"`
@@ -74,6 +83,9 @@ type Login struct {
 	Timestamp    int64             `json:"timestamp,omitempty"`
 	RunID        string            `json:"run_id,omitempty"`
 	Metas        map[string]string `json:"metas,omitempty"`
+
+	// Currently only effective for VirtualClient.
+	ClientSpec ClientSpec `json:"client_spec,omitempty"`
 
 	// Some global configures.
 	PoolCount int `json:"pool_count,omitempty"`

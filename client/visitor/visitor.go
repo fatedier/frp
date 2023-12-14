@@ -21,11 +21,11 @@ import (
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/transport"
-	utilnet "github.com/fatedier/frp/pkg/util/net"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
-// Helper wrapps some functions for visitor to use.
+// Helper wraps some functions for visitor to use.
 type Helper interface {
 	// ConnectServer directly connects to the frp server.
 	ConnectServer() (net.Conn, error)
@@ -56,7 +56,7 @@ func NewVisitor(
 		clientCfg:  clientCfg,
 		helper:     helper,
 		ctx:        xlog.NewContext(ctx, xl),
-		internalLn: utilnet.NewInternalListener(),
+		internalLn: netpkg.NewInternalListener(),
 	}
 	switch cfg := cfg.(type) {
 	case *v1.STCPVisitorConfig:
@@ -84,7 +84,7 @@ type BaseVisitor struct {
 	clientCfg  *v1.ClientCommonConfig
 	helper     Helper
 	l          net.Listener
-	internalLn *utilnet.InternalListener
+	internalLn *netpkg.InternalListener
 
 	mu  sync.RWMutex
 	ctx context.Context

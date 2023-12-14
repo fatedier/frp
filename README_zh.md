@@ -13,6 +13,10 @@ frp 是一个专注于内网穿透的高性能的反向代理应用，支持 TCP
   <a href="https://workos.com/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
     <img width="350px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_workos.png">
   </a>
+  <a>&nbsp</a>
+  <a href="https://www.nango.dev?utm_source=github&utm_medium=oss-banner&utm_campaign=fatedier-frp" target="_blank">
+    <img width="400px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_nango.png">
+  </a>
 </p>
 <!--gold sponsors end-->
 
@@ -84,7 +88,7 @@ frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进�
 
 ### 知识星球
 
-如果您想了解更多 frp 相关技术以及更新详解，或者寻求任何帮助及咨询，都可以通过微信扫描下方的二维码付费加入知识星球的官方社群：
+如果您想了解更多 frp 相关技术以及更新详解，或者寻求任何 frp 使用方面的帮助，都可以通过微信扫描下方的二维码付费加入知识星球的官方社群：
 
 ![zsxq](/doc/pic/zsxq.jpg)
 

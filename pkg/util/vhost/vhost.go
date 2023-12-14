@@ -22,7 +22,7 @@ import (
 	"github.com/fatedier/golib/errors"
 
 	"github.com/fatedier/frp/pkg/util/log"
-	utilnet "github.com/fatedier/frp/pkg/util/net"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
@@ -284,7 +284,7 @@ func (l *Listener) Accept() (net.Conn, error) {
 		xl.Debug("rewrite host to [%s] success", l.rewriteHost)
 		conn = sConn
 	}
-	return utilnet.NewContextConn(l.ctx, conn), nil
+	return netpkg.NewContextConn(l.ctx, conn), nil
 }
 
 func (l *Listener) Close() error {

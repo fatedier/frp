@@ -80,7 +80,7 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 	return warnings, errs
 }
 
-func ValidateAllClientConfig(c *v1.ClientCommonConfig, pxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) (Warning, error) {
+func ValidateAllClientConfig(c *v1.ClientCommonConfig, proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) (Warning, error) {
 	var warnings Warning
 	if c != nil {
 		warning, err := ValidateClientCommonConfig(c)
@@ -90,7 +90,7 @@ func ValidateAllClientConfig(c *v1.ClientCommonConfig, pxyCfgs []v1.ProxyConfigu
 		}
 	}
 
-	for _, c := range pxyCfgs {
+	for _, c := range proxyCfgs {
 		if err := ValidateProxyConfigurerForClient(c); err != nil {
 			return warnings, fmt.Errorf("proxy %s: %v", c.GetBaseConfig().Name, err)
 		}

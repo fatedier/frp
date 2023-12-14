@@ -15,6 +15,7 @@
 package v1
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -177,7 +178,11 @@ func (c *TypedProxyConfig) UnmarshalJSON(b []byte) error {
 	if configurer == nil {
 		return fmt.Errorf("unknown proxy type: %s", typeStruct.Type)
 	}
-	if err := json.Unmarshal(b, configurer); err != nil {
+	decoder := json.NewDecoder(bytes.NewBuffer(b))
+	if DisallowUnknownFields {
+		decoder.DisallowUnknownFields()
+	}
+	if err := decoder.Decode(configurer); err != nil {
 		return err
 	}
 	c.ProxyConfigurer = configurer
@@ -224,7 +229,9 @@ func NewProxyConfigurerByType(proxyType ProxyType) ProxyConfigurer {
 	if !ok {
 		return nil
 	}
-	return reflect.New(v).Interface().(ProxyConfigurer)
+	pc := reflect.New(v).Interface().(ProxyConfigurer)
+	pc.GetBaseConfig().Type = string(proxyType)
+	return pc
 }
 
 var _ ProxyConfigurer = &TCPProxyConfig{}
