@@ -11,7 +11,7 @@ const props = defineProps<{
 }>()
 
 const fetchData = () => {
-  let url = '../api/traffic/' + props.proxyName
+  let url = '../api/traffic/' + encodeURIComponent(props.proxyName)
   fetch(url, { credentials: 'include' })
     .then((res) => {
       return res.json()

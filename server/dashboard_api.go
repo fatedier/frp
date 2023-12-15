@@ -17,6 +17,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -282,7 +283,7 @@ func (svr *Service) apiProxyByTypeAndName(w http.ResponseWriter, r *http.Request
 	res := GeneralResponse{Code: 200}
 	params := mux.Vars(r)
 	proxyType := params["type"]
-	name := params["name"]
+	name, _ := url.QueryUnescape(params["name"])
 
 	defer func() {
 		log.Info("Http response [%s]: code [%d]", r.URL.Path, res.Code)
@@ -350,7 +351,7 @@ type GetProxyTrafficResp struct {
 func (svr *Service) apiProxyTraffic(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 	params := mux.Vars(r)
-	name := params["name"]
+	name, _ := url.QueryUnescape(params["name"])
 
 	defer func() {
 		log.Info("Http response [%s]: code [%d]", r.URL.Path, res.Code)
