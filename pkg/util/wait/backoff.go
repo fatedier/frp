@@ -158,7 +158,7 @@ func BackoffUntil(f func() error, backoff BackoffManager, sliding bool, stopCh <
 }
 
 func BackoffUntilNil(f func() error, backoff BackoffManager, sliding bool, stopCh <-chan struct{}) {
-	//first try
+	// first try
 	delay := backoff.Backoff(0, false)
 	ticker := time.NewTicker(delay)
 	defer ticker.Stop()
