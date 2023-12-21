@@ -16,6 +16,7 @@ package wait
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/samber/lo"
@@ -182,13 +183,15 @@ func Until(f func(), period time.Duration, stopCh <-chan struct{}) {
 
 func MergeAndCloseOnAnyStopChannel[T any](upstreams ...<-chan T) <-chan T {
 	out := make(chan T)
-
+	closeOnce := sync.Once{}
 	for _, upstream := range upstreams {
 		ch := upstream
 		go lo.Try0(func() {
 			select {
 			case <-ch:
-				close(out)
+				closeOnce.Do(func() {
+					close(out)
+				})
 			case <-out:
 			}
 		})
