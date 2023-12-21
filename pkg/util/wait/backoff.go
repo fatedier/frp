@@ -113,7 +113,7 @@ func (f *fastBackoffImpl) Backoff(previousDuration time.Duration, previousCondit
 	return f.options.Duration
 }
 
-func BackoffUntil(f func() error, backoff BackoffManager, sliding bool, stopCh <-chan struct{}) {
+func BackoffUntil(f func() (bool, error), backoff BackoffManager, sliding bool, stopCh <-chan struct{}) {
 	var delay time.Duration
 	previousError := false
 
@@ -131,7 +131,9 @@ func BackoffUntil(f func() error, backoff BackoffManager, sliding bool, stopCh <
 			delay = backoff.Backoff(delay, previousError)
 		}
 
-		if err := f(); err != nil {
+		if done, err := f(); done {
+			return
+		} else if err != nil {
 			previousError = true
 		} else {
 			previousError = false
@@ -170,9 +172,9 @@ func Jitter(duration time.Duration, maxFactor float64) time.Duration {
 }
 
 func Until(f func(), period time.Duration, stopCh <-chan struct{}) {
-	ff := func() error {
+	ff := func() (bool, error) {
 		f()
-		return nil
+		return false, nil
 	}
 	BackoffUntil(ff, BackoffFunc(func(time.Duration, bool) time.Duration {
 		return period
