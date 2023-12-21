@@ -19,8 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/samber/lo"
-
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
@@ -186,7 +184,7 @@ func MergeAndCloseOnAnyStopChannel[T any](upstreams ...<-chan T) <-chan T {
 	closeOnce := sync.Once{}
 	for _, upstream := range upstreams {
 		ch := upstream
-		go lo.Try0(func() {
+		go func() {
 			select {
 			case <-ch:
 				closeOnce.Do(func() {
@@ -194,7 +192,7 @@ func MergeAndCloseOnAnyStopChannel[T any](upstreams ...<-chan T) <-chan T {
 				})
 			case <-out:
 			}
-		})
+		}()
 	}
 	return out
 }
