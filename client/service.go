@@ -332,7 +332,7 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 	// try to reconnect to server until success
 	wait.BackoffUntil(loginFunc, wait.NewFastBackoffManager(
 		wait.FastBackoffOptions{
-			Duration:    time.Millisecond,
+			Duration:    time.Second,
 			Factor:      2,
 			Jitter:      0.1,
 			MaxDuration: maxInterval,
