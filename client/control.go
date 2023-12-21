@@ -239,15 +239,15 @@ func (ctl *Control) heartbeatWorker() {
 	// Users can still enable heartbeat feature by setting HeartbeatInterval to a positive value.
 	if ctl.sessionCtx.Common.Transport.HeartbeatInterval > 0 {
 		// send heartbeat to server
-		sendHeartBeat := func() error {
+		sendHeartBeat := func() (bool, error) {
 			xl.Debug("send heartbeat to server")
 			pingMsg := &msg.Ping{}
 			if err := ctl.sessionCtx.AuthSetter.SetPing(pingMsg); err != nil {
 				xl.Warn("error during ping authentication: %v, skip sending ping message", err)
-				return err
+				return false, err
 			}
 			_ = ctl.msgDispatcher.Send(pingMsg)
-			return nil
+			return false, nil
 		}
 
 		go wait.BackoffUntil(sendHeartBeat,

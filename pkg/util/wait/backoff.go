@@ -16,9 +16,8 @@ package wait
 
 import (
 	"math/rand"
+	"sync"
 	"time"
-
-	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/util/util"
 )
@@ -114,7 +113,7 @@ func (f *fastBackoffImpl) Backoff(previousDuration time.Duration, previousCondit
 	return f.options.Duration
 }
 
-func BackoffUntil(f func() error, backoff BackoffManager, sliding bool, stopCh <-chan struct{}) {
+func BackoffUntil(f func() (bool, error), backoff BackoffManager, sliding bool, stopCh <-chan struct{}) {
 	var delay time.Duration
 	previousError := false
 
@@ -132,7 +131,9 @@ func BackoffUntil(f func() error, backoff BackoffManager, sliding bool, stopCh <
 			delay = backoff.Backoff(delay, previousError)
 		}
 
-		if err := f(); err != nil {
+		if done, err := f(); done {
+			return
+		} else if err != nil {
 			previousError = true
 		} else {
 			previousError = false
@@ -143,12 +144,6 @@ func BackoffUntil(f func() error, backoff BackoffManager, sliding bool, stopCh <
 		}
 
 		ticker.Reset(delay)
-		select {
-		case <-stopCh:
-			return
-		default:
-		}
-
 		select {
 		case <-stopCh:
 			return
@@ -171,9 +166,9 @@ func Jitter(duration time.Duration, maxFactor float64) time.Duration {
 }
 
 func Until(f func(), period time.Duration, stopCh <-chan struct{}) {
-	ff := func() error {
+	ff := func() (bool, error) {
 		f()
-		return nil
+		return false, nil
 	}
 	BackoffUntil(ff, BackoffFunc(func(time.Duration, bool) time.Duration {
 		return period
@@ -182,16 +177,18 @@ func Until(f func(), period time.Duration, stopCh <-chan struct{}) {
 
 func MergeAndCloseOnAnyStopChannel[T any](upstreams ...<-chan T) <-chan T {
 	out := make(chan T)
-
+	closeOnce := sync.Once{}
 	for _, upstream := range upstreams {
 		ch := upstream
-		go lo.Try0(func() {
+		go func() {
 			select {
 			case <-ch:
-				close(out)
+				closeOnce.Do(func() {
+					close(out)
+				})
 			case <-out:
 			}
-		})
+		}()
 	}
 	return out
 }
