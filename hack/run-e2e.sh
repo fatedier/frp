@@ -26,7 +26,7 @@ frpsPath=${ROOT}/bin/frps
 if [ "${FRPS_PATH}" ]; then
     frpsPath="${FRPS_PATH}"
 fi
-concurrency="12"
+concurrency="16"
 if [ "${CONCURRENCY}" ]; then
     concurrency="${CONCURRENCY}"
 fi

@@ -79,6 +79,7 @@ func (pa *Allocator) GetByName(portName string) int {
 		udpConn.Close()
 
 		pa.used.Insert(port)
+		pa.reserved.Delete(port)
 		return port
 	}
 	return 0

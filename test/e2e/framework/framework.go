@@ -67,7 +67,7 @@ func NewDefaultFramework() *Framework {
 		TotalParallelNode: suiteConfig.ParallelTotal,
 		CurrentNodeIndex:  suiteConfig.ParallelProcess,
 		FromPortIndex:     10000,
-		ToPortIndex:       60000,
+		ToPortIndex:       30000,
 	}
 	return NewFramework(options)
 }
