@@ -326,14 +326,13 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		}
 		svr.ctl = ctl
 		svr.ctlMu.Unlock()
-
 		return true, nil
 	}
 
 	// try to reconnect to server until success
 	wait.BackoffUntil(loginFunc, wait.NewFastBackoffManager(
 		wait.FastBackoffOptions{
-			Duration:    time.Second,
+			Duration:    time.Millisecond,
 			Factor:      2,
 			Jitter:      0.1,
 			MaxDuration: maxInterval,

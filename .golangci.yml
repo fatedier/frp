@@ -132,6 +132,9 @@ issues:
   - linters:
     - revive
     text: "unused-parameter"
+  - linters:
+    - unparam
+    text: "is always false"
 
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all

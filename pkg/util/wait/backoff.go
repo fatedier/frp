@@ -147,12 +147,6 @@ func BackoffUntil(f func() (bool, error), backoff BackoffManager, sliding bool, 
 		select {
 		case <-stopCh:
 			return
-		default:
-		}
-
-		select {
-		case <-stopCh:
-			return
 		case <-ticker.C:
 		}
 	}
