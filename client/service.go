@@ -282,7 +282,6 @@ func (svr *Service) login() (conn net.Conn, connector Connector, err error) {
 
 func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginExit bool) {
 	xl := xlog.FromContextSafe(svr.ctx)
-	successCh := make(chan struct{})
 
 	loginFunc := func() error {
 		xl.Info("try to connect to server...")
@@ -327,13 +326,11 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		}
 		svr.ctl = ctl
 		svr.ctlMu.Unlock()
-
-		close(successCh)
 		return nil
 	}
 
 	// try to reconnect to server until success
-	wait.BackoffUntil(loginFunc, wait.NewFastBackoffManager(
+	wait.BackoffUntilNil(loginFunc, wait.NewFastBackoffManager(
 		wait.FastBackoffOptions{
 			Duration:    time.Second,
 			Factor:      2,
@@ -341,7 +338,7 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 			MaxDuration: maxInterval,
 		}),
 		true,
-		wait.MergeAndCloseOnAnyStopChannel(svr.ctx.Done(), successCh))
+		wait.MergeAndCloseOnAnyStopChannel(svr.ctx.Done()))
 }
 
 func (svr *Service) UpdateAllConfigurer(proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error {

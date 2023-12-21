@@ -157,6 +157,28 @@ func BackoffUntil(f func() error, backoff BackoffManager, sliding bool, stopCh <
 	}
 }
 
+func BackoffUntilNil(f func() error, backoff BackoffManager, sliding bool, stopCh <-chan struct{}) {
+	//first try
+	delay := backoff.Backoff(0, false)
+	ticker := time.NewTicker(delay)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-stopCh:
+			return
+		case <-ticker.C:
+		}
+		if err := f(); err == nil {
+			return
+		}
+		if sliding {
+			delay = backoff.Backoff(delay, true)
+		}
+		ticker.Reset(delay)
+	}
+}
+
 // Jitter returns a time.Duration between duration and duration + maxFactor *
 // duration.
 //
