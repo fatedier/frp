@@ -192,16 +192,16 @@ func (svr *Service) keepControllerWorking() {
 	// the control immediately exits. It is necessary to limit the frequency of reconnection in this case.
 	// The interval for the first three retries in 1 minute will be very short, and then it will increase exponentially.
 	// The maximum interval is 20 seconds.
-	wait.BackoffUntil(func() error {
+	wait.BackoffUntil(func() (bool, error) {
 		// loopLoginUntilSuccess is another layer of loop that will continuously attempt to
 		// login to the server until successful.
 		svr.loopLoginUntilSuccess(20*time.Second, false)
 		if svr.ctl != nil {
 			<-svr.ctl.Done()
-			return errors.New("control is closed and try another loop")
+			return false, errors.New("control is closed and try another loop")
 		}
 		// If the control is nil, it means that the login failed and the service is also closed.
-		return nil
+		return false, nil
 	}, wait.NewFastBackoffManager(
 		wait.FastBackoffOptions{
 			Duration:        time.Second,
@@ -282,9 +282,8 @@ func (svr *Service) login() (conn net.Conn, connector Connector, err error) {
 
 func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginExit bool) {
 	xl := xlog.FromContextSafe(svr.ctx)
-	successCh := make(chan struct{})
 
-	loginFunc := func() error {
+	loginFunc := func() (bool, error) {
 		xl.Info("try to connect to server...")
 		conn, connector, err := svr.login()
 		if err != nil {
@@ -292,7 +291,7 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 			if firstLoginExit {
 				svr.cancel(cancelErr{Err: err})
 			}
-			return err
+			return false, err
 		}
 
 		svr.cfgMu.RLock()
@@ -315,7 +314,7 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		if err != nil {
 			conn.Close()
 			xl.Error("NewControl error: %v", err)
-			return err
+			return false, err
 		}
 		ctl.SetInWorkConnCallback(svr.handleWorkConnCb)
 
@@ -328,8 +327,7 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		svr.ctl = ctl
 		svr.ctlMu.Unlock()
 
-		close(successCh)
-		return nil
+		return true, nil
 	}
 
 	// try to reconnect to server until success
@@ -339,9 +337,7 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 			Factor:      2,
 			Jitter:      0.1,
 			MaxDuration: maxInterval,
-		}),
-		true,
-		wait.MergeAndCloseOnAnyStopChannel(svr.ctx.Done(), successCh))
+		}), true, svr.ctx.Done())
 }
 
 func (svr *Service) UpdateAllConfigurer(proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error {
