@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/yaml"
 )
 
 func TestUnmarshalTypedProxyConfig(t *testing.T) {
@@ -46,4 +47,59 @@ func TestUnmarshalTypedProxyConfig(t *testing.T) {
 
 	require.IsType(&TCPProxyConfig{}, proxyConfigs.Proxies[0].ProxyConfigurer)
 	require.IsType(&HTTPProxyConfig{}, proxyConfigs.Proxies[1].ProxyConfigurer)
+}
+
+func TestMarshalTypedProxyConfig(t *testing.T) {
+	require := require.New(t)
+
+	clientConfig := ClientConfig{
+		ClientCommonConfig: ClientCommonConfig{
+			Auth: AuthClientConfig{
+				Method: AuthMethodToken,
+				Token:  "update-me",
+			},
+			ServerAddr: "frp.example.org",
+			ServerPort: 8080,
+			Log: LogConfig{
+				Level: "info",
+			},
+		},
+		Proxies: []TypedProxyConfig{
+			{
+				Type: string(ProxyTypeTCP),
+				ProxyConfigurer: &TCPProxyConfig{
+					ProxyBaseConfig: ProxyBaseConfig{
+						Name: "proxy1",
+						Type: string(ProxyTypeTCP),
+						ProxyBackend: ProxyBackend{
+							LocalIP:   "192.168.0.101",
+							LocalPort: 8889,
+						},
+					},
+					RemotePort: 30001,
+				},
+			},
+			{
+				Type: string(ProxyTypeTCP),
+				ProxyConfigurer: &TCPProxyConfig{
+					ProxyBaseConfig: ProxyBaseConfig{
+						Name: "proxy2",
+						Type: string(ProxyTypeTCP),
+						ProxyBackend: ProxyBackend{
+							LocalIP:   "192.168.0.102",
+							LocalPort: 8889,
+						},
+					},
+					RemotePort: 30002,
+				},
+			},
+		},
+	}
+
+	yamlConfig, err := yaml.Marshal(&clientConfig)
+	require.NoError(err)
+	clientConfigUnmarshalled := ClientConfig{}
+	err = yaml.Unmarshal(yamlConfig, &clientConfigUnmarshalled)
+	require.NoError(err)
+	require.Equal(clientConfig, clientConfigUnmarshalled)
 }
