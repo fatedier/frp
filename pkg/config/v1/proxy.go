@@ -195,7 +195,7 @@ type ProxyConfigurer interface {
 	// MarshalToMsg marshals this config into a msg.NewProxy message. This
 	// function will be called on the frpc side.
 	MarshalToMsg(*msg.NewProxy)
-	// UnmarshalFromMsg unmarshals a msg.NewProxy message into this config.
+	// UnmarshalFromMsg unmarshal a msg.NewProxy message into this config.
 	// This function will be called on the frps side.
 	UnmarshalFromMsg(*msg.NewProxy)
 }
