@@ -90,12 +90,12 @@ var _ = ginkgo.Describe("[Feature: Cmd]", func() {
 		ginkgo.It("HTTP", func() {
 			serverPort := f.AllocPort()
 			vhostHTTPPort := f.AllocPort()
-			_, _, err := f.RunFrps("-t", "123", "-p", strconv.Itoa(serverPort), "--vhost_http_port", strconv.Itoa(vhostHTTPPort))
+			_, _, err := f.RunFrps("-t", "123", "-p", strconv.Itoa(serverPort), "--vhost-http-port", strconv.Itoa(vhostHTTPPort))
 			framework.ExpectNoError(err)
 
 			_, _, err = f.RunFrpc("http", "-s", "127.0.0.1", "-P", strconv.Itoa(serverPort), "-t", "123", "-u", "test",
 				"-n", "udp_test", "-l", strconv.Itoa(f.PortByName(framework.HTTPSimpleServerPort)),
-				"--custom_domain", "test.example.com")
+				"--custom-domain", "test.example.com")
 			framework.ExpectNoError(err)
 
 			framework.NewRequestExpect(f).Port(vhostHTTPPort).

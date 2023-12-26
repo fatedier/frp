@@ -254,6 +254,8 @@ func (s *TunnelServer) parseClientAndProxyConfigurer(_ *tcpipForward, extraPaylo
 		Short: "ssh v0@{address} [command]",
 		Run:   func(*cobra.Command, []string) {},
 	}
+	cmd.SetGlobalNormalizationFunc(config.WordSepNormalizeFunc)
+
 	args := strings.Split(extraPayload, " ")
 	if len(args) < 1 {
 		return nil, nil, helpMessage, fmt.Errorf("invalid extra payload")
