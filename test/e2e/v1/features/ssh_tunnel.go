@@ -32,7 +32,7 @@ var _ = ginkgo.Describe("[Feature: SSH Tunnel]", func() {
 		tc := ssh.NewTunnelClient(
 			fmt.Sprintf("127.0.0.1:%d", localPort),
 			fmt.Sprintf("127.0.0.1:%d", sshPort),
-			fmt.Sprintf("tcp --remote_port %d", remotePort),
+			fmt.Sprintf("tcp --remote-port %d", remotePort),
 		)
 		framework.ExpectNoError(tc.Start())
 		defer tc.Close()
@@ -55,7 +55,7 @@ var _ = ginkgo.Describe("[Feature: SSH Tunnel]", func() {
 		tc := ssh.NewTunnelClient(
 			fmt.Sprintf("127.0.0.1:%d", localPort),
 			fmt.Sprintf("127.0.0.1:%d", sshPort),
-			"http --custom_domain test.example.com",
+			"http --custom-domain test.example.com",
 		)
 		framework.ExpectNoError(tc.Start())
 		defer tc.Close()
@@ -83,7 +83,7 @@ var _ = ginkgo.Describe("[Feature: SSH Tunnel]", func() {
 		tc := ssh.NewTunnelClient(
 			fmt.Sprintf("127.0.0.1:%d", localPort),
 			fmt.Sprintf("127.0.0.1:%d", sshPort),
-			fmt.Sprintf("https --custom_domain %s", testDomain),
+			fmt.Sprintf("https --custom-domain %s", testDomain),
 		)
 		framework.ExpectNoError(tc.Start())
 		defer tc.Close()
@@ -125,7 +125,7 @@ var _ = ginkgo.Describe("[Feature: SSH Tunnel]", func() {
 		tc := ssh.NewTunnelClient(
 			fmt.Sprintf("127.0.0.1:%d", localPort),
 			fmt.Sprintf("127.0.0.1:%d", sshPort),
-			fmt.Sprintf("tcpmux --mux=httpconnect --custom_domain %s", testDomain),
+			fmt.Sprintf("tcpmux --mux=httpconnect --custom-domain %s", testDomain),
 		)
 		framework.ExpectNoError(tc.Start())
 		defer tc.Close()
@@ -179,7 +179,7 @@ var _ = ginkgo.Describe("[Feature: SSH Tunnel]", func() {
 		tc := ssh.NewTunnelClient(
 			fmt.Sprintf("127.0.0.1:%d", localPort),
 			fmt.Sprintf("127.0.0.1:%d", sshPort),
-			"stcp -n stcp-test --sk=abcdefg --allow_users=\"*\"",
+			"stcp -n stcp-test --sk=abcdefg --allow-users=\"*\"",
 		)
 		framework.ExpectNoError(tc.Start())
 		defer tc.Close()
