@@ -644,8 +644,8 @@ To **enforce** `frps` to only accept TLS connections - configure `transport.tls.
 
 ```toml
 transport.tls.enable = true
-transport.tls.certFile = "certificate.crt"
-transport.tls.keyFile = "certificate.key"
+transport.tls.certFile = "client.crt"
+transport.tls.keyFile = "client.key"
 transport.tls.trustedCaFile = "ca.crt"
 ```
 
@@ -653,8 +653,8 @@ transport.tls.trustedCaFile = "ca.crt"
 
 ```toml
 transport.tls.force = true
-transport.tls.certFile = "certificate.crt"
-transport.tls.keyFile = "certificate.key"
+transport.tls.certFile = "server.crt"
+transport.tls.keyFile = "server.key"
 transport.tls.trustedCaFile = "ca.crt"
 ```
 
@@ -713,6 +713,11 @@ openssl x509 -req -days 365 -sha256 \
 	-in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
 	-extfile <(printf "subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:example.server.com") \
 	-out server.crt
+```
+**Note: The above IP must be changed to your server IP, otherwise an error message will be displayed:**
+
+```
+tls: failed to verify certificate: x509: certificate is valid for 127.0.0.1, not your_ IP
 ```
 
 * build frpc certificates：
