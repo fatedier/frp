@@ -20,7 +20,6 @@ jobs:
     steps:
     - uses: actions/stale@v9
       with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
         stale-issue-message: 'Issues go stale after 21d of inactivity. Stale issues rot after an additional 7d of inactivity and eventually close.'
         stale-pr-message: "PRs go stale after 21d of inactivity. Stale PRs rot after an additional 7d of inactivity and eventually close."
         stale-issue-label: 'lifecycle/stale'
