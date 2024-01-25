@@ -16,6 +16,7 @@ jobs:
     permissions:
       issues: write  # for actions/stale to close stale issues
       pull-requests: write  # for actions/stale to close stale PRs
+      actions: write
     runs-on: ubuntu-latest
     steps:
     - uses: actions/stale@v9
