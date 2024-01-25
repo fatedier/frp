@@ -32,3 +32,4 @@ jobs:
         debug-only: ${{ github.event.inputs.debug-only }}
         exempt-all-pr-milestones: true
         exempt-all-pr-assignees: true
+        operations-per-run: 200
