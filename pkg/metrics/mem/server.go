@@ -61,29 +61,33 @@ func (m *serverMetrics) run() {
 		for {
 			time.Sleep(12 * time.Hour)
 			start := time.Now()
-			count, total := m.clearUselessInfo()
+			count, total := m.clearUselessInfo(time.Duration(7*24) * time.Hour)
 			log.Debug("clear useless proxy statistics data count %d/%d, cost %v", count, total, time.Since(start))
 		}
 	}()
 }
 
-func (m *serverMetrics) clearUselessInfo() (int, int) {
+func (m *serverMetrics) clearUselessInfo(continuousOfflineDuration time.Duration) (int, int) {
 	count := 0
 	total := 0
-	// To check if there are proxies that closed than 7 days and drop them.
+	// To check if there are any proxies that have been closed for more than continuousOfflineDuration and remove them.
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	total = len(m.info.ProxyStatistics)
 	for name, data := range m.info.ProxyStatistics {
 		if !data.LastCloseTime.IsZero() &&
 			data.LastStartTime.Before(data.LastCloseTime) &&
-			time.Since(data.LastCloseTime) > time.Duration(7*24)*time.Hour {
+			time.Since(data.LastCloseTime) > continuousOfflineDuration {
 			delete(m.info.ProxyStatistics, name)
 			count++
 			log.Trace("clear proxy [%s]'s statistics data, lastCloseTime: [%s]", name, data.LastCloseTime.String())
 		}
 	}
 	return count, total
+}
+
+func (m *serverMetrics) ClearOfflineProxies() (int, int) {
+	return m.clearUselessInfo(0)
 }
 
 func (m *serverMetrics) NewClient() {

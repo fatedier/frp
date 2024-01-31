@@ -1,5 +1,28 @@
 <template>
   <div>
+    <el-page-header
+      :icon="null"
+      style="width: 100%; margin-left: 30px; margin-bottom: 20px"
+    >
+      <template #title>
+        <span>{{ proxyType }}</span>
+      </template>
+      <template #content> </template>
+      <template #extra>
+        <div class="flex items-center" style="margin-right: 30px">
+          <el-popconfirm
+            title="Are you sure to clear all data of offline proxies?"
+            @confirm="clearOfflineProxies"
+          >
+            <template #reference>
+              <el-button>ClearOfflineProxies</el-button>
+            </template>
+          </el-popconfirm>
+          <el-button @click="$emit('refresh')">Refresh</el-button>
+        </div>
+      </template>
+    </el-page-header>
+
     <el-table
       :data="proxies"
       :default-sort="{ prop: 'name', order: 'ascending' }"
@@ -67,12 +90,15 @@
 import * as Humanize from 'humanize-plus'
 import type { TableColumnCtx } from 'element-plus'
 import type { BaseProxy } from '../utils/proxy.js'
+import { ElMessage } from 'element-plus'
 import ProxyViewExpand from './ProxyViewExpand.vue'
 
 defineProps<{
   proxies: BaseProxy[]
   proxyType: string
 }>()
+
+const emit = defineEmits(['refresh'])
 
 const formatTrafficIn = (row: BaseProxy, _: TableColumnCtx<BaseProxy>) => {
   return Humanize.fileSize(row.trafficIn)
@@ -81,4 +107,37 @@ const formatTrafficIn = (row: BaseProxy, _: TableColumnCtx<BaseProxy>) => {
 const formatTrafficOut = (row: BaseProxy, _: TableColumnCtx<BaseProxy>) => {
   return Humanize.fileSize(row.trafficOut)
 }
+
+const clearOfflineProxies = () => {
+  fetch('/api/proxies?status=offline', {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+    .then((res) => {
+      if (res.ok) {
+        ElMessage({
+          message: 'Successfully cleared offline proxies',
+          type: 'success',
+        })
+        emit('refresh')
+      } else {
+        ElMessage({
+          message: 'Failed to clear offline proxies: ' + res.status + ' ' + res.statusText,
+          type: 'warning',
+        })
+      }
+    })
+    .catch((err) => {
+      ElMessage({
+        message: 'Failed to clear offline proxies: ' + err.message,
+        type: 'warning',
+      })
+    })
+}
 </script>
+
+<style>
+.el-page-header__title {
+  font-size: 20px;
+}
+</style>

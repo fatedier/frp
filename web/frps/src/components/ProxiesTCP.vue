@@ -1,5 +1,5 @@
 <template>
-  <ProxyView :proxies="proxies" proxyType="tcp" />
+  <ProxyView :proxies="proxies" proxyType="tcp" @refresh="fetchData" />
 </template>
 
 <script setup lang="ts">
@@ -15,6 +15,7 @@ const fetchData = () => {
       return res.json()
     })
     .then((json) => {
+      proxies.value = []
       for (let proxyStats of json.proxies) {
         proxies.value.push(new TCPProxy(proxyStats))
       }

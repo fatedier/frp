@@ -17,6 +17,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -53,6 +54,7 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	subRouter.HandleFunc("/api/proxy/{type}", svr.apiProxyByType).Methods("GET")
 	subRouter.HandleFunc("/api/proxy/{type}/{name}", svr.apiProxyByTypeAndName).Methods("GET")
 	subRouter.HandleFunc("/api/traffic/{name}", svr.apiProxyTraffic).Methods("GET")
+	subRouter.HandleFunc("/api/proxies", svr.deleteProxies).Methods("DELETE")
 
 	// view
 	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")
@@ -226,6 +228,9 @@ func (svr *Service) apiProxyByType(w http.ResponseWriter, r *http.Request) {
 
 	proxyInfoResp := GetProxyInfoResp{}
 	proxyInfoResp.Proxies = svr.getProxyStatsByType(proxyType)
+	sort.Slice(proxyInfoResp.Proxies, func(i, j int) bool {
+		return proxyInfoResp.Proxies[i].Name < proxyInfoResp.Proxies[j].Name
+	})
 
 	buf, _ := json.Marshal(&proxyInfoResp)
 	res.Msg = string(buf)
@@ -375,4 +380,27 @@ func (svr *Service) apiProxyTraffic(w http.ResponseWriter, r *http.Request) {
 
 	buf, _ := json.Marshal(&trafficResp)
 	res.Msg = string(buf)
+}
+
+// DELETE /api/proxies?status=offline
+func (svr *Service) deleteProxies(w http.ResponseWriter, r *http.Request) {
+	res := GeneralResponse{Code: 200}
+
+	log.Info("Http request: [%s]", r.URL.Path)
+	defer func() {
+		log.Info("Http response [%s]: code [%d]", r.URL.Path, res.Code)
+		w.WriteHeader(res.Code)
+		if len(res.Msg) > 0 {
+			_, _ = w.Write([]byte(res.Msg))
+		}
+	}()
+
+	status := r.URL.Query().Get("status")
+	if status != "offline" {
+		res.Code = 400
+		res.Msg = "status only support offline"
+		return
+	}
+	cleared, total := mem.StatsCollector.ClearOfflineProxies()
+	log.Info("cleared [%d] offline proxies, total [%d] proxies", cleared, total)
 }
