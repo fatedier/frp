@@ -5,3 +5,7 @@
 ### Features
 
 * The `Refresh` and `ClearOfflineProxies` buttons have been added to the Dashboard of frps.
+
+### Fixes
+
+* The host/domain matching in the routing rules has been changed to be case-insensitive.
