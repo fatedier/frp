@@ -18,7 +18,7 @@ require (
 	github.com/pion/stun v0.6.1
 	github.com/pires/go-proxyproto v0.7.0
 	github.com/prometheus/client_golang v1.16.0
-	github.com/quic-go/quic-go v0.37.4
+	github.com/quic-go/quic-go v0.37.7
 	github.com/rodaine/table v1.1.0
 	github.com/samber/lo v1.38.1
 	github.com/spf13/cobra v1.8.0
