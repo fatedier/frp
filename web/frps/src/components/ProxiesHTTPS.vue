@@ -1,5 +1,5 @@
 <template>
-  <ProxyView :proxies="proxies" proxyType="https" />
+  <ProxyView :proxies="proxies" proxyType="https" @refresh="fetchData"/>
 </template>
 
 <script setup lang="ts">
@@ -27,6 +27,7 @@ const fetchData = () => {
           return res.json()
         })
         .then((json) => {
+          proxies.value = []
           for (let proxyStats of json.proxies) {
             proxies.value.push(
               new HTTPSProxy(proxyStats, vhostHTTPSPort, subdomainHost)

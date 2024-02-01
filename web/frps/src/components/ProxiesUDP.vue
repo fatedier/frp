@@ -1,5 +1,5 @@
 <template>
-  <ProxyView :proxies="proxies" proxyType="udp" />
+  <ProxyView :proxies="proxies" proxyType="udp" @refresh="fetchData"/>
 </template>
 
 <script setup lang="ts">
@@ -15,12 +15,12 @@ const fetchData = () => {
       return res.json()
     })
     .then((json) => {
+      proxies.value = []
       for (let proxyStats of json.proxies) {
         proxies.value.push(new UDPProxy(proxyStats))
       }
     })
 }
-
 fetchData()
 </script>
 
