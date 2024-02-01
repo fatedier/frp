@@ -35,7 +35,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
-// Connector is a interface for establishing connections to the server.
+// Connector is an interface for establishing connections to the server.
 type Connector interface {
 	Open() error
 	Connect() (net.Conn, error)
@@ -59,7 +59,7 @@ func NewConnector(ctx context.Context, cfg *v1.ClientCommonConfig) Connector {
 	}
 }
 
-// Open opens a underlying connection to the server.
+// Open opens an underlying connection to the server.
 // The underlying connection is either a TCP connection or a QUIC connection.
 // After the underlying connection is established, you can call Connect() to get a stream.
 // If TCPMux isn't enabled, the underlying connection is nil, you will get a new real TCP connection every time you call Connect().

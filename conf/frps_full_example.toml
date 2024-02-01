@@ -41,7 +41,7 @@ transport.maxPoolCount = 5
 # transport.tcpKeepalive = 7200
 
 # transport.tls.force specifies whether to only accept TLS-encrypted connections. By default, the value is false.
-tls.force = false
+transport.tls.force = false
 
 # transport.tls.certFile = "server.crt"
 # transport.tls.keyFile = "server.key"
@@ -129,7 +129,7 @@ allowPorts = [
 maxPortsPerClient = 0
 
 # If subDomainHost is not empty, you can set subdomain when type is http or https in frpc's configure file
-# When subdomain is est, the host used by routing is test.frps.com
+# When subdomain is test, the host used by routing is test.frps.com
 subDomainHost = "frps.com"
 
 # custom 404 page for HTTP requests

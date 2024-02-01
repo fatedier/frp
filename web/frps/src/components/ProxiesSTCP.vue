@@ -1,5 +1,5 @@
 <template>
-  <ProxyView :proxies="proxies" proxyType="stcp" />
+  <ProxyView :proxies="proxies" proxyType="stcp" @refresh="fetchData"/>
 </template>
 
 <script setup lang="ts">
@@ -15,6 +15,7 @@ const fetchData = () => {
       return res.json()
     })
     .then((json) => {
+      proxies.value = []
       for (let proxyStats of json.proxies) {
         proxies.value.push(new STCPProxy(proxyStats))
       }

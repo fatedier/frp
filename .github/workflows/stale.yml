@@ -16,19 +16,20 @@ jobs:
     permissions:
       issues: write  # for actions/stale to close stale issues
       pull-requests: write  # for actions/stale to close stale PRs
+      actions: write
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/stale@v8
+    - uses: actions/stale@v9
       with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-        stale-issue-message: 'Issues go stale after 30d of inactivity. Stale issues rot after an additional 7d of inactivity and eventually close.'
-        stale-pr-message: "PRs go stale after 30d of inactivity. Stale PRs rot after an additional 7d of inactivity and eventually close."
+        stale-issue-message: 'Issues go stale after 21d of inactivity. Stale issues rot after an additional 7d of inactivity and eventually close.'
+        stale-pr-message: "PRs go stale after 21d of inactivity. Stale PRs rot after an additional 7d of inactivity and eventually close."
         stale-issue-label: 'lifecycle/stale'
         exempt-issue-labels: 'bug,doc,enhancement,future,proposal,question,testing,todo,easy,help wanted,assigned'
         stale-pr-label: 'lifecycle/stale'
         exempt-pr-labels: 'bug,doc,enhancement,future,proposal,question,testing,todo,easy,help wanted,assigned'
-        days-before-stale: 30
+        days-before-stale: 21
         days-before-close: 7
         debug-only: ${{ github.event.inputs.debug-only }}
         exempt-all-pr-milestones: true
         exempt-all-pr-assignees: true
+        operations-per-run: 200

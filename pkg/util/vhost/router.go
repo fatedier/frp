@@ -33,6 +33,8 @@ func NewRouters() *Routers {
 }
 
 func (r *Routers) Add(domain, location, httpUser string, payload interface{}) error {
+	domain = strings.ToLower(domain)
+
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -64,6 +66,8 @@ func (r *Routers) Add(domain, location, httpUser string, payload interface{}) er
 }
 
 func (r *Routers) Del(domain, location, httpUser string) {
+	domain = strings.ToLower(domain)
+
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -86,6 +90,8 @@ func (r *Routers) Del(domain, location, httpUser string) {
 }
 
 func (r *Routers) Get(host, path, httpUser string) (vr *Router, exist bool) {
+	host = strings.ToLower(host)
+
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 

@@ -23,8 +23,10 @@ class BaseProxy {
     this.type = ''
     this.encryption = false
     this.compression = false
-    this.encryption = (proxyStats.conf?.transport?.useEncryption) || this.encryption;
-    this.compression = (proxyStats.conf?.transport?.useCompression) || this.compression;
+    this.encryption =
+      proxyStats.conf?.transport?.useEncryption || this.encryption
+    this.compression =
+      proxyStats.conf?.transport?.useCompression || this.compression
     this.conns = proxyStats.curConns
     this.trafficIn = proxyStats.todayTrafficIn
     this.trafficOut = proxyStats.todayTrafficOut
@@ -76,12 +78,12 @@ class HTTPProxy extends BaseProxy {
     this.type = 'http'
     this.port = port
     if (proxyStats.conf) {
-      this.customDomains = proxyStats.conf.customDomains || this.customDomains;
+      this.customDomains = proxyStats.conf.customDomains || this.customDomains
       this.hostHeaderRewrite = proxyStats.conf.hostHeaderRewrite
       this.locations = proxyStats.conf.locations
       if (proxyStats.conf.subdomain) {
         this.subdomain = `${proxyStats.conf.subdomain}.${subdomainHost}`
-      } 
+      }
     }
   }
 }
@@ -92,7 +94,7 @@ class HTTPSProxy extends BaseProxy {
     this.type = 'https'
     this.port = port
     if (proxyStats.conf != null) {
-      this.customDomains = proxyStats.conf.customDomains || this.customDomains;
+      this.customDomains = proxyStats.conf.customDomains || this.customDomains
       if (proxyStats.conf.subdomain) {
         this.subdomain = `${proxyStats.conf.subdomain}.${subdomainHost}`
       }

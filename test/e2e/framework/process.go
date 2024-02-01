@@ -42,7 +42,7 @@ func (f *Framework) RunProcesses(serverTemplates []string, clientTemplates []str
 		ExpectNoError(err)
 		time.Sleep(500 * time.Millisecond)
 	}
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	currentClientProcesses := make([]*process.Process, 0, len(clientTemplates))
 	for i := range clientTemplates {
@@ -76,7 +76,7 @@ func (f *Framework) RunFrps(args ...string) (*process.Process, string, error) {
 		return p, p.StdOutput(), err
 	}
 	// sleep for a while to get std output
-	time.Sleep(time.Second)
+	time.Sleep(2 * time.Second)
 	return p, p.StdOutput(), nil
 }
 
@@ -87,7 +87,7 @@ func (f *Framework) RunFrpc(args ...string) (*process.Process, string, error) {
 	if err != nil {
 		return p, p.StdOutput(), err
 	}
-	time.Sleep(time.Second)
+	time.Sleep(2 * time.Second)
 	return p, p.StdOutput(), nil
 }
 

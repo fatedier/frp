@@ -133,6 +133,7 @@ func (ctl *Control) handleReqWorkConn(_ msg.Message) {
 	}
 	if err = ctl.sessionCtx.AuthSetter.SetNewWorkConn(m); err != nil {
 		xl.Warn("error during NewWorkConn authentication: %v", err)
+		workConn.Close()
 		return
 	}
 	if err = msg.WriteMsg(workConn, m); err != nil {
