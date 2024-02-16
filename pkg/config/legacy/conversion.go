@@ -170,13 +170,17 @@ func Convert_ServerCommonConf_To_v1(conf *ServerCommonConf) *v1.ServerConfig {
 
 func transformHeadersFromPluginParams(params map[string]string) v1.HeaderOperations {
 	out := v1.HeaderOperations{}
+	set := make(map[string]string)
 	for k, v := range params {
 		if !strings.HasPrefix(k, "plugin_header_") {
 			continue
 		}
 		if k = strings.TrimPrefix(k, "plugin_header_"); k != "" {
-			out.Set[k] = v
+			set[k] = v
 		}
+	}
+	if len(set) > 0 {
+		out.Set = set
 	}
 	return out
 }
