@@ -201,11 +201,11 @@ This example implements multiple SSH services exposed through the same port usin
 
 4. To access internal machine A using SSH ProxyCommand, assuming the username is "test":
 
-  `ssh -o 'proxycommand socat - PROXY:x.x.x.x:machine-a.example.com:22,proxyport=5002' test@machine-a`
+  `ssh -o 'proxycommand socat - PROXY:x.x.x.x:%h:%p,proxyport=5002' test@machine-a.example.com`
 
 5. To access internal machine B, the only difference is the domain name, assuming the username is "test":
 
-  `ssh -o 'proxycommand socat - PROXY:x.x.x.x:machine-b.example.com:22,proxyport=5002' test@machine-b`
+  `ssh -o 'proxycommand socat - PROXY:x.x.x.x:%h:%p,proxyport=5002' test@machine-b.example.com`
 
 ### Accessing Internal Web Services with Custom Domains in LAN
 
