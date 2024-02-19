@@ -175,6 +175,9 @@ func transformHeadersFromPluginParams(params map[string]string) v1.HeaderOperati
 			continue
 		}
 		if k = strings.TrimPrefix(k, "plugin_header_"); k != "" {
+			if out.Set == nil {
+				out.Set = make(map[string]string)
+			}
 			out.Set[k] = v
 		}
 	}
