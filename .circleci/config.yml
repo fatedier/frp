@@ -2,7 +2,7 @@ version: 2
 jobs:
   go-version-latest:
     docker:
-      - image: cimg/go:1.21-node
+      - image: cimg/go:1.22-node
     resource_class: large
     steps:
       - checkout
@@ -10,7 +10,7 @@ jobs:
       - run: make alltest
   go-version-last:
     docker:
-      - image: cimg/go:1.20-node
+      - image: cimg/go:1.21-node
     resource_class: large
     steps:
       - checkout
