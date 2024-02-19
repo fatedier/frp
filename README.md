@@ -526,6 +526,8 @@ Check frp's status and proxies' statistics information by Dashboard.
 Configure a port for dashboard to enable this feature:
 
 ```toml
+# The default value is 127.0.0.1. Change it to 0.0.0.0 when you want to access it from a public network.
+webServer.addr = "0.0.0.0"
 webServer.port = 7500
 # dashboard's username and password are both optional
 webServer.user = "admin"
@@ -533,8 +535,6 @@ webServer.password = "admin"
 ```
 
 Then visit `http://[serverAddr]:7500` to see the dashboard, with username and password both being `admin`.
-
-Note that if you want your server to be accessed from public networks, then also add `webServer.addr = "0.0.0.0"` line. For security reasons (credits [#3709](https://github.com/fatedier/frp/issues/3709)), value `127.0.0.1` is used by default. 
 
 Additionally, you can use HTTPS port by using your domains wildcard or normal SSL certificate:
 

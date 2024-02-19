@@ -164,11 +164,16 @@ healthCheck.type = "tcp"
 healthCheck.timeoutSeconds = 3
 # If continuous failed in 3 times, the proxy will be removed from frps
 healthCheck.maxFailed = 3
-# every 10 seconds will do a health check
+# Every 10 seconds will do a health check
 healthCheck.intervalSeconds = 10
-# additional meta info for each proxy
+# Additional meta info for each proxy. It will be passed to the server-side plugin for use.
 metadatas.var1 = "abc"
 metadatas.var2 = "123"
+# You can add some extra information to the proxy through annotations.
+# These annotations will be displayed on the frps dashboard.
+[proxies.annotations]
+key1 = "value1"
+"prefix/key2" = "value2"
 
 [[proxies]]
 name = "ssh_random"
