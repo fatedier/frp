@@ -317,7 +317,7 @@ func (c *Controller) analysis(session *Session) (*msg.NatHoleResp, *msg.NatHoleR
 	session.cBehavior = cBehavior
 	session.vBehavior = vBehavior
 
-	timeoutMs := lo.Max([]int{cBehavior.SendDelayMs, vBehavior.SendDelayMs}) + 5000
+	timeoutMs := max(cBehavior.SendDelayMs, vBehavior.SendDelayMs) + 5000
 	if cBehavior.ListenRandomPorts > 0 || vBehavior.ListenRandomPorts > 0 {
 		timeoutMs += 30000
 	}
@@ -384,8 +384,8 @@ func getRangePorts(addrs []string, difference, maxNumber int) []msg.PortsRange {
 		return nil
 	}
 	ports = append(ports, msg.PortsRange{
-		From: lo.Max([]int{port - difference - 5, port - maxNumber, 1}),
-		To:   lo.Min([]int{port + difference + 5, port + maxNumber, 65535}),
+		From: max(port-difference-5, port-maxNumber, 1),
+		To:   min(port+difference+5, port+maxNumber, 65535),
 	})
 	return ports
 }

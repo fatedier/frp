@@ -224,7 +224,7 @@ func (mhr *MakeHoleRecords) ReportSuccess(mode int, index int) {
 		}
 
 		score.Score += 2
-		score.Score = lo.Min([]int{score.Score, 10})
+		score.Score = min(score.Score, 10)
 		return
 	}
 }
