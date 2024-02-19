@@ -2,9 +2,12 @@ export PATH := $(GOPATH)/bin:$(PATH)
 export GO111MODULE=on
 LDFLAGS := -s -w
 
-all: fmt build
+all: env fmt build
 
 build: frps frpc
+
+env:
+	@go version
 
 # compile assets into binary file
 file:
