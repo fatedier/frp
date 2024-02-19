@@ -55,7 +55,8 @@ func NewHTTPS2HTTPSPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	}
 
 	rp := &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
+		Rewrite: func(r *httputil.ProxyRequest) {
+			req := r.Out
 			req.URL.Scheme = "https"
 			req.URL.Host = p.opts.LocalAddr
 			if p.opts.HostHeaderRewrite != "" {

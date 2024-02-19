@@ -1,4 +1,4 @@
-export PATH := $(GOPATH)/bin:$(PATH)
+export PATH := $(PATH):`go env GOPATH`/bin
 export GO111MODULE=on
 LDFLAGS := -s -w
 
