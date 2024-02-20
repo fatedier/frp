@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -72,7 +73,7 @@ type Session struct {
 
 func (s *Session) genAnalysisKey() {
 	hash := md5.New()
-	vIPs := lo.Uniq(parseIPs(s.visitorMsg.MappedAddrs))
+	vIPs := slices.Compact(parseIPs(s.visitorMsg.MappedAddrs))
 	if len(vIPs) > 0 {
 		hash.Write([]byte(vIPs[0]))
 	}
@@ -80,7 +81,7 @@ func (s *Session) genAnalysisKey() {
 	hash.Write([]byte(s.vNatFeature.Behavior))
 	hash.Write([]byte(strconv.FormatBool(s.vNatFeature.RegularPortsChange)))
 
-	cIPs := lo.Uniq(parseIPs(s.clientMsg.MappedAddrs))
+	cIPs := slices.Compact(parseIPs(s.clientMsg.MappedAddrs))
 	if len(cIPs) > 0 {
 		hash.Write([]byte(cIPs[0]))
 	}
@@ -156,7 +157,7 @@ func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.
 			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("xtcp server for [%s] doesn't exist", m.ProxyName)))
 			return
 		}
-		if !lo.Contains(cfg.allowUsers, visitorUser) && !lo.Contains(cfg.allowUsers, "*") {
+		if !slices.Contains(cfg.allowUsers, visitorUser) && !slices.Contains(cfg.allowUsers, "*") {
 			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("xtcp visitor user [%s] not allowed for [%s]", visitorUser, m.ProxyName)))
 			return
 		}
@@ -327,8 +328,8 @@ func (c *Controller) analysis(session *Session) (*msg.NatHoleResp, *msg.NatHoleR
 		TransactionID:  vm.TransactionID,
 		Sid:            session.sid,
 		Protocol:       protocol,
-		CandidateAddrs: lo.Uniq(cm.MappedAddrs),
-		AssistedAddrs:  lo.Uniq(cm.AssistedAddrs),
+		CandidateAddrs: slices.Compact(cm.MappedAddrs),
+		AssistedAddrs:  slices.Compact(cm.AssistedAddrs),
 		DetectBehavior: msg.NatHoleDetectBehavior{
 			Mode:              mode,
 			Role:              vBehavior.Role,
@@ -344,8 +345,8 @@ func (c *Controller) analysis(session *Session) (*msg.NatHoleResp, *msg.NatHoleR
 		TransactionID:  cm.TransactionID,
 		Sid:            session.sid,
 		Protocol:       protocol,
-		CandidateAddrs: lo.Uniq(vm.MappedAddrs),
-		AssistedAddrs:  lo.Uniq(vm.AssistedAddrs),
+		CandidateAddrs: slices.Compact(vm.MappedAddrs),
+		AssistedAddrs:  slices.Compact(vm.AssistedAddrs),
 		DetectBehavior: msg.NatHoleDetectBehavior{
 			Mode:              mode,
 			Role:              cBehavior.Role,

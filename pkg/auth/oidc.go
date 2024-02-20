@@ -17,9 +17,9 @@ package auth
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/samber/lo"
 	"golang.org/x/oauth2/clientcredentials"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
@@ -70,7 +70,7 @@ func (auth *OidcAuthProvider) SetLogin(loginMsg *msg.Login) (err error) {
 }
 
 func (auth *OidcAuthProvider) SetPing(pingMsg *msg.Ping) (err error) {
-	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeHeartBeats) {
+	if !slices.Contains(auth.additionalAuthScopes, v1.AuthScopeHeartBeats) {
 		return nil
 	}
 
@@ -79,7 +79,7 @@ func (auth *OidcAuthProvider) SetPing(pingMsg *msg.Ping) (err error) {
 }
 
 func (auth *OidcAuthProvider) SetNewWorkConn(newWorkConnMsg *msg.NewWorkConn) (err error) {
-	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeNewWorkConns) {
+	if !slices.Contains(auth.additionalAuthScopes, v1.AuthScopeNewWorkConns) {
 		return nil
 	}
 
@@ -135,7 +135,7 @@ func (auth *OidcAuthConsumer) verifyPostLoginToken(privilegeKey string) (err err
 }
 
 func (auth *OidcAuthConsumer) VerifyPing(pingMsg *msg.Ping) (err error) {
-	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeHeartBeats) {
+	if !slices.Contains(auth.additionalAuthScopes, v1.AuthScopeHeartBeats) {
 		return nil
 	}
 
@@ -143,7 +143,7 @@ func (auth *OidcAuthConsumer) VerifyPing(pingMsg *msg.Ping) (err error) {
 }
 
 func (auth *OidcAuthConsumer) VerifyNewWorkConn(newWorkConnMsg *msg.NewWorkConn) (err error) {
-	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeNewWorkConns) {
+	if !slices.Contains(auth.additionalAuthScopes, v1.AuthScopeNewWorkConns) {
 		return nil
 	}
 

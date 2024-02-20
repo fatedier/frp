@@ -15,18 +15,16 @@
 package client
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
-	"strings"
 	"time"
-
-	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/pkg/config"
@@ -153,7 +151,7 @@ func NewProxyStatusResp(status *proxy.WorkingStatus, serverAddr string) ProxySta
 
 	if status.Err == "" {
 		psr.RemoteAddr = status.RemoteAddr
-		if lo.Contains([]string{"tcp", "udp"}, status.Type) {
+		if slices.Contains([]string{"tcp", "udp"}, status.Type) {
 			psr.RemoteAddr = serverAddr + psr.RemoteAddr
 		}
 	}
@@ -190,8 +188,8 @@ func (svr *Service) apiStatus(w http.ResponseWriter, _ *http.Request) {
 		if len(arrs) <= 1 {
 			continue
 		}
-		sort.Slice(arrs, func(i, j int) bool {
-			return strings.Compare(arrs[i].Name, arrs[j].Name) < 0
+		slices.SortFunc(arrs, func(a, b ProxyStatusResp) int {
+			return cmp.Compare(a.Name, b.Name)
 		})
 	}
 }

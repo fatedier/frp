@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/fatedier/golib/pool"
-	"github.com/samber/lo"
 	"golang.org/x/net/ipv4"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -212,7 +212,7 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *msg.NatHoleResp, 
 		}
 	}
 
-	detectAddrs = lo.Uniq(detectAddrs)
+	detectAddrs = slices.Compact(detectAddrs)
 	for _, detectAddr := range detectAddrs {
 		for _, conn := range listenConns {
 			if err := sendSidMessage(ctx, conn, m.Sid, transactionID, detectAddr, key, m.DetectBehavior.TTL); err != nil {
@@ -377,7 +377,7 @@ func sendSidMessageToRangePorts(
 	sendFunc func(*net.UDPConn, string) error,
 ) {
 	xl := xlog.FromContextSafe(ctx)
-	for _, ip := range lo.Uniq(parseIPs(addrs)) {
+	for _, ip := range slices.Compact(parseIPs(addrs)) {
 		for _, portsRange := range ports {
 			for i := portsRange.From; i <= portsRange.To; i++ {
 				detectAddr := net.JoinHostPort(ip, strconv.Itoa(i))
@@ -419,7 +419,7 @@ func sendSidMessageToRandomPorts(
 			continue
 		}
 
-		for _, ip := range lo.Uniq(parseIPs(addrs)) {
+		for _, ip := range slices.Compact(parseIPs(addrs)) {
 			detectAddr := net.JoinHostPort(ip, strconv.Itoa(port))
 			if err := sendFunc(conn, detectAddr); err != nil {
 				xl.Trace("send sid message from %s to %s error: %v", conn.LocalAddr(), detectAddr, err)

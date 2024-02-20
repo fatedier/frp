@@ -15,9 +15,10 @@
 package server
 
 import (
+	"cmp"
 	"encoding/json"
 	"net/http"
-	"sort"
+	"slices"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -228,8 +229,8 @@ func (svr *Service) apiProxyByType(w http.ResponseWriter, r *http.Request) {
 
 	proxyInfoResp := GetProxyInfoResp{}
 	proxyInfoResp.Proxies = svr.getProxyStatsByType(proxyType)
-	sort.Slice(proxyInfoResp.Proxies, func(i, j int) bool {
-		return proxyInfoResp.Proxies[i].Name < proxyInfoResp.Proxies[j].Name
+	slices.SortFunc(proxyInfoResp.Proxies, func(a, b *ProxyStatsInfo) int {
+		return cmp.Compare(a.Name, b.Name)
 	})
 
 	buf, _ := json.Marshal(&proxyInfoResp)

@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
-	"github.com/samber/lo"
 	"gopkg.in/ini.v1"
 
 	legacyauth "github.com/fatedier/frp/pkg/auth/legacy"
@@ -399,7 +399,7 @@ func (cfg *ClientCommonConf) Validate() error {
 		}
 	}
 
-	if !lo.Contains([]string{"tcp", "kcp", "quic", "websocket", "wss"}, cfg.Protocol) {
+	if !slices.Contains([]string{"tcp", "kcp", "quic", "websocket", "wss"}, cfg.Protocol) {
 		return fmt.Errorf("invalid protocol")
 	}
 
