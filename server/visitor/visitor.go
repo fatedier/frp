@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"slices"
 	"sync"
 
 	libio "github.com/fatedier/golib/io"
-	"github.com/samber/lo"
 
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
@@ -75,7 +75,7 @@ func (vm *Manager) NewConn(name string, conn net.Conn, timestamp int64, signKey 
 			return
 		}
 
-		if !lo.Contains(l.allowUsers, visitorUser) && !lo.Contains(l.allowUsers, "*") {
+		if !slices.Contains(l.allowUsers, visitorUser) && !slices.Contains(l.allowUsers, "*") {
 			err = fmt.Errorf("visitor connection of [%s] user [%s] not allowed", name, visitorUser)
 			return
 		}

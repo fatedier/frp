@@ -17,8 +17,7 @@ package validation
 import (
 	"errors"
 	"fmt"
-
-	"github.com/samber/lo"
+	"slices"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
@@ -56,7 +55,7 @@ func validateVisitorBaseConfig(c *v1.VisitorBaseConfig) error {
 }
 
 func validateXTCPVisitorConfig(c *v1.XTCPVisitorConfig) error {
-	if !lo.Contains([]string{"kcp", "quic"}, c.Protocol) {
+	if !slices.Contains([]string{"kcp", "quic"}, c.Protocol) {
 		return fmt.Errorf("protocol should be kcp or quic")
 	}
 	return nil

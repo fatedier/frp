@@ -16,8 +16,7 @@ package validation
 
 import (
 	"fmt"
-
-	"github.com/samber/lo"
+	"slices"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
@@ -44,7 +43,7 @@ func ValidatePort(port int, fieldPath string) error {
 }
 
 func validateLogConfig(c *v1.LogConfig) error {
-	if !lo.Contains(SupportedLogLevels, c.Level) {
+	if !slices.Contains(SupportedLogLevels, c.Level) {
 		return fmt.Errorf("invalid log level, optional values are %v", SupportedLogLevels)
 	}
 	return nil

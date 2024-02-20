@@ -15,7 +15,8 @@
 package xlog
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 
 	"github.com/fatedier/frp/pkg/util/log"
 )
@@ -77,8 +78,8 @@ func (l *Logger) AddPrefix(prefix LogPrefix) *Logger {
 }
 
 func (l *Logger) renderPrefixString() {
-	sort.SliceStable(l.prefixes, func(i, j int) bool {
-		return l.prefixes[i].Priority < l.prefixes[j].Priority
+	slices.SortStableFunc(l.prefixes, func(a, b LogPrefix) int {
+		return cmp.Compare(a.Priority, b.Priority)
 	})
 	l.prefixString = ""
 	for _, v := range l.prefixes {

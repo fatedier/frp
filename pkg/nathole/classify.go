@@ -17,9 +17,8 @@ package nathole
 import (
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
-
-	"github.com/samber/lo"
 )
 
 const (
@@ -59,7 +58,7 @@ func ClassifyNATFeature(addresses []string, localIPs []string) (*NatFeature, err
 		if err != nil {
 			return nil, err
 		}
-		if lo.Contains(localIPs, ip) {
+		if slices.Contains(localIPs, ip) {
 			natFeature.PublicNetwork = true
 		}
 

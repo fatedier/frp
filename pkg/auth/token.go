@@ -16,9 +16,8 @@ package auth
 
 import (
 	"fmt"
+	"slices"
 	"time"
-
-	"github.com/samber/lo"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
@@ -43,7 +42,7 @@ func (auth *TokenAuthSetterVerifier) SetLogin(loginMsg *msg.Login) error {
 }
 
 func (auth *TokenAuthSetterVerifier) SetPing(pingMsg *msg.Ping) error {
-	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeHeartBeats) {
+	if !slices.Contains(auth.additionalAuthScopes, v1.AuthScopeHeartBeats) {
 		return nil
 	}
 
@@ -53,7 +52,7 @@ func (auth *TokenAuthSetterVerifier) SetPing(pingMsg *msg.Ping) error {
 }
 
 func (auth *TokenAuthSetterVerifier) SetNewWorkConn(newWorkConnMsg *msg.NewWorkConn) error {
-	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeNewWorkConns) {
+	if !slices.Contains(auth.additionalAuthScopes, v1.AuthScopeNewWorkConns) {
 		return nil
 	}
 
@@ -70,7 +69,7 @@ func (auth *TokenAuthSetterVerifier) VerifyLogin(m *msg.Login) error {
 }
 
 func (auth *TokenAuthSetterVerifier) VerifyPing(m *msg.Ping) error {
-	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeHeartBeats) {
+	if !slices.Contains(auth.additionalAuthScopes, v1.AuthScopeHeartBeats) {
 		return nil
 	}
 
@@ -81,7 +80,7 @@ func (auth *TokenAuthSetterVerifier) VerifyPing(m *msg.Ping) error {
 }
 
 func (auth *TokenAuthSetterVerifier) VerifyNewWorkConn(m *msg.NewWorkConn) error {
-	if !lo.Contains(auth.additionalAuthScopes, v1.AuthScopeNewWorkConns) {
+	if !slices.Contains(auth.additionalAuthScopes, v1.AuthScopeNewWorkConns) {
 		return nil
 	}
 

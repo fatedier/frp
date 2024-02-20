@@ -17,9 +17,9 @@ package validation
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
-	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
@@ -33,10 +33,10 @@ func validateProxyBaseConfigForClient(c *v1.ProxyBaseConfig) error {
 	if err := ValidateAnnotations(c.Annotations); err != nil {
 		return err
 	}
-	if !lo.Contains([]string{"", "v1", "v2"}, c.Transport.ProxyProtocolVersion) {
+	if !slices.Contains([]string{"", "v1", "v2"}, c.Transport.ProxyProtocolVersion) {
 		return fmt.Errorf("not support proxy protocol version: %s", c.Transport.ProxyProtocolVersion)
 	}
-	if !lo.Contains([]string{"client", "server"}, c.Transport.BandwidthLimitMode) {
+	if !slices.Contains([]string{"client", "server"}, c.Transport.BandwidthLimitMode) {
 		return fmt.Errorf("bandwidth limit mode should be client or server")
 	}
 
@@ -46,7 +46,7 @@ func validateProxyBaseConfigForClient(c *v1.ProxyBaseConfig) error {
 		}
 	}
 
-	if !lo.Contains([]string{"", "tcp", "http"}, c.HealthCheck.Type) {
+	if !slices.Contains([]string{"", "tcp", "http"}, c.HealthCheck.Type) {
 		return fmt.Errorf("not support health check type: %s", c.HealthCheck.Type)
 	}
 	if c.HealthCheck.Type != "" {
@@ -139,7 +139,7 @@ func validateTCPMuxProxyConfigForClient(c *v1.TCPMuxProxyConfig) error {
 		return err
 	}
 
-	if !lo.Contains([]string{string(v1.TCPMultiplexerHTTPConnect)}, c.Multiplexer) {
+	if !slices.Contains([]string{string(v1.TCPMultiplexerHTTPConnect)}, c.Multiplexer) {
 		return fmt.Errorf("not support multiplexer: %s", c.Multiplexer)
 	}
 	return nil

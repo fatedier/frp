@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/samber/lo"
 
@@ -29,7 +30,7 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 		warnings Warning
 		errs     error
 	)
-	if !lo.Contains(SupportedAuthMethods, c.Auth.Method) {
+	if !slices.Contains(SupportedAuthMethods, c.Auth.Method) {
 		errs = AppendError(errs, fmt.Errorf("invalid auth method, optional values are %v", SupportedAuthMethods))
 	}
 	if !lo.Every(SupportedAuthAdditionalScopes, c.Auth.AdditionalScopes) {
@@ -63,7 +64,7 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 		warnings = AppendError(warnings, checkTLSConfig("transport.tls.trustedCaFile", c.Transport.TLS.TrustedCaFile))
 	}
 
-	if !lo.Contains(SupportedTransportProtocols, c.Transport.Protocol) {
+	if !slices.Contains(SupportedTransportProtocols, c.Transport.Protocol) {
 		errs = AppendError(errs, fmt.Errorf("invalid transport.protocol, optional values are %v", SupportedTransportProtocols))
 	}
 

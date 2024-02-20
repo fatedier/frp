@@ -15,6 +15,8 @@
 package nathole
 
 import (
+	"cmp"
+	"slices"
 	"sync"
 	"time"
 
@@ -233,12 +235,12 @@ func (mhr *MakeHoleRecords) Recommand() (mode, index int) {
 	mhr.mu.Lock()
 	defer mhr.mu.Unlock()
 
-	maxScore := lo.MaxBy(mhr.scores, func(item, max *BehaviorScore) bool {
-		return item.Score > max.Score
-	})
-	if maxScore == nil {
+	if len(mhr.scores) == 0 {
 		return 0, 0
 	}
+	maxScore := slices.MaxFunc(mhr.scores, func(a, b *BehaviorScore) int {
+		return cmp.Compare(a.Score, b.Score)
+	})
 	maxScore.Score--
 	mhr.LastUpdateTime = time.Now()
 	return maxScore.Mode, maxScore.Index
