@@ -1,5 +1,5 @@
 service:
-  golangci-lint-version: 1.55.x # use the fixed version to not introduce new linters unexpectedly
+  golangci-lint-version: 1.56.x # use the fixed version to not introduce new linters unexpectedly
   
 run:
   concurrency: 4
