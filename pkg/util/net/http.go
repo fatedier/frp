@@ -24,30 +24,6 @@ import (
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
-type HTTPAuthWrapper struct {
-	h      http.Handler
-	user   string
-	passwd string
-}
-
-func NewHTTPBasicAuthWrapper(h http.Handler, user, passwd string) http.Handler {
-	return &HTTPAuthWrapper{
-		h:      h,
-		user:   user,
-		passwd: passwd,
-	}
-}
-
-func (aw *HTTPAuthWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	user, passwd, hasAuth := r.BasicAuth()
-	if (aw.user == "" && aw.passwd == "") || (hasAuth && user == aw.user && passwd == aw.passwd) {
-		aw.h.ServeHTTP(w, r)
-	} else {
-		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
-		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-	}
-}
-
 type HTTPAuthMiddleware struct {
 	user          string
 	passwd        string

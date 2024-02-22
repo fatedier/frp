@@ -47,16 +47,6 @@ func RandIDWithLen(idLen int) (id string, err error) {
 	return id[:idLen], nil
 }
 
-// RandIDWithRandLen return a rand string with length between [start, end).
-func RandIDWithRandLen(start, end int) (id string, err error) {
-	if start >= end {
-		err = fmt.Errorf("start should be less than end")
-		return
-	}
-	idLen := mathrand.Intn(end-start) + start
-	return RandIDWithLen(idLen)
-}
-
 func GetAuthKey(token string, timestamp int64) (key string) {
 	md5Ctx := md5.New()
 	md5Ctx.Write([]byte(token))

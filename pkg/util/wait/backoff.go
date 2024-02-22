@@ -16,7 +16,6 @@ package wait
 
 import (
 	"math/rand"
-	"sync"
 	"time"
 
 	"github.com/fatedier/frp/pkg/util/util"
@@ -173,22 +172,4 @@ func Until(f func(), period time.Duration, stopCh <-chan struct{}) {
 	BackoffUntil(ff, BackoffFunc(func(time.Duration, bool) time.Duration {
 		return period
 	}), true, stopCh)
-}
-
-func MergeAndCloseOnAnyStopChannel[T any](upstreams ...<-chan T) <-chan T {
-	out := make(chan T)
-	closeOnce := sync.Once{}
-	for _, upstream := range upstreams {
-		ch := upstream
-		go func() {
-			select {
-			case <-ch:
-				closeOnce.Do(func() {
-					close(out)
-				})
-			case <-out:
-			}
-		}()
-	}
-	return out
 }
