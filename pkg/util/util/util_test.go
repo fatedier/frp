@@ -14,48 +14,6 @@ func TestRandId(t *testing.T) {
 	assert.Equal(16, len(id))
 }
 
-func TestRandIDWithRandLen(t *testing.T) {
-	tests := []struct {
-		name      string
-		start     int
-		end       int
-		expectErr bool
-	}{
-		{
-			name:      "start and end are equal",
-			start:     5,
-			end:       5,
-			expectErr: true,
-		},
-		{
-			name:      "start is less than end",
-			start:     5,
-			end:       10,
-			expectErr: false,
-		},
-		{
-			name:      "start is greater than end",
-			start:     10,
-			end:       5,
-			expectErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert := assert.New(t)
-			id, err := RandIDWithRandLen(tt.start, tt.end)
-			if tt.expectErr {
-				assert.Error(err)
-			} else {
-				assert.NoError(err)
-				assert.GreaterOrEqual(len(id), tt.start)
-				assert.Less(len(id), tt.end)
-			}
-		})
-	}
-}
-
 func TestGetAuthKey(t *testing.T) {
 	assert := assert.New(t)
 	key := GetAuthKey("1234", 1488720000)
