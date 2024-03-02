@@ -111,7 +111,7 @@ const formatTrafficOut = (row: BaseProxy, _: TableColumnCtx<BaseProxy>) => {
 }
 
 const clearOfflineProxies = () => {
-  fetch('/api/proxies?status=offline', {
+  fetch('../api/proxies?status=offline', {
     method: 'DELETE',
     credentials: 'include',
   })
