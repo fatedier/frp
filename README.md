@@ -13,6 +13,10 @@
   <a href="https://workos.com/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
     <img width="350px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_workos.png">
   </a>
+
+  <a href="https://github.com/daytonaio/daytona" target="_blank">
+    <img width="350px" src="https://raw.githubusercontent.com/fatedier/release-test/master/pic/sponsor_daytona.png">
+  </a>
 </p>
 <!--gold sponsors end-->
 
