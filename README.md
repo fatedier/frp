@@ -2,6 +2,8 @@
 
 [![Build Status](https://circleci.com/gh/fatedier/frp.svg?style=shield)](https://circleci.com/gh/fatedier/frp)
 [![GitHub release](https://img.shields.io/github/tag/fatedier/frp.svg?label=release)](https://github.com/fatedier/frp/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/fatedier/frp)](https://goreportcard.com/report/github.com/fatedier/frp)
+[![GitHub Releases Stats](https://img.shields.io/github/downloads/fatedier/frp/total.svg?logo=github)](https://somsubhra.github.io/github-release-stats/?username=fatedier&repository=frp)
 
 [README](README.md) | [中文文档](README_zh.md)
 
@@ -12,8 +14,8 @@
     <img width="350px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_workos.png">
   </a>
   <a>&nbsp</a>
-  <a href="https://www.nango.dev?utm_source=github&utm_medium=oss-banner&utm_campaign=fatedier-frp" target="_blank">
-    <img width="400px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_nango.png">
+  <a href="https://github.com/daytonaio/daytona" target="_blank">
+    <img width="360px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_daytona.png">
   </a>
 </p>
 <!--gold sponsors end-->
@@ -201,11 +203,11 @@ This example implements multiple SSH services exposed through the same port usin
 
 4. To access internal machine A using SSH ProxyCommand, assuming the username is "test":
 
-  `ssh -o 'proxycommand socat - PROXY:x.x.x.x:machine-a.example.com:22,proxyport=5002' test@machine-a`
+  `ssh -o 'proxycommand socat - PROXY:x.x.x.x:%h:%p,proxyport=5002' test@machine-a.example.com`
 
 5. To access internal machine B, the only difference is the domain name, assuming the username is "test":
 
-  `ssh -o 'proxycommand socat - PROXY:x.x.x.x:machine-b.example.com:22,proxyport=5002' test@machine-b`
+  `ssh -o 'proxycommand socat - PROXY:x.x.x.x:%h:%p,proxyport=5002' test@machine-b.example.com`
 
 ### Accessing Internal Web Services with Custom Domains in LAN
 
@@ -526,6 +528,8 @@ Check frp's status and proxies' statistics information by Dashboard.
 Configure a port for dashboard to enable this feature:
 
 ```toml
+# The default value is 127.0.0.1. Change it to 0.0.0.0 when you want to access it from a public network.
+webServer.addr = "0.0.0.0"
 webServer.port = 7500
 # dashboard's username and password are both optional
 webServer.user = "admin"

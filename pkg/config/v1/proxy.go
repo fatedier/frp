@@ -105,9 +105,10 @@ type DomainConfig struct {
 }
 
 type ProxyBaseConfig struct {
-	Name      string         `json:"name"`
-	Type      string         `json:"type"`
-	Transport ProxyTransport `json:"transport,omitempty"`
+	Name        string            `json:"name"`
+	Type        string            `json:"type"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Transport   ProxyTransport    `json:"transport,omitempty"`
 	// metadata info for each proxy
 	Metadatas    map[string]string  `json:"metadatas,omitempty"`
 	LoadBalancer LoadBalancerConfig `json:"loadBalancer,omitempty"`
@@ -138,6 +139,7 @@ func (c *ProxyBaseConfig) MarshalToMsg(m *msg.NewProxy) {
 	m.Group = c.LoadBalancer.Group
 	m.GroupKey = c.LoadBalancer.GroupKey
 	m.Metas = c.Metadatas
+	m.Annotations = c.Annotations
 }
 
 func (c *ProxyBaseConfig) UnmarshalFromMsg(m *msg.NewProxy) {
@@ -154,6 +156,7 @@ func (c *ProxyBaseConfig) UnmarshalFromMsg(m *msg.NewProxy) {
 	c.LoadBalancer.Group = m.Group
 	c.LoadBalancer.GroupKey = m.GroupKey
 	c.Metadatas = m.Metas
+	c.Annotations = m.Annotations
 }
 
 type TypedProxyConfig struct {
@@ -183,7 +186,7 @@ func (c *TypedProxyConfig) UnmarshalJSON(b []byte) error {
 		decoder.DisallowUnknownFields()
 	}
 	if err := decoder.Decode(configurer); err != nil {
-		return err
+		return fmt.Errorf("unmarshal ProxyConfig error: %v", err)
 	}
 	c.ProxyConfigurer = configurer
 	return nil

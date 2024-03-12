@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"strconv"
 
 	"golang.org/x/net/websocket"
 )
@@ -48,15 +47,6 @@ func NewWebsocketListener(ln net.Listener) (wl *WebsocketListener) {
 		_ = wl.server.Serve(ln)
 	}()
 	return
-}
-
-func ListenWebsocket(bindAddr string, bindPort int) (*WebsocketListener, error) {
-	tcpLn, err := net.Listen("tcp", net.JoinHostPort(bindAddr, strconv.Itoa(bindPort)))
-	if err != nil {
-		return nil, err
-	}
-	l := NewWebsocketListener(tcpLn)
-	return l, nil
 }
 
 func (p *WebsocketListener) Accept() (net.Conn, error) {

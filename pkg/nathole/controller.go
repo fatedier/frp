@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -72,7 +73,7 @@ type Session struct {
 
 func (s *Session) genAnalysisKey() {
 	hash := md5.New()
-	vIPs := lo.Uniq(parseIPs(s.visitorMsg.MappedAddrs))
+	vIPs := slices.Compact(parseIPs(s.visitorMsg.MappedAddrs))
 	if len(vIPs) > 0 {
 		hash.Write([]byte(vIPs[0]))
 	}
@@ -80,7 +81,7 @@ func (s *Session) genAnalysisKey() {
 	hash.Write([]byte(s.vNatFeature.Behavior))
 	hash.Write([]byte(strconv.FormatBool(s.vNatFeature.RegularPortsChange)))
 
-	cIPs := lo.Uniq(parseIPs(s.clientMsg.MappedAddrs))
+	cIPs := slices.Compact(parseIPs(s.clientMsg.MappedAddrs))
 	if len(cIPs) > 0 {
 		hash.Write([]byte(cIPs[0]))
 	}
@@ -114,7 +115,7 @@ func (c *Controller) CleanWorker(ctx context.Context) {
 		case <-ticker.C:
 			start := time.Now()
 			count, total := c.analyzer.Clean()
-			log.Trace("clean %d/%d nathole analysis data, cost %v", count, total, time.Since(start))
+			log.Tracef("clean %d/%d nathole analysis data, cost %v", count, total, time.Since(start))
 		case <-ctx.Done():
 			return
 		}
@@ -156,7 +157,7 @@ func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.
 			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("xtcp server for [%s] doesn't exist", m.ProxyName)))
 			return
 		}
-		if !lo.Contains(cfg.allowUsers, visitorUser) && !lo.Contains(cfg.allowUsers, "*") {
+		if !slices.Contains(cfg.allowUsers, visitorUser) && !slices.Contains(cfg.allowUsers, "*") {
 			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("xtcp visitor user [%s] not allowed for [%s]", visitorUser, m.ProxyName)))
 			return
 		}
@@ -190,11 +191,11 @@ func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.
 		return nil
 	}()
 	if err != nil {
-		log.Warn("handle visitorMsg error: %v", err)
+		log.Warnf("handle visitorMsg error: %v", err)
 		_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, err.Error()))
 		return
 	}
-	log.Trace("handle visitor message, sid [%s], server name: %s", sid, m.ProxyName)
+	log.Tracef("handle visitor message, sid [%s], server name: %s", sid, m.ProxyName)
 
 	defer func() {
 		c.mu.Lock()
@@ -212,14 +213,14 @@ func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.
 	select {
 	case <-session.notifyCh:
 	case <-time.After(time.Duration(NatHoleTimeout) * time.Second):
-		log.Debug("wait for NatHoleClient message timeout, sid [%s]", sid)
+		log.Debugf("wait for NatHoleClient message timeout, sid [%s]", sid)
 		return
 	}
 
 	// Make hole-punching decisions based on the NAT information of the client and visitor.
 	vResp, cResp, err := c.analysis(session)
 	if err != nil {
-		log.Debug("sid [%s] analysis error: %v", err)
+		log.Debugf("sid [%s] analysis error: %v", err)
 		vResp = c.GenNatHoleResponse(session.visitorMsg.TransactionID, nil, err.Error())
 		cResp = c.GenNatHoleResponse(session.clientMsg.TransactionID, nil, err.Error())
 	}
@@ -256,7 +257,7 @@ func (c *Controller) HandleClient(m *msg.NatHoleClient, transporter transport.Me
 	if !ok {
 		return
 	}
-	log.Trace("handle client message, sid [%s], server name: %s", session.sid, m.ProxyName)
+	log.Tracef("handle client message, sid [%s], server name: %s", session.sid, m.ProxyName)
 	session.clientMsg = m
 	session.clientTransporter = transporter
 	select {
@@ -270,13 +271,13 @@ func (c *Controller) HandleReport(m *msg.NatHoleReport) {
 	session, ok := c.sessions[m.Sid]
 	c.mu.RUnlock()
 	if !ok {
-		log.Trace("sid [%s] report make hole success: %v, but session not found", m.Sid, m.Success)
+		log.Tracef("sid [%s] report make hole success: %v, but session not found", m.Sid, m.Success)
 		return
 	}
 	if m.Success {
 		c.analyzer.ReportSuccess(session.analysisKey, session.recommandMode, session.recommandIndex)
 	}
-	log.Info("sid [%s] report make hole success: %v, mode %v, index %v",
+	log.Infof("sid [%s] report make hole success: %v, mode %v, index %v",
 		m.Sid, m.Success, session.recommandMode, session.recommandIndex)
 }
 
@@ -317,7 +318,7 @@ func (c *Controller) analysis(session *Session) (*msg.NatHoleResp, *msg.NatHoleR
 	session.cBehavior = cBehavior
 	session.vBehavior = vBehavior
 
-	timeoutMs := lo.Max([]int{cBehavior.SendDelayMs, vBehavior.SendDelayMs}) + 5000
+	timeoutMs := max(cBehavior.SendDelayMs, vBehavior.SendDelayMs) + 5000
 	if cBehavior.ListenRandomPorts > 0 || vBehavior.ListenRandomPorts > 0 {
 		timeoutMs += 30000
 	}
@@ -327,8 +328,8 @@ func (c *Controller) analysis(session *Session) (*msg.NatHoleResp, *msg.NatHoleR
 		TransactionID:  vm.TransactionID,
 		Sid:            session.sid,
 		Protocol:       protocol,
-		CandidateAddrs: lo.Uniq(cm.MappedAddrs),
-		AssistedAddrs:  lo.Uniq(cm.AssistedAddrs),
+		CandidateAddrs: slices.Compact(cm.MappedAddrs),
+		AssistedAddrs:  slices.Compact(cm.AssistedAddrs),
 		DetectBehavior: msg.NatHoleDetectBehavior{
 			Mode:              mode,
 			Role:              vBehavior.Role,
@@ -344,8 +345,8 @@ func (c *Controller) analysis(session *Session) (*msg.NatHoleResp, *msg.NatHoleR
 		TransactionID:  cm.TransactionID,
 		Sid:            session.sid,
 		Protocol:       protocol,
-		CandidateAddrs: lo.Uniq(vm.MappedAddrs),
-		AssistedAddrs:  lo.Uniq(vm.AssistedAddrs),
+		CandidateAddrs: slices.Compact(vm.MappedAddrs),
+		AssistedAddrs:  slices.Compact(vm.AssistedAddrs),
 		DetectBehavior: msg.NatHoleDetectBehavior{
 			Mode:              mode,
 			Role:              cBehavior.Role,
@@ -358,10 +359,10 @@ func (c *Controller) analysis(session *Session) (*msg.NatHoleResp, *msg.NatHoleR
 		},
 	}
 
-	log.Debug("sid [%s] visitor nat: %+v, candidateAddrs: %v; client nat: %+v, candidateAddrs: %v, protocol: %s",
+	log.Debugf("sid [%s] visitor nat: %+v, candidateAddrs: %v; client nat: %+v, candidateAddrs: %v, protocol: %s",
 		session.sid, *vNatFeature, vm.MappedAddrs, *cNatFeature, cm.MappedAddrs, protocol)
-	log.Debug("sid [%s] visitor detect behavior: %+v", session.sid, vResp.DetectBehavior)
-	log.Debug("sid [%s] client detect behavior: %+v", session.sid, cResp.DetectBehavior)
+	log.Debugf("sid [%s] visitor detect behavior: %+v", session.sid, vResp.DetectBehavior)
+	log.Debugf("sid [%s] client detect behavior: %+v", session.sid, cResp.DetectBehavior)
 	return vResp, cResp, nil
 }
 
@@ -384,8 +385,8 @@ func getRangePorts(addrs []string, difference, maxNumber int) []msg.PortsRange {
 		return nil
 	}
 	ports = append(ports, msg.PortsRange{
-		From: lo.Max([]int{port - difference - 5, port - maxNumber, 1}),
-		To:   lo.Min([]int{port + difference + 5, port + maxNumber, 65535}),
+		From: max(port-difference-5, port-maxNumber, 1),
+		To:   min(port+difference+5, port+maxNumber, 65535),
 	})
 	return ports
 }

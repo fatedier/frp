@@ -75,7 +75,7 @@ func NewGateway(
 	sshConfig.PublicKeyCallback = func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 		authorizedKeysMap, err := loadAuthorizedKeysFromFile(cfg.AuthorizedKeysFile)
 		if err != nil {
-			log.Error("load authorized keys file error: %v", err)
+			log.Errorf("load authorized keys file error: %v", err)
 			return nil, fmt.Errorf("internal error")
 		}
 
@@ -120,7 +120,7 @@ func (g *Gateway) handleConn(conn net.Conn) {
 		return
 	}
 	if err := ts.Run(); err != nil {
-		log.Error("ssh tunnel server run error: %v", err)
+		log.Errorf("ssh tunnel server run error: %v", err)
 	}
 }
 

@@ -2,6 +2,8 @@
 
 [![Build Status](https://circleci.com/gh/fatedier/frp.svg?style=shield)](https://circleci.com/gh/fatedier/frp)
 [![GitHub release](https://img.shields.io/github/tag/fatedier/frp.svg?label=release)](https://github.com/fatedier/frp/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/fatedier/frp)](https://goreportcard.com/report/github.com/fatedier/frp)
+[![GitHub Releases Stats](https://img.shields.io/github/downloads/fatedier/frp/total.svg?logo=github)](https://somsubhra.github.io/github-release-stats/?username=fatedier&repository=frp)
 
 [README](README.md) | [中文文档](README_zh.md)
 
@@ -14,8 +16,8 @@ frp 是一个专注于内网穿透的高性能的反向代理应用，支持 TCP
     <img width="350px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_workos.png">
   </a>
   <a>&nbsp</a>
-  <a href="https://www.nango.dev?utm_source=github&utm_medium=oss-banner&utm_campaign=fatedier-frp" target="_blank">
-    <img width="400px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_nango.png">
+  <a href="https://github.com/daytonaio/daytona" target="_blank">
+    <img width="360px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_daytona.png">
   </a>
 </p>
 <!--gold sponsors end-->

@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/fatedier/golib/pool"
-	"github.com/samber/lo"
 	"golang.org/x/net/ipv4"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -204,7 +204,7 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *msg.NatHoleResp, 
 			for i := 0; i < m.DetectBehavior.ListenRandomPorts; i++ {
 				tmpConn, err := net.ListenUDP("udp4", nil)
 				if err != nil {
-					xl.Warn("listen random udp addr error: %v", err)
+					xl.Warnf("listen random udp addr error: %v", err)
 					continue
 				}
 				listenConns = append(listenConns, tmpConn)
@@ -212,11 +212,11 @@ func MakeHole(ctx context.Context, listenConn *net.UDPConn, m *msg.NatHoleResp, 
 		}
 	}
 
-	detectAddrs = lo.Uniq(detectAddrs)
+	detectAddrs = slices.Compact(detectAddrs)
 	for _, detectAddr := range detectAddrs {
 		for _, conn := range listenConns {
 			if err := sendSidMessage(ctx, conn, m.Sid, transactionID, detectAddr, key, m.DetectBehavior.TTL); err != nil {
-				xl.Trace("send sid message from %s to %s error: %v", conn.LocalAddr(), detectAddr, err)
+				xl.Tracef("send sid message from %s to %s error: %v", conn.LocalAddr(), detectAddr, err)
 			}
 		}
 	}
@@ -289,16 +289,16 @@ func waitDetectMessage(
 		if err != nil {
 			return nil, err
 		}
-		xl.Debug("get udp message local %s, from %s", conn.LocalAddr(), raddr)
+		xl.Debugf("get udp message local %s, from %s", conn.LocalAddr(), raddr)
 		var m msg.NatHoleSid
 		if err := DecodeMessageInto(buf[:n], key, &m); err != nil {
-			xl.Warn("decode sid message error: %v", err)
+			xl.Warnf("decode sid message error: %v", err)
 			continue
 		}
 		pool.PutBuf(buf)
 
 		if m.Sid != sid {
-			xl.Warn("get sid message with wrong sid: %s, expect: %s", m.Sid, sid)
+			xl.Warnf("get sid message with wrong sid: %s, expect: %s", m.Sid, sid)
 			continue
 		}
 
@@ -311,7 +311,7 @@ func waitDetectMessage(
 			m.Response = true
 			buf2, err := EncodeMessage(&m, key)
 			if err != nil {
-				xl.Warn("encode sid message error: %v", err)
+				xl.Warnf("encode sid message error: %v", err)
 				continue
 			}
 			_, _ = conn.WriteToUDP(buf2, raddr)
@@ -329,7 +329,7 @@ func sendSidMessage(
 	if ttl > 0 {
 		ttlStr = fmt.Sprintf(" with ttl %d", ttl)
 	}
-	xl.Trace("send sid message from %s to %s%s", conn.LocalAddr(), addr, ttlStr)
+	xl.Tracef("send sid message from %s to %s%s", conn.LocalAddr(), addr, ttlStr)
 	raddr, err := net.ResolveUDPAddr("udp4", addr)
 	if err != nil {
 		return err
@@ -351,14 +351,14 @@ func sendSidMessage(
 		uConn := ipv4.NewConn(conn)
 		original, err := uConn.TTL()
 		if err != nil {
-			xl.Trace("get ttl error %v", err)
+			xl.Tracef("get ttl error %v", err)
 			return err
 		}
-		xl.Trace("original ttl %d", original)
+		xl.Tracef("original ttl %d", original)
 
 		err = uConn.SetTTL(ttl)
 		if err != nil {
-			xl.Trace("set ttl error %v", err)
+			xl.Tracef("set ttl error %v", err)
 		} else {
 			defer func() {
 				_ = uConn.SetTTL(original)
@@ -377,12 +377,12 @@ func sendSidMessageToRangePorts(
 	sendFunc func(*net.UDPConn, string) error,
 ) {
 	xl := xlog.FromContextSafe(ctx)
-	for _, ip := range lo.Uniq(parseIPs(addrs)) {
+	for _, ip := range slices.Compact(parseIPs(addrs)) {
 		for _, portsRange := range ports {
 			for i := portsRange.From; i <= portsRange.To; i++ {
 				detectAddr := net.JoinHostPort(ip, strconv.Itoa(i))
 				if err := sendFunc(conn, detectAddr); err != nil {
-					xl.Trace("send sid message from %s to %s error: %v", conn.LocalAddr(), detectAddr, err)
+					xl.Tracef("send sid message from %s to %s error: %v", conn.LocalAddr(), detectAddr, err)
 				}
 				time.Sleep(2 * time.Millisecond)
 			}
@@ -419,10 +419,10 @@ func sendSidMessageToRandomPorts(
 			continue
 		}
 
-		for _, ip := range lo.Uniq(parseIPs(addrs)) {
+		for _, ip := range slices.Compact(parseIPs(addrs)) {
 			detectAddr := net.JoinHostPort(ip, strconv.Itoa(port))
 			if err := sendFunc(conn, detectAddr); err != nil {
-				xl.Trace("send sid message from %s to %s error: %v", conn.LocalAddr(), detectAddr, err)
+				xl.Tracef("send sid message from %s to %s error: %v", conn.LocalAddr(), detectAddr, err)
 			}
 			time.Sleep(time.Millisecond * 15)
 		}

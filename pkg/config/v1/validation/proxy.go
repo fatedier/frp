@@ -17,9 +17,10 @@ package validation
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
-	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
@@ -29,11 +30,13 @@ func validateProxyBaseConfigForClient(c *v1.ProxyBaseConfig) error {
 		return errors.New("name should not be empty")
 	}
 
-	if !lo.Contains([]string{"", "v1", "v2"}, c.Transport.ProxyProtocolVersion) {
+	if err := ValidateAnnotations(c.Annotations); err != nil {
+		return err
+	}
+	if !slices.Contains([]string{"", "v1", "v2"}, c.Transport.ProxyProtocolVersion) {
 		return fmt.Errorf("not support proxy protocol version: %s", c.Transport.ProxyProtocolVersion)
 	}
-
-	if !lo.Contains([]string{"client", "server"}, c.Transport.BandwidthLimitMode) {
+	if !slices.Contains([]string{"client", "server"}, c.Transport.BandwidthLimitMode) {
 		return fmt.Errorf("bandwidth limit mode should be client or server")
 	}
 
@@ -43,7 +46,7 @@ func validateProxyBaseConfigForClient(c *v1.ProxyBaseConfig) error {
 		}
 	}
 
-	if !lo.Contains([]string{"", "tcp", "http"}, c.HealthCheck.Type) {
+	if !slices.Contains([]string{"", "tcp", "http"}, c.HealthCheck.Type) {
 		return fmt.Errorf("not support health check type: %s", c.HealthCheck.Type)
 	}
 	if c.HealthCheck.Type != "" {
@@ -61,7 +64,10 @@ func validateProxyBaseConfigForClient(c *v1.ProxyBaseConfig) error {
 	return nil
 }
 
-func validateProxyBaseConfigForServer(c *v1.ProxyBaseConfig, s *v1.ServerConfig) error {
+func validateProxyBaseConfigForServer(c *v1.ProxyBaseConfig) error {
+	if err := ValidateAnnotations(c.Annotations); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -133,7 +139,7 @@ func validateTCPMuxProxyConfigForClient(c *v1.TCPMuxProxyConfig) error {
 		return err
 	}
 
-	if !lo.Contains([]string{string(v1.TCPMultiplexerHTTPConnect)}, c.Multiplexer) {
+	if !slices.Contains([]string{string(v1.TCPMultiplexerHTTPConnect)}, c.Multiplexer) {
 		return fmt.Errorf("not support multiplexer: %s", c.Multiplexer)
 	}
 	return nil
@@ -161,7 +167,7 @@ func validateSUDPProxyConfigForClient(c *v1.SUDPProxyConfig) error {
 
 func ValidateProxyConfigurerForServer(c v1.ProxyConfigurer, s *v1.ServerConfig) error {
 	base := c.GetBaseConfig()
-	if err := validateProxyBaseConfigForServer(base, s); err != nil {
+	if err := validateProxyBaseConfigForServer(base); err != nil {
 		return err
 	}
 
@@ -229,5 +235,36 @@ func validateXTCPProxyConfigForServer(c *v1.XTCPProxyConfig, s *v1.ServerConfig)
 }
 
 func validateSUDPProxyConfigForServer(c *v1.SUDPProxyConfig, s *v1.ServerConfig) error {
+	return nil
+}
+
+// ValidateAnnotations validates that a set of annotations are correctly defined.
+func ValidateAnnotations(annotations map[string]string) error {
+	if len(annotations) == 0 {
+		return nil
+	}
+
+	var errs error
+	for k := range annotations {
+		for _, msg := range validation.IsQualifiedName(strings.ToLower(k)) {
+			errs = AppendError(errs, fmt.Errorf("annotation key %s is invalid: %s", k, msg))
+		}
+	}
+	if err := ValidateAnnotationsSize(annotations); err != nil {
+		errs = AppendError(errs, err)
+	}
+	return errs
+}
+
+const TotalAnnotationSizeLimitB int = 256 * (1 << 10) // 256 kB
+
+func ValidateAnnotationsSize(annotations map[string]string) error {
+	var totalSize int64
+	for k, v := range annotations {
+		totalSize += (int64)(len(k)) + (int64)(len(v))
+	}
+	if totalSize > (int64)(TotalAnnotationSizeLimitB) {
+		return fmt.Errorf("annotations size %d is larger than limit %d", totalSize, TotalAnnotationSizeLimitB)
+	}
 	return nil
 }

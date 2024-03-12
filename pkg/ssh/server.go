@@ -20,12 +20,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	libio "github.com/fatedier/golib/io"
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh"
@@ -123,7 +123,7 @@ func (s *TunnelServer) Run() error {
 			// join workConn and ssh channel
 			c, err := s.openConn(addr)
 			if err != nil {
-				log.Trace("open conn error: %v", err)
+				log.Tracef("open conn error: %v", err)
 				workConn.Close()
 				return false
 			}
@@ -167,7 +167,7 @@ func (s *TunnelServer) Run() error {
 
 	if ps, err := s.waitProxyStatusReady(pc.GetBaseConfig().Name, time.Second); err != nil {
 		s.writeToClient(err.Error())
-		log.Warn("wait proxy status ready error: %v", err)
+		log.Warnf("wait proxy status ready error: %v", err)
 	} else {
 		// success
 		s.writeToClient(createSuccessInfo(clientCfg.User, pc, ps))
@@ -175,7 +175,7 @@ func (s *TunnelServer) Run() error {
 	}
 
 	s.vc.Close()
-	log.Trace("ssh tunnel connection from %v closed", sshConn.RemoteAddr())
+	log.Tracef("ssh tunnel connection from %v closed", sshConn.RemoteAddr())
 	s.closeDoneChOnce.Do(func() {
 		_ = sshConn.Close()
 		close(s.doneCh)
@@ -262,7 +262,7 @@ func (s *TunnelServer) parseClientAndProxyConfigurer(_ *tcpipForward, extraPaylo
 	}
 	proxyType := strings.TrimSpace(args[0])
 	supportTypes := []string{"tcp", "http", "https", "tcpmux", "stcp"}
-	if !lo.Contains(supportTypes, proxyType) {
+	if !slices.Contains(supportTypes, proxyType) {
 		return nil, nil, helpMessage, fmt.Errorf("invalid proxy type: %s, support types: %v", proxyType, supportTypes)
 	}
 	pc := v1.NewProxyConfigurerByType(v1.ProxyType(proxyType))

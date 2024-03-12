@@ -41,7 +41,7 @@ var _ = ginkgo.Describe("[Feature: Monitor]", func() {
 		framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
 			r.HTTP().Port(dashboardPort).HTTPPath("/metrics")
 		}).Ensure(func(resp *request.Response) bool {
-			log.Trace("prometheus metrics response: \n%s", resp.Content)
+			log.Tracef("prometheus metrics response: \n%s", resp.Content)
 			if resp.Code != 200 {
 				return false
 			}

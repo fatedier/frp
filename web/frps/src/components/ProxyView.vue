@@ -30,27 +30,6 @@
     >
       <el-table-column type="expand">
         <template #default="props">
-          <el-popover
-            placement="right"
-            width="600"
-            style="margin-left: 0px"
-            trigger="click"
-          >
-            <template #default>
-              <Traffic :proxyName="props.row.name" />
-            </template>
-
-            <template #reference>
-              <el-button
-                type="primary"
-                size="large"
-                :name="props.row.name"
-                style="margin-bottom: 10px"
-                >Traffic Statistics
-              </el-button>
-            </template>
-          </el-popover>
-
           <ProxyViewExpand :row="props.row" :proxyType="proxyType" />
         </template>
       </el-table-column>
@@ -82,8 +61,27 @@
           <el-tag v-else type="danger">{{ scope.row.status }}</el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="Operations">
+        <template #default="scope">
+          <el-button
+            type="primary"
+            :name="scope.row.name"
+            style="margin-bottom: 10px"
+            @click="dialogVisibleName = scope.row.name; dialogVisible = true"
+            >Traffic
+          </el-button>
+        </template>
+      </el-table-column>
     </el-table>
   </div>
+
+  <el-dialog
+    v-model="dialogVisible"
+    destroy-on-close="true"
+    :title="dialogVisibleName"
+    width="700px">
+    <Traffic :proxyName="dialogVisibleName" />
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -92,6 +90,7 @@ import type { TableColumnCtx } from 'element-plus'
 import type { BaseProxy } from '../utils/proxy.js'
 import { ElMessage } from 'element-plus'
 import ProxyViewExpand from './ProxyViewExpand.vue'
+import { ref } from 'vue'
 
 defineProps<{
   proxies: BaseProxy[]
@@ -99,6 +98,9 @@ defineProps<{
 }>()
 
 const emit = defineEmits(['refresh'])
+
+const dialogVisible = ref(false)
+const dialogVisibleName = ref("")
 
 const formatTrafficIn = (row: BaseProxy, _: TableColumnCtx<BaseProxy>) => {
   return Humanize.fileSize(row.trafficIn)
@@ -109,7 +111,7 @@ const formatTrafficOut = (row: BaseProxy, _: TableColumnCtx<BaseProxy>) => {
 }
 
 const clearOfflineProxies = () => {
-  fetch('/api/proxies?status=offline', {
+  fetch('../api/proxies?status=offline', {
     method: 'DELETE',
     credentials: 'include',
   })

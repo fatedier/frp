@@ -15,7 +15,8 @@
 package xlog
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 
 	"github.com/fatedier/frp/pkg/util/log"
 )
@@ -77,8 +78,8 @@ func (l *Logger) AddPrefix(prefix LogPrefix) *Logger {
 }
 
 func (l *Logger) renderPrefixString() {
-	sort.SliceStable(l.prefixes, func(i, j int) bool {
-		return l.prefixes[i].Priority < l.prefixes[j].Priority
+	slices.SortStableFunc(l.prefixes, func(a, b LogPrefix) int {
+		return cmp.Compare(a.Priority, b.Priority)
 	})
 	l.prefixString = ""
 	for _, v := range l.prefixes {
@@ -93,22 +94,22 @@ func (l *Logger) Spawn() *Logger {
 	return nl
 }
 
-func (l *Logger) Error(format string, v ...interface{}) {
-	log.Log.Error(l.prefixString+format, v...)
+func (l *Logger) Errorf(format string, v ...interface{}) {
+	log.Logger.Errorf(l.prefixString+format, v...)
 }
 
-func (l *Logger) Warn(format string, v ...interface{}) {
-	log.Log.Warn(l.prefixString+format, v...)
+func (l *Logger) Warnf(format string, v ...interface{}) {
+	log.Logger.Warnf(l.prefixString+format, v...)
 }
 
-func (l *Logger) Info(format string, v ...interface{}) {
-	log.Log.Info(l.prefixString+format, v...)
+func (l *Logger) Infof(format string, v ...interface{}) {
+	log.Logger.Infof(l.prefixString+format, v...)
 }
 
-func (l *Logger) Debug(format string, v ...interface{}) {
-	log.Log.Debug(l.prefixString+format, v...)
+func (l *Logger) Debugf(format string, v ...interface{}) {
+	log.Logger.Debugf(l.prefixString+format, v...)
 }
 
-func (l *Logger) Trace(format string, v ...interface{}) {
-	log.Log.Trace(l.prefixString+format, v...)
+func (l *Logger) Tracef(format string, v ...interface{}) {
+	log.Logger.Tracef(l.prefixString+format, v...)
 }

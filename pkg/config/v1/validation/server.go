@@ -16,6 +16,7 @@ package validation
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/samber/lo"
 
@@ -27,7 +28,7 @@ func ValidateServerConfig(c *v1.ServerConfig) (Warning, error) {
 		warnings Warning
 		errs     error
 	)
-	if !lo.Contains(SupportedAuthMethods, c.Auth.Method) {
+	if !slices.Contains(SupportedAuthMethods, c.Auth.Method) {
 		errs = AppendError(errs, fmt.Errorf("invalid auth method, optional values are %v", SupportedAuthMethods))
 	}
 	if !lo.Every(SupportedAuthAdditionalScopes, c.Auth.AdditionalScopes) {

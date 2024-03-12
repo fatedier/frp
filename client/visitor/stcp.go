@@ -56,7 +56,7 @@ func (sv *STCPVisitor) worker() {
 	for {
 		conn, err := sv.l.Accept()
 		if err != nil {
-			xl.Warn("stcp local listener closed")
+			xl.Warnf("stcp local listener closed")
 			return
 		}
 		go sv.handleConn(conn)
@@ -68,7 +68,7 @@ func (sv *STCPVisitor) internalConnWorker() {
 	for {
 		conn, err := sv.internalLn.Accept()
 		if err != nil {
-			xl.Warn("stcp internal listener closed")
+			xl.Warnf("stcp internal listener closed")
 			return
 		}
 		go sv.handleConn(conn)
@@ -79,7 +79,7 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	xl := xlog.FromContextSafe(sv.ctx)
 	defer userConn.Close()
 
-	xl.Debug("get a new stcp user connection")
+	xl.Debugf("get a new stcp user connection")
 	visitorConn, err := sv.helper.ConnectServer()
 	if err != nil {
 		return
@@ -97,7 +97,7 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	}
 	err = msg.WriteMsg(visitorConn, newVisitorConnMsg)
 	if err != nil {
-		xl.Warn("send newVisitorConnMsg to server error: %v", err)
+		xl.Warnf("send newVisitorConnMsg to server error: %v", err)
 		return
 	}
 
@@ -105,13 +105,13 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	_ = visitorConn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	err = msg.ReadMsgInto(visitorConn, &newVisitorConnRespMsg)
 	if err != nil {
-		xl.Warn("get newVisitorConnRespMsg error: %v", err)
+		xl.Warnf("get newVisitorConnRespMsg error: %v", err)
 		return
 	}
 	_ = visitorConn.SetReadDeadline(time.Time{})
 
 	if newVisitorConnRespMsg.Error != "" {
-		xl.Warn("start new visitor connection error: %s", newVisitorConnRespMsg.Error)
+		xl.Warnf("start new visitor connection error: %s", newVisitorConnRespMsg.Error)
 		return
 	}
 
@@ -120,7 +120,7 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	if sv.cfg.Transport.UseEncryption {
 		remote, err = libio.WithEncryption(remote, []byte(sv.cfg.SecretKey))
 		if err != nil {
-			xl.Error("create encryption stream error: %v", err)
+			xl.Errorf("create encryption stream error: %v", err)
 			return
 		}
 	}

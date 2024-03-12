@@ -60,11 +60,56 @@
       <span>{{ row.lastCloseTime }}</span>
     </el-form-item>
   </el-form>
+
+  <div v-if="row.annotations && row.annotations.size > 0">
+  <el-divider />
+  <el-text class="title-text" size="large">Annotations</el-text>
+  <ul>
+    <li v-for="item in annotationsArray()">
+      <span class="annotation-key">{{ item.key }}</span>
+      <span>{{  item.value }}</span>
+    </li>
+  </ul>
+  </div>
 </template>
 
 <script setup lang="ts">
-defineProps<{
+
+const props = defineProps<{
   row: any
   proxyType: string
 }>()
+
+// annotationsArray returns an array of key-value pairs from the annotations map.
+const annotationsArray = (): Array<{ key: string; value: string }> => {
+  const array: Array<{ key: string; value: any }> = [];
+  if (props.row.annotations) {
+    props.row.annotations.forEach((value: any, key: string) => {
+      array.push({ key, value });
+    });
+  }
+  return array;
+}
 </script>
+
+<style>
+ul {
+  list-style-type: none;
+  padding: 5px;
+}
+
+ul li {
+  justify-content: space-between;
+  padding: 5px;
+}
+
+ul .annotation-key {
+  width: 300px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.title-text {
+  color: #99a9bf;
+}
+</style>

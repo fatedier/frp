@@ -31,7 +31,7 @@ func (f *Framework) RunProcesses(serverTemplates []string, clientTemplates []str
 		ExpectNoError(err)
 
 		if TestContext.Debug {
-			flog.Debug("[%s] %s", path, outs[i])
+			flog.Debugf("[%s] %s", path, outs[i])
 		}
 
 		p := process.NewWithEnvs(TestContext.FRPServerPath, []string{"-c", path}, f.osEnvs)
@@ -52,7 +52,7 @@ func (f *Framework) RunProcesses(serverTemplates []string, clientTemplates []str
 		ExpectNoError(err)
 
 		if TestContext.Debug {
-			flog.Debug("[%s] %s", path, outs[index])
+			flog.Debugf("[%s] %s", path, outs[index])
 		}
 
 		p := process.NewWithEnvs(TestContext.FRPClientPath, []string{"-c", path}, f.osEnvs)

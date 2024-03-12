@@ -1,8 +1,9 @@
 package vhost
 
 import (
+	"cmp"
 	"errors"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -58,7 +59,10 @@ func (r *Routers) Add(domain, location, httpUser string, payload interface{}) er
 		payload:  payload,
 	}
 	vrs = append(vrs, vr)
-	sort.Sort(sort.Reverse(ByLocation(vrs)))
+
+	slices.SortFunc(vrs, func(a, b *Router) int {
+		return -cmp.Compare(a.location, b.location)
+	})
 
 	routersByHTTPUser[httpUser] = vrs
 	r.indexByDomain[domain] = routersByHTTPUser
@@ -129,19 +133,4 @@ func (r *Routers) exist(host, path, httpUser string) (route *Router, exist bool)
 		}
 	}
 	return
-}
-
-// sort by location
-type ByLocation []*Router
-
-func (a ByLocation) Len() int {
-	return len(a)
-}
-
-func (a ByLocation) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-
-func (a ByLocation) Less(i, j int) bool {
-	return strings.Compare(a[i].location, a[j].location) < 0
 }

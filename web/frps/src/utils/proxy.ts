@@ -1,6 +1,7 @@
 class BaseProxy {
   name: string
   type: string
+  annotations: Map<string, string>
   encryption: boolean
   compression: boolean
   conns: number
@@ -21,6 +22,13 @@ class BaseProxy {
   constructor(proxyStats: any) {
     this.name = proxyStats.name
     this.type = ''
+    this.annotations = new Map<string, string>()
+    if (proxyStats.conf?.annotations) {
+      for (const key in proxyStats.conf.annotations) {
+        this.annotations.set(key, proxyStats.conf.annotations[key])
+      }
+    }
+
     this.encryption = false
     this.compression = false
     this.encryption =
