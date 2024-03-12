@@ -84,7 +84,7 @@ func (c *defaultConnectorImpl) Open() error {
 			tlsConfig, err = transport.NewClientTLSConfig("", "", "", sn)
 		}
 		if err != nil {
-			xl.Warn("fail to build tls configuration, err: %v", err)
+			xl.Warnf("fail to build tls configuration, err: %v", err)
 			return err
 		}
 		tlsConfig.NextProtos = []string{"frp"}
@@ -164,14 +164,14 @@ func (c *defaultConnectorImpl) realConnect() (net.Conn, error) {
 			c.cfg.Transport.TLS.TrustedCaFile,
 			sn)
 		if err != nil {
-			xl.Warn("fail to build tls configuration, err: %v", err)
+			xl.Warnf("fail to build tls configuration, err: %v", err)
 			return nil, err
 		}
 	}
 
 	proxyType, addr, auth, err := libdial.ParseProxyURL(c.cfg.Transport.ProxyURL)
 	if err != nil {
-		xl.Error("fail to parse proxy url")
+		xl.Errorf("fail to parse proxy url")
 		return nil, err
 	}
 	dialOptions := []libdial.DialOption{}

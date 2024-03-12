@@ -94,22 +94,22 @@ func (l *Logger) Spawn() *Logger {
 	return nl
 }
 
-func (l *Logger) Error(format string, v ...interface{}) {
-	log.Log.Error(l.prefixString+format, v...)
+func (l *Logger) Errorf(format string, v ...interface{}) {
+	log.Logger.Errorf(l.prefixString+format, v...)
 }
 
-func (l *Logger) Warn(format string, v ...interface{}) {
-	log.Log.Warn(l.prefixString+format, v...)
+func (l *Logger) Warnf(format string, v ...interface{}) {
+	log.Logger.Warnf(l.prefixString+format, v...)
 }
 
-func (l *Logger) Info(format string, v ...interface{}) {
-	log.Log.Info(l.prefixString+format, v...)
+func (l *Logger) Infof(format string, v ...interface{}) {
+	log.Logger.Infof(l.prefixString+format, v...)
 }
 
-func (l *Logger) Debug(format string, v ...interface{}) {
-	log.Log.Debug(l.prefixString+format, v...)
+func (l *Logger) Debugf(format string, v ...interface{}) {
+	log.Logger.Debugf(l.prefixString+format, v...)
 }
 
-func (l *Logger) Trace(format string, v ...interface{}) {
-	log.Log.Trace(l.prefixString+format, v...)
+func (l *Logger) Tracef(format string, v ...interface{}) {
+	log.Logger.Tracef(l.prefixString+format, v...)
 }

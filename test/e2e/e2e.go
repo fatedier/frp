@@ -38,7 +38,7 @@ func RunE2ETests(t *testing.T) {
 	// Randomize specs as well as suites
 	suiteConfig.RandomizeAllSpecs = true
 
-	log.Info("Starting e2e run %q on Ginkgo node %d of total %d",
+	log.Infof("Starting e2e run %q on Ginkgo node %d of total %d",
 		framework.RunID, suiteConfig.ParallelProcess, suiteConfig.ParallelTotal)
 	ginkgo.RunSpecs(t, "frp e2e suite", suiteConfig, reporterConfig)
 }

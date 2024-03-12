@@ -174,9 +174,9 @@ func (svr *Service) Run(ctx context.Context) error {
 
 	if svr.webServer != nil {
 		go func() {
-			log.Info("admin server listen on %s", svr.webServer.Address())
+			log.Infof("admin server listen on %s", svr.webServer.Address())
 			if err := svr.webServer.Run(); err != nil {
-				log.Warn("admin server exit with error: %v", err)
+				log.Warnf("admin server exit with error: %v", err)
 			}
 		}()
 	}
@@ -269,14 +269,14 @@ func (svr *Service) login() (conn net.Conn, connector Connector, err error) {
 
 	if loginRespMsg.Error != "" {
 		err = fmt.Errorf("%s", loginRespMsg.Error)
-		xl.Error("%s", loginRespMsg.Error)
+		xl.Errorf("%s", loginRespMsg.Error)
 		return
 	}
 
 	svr.runID = loginRespMsg.RunID
 	xl.AddPrefix(xlog.LogPrefix{Name: "runID", Value: svr.runID})
 
-	xl.Info("login to server success, get run id [%s]", loginRespMsg.RunID)
+	xl.Infof("login to server success, get run id [%s]", loginRespMsg.RunID)
 	return
 }
 
@@ -284,10 +284,10 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 	xl := xlog.FromContextSafe(svr.ctx)
 
 	loginFunc := func() (bool, error) {
-		xl.Info("try to connect to server...")
+		xl.Infof("try to connect to server...")
 		conn, connector, err := svr.login()
 		if err != nil {
-			xl.Warn("connect to server error: %v", err)
+			xl.Warnf("connect to server error: %v", err)
 			if firstLoginExit {
 				svr.cancel(cancelErr{Err: err})
 			}
@@ -313,7 +313,7 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		ctl, err := NewControl(svr.ctx, sessionCtx)
 		if err != nil {
 			conn.Close()
-			xl.Error("NewControl error: %v", err)
+			xl.Errorf("NewControl error: %v", err)
 			return false, err
 		}
 		ctl.SetInWorkConnCallback(svr.handleWorkConnCb)

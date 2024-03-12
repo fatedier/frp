@@ -224,7 +224,7 @@ func (ctl *Control) Close() error {
 
 func (ctl *Control) Replaced(newCtl *Control) {
 	xl := ctl.xl
-	xl.Info("Replaced by client [%s]", newCtl.runID)
+	xl.Infof("Replaced by client [%s]", newCtl.runID)
 	ctl.runID = ""
 	ctl.conn.Close()
 }
@@ -233,17 +233,17 @@ func (ctl *Control) RegisterWorkConn(conn net.Conn) error {
 	xl := ctl.xl
 	defer func() {
 		if err := recover(); err != nil {
-			xl.Error("panic error: %v", err)
-			xl.Error(string(debug.Stack()))
+			xl.Errorf("panic error: %v", err)
+			xl.Errorf(string(debug.Stack()))
 		}
 	}()
 
 	select {
 	case ctl.workConnCh <- conn:
-		xl.Debug("new work connection registered")
+		xl.Debugf("new work connection registered")
 		return nil
 	default:
-		xl.Debug("work connection pool is full, discarding")
+		xl.Debugf("work connection pool is full, discarding")
 		return fmt.Errorf("work connection pool is full, discarding")
 	}
 }
@@ -256,8 +256,8 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 	xl := ctl.xl
 	defer func() {
 		if err := recover(); err != nil {
-			xl.Error("panic error: %v", err)
-			xl.Error(string(debug.Stack()))
+			xl.Errorf("panic error: %v", err)
+			xl.Errorf(string(debug.Stack()))
 		}
 	}()
 
@@ -269,7 +269,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 			err = pkgerr.ErrCtlClosed
 			return
 		}
-		xl.Debug("get work connection from pool")
+		xl.Debugf("get work connection from pool")
 	default:
 		// no work connections available in the poll, send message to frpc to get more
 		if err := ctl.msgDispatcher.Send(&msg.ReqWorkConn{}); err != nil {
@@ -280,13 +280,13 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 		case workConn, ok = <-ctl.workConnCh:
 			if !ok {
 				err = pkgerr.ErrCtlClosed
-				xl.Warn("no work connections available, %v", err)
+				xl.Warnf("no work connections available, %v", err)
 				return
 			}
 
 		case <-time.After(time.Duration(ctl.serverCfg.UserConnTimeout) * time.Second):
 			err = fmt.Errorf("timeout trying to get work connection")
-			xl.Warn("%v", err)
+			xl.Warnf("%v", err)
 			return
 		}
 	}
@@ -305,7 +305,7 @@ func (ctl *Control) heartbeatWorker() {
 	if !lo.FromPtr(ctl.serverCfg.Transport.TCPMux) && ctl.serverCfg.Transport.HeartbeatTimeout > 0 {
 		go wait.Until(func() {
 			if time.Since(ctl.lastPing.Load().(time.Time)) > time.Duration(ctl.serverCfg.Transport.HeartbeatTimeout)*time.Second {
-				xl.Warn("heartbeat timeout")
+				xl.Warnf("heartbeat timeout")
 				ctl.conn.Close()
 				return
 			}
@@ -356,7 +356,7 @@ func (ctl *Control) worker() {
 	}
 
 	metrics.Server.CloseClient()
-	xl.Info("client exit success")
+	xl.Infof("client exit success")
 	close(ctl.doneCh)
 }
 
@@ -393,12 +393,12 @@ func (ctl *Control) handleNewProxy(m msg.Message) {
 		ProxyName: inMsg.ProxyName,
 	}
 	if err != nil {
-		xl.Warn("new proxy [%s] type [%s] error: %v", inMsg.ProxyName, inMsg.ProxyType, err)
+		xl.Warnf("new proxy [%s] type [%s] error: %v", inMsg.ProxyName, inMsg.ProxyType, err)
 		resp.Error = util.GenerateResponseErrorString(fmt.Sprintf("new proxy [%s] error", inMsg.ProxyName),
 			err, lo.FromPtr(ctl.serverCfg.DetailedErrorsToClient))
 	} else {
 		resp.RemoteAddr = remoteAddr
-		xl.Info("new proxy [%s] type [%s] success", inMsg.ProxyName, inMsg.ProxyType)
+		xl.Infof("new proxy [%s] type [%s] success", inMsg.ProxyName, inMsg.ProxyType)
 		metrics.Server.NewProxy(inMsg.ProxyName, inMsg.ProxyType)
 	}
 	_ = ctl.msgDispatcher.Send(resp)
@@ -422,14 +422,14 @@ func (ctl *Control) handlePing(m msg.Message) {
 		err = ctl.authVerifier.VerifyPing(inMsg)
 	}
 	if err != nil {
-		xl.Warn("received invalid ping: %v", err)
+		xl.Warnf("received invalid ping: %v", err)
 		_ = ctl.msgDispatcher.Send(&msg.Pong{
 			Error: util.GenerateResponseErrorString("invalid ping", err, lo.FromPtr(ctl.serverCfg.DetailedErrorsToClient)),
 		})
 		return
 	}
 	ctl.lastPing.Store(time.Now())
-	xl.Debug("receive heartbeat")
+	xl.Debugf("receive heartbeat")
 	_ = ctl.msgDispatcher.Send(&msg.Pong{})
 }
 
@@ -452,7 +452,7 @@ func (ctl *Control) handleCloseProxy(m msg.Message) {
 	xl := ctl.xl
 	inMsg := m.(*msg.CloseProxy)
 	_ = ctl.CloseProxy(inMsg)
-	xl.Info("close proxy [%s] success", inMsg.ProxyName)
+	xl.Infof("close proxy [%s] success", inMsg.ProxyName)
 }
 
 func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err error) {

@@ -65,7 +65,7 @@ func (pxy *TCPMuxProxy) httpConnectListen(
 	if err != nil {
 		return nil, err
 	}
-	pxy.xl.Info("tcpmux httpconnect multiplexer listens for host [%s], group [%s] routeByHTTPUser [%s]",
+	pxy.xl.Infof("tcpmux httpconnect multiplexer listens for host [%s], group [%s] routeByHTTPUser [%s]",
 		domain, pxy.cfg.LoadBalancer.Group, pxy.cfg.RouteByHTTPUser)
 	pxy.listeners = append(pxy.listeners, l)
 	return append(addrs, util.CanonicalAddr(domain, pxy.serverCfg.TCPMuxHTTPConnectPort)), nil

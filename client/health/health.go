@@ -112,17 +112,17 @@ func (monitor *Monitor) checkWorker() {
 		}
 
 		if err == nil {
-			xl.Trace("do one health check success")
+			xl.Tracef("do one health check success")
 			if !monitor.statusOK && monitor.statusNormalFn != nil {
-				xl.Info("health check status change to success")
+				xl.Infof("health check status change to success")
 				monitor.statusOK = true
 				monitor.statusNormalFn()
 			}
 		} else {
-			xl.Warn("do one health check failed: %v", err)
+			xl.Warnf("do one health check failed: %v", err)
 			monitor.failedTimes++
 			if monitor.statusOK && int(monitor.failedTimes) >= monitor.maxFailedTimes && monitor.statusFailedFn != nil {
-				xl.Warn("health check status change to failed")
+				xl.Warnf("health check status change to failed")
 				monitor.statusOK = false
 				monitor.statusFailedFn()
 			}

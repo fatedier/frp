@@ -141,13 +141,13 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 		})
 	}
 
-	xl.Trace("handle tcp work connection, useEncryption: %t, useCompression: %t",
+	xl.Tracef("handle tcp work connection, useEncryption: %t, useCompression: %t",
 		baseCfg.Transport.UseEncryption, baseCfg.Transport.UseCompression)
 	if baseCfg.Transport.UseEncryption {
 		remote, err = libio.WithEncryption(remote, encKey)
 		if err != nil {
 			workConn.Close()
-			xl.Error("create encryption stream error: %v", err)
+			xl.Errorf("create encryption stream error: %v", err)
 			return
 		}
 	}
@@ -189,9 +189,9 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 
 	if pxy.proxyPlugin != nil {
 		// if plugin is set, let plugin handle connection first
-		xl.Debug("handle by plugin: %s", pxy.proxyPlugin.Name())
+		xl.Debugf("handle by plugin: %s", pxy.proxyPlugin.Name())
 		pxy.proxyPlugin.Handle(remote, workConn, &extraInfo)
-		xl.Debug("handle by plugin finished")
+		xl.Debugf("handle by plugin finished")
 		return
 	}
 
@@ -201,25 +201,25 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	)
 	if err != nil {
 		workConn.Close()
-		xl.Error("connect to local service [%s:%d] error: %v", baseCfg.LocalIP, baseCfg.LocalPort, err)
+		xl.Errorf("connect to local service [%s:%d] error: %v", baseCfg.LocalIP, baseCfg.LocalPort, err)
 		return
 	}
 
-	xl.Debug("join connections, localConn(l[%s] r[%s]) workConn(l[%s] r[%s])", localConn.LocalAddr().String(),
+	xl.Debugf("join connections, localConn(l[%s] r[%s]) workConn(l[%s] r[%s])", localConn.LocalAddr().String(),
 		localConn.RemoteAddr().String(), workConn.LocalAddr().String(), workConn.RemoteAddr().String())
 
 	if extraInfo.ProxyProtocolHeader != nil {
 		if _, err := extraInfo.ProxyProtocolHeader.WriteTo(localConn); err != nil {
 			workConn.Close()
-			xl.Error("write proxy protocol header to local conn error: %v", err)
+			xl.Errorf("write proxy protocol header to local conn error: %v", err)
 			return
 		}
 	}
 
 	_, _, errs := libio.Join(localConn, remote)
-	xl.Debug("join connections closed")
+	xl.Debugf("join connections closed")
 	if len(errs) > 0 {
-		xl.Trace("join connections errors: %v", errs)
+		xl.Tracef("join connections errors: %v", errs)
 	}
 	if compressionResourceRecycleFn != nil {
 		compressionResourceRecycleFn()

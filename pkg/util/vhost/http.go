@@ -20,7 +20,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"log"
+	stdlog "log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -32,7 +32,7 @@ import (
 	"github.com/fatedier/golib/pool"
 
 	httppkg "github.com/fatedier/frp/pkg/util/http"
-	logpkg "github.com/fatedier/frp/pkg/util/log"
+	"github.com/fatedier/frp/pkg/util/log"
 )
 
 var ErrNoRouteFound = errors.New("no route found")
@@ -76,7 +76,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 					// ignore error here, it will use CreateConnFn instead later
 					endpoint, _ = rc.ChooseEndpointFn()
 					reqRouteInfo.Endpoint = endpoint
-					logpkg.Trace("choose endpoint name [%s] for http request host [%s] path [%s] httpuser [%s]",
+					log.Tracef("choose endpoint name [%s] for http request host [%s] path [%s] httpuser [%s]",
 						endpoint, oldHost, reqRouteInfo.URL, reqRouteInfo.HTTPUser)
 				}
 				// Set {domain}.{location}.{routeByHTTPUser}.{endpoint} as URL host here to let http transport reuse connections.
@@ -116,9 +116,9 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			},
 		},
 		BufferPool: newWrapPool(),
-		ErrorLog:   log.New(newWrapLogger(), "", 0),
+		ErrorLog:   stdlog.New(newWrapLogger(), "", 0),
 		ErrorHandler: func(rw http.ResponseWriter, req *http.Request, err error) {
-			logpkg.Warn("do http proxy request [host: %s] error: %v", req.Host, err)
+			log.Warnf("do http proxy request [host: %s] error: %v", req.Host, err)
 			rw.WriteHeader(http.StatusNotFound)
 			_, _ = rw.Write(getNotFoundPageContent())
 		},
@@ -145,7 +145,7 @@ func (rp *HTTPReverseProxy) UnRegister(routeCfg RouteConfig) {
 func (rp *HTTPReverseProxy) GetRouteConfig(domain, location, routeByHTTPUser string) *RouteConfig {
 	vr, ok := rp.getVhost(domain, location, routeByHTTPUser)
 	if ok {
-		logpkg.Debug("get new HTTP request host [%s] path [%s] httpuser [%s]", domain, location, routeByHTTPUser)
+		log.Debugf("get new HTTP request host [%s] path [%s] httpuser [%s]", domain, location, routeByHTTPUser)
 		return vr.payload.(*RouteConfig)
 	}
 	return nil
@@ -335,6 +335,6 @@ type wrapLogger struct{}
 func newWrapLogger() *wrapLogger { return &wrapLogger{} }
 
 func (l *wrapLogger) Write(p []byte) (n int, err error) {
-	logpkg.Warn("%s", string(bytes.TrimRight(p, "\n")))
+	log.Warnf("%s", string(bytes.TrimRight(p, "\n")))
 	return len(p), nil
 }
