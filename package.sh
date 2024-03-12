@@ -1,3 +1,6 @@
+#!/bin/sh
+set -e
+
 # compile for version
 make
 if [ $? -ne 0 ]; then
