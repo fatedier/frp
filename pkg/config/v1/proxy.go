@@ -186,7 +186,7 @@ func (c *TypedProxyConfig) UnmarshalJSON(b []byte) error {
 		decoder.DisallowUnknownFields()
 	}
 	if err := decoder.Decode(configurer); err != nil {
-		return err
+		return fmt.Errorf("unmarshal ProxyConfig error: %v", err)
 	}
 	c.ProxyConfigurer = configurer
 	return nil
