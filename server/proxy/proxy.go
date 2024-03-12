@@ -112,7 +112,7 @@ func (pxy *BaseProxy) GetConfigurer() v1.ProxyConfigurer {
 
 func (pxy *BaseProxy) Close() {
 	xl := xlog.FromContextSafe(pxy.ctx)
-	xl.Info("proxy closing")
+	xl.Infof("proxy closing")
 	for _, l := range pxy.listeners {
 		l.Close()
 	}
@@ -125,10 +125,10 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 	// try all connections from the pool
 	for i := 0; i < pxy.poolCount+1; i++ {
 		if workConn, err = pxy.getWorkConnFn(); err != nil {
-			xl.Warn("failed to get work connection: %v", err)
+			xl.Warnf("failed to get work connection: %v", err)
 			return
 		}
-		xl.Debug("get a new work connection: [%s]", workConn.RemoteAddr().String())
+		xl.Debugf("get a new work connection: [%s]", workConn.RemoteAddr().String())
 		xl.Spawn().AppendPrefix(pxy.GetName())
 		workConn = netpkg.NewContextConn(pxy.ctx, workConn)
 
@@ -158,7 +158,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 			Error:     "",
 		})
 		if err != nil {
-			xl.Warn("failed to send message to work connection from pool: %v, times: %d", err, i)
+			xl.Warnf("failed to send message to work connection from pool: %v, times: %d", err, i)
 			workConn.Close()
 		} else {
 			break
@@ -166,7 +166,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 	}
 
 	if err != nil {
-		xl.Error("try to get work connection failed in the end")
+		xl.Errorf("try to get work connection failed in the end")
 		return
 	}
 	return
@@ -193,15 +193,15 @@ func (pxy *BaseProxy) startCommonTCPListenersHandler() {
 						if max := 1 * time.Second; tempDelay > max {
 							tempDelay = max
 						}
-						xl.Info("met temporary error: %s, sleep for %s ...", err, tempDelay)
+						xl.Infof("met temporary error: %s, sleep for %s ...", err, tempDelay)
 						time.Sleep(tempDelay)
 						continue
 					}
 
-					xl.Warn("listener is closed: %s", err)
+					xl.Warnf("listener is closed: %s", err)
 					return
 				}
-				xl.Info("get a user connection [%s]", c.RemoteAddr().String())
+				xl.Infof("get a user connection [%s]", c.RemoteAddr().String())
 				go pxy.handleUserTCPConnection(c)
 			}
 		}(listener)
@@ -225,7 +225,7 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	}
 	_, err := rc.PluginManager.NewUserConn(content)
 	if err != nil {
-		xl.Warn("the user conn [%s] was rejected, err:%v", content.RemoteAddr, err)
+		xl.Warnf("the user conn [%s] was rejected, err:%v", content.RemoteAddr, err)
 		return
 	}
 
@@ -237,12 +237,12 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	defer workConn.Close()
 
 	var local io.ReadWriteCloser = workConn
-	xl.Trace("handler user tcp connection, use_encryption: %t, use_compression: %t",
+	xl.Tracef("handler user tcp connection, use_encryption: %t, use_compression: %t",
 		cfg.Transport.UseEncryption, cfg.Transport.UseCompression)
 	if cfg.Transport.UseEncryption {
 		local, err = libio.WithEncryption(local, []byte(serverCfg.Auth.Token))
 		if err != nil {
-			xl.Error("create encryption stream error: %v", err)
+			xl.Errorf("create encryption stream error: %v", err)
 			return
 		}
 	}
@@ -258,7 +258,7 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 		})
 	}
 
-	xl.Debug("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", workConn.LocalAddr().String(),
+	xl.Debugf("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", workConn.LocalAddr().String(),
 		workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 
 	name := pxy.GetName()
@@ -268,7 +268,7 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	metrics.Server.CloseConnection(name, proxyType)
 	metrics.Server.AddTrafficIn(name, proxyType, inCount)
 	metrics.Server.AddTrafficOut(name, proxyType, outCount)
-	xl.Debug("join connections closed")
+	xl.Debugf("join connections closed")
 }
 
 type Options struct {

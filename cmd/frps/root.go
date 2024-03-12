@@ -99,19 +99,19 @@ func Execute() {
 }
 
 func runServer(cfg *v1.ServerConfig) (err error) {
-	log.InitLog(cfg.Log.To, cfg.Log.Level, cfg.Log.MaxDays, cfg.Log.DisablePrintColor)
+	log.InitLogger(cfg.Log.To, cfg.Log.Level, int(cfg.Log.MaxDays), cfg.Log.DisablePrintColor)
 
 	if cfgFile != "" {
-		log.Info("frps uses config file: %s", cfgFile)
+		log.Infof("frps uses config file: %s", cfgFile)
 	} else {
-		log.Info("frps uses command line arguments for config")
+		log.Infof("frps uses command line arguments for config")
 	}
 
 	svr, err := server.NewService(cfg)
 	if err != nil {
 		return err
 	}
-	log.Info("frps started successfully")
+	log.Infof("frps started successfully")
 	svr.Run(context.Background())
 	return
 }

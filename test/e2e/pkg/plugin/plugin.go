@@ -26,7 +26,7 @@ func NewHTTPPluginServer(port int, newFunc NewPluginRequest, handler Handler, tl
 				w.WriteHeader(500)
 				return
 			}
-			log.Trace("plugin request: %s", string(buf))
+			log.Tracef("plugin request: %s", string(buf))
 			err = json.Unmarshal(buf, &r)
 			if err != nil {
 				w.WriteHeader(500)
@@ -34,7 +34,7 @@ func NewHTTPPluginServer(port int, newFunc NewPluginRequest, handler Handler, tl
 			}
 			resp := handler(r)
 			buf, _ = json.Marshal(resp)
-			log.Trace("plugin response: %s", string(buf))
+			log.Tracef("plugin response: %s", string(buf))
 			_, _ = w.Write(buf)
 		})),
 	)

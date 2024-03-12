@@ -90,7 +90,7 @@ func (pxy *UDPProxy) Close() {
 
 func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 	xl := pxy.xl
-	xl.Info("incoming a new work connection for udp proxy, %s", conn.RemoteAddr().String())
+	xl.Infof("incoming a new work connection for udp proxy, %s", conn.RemoteAddr().String())
 	// close resources related with old workConn
 	pxy.Close()
 
@@ -105,7 +105,7 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 		rwc, err = libio.WithEncryption(rwc, []byte(pxy.clientCfg.Auth.Token))
 		if err != nil {
 			conn.Close()
-			xl.Error("create encryption stream error: %v", err)
+			xl.Errorf("create encryption stream error: %v", err)
 			return
 		}
 	}
@@ -125,32 +125,32 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 		for {
 			var udpMsg msg.UDPPacket
 			if errRet := msg.ReadMsgInto(conn, &udpMsg); errRet != nil {
-				xl.Warn("read from workConn for udp error: %v", errRet)
+				xl.Warnf("read from workConn for udp error: %v", errRet)
 				return
 			}
 			if errRet := errors.PanicToError(func() {
-				xl.Trace("get udp package from workConn: %s", udpMsg.Content)
+				xl.Tracef("get udp package from workConn: %s", udpMsg.Content)
 				readCh <- &udpMsg
 			}); errRet != nil {
-				xl.Info("reader goroutine for udp work connection closed: %v", errRet)
+				xl.Infof("reader goroutine for udp work connection closed: %v", errRet)
 				return
 			}
 		}
 	}
 	workConnSenderFn := func(conn net.Conn, sendCh chan msg.Message) {
 		defer func() {
-			xl.Info("writer goroutine for udp work connection closed")
+			xl.Infof("writer goroutine for udp work connection closed")
 		}()
 		var errRet error
 		for rawMsg := range sendCh {
 			switch m := rawMsg.(type) {
 			case *msg.UDPPacket:
-				xl.Trace("send udp package to workConn: %s", m.Content)
+				xl.Tracef("send udp package to workConn: %s", m.Content)
 			case *msg.Ping:
-				xl.Trace("send ping message to udp workConn")
+				xl.Tracef("send ping message to udp workConn")
 			}
 			if errRet = msg.WriteMsg(conn, rawMsg); errRet != nil {
-				xl.Error("udp work write error: %v", errRet)
+				xl.Errorf("udp work write error: %v", errRet)
 				return
 			}
 		}
@@ -162,7 +162,7 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 			if errRet = errors.PanicToError(func() {
 				sendCh <- &msg.Ping{}
 			}); errRet != nil {
-				xl.Trace("heartbeat goroutine for udp work connection closed")
+				xl.Tracef("heartbeat goroutine for udp work connection closed")
 				break
 			}
 		}

@@ -15,78 +15,65 @@
 package log
 
 import (
-	"fmt"
+	"os"
 
-	"github.com/fatedier/beego/logs"
+	"github.com/fatedier/golib/log"
 )
 
-// Log is the under log object
-var Log *logs.BeeLogger
+var Logger *log.Logger
 
 func init() {
-	Log = logs.NewLogger(200)
-	Log.EnableFuncCallDepth(true)
-	Log.SetLogFuncCallDepth(Log.GetLogFuncCallDepth() + 1)
+	Logger = log.New(
+		log.WithCaller(true),
+		log.AddCallerSkip(1),
+		log.WithLevel(log.InfoLevel),
+	)
 }
 
-func InitLog(logFile string, logLevel string, maxdays int64, disableLogColor bool) {
-	SetLogFile(logFile, maxdays, disableLogColor)
-	SetLogLevel(logLevel)
-}
-
-// SetLogFile to configure log params
-func SetLogFile(logFile string, maxdays int64, disableLogColor bool) {
-	if logFile == "console" {
-		params := ""
-		if disableLogColor {
-			params = `{"color": false}`
+func InitLogger(logPath string, levelStr string, maxDays int, disableLogColor bool) {
+	options := []log.Option{}
+	if logPath == "console" {
+		if !disableLogColor {
+			options = append(options,
+				log.WithOutput(log.NewConsoleWriter(log.ConsoleConfig{
+					Colorful: true,
+				}, os.Stdout)),
+			)
 		}
-		_ = Log.SetLogger("console", params)
 	} else {
-		params := fmt.Sprintf(`{"filename": "%s", "maxdays": %d}`, logFile, maxdays)
-		_ = Log.SetLogger("file", params)
+		writer := log.NewRotateFileWriter(log.RotateFileConfig{
+			FileName: logPath,
+			Mode:     log.RotateFileModeDaily,
+			MaxDays:  maxDays,
+		})
+		writer.Init()
+		options = append(options, log.WithOutput(writer))
 	}
-}
 
-// SetLogLevel set log level, default is warning
-// value: error, warning, info, debug, trace
-func SetLogLevel(logLevel string) {
-	var level int
-	switch logLevel {
-	case "error":
-		level = 3
-	case "warn":
-		level = 4
-	case "info":
-		level = 6
-	case "debug":
-		level = 7
-	case "trace":
-		level = 8
-	default:
-		level = 4 // warning
+	level, err := log.ParseLevel(levelStr)
+	if err != nil {
+		level = log.InfoLevel
 	}
-	Log.SetLevel(level)
+	options = append(options, log.WithLevel(level))
+	Logger = Logger.WithOptions(options...)
 }
 
-// wrap log
-
-func Error(format string, v ...interface{}) {
-	Log.Error(format, v...)
+func Errorf(format string, v ...interface{}) {
+	Logger.Errorf(format, v...)
 }
 
-func Warn(format string, v ...interface{}) {
-	Log.Warn(format, v...)
+func Warnf(format string, v ...interface{}) {
+	Logger.Warnf(format, v...)
 }
 
-func Info(format string, v ...interface{}) {
-	Log.Info(format, v...)
+func Infof(format string, v ...interface{}) {
+	Logger.Infof(format, v...)
 }
 
-func Debug(format string, v ...interface{}) {
-	Log.Debug(format, v...)
+func Debugf(format string, v ...interface{}) {
+	Logger.Debugf(format, v...)
 }
 
-func Trace(format string, v ...interface{}) {
-	Log.Trace(format, v...)
+func Tracef(format string, v ...interface{}) {
+	Logger.Tracef(format, v...)
 }

@@ -81,7 +81,7 @@ func (pxy *SUDPProxy) Close() {
 
 func (pxy *SUDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 	xl := pxy.xl
-	xl.Info("incoming a new work connection for sudp proxy, %s", conn.RemoteAddr().String())
+	xl.Infof("incoming a new work connection for sudp proxy, %s", conn.RemoteAddr().String())
 
 	var rwc io.ReadWriteCloser = conn
 	var err error
@@ -94,7 +94,7 @@ func (pxy *SUDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 		rwc, err = libio.WithEncryption(rwc, []byte(pxy.clientCfg.Auth.Token))
 		if err != nil {
 			conn.Close()
-			xl.Error("create encryption stream error: %v", err)
+			xl.Errorf("create encryption stream error: %v", err)
 			return
 		}
 	}
@@ -133,21 +133,21 @@ func (pxy *SUDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 			// first to check sudp proxy is closed or not
 			select {
 			case <-pxy.closeCh:
-				xl.Trace("frpc sudp proxy is closed")
+				xl.Tracef("frpc sudp proxy is closed")
 				return
 			default:
 			}
 
 			var udpMsg msg.UDPPacket
 			if errRet := msg.ReadMsgInto(conn, &udpMsg); errRet != nil {
-				xl.Warn("read from workConn for sudp error: %v", errRet)
+				xl.Warnf("read from workConn for sudp error: %v", errRet)
 				return
 			}
 
 			if errRet := errors.PanicToError(func() {
 				readCh <- &udpMsg
 			}); errRet != nil {
-				xl.Warn("reader goroutine for sudp work connection closed: %v", errRet)
+				xl.Warnf("reader goroutine for sudp work connection closed: %v", errRet)
 				return
 			}
 		}
@@ -157,21 +157,21 @@ func (pxy *SUDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 	workConnSenderFn := func(conn net.Conn, sendCh chan msg.Message) {
 		defer func() {
 			closeFn()
-			xl.Info("writer goroutine for sudp work connection closed")
+			xl.Infof("writer goroutine for sudp work connection closed")
 		}()
 
 		var errRet error
 		for rawMsg := range sendCh {
 			switch m := rawMsg.(type) {
 			case *msg.UDPPacket:
-				xl.Trace("frpc send udp package to frpc visitor, [udp local: %v, remote: %v], [tcp work conn local: %v, remote: %v]",
+				xl.Tracef("frpc send udp package to frpc visitor, [udp local: %v, remote: %v], [tcp work conn local: %v, remote: %v]",
 					m.LocalAddr.String(), m.RemoteAddr.String(), conn.LocalAddr().String(), conn.RemoteAddr().String())
 			case *msg.Ping:
-				xl.Trace("frpc send ping message to frpc visitor")
+				xl.Tracef("frpc send ping message to frpc visitor")
 			}
 
 			if errRet = msg.WriteMsg(conn, rawMsg); errRet != nil {
-				xl.Error("sudp work write error: %v", errRet)
+				xl.Errorf("sudp work write error: %v", errRet)
 				return
 			}
 		}
@@ -191,11 +191,11 @@ func (pxy *SUDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 				if errRet = errors.PanicToError(func() {
 					sendCh <- &msg.Ping{}
 				}); errRet != nil {
-					xl.Warn("heartbeat goroutine for sudp work connection closed")
+					xl.Warnf("heartbeat goroutine for sudp work connection closed")
 					return
 				}
 			case <-pxy.closeCh:
-				xl.Trace("frpc sudp proxy is closed")
+				xl.Tracef("frpc sudp proxy is closed")
 				return
 			}
 		}

@@ -79,14 +79,14 @@ func (vm *Manager) keepVisitorsRunning() {
 	for {
 		select {
 		case <-vm.stopCh:
-			xl.Trace("gracefully shutdown visitor manager")
+			xl.Tracef("gracefully shutdown visitor manager")
 			return
 		case <-ticker.C:
 			vm.mu.Lock()
 			for _, cfg := range vm.cfgs {
 				name := cfg.GetBaseConfig().Name
 				if _, exist := vm.visitors[name]; !exist {
-					xl.Info("try to start visitor [%s]", name)
+					xl.Infof("try to start visitor [%s]", name)
 					_ = vm.startVisitor(cfg)
 				}
 			}
@@ -115,10 +115,10 @@ func (vm *Manager) startVisitor(cfg v1.VisitorConfigurer) (err error) {
 	visitor := NewVisitor(vm.ctx, cfg, vm.clientCfg, vm.helper)
 	err = visitor.Run()
 	if err != nil {
-		xl.Warn("start error: %v", err)
+		xl.Warnf("start error: %v", err)
 	} else {
 		vm.visitors[name] = visitor
-		xl.Info("start visitor success")
+		xl.Infof("start visitor success")
 	}
 	return
 }
@@ -156,7 +156,7 @@ func (vm *Manager) UpdateAll(cfgs []v1.VisitorConfigurer) {
 		}
 	}
 	if len(delNames) > 0 {
-		xl.Info("visitor removed: %v", delNames)
+		xl.Infof("visitor removed: %v", delNames)
 	}
 
 	addNames := make([]string, 0)
@@ -169,7 +169,7 @@ func (vm *Manager) UpdateAll(cfgs []v1.VisitorConfigurer) {
 		}
 	}
 	if len(addNames) > 0 {
-		xl.Info("visitor added: %v", addNames)
+		xl.Infof("visitor added: %v", addNames)
 	}
 }
 

@@ -124,7 +124,7 @@ func (ctl *Control) handleReqWorkConn(_ msg.Message) {
 	xl := ctl.xl
 	workConn, err := ctl.connectServer()
 	if err != nil {
-		xl.Warn("start new connection to server error: %v", err)
+		xl.Warnf("start new connection to server error: %v", err)
 		return
 	}
 
@@ -132,24 +132,24 @@ func (ctl *Control) handleReqWorkConn(_ msg.Message) {
 		RunID: ctl.sessionCtx.RunID,
 	}
 	if err = ctl.sessionCtx.AuthSetter.SetNewWorkConn(m); err != nil {
-		xl.Warn("error during NewWorkConn authentication: %v", err)
+		xl.Warnf("error during NewWorkConn authentication: %v", err)
 		workConn.Close()
 		return
 	}
 	if err = msg.WriteMsg(workConn, m); err != nil {
-		xl.Warn("work connection write to server error: %v", err)
+		xl.Warnf("work connection write to server error: %v", err)
 		workConn.Close()
 		return
 	}
 
 	var startMsg msg.StartWorkConn
 	if err = msg.ReadMsgInto(workConn, &startMsg); err != nil {
-		xl.Trace("work connection closed before response StartWorkConn message: %v", err)
+		xl.Tracef("work connection closed before response StartWorkConn message: %v", err)
 		workConn.Close()
 		return
 	}
 	if startMsg.Error != "" {
-		xl.Error("StartWorkConn contains error: %s", startMsg.Error)
+		xl.Errorf("StartWorkConn contains error: %s", startMsg.Error)
 		workConn.Close()
 		return
 	}
@@ -165,9 +165,9 @@ func (ctl *Control) handleNewProxyResp(m msg.Message) {
 	// Start a new proxy handler if no error got
 	err := ctl.pm.StartProxy(inMsg.ProxyName, inMsg.RemoteAddr, inMsg.Error)
 	if err != nil {
-		xl.Warn("[%s] start error: %v", inMsg.ProxyName, err)
+		xl.Warnf("[%s] start error: %v", inMsg.ProxyName, err)
 	} else {
-		xl.Info("[%s] start proxy success", inMsg.ProxyName)
+		xl.Infof("[%s] start proxy success", inMsg.ProxyName)
 	}
 }
 
@@ -178,7 +178,7 @@ func (ctl *Control) handleNatHoleResp(m msg.Message) {
 	// Dispatch the NatHoleResp message to the related proxy.
 	ok := ctl.msgTransporter.DispatchWithType(inMsg, msg.TypeNameNatHoleResp, inMsg.TransactionID)
 	if !ok {
-		xl.Trace("dispatch NatHoleResp message to related proxy error")
+		xl.Tracef("dispatch NatHoleResp message to related proxy error")
 	}
 }
 
@@ -187,12 +187,12 @@ func (ctl *Control) handlePong(m msg.Message) {
 	inMsg := m.(*msg.Pong)
 
 	if inMsg.Error != "" {
-		xl.Error("Pong message contains error: %s", inMsg.Error)
+		xl.Errorf("Pong message contains error: %s", inMsg.Error)
 		ctl.closeSession()
 		return
 	}
 	ctl.lastPong.Store(time.Now())
-	xl.Debug("receive heartbeat from server")
+	xl.Debugf("receive heartbeat from server")
 }
 
 // closeSession closes the control connection.
@@ -241,10 +241,10 @@ func (ctl *Control) heartbeatWorker() {
 	if ctl.sessionCtx.Common.Transport.HeartbeatInterval > 0 {
 		// send heartbeat to server
 		sendHeartBeat := func() (bool, error) {
-			xl.Debug("send heartbeat to server")
+			xl.Debugf("send heartbeat to server")
 			pingMsg := &msg.Ping{}
 			if err := ctl.sessionCtx.AuthSetter.SetPing(pingMsg); err != nil {
-				xl.Warn("error during ping authentication: %v, skip sending ping message", err)
+				xl.Warnf("error during ping authentication: %v, skip sending ping message", err)
 				return false, err
 			}
 			_ = ctl.msgDispatcher.Send(pingMsg)
@@ -269,7 +269,7 @@ func (ctl *Control) heartbeatWorker() {
 
 		go wait.Until(func() {
 			if time.Since(ctl.lastPong.Load().(time.Time)) > time.Duration(ctl.sessionCtx.Common.Transport.HeartbeatTimeout)*time.Second {
-				xl.Warn("heartbeat timeout")
+				xl.Warnf("heartbeat timeout")
 				ctl.closeSession()
 				return
 			}
