@@ -57,7 +57,7 @@ func (c *TypedClientPluginOptions) UnmarshalJSON(b []byte) error {
 	}
 
 	if err := decoder.Decode(options); err != nil {
-		return err
+		return fmt.Errorf("unmarshal ClientPluginOptions error: %v", err)
 	}
 	c.ClientPluginOptions = options
 	return nil

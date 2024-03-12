@@ -30,10 +30,11 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 				name = "%s"
 				type = "tcp"
 				remotePort = {{ .%s }}
+				`+extra, proxyName, portName) + fmt.Sprintf(`
 				[proxies.plugin]
 				type = "unix_domain_socket"
 				unixPath = "{{ .%s }}"
-				`+extra, proxyName, portName, framework.UDSEchoServerAddr)
+				`, framework.UDSEchoServerAddr)
 			}
 
 			tests := []struct {
