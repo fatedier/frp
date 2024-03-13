@@ -22,6 +22,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -58,6 +59,11 @@ const (
 	connReadTimeout       time.Duration = 10 * time.Second
 	vhostReadWriteTimeout time.Duration = 30 * time.Second
 )
+
+func init() {
+	// Disable quic-go's receive buffer warning.
+	os.Setenv("QUIC_GO_DISABLE_RECEIVE_BUFFER_WARNING", "true")
+}
 
 // Server service
 type Service struct {
