@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -40,6 +41,8 @@ import (
 
 func init() {
 	crypto.DefaultSalt = "frp"
+	// Disable quic-go's receive buffer warning.
+	os.Setenv("QUIC_GO_DISABLE_RECEIVE_BUFFER_WARNING", "true")
 }
 
 type cancelErr struct {
