@@ -24,8 +24,8 @@ github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
-github.com/fatedier/golib v0.4.0 h1:lafvYRMhFmqrfIUChKy/f5AXqs1eDSk+GAUtLexN5bU=
-github.com/fatedier/golib v0.4.0/go.mod h1:gpu+1vXxtJ072NYaNsn/YWgojDL8Ap2kFZQtbzT2qkg=
+github.com/fatedier/golib v0.4.1 h1:C37VN3M+F3nUdh13laZsiyb5EXNe3tZnUdoHi+7rx+Q=
+github.com/fatedier/golib v0.4.1/go.mod h1:gpu+1vXxtJ072NYaNsn/YWgojDL8Ap2kFZQtbzT2qkg=
 github.com/fatedier/yamux v0.0.0-20230628132301-7aca4898904d h1:ynk1ra0RUqDWQfvFi5KtMiSobkVQ3cNc0ODb8CfIETo=
 github.com/fatedier/yamux v0.0.0-20230628132301-7aca4898904d/go.mod h1:CtWFDAQgb7dxtzFs4tWbplKIe2jSi3+5vKbgIO0SLnQ=
 github.com/go-jose/go-jose/v3 v3.0.1 h1:pWmKFVtt+Jl0vBZTIpz/eAKwsm6LkIxDVVbFHKkchhA=
