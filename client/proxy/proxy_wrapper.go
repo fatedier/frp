@@ -65,7 +65,7 @@ type Wrapper struct {
 	// underlying proxy
 	pxy Proxy
 
-	// if ProxyConf has healcheck config
+	// if ProxyConf has health check config
 	// monitor will watch if it is alive
 	monitor *health.Monitor
 
