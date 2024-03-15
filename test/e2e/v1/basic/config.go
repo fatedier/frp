@@ -38,6 +38,51 @@ var _ = ginkgo.Describe("[Feature: Config]", func() {
 
 			framework.NewRequestExpect(f).PortName(portName).Ensure()
 		})
+
+		ginkgo.It("Range ports mapping", func() {
+			serverConf := consts.DefaultServerConfig
+			clientConf := consts.DefaultClientConfig
+
+			adminPort := f.AllocPort()
+
+			localPortsRange := "13010-13012,13014"
+			remotePortsRange := "23010-23012,23014"
+			escapeTemplate := func(s string) string {
+				return "{{ `" + s + "` }}"
+			}
+			clientConf += fmt.Sprintf(`
+			webServer.port = %d
+
+			%s
+			[[proxies]]
+			name = "tcp-%s"
+			type = "tcp"
+			localPort = %s
+			remotePort = %s
+			%s
+			`, adminPort,
+				escapeTemplate(fmt.Sprintf(`{{- range $_, $v := parseNumberRangePair "%s" "%s" }}`, localPortsRange, remotePortsRange)),
+				escapeTemplate("{{ $v.First }}"),
+				escapeTemplate("{{ $v.First }}"),
+				escapeTemplate("{{ $v.Second }}"),
+				escapeTemplate("{{- end }}"),
+			)
+
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+			client := f.APIClientForFrpc(adminPort)
+			checkProxyFn := func(name string, localPort, remotePort int) {
+				status, err := client.GetProxyStatus(name)
+				framework.ExpectNoError(err)
+
+				framework.ExpectContainSubstring(status.LocalAddr, fmt.Sprintf(":%d", localPort))
+				framework.ExpectContainSubstring(status.RemoteAddr, fmt.Sprintf(":%d", remotePort))
+			}
+			checkProxyFn("tcp-13010", 13010, 23010)
+			checkProxyFn("tcp-13011", 13011, 23011)
+			checkProxyFn("tcp-13012", 13012, 23012)
+			checkProxyFn("tcp-13014", 13014, 23014)
+		})
 	})
 
 	ginkgo.Describe("Includes", func() {
