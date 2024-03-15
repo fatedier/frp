@@ -217,7 +217,7 @@ func (f *Framework) RenderTemplates(templates []string) (outs []string, ports ma
 	}
 
 	for _, t := range templates {
-		tmpl, err := template.New("").Parse(t)
+		tmpl, err := template.New("frp-e2e").Parse(t)
 		if err != nil {
 			return nil, nil, err
 		}

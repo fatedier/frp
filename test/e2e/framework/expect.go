@@ -43,6 +43,10 @@ func ExpectNoErrorWithOffset(offset int, err error, explain ...interface{}) {
 	gomega.ExpectWithOffset(1+offset, err).NotTo(gomega.HaveOccurred(), explain...)
 }
 
+func ExpectContainSubstring(actual, substr string, explain ...interface{}) {
+	gomega.ExpectWithOffset(1, actual).To(gomega.ContainSubstring(substr), explain...)
+}
+
 // ExpectConsistOf expects actual contains precisely the extra elements.  The ordering of the elements does not matter.
 func ExpectConsistOf(actual interface{}, extra interface{}, explain ...interface{}) {
 	gomega.ExpectWithOffset(1, actual).To(gomega.ConsistOf(extra), explain...)
