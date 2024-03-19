@@ -99,7 +99,10 @@ type HealthCheckConfig struct {
 	Path string `json:"path,omitempty"`
 	// Headers specifies the headers to send health checks to if the
 	// health check type is "http".
-	Headers HeaderOperations `json:"headers,omitempty"`
+	Headers []HTTPHeader `json:"headers,omitempty"`
+	// HostHeaderRewrite specifies the request host to send health checks to if the
+	// health check type is "http".
+	HostHeaderRewrite string `json:"hostHeaderRewrite,omitempty"`
 }
 
 type DomainConfig struct {
