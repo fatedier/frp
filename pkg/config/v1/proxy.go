@@ -97,6 +97,9 @@ type HealthCheckConfig struct {
 	// Path specifies the path to send health checks to if the
 	// health check type is "http".
 	Path string `json:"path,omitempty"`
+	// Headers specifies the headers to send health checks to if the
+	// health check type is "http".
+	Headers HeaderOperations `json:"headers,omitempty"`
 }
 
 type DomainConfig struct {

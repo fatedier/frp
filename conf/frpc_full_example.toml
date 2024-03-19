@@ -216,7 +216,8 @@ healthCheck.path = "/status"
 healthCheck.intervalSeconds = 10
 healthCheck.maxFailed = 3
 healthCheck.timeoutSeconds = 3
-
+# set health check headers
+healthCheck.headers.set.Host= = "example.com"
 [[proxies]]
 name = "web02"
 type = "https"
