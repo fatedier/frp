@@ -39,3 +39,4 @@ client.key
 
 # Cache
 *.swp
+.DS_Store
