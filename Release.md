@@ -16,6 +16,8 @@
 
   This will create 8 proxies such as `tcp-6000, tcp-6001, ... tcp-6007`.
 
+* Health check supports custom request headers.
+
 ### Fixes
 
 * Fix the issue of incorrect interval time for rotating the log by day.
