@@ -199,6 +199,7 @@ func getConfByType(proxyType string) any {
 type ProxyStatsInfo struct {
 	Name            string      `json:"name"`
 	Conf            interface{} `json:"conf"`
+	ClientAddr      string      `json:"clientAddr,omitempty"`
 	ClientVersion   string      `json:"clientVersion,omitempty"`
 	TodayTrafficIn  int64       `json:"todayTrafficIn"`
 	TodayTrafficOut int64       `json:"todayTrafficOut"`
@@ -257,6 +258,7 @@ func (svr *Service) getProxyStatsByType(proxyType string) (proxyInfos []*ProxySt
 			if pxy.GetLoginMsg() != nil {
 				proxyInfo.ClientVersion = pxy.GetLoginMsg().Version
 			}
+			proxyInfo.ClientAddr = pxy.GetClientAddr()
 		} else {
 			proxyInfo.Status = "offline"
 		}

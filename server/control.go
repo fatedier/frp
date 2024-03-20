@@ -480,6 +480,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		GetWorkConnFn:      ctl.GetWorkConn,
 		Configurer:         pxyConf,
 		ServerCfg:          ctl.serverCfg,
+		ClientAddr:         ctl.conn.RemoteAddr().String(),
 	})
 	if err != nil {
 		return remoteAddr, err

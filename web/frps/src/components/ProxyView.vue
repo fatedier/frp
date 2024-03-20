@@ -51,6 +51,8 @@
         sortable
       >
       </el-table-column>
+      <el-table-column label="ClientAddress" prop="clientAddress" sortable>
+      </el-table-column>
       <el-table-column label="ClientVersion" prop="clientVersion" sortable>
       </el-table-column>
       <el-table-column label="Status" prop="status" sortable>

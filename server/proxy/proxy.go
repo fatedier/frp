@@ -57,6 +57,7 @@ type Proxy interface {
 	GetUserInfo() plugin.UserInfo
 	GetLimiter() *rate.Limiter
 	GetLoginMsg() *msg.Login
+	GetClientAddr() string
 	Close()
 }
 
@@ -72,6 +73,7 @@ type BaseProxy struct {
 	userInfo      plugin.UserInfo
 	loginMsg      *msg.Login
 	configurer    v1.ProxyConfigurer
+	clientAddr    string
 
 	mu  sync.RWMutex
 	xl  *xlog.Logger
@@ -108,6 +110,10 @@ func (pxy *BaseProxy) GetLimiter() *rate.Limiter {
 
 func (pxy *BaseProxy) GetConfigurer() v1.ProxyConfigurer {
 	return pxy.configurer
+}
+
+func (pxy *BaseProxy) GetClientAddr() string {
+	return pxy.clientAddr
 }
 
 func (pxy *BaseProxy) Close() {
@@ -279,6 +285,7 @@ type Options struct {
 	GetWorkConnFn      GetWorkConnFn
 	Configurer         v1.ProxyConfigurer
 	ServerCfg          *v1.ServerConfig
+	ClientAddr         string
 }
 
 func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
@@ -304,6 +311,7 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 		userInfo:      options.UserInfo,
 		loginMsg:      options.LoginMsg,
 		configurer:    configurer,
+		clientAddr:    options.ClientAddr,
 	}
 
 	factory := proxyFactoryRegistry[reflect.TypeOf(configurer)]
