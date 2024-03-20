@@ -217,7 +217,7 @@ healthCheck.intervalSeconds = 10
 healthCheck.maxFailed = 3
 healthCheck.timeoutSeconds = 3
 # set health check headers
-healthCheck.httpheaders=[
+healthCheck.httpHeaders=[
     { name = "x-from-where", value = "frp" }
 ]
 
