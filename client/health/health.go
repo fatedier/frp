@@ -42,7 +42,6 @@ type Monitor struct {
 	// For http
 	url            string
 	header         http.Header
-	host           string
 	failedTimes    uint64
 	statusOK       bool
 	statusNormalFn func()
@@ -87,7 +86,6 @@ func NewMonitor(ctx context.Context, cfg v1.HealthCheckConfig, addr string,
 		addr:           addr,
 		url:            url,
 		header:         header,
-		host:           cfg.HostHeaderRewrite,
 		statusOK:       false,
 		statusNormalFn: statusNormalFn,
 		statusFailedFn: statusFailedFn,
@@ -172,7 +170,7 @@ func (monitor *Monitor) doHTTPCheck(ctx context.Context) error {
 		return err
 	}
 	req.Header = monitor.header
-	req.Host = monitor.host
+	req.Host = monitor.header.Get("Host")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err

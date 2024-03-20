@@ -220,7 +220,6 @@ healthCheck.timeoutSeconds = 3
 healthCheck.headers=[
     { name = "x-from-where", value = "frp" }
 ]
-healthCheck.hostHeaderRewrite = "example.com"
 
 [[proxies]]
 name = "web02"
