@@ -17,7 +17,7 @@ package nathole
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"slices"
 	"strconv"
@@ -341,7 +341,7 @@ func sendSidMessage(
 		TransactionID: transactionID,
 		Sid:           sid,
 		Response:      false,
-		Nonce:         strings.Repeat("0", rand.Intn(20)),
+		Nonce:         strings.Repeat("0", rand.IntN(20)),
 	}
 	buf, err := EncodeMessage(m, key)
 	if err != nil {
@@ -398,7 +398,7 @@ func sendSidMessageToRandomPorts(
 	used := sets.New[int]()
 	getUnusedPort := func() int {
 		for i := 0; i < 10; i++ {
-			port := rand.Intn(65535-1024) + 1024
+			port := rand.IntN(65535-1024) + 1024
 			if !used.Has(port) {
 				used.Insert(port)
 				return port

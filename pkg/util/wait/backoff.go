@@ -15,7 +15,7 @@
 package wait
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"time"
 
 	"github.com/fatedier/frp/pkg/util/util"
