@@ -74,7 +74,7 @@ func NewMonitor(ctx context.Context, cfg v1.HealthCheckConfig, addr string,
 		url = s + cfg.Path
 	}
 	header := make(http.Header)
-	for _, h := range cfg.Headers {
+	for _, h := range cfg.HTTPHeaders {
 		header.Set(h.Name, h.Value)
 	}
 
