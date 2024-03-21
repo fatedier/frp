@@ -17,7 +17,7 @@ make -f ./Makefile.cross-compiles
 rm -rf ./release/packages
 mkdir -p ./release/packages
 
-os_all='linux windows darwin freebsd'
+os_all='linux windows darwin freebsd android'
 arch_all='386 amd64 arm arm64 mips64 mips64le mips mipsle riscv64'
 
 cd ./release
