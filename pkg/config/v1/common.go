@@ -129,3 +129,8 @@ type HTTPPluginOptions struct {
 type HeaderOperations struct {
 	Set map[string]string `json:"set,omitempty"`
 }
+
+type HTTPHeader struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}

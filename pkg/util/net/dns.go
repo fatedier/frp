@@ -26,8 +26,8 @@ func SetDefaultDNSAddress(dnsAddress string) {
 	// Change default dns server
 	net.DefaultResolver = &net.Resolver{
 		PreferGo: true,
-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			return net.Dial("udp", dnsAddress)
+		Dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
+			return net.Dial(network, dnsAddress)
 		},
 	}
 }

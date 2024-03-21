@@ -20,7 +20,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
-	mathrand "math/rand"
+	mathrand "math/rand/v2"
 	"net"
 	"strconv"
 	"strings"
@@ -124,7 +124,7 @@ func RandomSleep(duration time.Duration, minRatio, maxRatio float64) time.Durati
 	if max <= min {
 		n = min
 	} else {
-		n = mathrand.Int63n(max-min) + min
+		n = mathrand.Int64N(max-min) + min
 	}
 	d := duration * time.Duration(n) / time.Duration(1000)
 	time.Sleep(d)

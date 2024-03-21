@@ -1,11 +1,9 @@
 package framework
 
-type FRPClient struct {
-	port int
-}
+import (
+	clientsdk "github.com/fatedier/frp/pkg/sdk/client"
+)
 
-func (f *Framework) FRPClient(port int) *FRPClient {
-	return &FRPClient{
-		port: port,
-	}
+func (f *Framework) APIClientForFrpc(port int) *clientsdk.Client {
+	return clientsdk.New("127.0.0.1", port)
 }

@@ -40,8 +40,8 @@ type Monitor struct {
 	addr string
 
 	// For http
-	url string
-
+	url            string
+	header         http.Header
 	failedTimes    uint64
 	statusOK       bool
 	statusNormalFn func()
@@ -73,6 +73,11 @@ func NewMonitor(ctx context.Context, cfg v1.HealthCheckConfig, addr string,
 		}
 		url = s + cfg.Path
 	}
+	header := make(http.Header)
+	for _, h := range cfg.HTTPHeaders {
+		header.Set(h.Name, h.Value)
+	}
+
 	return &Monitor{
 		checkType:      cfg.Type,
 		interval:       time.Duration(cfg.IntervalSeconds) * time.Second,
@@ -80,6 +85,7 @@ func NewMonitor(ctx context.Context, cfg v1.HealthCheckConfig, addr string,
 		maxFailedTimes: cfg.MaxFailed,
 		addr:           addr,
 		url:            url,
+		header:         header,
 		statusOK:       false,
 		statusNormalFn: statusNormalFn,
 		statusFailedFn: statusFailedFn,
@@ -163,6 +169,8 @@ func (monitor *Monitor) doHTTPCheck(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	req.Header = monitor.header
+	req.Host = monitor.header.Get("Host")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err

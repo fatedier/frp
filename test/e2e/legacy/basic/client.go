@@ -8,7 +8,6 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
-	clientsdk "github.com/fatedier/frp/pkg/sdk/client"
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
 	"github.com/fatedier/frp/test/e2e/pkg/request"
@@ -54,7 +53,7 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 		framework.NewRequestExpect(f).Port(p2Port).Ensure()
 		framework.NewRequestExpect(f).Port(p3Port).Ensure()
 
-		client := clientsdk.New("127.0.0.1", adminPort)
+		client := f.APIClientForFrpc(adminPort)
 		conf, err := client.GetConfig()
 		framework.ExpectNoError(err)
 
@@ -120,7 +119,7 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 
 		framework.NewRequestExpect(f).Port(testPort).Ensure()
 
-		client := clientsdk.New("127.0.0.1", adminPort)
+		client := f.APIClientForFrpc(adminPort)
 		err := client.Stop()
 		framework.ExpectNoError(err)
 

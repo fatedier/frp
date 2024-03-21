@@ -78,6 +78,7 @@ frp also offers a P2P connect mode.
     * [URL Routing](#url-routing)
     * [TCP Port Multiplexing](#tcp-port-multiplexing)
     * [Connecting to frps via PROXY](#connecting-to-frps-via-proxy)
+    * [Port range mapping](#port-range-mapping)
     * [Client Plugins](#client-plugins)
     * [Server Manage Plugins](#server-manage-plugins)
     * [SSH Tunnel Gateway](#ssh-tunnel-gateway)
@@ -1156,6 +1157,24 @@ It only works when protocol is tcp.
 serverAddr = "x.x.x.x"
 serverPort = 7000
 transport.proxyURL = "http://user:pwd@192.168.1.128:8080"
+```
+
+### Port range mapping
+
+*Added in v0.56.0*
+
+We can use the range syntax of Go template combined with the built-in `parseNumberRangePair` function to achieve port range mapping.
+
+The following example, when run, will create 8 proxies named `test-6000, test-6001 ... test-6007`, each mapping the remote port to the local port.
+
+```
+{{- range $_, $v := parseNumberRangePair "6000-6006,6007" "6000-6006,6007" }}
+[[proxies]]
+name = "tcp-{{ $v.First }}"
+type = "tcp"
+localPort = {{ $v.First }}
+remotePort = {{ $v.Second }}
+{{- end }}
 ```
 
 ### Client Plugins

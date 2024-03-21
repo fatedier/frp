@@ -80,7 +80,10 @@ func DetectLegacyINIFormatFromFile(path string) bool {
 }
 
 func RenderWithTemplate(in []byte, values *Values) ([]byte, error) {
-	tmpl, err := template.New("frp").Parse(string(in))
+	tmpl, err := template.New("frp").Funcs(template.FuncMap{
+		"parseNumberRange":     parseNumberRange,
+		"parseNumberRangePair": parseNumberRangePair,
+	}).Parse(string(in))
 	if err != nil {
 		return nil, err
 	}
