@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/fatedier/golib/crypto"
 	"github.com/fatedier/golib/net/mux"
 	fmux "github.com/hashicorp/yamux"
 	quic "github.com/quic-go/quic-go"
@@ -61,6 +62,7 @@ const (
 )
 
 func init() {
+	crypto.DefaultSalt = "frp"
 	// Disable quic-go's receive buffer warning.
 	os.Setenv("QUIC_GO_DISABLE_RECEIVE_BUFFER_WARNING", "true")
 	// Disable quic-go's ECN support by default. It may cause issues on certain operating systems.

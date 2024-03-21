@@ -17,6 +17,7 @@
   This will create 8 proxies such as `tcp-6000, tcp-6001, ... tcp-6007`.
 
 * Health check supports custom request headers.
+* Enable compatibility mode for the Android system to solve the issues of incorrect log time caused by time zone problems and default DNS resolution failures.
 
 ### Fixes
 

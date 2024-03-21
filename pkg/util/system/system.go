@@ -1,4 +1,4 @@
-// Copyright 2018 fatedier, fatedier@gmail.com
+// Copyright 2024 The frp Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+//go:build !android
 
-import (
-	_ "github.com/fatedier/frp/assets/frps"
-	_ "github.com/fatedier/frp/pkg/metrics"
-	"github.com/fatedier/frp/pkg/util/system"
-)
+package system
 
-func main() {
-	system.EnableCompatibilityMode()
-	Execute()
+// EnableCompatibilityMode enables compatibility mode for different system.
+// For example, on Android, the inability to obtain the correct time zone will result in incorrect log time output.
+func EnableCompatibilityMode() {
 }
