@@ -1,9 +1,9 @@
-serverAddr = "127.0.0.1"
+serverAddr = "52.77.216.244"
 serverPort = 7000
 
 [[proxies]]
-name = "test-tcp"
-type = "tcp"
-localIP = "127.0.0.1"
-localPort = 22
-remotePort = 6000
+name = "demo.gaianet.xyz"
+type = "http"
+localPort = 8080
+#remotePort = 80
+subdomain = "demo"
