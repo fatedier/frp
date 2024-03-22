@@ -157,9 +157,9 @@ func (sv *XTCPVisitor) keepTunnelOpenWorker() {
 
 func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 	xl := xlog.FromContextSafe(sv.ctx)
-	isConnTrasfered := false
+	isConnTransferred := false
 	defer func() {
-		if !isConnTrasfered {
+		if !isConnTransferred {
 			userConn.Close()
 		}
 	}()
@@ -187,7 +187,7 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 			xl.Errorf("transfer connection to visitor %s error: %v", sv.cfg.FallbackTo, err)
 			return
 		}
-		isConnTrasfered = true
+		isConnTransferred = true
 		return
 	}
 
