@@ -76,9 +76,11 @@ type WrapReadWriteCloserConn struct {
 	io.ReadWriteCloser
 
 	underConn net.Conn
+
+	remoteAddr net.Addr
 }
 
-func WrapReadWriteCloserToConn(rwc io.ReadWriteCloser, underConn net.Conn) net.Conn {
+func WrapReadWriteCloserToConn(rwc io.ReadWriteCloser, underConn net.Conn) *WrapReadWriteCloserConn {
 	return &WrapReadWriteCloserConn{
 		ReadWriteCloser: rwc,
 		underConn:       underConn,
@@ -92,7 +94,14 @@ func (conn *WrapReadWriteCloserConn) LocalAddr() net.Addr {
 	return (*net.TCPAddr)(nil)
 }
 
+func (conn *WrapReadWriteCloserConn) SetRemoteAddr(addr net.Addr) {
+	conn.remoteAddr = addr
+}
+
 func (conn *WrapReadWriteCloserConn) RemoteAddr() net.Addr {
+	if conn.remoteAddr != nil {
+		return conn.remoteAddr
+	}
 	if conn.underConn != nil {
 		return conn.underConn.RemoteAddr()
 	}
