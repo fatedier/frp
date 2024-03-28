@@ -1,0 +1,41 @@
+{{- if and .Values.mTLS.enabled (eq .Values.mTLS.existingSecret "") }}
+{{- if eq .Values.mTLS.certificatePEM "" }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ printf "%s-client" (include "frpc.fullname" .) }}
+spec:
+  commonName: {{ .Values.mTLS.commonName }}
+  issuerRef:
+    {{- .Values.mTLS.issuerRef | toYaml | nindent 4 }}
+  {{- with .Values.mTLS.subject }}
+  subject:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+    - client auth
+  secretName: {{ printf "%s-client" (include "frpc.fullname" .) }}
+---
+{{- else }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ printf "%s-client-ca" (include "frpc.fullname" .) }}
+type: kubernetes.io/tls
+data:
+  tls.crt: {{ .Values.mTLS.certificatePEM | b64enc | quote }}
+  tls.key: {{ required "Both PEM and KEY are required" .Values.mTLS.certificateKEY | b64enc | quote }}
+---
+{{- end }}
+{{- end }}
+{{- if ne .Values.mTLS.trustedCA "" }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ printf "%s-ca" (include "frpc.fullname" .) }}
+data:
+  ca.crt: {{ .Values.mTLS.trustedCA | b64enc | quote }}
+{{- end}}

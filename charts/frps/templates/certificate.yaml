@@ -1,0 +1,56 @@
+{{- if eq .Values.certificate.existingSecret "" }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "frps.fullname" . }}
+spec:
+  issuerRef:
+    {{- .Values.certificate.issuerRef | toYaml | nindent 4 }}
+  dnsNames:
+    {{- .Values.certificate.dnsNames | toYaml | nindent 4 }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  secretName: {{ include "frps.fullname" . }}
+---
+{{- end }}
+{{- if and .Values.mTLS.enabled (eq .Values.mTLS.existingSecret "") }}
+{{- if eq .Values.mTLS.certificatePEM "" }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ printf "%s-client-ca" (include "frps.fullname" .) }}
+spec:
+  commonName: {{ .Values.mTLS.commonName }}
+  issuerRef:
+    {{- .Values.mTLS.issuerRef | toYaml | nindent 4 }}
+  {{- with .Values.mTLS.subject }}
+  subject:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
+  isCA: true
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  secretName: {{ printf "%s-client-ca" (include "frps.fullname" .) }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ printf "%s-client-ca" (include "frps.fullname" .) }}
+spec:
+  ca:
+    secretName: {{ printf "%s-client-ca" (include "frps.fullname" .) }}
+---
+{{- else }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ printf "%s-client-ca" (include "frps.fullname" .) }}
+type: kubernetes.io/tls
+data:
+  tls.crt: {{ .Values.mTLS.certificatePEM | b64enc | quote }}
+  tls.key: ""
+---
+{{- end }}
+{{- end }}

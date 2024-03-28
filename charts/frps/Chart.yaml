@@ -1,0 +1,7 @@
+apiVersion: v2
+name: frps
+description: A Helm chart Fast Reverse Proxy Server
+
+type: application
+version: 0.1.0
+appVersion: "v0.56.0"

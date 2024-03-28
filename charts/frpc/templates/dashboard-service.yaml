@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "frpc.fullname" . }}-dashboard
+  labels:
+    {{- include "frpc.labels" . | nindent 4 }}
+  {{- with .Values.dashboardService.annotations }}
+  annotations:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.dashboardService.type }}
+  ports:
+    - port: {{ .Values.dashboardService.port }}
+      targetPort: dashboard
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "frpc.selectorLabels" . | nindent 4 }}

@@ -1,0 +1,106 @@
+replicaCount: 1
+
+image:
+  repository: fatedier/frps
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: LoadBalancer
+  port: 443
+  containerPort: 7000
+  annotations: {}
+
+dashboardService:
+  type: ClusterIP
+  port: 8080
+  containerPort: 7500
+  annotations: {}
+
+internalService:
+  enabled: false
+  type: ClusterIP
+  port: 443
+  containerPort: 443
+  annotations: {}
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+certificate:
+  existingSecret: ""
+  dnsNames: []
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: letsencrypt-prod
+
+mTLS:
+  enabled: false
+  existingSecret: ""
+  certificatePEM: ""
+  key: tls.crt
+  commonName: "Fast Reverse Proxy mTLS"
+  subject: {}
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: selfsigned
+
+config:
+  bindAddr: "0.0.0.0"
+  bindPort: "{{ .Values.service.containerPort }}"
+
+  webServer.addr: "0.0.0.0"
+  webServer.port: "{{ .Values.dashboardService.containerPort }}"
+  webServer.user: "admin"
+  webServer.password: "admin"
+
+  vhostHTTPSPort: "{{ .Values.internalService.enabled | ternary .Values.internalService.containerPort .Values.service.containerPort }}"
+
+  transport.tls.force: true
+  transport.tls.certFile: "/var/frp/tls/tls.crt"
+  transport.tls.keyFile: "/var/frp/tls/tls.key"
+  transport.tls.trustedCaFile : '{{ include "frps.trustedCaFile" . | quote }}'

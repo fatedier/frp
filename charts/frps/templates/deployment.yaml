@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "frps.fullname" . }}
+  labels:
+    {{- include "frps.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "frps.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "frps.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "frps.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "-c"
+            - "/var/frp/conf/frps.toml"
+          ports:
+            - name: bind
+              containerPort: {{ .Values.service.containerPort }}
+              protocol: TCP
+            - name: dashboard
+              containerPort: {{ .Values.dashboardService.containerPort }}
+              protocol: TCP
+              {{- if .Values.internalService.enabled }}
+            - name: https
+              containerPort: {{ .Values.internalService.containerPort }}
+              protocol: TCP
+              {{- end }}
+{{/*          livenessProbe:*/}}
+{{/*            httpGet:*/}}
+{{/*              path: /*/}}
+{{/*              port: http*/}}
+{{/*          readinessProbe:*/}}
+{{/*            httpGet:*/}}
+{{/*              path: /*/}}
+{{/*              port: http*/}}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - mountPath: /var/frp/conf
+              name: config
+            - mountPath: /var/frp/tls
+              name: tls
+          {{- if .Values.mTLS.enabled}}
+            - mountPath: /var/frp/mtls
+              name: mtls
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "frps.fullname" . }}
+        - name: tls
+          secret:
+            secretName: {{ .Values.certificate.existingSecret | default (include "frps.fullname" .) }}
+        {{- if .Values.mTLS.enabled}}
+        - name: mtls
+          secret:
+            secretName: {{ .Values.mTLS.existingSecret | default (printf "%s-client-ca" (include "frps.fullname" .)) }}
+            items:
+              - key: {{ .Values.mTLS.key }}
+                path: {{ .Values.mTLS.key }}
+        {{- end }}

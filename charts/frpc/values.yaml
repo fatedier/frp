@@ -1,0 +1,126 @@
+replicaCount: 1
+
+image:
+  repository: fatedier/frpc
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+dashboardService:
+  type: ClusterIP
+  port: 8080
+  containerPort: 7500
+  annotations: {}
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+mTLS:
+  enabled: false
+  existingSecret: ""
+  certificatePEM: ""
+  certificateKEY: ""
+  trustedCA: ""
+  commonName: "Fast Reverse Proxy mTLS client"
+  subject: {}
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: frps-client-ca
+
+config:
+  serverAddr: "0.0.0.0"
+  serverPort: 443
+
+  webServer:
+    addr: "0.0.0.0"
+    port: 7500
+    user: "admin"
+    password: "admin"
+
+  transport:
+    protocol: "wss"
+    tls:
+      certFile: '{{ .Values.mTLS.enabled | ternary "/var/frp/mtls/tls.crt" "" }}'
+      keyFile: '{{ .Values.mTLS.enabled | ternary "/var/frp/mtls/tls.key" "" }}'
+      trustedCaFile : '{{ eq .Values.mTLS.trustedCA "" | ternary "" "/var/frp/tls/ca.crt" }}'
+      disableCustomTLSFirstByte: true
+
+
+  proxies: []
+#    - name: "ssh"
+#      type: "tcp"
+#      localIP: "127.0.0.1"
+#      localPort: 22
+#      transport:
+#        # Limit bandwidth for this proxy, unit is KB and MB
+#        bandwidthLimit: "1MB"
+#        # Where to limit bandwidth, can be 'client' or 'server', default is 'client'
+#        bandwidthLimitMode: "client"
+#        # If true, traffic of this proxy will be encrypted, default is false
+#        tuseEncryption: false
+#        # If true, traffic will be compressed
+#        useCompression: false
+#      # Remote port listen by frps
+#      remotePort: 6001
+#
+#      loadBalancer:
+#        # frps will load balancing connections for proxies in same group
+#        group: "test_group"
+#        # group should have same group key
+#        groupKey: "123456"
+#      # Enable health check for the backend service, it supports 'tcp' and 'http' now.
+#      # frpc will connect local service's port to detect it's healthy status
+#      healthCheck:
+#        type: "tcp"
+#        # Health check connection timeout
+#        timeoutSeconds: 3
+#        # If continuous failed in 3 times, the proxy will be removed from frps
+#        maxFailed: 3
+#        # Every 10 seconds will do a health check
+#        intervalSeconds: 10
+#      # Additional meta info for each proxy. It will be passed to the server-side plugin for use.
+#      metadatas:
+#        var1: "abc"
+#        var2: "123"

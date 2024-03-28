@@ -1,0 +1,21 @@
+{{- if .Values.internalService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "frps.fullname" . }}-internal
+  labels:
+    {{- include "frps.labels" . | nindent 4 }}
+  {{- with .Values.internalService.annotations }}
+  annotations:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.internalService.type }}
+  ports:
+    - port: {{ .Values.internalService.port }}
+      targetPort: https
+      protocol: TCP
+      name: https
+  selector:
+    {{- include "frps.selectorLabels" . | nindent 4 }}
+{{- end }}

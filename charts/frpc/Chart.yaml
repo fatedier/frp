@@ -1,0 +1,7 @@
+apiVersion: v2
+name: frpc
+description: A Helm chart Fast Reverse Proxy Client
+
+type: application
+version: 0.1.0
+appVersion: "v0.56.0"
