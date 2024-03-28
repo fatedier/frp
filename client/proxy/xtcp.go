@@ -28,6 +28,7 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
+	"github.com/fatedier/frp/pkg/nathole/upnp"
 	"github.com/fatedier/frp/pkg/transport"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
@@ -53,6 +54,23 @@ func NewXTCPProxy(baseProxy *BaseProxy, cfg v1.ProxyConfigurer) Proxy {
 	}
 }
 
+func (pxy *XTCPProxy) makeRouterToNatThisHole(remoteGetAddrs []string, localIps []string, localAddr net.Addr) {
+
+	xl := pxy.xl
+	if !pxy.cfg.AllowToUseUPNP {
+		xl.Tracef("makeRouterToNatThisHole: upnp disabled")
+		return
+	}
+
+	description := pxy.cfg.UPNPPortMappingDescription
+	if description == "" {
+		description = upnp.DEFAULT_UPNP_PROGRAM_DESCRIPTION
+	}
+
+	upnp.AskForMapping(xl, remoteGetAddrs, localIps, localAddr, description)
+
+}
+
 func (pxy *XTCPProxy) InWorkConn(conn net.Conn, startWorkConnMsg *msg.StartWorkConn) {
 	xl := pxy.xl
 	defer conn.Close()
@@ -64,7 +82,7 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, startWorkConnMsg *msg.StartWorkC
 	}
 
 	xl.Tracef("nathole prepare start")
-	prepareResult, err := nathole.Prepare([]string{pxy.clientCfg.NatHoleSTUNServer})
+	prepareResult, err := nathole.Prepare([]string{pxy.clientCfg.NatHoleSTUNServer}, pxy.makeRouterToNatThisHole)
 	if err != nil {
 		xl.Warnf("nathole prepare error: %v", err)
 		return

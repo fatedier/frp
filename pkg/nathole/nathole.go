@@ -107,8 +107,12 @@ func PreCheck(
 	return nil
 }
 
+type OnGetMyRemoteAddress func(remoteGetAddrs []string, localIps []string, localAddr net.Addr)
+
 // Prepare is used to do some preparation work before penetration.
-func Prepare(stunServers []string) (*PrepareResult, error) {
+func Prepare(stunServers []string,
+	callback OnGetMyRemoteAddress,
+) (*PrepareResult, error) {
 	// discover for Nat type
 	addrs, localAddr, err := Discover(stunServers, "")
 	if err != nil {
@@ -119,6 +123,11 @@ func Prepare(stunServers []string) (*PrepareResult, error) {
 	}
 
 	localIPs, _ := ListLocalIPsForNatHole(10)
+
+	if callback != nil {
+		callback(addrs, localIPs, localAddr)
+	}
+
 	natFeature, err := ClassifyNATFeature(addrs, localIPs)
 	if err != nil {
 		return nil, fmt.Errorf("classify nat feature error: %v", err)

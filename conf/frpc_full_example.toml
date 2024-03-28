@@ -336,6 +336,9 @@ localPort = 22
 # If not empty, only visitors from specified users can connect.
 # Otherwise, visitors from same user can connect. '*' means allow all users.
 allowUsers = ["user1", "user2"]
+# allow to use upnp to map this port
+allowToUseUPNP = false
+upnpPortMappingDescription = "helper-port-mapping"
 
 # frpc role visitor -> frps -> frpc role server
 [[visitors]]
@@ -368,3 +371,5 @@ maxRetriesAnHour = 8
 minRetryInterval = 90
 # fallbackTo = "stcp_visitor"
 # fallbackTimeoutMs = 500
+allowToUseUPNP = false
+upnpPortMappingDescription = "helper-port-mapping"
