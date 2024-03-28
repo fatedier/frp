@@ -59,6 +59,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 	proxy := &httputil.ReverseProxy{
 		// Modify incoming requests by route policies.
 		Rewrite: func(r *httputil.ProxyRequest) {
+			r.Out.Header["X-Forwarded-For"] = r.In.Header["X-Forwarded-For"]
 			r.SetXForwarded()
 			req := r.Out
 			req.URL.Scheme = "http"
