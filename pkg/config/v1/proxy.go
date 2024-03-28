@@ -411,6 +411,8 @@ type XTCPProxyConfig struct {
 
 	Secretkey  string   `json:"secretKey,omitempty"`
 	AllowUsers []string `json:"allowUsers,omitempty"`
+
+	XTCPConfigUPNPMixin
 }
 
 func (c *XTCPProxyConfig) MarshalToMsg(m *msg.NewProxy) {

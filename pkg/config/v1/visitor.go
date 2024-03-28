@@ -153,6 +153,8 @@ type XTCPVisitorConfig struct {
 	MinRetryInterval  int    `json:"minRetryInterval,omitempty"`
 	FallbackTo        string `json:"fallbackTo,omitempty"`
 	FallbackTimeoutMs int    `json:"fallbackTimeoutMs,omitempty"`
+
+	XTCPConfigUPNPMixin
 }
 
 func (c *XTCPVisitorConfig) Complete(g *ClientCommonConfig) {

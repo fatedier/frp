@@ -134,3 +134,8 @@ type HTTPHeader struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
 }
+
+type XTCPConfigUPNPMixin struct {
+	AllowToUseUPNP             bool   `json:"allowToUseUPNP,omitempty"`
+	UPNPPortMappingDescription string `json:"upnpPortMappingDescription,omitempty"`
+}

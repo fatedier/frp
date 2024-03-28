@@ -32,6 +32,7 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
+	"github.com/fatedier/frp/pkg/nathole/upnp"
 	"github.com/fatedier/frp/pkg/transport"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
@@ -261,6 +262,23 @@ func (sv *XTCPVisitor) getTunnelConn() (net.Conn, error) {
 	return nil, err
 }
 
+func (sv *XTCPVisitor) makeRouterToNatThisHole(remoteGetAddrs []string, localIps []string, localAddr net.Addr) {
+
+	xl := xlog.FromContextSafe(sv.ctx)
+	if !sv.cfg.AllowToUseUPNP {
+		xl.Tracef("makeRouterToNatThisHole: upnp disabled")
+		return
+	}
+
+	description := sv.cfg.UPNPPortMappingDescription
+	if description == "" {
+		description = upnp.DEFAULT_UPNP_PROGRAM_DESCRIPTION
+	}
+
+	upnp.AskForMapping(xl, remoteGetAddrs, localIps, localAddr, description)
+
+}
+
 // 0. PreCheck
 // 1. Prepare
 // 2. ExchangeInfo
@@ -275,7 +293,7 @@ func (sv *XTCPVisitor) makeNatHole() {
 	}
 
 	xl.Tracef("nathole prepare start")
-	prepareResult, err := nathole.Prepare([]string{sv.clientCfg.NatHoleSTUNServer})
+	prepareResult, err := nathole.Prepare([]string{sv.clientCfg.NatHoleSTUNServer}, sv.makeRouterToNatThisHole)
 	if err != nil {
 		xl.Warnf("nathole prepare error: %v", err)
 		return
