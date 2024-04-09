@@ -50,6 +50,8 @@ func Create(name string, options v1.ClientPluginOptions) (p Plugin, err error) {
 
 type ExtraInfo struct {
 	ProxyProtocolHeader *pp.Header
+	SrcAddr             net.Addr
+	DstAddr             net.Addr
 }
 
 type Plugin interface {

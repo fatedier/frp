@@ -158,33 +158,35 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 
 	// check if we need to send proxy protocol info
 	var extraInfo plugin.ExtraInfo
-	if baseCfg.Transport.ProxyProtocolVersion != "" {
-		if m.SrcAddr != "" && m.SrcPort != 0 {
-			if m.DstAddr == "" {
-				m.DstAddr = "127.0.0.1"
-			}
-			srcAddr, _ := net.ResolveTCPAddr("tcp", net.JoinHostPort(m.SrcAddr, strconv.Itoa(int(m.SrcPort))))
-			dstAddr, _ := net.ResolveTCPAddr("tcp", net.JoinHostPort(m.DstAddr, strconv.Itoa(int(m.DstPort))))
-			h := &pp.Header{
-				Command:         pp.PROXY,
-				SourceAddr:      srcAddr,
-				DestinationAddr: dstAddr,
-			}
-
-			if strings.Contains(m.SrcAddr, ".") {
-				h.TransportProtocol = pp.TCPv4
-			} else {
-				h.TransportProtocol = pp.TCPv6
-			}
-
-			if baseCfg.Transport.ProxyProtocolVersion == "v1" {
-				h.Version = 1
-			} else if baseCfg.Transport.ProxyProtocolVersion == "v2" {
-				h.Version = 2
-			}
-
-			extraInfo.ProxyProtocolHeader = h
+	if m.SrcAddr != "" && m.SrcPort != 0 {
+		if m.DstAddr == "" {
+			m.DstAddr = "127.0.0.1"
 		}
+		srcAddr, _ := net.ResolveTCPAddr("tcp", net.JoinHostPort(m.SrcAddr, strconv.Itoa(int(m.SrcPort))))
+		dstAddr, _ := net.ResolveTCPAddr("tcp", net.JoinHostPort(m.DstAddr, strconv.Itoa(int(m.DstPort))))
+		extraInfo.SrcAddr = srcAddr
+		extraInfo.DstAddr = dstAddr
+	}
+
+	if baseCfg.Transport.ProxyProtocolVersion != "" && m.SrcAddr != "" && m.SrcPort != 0 {
+		h := &pp.Header{
+			Command:         pp.PROXY,
+			SourceAddr:      extraInfo.SrcAddr,
+			DestinationAddr: extraInfo.DstAddr,
+		}
+
+		if strings.Contains(m.SrcAddr, ".") {
+			h.TransportProtocol = pp.TCPv4
+		} else {
+			h.TransportProtocol = pp.TCPv6
+		}
+
+		if baseCfg.Transport.ProxyProtocolVersion == "v1" {
+			h.Version = 1
+		} else if baseCfg.Transport.ProxyProtocolVersion == "v2" {
+			h.Version = 2
+		}
+		extraInfo.ProxyProtocolHeader = h
 	}
 
 	if pxy.proxyPlugin != nil {

@@ -56,6 +56,8 @@ func NewHTTPS2HTTPSPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 
 	rp := &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
+			r.Out.Header["X-Forwarded-For"] = r.In.Header["X-Forwarded-For"]
+			r.SetXForwarded()
 			req := r.Out
 			req.URL.Scheme = "https"
 			req.URL.Host = p.opts.LocalAddr
@@ -104,8 +106,11 @@ func (p *HTTPS2HTTPSPlugin) genTLSConfig() (*tls.Config, error) {
 	return config, nil
 }
 
-func (p *HTTPS2HTTPSPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
+func (p *HTTPS2HTTPSPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extra *ExtraInfo) {
 	wrapConn := netpkg.WrapReadWriteCloserToConn(conn, realConn)
+	if extra.SrcAddr != nil {
+		wrapConn.SetRemoteAddr(extra.SrcAddr)
+	}
 	_ = p.l.PutConn(wrapConn)
 }
 
