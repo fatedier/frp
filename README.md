@@ -1003,7 +1003,7 @@ In this example, it will set header `x-from-where: frp` in the HTTP request.
 
 #### HTTP X-Forwarded-For
 
-This feature is for http proxy only.
+This feature is for `http` proxies or proxies with the `https2http` and `https2https` plugins enabled.
 
 You can get user's real IP from HTTP request headers `X-Forwarded-For`.
 
