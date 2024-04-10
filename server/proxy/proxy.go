@@ -240,7 +240,11 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	xl.Tracef("handler user tcp connection, use_encryption: %t, use_compression: %t",
 		cfg.Transport.UseEncryption, cfg.Transport.UseCompression)
 	if cfg.Transport.UseEncryption {
-		local, err = libio.WithEncryption(local, []byte(serverCfg.Auth.Token))
+		key := []byte(serverCfg.Auth.Token)
+		if serverCfg.Auth.Method == v1.AuthMethodJWT {
+			key = []byte(pxy.loginMsg.PrivilegeKey)
+		}
+		local, err = libio.WithEncryption(local, key)
 		if err != nil {
 			xl.Errorf("create encryption stream error: %v", err)
 			return
