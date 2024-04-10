@@ -40,6 +40,7 @@ type ClientConfig struct {
 	BaseConfig       `ini:",extends"`
 	OidcClientConfig `ini:",extends"`
 	TokenConfig      `ini:",extends"`
+	JWTConfig        `ini:",extends"`
 }
 
 func GetDefaultClientConf() ClientConfig {
@@ -47,6 +48,7 @@ func GetDefaultClientConf() ClientConfig {
 		BaseConfig:       getDefaultBaseConf(),
 		OidcClientConfig: getDefaultOidcClientConf(),
 		TokenConfig:      getDefaultTokenConf(),
+		JWTConfig:        getDefaultJWTConf(),
 	}
 }
 
@@ -54,6 +56,7 @@ type ServerConfig struct {
 	BaseConfig       `ini:",extends"`
 	OidcServerConfig `ini:",extends"`
 	TokenConfig      `ini:",extends"`
+	JWTConfig        `ini:",extends"`
 }
 
 func GetDefaultServerConf() ServerConfig {
@@ -61,6 +64,7 @@ func GetDefaultServerConf() ServerConfig {
 		BaseConfig:       getDefaultBaseConf(),
 		OidcServerConfig: getDefaultOidcServerConf(),
 		TokenConfig:      getDefaultTokenConf(),
+		JWTConfig:        getDefaultJWTConf(),
 	}
 }
 
@@ -141,5 +145,15 @@ type TokenConfig struct {
 func getDefaultTokenConf() TokenConfig {
 	return TokenConfig{
 		Token: "",
+	}
+}
+
+type JWTConfig struct {
+	Secret string `ini:"secret" json:"secret"`
+}
+
+func getDefaultJWTConf() JWTConfig {
+	return JWTConfig{
+		Secret: "",
 	}
 }

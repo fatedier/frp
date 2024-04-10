@@ -17,6 +17,8 @@ package msg
 import (
 	"io"
 	"reflect"
+
+	"github.com/fatedier/frp/pkg/util/log"
 )
 
 func AsyncHandler(f func(Message)) func(Message) {
@@ -65,6 +67,7 @@ func (d *Dispatcher) readLoop() {
 	for {
 		m, err := ReadMsg(d.rw)
 		if err != nil {
+			log.Errorf("read msg error, %v", err)
 			close(d.doneCh)
 			return
 		}

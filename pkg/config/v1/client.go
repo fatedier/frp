@@ -175,6 +175,8 @@ type AuthClientConfig struct {
 	// to succeed.  By default, this value is "".
 	Token string               `json:"token,omitempty"`
 	OIDC  AuthOIDCClientConfig `json:"oidc,omitempty"`
+
+	Secret string `json:"secret"`
 }
 
 func (c *AuthClientConfig) Complete() {

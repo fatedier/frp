@@ -30,7 +30,9 @@ type Setter interface {
 func NewAuthSetter(cfg v1.AuthClientConfig) (authProvider Setter) {
 	switch cfg.Method {
 	case v1.AuthMethodToken:
-		authProvider = NewJWTAuth(cfg.AdditionalScopes, cfg.Token)
+		authProvider = NewTokenAuth(cfg.AdditionalScopes, cfg.Token)
+	case v1.AuthMethodJWT:
+		authProvider = NewJWTAuth(cfg.AdditionalScopes, cfg.Token, cfg.Secret)
 	case v1.AuthMethodOIDC:
 		authProvider = NewOidcAuthSetter(cfg.AdditionalScopes, cfg.OIDC)
 	default:
@@ -48,7 +50,9 @@ type Verifier interface {
 func NewAuthVerifier(cfg v1.AuthServerConfig) (authVerifier Verifier) {
 	switch cfg.Method {
 	case v1.AuthMethodToken:
-		authVerifier = NewJWTAuth(cfg.AdditionalScopes, cfg.Token)
+		authVerifier = NewTokenAuth(cfg.AdditionalScopes, cfg.Token)
+	case v1.AuthMethodJWT:
+		authVerifier = NewJWTAuth(cfg.AdditionalScopes, cfg.Token, cfg.Secret)
 	case v1.AuthMethodOIDC:
 		authVerifier = NewOidcAuthVerifier(cfg.AdditionalScopes, cfg.OIDC)
 	}
