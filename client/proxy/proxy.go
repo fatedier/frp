@@ -25,7 +25,7 @@ import (
 	"time"
 
 	libio "github.com/fatedier/golib/io"
-	libdial "github.com/fatedier/golib/net/dial"
+	libnet "github.com/fatedier/golib/net"
 	pp "github.com/pires/go-proxyproto"
 	"golang.org/x/time/rate"
 
@@ -197,9 +197,9 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 		return
 	}
 
-	localConn, err := libdial.Dial(
+	localConn, err := libnet.Dial(
 		net.JoinHostPort(baseCfg.LocalIP, strconv.Itoa(baseCfg.LocalPort)),
-		libdial.WithTimeout(10*time.Second),
+		libnet.WithTimeout(10*time.Second),
 	)
 	if err != nil {
 		workConn.Close()

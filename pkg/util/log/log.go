@@ -15,9 +15,18 @@
 package log
 
 import (
+	"bytes"
 	"os"
 
 	"github.com/fatedier/golib/log"
+)
+
+var (
+	TraceLevel = log.TraceLevel
+	DebugLevel = log.DebugLevel
+	InfoLevel  = log.InfoLevel
+	WarnLevel  = log.WarnLevel
+	ErrorLevel = log.ErrorLevel
 )
 
 var Logger *log.Logger
@@ -76,4 +85,25 @@ func Debugf(format string, v ...interface{}) {
 
 func Tracef(format string, v ...interface{}) {
 	Logger.Tracef(format, v...)
+}
+
+func Logf(level log.Level, offset int, format string, v ...interface{}) {
+	Logger.Logf(level, offset, format, v...)
+}
+
+type WriteLogger struct {
+	level  log.Level
+	offset int
+}
+
+func NewWriteLogger(level log.Level, offset int) *WriteLogger {
+	return &WriteLogger{
+		level:  level,
+		offset: offset,
+	}
+}
+
+func (w *WriteLogger) Write(p []byte) (n int, err error) {
+	Logger.Log(w.level, w.offset, string(bytes.TrimRight(p, "\n")))
+	return len(p), nil
 }

@@ -253,7 +253,7 @@ func (svr *Service) apiPutConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := os.WriteFile(svr.configFilePath, body, 0o644); err != nil {
+	if err := os.WriteFile(svr.configFilePath, body, 0o600); err != nil {
 		res.Code = 500
 		res.Msg = fmt.Sprintf("write content to frpc config file error: %v", err)
 		log.Warnf("%s", res.Msg)

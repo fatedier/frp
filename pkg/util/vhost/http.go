@@ -15,7 +15,6 @@
 package vhost
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -116,10 +115,16 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 				return nil, nil
 			},
 		},
-		BufferPool: newWrapPool(),
-		ErrorLog:   stdlog.New(newWrapLogger(), "", 0),
+		BufferPool: pool.NewBuffer(32 * 1024),
+		ErrorLog:   stdlog.New(log.NewWriteLogger(log.WarnLevel, 2), "", 0),
 		ErrorHandler: func(rw http.ResponseWriter, req *http.Request, err error) {
-			log.Warnf("do http proxy request [host: %s] error: %v", req.Host, err)
+			log.Logf(log.WarnLevel, 1, "do http proxy request [host: %s] error: %v", req.Host, err)
+			if err != nil {
+				if e, ok := err.(net.Error); ok && e.Timeout() {
+					rw.WriteHeader(http.StatusGatewayTimeout)
+					return
+				}
+			}
 			rw.WriteHeader(http.StatusNotFound)
 			_, _ = rw.Write(getNotFoundPageContent())
 		},
@@ -321,21 +326,4 @@ func (rp *HTTPReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 	} else {
 		rp.proxy.ServeHTTP(rw, newreq)
 	}
-}
-
-type wrapPool struct{}
-
-func newWrapPool() *wrapPool { return &wrapPool{} }
-
-func (p *wrapPool) Get() []byte { return pool.GetBuf(32 * 1024) }
-
-func (p *wrapPool) Put(buf []byte) { pool.PutBuf(buf) }
-
-type wrapLogger struct{}
-
-func newWrapLogger() *wrapLogger { return &wrapLogger{} }
-
-func (l *wrapLogger) Write(p []byte) (n int, err error) {
-	log.Warnf("%s", string(bytes.TrimRight(p, "\n")))
-	return len(p), nil
 }
