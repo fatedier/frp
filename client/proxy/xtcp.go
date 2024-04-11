@@ -151,7 +151,7 @@ func (pxy *XTCPProxy) listenByKCP(listenConn *net.UDPConn, raddr *net.UDPAddr, s
 	defer session.Close()
 
 	for {
-		muxConn, err := session.Accept()
+		muxConn, err := session.AcceptStreamWithContext(pxy.ctx)
 		if err != nil {
 			xl.Errorf("accept connection error: %v", err)
 			return
