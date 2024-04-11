@@ -109,7 +109,6 @@ func (s *TunnelServer) Run() error {
 	if sshConn.Permissions != nil {
 		clientCfg.User = util.EmptyOr(sshConn.Permissions.Extensions["user"], clientCfg.User)
 	}
-	pc.Complete(clientCfg.User)
 
 	vc, err := virtual.NewClient(virtual.ClientOptions{
 		Common: clientCfg,
