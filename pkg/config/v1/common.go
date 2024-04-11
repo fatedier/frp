@@ -44,6 +44,7 @@ type AuthMethod string
 const (
 	AuthMethodToken AuthMethod = "token"
 	AuthMethodOIDC  AuthMethod = "oidc"
+	AuthMethodJWT   AuthMethod = "jwt"
 )
 
 // QUIC protocol options

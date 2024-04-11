@@ -186,7 +186,11 @@ func NewControl(
 	ctl.lastPing.Store(time.Now())
 
 	if ctlConnEncrypted {
-		cryptoRW, err := netpkg.NewCryptoReadWriter(ctl.conn, []byte(ctl.serverCfg.Auth.Token))
+		key := []byte(ctl.serverCfg.Auth.Token)
+		if ctl.serverCfg.Auth.Method == v1.AuthMethodJWT {
+			key = []byte(loginMsg.PrivilegeKey)
+		}
+		cryptoRW, err := netpkg.NewCryptoReadWriter(ctl.conn, key)
 		if err != nil {
 			return nil, err
 		}

@@ -127,6 +127,7 @@ type AuthServerConfig struct {
 	AdditionalScopes []AuthScope          `json:"additionalScopes,omitempty"`
 	Token            string               `json:"token,omitempty"`
 	OIDC             AuthOIDCServerConfig `json:"oidc,omitempty"`
+	Secret           string               `json:"secret,omitempty"`
 }
 
 func (c *AuthServerConfig) Complete() {
