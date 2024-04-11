@@ -54,7 +54,8 @@ func NewHTTPProxyPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	}
 
 	hp.s = &http.Server{
-		Handler: hp,
+		Handler:           hp,
+		ReadHeaderTimeout: 60 * time.Second,
 	}
 
 	go func() {

@@ -19,11 +19,15 @@ package plugin
 import (
 	"crypto/tls"
 	"io"
+	stdlog "log"
 	"net"
 	"net/http"
 	"net/http/httputil"
 
+	"github.com/fatedier/golib/pool"
+
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/util/log"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
@@ -67,7 +71,9 @@ func NewHTTP2HTTPSPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 				req.Header.Set(k, v)
 			}
 		},
-		Transport: tr,
+		Transport:  tr,
+		BufferPool: pool.NewBuffer(32 * 1024),
+		ErrorLog:   stdlog.New(log.NewWriteLogger(log.WarnLevel, 2), "", 0),
 	}
 
 	p.s = &http.Server{

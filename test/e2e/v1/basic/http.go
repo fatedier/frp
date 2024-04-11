@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/onsi/ginkgo/v2"
@@ -384,5 +385,49 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 		_, msg, err := c.ReadMessage()
 		framework.ExpectNoError(err)
 		framework.ExpectEqualValues(consts.TestString, string(msg))
+	})
+
+	ginkgo.It("vhostHTTPTimeout", func() {
+		vhostHTTPPort := f.AllocPort()
+		serverConf := getDefaultServerConf(vhostHTTPPort)
+		serverConf += `
+		vhostHTTPTimeout = 2
+		`
+
+		delayDuration := 0 * time.Second
+		localPort := f.AllocPort()
+		localServer := httpserver.New(
+			httpserver.WithBindPort(localPort),
+			httpserver.WithHandler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				time.Sleep(delayDuration)
+				_, _ = w.Write([]byte(req.Host))
+			})),
+		)
+		f.RunServer("", localServer)
+
+		clientConf := consts.DefaultClientConfig
+		clientConf += fmt.Sprintf(`
+			[[proxies]]
+			name = "test"
+			type = "http"
+			localPort = %d
+			customDomains = ["normal.example.com"]
+			`, localPort)
+
+		f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+		framework.NewRequestExpect(f).Port(vhostHTTPPort).
+			RequestModify(func(r *request.Request) {
+				r.HTTP().HTTPHost("normal.example.com").HTTP().Timeout(time.Second)
+			}).
+			ExpectResp([]byte("normal.example.com")).
+			Ensure()
+
+		delayDuration = 3 * time.Second
+		framework.NewRequestExpect(f).Port(vhostHTTPPort).
+			RequestModify(func(r *request.Request) {
+				r.HTTP().HTTPHost("normal.example.com").HTTP().Timeout(5 * time.Second)
+			}).
+			Ensure(framework.ExpectResponseCode(504))
 	})
 })
