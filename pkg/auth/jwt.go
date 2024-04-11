@@ -107,7 +107,7 @@ func (auth *JWTAuthSetterVerifier) VerifyToken(user, token string) error {
 	if len(user) > 0 {
 		id, found := claims["email"]
 		if !found {
-			id, found = claims["id"]
+			id, _ = claims["id"]
 		}
 		if id != user {
 			return fmt.Errorf("token %s is not for user %s", token, user)
