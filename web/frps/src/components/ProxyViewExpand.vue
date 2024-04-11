@@ -1,9 +1,9 @@
 <template>
   <el-form
     label-position="left"
+    label-width="auto"
     inline
     class="proxy-table-expand"
-    v-if="proxyType === 'http' || proxyType === 'https'"
   >
     <el-form-item label="Name">
       <span>{{ row.name }}</span>
@@ -11,18 +11,6 @@
     <el-form-item label="Type">
       <span>{{ row.type }}</span>
     </el-form-item>
-    <el-form-item label="Domains">
-      <span>{{ row.customDomains }}</span>
-    </el-form-item>
-    <el-form-item label="SubDomain">
-      <span>{{ row.subdomain }}</span>
-    </el-form-item>
-    <el-form-item label="locations">
-      <span>{{ row.locations }}</span>
-    </el-form-item>
-    <el-form-item label="HostRewrite">
-      <span>{{ row.hostHeaderRewrite }}</span>
-    </el-form-item>
     <el-form-item label="Encryption">
       <span>{{ row.encryption }}</span>
     </el-form-item>
@@ -35,30 +23,40 @@
     <el-form-item label="Last Close">
       <span>{{ row.lastCloseTime }}</span>
     </el-form-item>
-  </el-form>
 
-  <el-form label-position="left" inline class="proxy-table-expand" v-else>
-    <el-form-item label="Name">
-      <span>{{ row.name }}</span>
-    </el-form-item>
-    <el-form-item label="Type">
-      <span>{{ row.type }}</span>
-    </el-form-item>
-    <el-form-item label="Addr">
-      <span>{{ row.addr }}</span>
-    </el-form-item>
-    <el-form-item label="Encryption">
-      <span>{{ row.encryption }}</span>
-    </el-form-item>
-    <el-form-item label="Compression">
-      <span>{{ row.compression }}</span>
-    </el-form-item>
-    <el-form-item label="Last Start">
-      <span>{{ row.lastStartTime }}</span>
-    </el-form-item>
-    <el-form-item label="Last Close">
-      <span>{{ row.lastCloseTime }}</span>
-    </el-form-item>
+    <div v-if="proxyType === 'http' || proxyType === 'https'">
+      <el-form-item label="Domains">
+        <span>{{ row.customDomains }}</span>
+      </el-form-item>
+      <el-form-item label="SubDomain">
+        <span>{{ row.subdomain }}</span>
+      </el-form-item>
+      <el-form-item label="locations">
+        <span>{{ row.locations }}</span>
+      </el-form-item>
+      <el-form-item label="HostRewrite">
+        <span>{{ row.hostHeaderRewrite }}</span>
+      </el-form-item>
+    </div>
+    <div v-else-if="proxyType === 'tcpmux'">
+      <el-form-item label="Multiplexer">
+        <span>{{ row.multiplexer }}</span>
+      </el-form-item>
+      <el-form-item label="RouteByHTTPUser">
+        <span>{{ row.routeByHTTPUser }}</span>
+      </el-form-item>
+      <el-form-item label="Domains">
+        <span>{{ row.customDomains }}</span>
+      </el-form-item>
+      <el-form-item label="SubDomain">
+        <span>{{ row.subdomain }}</span>
+      </el-form-item>
+    </div>
+    <div v-else>
+      <el-form-item label="Addr">
+        <span>{{ row.addr }}</span>
+      </el-form-item>
+    </div>
   </el-form>
 
   <div v-if="row.annotations && row.annotations.size > 0">

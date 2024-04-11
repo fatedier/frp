@@ -39,6 +39,7 @@
               <el-menu-item index="/proxies/udp">UDP</el-menu-item>
               <el-menu-item index="/proxies/http">HTTP</el-menu-item>
               <el-menu-item index="/proxies/https">HTTPS</el-menu-item>
+              <el-menu-item index="/proxies/tcpmux">TCPMUX</el-menu-item>
               <el-menu-item index="/proxies/stcp">STCP</el-menu-item>
               <el-menu-item index="/proxies/sudp">SUDP</el-menu-item>
             </el-sub-menu>
