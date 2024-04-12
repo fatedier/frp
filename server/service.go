@@ -519,7 +519,7 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 				}
 
 				for {
-					stream, err := session.AcceptStream()
+					stream, err := session.AcceptStreamWithContext(ctx)
 					if err != nil {
 						log.Debugf("Accept new mux stream error: %v", err)
 						session.Close()
