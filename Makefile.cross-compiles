@@ -18,7 +18,7 @@ app:
 		if [ "$${os}" = "linux" ] && [ "$${arch}" = "arm" ] && [ "$${extra}" != "" ] ; then \
 			flags=GOARM=$${extra}; \
 			target_suffix=$${os}_$${arch}_$${extra}; \
-		elif [ "$${os}" = "linux" ] && [ "$${arch}" = "mips" ] && [ "$${extra}" != "" ] ; then \
+		elif [ "$${os}" = "linux" ] && ([ "$${arch}" = "mips" ] || [ "$${arch}" = "mipsle" ]) && [ "$${extra}" != "" ] ; then \
 		    flags=GOMIPS=$${extra}; \
 		fi; \
 		echo "Build $${os}-$${arch}$${extra:+ ($${extra})}..."; \
