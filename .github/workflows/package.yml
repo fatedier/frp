@@ -29,6 +29,9 @@ jobs:
       id: get_version
       run: echo ::set-output name=VERSION::$(go run pkg/util/version/version.go)
 
+    - name: Print the version
+      run: echo "Version: ${{ steps.get_version.outputs.VERSION }}"
+
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
