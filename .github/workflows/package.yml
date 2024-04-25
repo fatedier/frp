@@ -27,7 +27,9 @@ jobs:
 
     - name: Get the version
       id: get_version
-      run: echo ::set-output name=VERSION::$(go run pkg/util/version/version.go)
+      run: |
+        echo 'package main; import "fmt"; import "pkg/util/version"; func main() { fmt.Println(version.Full()) }' > print_version.go
+        echo ::set-output name=VERSION::$(go run print_version.go)
 
     - name: Print the version
       run: |
