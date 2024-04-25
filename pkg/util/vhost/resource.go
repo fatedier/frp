@@ -28,25 +28,50 @@ var NotFoundPagePath = ""
 
 const (
 	NotFound = `<!DOCTYPE html>
-<html>
-<head>
-<title>Not Found</title>
-<style>
-    body {
-        width: 35em;
-        margin: 0 auto;
-        font-family: Tahoma, Verdana, Arial, sans-serif;
-    }
-</style>
-</head>
-<body>
-<h1>The page you requested was not found.</h1>
-<p>Sorry, the page you are looking for is currently unavailable.<br/>
-Please try again later.</p>
-<p>The server is powered by <a href="https://github.com/fatedier/frp">frp</a>.</p>
-<p><em>Faithfully yours, frp.</em></p>
-</body>
-</html>
+	<html>
+	  <head>
+		<title>Not Found</title>
+		<style>
+		  body {
+			width: 100%;
+			margin: 0 auto;
+			font-family: Tahoma, Verdana, Arial, sans-serif;
+			text-align: center;
+			color: #fff;
+			background-color: #000;
+		  }
+		  .code {
+			color: #000;
+			padding: 10px; /* Some padding for aesthetics */
+			border-radius: 4px; /* Optional: rounded corners */
+			font-family: monospace; /* Monospace font for code */
+			width: 800px;
+			margin: 0 auto;
+			background-color: #ddd;
+		  }
+		  a {
+			color: #fff;
+		  }
+		  h1 {
+			margin-top: 120px;
+			margin-bottom: 38px;
+		  }
+		</style>
+	  </head>
+	  <body>
+		<h1>GaiaNet node is not started.</h1>
+		<p>Please return to the terminal window and execute the start command.</p>
+		<div class="code">
+		  <pre>
+	bash &lt;(curl -sSfl "https://raw.githubusercontent.com/GaiaNet-AI/gaianet-node/main/start.sh")</pre
+		  >
+		</div>
+		<p>
+		  Visit <a href="https://www.gaianet.ai">https://www.gaianet.ai</a> for more
+		  information.
+		</p>
+	  </body>
+	</html>
 `
 )
 

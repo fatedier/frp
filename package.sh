@@ -24,7 +24,7 @@ cd ./release
 
 for os in $os_all; do
     for arch in $arch_all; do
-        frp_dir_name="frp_${frp_version}_${os}_${arch}"
+        frp_dir_name="gaianet_domain_${frp_version}_${os}_${arch}"
         frp_path="./packages/gaianet_domain_${frp_version}_${os}_${arch}"
 
         if [ "x${os}" = x"windows" ]; then
