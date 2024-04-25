@@ -27,7 +27,7 @@ jobs:
 
     - name: Get the version
       id: get_version
-      run: echo ::set-output name=VERSION::$(go run pkg/util/version.go)
+      run: echo ::set-output name=VERSION::$(go run pkg/util/version/version.go)
 
     - name: Create Release
       id: create_release
