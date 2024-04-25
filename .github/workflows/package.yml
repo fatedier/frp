@@ -5,7 +5,7 @@ on:
     branches:
       - dev
     paths:
-      - 'pkg/util/version.go'
+      - 'pkg/util/version/version.go'
 
 jobs:
   build:
