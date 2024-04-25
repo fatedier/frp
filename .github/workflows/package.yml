@@ -1,0 +1,61 @@
+name: Package
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'pkg/util/version.go'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.22
+
+    - name: Run package.sh
+      run: |
+        chmod +x package.sh
+        ./package.sh
+
+    - name: Get the version
+      id: get_version
+      run: echo ::set-output name=VERSION::$(go run pkg/util/version.go)
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.get_version.outputs.VERSION }}
+        release_name: Release ${{ steps.get_version.outputs.VERSION }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Assets
+      run: |
+        os_all='linux windows darwin freebsd'
+        arch_all='386 amd64 arm arm64 mips64 mips64le mips mipsle riscv64'
+        for os in $os_all; do
+            for arch in $arch_all; do
+                asset_path="./release/packages/frp_${{ steps.get_version.outputs.VERSION }}_${os}_${arch}"
+                asset_name="frp_${{ steps.get_version.outputs.VERSION }}_${os}_${arch}"
+                if [ -f "${asset_path}.zip" ]; then
+                    echo "Uploading ${asset_name}.zip"
+                    gh release upload ${{ steps.get_version.outputs.VERSION }} "${asset_path}.zip"
+                elif [ -f "${asset_path}.tar.gz" ]; then
+                    echo "Uploading ${asset_name}.tar.gz"
+                    gh release upload ${{ steps.get_version.outputs.VERSION }} "${asset_path}.tar.gz"
+                fi
+            done
+        done
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
