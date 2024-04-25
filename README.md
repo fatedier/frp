@@ -352,7 +352,6 @@ You may substitute `https2https` for the plugin, and point the `localAddr` to a 
   # frpc.toml
   serverAddr = "x.x.x.x"
   serverPort = 7000
-  vhostHTTPSPort = 443
 
   [[proxies]]
   name = "test_https2http"
