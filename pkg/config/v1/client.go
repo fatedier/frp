@@ -136,8 +136,14 @@ func (c *ClientTransportConfig) Complete() {
 	c.PoolCount = util.EmptyOr(c.PoolCount, 1)
 	c.TCPMux = util.EmptyOr(c.TCPMux, lo.ToPtr(true))
 	c.TCPMuxKeepaliveInterval = util.EmptyOr(c.TCPMuxKeepaliveInterval, 60)
-	c.HeartbeatInterval = util.EmptyOr(c.HeartbeatInterval, 30)
-	c.HeartbeatTimeout = util.EmptyOr(c.HeartbeatTimeout, 90)
+	if lo.FromPtr(c.TCPMux) {
+		// If TCPMux is enabled, heartbeat of application layer is unnecessary because we can rely on heartbeat in tcpmux.
+		c.HeartbeatInterval = util.EmptyOr(c.HeartbeatInterval, -1)
+		c.HeartbeatTimeout = util.EmptyOr(c.HeartbeatTimeout, -1)
+	} else {
+		c.HeartbeatInterval = util.EmptyOr(c.HeartbeatInterval, 30)
+		c.HeartbeatTimeout = util.EmptyOr(c.HeartbeatTimeout, 90)
+	}
 	c.QUIC.Complete()
 	c.TLS.Complete()
 }
