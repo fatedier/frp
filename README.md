@@ -804,7 +804,7 @@ You can disable this feature by modify `frps.toml` and `frpc.toml`:
 
 ```toml
 # frps.toml and frpc.toml, must be same
-tcpMux = false
+transport.tcpMux = false
 ```
 
 ### Support KCP Protocol
