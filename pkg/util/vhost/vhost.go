@@ -29,7 +29,8 @@ import (
 type RouteInfo string
 
 const (
-	RouteInfoKey RouteInfo = "routeInfo"
+	RouteInfoKey   RouteInfo = "routeInfo"
+	RouteConfigKey RouteInfo = "routeConfig"
 )
 
 type RequestRouteInfo struct {
@@ -113,6 +114,7 @@ type RouteConfig struct {
 	Username        string
 	Password        string
 	Headers         map[string]string
+	ResponseHeaders map[string]string
 	RouteByHTTPUser string
 
 	CreateConnFn           CreateConnFunc

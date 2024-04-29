@@ -7,6 +7,7 @@ When connecting to frps versions older than v0.39.0 might encounter compatibilit
 ### Features
 
 * Show tcpmux proxies on the frps dashboard.
+* `http` proxy can modify the response header. For example, `responseHeaders.set.foo = "bar"` will add a new header `foo: bar` to the response.
 
 ### Fixes
 
