@@ -209,6 +209,7 @@ locations = ["/", "/pic"]
 # routeByHTTPUser = abc
 hostHeaderRewrite = "example.com"
 requestHeaders.set.x-from-where = "frp"
+responseHeaders.set.foo = "bar"
 healthCheck.type = "http"
 # frpc will send a GET http request '/status' to local http service
 # http service is alive when it return 2xx http response code

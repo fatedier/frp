@@ -267,7 +267,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 			Ensure()
 	})
 
-	ginkgo.It("Modify headers", func() {
+	ginkgo.It("Modify request headers", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostHTTPPort)
 
@@ -292,13 +292,46 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 
 		f.RunProcesses([]string{serverConf}, []string{clientConf})
 
-		// not set auth header
 		framework.NewRequestExpect(f).Port(vhostHTTPPort).
 			RequestModify(func(r *request.Request) {
 				r.HTTP().HTTPHost("normal.example.com")
 			}).
 			ExpectResp([]byte("frp")). // local http server will write this X-From-Where header to response body
 			Ensure()
+	})
+
+	ginkgo.It("Modify response headers", func() {
+		vhostHTTPPort := f.AllocPort()
+		serverConf := getDefaultServerConf(vhostHTTPPort)
+
+		localPort := f.AllocPort()
+		localServer := httpserver.New(
+			httpserver.WithBindPort(localPort),
+			httpserver.WithHandler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				w.WriteHeader(200)
+			})),
+		)
+		f.RunServer("", localServer)
+
+		clientConf := consts.DefaultClientConfig
+		clientConf += fmt.Sprintf(`
+			[[proxies]]
+			name = "test"
+			type = "http"
+			localPort = %d
+			customDomains = ["normal.example.com"]
+			responseHeaders.set.x-from-where = "frp"
+			`, localPort)
+
+		f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+		framework.NewRequestExpect(f).Port(vhostHTTPPort).
+			RequestModify(func(r *request.Request) {
+				r.HTTP().HTTPHost("normal.example.com")
+			}).
+			Ensure(func(res *request.Response) bool {
+				return res.Header.Get("X-From-Where") == "frp"
+			})
 	})
 
 	ginkgo.It("Host Header Rewrite", func() {

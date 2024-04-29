@@ -983,7 +983,7 @@ The HTTP request will have the `Host` header rewritten to `Host: dev.example.com
 
 ### Setting other HTTP Headers
 
-Similar to `Host`, You can override other HTTP request headers with proxy type `http`.
+Similar to `Host`, You can override other HTTP request and response headers with proxy type `http`.
 
 ```toml
 # frpc.toml
@@ -995,9 +995,10 @@ localPort = 80
 customDomains = ["test.example.com"]
 hostHeaderRewrite = "dev.example.com"
 requestHeaders.set.x-from-where = "frp"
+responseHeaders.set.foo = "bar"
 ```
 
-In this example, it will set header `x-from-where: frp` in the HTTP request.
+In this example, it will set header `x-from-where: frp` in the HTTP request and `foo: bar` in the HTTP response.
 
 ### Get Real IP
 
