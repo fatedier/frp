@@ -260,7 +260,7 @@ func (f *Framework) SetEnvs(envs []string) {
 
 func (f *Framework) WriteTempFile(name string, content string) string {
 	filePath := filepath.Join(f.TempDirectory, name)
-	err := os.WriteFile(filePath, []byte(content), 0o766)
+	err := os.WriteFile(filePath, []byte(content), 0o600)
 	ExpectNoError(err)
 	return filePath
 }

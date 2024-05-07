@@ -32,8 +32,6 @@ import (
 	"github.com/fatedier/frp/pkg/util/version"
 )
 
-// TODO(fatedier): add an API to clean status of all offline proxies.
-
 type GeneralResponse struct {
 	Code int
 	Msg  string
@@ -146,7 +144,8 @@ type TCPOutConf struct {
 type TCPMuxOutConf struct {
 	BaseOutConf
 	v1.DomainConfig
-	Multiplexer string `json:"multiplexer"`
+	Multiplexer     string `json:"multiplexer"`
+	RouteByHTTPUser string `json:"routeByHTTPUser"`
 }
 
 type UDPOutConf struct {

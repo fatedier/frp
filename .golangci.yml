@@ -1,6 +1,6 @@
 service:
   golangci-lint-version: 1.57.x # use the fixed version to not introduce new linters unexpectedly
-  
+
 run:
   concurrency: 4
   # timeout for analysis, e.g. 30s, 5m, default is 1m
@@ -86,12 +86,8 @@ linters-settings:
     severity: "low"
     confidence: "low"
     excludes:
-    - G102
-    - G112
-    - G306
     - G401
     - G402
-    - G404
     - G501
 
 issues:

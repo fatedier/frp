@@ -60,7 +60,8 @@ func NewStaticFilePlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	router.Use(netpkg.NewHTTPAuthMiddleware(opts.HTTPUser, opts.HTTPPassword).SetAuthFailDelay(200 * time.Millisecond).Middleware)
 	router.PathPrefix(prefix).Handler(netpkg.MakeHTTPGzipHandler(http.StripPrefix(prefix, http.FileServer(http.Dir(opts.LocalPath))))).Methods("GET")
 	sp.s = &http.Server{
-		Handler: router,
+		Handler:           router,
+		ReadHeaderTimeout: 60 * time.Second,
 	}
 	go func() {
 		_ = sp.s.Serve(listener)

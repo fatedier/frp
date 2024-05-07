@@ -20,12 +20,17 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	stdlog "log"
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"time"
+
+	"github.com/fatedier/golib/pool"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/transport"
+	"github.com/fatedier/frp/pkg/util/log"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
@@ -63,10 +68,13 @@ func NewHTTPS2HTTPPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 				req.Header.Set(k, v)
 			}
 		},
+		BufferPool: pool.NewBuffer(32 * 1024),
+		ErrorLog:   stdlog.New(log.NewWriteLogger(log.WarnLevel, 2), "", 0),
 	}
 
 	p.s = &http.Server{
-		Handler: rp,
+		Handler:           rp,
+		ReadHeaderTimeout: 60 * time.Second,
 	}
 
 	var (

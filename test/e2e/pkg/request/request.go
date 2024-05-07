@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	libdial "github.com/fatedier/golib/net/dial"
+	libnet "github.com/fatedier/golib/net"
 
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/test/e2e/pkg/rpc"
@@ -160,11 +160,11 @@ func (r *Request) Do() (*Response, error) {
 		if r.protocol != "tcp" {
 			return nil, fmt.Errorf("only tcp protocol is allowed for proxy")
 		}
-		proxyType, proxyAddress, auth, err := libdial.ParseProxyURL(r.proxyURL)
+		proxyType, proxyAddress, auth, err := libnet.ParseProxyURL(r.proxyURL)
 		if err != nil {
 			return nil, fmt.Errorf("parse ProxyURL error: %v", err)
 		}
-		conn, err = libdial.Dial(addr, libdial.WithProxy(proxyType, proxyAddress), libdial.WithProxyAuth(auth))
+		conn, err = libnet.Dial(addr, libnet.WithProxy(proxyType, proxyAddress), libnet.WithProxyAuth(auth))
 		if err != nil {
 			return nil, err
 		}

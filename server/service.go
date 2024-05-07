@@ -286,12 +286,13 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 
 		address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.VhostHTTPPort))
 		server := &http.Server{
-			Addr:    address,
-			Handler: rp,
+			Addr:              address,
+			Handler:           rp,
+			ReadHeaderTimeout: 60 * time.Second,
 		}
 		var l net.Listener
 		if httpMuxOn {
-			l = svr.muxer.ListenHttp(1)
+			l = svr.muxer.ListenHTTP(1)
 		} else {
 			l, err = net.Listen("tcp", address)
 			if err != nil {
@@ -308,7 +309,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	if cfg.VhostHTTPSPort > 0 {
 		var l net.Listener
 		if httpsMuxOn {
-			l = svr.muxer.ListenHttps(1)
+			l = svr.muxer.ListenHTTPS(1)
 		} else {
 			address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.VhostHTTPSPort))
 			l, err = net.Listen("tcp", address)
