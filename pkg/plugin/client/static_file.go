@@ -17,9 +17,14 @@
 package plugin
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -57,8 +62,78 @@ func NewStaticFilePlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	}
 
 	router := mux.NewRouter()
+	
+	form := `
+	<form action="/@upload.html?%s" method="post" enctype="multipart/form-data">
+    	<label for="fileUpload">选择文件:</label>
+    	<input type="file" name="file" />
+    	<input type="submit" value="上传文件" />
+	</form>`
+	router.HandleFunc("/@upload.html", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprintf(w, form, r.URL.RawQuery)
+		} else if r.Method == "POST" {
+			err := r.ParseMultipartForm(32 << 20)
+			if err != nil {
+				return
+			}
+			uploadFile, uploadFileInfo, err := r.FormFile("file")
+			if err != nil {
+				return
+			}
+			defer uploadFile.Close()
+
+			queryParams, err := url.ParseQuery(r.URL.RawQuery)
+			if err != nil {
+				return
+			}
+			urlPathParam := queryParams.Get("path")
+			urlPathParam = strings.Trim(urlPathParam, "/")
+
+			dirPrefix := strings.TrimSuffix(opts.LocalPath, "/")
+			if urlPathParam != "" {
+				dirPrefix += "/" + urlPathParam
+			}
+			dirPrefixInfo, err := os.Stat(dirPrefix)
+			if os.IsNotExist(err) || !dirPrefixInfo.IsDir() {
+				return
+			}
+
+			saveFilename := dirPrefix + "/" + uploadFileInfo.Filename
+			if _, err = os.Stat(saveFilename); err == nil {
+				timeStr := time.Now().Format("20060102150405")
+				pos := strings.LastIndex(uploadFileInfo.Filename, ".")
+				if pos == -1 {
+					saveFilename += timeStr
+				} else {
+					saveFilename = dirPrefix + "/" + uploadFileInfo.Filename[0:pos] + "-" + timeStr + uploadFileInfo.Filename[pos:]
+				}
+			}
+
+			out, err := os.Create(saveFilename)
+			if err != nil {
+				return
+			}
+			defer out.Close()
+
+			_, err = io.Copy(out, uploadFile)
+			if err != nil {
+				return
+			}
+
+			w.Header().Set("Last-Modified", dirPrefixInfo.ModTime().UTC().Format(http.TimeFormat))
+			if urlPathParam == "" {
+				w.Header().Set("Location", "/")
+			} else {
+				w.Header().Set("Location", "/"+urlPathParam+"/")
+			}
+			w.WriteHeader(301)
+		}
+	})
+
 	router.Use(netpkg.NewHTTPAuthMiddleware(opts.HTTPUser, opts.HTTPPassword).SetAuthFailDelay(200 * time.Millisecond).Middleware)
-	router.PathPrefix(prefix).Handler(netpkg.MakeHTTPGzipHandler(http.StripPrefix(prefix, http.FileServer(http.Dir(opts.LocalPath))))).Methods("GET")
+	router.PathPrefix(prefix).Handler(netpkg.MakeHTTPGzipHandler(http.StripPrefix(prefix, AddUploadBtn(http.Dir(opts.LocalPath), http.FileServer(http.Dir(opts.LocalPath)))))).Methods("GET")
 	sp.s = &http.Server{
 		Handler:           router,
 		ReadHeaderTimeout: 60 * time.Second,
@@ -67,6 +142,32 @@ func NewStaticFilePlugin(options v1.ClientPluginOptions) (Plugin, error) {
 		_ = sp.s.Serve(listener)
 	}()
 	return sp, nil
+}
+
+func AddUploadBtn(root http.FileSystem, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		urlPath := r.URL.Path
+		if !strings.HasPrefix(urlPath, "/") {
+			urlPath = "/" + urlPath
+		}
+		urlPath = path.Clean(urlPath)
+		f, err := root.Open(urlPath)
+		if err != nil {
+			h.ServeHTTP(w, r)
+			return
+		}
+		d, err := f.Stat()
+		if err != nil {
+			h.ServeHTTP(w, r)
+			return
+		}
+		if d.IsDir() {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprint(w, `<style>.upload-btn{text-decoration: none;}</style>`)
+			fmt.Fprintf(w, "<a class=\"upload-btn\" href=\"/@upload.html?path=%s\">上传文件</a>\n", urlPath)
+		}
+		h.ServeHTTP(w, r)
+	})
 }
 
 func (sp *StaticFilePlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
