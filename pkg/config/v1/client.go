@@ -135,7 +135,7 @@ func (c *ClientTransportConfig) Complete() {
 	c.ProxyURL = util.EmptyOr(c.ProxyURL, os.Getenv("http_proxy"))
 	c.PoolCount = util.EmptyOr(c.PoolCount, 1)
 	c.TCPMux = util.EmptyOr(c.TCPMux, lo.ToPtr(true))
-	c.TCPMuxKeepaliveInterval = util.EmptyOr(c.TCPMuxKeepaliveInterval, 60)
+	c.TCPMuxKeepaliveInterval = util.EmptyOr(c.TCPMuxKeepaliveInterval, 30)
 	if lo.FromPtr(c.TCPMux) {
 		// If TCPMux is enabled, heartbeat of application layer is unnecessary because we can rely on heartbeat in tcpmux.
 		c.HeartbeatInterval = util.EmptyOr(c.HeartbeatInterval, -1)
