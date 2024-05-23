@@ -17,6 +17,7 @@ package v1
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 )
@@ -42,7 +43,7 @@ func (c *TypedClientPluginOptions) UnmarshalJSON(b []byte) error {
 
 	c.Type = typeStruct.Type
 	if c.Type == "" {
-		return nil
+		return errors.New("plugin type is empty")
 	}
 
 	v, ok := clientPluginOptionsTypeMap[typeStruct.Type]
@@ -61,6 +62,10 @@ func (c *TypedClientPluginOptions) UnmarshalJSON(b []byte) error {
 	}
 	c.ClientPluginOptions = options
 	return nil
+}
+
+func (c *TypedClientPluginOptions) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.ClientPluginOptions)
 }
 
 const (

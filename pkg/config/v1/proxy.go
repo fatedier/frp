@@ -195,6 +195,10 @@ func (c *TypedProxyConfig) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+func (c *TypedProxyConfig) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.ProxyConfigurer)
+}
+
 type ProxyConfigurer interface {
 	Complete(namePrefix string)
 	GetBaseConfig() *ProxyBaseConfig
