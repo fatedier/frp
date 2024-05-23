@@ -5,3 +5,4 @@
 ### Changes
 
 * Updated the default value of `transport.tcpMuxKeepaliveInterval` from 60 to 30.
+* On the Android platform, the Google DNS server is used only when the default DNS server cannot be obtained.
