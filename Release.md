@@ -1,6 +1,7 @@
 ### Fixes
 
 * Fixed an issue where HTTP/2 was not enabled for https2http and https2https plugins.
+* Fixed the issue where the default values of INI configuration parameters are inconsistent with other configuration formats.
 
 ### Changes
 
