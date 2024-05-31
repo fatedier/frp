@@ -78,11 +78,6 @@ func NewHTTPS2HTTPSPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 		ErrorLog:   stdlog.New(log.NewWriteLogger(log.WarnLevel, 2), "", 0),
 	}
 
-	p.s = &http.Server{
-		Handler:           rp,
-		ReadHeaderTimeout: 60 * time.Second,
-	}
-
 	var (
 		tlsConfig *tls.Config
 		err       error
@@ -96,10 +91,15 @@ func NewHTTPS2HTTPSPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gen TLS config error: %v", err)
 	}
-	ln := tls.NewListener(listener, tlsConfig)
+
+	p.s = &http.Server{
+		Handler:           rp,
+		ReadHeaderTimeout: 60 * time.Second,
+		TLSConfig:         tlsConfig,
+	}
 
 	go func() {
-		_ = p.s.Serve(ln)
+		_ = p.s.ServeTLS(listener, "", "")
 	}()
 	return p, nil
 }
