@@ -30,6 +30,9 @@ import (
 	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
+	"github.com/radovskyb/watcher"
+	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/msg"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
@@ -156,6 +159,11 @@ func NewService(options ServiceOptions) (*Service, error) {
 	if webServer != nil {
 		webServer.RouteRegister(s.registerRouteHandlers)
 	}
+
+	if options.Common.ConfigAutoReload {
+		go s.MonitorClientConfig(options.ConfigFilePath)
+	}
+
 	return s, nil
 }
 
@@ -407,4 +415,64 @@ type statusExporterImpl struct {
 
 func (s *statusExporterImpl) GetProxyStatus(name string) (*proxy.WorkingStatus, bool) {
 	return s.getProxyStatusFunc(name)
+}
+
+
+func (s *Service) MonitorClientConfig(cfgFilePath string) { 
+	cliCfg, _, _, _, err := config.LoadClientConfig(cfgFilePath, false)
+    if err != nil {
+        log.Errorf("%v", err)
+    }
+
+    if !cliCfg.ConfigAutoReload {
+        log.Infof("auto reload on config change is disabled.")
+        return
+    }
+
+    w := watcher.New()
+    w.SetMaxEvents(1) 
+    w.FilterOps(watcher.Write) 
+
+    done := make(chan bool)
+
+    go func() {
+        for {
+            select {
+            case event := <-w.Event:
+                log.Infof("config file changed: %s", event.Path)
+                cliCfg, pxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(cfgFilePath, false)
+                if err != nil {
+                    log.Infof("reload frpc proxy config error: %s", err.Error())
+                    continue
+                }
+                if _, err := validation.ValidateAllClientConfig(cliCfg, pxyCfgs, visitorCfgs); err != nil {
+                    log.Infof("reload frpc proxy config error: %s", err.Error())
+                    continue
+                }
+
+                if err := s.UpdateAllConfigurer(pxyCfgs, visitorCfgs); err != nil {
+                    log.Infof("reload frpc proxy config error: %s", err.Error())
+                    continue
+                }
+                log.Infof("success reload conf")
+            case err := <-w.Error:
+                log.Infof("error: %s", err.Error())
+            case <-w.Closed:
+                done <- true
+                return
+            }
+        }
+    }()
+
+    if err := w.Add(cfgFilePath); err != nil {
+        log.Infof("error adding file to watcher: %s", err.Error())
+    }
+
+    go func() {
+        if err := w.Start(time.Second); err != nil {
+            log.Infof("error starting watcher: %s", err.Error())
+        }
+    }()
+
+    <-done
 }

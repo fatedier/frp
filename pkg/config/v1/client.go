@@ -46,6 +46,9 @@ type ClientCommonConfig struct {
 	ServerPort int `json:"serverPort,omitempty"`
 	// STUN server to help penetrate NAT hole.
 	NatHoleSTUNServer string `json:"natHoleStunServer,omitempty"`
+
+	//
+	ConfigAutoReload bool `json:"configAutoReload,omitempty"`
 	// DNSServer specifies a DNS server address for FRPC to use. If this value
 	// is "", the default DNS will be used.
 	DNSServer string `json:"dnsServer,omitempty"`

@@ -12,6 +12,9 @@ serverPort = 7000
 # STUN server to help penetrate NAT hole.
 # natHoleStunServer = "stun.easyvoip.com:3478"
 
+# if true, autoreload is enabled 
+configAutoReload = true
+
 # Decide if exit program when first login failed, otherwise continuous relogin to frps
 # default is true
 loginFailExit = true
