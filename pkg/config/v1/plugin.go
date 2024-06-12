@@ -76,6 +76,7 @@ const (
 	PluginSocks5           = "socks5"
 	PluginStaticFile       = "static_file"
 	PluginUnixDomainSocket = "unix_domain_socket"
+	PluginHTTP2HTTP        = "http2http"
 )
 
 var clientPluginOptionsTypeMap = map[string]reflect.Type{
@@ -86,6 +87,7 @@ var clientPluginOptionsTypeMap = map[string]reflect.Type{
 	PluginSocks5:           reflect.TypeOf(Socks5PluginOptions{}),
 	PluginStaticFile:       reflect.TypeOf(StaticFilePluginOptions{}),
 	PluginUnixDomainSocket: reflect.TypeOf(UnixDomainSocketPluginOptions{}),
+	PluginHTTP2HTTP:        reflect.TypeOf(HTTP2HTTPPluginOptions{}),
 }
 
 type HTTP2HTTPSPluginOptions struct {
@@ -136,4 +138,12 @@ type StaticFilePluginOptions struct {
 type UnixDomainSocketPluginOptions struct {
 	Type     string `json:"type,omitempty"`
 	UnixPath string `json:"unixPath,omitempty"`
+}
+
+// Added HTTP2HTTPPluginOptions struct
+type HTTP2HTTPPluginOptions struct {
+	Type              string           `json:"type,omitempty"`
+	LocalAddr         string           `json:"localAddr,omitempty"`
+	HostHeaderRewrite string           `json:"hostHeaderRewrite,omitempty"`
+	RequestHeaders    HeaderOperations `json:"requestHeaders,omitempty"`
 }
