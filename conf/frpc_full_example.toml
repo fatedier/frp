@@ -316,6 +316,16 @@ hostHeaderRewrite = "127.0.0.1"
 requestHeaders.set.x-from-where = "frp"
 
 [[proxies]]
+name = "plugin_http2http"
+type = "tcp"
+remotePort = 6007
+[proxies.plugin]
+type = "http2http"
+localAddr = "127.0.0.1:80"
+hostHeaderRewrite = "127.0.0.1"
+requestHeaders.set.x-from-where = "frp"
+
+[[proxies]]
 name = "secret_tcp"
 # If the type is secret tcp, remotePort is useless
 # Who want to connect local port should deploy another frpc with stcp proxy and role is visitor
