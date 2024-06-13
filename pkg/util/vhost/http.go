@@ -92,6 +92,13 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			} else {
 				req.URL.Host = req.Host
 			}
+
+			for k, v := range req.Header {
+				if strings.Contains(k, "Websocket") {
+					delete(req.Header, k)
+					req.Header[strings.ReplaceAll(k, "Websocket", "WebSocket")] = v
+				}
+			}
 		},
 		// Create a connection to one proxy routed by route policy.
 		Transport: &http.Transport{
