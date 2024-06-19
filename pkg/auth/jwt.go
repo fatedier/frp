@@ -77,7 +77,7 @@ func (auth *JWTAuthSetterVerifier) VerifyNewWorkConn(m *msg.NewWorkConn) error {
 	return auth.VerifyToken("", token)
 }
 
-func (auth *JWTAuthSetterVerifier) VerifyToken(user, token string) error {
+func (auth *JWTAuthSetterVerifier) GetVerifyData(token string) (jwt.MapClaims, error) {
 	methodKey := map[string]string{jwt.SigningMethodHS256.Alg(): auth.secret}
 	parser := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}))
 	parsedToken, err := parser.Parse(token, func(t *jwt.Token) (any, error) {
@@ -90,18 +90,27 @@ func (auth *JWTAuthSetterVerifier) VerifyToken(user, token string) error {
 
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
-			return errors.New("token is expired")
+			return nil, errors.New("token is expired")
 		}
-		return err
+		return nil, err
 	}
 
 	if !parsedToken.Valid {
-		return fmt.Errorf("token %s is invalid", token)
+		return nil, fmt.Errorf("token %s is invalid", token)
 	}
 
 	claims, ok := parsedToken.Claims.(jwt.MapClaims)
 	if !ok {
-		return fmt.Errorf("claims %v is invalid", parsedToken.Claims)
+		return nil, fmt.Errorf("claims %v is invalid", parsedToken.Claims)
+	}
+
+	return claims, nil
+}
+
+func (auth *JWTAuthSetterVerifier) VerifyToken(user, token string) error {
+	claims, err := auth.GetVerifyData(token)
+	if err != nil {
+		return err
 	}
 
 	sub := claims["sub"]
