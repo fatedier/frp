@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fatedier/golib/crypto"
@@ -59,6 +60,8 @@ import (
 const (
 	connReadTimeout       time.Duration = 10 * time.Second
 	vhostReadWriteTimeout time.Duration = 30 * time.Second
+	forwardHost                         = "remote.agi7.ai"
+	forwardCookieName                   = "agi7.forward.auth"
 )
 
 func init() {
@@ -286,8 +289,11 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 
 		address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.VhostHTTPPort))
 		server := &http.Server{
-			Addr:    address,
-			Handler: rp,
+			Addr: address,
+			Handler: &authMiddleware{
+				next:       rp,
+				authVerify: svr.authVerifier.(*auth.JWTAuthSetterVerifier),
+			},
 		}
 		var l net.Listener
 		if httpMuxOn {
@@ -654,4 +660,48 @@ func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVis
 	}
 	return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
 		newMsg.UseEncryption, newMsg.UseCompression, visitorUser)
+}
+
+type authMiddleware struct {
+	authVerify *auth.JWTAuthSetterVerifier
+	next       http.Handler
+}
+
+func (m authMiddleware) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	if !strings.HasSuffix(request.Host, forwardHost) {
+		m.next.ServeHTTP(writer, request)
+		return
+	}
+
+	cookie, err := request.Cookie(forwardCookieName)
+	if err != nil {
+		writer.WriteHeader(http.StatusForbidden)
+		writer.Write([]byte(err.Error()))
+		return
+	}
+
+	var token = cookie.Value
+	claims, err := m.authVerify.GetVerifyData(token)
+	if err != nil {
+		writer.WriteHeader(http.StatusForbidden)
+		writer.Write([]byte(err.Error()))
+		return
+	}
+
+	if !strings.HasPrefix(request.Host, fmt.Sprintf("%s.", claims["domain"])) {
+		writer.WriteHeader(http.StatusForbidden)
+		writer.Write([]byte(fmt.Sprintf("domain access deny")))
+		return
+	}
+
+	cookieData := request.Header.Get("Cookie")
+	var cc string
+	for _, v := range strings.Split(cookieData, ";") {
+		if strings.HasPrefix(v, forwardCookieName) {
+			continue
+		}
+		cc += v + ";"
+	}
+	request.Header.Set("Cookie", cc)
+	m.next.ServeHTTP(writer, request)
 }
