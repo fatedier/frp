@@ -33,6 +33,7 @@ declare module 'vue' {
     ProxiesTCP: typeof import('./src/components/ProxiesTCP.vue')['default']
     ProxiesTCPMux: typeof import('./src/components/ProxiesTCPMux.vue')['default']
     ProxiesUDP: typeof import('./src/components/ProxiesUDP.vue')['default']
+    ProxiesXTCP: typeof import('./src/components/ProxiesXTCP.vue')['default']
     ProxyView: typeof import('./src/components/ProxyView.vue')['default']
     ProxyViewExpand: typeof import('./src/components/ProxyViewExpand.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
