@@ -165,7 +165,7 @@ func (ctl *Control) handleNewProxyResp(m msg.Message) {
 	if err != nil {
 		xl.Warnf("[%s] start error: %v", inMsg.ProxyName, err)
 	} else {
-		xl.Infof("[%s] start proxy success", inMsg.ProxyName)
+		xl.Infof("name:[%s] post:[%s] start proxy success", inMsg.ProxyName, inMsg.RemoteAddr)
 	}
 }
 
