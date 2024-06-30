@@ -18,10 +18,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"html/template"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	toml "github.com/pelletier/go-toml/v2"
 	"github.com/samber/lo"
@@ -34,6 +35,8 @@ import (
 	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/util"
+
+	"github.com/go-task/slim-sprig/v3"
 )
 
 var glbEnvs map[string]string
@@ -80,10 +83,14 @@ func DetectLegacyINIFormatFromFile(path string) bool {
 }
 
 func RenderWithTemplate(in []byte, values *Values) ([]byte, error) {
-	tmpl, err := template.New("frp").Funcs(template.FuncMap{
+	funcMap := sprig.FuncMap()
+
+	maps.Copy(funcMap, template.FuncMap{
 		"parseNumberRange":     parseNumberRange,
 		"parseNumberRangePair": parseNumberRangePair,
-	}).Parse(string(in))
+	})
+
+	tmpl, err := template.New("frp").Funcs(funcMap).Parse(string(in))
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +99,7 @@ func RenderWithTemplate(in []byte, values *Values) ([]byte, error) {
 	if err := tmpl.Execute(buffer, values); err != nil {
 		return nil, err
 	}
+
 	return buffer.Bytes(), nil
 }
 
