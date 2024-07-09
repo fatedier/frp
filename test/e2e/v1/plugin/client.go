@@ -3,6 +3,7 @@ package plugin
 import (
 	"crypto/tls"
 	"fmt"
+	"net/http"
 	"strconv"
 
 	"github.com/onsi/ginkgo/v2"
@@ -328,5 +329,77 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 			}).
 			ExpectResp([]byte("test")).
 			Ensure()
+	})
+
+	ginkgo.Describe("http2http", func() {
+		ginkgo.It("host header rewrite", func() {
+			serverConf := consts.DefaultServerConfig
+
+			localPort := f.AllocPort()
+			remotePort := f.AllocPort()
+			clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+			[[proxies]]
+			name = "http2http"
+			type = "tcp"
+			remotePort = %d
+			[proxies.plugin]
+			type = "http2http"
+			localAddr = "127.0.0.1:%d"
+			hostHeaderRewrite = "rewrite.test.com"
+			`, remotePort, localPort)
+
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+			localServer := httpserver.New(
+				httpserver.WithBindPort(localPort),
+				httpserver.WithHandler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					_, _ = w.Write([]byte(req.Host))
+				})),
+			)
+			f.RunServer("", localServer)
+
+			framework.NewRequestExpect(f).
+				Port(remotePort).
+				RequestModify(func(r *request.Request) {
+					r.HTTP().HTTPHost("example.com")
+				}).
+				ExpectResp([]byte("rewrite.test.com")).
+				Ensure()
+		})
+
+		ginkgo.It("set request header", func() {
+			serverConf := consts.DefaultServerConfig
+
+			localPort := f.AllocPort()
+			remotePort := f.AllocPort()
+			clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+			[[proxies]]
+			name = "http2http"
+			type = "tcp"
+			remotePort = %d
+			[proxies.plugin]
+			type = "http2http"
+			localAddr = "127.0.0.1:%d"
+			requestHeaders.set.x-from-where = "frp"
+			`, remotePort, localPort)
+
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+			localServer := httpserver.New(
+				httpserver.WithBindPort(localPort),
+				httpserver.WithHandler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					_, _ = w.Write([]byte(req.Header.Get("x-from-where")))
+				})),
+			)
+			f.RunServer("", localServer)
+
+			framework.NewRequestExpect(f).
+				Port(remotePort).
+				RequestModify(func(r *request.Request) {
+					r.HTTP().HTTPHost("example.com")
+				}).
+				ExpectResp([]byte("frp")).
+				Ensure()
+		})
 	})
 })

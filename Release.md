@@ -1,9 +1,8 @@
-### Fixes
+### Features
 
-* Fixed an issue where HTTP/2 was not enabled for https2http and https2https plugins.
-* Fixed the issue where the default values of INI configuration parameters are inconsistent with other configuration formats.
+* Added a new plugin "http2http" which allows forwarding HTTP requests to another HTTP server, supporting options like local address binding, host header rewrite, and custom request headers.
+* Added `enableHTTP2` option to control whether to enable HTTP/2 in plugin https2http and https2https, default is true.
 
 ### Changes
 
-* Updated the default value of `transport.tcpMuxKeepaliveInterval` from 60 to 30.
-* On the Android platform, the Google DNS server is used only when the default DNS server cannot be obtained.
+* Plugin https2http & https2https: return 421 `Misdirected Request` if host not match sni.

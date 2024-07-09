@@ -127,6 +127,10 @@ func (c *ProxyBaseConfig) Complete(namePrefix string) {
 	c.Name = lo.Ternary(namePrefix == "", "", namePrefix+".") + c.Name
 	c.LocalIP = util.EmptyOr(c.LocalIP, "127.0.0.1")
 	c.Transport.BandwidthLimitMode = util.EmptyOr(c.Transport.BandwidthLimitMode, types.BandwidthLimitModeClient)
+
+	if c.Plugin.ClientPluginOptions != nil {
+		c.Plugin.ClientPluginOptions.Complete()
+	}
 }
 
 func (c *ProxyBaseConfig) MarshalToMsg(m *msg.NewProxy) {
