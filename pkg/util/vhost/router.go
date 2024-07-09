@@ -93,6 +93,25 @@ func (r *Routers) Del(domain, location, httpUser string) {
 	routersByHTTPUser[httpUser] = newVrs
 }
 
+func (r *Routers) GetAll() (rr []map[string]any) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	for _, v := range r.indexByDomain {
+		for _, v1 := range v {
+			for _, v2 := range v1 {
+				rr = append(rr, map[string]any{
+					"domain":   v2.domain,
+					"location": v2.location,
+					"httpUser": v2.httpUser,
+					"payload":  v2.payload,
+				})
+			}
+		}
+	}
+	return rr
+}
+
 func (r *Routers) Get(host, path, httpUser string) (vr *Router, exist bool) {
 	host = strings.ToLower(host)
 

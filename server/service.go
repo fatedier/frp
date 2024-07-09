@@ -18,20 +18,17 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
-
-	"github.com/fatedier/golib/crypto"
-	"github.com/fatedier/golib/net/mux"
-	fmux "github.com/hashicorp/yamux"
-	quic "github.com/quic-go/quic-go"
-	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
@@ -55,6 +52,12 @@ import (
 	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/server/proxy"
 	"github.com/fatedier/frp/server/visitor"
+	"github.com/fatedier/golib/crypto"
+	"github.com/fatedier/golib/net/mux"
+	fmux "github.com/hashicorp/yamux"
+	quic "github.com/quic-go/quic-go"
+	"github.com/r3labs/sse/v2"
+	"github.com/samber/lo"
 )
 
 const (
@@ -62,6 +65,7 @@ const (
 	vhostReadWriteTimeout time.Duration = 30 * time.Second
 	forwardHost                         = "remote.agi7.ai"
 	forwardCookieName                   = "agi7.forward.auth"
+	sseName                             = "proxy_status"
 )
 
 func init() {
@@ -128,6 +132,10 @@ type Service struct {
 	ctx context.Context
 	// call cancel to stop service
 	cancel context.CancelFunc
+
+	ss *sse.Server
+
+	proxyTraffic sync.Map
 }
 
 func NewService(cfg *v1.ServerConfig) (*Service, error) {
@@ -153,7 +161,12 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		}
 	}
 
+	server := sse.New()
+	server.AutoStream = true
+
 	svr := &Service{
+		ss: server,
+
 		ctlManager:    NewControlManager(),
 		pxyManager:    proxy.NewManager(),
 		pluginManager: plugin.NewManager(),
@@ -342,6 +355,8 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		return nil, fmt.Errorf("create nat hole controller error, %v", err)
 	}
 	svr.rc.NatHoleController = nc
+
+	svr.checkProxyStatusTimer()
 	return svr, nil
 }
 
@@ -673,10 +688,12 @@ func (m authMiddleware) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 
-	cookie, err := request.Cookie(forwardCookieName)
+	var domain = strings.SplitN(request.Host, ".", 2)[0]
+	var cookieName = fmt.Sprintf("%s.%s", forwardCookieName, domain)
+	cookie, err := request.Cookie(cookieName)
 	if err != nil {
 		writer.WriteHeader(http.StatusForbidden)
-		writer.Write([]byte(err.Error()))
+		writer.Write([]byte(fmt.Sprintf("cookie not found, name=%s err=%s", cookieName, err.Error())))
 		return
 	}
 
@@ -684,24 +701,107 @@ func (m authMiddleware) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 	claims, err := m.authVerify.GetVerifyData(token)
 	if err != nil {
 		writer.WriteHeader(http.StatusForbidden)
-		writer.Write([]byte(err.Error()))
+		writer.Write([]byte(fmt.Sprintf("failed to verify auth, err=%s", err.Error())))
 		return
 	}
 
 	if !strings.HasPrefix(request.Host, fmt.Sprintf("%s.", claims["domain"])) {
 		writer.WriteHeader(http.StatusForbidden)
-		writer.Write([]byte(fmt.Sprintf("domain access deny")))
+		writer.Write([]byte("domain access deny"))
 		return
 	}
 
 	cookieData := request.Header.Get("Cookie")
 	var cc string
 	for _, v := range strings.Split(cookieData, ";") {
-		if strings.HasPrefix(v, forwardCookieName) {
+		if strings.HasPrefix(v, cookieName) {
 			continue
 		}
 		cc += v + ";"
 	}
 	request.Header.Set("Cookie", cc)
+
 	m.next.ServeHTTP(writer, request)
+}
+
+func (svr *Service) checkProxyStatusTimer() {
+	go func() {
+		for {
+			select {
+			case <-svr.ctx.Done():
+				return
+			default:
+			}
+
+			func() {
+				// update proxy traffic every 15s, total 30m
+				var mapSet = make(map[string]bool)
+				for _, info := range svr.getProxyStatsByType("http") {
+					mapSet[info.Name] = true
+					if vv, ok := svr.proxyTraffic.Load(info.Name); ok {
+						vv.(*ringBuffer).Add(info.TodayTrafficOut)
+					} else {
+						svr.proxyTraffic.Store(info.Name, newRingBuffer(120, info.Name).Add(info.TodayTrafficOut))
+					}
+				}
+
+				log.Infof("check and record proxy traffic, proxy_count=%d", len(mapSet))
+
+				// delete old data
+				svr.proxyTraffic.Range(func(key, value any) bool {
+					if !mapSet[key.(string)] {
+						svr.proxyTraffic.Delete(key)
+					}
+					return true
+				})
+			}()
+
+			time.Sleep(time.Second * 15)
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case <-svr.ctx.Done():
+				return
+			default:
+			}
+
+			func() {
+				var proxyList = svr.getProxyStatsByType("http")
+
+				log.Infof("publish proxy status, proxy_count=%d, stream=%v", len(proxyList), svr.ss.StreamExists(sseName))
+
+				for _, info := range proxyList {
+					var rate *float64
+					var pp, ok = svr.proxyTraffic.Load(info.Name)
+					if ok {
+						var rr = pp.(*ringBuffer).Rate()
+						if !math.IsNaN(rr) {
+							rate = lo.ToPtr(rr)
+						}
+					}
+
+					var dd = ProxyPublishInfo{
+						Name:          info.Name,
+						LastStartTime: info.LastStartTime,
+						Offline:       info.Status == "offline",
+						Time:          time.Now().Unix(),
+						TrafficRate:   rate,
+					}
+
+					md, err := json.Marshal(dd)
+					if err != nil {
+						log.Errorf("failed to encode json data, err=%s", err)
+						continue
+					}
+
+					svr.ss.Publish(sseName, &sse.Event{Data: md})
+				}
+			}()
+
+			time.Sleep(time.Second * 10)
+		}
+	}()
 }

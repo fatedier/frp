@@ -17,6 +17,8 @@ package msg
 import (
 	"io"
 	"reflect"
+
+	"github.com/fatedier/golib/log"
 )
 
 func AsyncHandler(f func(Message)) func(Message) {
@@ -69,6 +71,7 @@ func (d *Dispatcher) readLoop() {
 			return
 		}
 
+		log.Debugf("receive message from server: %s, exists: %v", reflect.TypeOf(m), d.msgHandlers[reflect.TypeOf(m)] != nil)
 		if handler, ok := d.msgHandlers[reflect.TypeOf(m)]; ok {
 			handler(m)
 		} else if d.defaultHandler != nil {

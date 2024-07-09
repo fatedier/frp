@@ -17,6 +17,7 @@ package server
 import (
 	"cmp"
 	"encoding/json"
+	"math"
 	"net/http"
 	"slices"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/fatedier/frp/pkg/config/types"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/metrics/mem"
+	"github.com/fatedier/frp/pkg/msg"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
@@ -51,9 +53,11 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	}
 
 	// apis
+	subRouter.HandleFunc("/api/sub", svr.apiServerSub)
 	subRouter.HandleFunc("/api/serverinfo", svr.apiServerInfo).Methods("GET")
 	subRouter.HandleFunc("/api/proxy/{type}", svr.apiProxyByType).Methods("GET")
 	subRouter.HandleFunc("/api/proxy/{type}/{name}", svr.apiProxyByTypeAndName).Methods("GET")
+	subRouter.HandleFunc("/api/proxy/{type}/{name}/close", svr.apiCloseProxyByTypeAndName).Methods("POST")
 	subRouter.HandleFunc("/api/traffic/{name}", svr.apiProxyTraffic).Methods("GET")
 	subRouter.HandleFunc("/api/proxies", svr.deleteProxies).Methods("DELETE")
 
@@ -93,6 +97,15 @@ type serverInfoResp struct {
 // /healthz
 func (svr *Service) healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(200)
+}
+
+func (svr *Service) apiServerSub(w http.ResponseWriter, r *http.Request) {
+	go func() {
+		<-r.Context().Done()
+		log.Infof("The client is disconnected here, name=%s", sseName)
+	}()
+
+	svr.ss.ServeHTTP(w, r)
 }
 
 // /api/serverinfo
@@ -206,6 +219,7 @@ type ProxyStatsInfo struct {
 	LastStartTime   string      `json:"lastStartTime"`
 	LastCloseTime   string      `json:"lastCloseTime"`
 	Status          string      `json:"status"`
+	TrafficOutList  []int64     `json:"traffic_out_list"`
 }
 
 type GetProxyInfoResp struct {
@@ -281,6 +295,43 @@ type GetProxyStatsResp struct {
 	LastStartTime   string      `json:"lastStartTime"`
 	LastCloseTime   string      `json:"lastCloseTime"`
 	Status          string      `json:"status"`
+}
+
+func (svr *Service) apiCloseProxyByTypeAndName(w http.ResponseWriter, r *http.Request) {
+	res := GeneralResponse{Code: 200}
+	params := mux.Vars(r)
+	name := params["name"]
+
+	defer func() {
+		log.Infof("Http response [%s]: code [%d]", r.URL.Path, res.Code)
+		w.WriteHeader(res.Code)
+		if len(res.Msg) > 0 {
+			_, _ = w.Write([]byte(res.Msg))
+		}
+	}()
+	log.Infof("Http request: [%s]", r.URL.Path)
+
+	pxy, ok := svr.pxyManager.GetByName(name)
+	if !ok {
+		res.Code = 404
+		res.Msg = "not found"
+		return
+	}
+
+	cc, ok := svr.ctlManager.GetByID(pxy.GetUserInfo().RunID)
+	if !ok {
+		res.Code = 404
+		res.Msg = "not found"
+		return
+	}
+
+	err := cc.msgDispatcher.Send(&msg.ClientProxyClose{Name: name})
+	if err != nil {
+		res.Code = 500
+		res.Msg = err.Error()
+	} else {
+		res.Msg = "ok"
+	}
 }
 
 // /api/proxy/:type/:name
@@ -404,4 +455,49 @@ func (svr *Service) deleteProxies(w http.ResponseWriter, r *http.Request) {
 	}
 	cleared, total := mem.StatsCollector.ClearOfflineProxies()
 	log.Infof("cleared [%d] offline proxies, total [%d] proxies", cleared, total)
+}
+
+func newRingBuffer(size int, name string) *ringBuffer {
+	return &ringBuffer{size: size, data: make([]int64, 0, size+1), name: name}
+}
+
+type ringBuffer struct {
+	size int
+	data []int64
+	name string
+}
+
+func (r *ringBuffer) Rate() float64 {
+	var data = r.data
+
+	if len(data) < r.size {
+		return math.NaN()
+	}
+
+	var growthRate = (float64(data[len(data)-1]) - float64(data[0])) / float64(len(data)-1) * 100
+
+	log.Infof("proxy rate calc: rate=%f count=%d name=%s", growthRate, len(data), r.name)
+
+	return growthRate
+}
+
+func (r *ringBuffer) Add(d int64) *ringBuffer {
+	if len(r.data) < r.size {
+		r.data = append(r.data, d)
+	} else {
+		r.data = append(r.data[1:], d)
+	}
+	return r
+}
+
+func (r *ringBuffer) Reset() {
+	r.data = r.data[:0]
+}
+
+type ProxyPublishInfo struct {
+	Name          string   `json:"name"`
+	LastStartTime string   `json:"lastStartTime"`
+	Time          int64    `json:"time"`
+	Offline       bool     `json:"offline"`
+	TrafficRate   *float64 `json:"traffic_rate,omitempty"`
 }

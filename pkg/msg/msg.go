@@ -38,6 +38,7 @@ const (
 	TypeNatHoleResp        = 'm'
 	TypeNatHoleSid         = '5'
 	TypeNatHoleReport      = '6'
+	TypeClientProxyClose   = '7'
 )
 
 var msgTypeMap = map[byte]interface{}{
@@ -59,6 +60,7 @@ var msgTypeMap = map[byte]interface{}{
 	TypeNatHoleResp:        NatHoleResp{},
 	TypeNatHoleSid:         NatHoleSid{},
 	TypeNatHoleReport:      NatHoleReport{},
+	TypeClientProxyClose:   ClientProxyClose{},
 }
 
 var TypeNameNatHoleResp = reflect.TypeOf(&NatHoleResp{}).Elem().Name()
@@ -178,7 +180,8 @@ type Ping struct {
 }
 
 type Pong struct {
-	Error string `json:"error,omitempty"`
+	Error   string `json:"error,omitempty"`
+	AuthErr string `json:"auth_err,omitempty"`
 }
 
 type UDPPacket struct {
@@ -242,4 +245,8 @@ type NatHoleSid struct {
 type NatHoleReport struct {
 	Sid     string `json:"sid,omitempty"`
 	Success bool   `json:"success,omitempty"`
+}
+
+type ClientProxyClose struct {
+	Name string
 }
