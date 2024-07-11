@@ -17,9 +17,9 @@ package server
 import (
 	"cmp"
 	"encoding/json"
-	"math"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -457,47 +457,26 @@ func (svr *Service) deleteProxies(w http.ResponseWriter, r *http.Request) {
 	log.Infof("cleared [%d] offline proxies, total [%d] proxies", cleared, total)
 }
 
-func newRingBuffer(size int, name string) *ringBuffer {
-	return &ringBuffer{size: size, data: make([]int64, 0, size+1), name: name}
+type proxyTraffic struct {
+	lastTraffic     int64
+	lastTrafficTime int64
 }
 
-type ringBuffer struct {
-	size int
-	data []int64
-	name string
-}
-
-func (r *ringBuffer) Rate() float64 {
-	var data = r.data
-
-	if len(data) < r.size {
-		return math.NaN()
+func (r *proxyTraffic) Set(d int64) *proxyTraffic {
+	if r.lastTraffic == d {
+		return r
 	}
 
-	var growthRate = (float64(data[len(data)-1]) - float64(data[0])) / float64(len(data)-1) * 100
-
-	log.Infof("proxy rate calc: rate=%f count=%d name=%s", growthRate, len(data), r.name)
-
-	return growthRate
-}
-
-func (r *ringBuffer) Add(d int64) *ringBuffer {
-	if len(r.data) < r.size {
-		r.data = append(r.data, d)
-	} else {
-		r.data = append(r.data[1:], d)
-	}
+	r.lastTraffic = d
+	r.lastTrafficTime = time.Now().Unix()
 	return r
 }
 
-func (r *ringBuffer) Reset() {
-	r.data = r.data[:0]
-}
-
 type ProxyPublishInfo struct {
-	Name          string   `json:"name"`
-	LastStartTime string   `json:"lastStartTime"`
-	Time          int64    `json:"time"`
-	Offline       bool     `json:"offline"`
-	TrafficRate   *float64 `json:"traffic_rate,omitempty"`
+	Name string `json:"name"`
+
+	// LastTrafficTime unix seconds
+	LastTrafficTime int64 `json:"last_traffic_time"`
+	Time            int64 `json:"time"`
+	Offline         bool  `json:"offline"`
 }

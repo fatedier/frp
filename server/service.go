@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"net"
 	"net/http"
 	"os"
@@ -56,7 +55,6 @@ import (
 	"github.com/fatedier/golib/net/mux"
 	fmux "github.com/hashicorp/yamux"
 	quic "github.com/quic-go/quic-go"
-	"github.com/r3labs/sse/v2"
 	"github.com/samber/lo"
 )
 
@@ -682,6 +680,12 @@ type authMiddleware struct {
 	next       http.Handler
 }
 
+const SessionErrMsgFmt = "The session is expired or invalid. Please close the current page and go to the device page to retry. (code=%d)"
+const (
+	CookieNotFound = 1
+	AuthFailed     = 2
+)
+
 func (m authMiddleware) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	if !strings.HasSuffix(request.Host, forwardHost) {
 		m.next.ServeHTTP(writer, request)
@@ -693,7 +697,8 @@ func (m authMiddleware) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 	cookie, err := request.Cookie(cookieName)
 	if err != nil {
 		writer.WriteHeader(http.StatusForbidden)
-		writer.Write([]byte(fmt.Sprintf("cookie not found, name=%s err=%s", cookieName, err.Error())))
+		log.Errorf("cookie not found, name=%s err=%s", cookieName, err.Error())
+		writer.Write([]byte(fmt.Sprintf(SessionErrMsgFmt, CookieNotFound)))
 		return
 	}
 
@@ -701,7 +706,8 @@ func (m authMiddleware) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 	claims, err := m.authVerify.GetVerifyData(token)
 	if err != nil {
 		writer.WriteHeader(http.StatusForbidden)
-		writer.Write([]byte(fmt.Sprintf("failed to verify auth, err=%s", err.Error())))
+		log.Errorf("failed to verify auth, err=%s", err.Error())
+		writer.Write([]byte(fmt.Sprintf(SessionErrMsgFmt, AuthFailed)))
 		return
 	}
 
@@ -731,6 +737,7 @@ func (svr *Service) checkProxyStatusTimer() {
 			case <-svr.ctx.Done():
 				return
 			default:
+				break
 			}
 
 			func() {
@@ -739,9 +746,9 @@ func (svr *Service) checkProxyStatusTimer() {
 				for _, info := range svr.getProxyStatsByType("http") {
 					mapSet[info.Name] = true
 					if vv, ok := svr.proxyTraffic.Load(info.Name); ok {
-						vv.(*ringBuffer).Add(info.TodayTrafficOut)
+						vv.(*proxyTraffic).Set(info.TodayTrafficOut)
 					} else {
-						svr.proxyTraffic.Store(info.Name, newRingBuffer(120, info.Name).Add(info.TodayTrafficOut))
+						svr.proxyTraffic.Store(info.Name, new(proxyTraffic).Set(info.TodayTrafficOut))
 					}
 				}
 
@@ -766,6 +773,7 @@ func (svr *Service) checkProxyStatusTimer() {
 			case <-svr.ctx.Done():
 				return
 			default:
+				break
 			}
 
 			func() {
@@ -774,21 +782,17 @@ func (svr *Service) checkProxyStatusTimer() {
 				log.Infof("publish proxy status, proxy_count=%d, stream=%v", len(proxyList), svr.ss.StreamExists(sseName))
 
 				for _, info := range proxyList {
-					var rate *float64
 					var pp, ok = svr.proxyTraffic.Load(info.Name)
-					if ok {
-						var rr = pp.(*ringBuffer).Rate()
-						if !math.IsNaN(rr) {
-							rate = lo.ToPtr(rr)
-						}
+					if !ok {
+						continue
 					}
 
+					var rr = pp.(*proxyTraffic)
 					var dd = ProxyPublishInfo{
-						Name:          info.Name,
-						LastStartTime: info.LastStartTime,
-						Offline:       info.Status == "offline",
-						Time:          time.Now().Unix(),
-						TrafficRate:   rate,
+						Name:            info.Name,
+						LastTrafficTime: rr.lastTrafficTime,
+						Offline:         info.Status == "offline",
+						Time:            time.Now().Unix(),
 					}
 
 					md, err := json.Marshal(dd)
