@@ -65,6 +65,7 @@ const (
 	forwardHost                         = "remote.agi7.ai"
 	forwardCookieName                   = "agi7.forward.auth"
 	sseName                             = "proxy_status"
+	setCookieHeader                     = "x-agi7-set-cookie"
 )
 
 func init() {
@@ -687,9 +688,38 @@ const (
 	AuthFailed     = 2
 )
 
+type Cookie struct {
+	Name      string `json:"name"`
+	Value     string `json:"value"`
+	ExpiredAt string `json:"expiredAt"`
+}
+
 func (m authMiddleware) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	if !strings.HasSuffix(request.Host, forwardHost) {
 		m.next.ServeHTTP(writer, request)
+		return
+	}
+
+	setCookie := strings.TrimSpace(request.Header.Get(setCookieHeader))
+	if setCookie != "" {
+		var cc Cookie
+		if err := json.Unmarshal([]byte(setCookie), &cc); err != nil {
+			log.Errorf("failed to decode cookie json data, cookie=%s", setCookie)
+		}
+
+		var expiredAt = time.Now().Add(time.Hour)
+		if ee, err := strconv.ParseInt(cc.ExpiredAt, 10, 64); err == nil {
+			expiredAt = time.Unix(ee, 0)
+		}
+
+		http.SetCookie(writer, &http.Cookie{
+			Name:    cc.Name,
+			Value:   cc.Value,
+			Path:    "/",
+			Domain:  request.Host,
+			Expires: expiredAt,
+		})
+		writer.Write([]byte("ok"))
 		return
 	}
 
@@ -721,7 +751,8 @@ func (m authMiddleware) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 	cookieData := request.Header.Get("Cookie")
 	var cc string
 	for _, v := range strings.Split(cookieData, ";") {
-		if strings.HasPrefix(v, cookieName) {
+		v = strings.TrimSpace(v)
+		if strings.HasPrefix(v, forwardCookieName+".") {
 			continue
 		}
 		cc += v + ";"
