@@ -457,6 +457,10 @@ func (svr *Service) deleteProxies(w http.ResponseWriter, r *http.Request) {
 	log.Infof("cleared [%d] offline proxies, total [%d] proxies", cleared, total)
 }
 
+func newProxyTraffic() *proxyTraffic {
+	return &proxyTraffic{lastTrafficTime: time.Now().Unix()}
+}
+
 type proxyTraffic struct {
 	lastTraffic     int64
 	lastTrafficTime int64

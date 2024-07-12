@@ -749,7 +749,7 @@ func (svr *Service) checkProxyStatusTimer() {
 					if vv, ok := svr.proxyTraffic.Load(info.Name); ok {
 						vv.(*proxyTraffic).Set(info.TodayTrafficOut)
 					} else {
-						svr.proxyTraffic.Store(info.Name, new(proxyTraffic).Set(info.TodayTrafficOut))
+						svr.proxyTraffic.Store(info.Name, newProxyTraffic().Set(info.TodayTrafficOut))
 					}
 				}
 
