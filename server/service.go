@@ -55,6 +55,7 @@ import (
 	"github.com/fatedier/golib/net/mux"
 	fmux "github.com/hashicorp/yamux"
 	quic "github.com/quic-go/quic-go"
+	"github.com/r3labs/sse/v2"
 	"github.com/samber/lo"
 )
 
