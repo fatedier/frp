@@ -704,12 +704,21 @@ func (m authMiddleware) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 	if setCookie != "" {
 		var cc Cookie
 		if err := json.Unmarshal([]byte(setCookie), &cc); err != nil {
-			log.Errorf("failed to decode cookie json data, cookie=%s", setCookie)
+			err = fmt.Errorf("failed to decode cookie json data, cookie=%s", setCookie)
+			log.Errorf(err.Error())
+			writer.WriteHeader(http.StatusBadRequest)
+			writer.Write([]byte(err.Error()))
+			return
 		}
 
 		var expiredAt = time.Now().Add(time.Hour)
 		if ee, err := strconv.ParseInt(cc.ExpiredAt, 10, 64); err == nil {
 			expiredAt = time.Unix(ee, 0)
+		} else {
+			err = fmt.Errorf("failed to parse expiredAt field, expiredAt=%s", cc.ExpiredAt)
+			writer.WriteHeader(http.StatusBadRequest)
+			writer.Write([]byte(err.Error()))
+			return
 		}
 
 		http.SetCookie(writer, &http.Cookie{
@@ -719,6 +728,7 @@ func (m authMiddleware) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 			Domain:  request.Host,
 			Expires: expiredAt,
 		})
+		writer.WriteHeader(http.StatusOK)
 		writer.Write([]byte("ok"))
 		return
 	}
