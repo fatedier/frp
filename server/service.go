@@ -700,6 +700,31 @@ func (m authMiddleware) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 
+	name := request.URL.Query().Get("name")
+	domain := strings.SplitN(request.Host, ".", 2)[0]
+	if name == fmt.Sprintf("%s.%s", forwardCookieName, domain) {
+		var expiredAt = time.Now().Add(time.Hour)
+		var expiredAtValue = request.URL.Query().Get("expiredAt")
+		if ee, err := strconv.ParseInt(expiredAtValue, 10, 64); err == nil {
+			expiredAt = time.Unix(ee, 0)
+		} else {
+			err = fmt.Errorf("failed to parse expiredAt field, expiredAt=%s", expiredAtValue)
+			writer.WriteHeader(http.StatusBadRequest)
+			writer.Write([]byte(err.Error()))
+			return
+		}
+
+		http.SetCookie(writer, &http.Cookie{
+			Name:    name,
+			Value:   request.URL.Query().Get("value"),
+			Path:    "/",
+			Domain:  request.Host,
+			Expires: expiredAt,
+		})
+		http.Redirect(writer, request, "/", http.StatusTemporaryRedirect)
+		return
+	}
+
 	setCookie := strings.TrimSpace(request.Header.Get(setCookieHeader))
 	if setCookie != "" {
 		var cc Cookie
@@ -722,18 +747,20 @@ func (m authMiddleware) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 		}
 
 		http.SetCookie(writer, &http.Cookie{
-			Name:    cc.Name,
-			Value:   cc.Value,
-			Path:    "/",
-			Domain:  request.Host,
-			Expires: expiredAt,
+			Name:     cc.Name,
+			Value:    cc.Value,
+			Path:     "/",
+			Domain:   request.Host,
+			Expires:  expiredAt,
+			Secure:   true,
+			SameSite: http.SameSiteNoneMode,
+			HttpOnly: true,
 		})
 		writer.WriteHeader(http.StatusOK)
 		writer.Write([]byte("ok"))
 		return
 	}
 
-	var domain = strings.SplitN(request.Host, ".", 2)[0]
 	var cookieName = fmt.Sprintf("%s.%s", forwardCookieName, domain)
 	cookie, err := request.Cookie(cookieName)
 	if err != nil {
