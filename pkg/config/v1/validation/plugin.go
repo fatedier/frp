@@ -32,6 +32,8 @@ func ValidateClientPluginOptions(c v1.ClientPluginOptions) error {
 		return validateStaticFilePluginOptions(v)
 	case *v1.UnixDomainSocketPluginOptions:
 		return validateUnixDomainSocketPluginOptions(v)
+	case *v1.TLS2RawPluginOptions:
+		return validateTLS2RawPluginOptions(v)
 	}
 	return nil
 }
@@ -67,6 +69,13 @@ func validateStaticFilePluginOptions(c *v1.StaticFilePluginOptions) error {
 func validateUnixDomainSocketPluginOptions(c *v1.UnixDomainSocketPluginOptions) error {
 	if c.UnixPath == "" {
 		return errors.New("unixPath is required")
+	}
+	return nil
+}
+
+func validateTLS2RawPluginOptions(c *v1.TLS2RawPluginOptions) error {
+	if c.LocalAddr == "" {
+		return errors.New("localAddr is required")
 	}
 	return nil
 }
