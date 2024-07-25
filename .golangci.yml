@@ -88,6 +88,7 @@ linters-settings:
     excludes:
     - G401
     - G402
+    - G404
     - G501
 
 issues:

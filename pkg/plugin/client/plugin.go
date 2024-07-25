@@ -15,6 +15,7 @@
 package plugin
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -57,7 +58,7 @@ type ExtraInfo struct {
 type Plugin interface {
 	Name() string
 
-	Handle(conn io.ReadWriteCloser, realConn net.Conn, extra *ExtraInfo)
+	Handle(ctx context.Context, conn io.ReadWriteCloser, realConn net.Conn, extra *ExtraInfo)
 	Close() error
 }
 

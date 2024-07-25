@@ -17,6 +17,7 @@
 package plugin
 
 import (
+	"context"
 	"io"
 	"log"
 	"net"
@@ -50,7 +51,7 @@ func NewSocks5Plugin(options v1.ClientPluginOptions) (p Plugin, err error) {
 	return
 }
 
-func (sp *Socks5Plugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
+func (sp *Socks5Plugin) Handle(_ context.Context, conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
 	defer conn.Close()
 	wrapConn := netpkg.WrapReadWriteCloserToConn(conn, realConn)
 	_ = sp.Server.ServeConn(wrapConn)
