@@ -1,6 +1,7 @@
 package basic
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/onsi/ginkgo/v2"
@@ -72,7 +73,7 @@ var _ = ginkgo.Describe("[Feature: Config]", func() {
 
 			client := f.APIClientForFrpc(adminPort)
 			checkProxyFn := func(name string, localPort, remotePort int) {
-				status, err := client.GetProxyStatus(name)
+				status, err := client.GetProxyStatus(context.Background(), name)
 				framework.ExpectNoError(err)
 
 				framework.ExpectContainSubstring(status.LocalAddr, fmt.Sprintf(":%d", localPort))
