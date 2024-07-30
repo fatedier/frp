@@ -169,6 +169,15 @@ func (svr *Service) Run(ctx context.Context) error {
 		netpkg.SetDefaultDNSAddress(svr.common.DNSServer)
 	}
 
+	if svr.webServer != nil {
+		go func() {
+			log.Infof("admin server listen on %s", svr.webServer.Address())
+			if err := svr.webServer.Run(); err != nil {
+				log.Warnf("admin server exit with error: %v", err)
+			}
+		}()
+	}
+
 	// first login to frps
 	svr.loopLoginUntilSuccess(10*time.Second, lo.FromPtr(svr.common.LoginFailExit))
 	if svr.ctl == nil {
@@ -179,14 +188,6 @@ func (svr *Service) Run(ctx context.Context) error {
 
 	go svr.keepControllerWorking()
 
-	if svr.webServer != nil {
-		go func() {
-			log.Infof("admin server listen on %s", svr.webServer.Address())
-			if err := svr.webServer.Run(); err != nil {
-				log.Warnf("admin server exit with error: %v", err)
-			}
-		}()
-	}
 	<-svr.ctx.Done()
 	svr.stop()
 	return nil
