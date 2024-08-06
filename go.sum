@@ -136,8 +136,9 @@ github.com/stretchr/testify v1.8.3/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXl
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
-github.com/templexxx/cpu v0.1.0 h1:wVM+WIJP2nYaxVxqgHPD4wGA2aJ9rvrQRV8CvFzNb40=
 github.com/templexxx/cpu v0.1.0/go.mod h1:w7Tb+7qgcAlIyX4NhLuDKt78AHA5SzPmq0Wj6HiEnnk=
+github.com/templexxx/cpu v0.1.1 h1:isxHaxBXpYFWnk2DReuKkigaZyrjs2+9ypIdGP4h+HI=
+github.com/templexxx/cpu v0.1.1/go.mod h1:w7Tb+7qgcAlIyX4NhLuDKt78AHA5SzPmq0Wj6HiEnnk=
 github.com/templexxx/xorsimd v0.4.2 h1:ocZZ+Nvu65LGHmCLZ7OoCtg8Fx8jnHKK37SjvngUoVI=
 github.com/templexxx/xorsimd v0.4.2/go.mod h1:HgwaPoDREdi6OnULpSfxhzaiiSUY4Fi3JPn1wpt28NI=
 github.com/tidwall/gjson v1.17.1 h1:wlYEnwqAHgzmhNUFfw7Xalt2JzQvsMx2Se4PcoFCT/U=
