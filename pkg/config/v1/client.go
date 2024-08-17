@@ -179,12 +179,20 @@ type AuthClientConfig struct {
 	// Token specifies the authorization token used to create keys to be sent
 	// to the server. The server must have a matching token for authorization
 	// to succeed.  By default, this value is "".
-	Token string               `json:"token,omitempty"`
-	OIDC  AuthOIDCClientConfig `json:"oidc,omitempty"`
+	Token     string               `json:"token,omitempty"`
+	TokenFile string               `json:"tokenFile,omitempty"`
+	OIDC      AuthOIDCClientConfig `json:"oidc,omitempty"`
 }
 
 func (c *AuthClientConfig) Complete() {
 	c.Method = util.EmptyOr(c.Method, "token")
+
+	if c.Token == "" && c.TokenFile != "" {
+		tokenFromFile, err := util.LoadFileToken(c.TokenFile)
+		if err == nil {
+			c.Token = tokenFromFile
+		}
+	}
 }
 
 type AuthOIDCClientConfig struct {

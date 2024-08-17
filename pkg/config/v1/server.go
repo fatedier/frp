@@ -126,11 +126,18 @@ type AuthServerConfig struct {
 	Method           AuthMethod           `json:"method,omitempty"`
 	AdditionalScopes []AuthScope          `json:"additionalScopes,omitempty"`
 	Token            string               `json:"token,omitempty"`
+	TokenFile        string               `json:"tokenFile,omitempty"`
 	OIDC             AuthOIDCServerConfig `json:"oidc,omitempty"`
 }
 
 func (c *AuthServerConfig) Complete() {
 	c.Method = util.EmptyOr(c.Method, "token")
+	if c.Token == "" && c.TokenFile != "" {
+		tokenFromFile, err := util.LoadFileToken(c.TokenFile)
+		if err == nil {
+			c.Token = tokenFromFile
+		}
+	}
 }
 
 type AuthOIDCServerConfig struct {

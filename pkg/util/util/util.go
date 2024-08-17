@@ -22,6 +22,7 @@ import (
 	"fmt"
 	mathrand "math/rand/v2"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -133,4 +134,13 @@ func RandomSleep(duration time.Duration, minRatio, maxRatio float64) time.Durati
 
 func ConstantTimeEqString(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
+}
+
+func LoadFileToken(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	token := strings.TrimSpace(string(data))
+	return token, nil
 }

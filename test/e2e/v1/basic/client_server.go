@@ -2,6 +2,7 @@ package basic
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -147,6 +148,64 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 		defineClientServerTest("Token Incorrect", f, &generalTestConfigures{
 			server:      `auth.token = "123456"`,
 			client:      `auth.token = "invalid"`,
+			expectError: true,
+		})
+
+		defineClientServerTest("Client Token File Correct", f, &generalTestConfigures{
+			server: `auth.token = "123456"`,
+			client: func() string {
+				tokenFile := f.WriteTempFile("correct_token.txt", "123456")
+				framework.AddCleanupAction(func() {
+					os.Remove(tokenFile)
+				})
+				return fmt.Sprintf(`auth.tokenFile = "%s"`, tokenFile)
+			}(),
+		})
+
+		defineClientServerTest("Server Client Token File Correct", f, &generalTestConfigures{
+			server: func() string {
+				tokenFile := f.WriteTempFile("correct_token.txt", "123456")
+				framework.AddCleanupAction(func() {
+					os.Remove(tokenFile)
+				})
+				return fmt.Sprintf(`auth.tokenFile = "%s"`, tokenFile)
+			}(),
+			client: `auth.token = "123456"`,
+		})
+
+		defineClientServerTest("Client Token File Incorrect", f, &generalTestConfigures{
+			server: `auth.token = "123456"`,
+			client: func() string {
+				tokenFile := f.WriteTempFile("incorrect_token.txt", "invalid")
+				framework.AddCleanupAction(func() {
+					os.Remove(tokenFile)
+				})
+				return fmt.Sprintf(`auth.tokenFile = "%s"`, tokenFile)
+			}(),
+			expectError: true,
+		})
+
+		defineClientServerTest("Server Token File Incorrect", f, &generalTestConfigures{
+			server: func() string {
+				tokenFile := f.WriteTempFile("incorrect_token.txt", "invalid")
+				framework.AddCleanupAction(func() {
+					os.Remove(tokenFile)
+				})
+				return fmt.Sprintf(`auth.tokenFile = "%s"`, tokenFile)
+			}(),
+			client:      `auth.token = "123456"`,
+			expectError: true,
+		})
+
+		defineClientServerTest("Client Token File Not Exist", f, &generalTestConfigures{
+			server:      `auth.token = "123456"`,
+			client:      `auth.tokenFile = "/path/to/non/existent/file"`,
+			expectError: true,
+		})
+
+		defineClientServerTest("Server Token File Not Exist", f, &generalTestConfigures{
+			server:      `auth.tokenFile = "/path/to/non/existent/file"`,
+			client:      `auth.token = "123456"`,
 			expectError: true,
 		})
 	})

@@ -603,6 +603,33 @@ When specifying `auth.method = "token"` in `frpc.toml` and `frps.toml` - token b
 
 Make sure to specify the same `auth.token` in `frps.toml` and `frpc.toml` for frpc to pass frps validation
 
+#### File-based Token Authentication
+
+If you prefer not to include the token directly in the configuration file, you can specify the path to a file containing the token using the `auth.tokenFile` option.
+
+Instead of setting `auth.token`, specify the path to the file containing your token with `auth.tokenFile`.
+Ensure that the file contains only the token and no additional content. Example configuration:
+
+```toml
+# frpc.toml
+[common]
+auth.tokenFile = "/path/to/your/token_file"
+```
+
+```toml
+# frps.toml
+[common]
+auth.tokenFile = "/path/to/your/token_file"
+```
+
+Make sure the file at the specified path is readable by the application and contains the following:
+
+``` txt
+your_secret_token
+```
+
+**Notes:** If both `auth.token` and `auth.tokenFile` are specified, the token from `auth.token` will be used.
+
 #### OIDC Authentication
 
 When specifying `auth.method = "oidc"` in `frpc.toml` and `frps.toml` - OIDC based authentication will be used.

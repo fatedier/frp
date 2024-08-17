@@ -103,6 +103,15 @@ func LoadFileContentWithTemplate(path string, values *Values) ([]byte, error) {
 	return RenderWithTemplate(b, values)
 }
 
+func LoadFileToken(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	token := strings.TrimSpace(string(data))
+	return token, nil
+}
+
 func LoadConfigureFromFile(path string, c any, strict bool) error {
 	content, err := LoadFileContentWithTemplate(path, GetValues())
 	if err != nil {
