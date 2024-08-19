@@ -15,9 +15,11 @@
 package sub
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
@@ -27,24 +29,24 @@ import (
 	clientsdk "github.com/fatedier/frp/pkg/sdk/client"
 )
 
+var adminAPITimeout = 30 * time.Second
+
 func init() {
-	rootCmd.AddCommand(NewAdminCommand(
-		"reload",
-		"Hot-Reload frpc configuration",
-		ReloadHandler,
-	))
+	commands := []struct {
+		name        string
+		description string
+		handler     func(*v1.ClientCommonConfig) error
+	}{
+		{"reload", "Hot-Reload frpc configuration", ReloadHandler},
+		{"status", "Overview of all proxies status", StatusHandler},
+		{"stop", "Stop the running frpc", StopHandler},
+	}
 
-	rootCmd.AddCommand(NewAdminCommand(
-		"status",
-		"Overview of all proxies status",
-		StatusHandler,
-	))
-
-	rootCmd.AddCommand(NewAdminCommand(
-		"stop",
-		"Stop the running frpc",
-		StopHandler,
-	))
+	for _, cmdConfig := range commands {
+		cmd := NewAdminCommand(cmdConfig.name, cmdConfig.description, cmdConfig.handler)
+		cmd.Flags().DurationVar(&adminAPITimeout, "api-timeout", adminAPITimeout, "Timeout for admin API calls")
+		rootCmd.AddCommand(cmd)
+	}
 }
 
 func NewAdminCommand(name, short string, handler func(*v1.ClientCommonConfig) error) *cobra.Command {
@@ -73,7 +75,9 @@ func NewAdminCommand(name, short string, handler func(*v1.ClientCommonConfig) er
 func ReloadHandler(clientCfg *v1.ClientCommonConfig) error {
 	client := clientsdk.New(clientCfg.WebServer.Addr, clientCfg.WebServer.Port)
 	client.SetAuth(clientCfg.WebServer.User, clientCfg.WebServer.Password)
-	if err := client.Reload(strictConfigMode); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), adminAPITimeout)
+	defer cancel()
+	if err := client.Reload(ctx, strictConfigMode); err != nil {
 		return err
 	}
 	fmt.Println("reload success")
@@ -83,7 +87,9 @@ func ReloadHandler(clientCfg *v1.ClientCommonConfig) error {
 func StatusHandler(clientCfg *v1.ClientCommonConfig) error {
 	client := clientsdk.New(clientCfg.WebServer.Addr, clientCfg.WebServer.Port)
 	client.SetAuth(clientCfg.WebServer.User, clientCfg.WebServer.Password)
-	res, err := client.GetAllProxyStatus()
+	ctx, cancel := context.WithTimeout(context.Background(), adminAPITimeout)
+	defer cancel()
+	res, err := client.GetAllProxyStatus(ctx)
 	if err != nil {
 		return err
 	}
@@ -109,7 +115,9 @@ func StatusHandler(clientCfg *v1.ClientCommonConfig) error {
 func StopHandler(clientCfg *v1.ClientCommonConfig) error {
 	client := clientsdk.New(clientCfg.WebServer.Addr, clientCfg.WebServer.Port)
 	client.SetAuth(clientCfg.WebServer.User, clientCfg.WebServer.Password)
-	if err := client.Stop(); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), adminAPITimeout)
+	defer cancel()
+	if err := client.Stop(ctx); err != nil {
 		return err
 	}
 	fmt.Println("stop success")

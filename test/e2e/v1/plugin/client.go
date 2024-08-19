@@ -402,4 +402,50 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 				Ensure()
 		})
 	})
+
+	ginkgo.It("tls2raw", func() {
+		generator := &cert.SelfSignedCertGenerator{}
+		artifacts, err := generator.Generate("example.com")
+		framework.ExpectNoError(err)
+		crtPath := f.WriteTempFile("tls2raw_server.crt", string(artifacts.Cert))
+		keyPath := f.WriteTempFile("tls2raw_server.key", string(artifacts.Key))
+
+		serverConf := consts.DefaultServerConfig
+		vhostHTTPSPort := f.AllocPort()
+		serverConf += fmt.Sprintf(`
+		vhostHTTPSPort = %d
+		`, vhostHTTPSPort)
+
+		localPort := f.AllocPort()
+		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+		[[proxies]]
+		name = "tls2raw-test"
+		type = "https"
+		customDomains = ["example.com"]
+		[proxies.plugin]
+		type = "tls2raw"
+		localAddr = "127.0.0.1:%d"
+		crtPath = "%s"
+		keyPath = "%s"
+		`, localPort, crtPath, keyPath)
+
+		f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+		localServer := httpserver.New(
+			httpserver.WithBindPort(localPort),
+			httpserver.WithResponse([]byte("test")),
+		)
+		f.RunServer("", localServer)
+
+		framework.NewRequestExpect(f).
+			Port(vhostHTTPSPort).
+			RequestModify(func(r *request.Request) {
+				r.HTTPS().HTTPHost("example.com").TLSConfig(&tls.Config{
+					ServerName:         "example.com",
+					InsecureSkipVerify: true,
+				})
+			}).
+			ExpectResp([]byte("test")).
+			Ensure()
+	})
 })

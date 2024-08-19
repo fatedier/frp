@@ -83,6 +83,7 @@ const (
 	PluginSocks5           = "socks5"
 	PluginStaticFile       = "static_file"
 	PluginUnixDomainSocket = "unix_domain_socket"
+	PluginTLS2Raw          = "tls2raw"
 )
 
 var clientPluginOptionsTypeMap = map[string]reflect.Type{
@@ -94,6 +95,7 @@ var clientPluginOptionsTypeMap = map[string]reflect.Type{
 	PluginSocks5:           reflect.TypeOf(Socks5PluginOptions{}),
 	PluginStaticFile:       reflect.TypeOf(StaticFilePluginOptions{}),
 	PluginUnixDomainSocket: reflect.TypeOf(UnixDomainSocketPluginOptions{}),
+	PluginTLS2Raw:          reflect.TypeOf(TLS2RawPluginOptions{}),
 }
 
 type HTTP2HTTPSPluginOptions struct {
@@ -174,3 +176,12 @@ type UnixDomainSocketPluginOptions struct {
 }
 
 func (o *UnixDomainSocketPluginOptions) Complete() {}
+
+type TLS2RawPluginOptions struct {
+	Type      string `json:"type,omitempty"`
+	LocalAddr string `json:"localAddr,omitempty"`
+	CrtPath   string `json:"crtPath,omitempty"`
+	KeyPath   string `json:"keyPath,omitempty"`
+}
+
+func (o *TLS2RawPluginOptions) Complete() {}
