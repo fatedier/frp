@@ -17,6 +17,7 @@ package server
 import (
 	"cmp"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"slices"
 
@@ -52,6 +53,7 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	subRouter.HandleFunc("/api/serverinfo", svr.apiServerInfo).Methods("GET")
 	subRouter.HandleFunc("/api/proxy/{type}", svr.apiProxyByType).Methods("GET")
 	subRouter.HandleFunc("/api/proxy/{type}/{name}", svr.apiProxyByTypeAndName).Methods("GET")
+	subRouter.HandleFunc("/api/proxy/{type}/{name}", svr.apiProxyDeleteByTypeAndName).Methods("DELETE")
 	subRouter.HandleFunc("/api/traffic/{name}", svr.apiProxyTraffic).Methods("GET")
 	subRouter.HandleFunc("/api/proxies", svr.deleteProxies).Methods("DELETE")
 
@@ -306,6 +308,42 @@ func (svr *Service) apiProxyByTypeAndName(w http.ResponseWriter, r *http.Request
 
 	buf, _ := json.Marshal(&proxyStatsResp)
 	res.Msg = string(buf)
+}
+
+// /api/proxy/:type/:name DELETE
+func (svr *Service) apiProxyDeleteByTypeAndName(w http.ResponseWriter, r *http.Request) {
+	res := GeneralResponse{Code: 200}
+	params := mux.Vars(r)
+	proxyType := params["type"]
+	name := params["name"]
+
+	defer func() {
+		log.Infof("Http response [%s]: code [%d]", r.URL.Path, res.Code)
+		w.WriteHeader(res.Code)
+		if len(res.Msg) > 0 {
+			_, _ = w.Write([]byte(res.Msg))
+		}
+	}()
+	log.Infof("Http request: [%s]", r.URL.Path)
+
+	var proxyStatsResp GetProxyStatsResp
+	proxyStatsResp, res.Code, res.Msg = svr.getProxyStatsByTypeAndName(proxyType, name)
+	if res.Code != 200 {
+		return
+	}
+	log.Debugf("proxy to be deleted: %v", proxyStatsResp)
+	if proxyStatsResp.Status != "offline" {
+		res.Code = 400
+		res.Msg = "proxy is online, can not be deleted"
+		return
+	}
+	ok := mem.StatsCollector.RemoveProxyByTypeAndName(proxyType, name)
+	if !ok {
+		res.Code = 400
+		res.Msg = "proxy cannot not be deleted,name mismatch with type "
+		return
+	}
+	res.Msg = fmt.Sprintf("proxy %q is deleted successfully", name)
 }
 
 func (svr *Service) getProxyStatsByTypeAndName(proxyType string, proxyName string) (proxyInfo GetProxyStatsResp, code int, msg string) {

@@ -260,6 +260,17 @@ func (m *serverMetrics) GetProxiesByTypeAndName(proxyType string, proxyName stri
 	return
 }
 
+func (m *serverMetrics) RemoveProxyByTypeAndName(proxyType string, proxyName string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	sType, ok := m.info.ProxyStatistics[proxyName]
+	if ok && sType.ProxyType == proxyType {
+		delete(m.info.ProxyStatistics, proxyName)
+		return true
+	}
+	return false
+}
+
 func (m *serverMetrics) GetProxyTraffic(name string) (res *ProxyTrafficInfo) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
