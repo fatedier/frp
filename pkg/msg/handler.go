@@ -54,10 +54,6 @@ func (d *Dispatcher) sendLoop() {
 	for {
 		select {
 		case <-d.doneCh:
-			// need to clear all message
-			// Otherwise, it will memory leak when sendCh is full.
-			for range d.sendCh {
-			}
 			return
 		case m := <-d.sendCh:
 			_ = WriteMsg(d.rw, m)
