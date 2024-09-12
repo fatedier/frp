@@ -97,7 +97,7 @@ func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, erro
 		ctl.msgDispatcher = msg.NewDispatcher(sessionCtx.Conn)
 	}
 	ctl.registerMsgHandlers()
-	ctl.msgTransporter = transport.NewMessageTransporter(ctl.msgDispatcher.SendChannel())
+	ctl.msgTransporter = transport.NewMessageTransporter(ctl.msgDispatcher.Send)
 
 	ctl.pm = proxy.NewManager(ctl.ctx, sessionCtx.Common, ctl.msgTransporter)
 	ctl.vm = visitor.NewManager(ctl.ctx, sessionCtx.RunID, sessionCtx.Common, ctl.connectServer, ctl.msgTransporter)
