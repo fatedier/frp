@@ -19,12 +19,14 @@ package plugin
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	stdlog "log"
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"os"
 	"time"
 
 	"github.com/fatedier/golib/pool"
@@ -58,8 +60,23 @@ func NewHTTPS2HTTPSPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 		l:    listener,
 	}
 
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	tr := &http.Transport{}
+
+	if opts.RootCA != "" {
+		caCert, err := os.ReadFile(opts.RootCA)
+		if err != nil {
+			return nil, err
+		}
+		caCertPool, err := x509.SystemCertPool()
+		if err != nil {
+			return nil, err
+		}
+		caCertPool.AppendCertsFromPEM(caCert)
+		tr.TLSClientConfig = &tls.Config{
+			RootCAs: caCertPool,
+		}
+	} else {
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
 	rp := &httputil.ReverseProxy{

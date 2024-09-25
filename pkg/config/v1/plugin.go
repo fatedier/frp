@@ -103,6 +103,7 @@ type HTTP2HTTPSPluginOptions struct {
 	LocalAddr         string           `json:"localAddr,omitempty"`
 	HostHeaderRewrite string           `json:"hostHeaderRewrite,omitempty"`
 	RequestHeaders    HeaderOperations `json:"requestHeaders,omitempty"`
+	RootCA            string           `json:"rootCA,omitempty"`
 }
 
 func (o *HTTP2HTTPSPluginOptions) Complete() {}
@@ -137,6 +138,7 @@ type HTTPS2HTTPSPluginOptions struct {
 	EnableHTTP2       *bool            `json:"enableHTTP2,omitempty"`
 	CrtPath           string           `json:"crtPath,omitempty"`
 	KeyPath           string           `json:"keyPath,omitempty"`
+	RootCA            string           `json:"rootCA,omitempty"`
 }
 
 func (o *HTTPS2HTTPSPluginOptions) Complete() {
