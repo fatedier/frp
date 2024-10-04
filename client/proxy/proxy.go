@@ -192,7 +192,7 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	if pxy.proxyPlugin != nil {
 		// if plugin is set, let plugin handle connection first
 		xl.Debugf("handle by plugin: %s", pxy.proxyPlugin.Name())
-		pxy.proxyPlugin.Handle(remote, workConn, &extraInfo)
+		pxy.proxyPlugin.Handle(pxy.ctx, remote, workConn, &extraInfo)
 		xl.Debugf("handle by plugin finished")
 		return
 	}

@@ -12,11 +12,6 @@ frp 是一个专注于内网穿透的高性能的反向代理应用，支持 TCP
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
 <p align="center">
-  <a href="https://lokal.so/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
-    <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_lokal.png">
-  </a>
-</p>
-<p align="center">
   <a href="https://workos.com/?utm_campaign=github_repo&utm_medium=referral&utm_content=frp&utm_source=github" target="_blank">
     <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_workos.png">
   </a>
@@ -100,7 +95,7 @@ frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进�
 
 您可以通过 [GitHub Sponsors](https://github.com/sponsors/fatedier) 赞助我们。
 
-国内用户可以通过 [爱发电](https://afdian.net/a/fatedier) 赞助我们。
+国内用户可以通过 [爱发电](https://afdian.com/a/fatedier) 赞助我们。
 
 企业赞助者可以将贵公司的 Logo 以及链接放置在项目 README 文件中。
 

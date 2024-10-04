@@ -17,12 +17,14 @@
 package plugin
 
 import (
+	"context"
 	"io"
 	"net"
 
 	libio "github.com/fatedier/golib/io"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
 func init() {
@@ -48,9 +50,11 @@ func NewUnixDomainSocketPlugin(options v1.ClientPluginOptions) (p Plugin, err er
 	return
 }
 
-func (uds *UnixDomainSocketPlugin) Handle(conn io.ReadWriteCloser, _ net.Conn, extra *ExtraInfo) {
+func (uds *UnixDomainSocketPlugin) Handle(ctx context.Context, conn io.ReadWriteCloser, _ net.Conn, extra *ExtraInfo) {
+	xl := xlog.FromContextSafe(ctx)
 	localConn, err := net.DialUnix("unix", nil, uds.UnixAddr)
 	if err != nil {
+		xl.Warnf("dial to uds %s error: %v", uds.UnixAddr, err)
 		return
 	}
 	if extra.ProxyProtocolHeader != nil {

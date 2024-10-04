@@ -17,6 +17,7 @@
 package plugin
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -85,16 +86,7 @@ func NewHTTPS2HTTPPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 		rp.ServeHTTP(w, r)
 	})
 
-	var (
-		tlsConfig *tls.Config
-		err       error
-	)
-	if opts.CrtPath != "" || opts.KeyPath != "" {
-		tlsConfig, err = p.genTLSConfig()
-	} else {
-		tlsConfig, err = transport.NewServerTLSConfig("", "", "")
-		tlsConfig.InsecureSkipVerify = true
-	}
+	tlsConfig, err := transport.NewServerTLSConfig(p.opts.CrtPath, p.opts.KeyPath, "")
 	if err != nil {
 		return nil, fmt.Errorf("gen TLS config error: %v", err)
 	}
@@ -114,17 +106,7 @@ func NewHTTPS2HTTPPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	return p, nil
 }
 
-func (p *HTTPS2HTTPPlugin) genTLSConfig() (*tls.Config, error) {
-	cert, err := tls.LoadX509KeyPair(p.opts.CrtPath, p.opts.KeyPath)
-	if err != nil {
-		return nil, err
-	}
-
-	config := &tls.Config{Certificates: []tls.Certificate{cert}}
-	return config, nil
-}
-
-func (p *HTTPS2HTTPPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extra *ExtraInfo) {
+func (p *HTTPS2HTTPPlugin) Handle(_ context.Context, conn io.ReadWriteCloser, realConn net.Conn, extra *ExtraInfo) {
 	wrapConn := netpkg.WrapReadWriteCloserToConn(conn, realConn)
 	if extra.SrcAddr != nil {
 		wrapConn.SetRemoteAddr(extra.SrcAddr)
