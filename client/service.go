@@ -205,7 +205,7 @@ func (svr *Service) keepControllerWorking() {
 		svr.loopLoginUntilSuccess(20*time.Second, false)
 		if svr.ctl != nil {
 			<-svr.ctl.Done()
-			return false, errors.New("control is closed and try another loop")
+			return false, errors.New("控制已关闭，尝试另一个循环")
 		}
 		// If the control is nil, it means that the login failed and the service is also closed.
 		return false, nil
@@ -281,9 +281,9 @@ func (svr *Service) login() (conn net.Conn, connector Connector, err error) {
 	}
 
 	svr.runID = loginRespMsg.RunID
-	xl.AddPrefix(xlog.LogPrefix{Name: "runID", Value: svr.runID})
+	xl.AddPrefix(xlog.LogPrefix{Name: "运行ID", Value: svr.runID})
 
-	xl.Infof("login to server success, get run id [%s]", loginRespMsg.RunID)
+	xl.Infof("登录服务器成功！获取RunID [%s]", loginRespMsg.RunID)
 	return
 }
 
@@ -291,10 +291,10 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 	xl := xlog.FromContextSafe(svr.ctx)
 
 	loginFunc := func() (bool, error) {
-		xl.Infof("try to connect to server...")
+		xl.Infof("尝试连接到服务器...")
 		conn, connector, err := svr.login()
 		if err != nil {
-			xl.Warnf("connect to server error: %v", err)
+			xl.Warnf("连接到服务器时发生错误: %v", err)
 			if firstLoginExit {
 				svr.cancel(cancelErr{Err: err})
 			}
@@ -320,7 +320,7 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		ctl, err := NewControl(svr.ctx, sessionCtx)
 		if err != nil {
 			conn.Close()
-			xl.Errorf("NewControl error: %v", err)
+			xl.Errorf("新控件出现错误: %v", err)
 			return false, err
 		}
 		ctl.SetInWorkConnCallback(svr.handleWorkConnCb)

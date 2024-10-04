@@ -17,7 +17,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -66,8 +70,7 @@ var rootCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			if isLegacyFormat {
-				fmt.Printf("WARNING: ini format is deprecated and the support will be removed in the future, " +
-					"please use yaml/json/toml format instead!\n")
+				fmt.Printf("警告：INI文件格式在未来将会不受支持并且移除（反正目前HayFrps支持就行，这行别管）!\n")
 			}
 		} else {
 			serverCfg.Complete()
@@ -76,7 +79,7 @@ var rootCmd = &cobra.Command{
 
 		warning, err := validation.ValidateServerConfig(svrCfg)
 		if warning != nil {
-			fmt.Printf("WARNING: %v\n", warning)
+			fmt.Printf("警告: %v\n", warning)
 		}
 		if err != nil {
 			fmt.Println(err)
@@ -100,18 +103,63 @@ func Execute() {
 
 func runServer(cfg *v1.ServerConfig) (err error) {
 	log.InitLogger(cfg.Log.To, cfg.Log.Level, int(cfg.Log.MaxDays), cfg.Log.DisablePrintColor)
+	log.Infof("[HayFrp] 欢迎使用全新的HayFrp服务端!")
+	log.Infof("[HayFrp] 服务端版本：" + version.Full() + "!")
+	log.Infof("[HayFrp] 本新版本在客户端链接时将介入HayFrp终端!")
+	log.Infof("[HayFrp] 各种链接协议已升级到现代协议！")
+
+	// 发起 GET 请求获取 API 返回的内容(节点名称)
+	resp, err := http.Get("https://api.hayfrp.org/NodeAPI?type=GetNodeName&token=" + cfg.ApiToken)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// 读取 API 返回的内容
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	// 将 API 返回的内容添加到 loginMsg.RunId 后面
+	log.Infof("[HayFrp] 欢迎节点" + string(body) + "上线!")
+	log.Infof("[HayFrp] 自检所有必要项中，请稍等......")
+	log.Infof("[HayFrp] HayFrp API启用状态: %s", strconv.FormatBool(cfg.EnableApi))
+	log.Infof("[HayFrp] HayFrp API URL: %s", cfg.ApiBaseUrl)
+	log.Infof("[HayFrp] HayFrp API Node Key: %s", cfg.ApiToken)
 
 	if cfgFile != "" {
-		log.Infof("frps uses config file: %s", cfgFile)
+		log.Infof("[HayFrp] HayFrp服务端已引用配置文件: %s", cfgFile)
 	} else {
-		log.Infof("frps uses command line arguments for config")
+		log.Infof("[HayFrp] HayFrp服务端已引用命令行参数")
 	}
 
 	svr, err := server.NewService(cfg)
 	if err != nil {
 		return err
 	}
-	log.Infof("frps started successfully")
+	log.Infof("[HayFrp] HayFrp服务端已成功启动！")
+	go checkonline(cfg)
 	svr.Run(context.Background())
 	return
+}
+
+func checkonline(cfg *v1.ServerConfig) {
+	time.Sleep(2 * time.Second) // 延时2秒，确保延时函数有足够的时间运行
+	log.Infof("[HayFrp] 检测到所有端口已成功启动，请稍等......")
+	log.Infof("[HayFrp] 即将请求HayFrp API授权本节点调用其他节点检查本节点状态......")
+	log.Infof("[HayFrp] 检测节点在线状态中，这将会更新云端状态......")
+	// 发起 GET 请求获取 API 返回的内容(节点状态)
+	resp, err := http.Get("https://api.hayfrp.org/NodeAPI?type=checkonline&token=" + cfg.ApiToken)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	// 读取 API 返回的内容
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	// 将 API 返回的内容添加到 loginMsg.RunId 后面
+	log.Infof("[HayFrp] " + string(body))
 }

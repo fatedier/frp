@@ -23,8 +23,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/samber/lo"
-
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
@@ -40,6 +38,9 @@ import (
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/metrics"
 	"github.com/fatedier/frp/server/proxy"
+	"github.com/samber/lo"
+
+	"github.com/fatedier/frp/extend/api"
 )
 
 type ControlManager struct {
@@ -142,6 +143,9 @@ type Control struct {
 
 	mu sync.RWMutex
 
+	inLimit  uint64
+	outLimit uint64
+
 	// Server configuration information
 	serverCfg *v1.ServerConfig
 
@@ -224,7 +228,7 @@ func (ctl *Control) Close() error {
 
 func (ctl *Control) Replaced(newCtl *Control) {
 	xl := ctl.xl
-	xl.Infof("Replaced by client [%s]", newCtl.runID)
+	xl.Infof("由客户端更改 [%s]", newCtl.runID)
 	ctl.runID = ""
 	ctl.conn.Close()
 }
@@ -233,18 +237,18 @@ func (ctl *Control) RegisterWorkConn(conn net.Conn) error {
 	xl := ctl.xl
 	defer func() {
 		if err := recover(); err != nil {
-			xl.Errorf("panic error: %v", err)
+			xl.Errorf("[HayFrp] 致命错误（Panic爆了）: %v", err)
 			xl.Errorf(string(debug.Stack()))
 		}
 	}()
 
 	select {
 	case ctl.workConnCh <- conn:
-		xl.Debugf("new work connection registered")
+		xl.Debugf("新活动链接已注册")
 		return nil
 	default:
-		xl.Debugf("work connection pool is full, discarding")
-		return fmt.Errorf("work connection pool is full, discarding")
+		xl.Debugf("[HayFrp] 活动连接池已满，正在丢弃")
+		return fmt.Errorf("[HayFrp] 活动连接池已满，正在丢弃")
 	}
 }
 
@@ -256,7 +260,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 	xl := ctl.xl
 	defer func() {
 		if err := recover(); err != nil {
-			xl.Errorf("panic error: %v", err)
+			xl.Errorf("[HayFrp] 致命错误（Panic爆了）: %v", err)
 			xl.Errorf(string(debug.Stack()))
 		}
 	}()
@@ -269,7 +273,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 			err = pkgerr.ErrCtlClosed
 			return
 		}
-		xl.Debugf("get work connection from pool")
+		xl.Debugf("[HayFrp] 从池中获取工作连接")
 	default:
 		// no work connections available in the poll, send message to frpc to get more
 		if err := ctl.msgDispatcher.Send(&msg.ReqWorkConn{}); err != nil {
@@ -280,12 +284,12 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 		case workConn, ok = <-ctl.workConnCh:
 			if !ok {
 				err = pkgerr.ErrCtlClosed
-				xl.Warnf("no work connections available, %v", err)
+				xl.Warnf("[HayFrp] 没有可用的工作连接, %v", err)
 				return
 			}
 
 		case <-time.After(time.Duration(ctl.serverCfg.UserConnTimeout) * time.Second):
-			err = fmt.Errorf("timeout trying to get work connection")
+			err = fmt.Errorf("[HayFrp] 尝试获取工作连接超时")
 			xl.Warnf("%v", err)
 			return
 		}
@@ -304,7 +308,7 @@ func (ctl *Control) heartbeatWorker() {
 	xl := ctl.xl
 	go wait.Until(func() {
 		if time.Since(ctl.lastPing.Load().(time.Time)) > time.Duration(ctl.serverCfg.Transport.HeartbeatTimeout)*time.Second {
-			xl.Warnf("heartbeat timeout")
+			xl.Warnf("[HayFrp] 心跳超时")
 			ctl.conn.Close()
 			return
 		}
@@ -354,7 +358,7 @@ func (ctl *Control) worker() {
 	}
 
 	metrics.Server.CloseClient()
-	xl.Infof("client exit success")
+	xl.Infof("[HayFrp] 客户端退出成功")
 	close(ctl.doneCh)
 }
 
@@ -391,12 +395,12 @@ func (ctl *Control) handleNewProxy(m msg.Message) {
 		ProxyName: inMsg.ProxyName,
 	}
 	if err != nil {
-		xl.Warnf("new proxy [%s] type [%s] error: %v", inMsg.ProxyName, inMsg.ProxyType, err)
+		xl.Warnf("[HayFrp] 新的隧道 [%s] 类型 [%s] 发生错误: %v", inMsg.ProxyName, inMsg.ProxyType, err)
 		resp.Error = util.GenerateResponseErrorString(fmt.Sprintf("new proxy [%s] error", inMsg.ProxyName),
 			err, lo.FromPtr(ctl.serverCfg.DetailedErrorsToClient))
 	} else {
 		resp.RemoteAddr = remoteAddr
-		xl.Infof("new proxy [%s] type [%s] success", inMsg.ProxyName, inMsg.ProxyType)
+		xl.Infof("[HayFrp] 新的隧道 [%s] 类型 [%s] 成功", inMsg.ProxyName, inMsg.ProxyType)
 		metrics.Server.NewProxy(inMsg.ProxyName, inMsg.ProxyType)
 	}
 	_ = ctl.msgDispatcher.Send(resp)
@@ -420,14 +424,14 @@ func (ctl *Control) handlePing(m msg.Message) {
 		err = ctl.authVerifier.VerifyPing(inMsg)
 	}
 	if err != nil {
-		xl.Warnf("received invalid ping: %v", err)
+		xl.Warnf("[HayFrp] 收到无效Ping: %v", err)
 		_ = ctl.msgDispatcher.Send(&msg.Pong{
-			Error: util.GenerateResponseErrorString("invalid ping", err, lo.FromPtr(ctl.serverCfg.DetailedErrorsToClient)),
+			Error: util.GenerateResponseErrorString("[HayFrp] 无效Ping", err, lo.FromPtr(ctl.serverCfg.DetailedErrorsToClient)),
 		})
 		return
 	}
 	ctl.lastPing.Store(time.Now())
-	xl.Debugf("receive heartbeat")
+	xl.Debugf("[HayFrp] 收到心跳")
 	_ = ctl.msgDispatcher.Send(&msg.Pong{})
 }
 
@@ -449,16 +453,40 @@ func (ctl *Control) handleNatHoleReport(m msg.Message) {
 func (ctl *Control) handleCloseProxy(m msg.Message) {
 	xl := ctl.xl
 	inMsg := m.(*msg.CloseProxy)
-	_ = ctl.CloseProxy(inMsg)
-	xl.Infof("close proxy [%s] success", inMsg.ProxyName)
+	err := ctl.CloseProxy(inMsg)
+	if err != nil {
+		xl.Errorf("[HayFrp] 无法关闭隧道 [%s]: %v", inMsg.ProxyName, err)
+		return
+	}
+	xl.Infof("[HayFrp] 关闭隧道 [%s] 成功", inMsg.ProxyName)
 }
 
 func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err error) {
 	var pxyConf v1.ProxyConfigurer
+	s, err := api.NewService(ctl.serverCfg.ApiBaseUrl)
+
+	if err != nil {
+		return remoteAddr, err
+	}
 	// Load configures from NewProxy message and validate.
 	pxyConf, err = config.NewProxyConfigurerFromMsg(pxyMsg, ctl.serverCfg)
 	if err != nil {
 		return
+	}
+
+	if ctl.serverCfg.EnableApi {
+
+		nowTime := time.Now().Unix()
+		ok, err := s.CheckProxy(ctl.loginMsg.User, pxyMsg, nowTime, ctl.serverCfg.ApiToken)
+
+		if err != nil {
+			return remoteAddr, err
+		}
+
+		if !ok {
+			return remoteAddr, fmt.Errorf("[HayFrp] 未知隧道配置文件")
+		}
+
 	}
 
 	// User info
@@ -488,7 +516,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		ctl.mu.Lock()
 		if ctl.portsUsedNum+pxy.GetUsedPortsNum() > int(ctl.serverCfg.MaxPortsPerClient) {
 			ctl.mu.Unlock()
-			err = fmt.Errorf("exceed the max_ports_per_client")
+			err = fmt.Errorf("[HayFrp] 超过最大端口连接数")
 			return
 		}
 		ctl.portsUsedNum += pxy.GetUsedPortsNum()
@@ -504,7 +532,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 	}
 
 	if ctl.pxyManager.Exist(pxyMsg.ProxyName) {
-		err = fmt.Errorf("proxy [%s] already exists", pxyMsg.ProxyName)
+		err = fmt.Errorf("[HayFrp] 端口 [%s] 已被使用", pxyMsg.ProxyName)
 		return
 	}
 

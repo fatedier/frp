@@ -14,7 +14,7 @@
 
 package version
 
-var version = "0.59.0"
+var version = "0.59.0-HAYFRP"
 
 func Full() string {
 	return version

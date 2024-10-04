@@ -87,7 +87,7 @@ func runMultipleClients(cfgDir string) error {
 			defer wg.Done()
 			err := runClient(path)
 			if err != nil {
-				fmt.Printf("frpc service error for config file [%s]\n", path)
+				fmt.Printf("Frpc发生错误在配置文件 [%s]\n", path)
 			}
 		}()
 		return nil
@@ -116,13 +116,12 @@ func runClient(cfgFilePath string) error {
 		return err
 	}
 	if isLegacyFormat {
-		fmt.Printf("WARNING: ini format is deprecated and the support will be removed in the future, " +
-			"please use yaml/json/toml format instead!\n")
+		fmt.Printf("警告：INI文件格式在未来将会不受支持并且移除\n")
 	}
 
 	warning, err := validation.ValidateAllClientConfig(cfg, proxyCfgs, visitorCfgs)
 	if warning != nil {
-		fmt.Printf("WARNING: %v\n", warning)
+		fmt.Printf("警告: %v\n", warning)
 	}
 	if err != nil {
 		return err
@@ -139,8 +138,8 @@ func startService(
 	log.InitLogger(cfg.Log.To, cfg.Log.Level, int(cfg.Log.MaxDays), cfg.Log.DisablePrintColor)
 
 	if cfgFile != "" {
-		log.Infof("start frpc service for config file [%s]", cfgFile)
-		defer log.Infof("frpc service for config file [%s] stopped", cfgFile)
+		log.Infof("启动Frpc配置文件： [%s]", cfgFile)
+		defer log.Infof("Frpc配置文件 [%s] 已停止", cfgFile)
 	}
 	svr, err := client.NewService(client.ServiceOptions{
 		Common:         cfg,

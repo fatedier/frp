@@ -153,6 +153,9 @@ func Convert_ServerCommonConf_To_v1(conf *ServerCommonConf) *v1.ServerConfig {
 	out.Transport.TLS.TrustedCaFile = conf.TLSTrustedCaFile
 
 	out.MaxPortsPerClient = conf.MaxPortsPerClient
+	out.ApiBaseUrl = conf.ApiBaseUrl
+	out.ApiToken = conf.ApiToken
+	out.EnableApi = conf.EnableApi
 
 	for _, v := range conf.HTTPPlugins {
 		out.HTTPPlugins = append(out.HTTPPlugins, v1.HTTPPluginOptions{

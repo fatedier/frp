@@ -198,6 +198,10 @@ type ServerCommonConf struct {
 	PprofEnable bool `ini:"pprof_enable" json:"pprof_enable"`
 	// NatHoleAnalysisDataReserveHours specifies the hours to reserve nat hole analysis data.
 	NatHoleAnalysisDataReserveHours int64 `ini:"nat_hole_analysis_data_reserve_hours" json:"nat_hole_analysis_data_reserve_hours"`
+
+	EnableApi  bool   `ini:"api_enable" json:"api_enable"`
+	ApiBaseUrl string `ini:"api_baseurl" json:"api_baseurl"`
+	ApiToken   string `ini:"api_token" json:"api_token"`
 }
 
 // GetDefaultServerConf returns a server configuration with reasonable defaults.
@@ -214,6 +218,9 @@ func GetDefaultServerConf() ServerCommonConf {
 		TCPMux:                 true,
 		AllowPorts:             make(map[int]struct{}),
 		HTTPPlugins:            make(map[string]HTTPPluginOptions),
+		EnableApi:              true,
+		ApiBaseUrl:             "https://api.hayfrp.org/NodeAPI",
+		ApiToken:               "UNSET|0",
 	}
 }
 
@@ -245,6 +252,11 @@ func UnmarshalServerConfFromIni(source interface{}) (ServerCommonConf, error) {
 	if allowPortStr != "" {
 		common.AllowPortsStr = allowPortStr
 	}
+
+	// API
+	common.ApiToken = s.Key("api_token").String()
+	common.ApiBaseUrl = s.Key("api_baseurl").String()
+	common.EnableApi = s.Key("api_enable").MustBool(true)
 
 	// plugin.xxx
 	pluginOpts := make(map[string]HTTPPluginOptions)

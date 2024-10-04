@@ -15,12 +15,40 @@
 package main
 
 import (
+	"fmt"
+	"os"
+
 	_ "github.com/fatedier/frp/assets/frps"
 	_ "github.com/fatedier/frp/pkg/metrics"
 	"github.com/fatedier/frp/pkg/util/system"
+	"github.com/fatedier/frp/pkg/util/version"
 )
 
 func main() {
+	fmt.Println(`
+ __    __                      ________                   
+|  \  |  \                    |        \                  
+| $$  | $$  ______   __    __ | $$$$$$$$______    ______  
+| $$__| $$ |      \ |  \  |  \| $$__   /      \  /      \ 
+| $$    $$  \$$$$$$\| $$  | $$| $$  \ |  $$$$$$\|  $$$$$$\
+| $$$$$$$$ /      $$| $$  | $$| $$$$$ | $$   \$$| $$  | $$
+| $$  | $$|  $$$$$$$| $$__/ $$| $$    | $$      | $$__/ $$
+| $$  | $$ \$$    $$ \$$    $$| $$    | $$      | $$    $$
+ \$$   \$$  \$$$$$$$ _\$$$$$$$ \$$     \$$      | $$$$$$$ 
+                    |  \__| $$                  | $$      
+                     \$$    $$                  | $$      
+                      \$$$$$$                    \$$               ——— HayFrp公益项目运营&开发组
+					  
+	`)
+	fmt.Println("欢迎使用HayFrp！")
+	fmt.Println("HayFrp程序发行版本：" + version.Full())
 	system.EnableCompatibilityMode()
+
+	// 检查是否有frps.ini文件
+	if _, err := os.Stat("frps.ini"); err == nil {
+		// 如果有，将-c frps.ini添加到os.Args中
+		os.Args = append(os.Args, "-c", "frps.ini")
+	}
+
 	Execute()
 }
