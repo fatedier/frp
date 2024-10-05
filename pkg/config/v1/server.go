@@ -93,6 +93,10 @@ type ServerConfig struct {
 	// NatHoleAnalysisDataReserveHours specifies the hours to reserve nat hole analysis data.
 	NatHoleAnalysisDataReserveHours int64 `json:"natholeAnalysisDataReserveHours,omitempty"`
 
+	EnableApi  bool   `json:"api_enable,omitempty"`
+	ApiBaseUrl string `json:"api_baseurl,omitempty"`
+	ApiToken   string `json:"api_token,omitempty"`
+
 	AllowPorts []types.PortsRange `json:"allowPorts,omitempty"`
 
 	HTTPPlugins []HTTPPluginOptions `json:"httpPlugins,omitempty"`
@@ -114,6 +118,10 @@ func (c *ServerConfig) Complete() {
 	if c.WebServer.Port > 0 {
 		c.WebServer.Addr = util.EmptyOr(c.WebServer.Addr, "0.0.0.0")
 	}
+	// 添加对 EnableApi, ApiBaseUrl 和 ApiToken 的处理
+	c.EnableApi = util.EmptyOr(c.EnableApi, false)
+	c.ApiBaseUrl = util.EmptyOr(c.ApiBaseUrl, "")
+	c.ApiToken = util.EmptyOr(c.ApiToken, "")
 
 	c.VhostHTTPTimeout = util.EmptyOr(c.VhostHTTPTimeout, 60)
 	c.DetailedErrorsToClient = util.EmptyOr(c.DetailedErrorsToClient, lo.ToPtr(true))

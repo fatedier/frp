@@ -79,14 +79,14 @@ func (vm *Manager) keepVisitorsRunning() {
 	for {
 		select {
 		case <-vm.stopCh:
-			xl.Tracef("gracefully shutdown visitor manager")
+			xl.Tracef("优雅地关闭访客管理器（？）")
 			return
 		case <-ticker.C:
 			vm.mu.Lock()
 			for _, cfg := range vm.cfgs {
 				name := cfg.GetBaseConfig().Name
 				if _, exist := vm.visitors[name]; !exist {
-					xl.Infof("try to start visitor [%s]", name)
+					xl.Infof("尝试加入发起者 [%s]", name)
 					_ = vm.startVisitor(cfg)
 				}
 			}
@@ -115,10 +115,10 @@ func (vm *Manager) startVisitor(cfg v1.VisitorConfigurer) (err error) {
 	visitor := NewVisitor(vm.ctx, cfg, vm.clientCfg, vm.helper)
 	err = visitor.Run()
 	if err != nil {
-		xl.Warnf("start error: %v", err)
+		xl.Warnf("启动错误: %v", err)
 	} else {
 		vm.visitors[name] = visitor
-		xl.Infof("start visitor success")
+		xl.Infof("参与者服务启动成功")
 	}
 	return
 }
@@ -156,7 +156,7 @@ func (vm *Manager) UpdateAll(cfgs []v1.VisitorConfigurer) {
 		}
 	}
 	if len(delNames) > 0 {
-		xl.Infof("visitor removed: %v", delNames)
+		xl.Infof("参与者已移除: %v", delNames)
 	}
 
 	addNames := make([]string, 0)
@@ -169,7 +169,7 @@ func (vm *Manager) UpdateAll(cfgs []v1.VisitorConfigurer) {
 		}
 	}
 	if len(addNames) > 0 {
-		xl.Infof("visitor added: %v", addNames)
+		xl.Infof("参与者已成功加入: %v", addNames)
 	}
 }
 
@@ -179,7 +179,7 @@ func (vm *Manager) TransferConn(name string, conn net.Conn) error {
 	defer vm.mu.RUnlock()
 	v, ok := vm.visitors[name]
 	if !ok {
-		return fmt.Errorf("visitor [%s] not found", name)
+		return fmt.Errorf("发起者 [%s] 未找到", name)
 	}
 	return v.AcceptConn(conn)
 }

@@ -8,7 +8,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-frp_version=`./bin/frps --version`
+frp_version="0.59.0-HAYFRP"
 echo "build version: $frp_version"
 
 # cross_compiles

@@ -12,10 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package version
+package consts
 
-var version = "0.59.0-HAYFRP"
+var (
+	// proxy status
+	Idle    string = "idle"
+	Working string = "working"
+	Closed  string = "closed"
+	Online  string = "online"
+	Offline string = "offline"
 
-func Full() string {
-	return version
-}
+	// proxy type
+	TcpProxy   string = "tcp"
+	UdpProxy   string = "udp"
+	HttpProxy  string = "http"
+	HttpsProxy string = "https"
+	StcpProxy  string = "stcp"
+	XtcpProxy  string = "xtcp"
+)

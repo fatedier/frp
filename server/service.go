@@ -20,18 +20,15 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"time"
 
-	"github.com/fatedier/golib/crypto"
-	"github.com/fatedier/golib/net/mux"
-	fmux "github.com/hashicorp/yamux"
-	quic "github.com/quic-go/quic-go"
-	"github.com/samber/lo"
-
+	"github.com/fatedier/frp/extend/api"
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	modelmetrics "github.com/fatedier/frp/pkg/metrics"
@@ -54,6 +51,11 @@ import (
 	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/server/proxy"
 	"github.com/fatedier/frp/server/visitor"
+	"github.com/fatedier/golib/crypto"
+	"github.com/fatedier/golib/net/mux"
+	fmux "github.com/hashicorp/yamux"
+	quic "github.com/quic-go/quic-go"
+	"github.com/samber/lo"
 )
 
 const (
@@ -73,6 +75,7 @@ func init() {
 
 // Server service
 type Service struct {
+
 	// Dispatch connections to different handlers listen on same port
 	muxer *mux.Mux
 
@@ -125,6 +128,8 @@ type Service struct {
 	ctx context.Context
 	// call cancel to stop service
 	cancel context.CancelFunc
+
+	ctl *Control
 }
 
 func NewService(cfg *v1.ServerConfig) (*Service, error) {
@@ -177,20 +182,20 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.TCPMuxHTTPConnectPort))
 		l, err = net.Listen("tcp", address)
 		if err != nil {
-			return nil, fmt.Errorf("create server listener error, %v", err)
+			return nil, fmt.Errorf("[HayFrp] 创建服务器监听时发送错误, %v", err)
 		}
 
 		svr.rc.TCPMuxHTTPConnectMuxer, err = tcpmux.NewHTTPConnectTCPMuxer(l, cfg.TCPMuxPassthrough, vhostReadWriteTimeout)
 		if err != nil {
-			return nil, fmt.Errorf("create vhost tcpMuxer error, %v", err)
+			return nil, fmt.Errorf("[HayFrp] 创建Vhost TcpMux时错误, %v", err)
 		}
-		log.Infof("tcpmux httpconnect multiplexer listen on %s, passthough: %v", address, cfg.TCPMuxPassthrough)
+		log.Infof("[HayFrp] TcpMux HttpConnect多路复用器正在 %s 上监听, 通过: %v", address, cfg.TCPMuxPassthrough)
 	}
 
 	// Init all plugins
 	for _, p := range cfg.HTTPPlugins {
 		svr.pluginManager.Register(plugin.NewHTTPPluginOptions(p))
-		log.Infof("plugin [%s] has been registered", p.Name)
+		log.Infof("[HayFrp] 插件 [%s] 已注册", p.Name)
 	}
 	svr.rc.PluginManager = svr.pluginManager
 
@@ -223,7 +228,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.BindPort))
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
-		return nil, fmt.Errorf("create server listener error, %v", err)
+		return nil, fmt.Errorf("[HayFrp] 创建服务监听时发生错误, %v", err)
 	}
 
 	svr.muxer = mux.NewMux(ln)
@@ -234,16 +239,16 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	ln = svr.muxer.DefaultListener()
 
 	svr.listener = ln
-	log.Infof("frps tcp listen on %s", address)
+	log.Infof("[HayFrp] TCP链接端口已开放在 %s", address)
 
 	// Listen for accepting connections from client using kcp protocol.
 	if cfg.KCPBindPort > 0 {
 		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.KCPBindPort))
 		svr.kcpListener, err = netpkg.ListenKcp(address)
 		if err != nil {
-			return nil, fmt.Errorf("listen on kcp udp address %s error: %v", address, err)
+			return nil, fmt.Errorf("[HayFrp] 开放KCP监听在UDP端口 %s 时发生错误: %v", address, err)
 		}
-		log.Infof("frps kcp listen on udp %s", address)
+		log.Infof("[HayFrp] KCP监听已开放在UDP端口 %s", address)
 	}
 
 	if cfg.QUICBindPort > 0 {
@@ -256,18 +261,18 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 			KeepAlivePeriod:    time.Duration(cfg.Transport.QUIC.KeepalivePeriod) * time.Second,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("listen on quic udp address %s error: %v", address, err)
+			return nil, fmt.Errorf("[HayFrp] 收听QUIC UDP地址 %s 时发生错误: %v", address, err)
 		}
-		log.Infof("frps quic listen on %s", address)
+		log.Infof("[HayFrp] QUIC已在监听于 %s", address)
 	}
 
 	if cfg.SSHTunnelGateway.BindPort > 0 {
 		sshGateway, err := ssh.NewGateway(cfg.SSHTunnelGateway, cfg.ProxyBindAddr, svr.sshTunnelListener)
 		if err != nil {
-			return nil, fmt.Errorf("create ssh gateway error: %v", err)
+			return nil, fmt.Errorf("[HayFrp] 创建SSH网关时发生错误: %v", err)
 		}
 		svr.sshTunnelGateway = sshGateway
-		log.Infof("frps sshTunnelGateway listen on port %d", cfg.SSHTunnelGateway.BindPort)
+		log.Infof("[HayFrp] SSH隧道网关已成功监听于端口 %d", cfg.SSHTunnelGateway.BindPort)
 	}
 
 	// Listen for accepting connections from client using websocket protocol.
@@ -296,13 +301,13 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		} else {
 			l, err = net.Listen("tcp", address)
 			if err != nil {
-				return nil, fmt.Errorf("create vhost http listener error, %v", err)
+				return nil, fmt.Errorf("[HayFrp] 创建Vhost HTTP时发生错误, %v", err)
 			}
 		}
 		go func() {
 			_ = server.Serve(l)
 		}()
-		log.Infof("http service listen on %s", address)
+		log.Infof("[HayFrp] HTTP协议已成功监听于端口 %s", address)
 	}
 
 	// Create https vhost muxer.
@@ -314,14 +319,14 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 			address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.VhostHTTPSPort))
 			l, err = net.Listen("tcp", address)
 			if err != nil {
-				return nil, fmt.Errorf("create server listener error, %v", err)
+				return nil, fmt.Errorf("[HayFrp] 创建服务监听时发生错误, %v", err)
 			}
-			log.Infof("https service listen on %s", address)
+			log.Infof("[HayFrp] HTTPS协议已成功监听于端口 %s", address)
 		}
 
 		svr.rc.VhostHTTPSMuxer, err = vhost.NewHTTPSMuxer(l, vhostReadWriteTimeout)
 		if err != nil {
-			return nil, fmt.Errorf("create vhost httpsMuxer error, %v", err)
+			return nil, fmt.Errorf("[HayFrp] 创建Vhost HttpsMuxer时发生错误, %v", err)
 		}
 	}
 
@@ -334,7 +339,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	// Create nat hole controller.
 	nc, err := nathole.NewController(time.Duration(cfg.NatHoleAnalysisDataReserveHours) * time.Hour)
 	if err != nil {
-		return nil, fmt.Errorf("create nat hole controller error, %v", err)
+		return nil, fmt.Errorf("[HayFrp] 创建NAT打洞控制器错误, %v", err)
 	}
 	svr.rc.NatHoleController = nc
 	return svr, nil
@@ -348,9 +353,9 @@ func (svr *Service) Run(ctx context.Context) {
 	// run dashboard web server.
 	if svr.webServer != nil {
 		go func() {
-			log.Infof("dashboard listen on %s", svr.webServer.Address())
+			log.Infof("[HayFrp] 仪表盘（节点API）已监听于端口 %s", svr.webServer.Address())
 			if err := svr.webServer.Run(); err != nil {
-				log.Warnf("dashboard server exit with error: %v", err)
+				log.Warnf("[HayFrp] 仪表盘（节点API）已退出: %v", err)
 			}
 		}()
 	}
@@ -421,7 +426,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 
 	_ = conn.SetReadDeadline(time.Now().Add(connReadTimeout))
 	if rawMsg, err = msg.ReadMsg(conn); err != nil {
-		log.Tracef("Failed to read message: %v", err)
+		log.Tracef("[HayFrp] 无法读取信息: %v", err)
 		conn.Close()
 		return
 	}
@@ -443,10 +448,10 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 		// If login failed, send error message there.
 		// Otherwise send success message in control's work goroutine.
 		if err != nil {
-			xl.Warnf("register control error: %v", err)
+			xl.Warnf("[HayFrp] 注册控制器时发生错误: %v", err)
 			_ = msg.WriteMsg(conn, &msg.LoginResp{
 				Version: version.Full(),
-				Error:   util.GenerateResponseErrorString("register control error", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
+				Error:   util.GenerateResponseErrorString("[HayFrp] 注册控制器时发生错误", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
 			})
 			conn.Close()
 		}
@@ -456,10 +461,10 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 		}
 	case *msg.NewVisitorConn:
 		if err = svr.RegisterVisitorConn(conn, m); err != nil {
-			xl.Warnf("register visitor conn error: %v", err)
+			xl.Warnf("[HayFrp] 注册访问者连接错误: %v", err)
 			_ = msg.WriteMsg(conn, &msg.NewVisitorConnResp{
 				ProxyName: m.ProxyName,
-				Error:     util.GenerateResponseErrorString("register visitor conn error", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
+				Error:     util.GenerateResponseErrorString("[HayFrp] 注册访问者连接错误", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
 			})
 			conn.Close()
 		} else {
@@ -469,7 +474,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 			})
 		}
 	default:
-		log.Warnf("Error message type for the new connection [%s]", conn.RemoteAddr().String())
+		log.Warnf("[HayFrp] 新连接 [%s] 发送错误的消息类型", conn.RemoteAddr().String())
 		conn.Close()
 	}
 }
@@ -482,7 +487,7 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 	for {
 		c, err := l.Accept()
 		if err != nil {
-			log.Warnf("Listener for incoming connections from client closed")
+			log.Warnf("[HayFrp] 客户端传入连接的侦听器已关闭")
 			return
 		}
 		// inject xlog object into net.Conn context
@@ -492,21 +497,22 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 		c = netpkg.NewContextConn(xlog.NewContext(ctx, xl), c)
 
 		if !internal {
-			log.Tracef("start check TLS connection...")
+			log.Tracef("[HayFrp] 开始检查TLS链接...")
 			originConn := c
 			forceTLS := svr.cfg.Transport.TLS.Force
 			var isTLS, custom bool
 			c, isTLS, custom, err = netpkg.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, forceTLS, connReadTimeout)
 			if err != nil {
-				log.Warnf("CheckAndEnableTLSServerConnWithTimeout error: %v", err)
+				log.Warnf("[HayFrp] 检查与启用TLS服务器链接与超时 发生错误: %v", err)
 				originConn.Close()
 				continue
 			}
-			log.Tracef("check TLS connection success, isTLS: %v custom: %v internal: %v", isTLS, custom, internal)
+			log.Tracef("[HayFrp] 检查TLS链接成功, 是TLS: %v 自定义: %v 内部: %v", isTLS, custom, internal)
 		}
 
 		// Start a new goroutine to handle connection.
 		go func(ctx context.Context, frpConn net.Conn) {
+
 			if lo.FromPtr(svr.cfg.Transport.TCPMux) && !internal {
 				fmuxCfg := fmux.DefaultConfig()
 				fmuxCfg.KeepAliveInterval = time.Duration(svr.cfg.Transport.TCPMuxKeepaliveInterval) * time.Second
@@ -514,7 +520,7 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 				fmuxCfg.MaxStreamWindowSize = 6 * 1024 * 1024
 				session, err := fmux.Server(frpConn, fmuxCfg)
 				if err != nil {
-					log.Warnf("Failed to create mux connection: %v", err)
+					log.Warnf("[HayFrp] 创建多路复用器连接失败: %v", err)
 					frpConn.Close()
 					return
 				}
@@ -522,7 +528,7 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 				for {
 					stream, err := session.AcceptStream()
 					if err != nil {
-						log.Debugf("Accept new mux stream error: %v", err)
+						log.Debugf("[HayFrp] 接受新的多路复用流错误: %v", err)
 						session.Close()
 						return
 					}
@@ -540,7 +546,7 @@ func (svr *Service) HandleQUICListener(l *quic.Listener) {
 	for {
 		c, err := l.Accept(context.Background())
 		if err != nil {
-			log.Warnf("QUICListener for incoming connections from client closed")
+			log.Warnf("[HayFrp] 客户端传入连接的QUIC监听已关闭")
 			return
 		}
 		// Start a new goroutine to handle connection.
@@ -548,7 +554,7 @@ func (svr *Service) HandleQUICListener(l *quic.Listener) {
 			for {
 				stream, err := frpConn.AcceptStream(context.Background())
 				if err != nil {
-					log.Debugf("Accept new quic mux stream error: %v", err)
+					log.Debugf("[HayFrp] 接受新的QUIC多路复用流错误: %v", err)
 					_ = frpConn.CloseWithError(0, "")
 					return
 				}
@@ -562,20 +568,72 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 	// If client's RunID is empty, it's a new client, we just create a new controller.
 	// Otherwise, we check if there is one controller has the same run id. If so, we release previous controller and start new one.
 	var err error
+
+	// 请求一堆API
 	if loginMsg.RunID == "" {
-		loginMsg.RunID, err = util.RandID()
+		randid, err := util.RandID()
 		if err != nil {
 			return err
 		}
+		serverTime := time.Now()
+		greeting := ""
+		hour := serverTime.Hour()
+		if hour >= 0 && hour < 6 {
+			greeting = "午夜好，又在修仙呢......"
+		} else if hour >= 6 && hour < 9 {
+			greeting = "早上好，美好的一天开始了~"
+		} else if hour >= 9 && hour < 12 {
+			greeting = "中午好，饱饱地睡一觉~"
+		} else if hour >= 12 && hour < 18 {
+			greeting = "下午好，运动运动，活动筋骨~"
+		} else if hour >= 18 && hour < 24 {
+			greeting = "晚上好，别修仙了~"
+		}
+		t := time.Now()
+		layout := "2006-01-02 15:04:05.888"
+		str := t.Format(layout)
+		loginMsg.RunID = "HayFrpToken：" + loginMsg.User + "," + "ConnectToken：" + randid + "] Getting data from HayFrp API......" + "\n" + str + " [I] [server/hayfrp.go:102] [HayFrp] " + greeting + "\n" + str + " [I] [server/hayfrp.go:145] [HayFrp] 已将HayFrp终端介入客户端Frpc!" + "\n" + str + " [W] [server/hayfrp.go:187] [HayFrp] 友情提示：若需要分享错误日志，请为Token打码，否则可能导致信息泄露!" + "\n" + str + " [I] [server/hayfrp.go:245] [HayFrp] 当前服务器准时: " + serverTime.String() + "\n" + str + " [I] [server/hayfrp.go:199] [HayFrp] 您已成功连接至HayFrp云服务" + "\n" + str + " [W] [server/hayfrp.go:425] [HayFrp] 检测到您正在" + loginMsg.Os + "-" + loginMsg.Arch + "系统下运行客户端" + "\n" + str + " [W] [server/hayfrp.go:665] [HayFrp] 检测到您的客户端版本为" + loginMsg.Version + "\n"
+
+		// 发起 GET 请求获取 API 返回的内容(API服务状态查询)
+		resp, err := http.Get("https://api.hayfrp.org/")
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+
+		// 读取 API 返回的内容
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		// 将 API 返回的内容添加到 loginMsg.RunID 后面
+		loginMsg.RunID += str + " [I] [api/hayfrp.go:423] [HayFrp] " + string(body) + "\n"
+
+		// 发起 GET 请求获取 API 返回的内容(今日启动获取服务)
+		resp, err = http.Get("https://api.hayfrp.org/NodeAPI?type=userlogin&utoken=" + loginMsg.User + "&token=" + svr.cfg.ApiToken + "&system=" + loginMsg.Os + "&ver=" + loginMsg.Version + "&arch=" + loginMsg.Arch)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+
+		// 读取 API 返回的内容
+		body, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		// 将 API 返回的内容添加到 loginMsg.RunII 后面
+		loginMsg.RunID += str + " [I] [hayfrp.go:507] [HayFrp] " + string(body) + "\n" + str + " [I] [root.go:490] [HayFrp"
+
 	}
 
 	ctx := netpkg.NewContextFromConn(ctlConn)
 	xl := xlog.FromContextSafe(ctx)
 	xl.AppendPrefix(loginMsg.RunID)
 	ctx = xlog.NewContext(ctx, xl)
-	xl.Infof("client login info: ip [%s] version [%s] hostname [%s] os [%s] arch [%s]",
+	xl.Infof("[HayFrp] 客户端登录信息: IP地址 [%s] 客户端版本 [%s] 主机名 [%s] 系统 [%s] 架构 [%s]",
 		ctlConn.RemoteAddr().String(), loginMsg.Version, loginMsg.Hostname, loginMsg.Os, loginMsg.Arch)
-
 	// Check auth.
 	authVerifier := svr.authVerifier
 	if internal && loginMsg.ClientSpec.AlwaysAuthPass {
@@ -584,13 +642,51 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 	if err := authVerifier.VerifyLogin(loginMsg); err != nil {
 		return err
 	}
+	var (
+		inLimit  uint64
+		outLimit uint64
+	)
+
+	if svr.cfg.EnableApi {
+
+		nowTime := time.Now().Unix()
+
+		s, err := api.NewService(svr.cfg.ApiBaseUrl)
+		if err != nil {
+			return err
+		}
+
+		r := regexp.MustCompile(`^[A-Za-z0-9]{1,32}$`)
+		mm := r.FindAllStringSubmatch(loginMsg.User, -1)
+
+		if len(mm) < 1 {
+			return fmt.Errorf("[HayFrp] 未知用户名")
+		}
+
+		// Connect to API server and verify the user.
+		valid, err := s.CheckToken(loginMsg.User, loginMsg.PrivilegeKey, nowTime, svr.cfg.ApiToken)
+
+		if err != nil {
+			return err
+		}
+
+		if !valid {
+			return fmt.Errorf("[HayFrp] 认证失败")
+		}
+
+		inLimit, outLimit, err = s.GetProxyLimit(loginMsg.User, nowTime, svr.cfg.ApiToken)
+		if err != nil {
+			return err
+		}
+		xl.Debugf("[HayFrp] %s 客户端速率: %dKB/s (上行) / %dKB/s (下行)", loginMsg.User, inLimit, outLimit)
+	}
 
 	// TODO(fatedier): use SessionContext
 	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, ctlConn, !internal, loginMsg, svr.cfg)
 	if err != nil {
-		xl.Warnf("create new controller error: %v", err)
+		xl.Warnf("[HayFrp] 创建新控制器错误: %v", err)
 		// don't return detailed errors to client
-		return fmt.Errorf("unexpected error when creating new controller")
+		return fmt.Errorf("[HayFrp] 创建新控制器时出现意外错误")
 	}
 	if oldCtl := svr.ctlManager.Add(loginMsg.RunID, ctl); oldCtl != nil {
 		oldCtl.WaitClosed()
@@ -614,8 +710,8 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 	xl := netpkg.NewLogFromConn(workConn)
 	ctl, exist := svr.ctlManager.GetByID(newMsg.RunID)
 	if !exist {
-		xl.Warnf("No client control found for run id [%s]", newMsg.RunID)
-		return fmt.Errorf("no client control found for run id [%s]", newMsg.RunID)
+		xl.Warnf("[HayFrp] 未找到运行ID [%s] 的客户端控件", newMsg.RunID)
+		return fmt.Errorf("[HayFrp] 未找到运行ID [%s] 的客户端控件", newMsg.RunID)
 	}
 	// server plugin hook
 	content := &plugin.NewWorkConnContent{
@@ -633,11 +729,11 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 		err = ctl.authVerifier.VerifyNewWorkConn(newMsg)
 	}
 	if err != nil {
-		xl.Warnf("invalid NewWorkConn with run id [%s]", newMsg.RunID)
+		xl.Warnf("[HayFrp] 运行ID为 [%s] 的新活动链接无效", newMsg.RunID)
 		_ = msg.WriteMsg(workConn, &msg.StartWorkConn{
-			Error: util.GenerateResponseErrorString("invalid NewWorkConn", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
+			Error: util.GenerateResponseErrorString("[HayFrp] 无效 新活动链接", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
 		})
-		return fmt.Errorf("invalid NewWorkConn with run id [%s]", newMsg.RunID)
+		return fmt.Errorf("[HayFrp] 运行ID为 [%s] 的新活动链接无效", newMsg.RunID)
 	}
 	return ctl.RegisterWorkConn(workConn)
 }
@@ -649,10 +745,18 @@ func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVis
 	if newMsg.RunID != "" {
 		ctl, exist := svr.ctlManager.GetByID(newMsg.RunID)
 		if !exist {
-			return fmt.Errorf("no client control found for run id [%s]", newMsg.RunID)
+			return fmt.Errorf("[HayFrp] 未找到运行ID为 [%s] 的客户端控件", newMsg.RunID)
 		}
 		visitorUser = ctl.loginMsg.User
 	}
 	return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
 		newMsg.UseEncryption, newMsg.UseCompression, visitorUser)
+}
+func (svr *Service) CloseUser(user string) error {
+	ctl, ok := svr.ctlManager.SearchByID(user)
+	if !ok {
+		return fmt.Errorf("[HayFrp] 客户端用户没有登录")
+	}
+	ctl.conn.Close()
+	return nil
 }
