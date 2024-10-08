@@ -16,7 +16,6 @@ package auth
 
 import (
 	"fmt"
-
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 )
@@ -50,7 +49,8 @@ func NewAuthVerifier(cfg v1.AuthServerConfig) (authVerifier Verifier) {
 	case v1.AuthMethodToken:
 		authVerifier = NewTokenAuth(cfg.AdditionalScopes, cfg.Token)
 	case v1.AuthMethodOIDC:
-		authVerifier = NewOidcAuthVerifier(cfg.AdditionalScopes, cfg.OIDC)
+		tokenVerifier := NewTokenVerifier(cfg.OIDC)
+		authVerifier = NewOidcAuthVerifier(cfg.AdditionalScopes, tokenVerifier)
 	}
 	return authVerifier
 }
