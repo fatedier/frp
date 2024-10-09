@@ -66,6 +66,7 @@ func (d *Dispatcher) readLoop() {
 		m, err := ReadMsg(d.rw)
 		if err != nil {
 			close(d.doneCh)
+			close(d.sendCh)
 			return
 		}
 
