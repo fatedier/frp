@@ -137,7 +137,7 @@ func (pw *Wrapper) SetRunningStatus(remoteAddr string, respErr string) error {
 		pw.Phase = ProxyPhaseStartErr
 		pw.Err = respErr
 		pw.lastStartErr = time.Now()
-		return fmt.Errorf(pw.Err)
+		return fmt.Errorf("%s", pw.Err)
 	}
 
 	if err := pw.pxy.Run(); err != nil {

@@ -137,17 +137,17 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 			dstAddr    string
 			srcPortStr string
 			dstPortStr string
-			srcPort    int
-			dstPort    int
+			srcPort    uint64
+			dstPort    uint64
 		)
 
 		if src != nil {
 			srcAddr, srcPortStr, _ = net.SplitHostPort(src.String())
-			srcPort, _ = strconv.Atoi(srcPortStr)
+			srcPort, _ = strconv.ParseUint(srcPortStr, 10, 16)
 		}
 		if dst != nil {
 			dstAddr, dstPortStr, _ = net.SplitHostPort(dst.String())
-			dstPort, _ = strconv.Atoi(dstPortStr)
+			dstPort, _ = strconv.ParseUint(dstPortStr, 10, 16)
 		}
 		err := msg.WriteMsg(workConn, &msg.StartWorkConn{
 			ProxyName: pxy.GetName(),
@@ -190,8 +190,8 @@ func (pxy *BaseProxy) startCommonTCPListenersHandler() {
 						} else {
 							tempDelay *= 2
 						}
-						if max := 1 * time.Second; tempDelay > max {
-							tempDelay = max
+						if maxTime := 1 * time.Second; tempDelay > maxTime {
+							tempDelay = maxTime
 						}
 						xl.Infof("met temporary error: %s, sleep for %s ...", err, tempDelay)
 						time.Sleep(tempDelay)
