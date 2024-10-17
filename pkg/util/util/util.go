@@ -85,21 +85,21 @@ func ParseRangeNumbers(rangeStr string) (numbers []int64, err error) {
 			numbers = append(numbers, singleNum)
 		case 2:
 			// range numbers
-			min, errRet := strconv.ParseInt(strings.TrimSpace(numArray[0]), 10, 64)
+			minValue, errRet := strconv.ParseInt(strings.TrimSpace(numArray[0]), 10, 64)
 			if errRet != nil {
 				err = fmt.Errorf("range number is invalid, %v", errRet)
 				return
 			}
-			max, errRet := strconv.ParseInt(strings.TrimSpace(numArray[1]), 10, 64)
+			maxValue, errRet := strconv.ParseInt(strings.TrimSpace(numArray[1]), 10, 64)
 			if errRet != nil {
 				err = fmt.Errorf("range number is invalid, %v", errRet)
 				return
 			}
-			if max < min {
+			if maxValue < minValue {
 				err = fmt.Errorf("range number is invalid")
 				return
 			}
-			for i := min; i <= max; i++ {
+			for i := minValue; i <= maxValue; i++ {
 				numbers = append(numbers, i)
 			}
 		default:
@@ -118,13 +118,13 @@ func GenerateResponseErrorString(summary string, err error, detailed bool) strin
 }
 
 func RandomSleep(duration time.Duration, minRatio, maxRatio float64) time.Duration {
-	min := int64(minRatio * 1000.0)
-	max := int64(maxRatio * 1000.0)
+	minValue := int64(minRatio * 1000.0)
+	maxValue := int64(maxRatio * 1000.0)
 	var n int64
-	if max <= min {
-		n = min
+	if maxValue <= minValue {
+		n = minValue
 	} else {
-		n = mathrand.Int64N(max-min) + min
+		n = mathrand.Int64N(maxValue-minValue) + minValue
 	}
 	d := duration * time.Duration(n) / time.Duration(1000)
 	time.Sleep(d)
