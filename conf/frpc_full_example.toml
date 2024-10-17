@@ -327,7 +327,7 @@ requestHeaders.set.x-from-where = "frp"
 
 [[proxies]]
 name = "plugin_tls2raw"
-type = "https"
+type = "tcp"
 remotePort = 6008
 [proxies.plugin]
 type = "tls2raw"
