@@ -95,7 +95,7 @@ frp 是一个免费且开源的项目，我们欢迎任何人为其开发和进�
 
 您可以通过 [GitHub Sponsors](https://github.com/sponsors/fatedier) 赞助我们。
 
-国内用户可以通过 [爱发电](https://afdian.net/a/fatedier) 赞助我们。
+国内用户可以通过 [爱发电](https://afdian.com/a/fatedier) 赞助我们。
 
 企业赞助者可以将贵公司的 Logo 以及链接放置在项目 README 文件中。
 

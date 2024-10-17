@@ -230,7 +230,7 @@ func (ctl *Control) registerMsgHandlers() {
 	ctl.msgDispatcher.RegisterHandler(&msg.Pong{}, ctl.handlePong)
 }
 
-// headerWorker sends heartbeat to server and check heartbeat timeout.
+// heartbeatWorker sends heartbeat to server and check heartbeat timeout.
 func (ctl *Control) heartbeatWorker() {
 	xl := ctl.xl
 

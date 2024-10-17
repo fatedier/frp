@@ -140,6 +140,7 @@ func registerVisitorBaseConfigFlags(cmd *cobra.Command, c *v1.VisitorBaseConfig,
 	cmd.Flags().BoolVarP(&c.Transport.UseCompression, "uc", "", false, "use compression")
 	cmd.Flags().StringVarP(&c.SecretKey, "sk", "", "", "secret key")
 	cmd.Flags().StringVarP(&c.ServerName, "server_name", "", "", "server name")
+	cmd.Flags().StringVarP(&c.ServerUser, "server-user", "", "", "server user")
 	cmd.Flags().StringVarP(&c.BindAddr, "bind_addr", "", "", "bind addr")
 	cmd.Flags().IntVarP(&c.BindPort, "bind_port", "", 0, "bind port")
 }
