@@ -53,12 +53,10 @@ jobs:
       # prepare image tags
       - name: Prepare Image Tags
         run: |
-          echo "DOCKERFILE_FRPC_PATH=dockerfiles/Dockerfile-for-frpc" >> $GITHUB_ENV
-          echo "DOCKERFILE_FRPS_PATH=dockerfiles/Dockerfile-for-frps" >> $GITHUB_ENV
-          echo "TAG_FRPC=fatedier/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
-          echo "TAG_FRPS=fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
-          echo "TAG_FRPC_GPR=ghcr.io/fatedier/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
-          echo "TAG_FRPS_GPR=ghcr.io/fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
+          echo "TAG_FRPC=${{ github.repository_owner }}/frpc" >> $GITHUB_ENV
+          echo "TAG_FRPS=${{ github.repository_owner }}/frps" >> $GITHUB_ENV
+          echo "TAG_FRPC_GPR=ghcr.io/${{ github.repository_owner }}/frpc" >> $GITHUB_ENV
+          echo "TAG_FRPS_GPR=ghcr.io/${{ github.repository_owner }}/frps" >> $GITHUB_ENV
 
       - name: Build and push frpc
         uses: docker/build-push-action@v5
@@ -68,8 +66,10 @@ jobs:
           platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x
           push: true
           tags: |
-            ${{ env.TAG_FRPC }}
-            ${{ env.TAG_FRPC_GPR }}
+            ${{ env.TAG_FRPC }}:${{ env.TAG_NAME }}
+            ${{ env.TAG_FRPC }}:latest
+            ${{ env.TAG_FRPC_GPR }}:${{ env.TAG_NAME }}
+            ${{ env.TAG_FRPC_GPR }}:latest
 
       - name: Build and push frps
         uses: docker/build-push-action@v5
@@ -79,5 +79,7 @@ jobs:
           platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x
           push: true
           tags: |
-            ${{ env.TAG_FRPS }}
-            ${{ env.TAG_FRPS_GPR }}
+            ${{ env.TAG_FRPS }}:${{ env.TAG_NAME }}
+            ${{ env.TAG_FRPS }}:latest
+            ${{ env.TAG_FRPS_GPR }}:${{ env.TAG_NAME }}
+            ${{ env.TAG_FRPS_GPR }}:latest
