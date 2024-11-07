@@ -4,7 +4,7 @@ service:
 run:
   concurrency: 4
   # timeout for analysis, e.g. 30s, 5m, default is 1m
-  deadline: 20m
+  timeout: 20m
   build-tags:
   - integ
   - integfuzz
