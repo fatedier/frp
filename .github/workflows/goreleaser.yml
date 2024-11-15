@@ -7,10 +7,6 @@ jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
-      - name: Print GITHUB_TOKEN
-        run: echo "GITHUB_TOKEN is set to '${{ secrets.GITHUB_TOKEN }}'"
-      - name: Login to GitHub Package Registry
-        run: echo ${{ secrets.GPR_TOKEN }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
       - name: Checkout
         uses: actions/checkout@v4
         with:
