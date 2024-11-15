@@ -1,4 +1,4 @@
-name: Build Image and Publish to Dockerhub & GPR
+name: 编译Docker镜像
 
 # 定义触发工作流的事件
 on:
@@ -77,7 +77,7 @@ jobs:
           push: true  # 推送到仓库
           tags: |
             ${{ env.TAG_FRPC }}  # frpc的镜像标签
-            ${{ env.TAG_FRPC_GPR }}  # GPR上frpc的镜像标签
+            # ${{ env.TAG_FRPC_GPR }}  # GPR上frpc的镜像标签
 
       # 构建并推送frps镜像
       - name: Build and push frps
@@ -89,4 +89,4 @@ jobs:
           push: true  # 推送到仓库
           tags: |
             ${{ env.TAG_FRPS }}  # frps的镜像标签
-            ${{ env.TAG_FRPS_GPR }}  # GPR上frps的镜像标签
+            # ${{ env.TAG_FRPS_GPR }}  # GPR上frps的镜像标签
