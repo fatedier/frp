@@ -4,8 +4,9 @@ WORKDIR /building
 RUN make frps && make frpc
 
 FROM alpine:3
+WORKDIR /frp
 RUN apk add --no-cache tzdata
 COPY --from=building /building/bin/frps /frp/frps
 COPY --from=building /building/bin/frpc /frp/frpc
 ENV mode=frps
-ENTRYPOINT ["/frp/$mode -c /frp/$mode.toml"]
+CMD ["/bin/sh", "-c", "./$mode -c $mode.toml"]
