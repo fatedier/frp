@@ -10,6 +10,9 @@ on:
         description: 'Image tag'  # 手动触发时输入的标签描述
         required: true  # 必须输入
         default: 'test'  # 默认标签为'test'
+  workflow_run:
+    workflows: ["GoReleaser Workflow"]  # 指定工作流完成时触发
+    types: [completed]  # 当goreleaser工作流完成时触发
 
 permissions:
   contents: read  # 工作流需要读取仓库内容的权限
@@ -51,50 +54,22 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}  # Docker Hub用户名
           password: ${{ secrets.DOCKERHUB_PASSWORD }}  # Docker Hub密码
 
-      # # 登录到GitHub Package Registry
-      # - name: Login to the GPR
-      #   uses: docker/login-action@v3
-      #   with:
-      #     registry: ghcr.io  # GPR的地址
-      #     username: ${{ github.repository_owner }}  # GitHub仓库所有者
-      #     password: ${{ secrets.GPR_TOKEN }}  # GPR的访问令牌
-
       # 准备镜像标签
       - name: Prepare Image Tags
         # 设置frpc的Dockerfile路径
-        # 设置frps的Dockerfile路径
         # 设置frpc的镜像标签
-        # 设置frps的镜像标签
         run: |
-          echo "DOCKERFILE_FRPC_PATH=dockerfiles/Dockerfile-for-frpc" >> $GITHUB_ENV
-          echo "DOCKERFILE_FRPS_PATH=dockerfiles/Dockerfile-for-frps" >> $GITHUB_ENV
-          echo "TAG_FRPC=918178/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV
-          echo "TAG_FRPS=918178/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
-        # echo "TAG_FRPC_GPR=ghcr.io/fatedier/frpc:${{ env.TAG_NAME }}" >> $GITHUB_ENV  # 设置GPR上frpc的镜像标签
-        # echo "TAG_FRPS_GPR=ghcr.io/fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV  # 设置GPR上frps的镜像标签
+          echo "DOCKERFILE_FRP_PATH=dockerfiles/Dockerfile-for-frp" >> $GITHUB_ENV
+          echo "TAG_FRP=918178/frp:${{ env.TAG_NAME }}" >> $GITHUB_ENV
 
-      # 构建并推送frpc镜像
-      - name: Build and push frpc
+      # 构建并推送frp镜像
+      - name: Build and push frp
         uses: docker/build-push-action@v5
         with:
           context: .  # 构建上下文
-          file: ./dockerfiles/Dockerfile-for-frpc  # frpc的Dockerfile
+          file: ./dockerfiles/Dockerfile-for-frp  # frp的Dockerfile
           platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x  # 构建的平台
           push: true  # 推送到仓库
           # frpc的镜像标签
           tags: |
             ${{ env.TAG_FRPC }}
-          # ${{ env.TAG_FRPC_GPR }}  # GPR上frpc的镜像标签
-
-      # 构建并推送frps镜像
-      - name: Build and push frps
-        uses: docker/build-push-action@v5
-        with:
-          context: .  # 构建上下文
-          file: ./dockerfiles/Dockerfile-for-frps  # frps的Dockerfile
-          platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x  # 构建的平台
-          push: true  # 推送到仓库
-          # frps的镜像标签
-          tags: |
-            ${{ env.TAG_FRPS }}
-          # ${{ env.TAG_FRPS_GPR }}  # GPR上frps的镜像标签
