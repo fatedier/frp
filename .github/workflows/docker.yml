@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   image:
-    name: Build Image from Dockerfile and binaries  # 工作流作业名称
+    name: 从 Dockerfile 构建映像  # 工作流作业名称
     runs-on: ubuntu-latest  # 在最新的Ubuntu环境中运行
     steps:
       # 检出代码
@@ -29,15 +29,16 @@ jobs:
           fetch-depth: '0'  # 检出所有分支的历史记录
 
       # 设置QEMU，用于构建多平台镜像
-      - name: Set up QEMU
+      - name: 设置 QEMU
         uses: docker/setup-qemu-action@v3
 
       # 设置Docker Buildx，用于构建和推送多平台镜像
-      - name: Set up Docker Buildx
+      - name: 设置 Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       # 获取镜像标签名称
-      - name: Get Image Tag Name
+      - name: 获取 Image Tag
+        # 注意 | 后注释会有问题故放在这
         # 如果没有提供标签，则使用GitHub Ref作为标签
         # 如果提供了标签，则使用提供的标签
         run: |
@@ -48,14 +49,15 @@ jobs:
           fi
 
       # 登录到Docker Hub
-      - name: Login to DockerHub
+      - name: 登录 DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}  # Docker Hub用户名
           password: ${{ secrets.DOCKERHUB_PASSWORD }}  # Docker Hub密码
 
       # 准备镜像标签
-      - name: Prepare Image Tags
+      - name: 设置 Image Tags
+        # 注意 | 后注释会有问题故放在这
         # 设置frp的Dockerfile路径
         # 设置frp的镜像标签
         run: |
@@ -64,14 +66,16 @@ jobs:
           echo "TAG_FRP_LATEST=918178/frp:latest" >> $GITHUB_ENV
 
       # 构建并推送frp镜像
-      - name: Build and push frp
+      - name: 编译并推送 Frp镜像
         uses: docker/build-push-action@v5
         with:
           context: .  # 构建上下文
           file: ./dockerfiles/Dockerfile-for-frp  # frp的Dockerfile
-          platforms: linux/amd64,linux/386,linux/arm64,linux/arm/v7,linux/mips64  # 构建的平台
+          # platforms: linux/amd64  # 构建的平台(测试构建,少一些快一点)
+          platforms: linux/amd64,linux/386,linux/arm64,linux/arm/v7,linux/mips64  # 构建的平台(正式构建)
           push: true  # 推送到仓库
-          # frpc的镜像标签
+          # 注意 | 后注释会有问题故放在这
+          # frpc的镜像标签(版本标签+latest)
           tags: |
             ${{ env.TAG_FRP }}
             ${{ env.TAG_FRP_LATEST }}
