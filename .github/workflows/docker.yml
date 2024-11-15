@@ -56,11 +56,12 @@ jobs:
 
       # 准备镜像标签
       - name: Prepare Image Tags
-        # 设置frpc的Dockerfile路径
-        # 设置frpc的镜像标签
+        # 设置frp的Dockerfile路径
+        # 设置frp的镜像标签
         run: |
           echo "DOCKERFILE_FRP_PATH=dockerfiles/Dockerfile-for-frp" >> $GITHUB_ENV
           echo "TAG_FRP=918178/frp:${{ env.TAG_NAME }}" >> $GITHUB_ENV
+          echo "TAG_FRP_LATEST=918178/frp:latest" >> $GITHUB_ENV
 
       # 构建并推送frp镜像
       - name: Build and push frp
@@ -73,3 +74,4 @@ jobs:
           # frpc的镜像标签
           tags: |
             ${{ env.TAG_FRPC }}
+            ${{ env.TAG_FRP_LATEST }}
