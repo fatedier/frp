@@ -72,7 +72,7 @@ jobs:
           context: .  # 构建上下文
           file: ./dockerfiles/Dockerfile-for-frp  # frp的Dockerfile
           # platforms: linux/amd64  # 构建的平台(测试构建,少一些快一点)
-          platforms: linux/amd64,linux/386,linux/arm64,linux/arm/v7,linux/mips64le  # 构建的平台(正式构建)
+          platforms: linux/amd64,linux/386,linux/arm64,linux/arm/v7  # 构建的平台(正式构建)
           push: true  # 推送到仓库
           # 注意 | 后注释会有问题故放在这
           # frpc的镜像标签(版本标签+latest)
