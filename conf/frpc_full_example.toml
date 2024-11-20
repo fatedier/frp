@@ -389,3 +389,19 @@ maxRetriesAnHour = 8
 minRetryInterval = 90
 # fallbackTo = "stcp_visitor"
 # fallbackTimeoutMs = 500
+
+[[proxies]]
+name = "stcp_proxy_example"
+type = "stcp"
+localIP = "127.0.0.1"
+localPort = 8080
+secretKey = "example_secret_key"
+allowUsers = ["user1", "user2"]
+
+[[visitors]]
+name = "stcp_visitor_example"
+type = "stcp"
+serverName = "stcp_proxy_example"
+secretKey = "example_secret_key"
+bindAddr = "127.0.0.1"
+bindPort = 9002

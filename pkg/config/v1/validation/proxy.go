@@ -1,17 +1,3 @@
-// Copyright 2023 The frp Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package validation
 
 import (
@@ -92,7 +78,7 @@ func validateDomainConfigForServer(c *v1.DomainConfig, s *v1.ServerConfig) error
 			return errors.New("subdomain is not supported because this feature is not enabled in server")
 		}
 
-		if strings.Contains(c.SubDomain, ".") || strings.Contains(c.SubDomain, "*") {
+		if strings.contains(c.SubDomain, ".") || strings.contains(c.SubDomain, "*") {
 			return errors.New("'.' and '*' are not supported in subdomain")
 		}
 	}
