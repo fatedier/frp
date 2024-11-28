@@ -110,6 +110,7 @@ func Convert_ServerCommonConf_To_v1(conf *ServerCommonConf) *v1.ServerConfig {
 
 	out.ProxyBindAddr = conf.ProxyBindAddr
 	out.VhostHTTPPort = conf.VhostHTTPPort
+	out.VhostEnableH2C = conf.VhostEnableH2C
 	out.VhostHTTPSPort = conf.VhostHTTPSPort
 	out.TCPMuxHTTPConnectPort = conf.TCPMuxHTTPConnectPort
 	out.TCPMuxPassthrough = conf.TCPMuxPassthrough

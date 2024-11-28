@@ -47,6 +47,11 @@ type ServerConfig struct {
 	// VhostHTTPTimeout specifies the response header timeout for the Vhost
 	// HTTP server, in seconds. By default, this value is 60.
 	VhostHTTPTimeout int64 `json:"vhostHTTPTimeout,omitempty"`
+	// VhostEnableH2c specifies whether to enable HTTP/2 cleartext upgrade.
+	// By default, this value is false. If enabled, the server will be compatible
+	// with http2 on cleartext, accordingly, the vhost server will use http2
+	// transport to proxy the request.
+	VhostEnableH2C bool `json:"vhostEnableH2C,omitempty"`
 	// VhostHTTPSPort specifies the port that the server listens for HTTPS
 	// Vhost requests. If this value is 0, the server will not listen for HTTPS
 	// requests.

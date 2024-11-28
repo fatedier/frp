@@ -16,6 +16,7 @@ package vhost
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -29,6 +30,8 @@ import (
 
 	libio "github.com/fatedier/golib/io"
 	"github.com/fatedier/golib/pool"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
@@ -38,10 +41,11 @@ var ErrNoRouteFound = errors.New("no route found")
 
 type HTTPReverseProxyOptions struct {
 	ResponseHeaderTimeoutS int64
+	EnableH2C              bool
 }
 
 type HTTPReverseProxy struct {
-	proxy       *httputil.ReverseProxy
+	proxy       http.Handler
 	vhostRouter *Routers
 
 	responseHeaderTimeout time.Duration
@@ -55,6 +59,40 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 		responseHeaderTimeout: time.Duration(option.ResponseHeaderTimeoutS) * time.Second,
 		vhostRouter:           vhostRouter,
 	}
+
+	var transport http.RoundTripper
+	// Create a connection to one proxy routed by route policy.
+	transport = &http.Transport{
+		ResponseHeaderTimeout: rp.responseHeaderTimeout,
+		IdleConnTimeout:       60 * time.Second,
+		MaxIdleConnsPerHost:   5,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return rp.CreateConnection(ctx.Value(RouteInfoKey).(*RequestRouteInfo), true)
+		},
+		Proxy: func(req *http.Request) (*url.URL, error) {
+			// Use proxy mode if there is host in HTTP first request line.
+			// GET http://example.com/ HTTP/1.1
+			// Host: example.com
+			//
+			// Normal:
+			// GET / HTTP/1.1
+			// Host: example.com
+			urlHost := req.Context().Value(RouteInfoKey).(*RequestRouteInfo).URLHost
+			if urlHost != "" {
+				return req.URL, nil
+			}
+			return nil, nil
+		},
+	}
+	if option.EnableH2C {
+		transport = &http2.Transport{
+			AllowHTTP: true,
+			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
+				return rp.CreateConnection(ctx.Value(RouteInfoKey).(*RequestRouteInfo), true)
+			},
+		}
+	}
+
 	proxy := &httputil.ReverseProxy{
 		// Modify incoming requests by route policies.
 		Rewrite: func(r *httputil.ProxyRequest) {
@@ -101,29 +139,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			}
 			return nil
 		},
-		// Create a connection to one proxy routed by route policy.
-		Transport: &http.Transport{
-			ResponseHeaderTimeout: rp.responseHeaderTimeout,
-			IdleConnTimeout:       60 * time.Second,
-			MaxIdleConnsPerHost:   5,
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				return rp.CreateConnection(ctx.Value(RouteInfoKey).(*RequestRouteInfo), true)
-			},
-			Proxy: func(req *http.Request) (*url.URL, error) {
-				// Use proxy mode if there is host in HTTP first request line.
-				// GET http://example.com/ HTTP/1.1
-				// Host: example.com
-				//
-				// Normal:
-				// GET / HTTP/1.1
-				// Host: example.com
-				urlHost := req.Context().Value(RouteInfoKey).(*RequestRouteInfo).URLHost
-				if urlHost != "" {
-					return req.URL, nil
-				}
-				return nil, nil
-			},
-		},
+		Transport:  transport,
 		BufferPool: pool.NewBuffer(32 * 1024),
 		ErrorLog:   stdlog.New(log.NewWriteLogger(log.WarnLevel, 2), "", 0),
 		ErrorHandler: func(rw http.ResponseWriter, req *http.Request, err error) {
@@ -138,7 +154,11 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			_, _ = rw.Write(getNotFoundPageContent())
 		},
 	}
-	rp.proxy = proxy
+	if option.EnableH2C {
+		rp.proxy = h2c.NewHandler(proxy, &http2.Server{})
+	} else {
+		rp.proxy = proxy
+	}
 	return rp
 }
 
