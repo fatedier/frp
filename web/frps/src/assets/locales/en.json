@@ -1,0 +1,79 @@
+{
+    "main": {
+        "title": "frp",
+        "Overview": "Overview",
+        "Proxies": {
+            "title": "Proxies"
+        },
+        "Help": "Help",
+        "dark": {
+            "Dark": "Dark",
+            "Light": "Light"
+        }
+    },
+    "OverView": {
+        "Version": "Version",
+        "BindPort": "BindPort",
+        "KPC_Port": "KCP Bind Port",
+        "QUIC_Port": "QUIC Bind Port",
+        "HTTP_Port": "HTTP Port",
+        "HTTPS_Port": "HTTPS Port",
+        "TCPMux": "TCPMux HTTPConnect Port",
+        "Subdomain": "Subdomain Host",
+        "MaxPoolCount": "Max PoolCount",
+        "MaxPortsPerClient": "Max Ports Per Client",
+        "AllowPorts": "Allow Ports",
+        "TLSForce": "TLS Force",
+        "HeartBeatTimeout": "HeartBeat Timeout",
+        "ClientCounts": "Client Counts",
+        "curConns": "Current Connections",
+        "ProxyCounts": "Proxy Counts",
+        "Chart": {
+            "Traffic": {
+                "title": "Network Traffic",
+                "subTitle": "today",
+                "TrafficIn": "Traffic In",
+                "TrafficOut": "Traffic Out"
+            },
+            "Proxies": {
+                "title": "Proxies",
+                "subTitle": "now"
+            }
+        }
+    },
+    "ProxiesView": {
+        "Expand": {
+            "Name": "Name",
+            "Type": "Type",
+            "Encryption": "Encryption",
+            "Compression": "Compression",
+            "LastStart": "Last Start",
+            "LastClose": "Last Close",
+            "Domains": "Domains",
+            "SubDomain": "SubDomain",
+            "locations": "locations",
+            "HostRewrite": "HostRewrite",
+            "Multiplexer": "Multiplexer",
+            "RouteByHTTPUser": "RouteByHTTPUser",
+            "Addr": "Addr",
+            "Annotations": "Annotations"
+        },
+        "ClearOffLine": "ClearOfflineProxies",
+        "Refresh": "Refresh",
+        "ClearOffLineInfo": "Are you sure to clear all data of offline proxies?",
+        "name": "Name",
+        "Port": "Port",
+        "Connections": "Connections",
+        "Traffic_In": "Traffic In",
+        "Traffic_Out": "Traffic Out",
+        "ClientVersion": "ClientVersion",
+        "Status": {
+            "title": "Status",
+            "Successinfo": "online"
+        },
+        "Operations": {
+            "title": "Operations",
+            "Traffic": "Traffic"
+        }
+    }
+}

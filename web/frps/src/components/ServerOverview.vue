@@ -3,73 +3,60 @@
     <el-row>
       <el-col :md="12">
         <div class="source">
-          <el-form
-            label-position="left"
-            label-width="220px"
-            class="server_info"
-          >
-            <el-form-item label="Version">
+          <el-form label-position="left" label-width="220px" class="server_info">
+            <el-form-item :label="t('OverView.Version')">
               <span>{{ data.version }}</span>
             </el-form-item>
-            <el-form-item label="BindPort">
+            <el-form-item :label="t('OverView.BindPort')">
               <span>{{ data.bindPort }}</span>
             </el-form-item>
-            <el-form-item label="KCP Bind Port" v-if="data.kcpBindPort != 0">
+            <el-form-item :label="t('OverView.KPC_Port')" v-if="data.kcpBindPort != 0">
               <span>{{ data.kcpBindPort }}</span>
             </el-form-item>
-            <el-form-item label="QUIC Bind Port" v-if="data.quicBindPort != 0">
+            <el-form-item :label="t('OverView.QUIC_Port')" v-if="data.quicBindPort != 0">
               <span>{{ data.quicBindPort }}</span>
             </el-form-item>
-            <el-form-item label="HTTP Port" v-if="data.vhostHTTPPort != 0">
+            <el-form-item :label="t('OverView.HTTP_Port')" v-if="data.vhostHTTPPort != 0">
               <span>{{ data.vhostHTTPPort }}</span>
             </el-form-item>
-            <el-form-item label="HTTPS Port" v-if="data.vhostHTTPSPort != 0">
+            <el-form-item :label="t('OverView.HTTPS_Port')" v-if="data.vhostHTTPSPort != 0">
               <span>{{ data.vhostHTTPSPort }}</span>
             </el-form-item>
-            <el-form-item
-              label="TCPMux HTTPConnect Port"
-              v-if="data.tcpmuxHTTPConnectPort != 0"
-            >
+            <el-form-item :label="t('OverView.TCPMux')" v-if="data.tcpmuxHTTPConnectPort != 0">
               <span>{{ data.tcpmuxHTTPConnectPort }}</span>
             </el-form-item>
-            <el-form-item
-              label="Subdomain Host"
-              v-if="data.subdomainHost != ''"
-            >
+            <el-form-item :label="t('OverView.Subdomain')" v-if="data.subdomainHost != ''">
               <LongSpan :content="data.subdomainHost" :length="30"></LongSpan>
             </el-form-item>
-            <el-form-item label="Max PoolCount">
+            <el-form-item :label="t('OverView.MaxPoolCount')">
               <span>{{ data.maxPoolCount }}</span>
             </el-form-item>
-            <el-form-item label="Max Ports Per Client">
+            <el-form-item :label="t('OverView.MaxPortsPerClient')">
               <span>{{ data.maxPortsPerClient }}</span>
             </el-form-item>
-            <el-form-item label="Allow Ports" v-if="data.allowPortsStr != ''">
+            <el-form-item :label="t('OverView.AllowPorts')" v-if="data.allowPortsStr != ''">
               <LongSpan :content="data.allowPortsStr" :length="30"></LongSpan>
             </el-form-item>
-            <el-form-item label="TLS Force" v-if="data.tlsForce === true">
+            <el-form-item :label="t('OverView.TLSForce')" v-if="data.tlsForce === true">
               <span>{{ data.tlsForce }}</span>
             </el-form-item>
-            <el-form-item label="HeartBeat Timeout">
+            <el-form-item :label="t('OverView.HeartBeatTimeout')">
               <span>{{ data.heartbeatTimeout }}</span>
             </el-form-item>
-            <el-form-item label="Client Counts">
+            <el-form-item :label="t('OverView.ClientCounts')">
               <span>{{ data.clientCounts }}</span>
             </el-form-item>
-            <el-form-item label="Current Connections">
+            <el-form-item :label="t('OverView.curConns')">
               <span>{{ data.curConns }}</span>
             </el-form-item>
-            <el-form-item label="Proxy Counts">
+            <el-form-item :label="t('OverView.ProxyCounts')">
               <span>{{ data.proxyCounts }}</span>
             </el-form-item>
           </el-form>
         </div>
       </el-col>
       <el-col :md="12">
-        <div
-          id="traffic"
-          style="width: 400px; height: 250px; margin-bottom: 30px"
-        ></div>
+        <div id="traffic" style="width: 400px; height: 250px; margin-bottom: 30px"></div>
         <div id="proxies" style="width: 400px; height: 250px"></div>
       </el-col>
     </el-row>
@@ -81,6 +68,8 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { DrawTrafficChart, DrawProxyChart } from '../utils/chart'
 import LongSpan from './LongSpan.vue'
+import { useI18n } from 'vue-i18n';
+const { t } = useI18n();
 
 let data = ref({
   version: '',

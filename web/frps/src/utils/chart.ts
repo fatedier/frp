@@ -3,7 +3,7 @@ import * as echarts from 'echarts/core'
 import { PieChart, BarChart } from 'echarts/charts'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LabelLayout } from 'echarts/features'
-
+import { useI18n } from 'vue-i18n';
 import {
   TitleComponent,
   TooltipComponent,
@@ -27,6 +27,7 @@ function DrawTrafficChart(
   trafficIn: number,
   trafficOut: number
 ) {
+  const { t } = useI18n();
   const myChart = echarts.init(
     document.getElementById(elementId) as HTMLElement,
     'macarons'
@@ -35,8 +36,8 @@ function DrawTrafficChart(
 
   const option = {
     title: {
-      text: 'Network Traffic',
-      subtext: 'today',
+      text: t("OverView.Chart.Traffic.title"),
+      subtext: t("OverView.Chart.Traffic.subTitle"),
       left: 'center',
     },
     tooltip: {
@@ -48,7 +49,7 @@ function DrawTrafficChart(
     legend: {
       orient: 'vertical',
       left: 'left',
-      data: ['Traffic In', 'Traffic Out'],
+      data: [t("OverView.Chart.Traffic.TrafficIn"), t("OverView.Chart.Traffic.TrafficOut")],
     },
     series: [
       {
@@ -58,11 +59,11 @@ function DrawTrafficChart(
         data: [
           {
             value: trafficIn,
-            name: 'Traffic In',
+            name: t("OverView.Chart.Traffic.TrafficIn"),
           },
           {
             value: trafficOut,
-            name: 'Traffic Out',
+            name: t("OverView.Chart.Traffic.TrafficOut"),
           },
         ],
         emphasis: {
@@ -80,6 +81,7 @@ function DrawTrafficChart(
 }
 
 function DrawProxyChart(elementId: string, serverInfo: any) {
+  const { t } = useI18n();
   const myChart = echarts.init(
     document.getElementById(elementId) as HTMLElement,
     'macarons'
@@ -88,8 +90,8 @@ function DrawProxyChart(elementId: string, serverInfo: any) {
 
   const option = {
     title: {
-      text: 'Proxies',
-      subtext: 'now',
+      text: t("OverView.Chart.Proxies.title"),
+      subtext: t("OverView.Chart.Proxies.subTitle"),
       left: 'center',
     },
     tooltip: {

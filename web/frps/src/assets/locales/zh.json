@@ -1,0 +1,88 @@
+{
+    "main": {
+        "title": "frp 服务端",
+        "Overview": "总览",
+        "Proxies": {
+            "title": "代理"
+        },
+        "Help": "帮助",
+        "dark": {
+            "Dark": "暗",
+            "Light": "明"
+        }
+    },
+    "OverView": {
+        "Expand": {
+            "Name": "通道名称",
+            "Type": "协议类型",
+            "Encryption": "加密",
+            "Compression": "压缩",
+            "LastStart": "最后一次启用时间",
+            "LastClose": "最后一次关闭时间",
+            "Domains": "域名",
+            "SubDomain": "二级域名后缀",
+            "locations": "URL 路由配置",
+            "HostRewrite": "替换 Host Header",
+            "Multiplexer": "复用器类型",
+            "RouteByHTTPUser": "根据 HTTP Basic Auth user 路由",
+            "Addr": "代理端口",
+            "Annotations": "注释"
+        },
+        "Version": "版本",
+        "BindPort": "frp 绑定端口",
+        "KPC_Port": "KCP 绑定端口",
+        "QUIC_Port": "QUIC 绑定端口",
+        "HTTP_Port": "HTTP 代理监听端口",
+        "HTTPS_Port": "HTTPS 代理监听端口",
+        "TCPMux": "TCPMux HTTPConnect 代理监听的端口",
+        "Subdomain": "二级域名后缀",
+        "MaxPoolCount": "最大连接池数量",
+        "MaxPortsPerClient": "单客户端最大代理数",
+        "AllowPorts": "允许代理的服务端端口",
+        "TLSForce": "TLS协议版本",
+        "HeartBeatTimeout": "心跳超时时间",
+        "ClientCounts": "客户端数量",
+        "curConns": "当前连接数",
+        "ProxyCounts": "代理数量",
+        "Chart": {
+            "Traffic": {
+                "title": "网络流量",
+                "subTitle": "今日",
+                "TrafficIn": "进站流量",
+                "TrafficOut": "出站流量"
+            },
+            "Proxies": {
+                "title": "代理占比",
+                "subTitle": "当前"
+            }
+        }
+    },
+    "ProxiesView": {
+        "ClearOffLine": "清理离线链接",
+        "Refresh": "刷新",
+        "ClearOffLineInfo": "确定清理所有离线数据?",
+        "name": "代理名称",
+        "Port": "代理端口",
+        "Connections": "连接数",
+        "Traffic_In": "入站流量",
+        "Traffic_Out": "出站流量",
+        "ClientVersion": "frp客户端版本",
+        "Status": {
+            "title": "状态",
+            "Successinfo": "在线"
+        },
+        "Operations": {
+            "title": "操作",
+            "Traffic": "流量"
+        }
+    },
+    "ProxiesViews": {
+        "name": "通道名称",
+        "type": "协议类型",
+        "local_addr": "本地地址",
+        "plugin": "插件",
+        "remote_addr": "远程地址",
+        "status": "状态",
+        "err": "信息"
+    }
+}
