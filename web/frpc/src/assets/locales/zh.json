@@ -1,0 +1,25 @@
+{
+    "main": {
+        "title": "frp 客户端",
+        "Overview": "总览",
+        "Configure": "配置",
+        "Help": "帮助",
+        "dark": {
+            "Dark": "暗",
+            "Light": "明"
+        }
+    },
+    "OverView": {
+        "name": "通道名称",
+        "type": "协议类型",
+        "local_addr": "本地地址",
+        "plugin": "插件",
+        "remote_addr": "远程地址",
+        "status": "状态",
+        "err": "信息"
+    },
+    "Configure": {
+        "Refresh": "读取配置",
+        "Upload": "保存配置"
+    }
+}

@@ -1,21 +1,19 @@
 <template>
   <div>
     <el-row id="head">
-      <el-button type="primary" @click="fetchData">Refresh</el-button>
-      <el-button type="primary" @click="uploadConfig">Upload</el-button>
+      <el-button type="primary" @click="fetchData">{{ t("Configure.Refresh") }}</el-button>
+      <el-button type="primary" @click="uploadConfig">{{ t("Configure.Upload") }}</el-button>
     </el-row>
-    <el-input
-      type="textarea"
-      autosize
-      v-model="textarea"
-      placeholder="frpc configrue file, can not be empty..."
-    ></el-input>
+    <el-input type="textarea" autosize v-model="textarea"
+      placeholder="frpc configrue file, can not be empty..."></el-input>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useI18n } from 'vue-i18n';
+const { t } = useI18n();
 
 let textarea = ref('')
 
