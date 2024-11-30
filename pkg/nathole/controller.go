@@ -371,8 +371,8 @@ func getRangePorts(addrs []string, difference, maxNumber int) []msg.PortsRange {
 		return nil
 	}
 
-	addr, err := lo.Last(addrs)
-	if err != nil {
+	addr, isLast := lo.Last(addrs)
+	if !isLast {
 		return nil
 	}
 	var ports []msg.PortsRange
