@@ -70,6 +70,7 @@ type serverInfoResp struct {
 	Version               string `json:"version"`
 	BindPort              int    `json:"bindPort"`
 	VhostHTTPPort         int    `json:"vhostHTTPPort"`
+	VhostEnableH2C        bool   `json:"vhostEnableH2C"`
 	VhostHTTPSPort        int    `json:"vhostHTTPSPort"`
 	TCPMuxHTTPConnectPort int    `json:"tcpmuxHTTPConnectPort"`
 	KCPBindPort           int    `json:"kcpBindPort"`
@@ -111,6 +112,7 @@ func (svr *Service) apiServerInfo(w http.ResponseWriter, r *http.Request) {
 		BindPort:              svr.cfg.BindPort,
 		VhostHTTPPort:         svr.cfg.VhostHTTPPort,
 		VhostHTTPSPort:        svr.cfg.VhostHTTPSPort,
+		VhostEnableH2C:        svr.cfg.VhostEnableH2C,
 		TCPMuxHTTPConnectPort: svr.cfg.TCPMuxHTTPConnectPort,
 		KCPBindPort:           svr.cfg.KCPBindPort,
 		QUICBindPort:          svr.cfg.QUICBindPort,

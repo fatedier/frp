@@ -230,6 +230,7 @@ func RegisterServerConfigFlags(cmd *cobra.Command, c *v1.ServerConfig, opts ...R
 	cmd.PersistentFlags().IntVarP(&c.QUICBindPort, "quic_bind_port", "", 0, "quic bind udp port")
 	cmd.PersistentFlags().StringVarP(&c.ProxyBindAddr, "proxy_bind_addr", "", "0.0.0.0", "proxy bind address")
 	cmd.PersistentFlags().IntVarP(&c.VhostHTTPPort, "vhost_http_port", "", 0, "vhost http port")
+	cmd.PersistentFlags().BoolVarP(&c.VhostEnableH2C, "vhost_enable_h2c", "", false, "vhost enable h2c")
 	cmd.PersistentFlags().IntVarP(&c.VhostHTTPSPort, "vhost_https_port", "", 0, "vhost https port")
 	cmd.PersistentFlags().Int64VarP(&c.VhostHTTPTimeout, "vhost_http_timeout", "", 60, "vhost http response header timeout")
 	cmd.PersistentFlags().StringVarP(&c.WebServer.Addr, "dashboard_addr", "", "0.0.0.0", "dashboard address")
