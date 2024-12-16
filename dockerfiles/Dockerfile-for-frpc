@@ -7,6 +7,8 @@ RUN make frpc
 
 FROM alpine:3
 
+RUN apk add --no-cache tzdata
+
 COPY --from=building /building/bin/frpc /usr/bin/frpc
 
 ENTRYPOINT ["/usr/bin/frpc"]
