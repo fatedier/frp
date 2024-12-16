@@ -66,7 +66,8 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			req.URL.Scheme = "http"
 			reqRouteInfo := req.Context().Value(RouteInfoKey).(*RequestRouteInfo)
 			originalHost, _ := httppkg.CanonicalHost(reqRouteInfo.Host)
-
+			//recover clean by proxy https://cs.opensource.google/go/go/+/refs/tags/go1.23.4:src/net/http/httputil/reverseproxy.go;l=427
+			req.URL.RawQuery = r.In.URL.RawQuery
 			rc := req.Context().Value(RouteConfigKey).(*RouteConfig)
 			if rc != nil {
 				if rc.RewriteHost != "" {
