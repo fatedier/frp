@@ -1,0 +1,25 @@
+{
+    "main": {
+        "title": "frp client",
+        "Overview": "Overview",
+        "Configure": "Configure",
+        "Help": "Help",
+        "dark": {
+            "Dark": "Dark",
+            "Light": "Light"
+        }
+    },
+    "OverView": {
+        "name": "name",
+        "type": "type",
+        "local_addr": "local address",
+        "plugin": "plugin",
+        "remote_addr": "remote address",
+        "status": "status",
+        "err": "info"
+    },
+    "Configure": {
+        "Refresh": "Refresh",
+        "Upload": "Upload"
+    }
+}
