@@ -13,6 +13,7 @@
   "dependencies": {
     "element-plus": "^2.5.3",
     "vue": "^3.4.15",
+    "vue-i18n": "^10.0.5",
     "vue-router": "^4.2.5"
   },
   "devDependencies": {

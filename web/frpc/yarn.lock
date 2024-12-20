@@ -205,6 +205,27 @@
   resolved "https://registry.yarnpkg.com/@humanwhocodes/object-schema/-/object-schema-2.0.2.tgz#d9fae00a2d5cb40f92cfe64b47ad749fbc38f917"
   integrity sha512-6EwiSjwWYP7pTckG6I5eyFANjPhmPjUX9JRLUSfNPC7FX7zK9gyZAfUEaECL6ALTpGX5AjnBq3C9XmVWPitNpw==
 
+"@intlify/core-base@10.0.5":
+  version "10.0.5"
+  resolved "https://registry.npmmirror.com/@intlify/core-base/-/core-base-10.0.5.tgz#c4d992381f8c3a50c79faf67be3404b399c3be28"
+  integrity sha512-F3snDTQs0MdvnnyzTDTVkOYVAZOE/MHwRvF7mn7Jw1yuih4NrFYLNYIymGlLmq4HU2iIdzYsZ7f47bOcwY73XQ==
+  dependencies:
+    "@intlify/message-compiler" "10.0.5"
+    "@intlify/shared" "10.0.5"
+
+"@intlify/message-compiler@10.0.5":
+  version "10.0.5"
+  resolved "https://registry.npmmirror.com/@intlify/message-compiler/-/message-compiler-10.0.5.tgz#4eeace9f4560020d5e5d77f32bed7755e71d8efd"
+  integrity sha512-6GT1BJ852gZ0gItNZN2krX5QAmea+cmdjMvsWohArAZ3GmHdnNANEcF9JjPXAMRtQ6Ux5E269ymamg/+WU6tQA==
+  dependencies:
+    "@intlify/shared" "10.0.5"
+    source-map-js "^1.0.2"
+
+"@intlify/shared@10.0.5":
+  version "10.0.5"
+  resolved "https://registry.npmmirror.com/@intlify/shared/-/shared-10.0.5.tgz#1b46ca8b541f03508fe28da8f34e4bb85506d6bc"
+  integrity sha512-bmsP4L2HqBF6i6uaMqJMcFBONVjKt+siGluRq4Ca4C0q7W2eMaVZr8iCgF9dKbcVXutftkC7D6z2SaSMmLiDyA==
+
 "@jridgewell/sourcemap-codec@^1.4.15":
   version "1.4.15"
   resolved "https://registry.yarnpkg.com/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.4.15.tgz#d7c6e6755c78567a951e04ab52ef0fd26de59f32"
@@ -2499,6 +2520,15 @@ vue-eslint-parser@^9.3.1, vue-eslint-parser@^9.4.2:
     esquery "^1.4.0"
     lodash "^4.17.21"
     semver "^7.3.6"
+
+vue-i18n@^10.0.5:
+  version "10.0.5"
+  resolved "https://registry.npmmirror.com/vue-i18n/-/vue-i18n-10.0.5.tgz#fdf4e6c7b669e80cfa3a12ed9625e2b46671cdf0"
+  integrity sha512-9/gmDlCblz3i8ypu/afiIc/SUIfTTE1mr0mZhb9pk70xo2csHAM9mp2gdQ3KD2O0AM3Hz/5ypb+FycTj/lHlPQ==
+  dependencies:
+    "@intlify/core-base" "10.0.5"
+    "@intlify/shared" "10.0.5"
+    "@vue/devtools-api" "^6.5.0"
 
 vue-router@^4.2.5:
   version "4.2.5"

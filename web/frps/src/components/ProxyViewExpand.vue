@@ -1,77 +1,74 @@
 <template>
-  <el-form
-    label-position="left"
-    label-width="auto"
-    inline
-    class="proxy-table-expand"
-  >
-    <el-form-item label="Name">
+  <el-form label-position="left" label-width="auto" inline class="proxy-table-expand">
+    <el-form-item :label="t('OverView.Expand.Name')">
       <span>{{ row.name }}</span>
     </el-form-item>
-    <el-form-item label="Type">
+    <el-form-item :label="t('OverView.Expand.Type')">
       <span>{{ row.type }}</span>
     </el-form-item>
-    <el-form-item label="Encryption">
+    <el-form-item :label="t('OverView.Expand.Encryption')">
       <span>{{ row.encryption }}</span>
     </el-form-item>
-    <el-form-item label="Compression">
+    <el-form-item :label="t('OverView.Expand.Compression')">
       <span>{{ row.compression }}</span>
     </el-form-item>
-    <el-form-item label="Last Start">
+    <el-form-item :label="t('OverView.Expand.LastStart')">
       <span>{{ row.lastStartTime }}</span>
     </el-form-item>
-    <el-form-item label="Last Close">
+    <el-form-item :label="t('OverView.Expand.LastClose')">
       <span>{{ row.lastCloseTime }}</span>
     </el-form-item>
 
     <div v-if="proxyType === 'http' || proxyType === 'https'">
-      <el-form-item label="Domains">
+      <el-form-item :label="t('OverView.Expand.Domains')">
         <span>{{ row.customDomains }}</span>
       </el-form-item>
-      <el-form-item label="SubDomain">
+      <el-form-item :label="t('OverView.Expand.SubDomain')">
         <span>{{ row.subdomain }}</span>
       </el-form-item>
-      <el-form-item label="locations">
+      <el-form-item :label="t('OverView.Expand.locations')">
         <span>{{ row.locations }}</span>
       </el-form-item>
-      <el-form-item label="HostRewrite">
+      <el-form-item :label="t('OverView.Expand.HostRewrite')">
         <span>{{ row.hostHeaderRewrite }}</span>
       </el-form-item>
     </div>
     <div v-else-if="proxyType === 'tcpmux'">
-      <el-form-item label="Multiplexer">
+      <el-form-item :label="t('OverView.Expand.Multiplexer')">
         <span>{{ row.multiplexer }}</span>
       </el-form-item>
-      <el-form-item label="RouteByHTTPUser">
+      <el-form-item :label="t('OverView.Expand.RouteByHTTPUser')">
         <span>{{ row.routeByHTTPUser }}</span>
       </el-form-item>
-      <el-form-item label="Domains">
+      <el-form-item :label="t('OverView.Expand.Domains')">
         <span>{{ row.customDomains }}</span>
       </el-form-item>
-      <el-form-item label="SubDomain">
+      <el-form-item :label="t('OverView.Expand.SubDomain')">
         <span>{{ row.subdomain }}</span>
       </el-form-item>
     </div>
     <div v-else>
-      <el-form-item label="Addr">
+      <el-form-item :label="t('OverView.Expand.Addr')">
         <span>{{ row.addr }}</span>
       </el-form-item>
     </div>
   </el-form>
 
   <div v-if="row.annotations && row.annotations.size > 0">
-  <el-divider />
-  <el-text class="title-text" size="large">Annotations</el-text>
-  <ul>
-    <li v-for="item in annotationsArray()">
-      <span class="annotation-key">{{ item.key }}</span>
-      <span>{{  item.value }}</span>
-    </li>
-  </ul>
+    <el-divider />
+    <el-text class="title-text" size="large">{{ t("OverView.Expand.Annotations") }}</el-text>
+    <ul>
+      <li v-for="item in annotationsArray()">
+        <span class="annotation-key">{{ item.key }}</span>
+        <span>{{ item.value }}</span>
+      </li>
+    </ul>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+const { t } = useI18n();
 
 const props = defineProps<{
   row: any
