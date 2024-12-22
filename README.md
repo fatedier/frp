@@ -1264,6 +1264,7 @@ Please refer to this [document](/doc/ssh_tunnel_gateway.md) for more information
 
 * [gofrp/plugin](https://github.com/gofrp/plugin) - A repository for frp plugins that contains a variety of plugins implemented based on the frp extension mechanism, meeting the customization needs of different scenarios.
 * [gofrp/tiny-frpc](https://github.com/gofrp/tiny-frpc) - A lightweight version of the frp client (around 3.5MB at minimum) implemented using the ssh protocol, supporting some of the most commonly used features, suitable for devices with limited resources.
+* [nebulaone-org/byerwall](https://github.com/nebulaone-org/byerwall/) - A frontend lightweight UI for frp built in tk & Python with a focus around game servers.
 
 ## Contributing
 
