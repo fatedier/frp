@@ -103,7 +103,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			return nil, nil
 		},
 	}
-	// alrough register http protocol with a h2t, but it's only used for grpc.
+	// although register http protocol with a h2t, but it's only used for grpc.
 	// for normal http request, it still uses h1t.
 	h1t.RegisterProtocol("http", &grpcSwitchH2Transport{h2t: h2t})
 
