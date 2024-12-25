@@ -1,6 +1,11 @@
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/[PROJECT_ID]/frps', '-f', 'dockerfiles/Dockerfile-for-frps', '.']
+    args: ['build', '-t', 'gcr.io/nbygeiwwwj/frps', '-f', 'dockerfiles/Dockerfile-for-frps', '.']
 
 images:
   - 'gcr.io/[PROJECT_ID]/frps'
+
+options:
+  logging: 'CLOUD_LOGGING_ONLY'  # 选择适当的日志选项
+# 或者
+# default_logs_bucket_behavior: 'REGIONAL_USER_OWNED_BUCKET'
