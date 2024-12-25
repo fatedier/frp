@@ -3,7 +3,7 @@ steps:
     args: ['build', '-t', 'gcr.io/nbygeiwwwj/frps', '-f', 'dockerfiles/Dockerfile-for-frps', '.']
 
 images:
-  - 'gcr.io/[PROJECT_ID]/frps'
+  - 'gcr.io/nbygeiwwwj/frps'
 
 options:
   logging: 'CLOUD_LOGGING_ONLY'  # 选择适当的日志选项
