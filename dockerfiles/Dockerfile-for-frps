@@ -10,5 +10,6 @@ FROM alpine:3
 RUN apk add --no-cache tzdata
 
 COPY --from=building /building/bin/frps /usr/bin/frps
+COPY frps.toml /etc/frps/
 
-ENTRYPOINT ["/usr/bin/frps -c "]
+ENTRYPOINT ["/usr/bin/frps -c /etc/frps/frps.toml"]
