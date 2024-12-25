@@ -6,6 +6,4 @@ images:
   - 'gcr.io/nbygeiwwwj/frps'
 
 options:
-  logging: 'CLOUD_LOGGING_ONLY'  # 选择适当的日志选项
-# 或者
-# default_logs_bucket_behavior: 'REGIONAL_USER_OWNED_BUCKET'
+  logging: 'CLOUD_LOGGING_ONLY'
