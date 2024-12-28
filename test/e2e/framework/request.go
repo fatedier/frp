@@ -42,7 +42,7 @@ type RequestExpect struct {
 	f           *Framework
 	expectResp  []byte
 	expectError bool
-	explain     []interface{}
+	explain     []any
 }
 
 func NewRequestExpect(f *Framework) *RequestExpect {
@@ -51,7 +51,7 @@ func NewRequestExpect(f *Framework) *RequestExpect {
 		f:           f,
 		expectResp:  []byte(consts.TestString),
 		expectError: false,
-		explain:     make([]interface{}, 0),
+		explain:     make([]any, 0),
 	}
 }
 
@@ -94,7 +94,7 @@ func (e *RequestExpect) ExpectError(expectErr bool) *RequestExpect {
 	return e
 }
 
-func (e *RequestExpect) Explain(explain ...interface{}) *RequestExpect {
+func (e *RequestExpect) Explain(explain ...any) *RequestExpect {
 	e.explain = explain
 	return e
 }

@@ -75,7 +75,7 @@ func (m *Manager) Login(content *LoginContent) (*LoginContent, error) {
 			Reject:   false,
 			Unchange: true,
 		}
-		retContent interface{}
+		retContent any
 		err        error
 	)
 	reqid, _ := util.RandID()
@@ -109,7 +109,7 @@ func (m *Manager) NewProxy(content *NewProxyContent) (*NewProxyContent, error) {
 			Reject:   false,
 			Unchange: true,
 		}
-		retContent interface{}
+		retContent any
 		err        error
 	)
 	reqid, _ := util.RandID()
@@ -168,7 +168,7 @@ func (m *Manager) Ping(content *PingContent) (*PingContent, error) {
 			Reject:   false,
 			Unchange: true,
 		}
-		retContent interface{}
+		retContent any
 		err        error
 	)
 	reqid, _ := util.RandID()
@@ -202,7 +202,7 @@ func (m *Manager) NewWorkConn(content *NewWorkConnContent) (*NewWorkConnContent,
 			Reject:   false,
 			Unchange: true,
 		}
-		retContent interface{}
+		retContent any
 		err        error
 	)
 	reqid, _ := util.RandID()
@@ -236,7 +236,7 @@ func (m *Manager) NewUserConn(content *NewUserConnContent) (*NewUserConnContent,
 			Reject:   false,
 			Unchange: true,
 		}
-		retContent interface{}
+		retContent any
 		err        error
 	)
 	reqid, _ := util.RandID()

@@ -67,27 +67,27 @@ func InitLogger(logPath string, levelStr string, maxDays int, disableLogColor bo
 	Logger = Logger.WithOptions(options...)
 }
 
-func Errorf(format string, v ...interface{}) {
+func Errorf(format string, v ...any) {
 	Logger.Errorf(format, v...)
 }
 
-func Warnf(format string, v ...interface{}) {
+func Warnf(format string, v ...any) {
 	Logger.Warnf(format, v...)
 }
 
-func Infof(format string, v ...interface{}) {
+func Infof(format string, v ...any) {
 	Logger.Infof(format, v...)
 }
 
-func Debugf(format string, v ...interface{}) {
+func Debugf(format string, v ...any) {
 	Logger.Debugf(format, v...)
 }
 
-func Tracef(format string, v ...interface{}) {
+func Tracef(format string, v ...any) {
 	Logger.Tracef(format, v...)
 }
 
-func Logf(level log.Level, offset int, format string, v ...interface{}) {
+func Logf(level log.Level, offset int, format string, v ...any) {
 	Logger.Logf(level, offset, format, v...)
 }
 

@@ -170,7 +170,7 @@ type ClientCommonConf struct {
 }
 
 // Supported sources including: string(file path), []byte, Reader interface.
-func UnmarshalClientConfFromIni(source interface{}) (ClientCommonConf, error) {
+func UnmarshalClientConfFromIni(source any) (ClientCommonConf, error) {
 	f, err := ini.LoadSources(ini.LoadOptions{
 		Insensitive:         false,
 		InsensitiveSections: false,
@@ -203,7 +203,7 @@ func UnmarshalClientConfFromIni(source interface{}) (ClientCommonConf, error) {
 // otherwise just start proxies in startProxy map
 func LoadAllProxyConfsFromIni(
 	prefix string,
-	source interface{},
+	source any,
 	start []string,
 ) (map[string]ProxyConf, map[string]VisitorConf, error) {
 	f, err := ini.LoadSources(ini.LoadOptions{
