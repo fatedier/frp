@@ -140,7 +140,7 @@ type ClientTransportConfig struct {
 }
 
 func (c *ClientTransportConfig) Complete() {
-	c.Protocol = util.EmptyOr(c.Protocol, "tcp")
+	c.Protocol = util.EmptyOr(c.Protocol, "kcp")
 	c.DialServerTimeout = util.EmptyOr(c.DialServerTimeout, 10)
 	c.DialServerKeepAlive = util.EmptyOr(c.DialServerKeepAlive, 7200)
 	c.ProxyURL = util.EmptyOr(c.ProxyURL, os.Getenv("http_proxy"))

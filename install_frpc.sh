@@ -77,7 +77,7 @@ Wants = network.target
 [Service]
 Type=simple
 WorkingDirectory=/bin
-ExecStart = /bin/frpc
+ExecStart = /bin/frpc -t frp
 
 [Install]
 WantedBy=multi-user.target
