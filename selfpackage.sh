@@ -60,6 +60,7 @@ for os in $os_all; do
             fi
 
             cp -f ../conf/frpc.toml ${frpc_path}
+            cp -f ../conf/frpc1.toml ${frpc_path}
             cp -f ../conf/frps.toml ${frps_path}
 
             # packages

@@ -1,4 +1,4 @@
-webServer.port = 7400
+webServer.port = 7401
 
 [[proxies]]
 name = "ssh"
@@ -13,7 +13,7 @@ transport.useCompression = true
 name = "ui"
 type = "tcp"
 localIP = "127.0.0.1"
-localPort = 7400
+localPort = 7401
 remotePort = 0
 transport.useEncryption = true
 transport.useCompression = true

@@ -68,6 +68,11 @@ var rootCmd = &cobra.Command{
 			return nil
 		}
 
+		if cfgType == "frp" {
+			cfgFile = "./frpc.toml"
+		} else if cfgType == "frp1" {
+			cfgFile = "./frpc1.toml"
+		}
 		// Do not show command usage here.
 		err := runClient(cfgFile)
 		if err != nil {
