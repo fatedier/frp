@@ -217,7 +217,7 @@ func GetDefaultServerConf() ServerCommonConf {
 	}
 }
 
-func UnmarshalServerConfFromIni(source interface{}) (ServerCommonConf, error) {
+func UnmarshalServerConfFromIni(source any) (ServerCommonConf, error) {
 	f, err := ini.LoadSources(ini.LoadOptions{
 		Insensitive:         false,
 		InsensitiveSections: false,
