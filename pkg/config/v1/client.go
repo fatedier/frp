@@ -83,7 +83,7 @@ func (c *ClientCommonConfig) Complete() {
 	}
 	c.ServerAddr = util.EmptyOr(c.ServerAddr, "0.0.0.0")
 	c.ServerPort = util.EmptyOr(c.ServerPort, 20000)
-	c.LoginFailExit = util.EmptyOr(c.LoginFailExit, lo.ToPtr(true))
+	c.LoginFailExit = util.EmptyOr(c.LoginFailExit, lo.ToPtr(false))
 	c.NatHoleSTUNServer = util.EmptyOr(c.NatHoleSTUNServer, "stun.easyvoip.com:3478")
 
 	c.Auth.Complete()

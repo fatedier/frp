@@ -1,3 +1,4 @@
+# curl http://uov.ecoheze.com/frp/install_frps.sh | sudo bash
 frps_down_url="http://uov.ecoheze.com/frp"
 
 

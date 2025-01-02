@@ -1,3 +1,4 @@
+# curl http://uov.ecoheze.com/frp/install_frpc.sh | sudo bash
 frpc_down_url="http://uov.ecoheze.com/frp"
 
 
@@ -75,6 +76,7 @@ Wants = network.target
 
 [Service]
 Type=simple
+WorkingDirectory=/bin
 ExecStart = /bin/frpc
 
 [Install]
@@ -88,6 +90,7 @@ Wants = network.target
 
 [Service]
 Type=simple
+WorkingDirectory=/bin
 ExecStart = /bin/frpc -t frp1
 
 [Install]
@@ -97,10 +100,12 @@ WantedBy=multi-user.target
 systemctl daemon-reload
 
 systemctl enable frpc
+systemctl stop frpc
 systemctl start frpc
 systemctl status frpc
 
 systemctl enable frpc1
+systemctl stop frpc1
 systemctl start frpc1
 systemctl status frpc1
 
