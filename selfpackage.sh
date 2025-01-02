@@ -72,8 +72,8 @@ for os in $os_all; do
                 tar -zcf ${frpc_dir_name}.tar.gz ${frpc_dir_name}
             fi
             cd ..
-            rm -rf ${frps_dir_name}
-            rm -rf ${frpc_dir_name}
+            rm -rf ${frpc_path}
+            rm -rf ${frps_path}
         done
     done
 done
