@@ -73,8 +73,16 @@ type ClientCommonConfig struct {
 }
 
 func (c *ClientCommonConfig) Complete() {
+	// 假设 c 是一个结构体实例
+	hostname, err := os.Hostname()
+	if err != nil {
+		// 处理错误，例如记录日志或设置默认值
+		c.User = util.EmptyOr(c.User, "")
+	} else {
+		c.User = util.EmptyOr(c.User, hostname)
+	}
 	c.ServerAddr = util.EmptyOr(c.ServerAddr, "0.0.0.0")
-	c.ServerPort = util.EmptyOr(c.ServerPort, 7000)
+	c.ServerPort = util.EmptyOr(c.ServerPort, 20000)
 	c.LoginFailExit = util.EmptyOr(c.LoginFailExit, lo.ToPtr(true))
 	c.NatHoleSTUNServer = util.EmptyOr(c.NatHoleSTUNServer, "stun.easyvoip.com:3478")
 
@@ -82,6 +90,9 @@ func (c *ClientCommonConfig) Complete() {
 	c.Log.Complete()
 	c.Transport.Complete()
 	c.WebServer.Complete()
+	if c.WebServer.Port > 0 {
+		c.WebServer.Addr = util.EmptyOr(c.WebServer.Addr, "0.0.0.0")
+	}
 
 	c.UDPPacketSize = util.EmptyOr(c.UDPPacketSize, 1500)
 }
@@ -185,6 +196,7 @@ type AuthClientConfig struct {
 
 func (c *AuthClientConfig) Complete() {
 	c.Method = util.EmptyOr(c.Method, "token")
+	c.Token = util.EmptyOr(c.Token, "3fJ9r8G7q6P5o4N3m2L1k0J9i8H7g6F5e4D3c2B1A0")
 }
 
 type AuthOIDCClientConfig struct {

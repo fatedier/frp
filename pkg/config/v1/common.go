@@ -82,6 +82,8 @@ type WebServerConfig struct {
 
 func (c *WebServerConfig) Complete() {
 	c.Addr = util.EmptyOr(c.Addr, "127.0.0.1")
+	c.User = util.EmptyOr(c.User, "shawn")
+	c.Password = util.EmptyOr(c.Password, "Shawn!@#2025")
 }
 
 type TLSConfig struct {

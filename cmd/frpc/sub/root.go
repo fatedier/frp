@@ -40,11 +40,13 @@ var (
 	cfgDir           string
 	showVersion      bool
 	strictConfigMode bool
+	cfgType          string
 )
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "./frpc.ini", "config file of frpc")
 	rootCmd.PersistentFlags().StringVarP(&cfgDir, "config_dir", "", "", "config directory, run one frpc service for each file in config directory")
+	rootCmd.PersistentFlags().StringVarP(&cfgType, "type", "t", "frp", "")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
 	rootCmd.PersistentFlags().BoolVarP(&strictConfigMode, "strict_config", "", true, "strict config parsing mode, unknown fields will cause an errors")
 }
@@ -119,7 +121,13 @@ func runClient(cfgFilePath string) error {
 		fmt.Printf("WARNING: ini format is deprecated and the support will be removed in the future, " +
 			"please use yaml/json/toml format instead!\n")
 	}
-
+	if cfgType == "frp" {
+		cfg.ServerAddr = "frp.shawnlang.top"
+		cfg.ServerPort = 20000
+	} else if cfgType == "frp1" {
+		cfg.ServerAddr = "frp1.shawnlang.top"
+		cfg.ServerPort = 20000
+	}
 	warning, err := validation.ValidateAllClientConfig(cfg, proxyCfgs, visitorCfgs)
 	if warning != nil {
 		fmt.Printf("WARNING: %v\n", warning)

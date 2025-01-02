@@ -1,9 +1,20 @@
-serverAddr = "127.0.0.1"
-serverPort = 7000
+user = "测试"
+webServer.port = 7400
 
 [[proxies]]
-name = "test-tcp"
+name = "ssh"
 type = "tcp"
 localIP = "127.0.0.1"
 localPort = 22
-remotePort = 6000
+remotePort = 0
+transport.useEncryption = true
+transport.useCompression = true
+
+[[proxies]]
+name = "ui"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 21002
+remotePort = 0
+transport.useEncryption = true
+transport.useCompression = true
