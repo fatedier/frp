@@ -106,6 +106,7 @@ func runServer(cfg *v1.ServerConfig) (err error) {
 	} else {
 		log.Infof("frps uses command line arguments for config")
 	}
+	log.Infof("frps token: %s", cfg.Auth.Token)
 
 	svr, err := server.NewService(cfg)
 	if err != nil {

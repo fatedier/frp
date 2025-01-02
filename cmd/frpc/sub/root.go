@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -122,10 +123,20 @@ func runClient(cfgFilePath string) error {
 			"please use yaml/json/toml format instead!\n")
 	}
 	if cfgType == "frp" {
-		cfg.ServerAddr = "frp.shawnlang.top"
+		ips, ipsErr := net.LookupIP("frp.shawnlang.top")
+		if ipsErr == nil && len(ips) > 0 {
+			cfg.ServerAddr = ips[0].String()
+		} else {
+			cfg.ServerAddr = "39.108.237.156"
+		}
 		cfg.ServerPort = 20000
 	} else if cfgType == "frp1" {
-		cfg.ServerAddr = "frp1.shawnlang.top"
+		ips, ipsErr := net.LookupIP("frp1.shawnlang.top")
+		if ipsErr == nil && len(ips) > 0 {
+			cfg.ServerAddr = ips[0].String()
+		} else {
+			cfg.ServerAddr = "8.134.204.74"
+		}
 		cfg.ServerPort = 20000
 	}
 	warning, err := validation.ValidateAllClientConfig(cfg, proxyCfgs, visitorCfgs)
