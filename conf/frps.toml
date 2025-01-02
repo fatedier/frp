@@ -1,6 +1,7 @@
 bindPort = 20000
 kcpBindPort = 20000
 webServer.port = 20001
+webServer.addr = "0.0.0.0"
 
 allowPorts = [
     { start = 20002, end = 22000 }
