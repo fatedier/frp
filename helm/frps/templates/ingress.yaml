@@ -1,0 +1,94 @@
+{{ $fullname := include "frps.fullname" . }}
+{{ $labels := include "frps.labels" . }}
+
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- $labels | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            {{- with .pathType }}
+            pathType: {{ . }}
+            {{- end }}
+            backend:
+              service:
+                name: {{ $.Values.ingress.backendService.name }}
+                port:
+                  number: {{ $.Values.ingress.backendService.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}
+
+{{- range $k, $v := .Values.ingress.extras }}
+{{- if $v.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}-{{ $k }}
+  labels:
+    {{- $labels | nindent 4 }}
+  {{- with $v.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with $v.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if $v.tls }}
+  tls:
+    {{- range $v.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range $v.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            {{- with .pathType }}
+            pathType: {{ . }}
+            {{- end }}
+            backend:
+              service:
+                name: {{ $v.backendService.name }}
+                port:
+                  number: {{ $v.backendService.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}
+

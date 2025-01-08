@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "frps.fullname" . }}-test-connection"
+  labels:
+    {{- include "frps.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "frps.fullname" . }}:{{ .Values.service.port }}']
+  restartPolicy: Never

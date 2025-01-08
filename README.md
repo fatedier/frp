@@ -58,6 +58,7 @@ frp also offers a P2P connect mode.
     * [Enable HTTPS for a local HTTP(S) service](#enable-https-for-a-local-https-service)
     * [Expose your service privately](#expose-your-service-privately)
     * [P2P Mode](#p2p-mode)
+    * [Run in Kubernetes](#run-in-kubernetes)
 * [Features](#features)
     * [Configuration Files](#configuration-files)
     * [Using Environment Variables](#using-environment-variables)
@@ -471,6 +472,11 @@ Note that it may not work with all types of NAT devices. You might want to fallb
 3. On machine C, connect to SSH on machine B, using this command:
 
   `ssh -oPort=6000 127.0.0.1`
+
+### Run in Kubernetes
+
+Refer to [helm/frps/README.md](./helm/frps/README.md) for examples on
+how to run frps in Kubernetes.
 
 ## Features
 

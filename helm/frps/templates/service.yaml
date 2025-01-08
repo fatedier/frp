@@ -1,0 +1,49 @@
+{{ $fullname := include "frps.fullname" . }}
+{{ $labels := include "frps.labels" . }}
+{{ $selectors := include "frps.selectorLabels" . }}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- $labels | nindent 4 }}
+  annotations:
+    {{- toYaml .Values.service.annotations | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: frps
+      name: frps
+  selector:
+    {{- $selectors | nindent 4 }}
+  {{- with .Values.service.settings }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+
+
+{{- range $k, $v := .Values.service.extras }}
+{{- if $v.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-{{ $k }}
+  labels:
+    {{- $labels | nindent 4 }}
+  annotations:
+    {{- toYaml $v.annotations | nindent 4 }}
+spec:
+  type: {{ $v.type }}
+  ports:
+    - port: {{ $v.port }}
+      targetPort: {{ $v.port }}
+      name: {{ $k }}
+  selector:
+    {{- $selectors | nindent 4 }}
+  {{- with $v.settings }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+{{- end }}
+{{- end }}
