@@ -64,6 +64,9 @@ if [ "$os" == "ubuntu" ]; then
 elif [ "$os" == "\"centos\"" ]; then
     service_file="/usr/lib/systemd/system/frpc.service"
     service_file1="/usr/lib/systemd/system/frpc1.service"
+elif [ "$os" == "\"kylin\"" ]; then
+    service_file="/lib/systemd/system/frpc.service"
+    service_file1="/lib/systemd/system/frpc1.service"
 else
     echo "未知系统类型: $os"
     exit
