@@ -19,8 +19,6 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/fatedier/golib/errors"
-
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 )
@@ -90,11 +88,9 @@ func (pxy *XTCPProxy) Run() (remoteAddr string, err error) {
 }
 
 func (pxy *XTCPProxy) Close() {
-	pxy.BaseProxy.Close()
-	pxy.rc.NatHoleController.CloseClient(pxy.GetName())
 	pxy.closeOnce.Do(func() {
-		_ = errors.PanicToError(func() {
-			close(pxy.closeCh)
-		})
+		pxy.BaseProxy.Close()
+		pxy.rc.NatHoleController.CloseClient(pxy.GetName())
+		close(pxy.closeCh)
 	})
 }
