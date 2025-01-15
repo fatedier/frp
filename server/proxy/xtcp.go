@@ -17,6 +17,7 @@ package proxy
 import (
 	"fmt"
 	"reflect"
+	"sync"
 
 	"github.com/fatedier/golib/errors"
 
@@ -32,7 +33,8 @@ type XTCPProxy struct {
 	*BaseProxy
 	cfg *v1.XTCPProxyConfig
 
-	closeCh chan struct{}
+	closeCh   chan struct{}
+	closeOnce sync.Once
 }
 
 func NewXTCPProxy(baseProxy *BaseProxy) Proxy {
@@ -90,7 +92,9 @@ func (pxy *XTCPProxy) Run() (remoteAddr string, err error) {
 func (pxy *XTCPProxy) Close() {
 	pxy.BaseProxy.Close()
 	pxy.rc.NatHoleController.CloseClient(pxy.GetName())
-	_ = errors.PanicToError(func() {
-		close(pxy.closeCh)
+	pxy.closeOnce.Do(func() {
+		_ = errors.PanicToError(func() {
+			close(pxy.closeCh)
+		})
 	})
 }
