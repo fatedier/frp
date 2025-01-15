@@ -43,6 +43,7 @@ func NewXTCPProxy(baseProxy *BaseProxy) Proxy {
 	return &XTCPProxy{
 		BaseProxy: baseProxy,
 		cfg:       unwrapped,
+		closeCh:   make(chan struct{}),
 	}
 }
 
