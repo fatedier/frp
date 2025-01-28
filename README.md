@@ -1235,7 +1235,7 @@ sshTunnelGateway.bindPort = 2200
 
 When running `./frps -c frps.toml`, a private key file named `.autogen_ssh_key` will be automatically created in the current working directory. This generated private key file will be used by the SSH server in frps.
 
-Executing the command
+Executing the command:
 
 ```bash
 ssh -R :80:127.0.0.1:8080 v0@{frp address} -p 2200 tcp --proxy_name "test-tcp" --remote_port 9090
