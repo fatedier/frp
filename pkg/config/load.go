@@ -18,10 +18,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	toml "github.com/pelletier/go-toml/v2"
 	"github.com/samber/lo"
