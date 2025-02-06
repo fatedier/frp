@@ -51,7 +51,7 @@ func NewAuthVerifier(cfg v1.AuthServerConfig) (authVerifier Verifier) {
 		authVerifier = NewTokenAuth(cfg.AdditionalScopes, cfg.Token)
 	case v1.AuthMethodOIDC:
 		tokenVerifier := NewTokenVerifier(cfg.OIDC)
-		authVerifier = NewOidcAuthVerifier(cfg.AdditionalScopes, tokenVerifier)
+		authVerifier = NewOidcAuthVerifier(cfg.AdditionalScopes, tokenVerifier, cfg.OIDC.AllowedHostedDomains)
 	}
 	return authVerifier
 }

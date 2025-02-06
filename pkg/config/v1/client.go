@@ -203,4 +203,7 @@ type AuthOIDCClientConfig struct {
 	// AdditionalEndpointParams specifies additional parameters to be sent
 	// this field will be transfer to map[string][]string in OIDC token generator.
 	AdditionalEndpointParams map[string]string `json:"additionalEndpointParams,omitempty"`
+	// RawToken specifies a raw JWT token to use for authentication, bypassing
+	// the OIDC flow.
+	RawToken string `json:"rawToken,omitempty"`
 }
