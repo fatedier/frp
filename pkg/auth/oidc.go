@@ -139,24 +139,24 @@ func NewOidcAuthVerifier(additionalAuthScopes []v1.AuthScope, verifier TokenVeri
 }
 
 func (auth *OidcAuthConsumer) VerifyLogin(loginMsg *msg.Login) (err error) {
-	// Decode token without verifying signature to retrieved 'hd' claim.
-	parts := strings.Split(loginMsg.PrivilegeKey, ".")
-	if len(parts) != 3 {
-		return fmt.Errorf("invalid OIDC token format")
-	}
-
-	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return fmt.Errorf("invalid OIDC token: failed to decode payload: %v", err)
-	}
-
-	var claims map[string]any
-	if err := json.Unmarshal(payload, &claims); err != nil {
-		return fmt.Errorf("invalid OIDC token: failed to unmarshal payload: %v", err)
-	}
-
 	// Verify hosted domain (hd claim).
 	if len(auth.allowedHostedDomains) > 0 {
+		// Decode token without verifying signature to retrieved 'hd' claim.
+		parts := strings.Split(loginMsg.PrivilegeKey, ".")
+		if len(parts) != 3 {
+			return fmt.Errorf("invalid OIDC token format")
+		}
+
+		payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+		if err != nil {
+			return fmt.Errorf("invalid OIDC token: failed to decode payload: %v", err)
+		}
+
+		var claims map[string]any
+		if err := json.Unmarshal(payload, &claims); err != nil {
+			return fmt.Errorf("invalid OIDC token: failed to unmarshal payload: %v", err)
+		}
+
 		hd, ok := claims["hd"].(string)
 		if !ok {
 			return fmt.Errorf("OIDC token missing required 'hd' claim")
