@@ -112,6 +112,29 @@ func TestLoadServerConfigStrictMode(t *testing.T) {
 	}
 }
 
+func TestRenderWithTemplate(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    string
+	}{
+		{"toml", tomlServerContent, tomlServerContent},
+		{"yaml", yamlServerContent, yamlServerContent},
+		{"json", jsonServerContent, jsonServerContent},
+		{"template numeric", `key = {{ 123 }}`, "key = 123"},
+		{"template string", `key = {{ "xyz" }}`, "key = xyz"},
+		{"template quote", `key = {{ printf "%q" "with space" }}`, `key = "with space"`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require := require.New(t)
+			got, err := RenderWithTemplate([]byte(test.content), nil)
+			require.NoError(err)
+			require.EqualValues(test.want, string(got))
+		})
+	}
+}
+
 func TestCustomStructStrictMode(t *testing.T) {
 	require := require.New(t)
 
