@@ -23,7 +23,7 @@ func (m *mockTokenVerifier) Verify(ctx context.Context, subject string) (*oidc.I
 
 func TestPingWithEmptySubjectFromLoginFails(t *testing.T) {
 	r := require.New(t)
-	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, &mockTokenVerifier{}, []string{})
+	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, &mockTokenVerifier{}, map[string]string{})
 	err := consumer.VerifyPing(&msg.Ping{
 		PrivilegeKey: "ping-without-login",
 		Timestamp:    time.Now().UnixMilli(),
@@ -34,7 +34,7 @@ func TestPingWithEmptySubjectFromLoginFails(t *testing.T) {
 
 func TestPingAfterLoginWithNewSubjectSucceeds(t *testing.T) {
 	r := require.New(t)
-	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, &mockTokenVerifier{}, []string{})
+	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, &mockTokenVerifier{}, map[string]string{})
 	err := consumer.VerifyLogin(&msg.Login{
 		PrivilegeKey: "ping-after-login",
 	})
@@ -49,7 +49,7 @@ func TestPingAfterLoginWithNewSubjectSucceeds(t *testing.T) {
 
 func TestPingAfterLoginWithDifferentSubjectFails(t *testing.T) {
 	r := require.New(t)
-	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, &mockTokenVerifier{}, []string{})
+	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, &mockTokenVerifier{}, map[string]string{})
 	err := consumer.VerifyLogin(&msg.Login{
 		PrivilegeKey: "login-with-first-subject",
 	})

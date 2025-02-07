@@ -147,15 +147,14 @@ type AuthOIDCServerConfig struct {
 	// SkipIssuerCheck specifies whether to skip checking if the OIDC token's
 	// issuer claim matches the issuer specified in OidcIssuer.
 	SkipIssuerCheck bool `json:"skipIssuerCheck,omitempty"`
-	// AllowedHostedDomains specifies a list of allowed hosted domains for the
-	// "hd" claim in the token.
-	AllowedHostedDomains []string `json:"allowedHostedDomains,omitempty"`
+	// AllowedClaims specifies a map of allowed claims for the OIDC token.
+	AllowedClaims map[string]string `json:"allowedClaims,omitempty"`
 }
 
 func (c *AuthOIDCServerConfig) Complete() {
-	// Ensure AllowedHostedDomains is an empty slice and not nil
-	if c.AllowedHostedDomains == nil {
-		c.AllowedHostedDomains = []string{}
+	// Ensure AllowedClaims is at least an empty map and not nil
+	if c.AllowedClaims == nil {
+		c.AllowedClaims = map[string]string{}
 	}
 }
 

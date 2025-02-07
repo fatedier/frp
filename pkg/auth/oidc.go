@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -111,8 +112,8 @@ type OidcAuthConsumer struct {
 	verifier          TokenVerifier
 	subjectsFromLogin []string
 
-	// allowedHostedDomains specifies a list of allowed hosted domains for the "hd" claim in the token.
-	allowedHostedDomains []string
+	// allowedClaims specifies a map of allowed claims for the OIDC token.
+	allowedClaims map[string]string
 }
 
 func NewTokenVerifier(cfg v1.AuthOIDCServerConfig) TokenVerifier {
@@ -129,19 +130,19 @@ func NewTokenVerifier(cfg v1.AuthOIDCServerConfig) TokenVerifier {
 	return provider.Verifier(&verifierConf)
 }
 
-func NewOidcAuthVerifier(additionalAuthScopes []v1.AuthScope, verifier TokenVerifier, allowedHostedDomains []string) *OidcAuthConsumer {
+func NewOidcAuthVerifier(additionalAuthScopes []v1.AuthScope, verifier TokenVerifier, allowedClaims map[string]string) *OidcAuthConsumer {
 	return &OidcAuthConsumer{
 		additionalAuthScopes: additionalAuthScopes,
 		verifier:             verifier,
 		subjectsFromLogin:    []string{},
-		allowedHostedDomains: allowedHostedDomains,
+		allowedClaims:        allowedClaims,
 	}
 }
 
 func (auth *OidcAuthConsumer) VerifyLogin(loginMsg *msg.Login) (err error) {
-	// Verify hosted domain (hd claim).
-	if len(auth.allowedHostedDomains) > 0 {
-		// Decode token without verifying signature to retrieved 'hd' claim.
+	// Verify allowed claims if configured.
+	if len(auth.allowedClaims) > 0 {
+		// Decode token without verifying signature.
 		parts := strings.Split(loginMsg.PrivilegeKey, ".")
 		if len(parts) != 3 {
 			return fmt.Errorf("invalid OIDC token format")
@@ -157,24 +158,32 @@ func (auth *OidcAuthConsumer) VerifyLogin(loginMsg *msg.Login) (err error) {
 			return fmt.Errorf("invalid OIDC token: failed to unmarshal payload: %v", err)
 		}
 
-		hd, ok := claims["hd"].(string)
-		if !ok {
-			return fmt.Errorf("OIDC token missing required 'hd' claim")
-		}
-
-		found := false
-		for _, domain := range auth.allowedHostedDomains {
-			if hd == domain {
-				found = true
-				break
+		// Iterate over allowed claims and attempt to verify.
+		for claimName, expectedValue := range auth.allowedClaims {
+			claimValue, ok := claims[claimName]
+			if !ok {
+				return fmt.Errorf("OIDC token missing required claim: %s", claimName)
 			}
-		}
-		if !found {
-			return fmt.Errorf("OIDC token 'hd' claim [%s] is not in allowed list", hd)
+
+			if strClaimValue, ok := claimValue.(string); ok {
+				if strClaimValue != expectedValue {
+					return fmt.Errorf("OIDC token claim '%s' value [%s] does not match expected value [%s]", claimName, strClaimValue, expectedValue)
+				}
+			} else if intClaimValue, ok := claimValue.(int); ok {
+				expectedIntValue, err := strconv.Atoi(expectedValue)
+				if err != nil {
+					return fmt.Errorf("OIDC token claim '%s' is number, expected value [%s] not parseable", claimName, expectedValue)
+				}
+				if intClaimValue != expectedIntValue {
+					return fmt.Errorf("OIDC token claim '%s' value [%d] does not match expected value [%d]", claimName, intClaimValue, expectedIntValue)
+				}
+			} else {
+				return fmt.Errorf("claim %s is of unsupported type", claimName)
+			}
 		}
 	}
 
-	// If hd check passes, proceed with standard verification.
+	// If claim verification passes, proceed with standard verification.
 	token, err := auth.verifier.Verify(context.Background(), loginMsg.PrivilegeKey)
 	if err != nil {
 		return fmt.Errorf("invalid OIDC token in login: %v", err)
