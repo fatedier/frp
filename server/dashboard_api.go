@@ -286,13 +286,13 @@ func (svr *Service) apiProxyByType(w http.ResponseWriter, r *http.Request) {
 	proxyType := params["type"]
 
 	defer func() {
-		log.Infof("HTTP返回 [%s]: 代码 [%d]", r.URL.Path, res.Code)
+		// log.Infof("HTTP返回 [%s]: 代码 [%d]", r.URL.Path, res.Code)
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
 			_, _ = w.Write([]byte(res.Msg))
 		}
 	}()
-	log.Infof("HTTP请求: [%s]", r.URL.Path)
+	// log.Infof("HTTP请求: [%s]", r.URL.Path)
 
 	proxyInfoResp := GetProxyInfoResp{}
 	proxyInfoResp.Proxies = svr.getProxyStatsByType(proxyType)
@@ -574,7 +574,7 @@ func (svr *Service) ApiCloseFrps(w http.ResponseWriter, r *http.Request) {
 func checkonline() {
 	log.Infof("[HayFrp] 检测服务器上线状态中......")
 	// 发起 GET 请求获取 API 返回的内容(节点状态)
-	resp, err := http.Get("https://api.hayfrp.org/NodeAPI?type=checkonline&token=" + g.GlbServerCfg.ApiToken)
+	resp, err := http.Get("https://api.hayfrp.com/NodeAPI?type=checkonline&token=" + g.GlbServerCfg.ApiToken)
 	if err != nil {
 		return
 	}

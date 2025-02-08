@@ -595,7 +595,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		loginMsg.RunID = "HayFrpToken：" + loginMsg.User + "," + "ConnectToken：" + randid + "] Getting data from HayFrp API......" + "\n" + str + " [I] [server/hayfrp.go:102] [HayFrp] " + greeting + "\n" + str + " [I] [server/hayfrp.go:145] [HayFrp] 已将HayFrp终端介入客户端Frpc!" + "\n" + str + " [W] [server/hayfrp.go:187] [HayFrp] 友情提示：若需要分享错误日志，请为Token打码，否则可能导致信息泄露!" + "\n" + str + " [I] [server/hayfrp.go:245] [HayFrp] 当前服务器准时: " + serverTime.String() + "\n" + str + " [I] [server/hayfrp.go:199] [HayFrp] 您已成功连接至HayFrp云服务" + "\n" + str + " [W] [server/hayfrp.go:425] [HayFrp] 检测到您正在" + loginMsg.Os + "-" + loginMsg.Arch + "系统下运行客户端" + "\n" + str + " [W] [server/hayfrp.go:665] [HayFrp] 检测到您的客户端版本为" + loginMsg.Version + "\n"
 
 		// 发起 GET 请求获取 API 返回的内容(API服务状态查询)
-		resp, err := http.Get("https://api.hayfrp.org/")
+		resp, err := http.Get("https://api.hayfrp.com/")
 		if err != nil {
 			return err
 		}
@@ -608,10 +608,10 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		}
 
 		// 将 API 返回的内容添加到 loginMsg.RunID 后面
-		loginMsg.RunID += str + " [I] [api/hayfrp.go:423] [HayFrp] " + string(body) + "\n"
+		loginMsg.RunID += str + " [I] [hayapi/hayfrp.go:423] [HayFrp] " + string(body) + "\n"
 
 		// 发起 GET 请求获取 API 返回的内容(今日启动获取服务)
-		resp, err = http.Get("https://api.hayfrp.org/NodeAPI?type=userlogin&utoken=" + loginMsg.User + "&token=" + svr.cfg.ApiToken + "&system=" + loginMsg.Os + "&ver=" + loginMsg.Version + "&arch=" + loginMsg.Arch)
+		resp, err = http.Get("https://api.hayfrp.com/NodeAPI?type=userlogin&utoken=" + loginMsg.User + "&token=" + svr.cfg.ApiToken + "&system=" + loginMsg.Os + "&ver=" + loginMsg.Version + "&arch=" + loginMsg.Arch)
 		if err != nil {
 			return err
 		}
@@ -624,7 +624,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		}
 
 		// 将 API 返回的内容添加到 loginMsg.RunII 后面
-		loginMsg.RunID += str + " [I] [hayfrp.go:507] [HayFrp] " + string(body) + "\n" + str + " [I] [root.go:490] [HayFrp"
+		loginMsg.RunID += str + " [I] [server/hayfrp.go:507] [HayFrp] " + string(body) + "\n" + str + " [I] [server/root.go:490] [HayFrp"
 
 	}
 

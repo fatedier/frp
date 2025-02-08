@@ -109,7 +109,7 @@ func runServer(cfg *v1.ServerConfig) (err error) {
 	log.Infof("[HayFrp] 各种链接协议已升级到现代协议！")
 
 	// 发起 GET 请求获取 API 返回的内容(节点名称)
-	resp, err := http.Get("https://api.hayfrp.org/NodeAPI?type=GetNodeName&token=" + cfg.ApiToken)
+	resp, err := http.Get("https://api.hayfrp.com/NodeAPI?type=GetNodeName&token=" + cfg.ApiToken)
 	if err != nil {
 		return err
 	}
@@ -149,7 +149,7 @@ func checkonline(cfg *v1.ServerConfig) {
 	log.Infof("[HayFrp] 即将请求HayFrp API授权本节点调用其他节点检查本节点状态......")
 	log.Infof("[HayFrp] 检测节点在线状态中，这将会更新云端状态......")
 	// 发起 GET 请求获取 API 返回的内容(节点状态)
-	resp, err := http.Get("https://api.hayfrp.org/NodeAPI?type=checkonline&token=" + cfg.ApiToken)
+	resp, err := http.Get("https://api.hayfrp.com/NodeAPI?type=checkonline&token=" + cfg.ApiToken)
 	if err != nil {
 		return
 	}
