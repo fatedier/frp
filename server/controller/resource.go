@@ -59,3 +59,13 @@ type ResourceController struct {
 	// All server manager plugin
 	PluginManager *plugin.Manager
 }
+
+func (rc *ResourceController) Close() error {
+	if rc.VhostHTTPSMuxer != nil {
+		rc.VhostHTTPSMuxer.Close()
+	}
+	if rc.TCPMuxHTTPConnectMuxer != nil {
+		rc.TCPMuxHTTPConnectMuxer.Close()
+	}
+	return nil
+}

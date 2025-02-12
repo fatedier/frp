@@ -77,7 +77,7 @@ type Service struct {
 	muxer *mux.Mux
 
 	// Accept connections from client
-	muxListener net.Listener
+	listener net.Listener
 
 	// Accept connections using kcp
 	kcpListener net.Listener
@@ -125,11 +125,6 @@ type Service struct {
 	ctx context.Context
 	// call cancel to stop service
 	cancel context.CancelFunc
-
-	// Track listeners so they can be closed manually
-	vhostHTTPSListener        net.Listener
-	tcpmuxHTTPConnectListener net.Listener
-	tcpListener               net.Listener
 }
 
 func NewService(cfg *v1.ServerConfig) (*Service, error) {
@@ -185,8 +180,6 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 			return nil, fmt.Errorf("create server listener error, %v", err)
 		}
 
-		// Save listener so it can be closed in svr.Close()
-		svr.tcpmuxHTTPConnectListener = l
 		svr.rc.TCPMuxHTTPConnectMuxer, err = tcpmux.NewHTTPConnectTCPMuxer(l, cfg.TCPMuxPassthrough, vhostReadWriteTimeout)
 		if err != nil {
 			return nil, fmt.Errorf("create vhost tcpMuxer error, %v", err)
@@ -233,16 +226,14 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		return nil, fmt.Errorf("create server listener error, %v", err)
 	}
 
-	// Save listener so it can be closed in svr.Close()
-	svr.tcpListener = ln
-
 	svr.muxer = mux.NewMux(ln)
 	svr.muxer.SetKeepAlive(time.Duration(cfg.Transport.TCPKeepAlive) * time.Second)
 	go func() {
 		_ = svr.muxer.Serve()
 	}()
 	ln = svr.muxer.DefaultListener()
-	svr.muxListener = ln
+
+	svr.listener = ln
 	log.Infof("frps tcp listen on %s", address)
 
 	// Listen for accepting connections from client using kcp protocol.
@@ -327,8 +318,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 			}
 			log.Infof("https service listen on %s", address)
 		}
-		// Save listener so it can be closed in svr.Close()
-		svr.vhostHTTPSListener = l
+
 		svr.rc.VhostHTTPSMuxer, err = vhost.NewHTTPSMuxer(l, vhostReadWriteTimeout)
 		if err != nil {
 			return nil, fmt.Errorf("create vhost httpsMuxer error, %v", err)
@@ -384,11 +374,11 @@ func (svr *Service) Run(ctx context.Context) {
 		go svr.sshTunnelGateway.Run()
 	}
 
-	svr.HandleListener(svr.muxListener, false)
+	svr.HandleListener(svr.listener, false)
 
 	<-svr.ctx.Done()
 	// service context may not be canceled by svr.Close(), we should call it here to release resources
-	if svr.muxListener != nil {
+	if svr.listener != nil {
 		svr.Close()
 	}
 }
@@ -396,40 +386,30 @@ func (svr *Service) Run(ctx context.Context) {
 func (svr *Service) Close() error {
 	if svr.kcpListener != nil {
 		svr.kcpListener.Close()
-		svr.kcpListener = nil
 	}
 	if svr.quicListener != nil {
 		svr.quicListener.Close()
-		svr.quicListener = nil
 	}
 	if svr.websocketListener != nil {
 		svr.websocketListener.Close()
-		svr.websocketListener = nil
 	}
 	if svr.tlsListener != nil {
 		svr.tlsListener.Close()
-		svr.tlsConfig = nil
 	}
-	if svr.muxListener != nil {
-		svr.muxListener.Close()
-		svr.muxListener = nil
+	if svr.sshTunnelListener != nil {
+		svr.sshTunnelListener.Close()
 	}
-	if svr.vhostHTTPSListener != nil {
-		svr.vhostHTTPSListener.Close()
-		svr.vhostHTTPSListener = nil
-	}
-	if svr.tcpmuxHTTPConnectListener != nil {
-		svr.tcpmuxHTTPConnectListener.Close()
-		svr.tcpmuxHTTPConnectListener = nil
+	if svr.listener != nil {
+		svr.listener.Close()
 	}
 	if svr.webServer != nil {
 		svr.webServer.Close()
-		svr.webServer = nil
 	}
-	if svr.tcpListener != nil {
-		svr.tcpListener.Close()
-		svr.tcpListener = nil
+	if svr.sshTunnelGateway != nil {
+		svr.sshTunnelGateway.Close()
 	}
+	svr.rc.Close()
+	svr.muxer.Close()
 	svr.ctlManager.Close()
 	if svr.cancel != nil {
 		svr.cancel()

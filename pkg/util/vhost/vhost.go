@@ -100,6 +100,10 @@ func (v *Muxer) SetRewriteHostFunc(f hostRewriteFunc) *Muxer {
 	return v
 }
 
+func (v *Muxer) Close() error {
+	return v.listener.Close()
+}
+
 type ChooseEndpointFunc func() (string, error)
 
 type CreateConnFunc func(remoteAddr string) (net.Conn, error)
