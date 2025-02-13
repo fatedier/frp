@@ -19,35 +19,15 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/fatedier/frp/pkg/util/util"
 )
 
-type HTTPAuthWraper struct {
-	h      http.Handler
-	user   string
-	passwd string
-}
-
-func NewHTTPBasicAuthWraper(h http.Handler, user, passwd string) http.Handler {
-	return &HTTPAuthWraper{
-		h:      h,
-		user:   user,
-		passwd: passwd,
-	}
-}
-
-func (aw *HTTPAuthWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	user, passwd, hasAuth := r.BasicAuth()
-	if (aw.user == "" && aw.passwd == "") || (hasAuth && user == aw.user && passwd == aw.passwd) {
-		aw.h.ServeHTTP(w, r)
-	} else {
-		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
-		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-	}
-}
-
 type HTTPAuthMiddleware struct {
-	user   string
-	passwd string
+	user          string
+	passwd        string
+	authFailDelay time.Duration
 }
 
 func NewHTTPAuthMiddleware(user, passwd string) *HTTPAuthMiddleware {
@@ -57,37 +37,33 @@ func NewHTTPAuthMiddleware(user, passwd string) *HTTPAuthMiddleware {
 	}
 }
 
+func (authMid *HTTPAuthMiddleware) SetAuthFailDelay(delay time.Duration) *HTTPAuthMiddleware {
+	authMid.authFailDelay = delay
+	return authMid
+}
+
 func (authMid *HTTPAuthMiddleware) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqUser, reqPasswd, hasAuth := r.BasicAuth()
 		if (authMid.user == "" && authMid.passwd == "") ||
-			(hasAuth && reqUser == authMid.user && reqPasswd == authMid.passwd) {
+			(hasAuth && util.ConstantTimeEqString(reqUser, authMid.user) &&
+				util.ConstantTimeEqString(reqPasswd, authMid.passwd)) {
 			next.ServeHTTP(w, r)
 		} else {
+			if authMid.authFailDelay > 0 {
+				time.Sleep(authMid.authFailDelay)
+			}
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		}
 	})
 }
 
-func HTTPBasicAuth(h http.HandlerFunc, user, passwd string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		reqUser, reqPasswd, hasAuth := r.BasicAuth()
-		if (user == "" && passwd == "") ||
-			(hasAuth && reqUser == user && reqPasswd == passwd) {
-			h.ServeHTTP(w, r)
-		} else {
-			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-		}
-	}
-}
-
-type HTTPGzipWraper struct {
+type HTTPGzipWrapper struct {
 	h http.Handler
 }
 
-func (gw *HTTPGzipWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (gw *HTTPGzipWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		gw.h.ServeHTTP(w, r)
 		return
@@ -100,7 +76,7 @@ func (gw *HTTPGzipWraper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func MakeHTTPGzipHandler(h http.Handler) http.Handler {
-	return &HTTPGzipWraper{
+	return &HTTPGzipWrapper{
 		h: h,
 	}
 }

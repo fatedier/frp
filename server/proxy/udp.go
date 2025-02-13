@@ -19,24 +19,30 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"reflect"
 	"strconv"
 	"time"
 
 	"github.com/fatedier/golib/errors"
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 
-	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/udp"
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/pkg/util/limit"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/server/metrics"
 )
 
+func init() {
+	RegisterProxyFactory(reflect.TypeOf(&v1.UDPProxyConfig{}), NewUDPProxy)
+}
+
 type UDPProxy struct {
 	*BaseProxy
-	cfg *config.UDPProxyConf
+	cfg *v1.UDPProxyConfig
 
-	realPort int
+	realBindPort int
 
 	// udpConn is the listener of udp packages
 	udpConn *net.UDPConn
@@ -57,21 +63,33 @@ type UDPProxy struct {
 	isClosed bool
 }
 
+func NewUDPProxy(baseProxy *BaseProxy) Proxy {
+	unwrapped, ok := baseProxy.GetConfigurer().(*v1.UDPProxyConfig)
+	if !ok {
+		return nil
+	}
+	baseProxy.usedPortsNum = 1
+	return &UDPProxy{
+		BaseProxy: baseProxy,
+		cfg:       unwrapped,
+	}
+}
+
 func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 	xl := pxy.xl
-	pxy.realPort, err = pxy.rc.UDPPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
+	pxy.realBindPort, err = pxy.rc.UDPPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
 	if err != nil {
 		return "", fmt.Errorf("acquire port %d error: %v", pxy.cfg.RemotePort, err)
 	}
 	defer func() {
 		if err != nil {
-			pxy.rc.UDPPortManager.Release(pxy.realPort)
+			pxy.rc.UDPPortManager.Release(pxy.realBindPort)
 		}
 	}()
 
-	remoteAddr = fmt.Sprintf(":%d", pxy.realPort)
-	pxy.cfg.RemotePort = pxy.realPort
-	addr, errRet := net.ResolveUDPAddr("udp", net.JoinHostPort(pxy.serverCfg.ProxyBindAddr, strconv.Itoa(pxy.realPort)))
+	remoteAddr = fmt.Sprintf(":%d", pxy.realBindPort)
+	pxy.cfg.RemotePort = pxy.realBindPort
+	addr, errRet := net.ResolveUDPAddr("udp", net.JoinHostPort(pxy.serverCfg.ProxyBindAddr, strconv.Itoa(pxy.realBindPort)))
 	if errRet != nil {
 		err = errRet
 		return
@@ -79,10 +97,10 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 	udpConn, errRet := net.ListenUDP("udp", addr)
 	if errRet != nil {
 		err = errRet
-		xl.Warn("listen udp port error: %v", err)
+		xl.Warnf("listen udp port error: %v", err)
 		return
 	}
-	xl.Info("udp proxy listen port [%d]", pxy.cfg.RemotePort)
+	xl.Infof("udp proxy listen port [%d]", pxy.cfg.RemotePort)
 
 	pxy.udpConn = udpConn
 	pxy.sendCh = make(chan *msg.UDPPacket, 1024)
@@ -96,11 +114,11 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 				rawMsg msg.Message
 				errRet error
 			)
-			xl.Trace("loop waiting message from udp workConn")
+			xl.Tracef("loop waiting message from udp workConn")
 			// client will send heartbeat in workConn for keeping alive
 			_ = conn.SetReadDeadline(time.Now().Add(time.Duration(60) * time.Second))
 			if rawMsg, errRet = msg.ReadMsg(conn); errRet != nil {
-				xl.Warn("read from workConn for udp error: %v", errRet)
+				xl.Warnf("read from workConn for udp error: %v", errRet)
 				_ = conn.Close()
 				// notify proxy to start a new work connection
 				// ignore error here, it means the proxy is closed
@@ -110,24 +128,24 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 				return
 			}
 			if err := conn.SetReadDeadline(time.Time{}); err != nil {
-				xl.Warn("set read deadline error: %v", err)
+				xl.Warnf("set read deadline error: %v", err)
 			}
 			switch m := rawMsg.(type) {
 			case *msg.Ping:
-				xl.Trace("udp work conn get ping message")
+				xl.Tracef("udp work conn get ping message")
 				continue
 			case *msg.UDPPacket:
 				if errRet := errors.PanicToError(func() {
-					xl.Trace("get udp message from workConn: %s", m.Content)
+					xl.Tracef("get udp message from workConn: %s", m.Content)
 					pxy.readCh <- m
 					metrics.Server.AddTrafficOut(
 						pxy.GetName(),
-						pxy.GetConf().GetBaseInfo().ProxyType,
+						pxy.GetConfigurer().GetBaseConfig().Type,
 						int64(len(m.Content)),
 					)
 				}); errRet != nil {
 					conn.Close()
-					xl.Info("reader goroutine for udp work connection closed")
+					xl.Infof("reader goroutine for udp work connection closed")
 					return
 				}
 			}
@@ -141,23 +159,23 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 			select {
 			case udpMsg, ok := <-pxy.sendCh:
 				if !ok {
-					xl.Info("sender goroutine for udp work connection closed")
+					xl.Infof("sender goroutine for udp work connection closed")
 					return
 				}
 				if errRet = msg.WriteMsg(conn, udpMsg); errRet != nil {
-					xl.Info("sender goroutine for udp work connection closed: %v", errRet)
+					xl.Infof("sender goroutine for udp work connection closed: %v", errRet)
 					conn.Close()
 					return
 				}
-				xl.Trace("send message to udp workConn: %s", udpMsg.Content)
+				xl.Tracef("send message to udp workConn: %s", udpMsg.Content)
 				metrics.Server.AddTrafficIn(
 					pxy.GetName(),
-					pxy.GetConf().GetBaseInfo().ProxyType,
+					pxy.GetConfigurer().GetBaseConfig().Type,
 					int64(len(udpMsg.Content)),
 				)
 				continue
 			case <-ctx.Done():
-				xl.Info("sender goroutine for udp work connection closed")
+				xl.Infof("sender goroutine for udp work connection closed")
 				return
 			}
 		}
@@ -186,19 +204,25 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 			}
 
 			var rwc io.ReadWriteCloser = workConn
-			if pxy.cfg.UseEncryption {
-				rwc, err = frpIo.WithEncryption(rwc, []byte(pxy.serverCfg.Token))
+			if pxy.cfg.Transport.UseEncryption {
+				rwc, err = libio.WithEncryption(rwc, []byte(pxy.serverCfg.Auth.Token))
 				if err != nil {
-					xl.Error("create encryption stream error: %v", err)
+					xl.Errorf("create encryption stream error: %v", err)
 					workConn.Close()
 					continue
 				}
 			}
-			if pxy.cfg.UseCompression {
-				rwc = frpIo.WithCompression(rwc)
+			if pxy.cfg.Transport.UseCompression {
+				rwc = libio.WithCompression(rwc)
 			}
 
-			pxy.workConn = frpNet.WrapReadWriteCloserToConn(rwc, workConn)
+			if pxy.GetLimiter() != nil {
+				rwc = libio.WrapReadWriteCloser(limit.NewReader(rwc, pxy.GetLimiter()), limit.NewWriter(rwc, pxy.GetLimiter()), func() error {
+					return rwc.Close()
+				})
+			}
+
+			pxy.workConn = netpkg.WrapReadWriteCloserToConn(rwc, workConn)
 			ctx, cancel := context.WithCancel(context.Background())
 			go workConnReaderFn(pxy.workConn)
 			go workConnSenderFn(pxy.workConn, ctx)
@@ -221,10 +245,6 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 	return remoteAddr, nil
 }
 
-func (pxy *UDPProxy) GetConf() config.ProxyConf {
-	return pxy.cfg
-}
-
 func (pxy *UDPProxy) Close() {
 	pxy.mu.Lock()
 	defer pxy.mu.Unlock()
@@ -242,5 +262,5 @@ func (pxy *UDPProxy) Close() {
 		close(pxy.readCh)
 		close(pxy.sendCh)
 	}
-	pxy.rc.UDPPortManager.Release(pxy.realPort)
+	pxy.rc.UDPPortManager.Release(pxy.realBindPort)
 }

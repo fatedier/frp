@@ -22,20 +22,21 @@ import (
 	"github.com/fatedier/golib/errors"
 )
 
-// Custom listener
-type CustomListener struct {
+// InternalListener is a listener that can be used to accept connections from
+// other goroutines.
+type InternalListener struct {
 	acceptCh chan net.Conn
 	closed   bool
 	mu       sync.Mutex
 }
 
-func NewCustomListener() *CustomListener {
-	return &CustomListener{
-		acceptCh: make(chan net.Conn, 64),
+func NewInternalListener() *InternalListener {
+	return &InternalListener{
+		acceptCh: make(chan net.Conn, 128),
 	}
 }
 
-func (l *CustomListener) Accept() (net.Conn, error) {
+func (l *InternalListener) Accept() (net.Conn, error) {
 	conn, ok := <-l.acceptCh
 	if !ok {
 		return nil, fmt.Errorf("listener closed")
@@ -43,7 +44,7 @@ func (l *CustomListener) Accept() (net.Conn, error) {
 	return conn, nil
 }
 
-func (l *CustomListener) PutConn(conn net.Conn) error {
+func (l *InternalListener) PutConn(conn net.Conn) error {
 	err := errors.PanicToError(func() {
 		select {
 		case l.acceptCh <- conn:
@@ -51,10 +52,13 @@ func (l *CustomListener) PutConn(conn net.Conn) error {
 			conn.Close()
 		}
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("put conn error: listener is closed")
+	}
+	return nil
 }
 
-func (l *CustomListener) Close() error {
+func (l *InternalListener) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if !l.closed {
@@ -64,6 +68,16 @@ func (l *CustomListener) Close() error {
 	return nil
 }
 
-func (l *CustomListener) Addr() net.Addr {
-	return (*net.TCPAddr)(nil)
+func (l *InternalListener) Addr() net.Addr {
+	return &InternalAddr{}
+}
+
+type InternalAddr struct{}
+
+func (ia *InternalAddr) Network() string {
+	return "internal"
+}
+
+func (ia *InternalAddr) String() string {
+	return "internal"
 }

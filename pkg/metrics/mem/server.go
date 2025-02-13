@@ -60,25 +60,34 @@ func (m *serverMetrics) run() {
 	go func() {
 		for {
 			time.Sleep(12 * time.Hour)
-			log.Debug("start to clear useless proxy statistics data...")
-			m.clearUselessInfo()
-			log.Debug("finish to clear useless proxy statistics data")
+			start := time.Now()
+			count, total := m.clearUselessInfo(time.Duration(7*24) * time.Hour)
+			log.Debugf("clear useless proxy statistics data count %d/%d, cost %v", count, total, time.Since(start))
 		}
 	}()
 }
 
-func (m *serverMetrics) clearUselessInfo() {
-	// To check if there are proxies that closed than 7 days and drop them.
+func (m *serverMetrics) clearUselessInfo(continuousOfflineDuration time.Duration) (int, int) {
+	count := 0
+	total := 0
+	// To check if there are any proxies that have been closed for more than continuousOfflineDuration and remove them.
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	total = len(m.info.ProxyStatistics)
 	for name, data := range m.info.ProxyStatistics {
 		if !data.LastCloseTime.IsZero() &&
 			data.LastStartTime.Before(data.LastCloseTime) &&
-			time.Since(data.LastCloseTime) > time.Duration(7*24)*time.Hour {
+			time.Since(data.LastCloseTime) > continuousOfflineDuration {
 			delete(m.info.ProxyStatistics, name)
-			log.Trace("clear proxy [%s]'s statistics data, lastCloseTime: [%s]", name, data.LastCloseTime.String())
+			count++
+			log.Tracef("clear proxy [%s]'s statistics data, lastCloseTime: [%s]", name, data.LastCloseTime.String())
 		}
 	}
+	return count, total
+}
+
+func (m *serverMetrics) ClearOfflineProxies() (int, int) {
+	return m.clearUselessInfo(0)
 }
 
 func (m *serverMetrics) NewClient() {
@@ -124,7 +133,7 @@ func (m *serverMetrics) CloseProxy(name string, proxyType string) {
 	}
 }
 
-func (m *serverMetrics) OpenConnection(name string, proxyType string) {
+func (m *serverMetrics) OpenConnection(name string, _ string) {
 	m.info.CurConns.Inc(1)
 
 	m.mu.Lock()
@@ -136,7 +145,7 @@ func (m *serverMetrics) OpenConnection(name string, proxyType string) {
 	}
 }
 
-func (m *serverMetrics) CloseConnection(name string, proxyType string) {
+func (m *serverMetrics) CloseConnection(name string, _ string) {
 	m.info.CurConns.Dec(1)
 
 	m.mu.Lock()
@@ -148,7 +157,7 @@ func (m *serverMetrics) CloseConnection(name string, proxyType string) {
 	}
 }
 
-func (m *serverMetrics) AddTrafficIn(name string, proxyType string, trafficBytes int64) {
+func (m *serverMetrics) AddTrafficIn(name string, _ string, trafficBytes int64) {
 	m.info.TotalTrafficIn.Inc(trafficBytes)
 
 	m.mu.Lock()
@@ -161,7 +170,7 @@ func (m *serverMetrics) AddTrafficIn(name string, proxyType string, trafficBytes
 	}
 }
 
-func (m *serverMetrics) AddTrafficOut(name string, proxyType string, trafficBytes int64) {
+func (m *serverMetrics) AddTrafficOut(name string, _ string, trafficBytes int64) {
 	m.info.TotalTrafficOut.Inc(trafficBytes)
 
 	m.mu.Lock()

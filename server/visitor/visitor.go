@@ -18,68 +18,79 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"slices"
 	"sync"
 
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
 
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
+type listenerBundle struct {
+	l          *netpkg.InternalListener
+	sk         string
+	allowUsers []string
+}
+
 // Manager for visitor listeners.
 type Manager struct {
-	visitorListeners map[string]*frpNet.CustomListener
-	skMap            map[string]string
+	listeners map[string]*listenerBundle
 
 	mu sync.RWMutex
 }
 
 func NewManager() *Manager {
 	return &Manager{
-		visitorListeners: make(map[string]*frpNet.CustomListener),
-		skMap:            make(map[string]string),
+		listeners: make(map[string]*listenerBundle),
 	}
 }
 
-func (vm *Manager) Listen(name string, sk string) (l *frpNet.CustomListener, err error) {
+func (vm *Manager) Listen(name string, sk string, allowUsers []string) (*netpkg.InternalListener, error) {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
-	if _, ok := vm.visitorListeners[name]; ok {
-		err = fmt.Errorf("custom listener for [%s] is repeated", name)
-		return
+	if _, ok := vm.listeners[name]; ok {
+		return nil, fmt.Errorf("custom listener for [%s] is repeated", name)
 	}
 
-	l = frpNet.NewCustomListener()
-	vm.visitorListeners[name] = l
-	vm.skMap[name] = sk
-	return
+	l := netpkg.NewInternalListener()
+	vm.listeners[name] = &listenerBundle{
+		l:          l,
+		sk:         sk,
+		allowUsers: allowUsers,
+	}
+	return l, nil
 }
 
 func (vm *Manager) NewConn(name string, conn net.Conn, timestamp int64, signKey string,
-	useEncryption bool, useCompression bool,
+	useEncryption bool, useCompression bool, visitorUser string,
 ) (err error) {
 	vm.mu.RLock()
 	defer vm.mu.RUnlock()
 
-	if l, ok := vm.visitorListeners[name]; ok {
-		var sk string
-		if sk = vm.skMap[name]; util.GetAuthKey(sk, timestamp) != signKey {
+	if l, ok := vm.listeners[name]; ok {
+		if util.GetAuthKey(l.sk, timestamp) != signKey {
 			err = fmt.Errorf("visitor connection of [%s] auth failed", name)
+			return
+		}
+
+		if !slices.Contains(l.allowUsers, visitorUser) && !slices.Contains(l.allowUsers, "*") {
+			err = fmt.Errorf("visitor connection of [%s] user [%s] not allowed", name, visitorUser)
 			return
 		}
 
 		var rwc io.ReadWriteCloser = conn
 		if useEncryption {
-			if rwc, err = frpIo.WithEncryption(rwc, []byte(sk)); err != nil {
+			if rwc, err = libio.WithEncryption(rwc, []byte(l.sk)); err != nil {
 				err = fmt.Errorf("create encryption connection failed: %v", err)
 				return
 			}
 		}
 		if useCompression {
-			rwc = frpIo.WithCompression(rwc)
+			rwc = libio.WithCompression(rwc)
 		}
-		err = l.PutConn(frpNet.WrapReadWriteCloserToConn(rwc, conn))
+		err = l.l.PutConn(netpkg.WrapReadWriteCloserToConn(rwc, conn))
 	} else {
 		err = fmt.Errorf("custom listener for [%s] doesn't exist", name)
 		return
@@ -91,6 +102,5 @@ func (vm *Manager) CloseListener(name string) {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
-	delete(vm.visitorListeners, name)
-	delete(vm.skMap, name)
+	delete(vm.listeners, name)
 }

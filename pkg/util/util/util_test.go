@@ -17,7 +17,6 @@ func TestRandId(t *testing.T) {
 func TestGetAuthKey(t *testing.T) {
 	assert := assert.New(t)
 	key := GetAuthKey("1234", 1488720000)
-	t.Log(key)
 	assert.Equal("6df41a43725f0c770fd56379e12acf8c", key)
 }
 

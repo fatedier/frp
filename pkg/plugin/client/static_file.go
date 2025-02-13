@@ -12,62 +12,57 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !frps
+
 package plugin
 
 import (
+	"context"
 	"io"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 
-	frpNet "github.com/fatedier/frp/pkg/util/net"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
-const PluginStaticFile = "static_file"
-
 func init() {
-	Register(PluginStaticFile, NewStaticFilePlugin)
+	Register(v1.PluginStaticFile, NewStaticFilePlugin)
 }
 
 type StaticFilePlugin struct {
-	localPath   string
-	stripPrefix string
-	httpUser    string
-	httpPasswd  string
+	opts *v1.StaticFilePluginOptions
 
 	l *Listener
 	s *http.Server
 }
 
-func NewStaticFilePlugin(params map[string]string) (Plugin, error) {
-	localPath := params["plugin_local_path"]
-	stripPrefix := params["plugin_strip_prefix"]
-	httpUser := params["plugin_http_user"]
-	httpPasswd := params["plugin_http_passwd"]
+func NewStaticFilePlugin(options v1.ClientPluginOptions) (Plugin, error) {
+	opts := options.(*v1.StaticFilePluginOptions)
 
 	listener := NewProxyListener()
 
 	sp := &StaticFilePlugin{
-		localPath:   localPath,
-		stripPrefix: stripPrefix,
-		httpUser:    httpUser,
-		httpPasswd:  httpPasswd,
+		opts: opts,
 
 		l: listener,
 	}
 	var prefix string
-	if stripPrefix != "" {
-		prefix = "/" + stripPrefix + "/"
+	if opts.StripPrefix != "" {
+		prefix = "/" + opts.StripPrefix + "/"
 	} else {
 		prefix = "/"
 	}
 
 	router := mux.NewRouter()
-	router.Use(frpNet.NewHTTPAuthMiddleware(httpUser, httpPasswd).Middleware)
-	router.PathPrefix(prefix).Handler(frpNet.MakeHTTPGzipHandler(http.StripPrefix(prefix, http.FileServer(http.Dir(localPath))))).Methods("GET")
+	router.Use(netpkg.NewHTTPAuthMiddleware(opts.HTTPUser, opts.HTTPPassword).SetAuthFailDelay(200 * time.Millisecond).Middleware)
+	router.PathPrefix(prefix).Handler(netpkg.MakeHTTPGzipHandler(http.StripPrefix(prefix, http.FileServer(http.Dir(opts.LocalPath))))).Methods("GET")
 	sp.s = &http.Server{
-		Handler: router,
+		Handler:           router,
+		ReadHeaderTimeout: 60 * time.Second,
 	}
 	go func() {
 		_ = sp.s.Serve(listener)
@@ -75,13 +70,13 @@ func NewStaticFilePlugin(params map[string]string) (Plugin, error) {
 	return sp, nil
 }
 
-func (sp *StaticFilePlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
-	wrapConn := frpNet.WrapReadWriteCloserToConn(conn, realConn)
+func (sp *StaticFilePlugin) Handle(_ context.Context, conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
+	wrapConn := netpkg.WrapReadWriteCloserToConn(conn, realConn)
 	_ = sp.l.PutConn(wrapConn)
 }
 
 func (sp *StaticFilePlugin) Name() string {
-	return PluginStaticFile
+	return v1.PluginStaticFile
 }
 
 func (sp *StaticFilePlugin) Close() error {

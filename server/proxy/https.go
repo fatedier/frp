@@ -15,16 +15,32 @@
 package proxy
 
 import (
+	"reflect"
 	"strings"
 
-	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/vhost"
 )
 
+func init() {
+	RegisterProxyFactory(reflect.TypeOf(&v1.HTTPSProxyConfig{}), NewHTTPSProxy)
+}
+
 type HTTPSProxy struct {
 	*BaseProxy
-	cfg *config.HTTPSProxyConf
+	cfg *v1.HTTPSProxyConfig
+}
+
+func NewHTTPSProxy(baseProxy *BaseProxy) Proxy {
+	unwrapped, ok := baseProxy.GetConfigurer().(*v1.HTTPSProxyConfig)
+	if !ok {
+		return nil
+	}
+	return &HTTPSProxy{
+		BaseProxy: baseProxy,
+		cfg:       unwrapped,
+	}
 }
 
 func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
@@ -48,7 +64,7 @@ func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
 			err = errRet
 			return
 		}
-		xl.Info("https proxy listen for host [%s]", routeConfig.Domain)
+		xl.Infof("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
 		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.VhostHTTPSPort))
 	}
@@ -60,18 +76,14 @@ func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
 			err = errRet
 			return
 		}
-		xl.Info("https proxy listen for host [%s]", routeConfig.Domain)
+		xl.Infof("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
 		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.VhostHTTPSPort))
 	}
 
-	pxy.startListenHandler(pxy, HandleUserTCPConnection)
+	pxy.startCommonTCPListenersHandler()
 	remoteAddr = strings.Join(addrs, ",")
 	return
-}
-
-func (pxy *HTTPSProxy) GetConf() config.ProxyConf {
-	return pxy.cfg
 }
 
 func (pxy *HTTPSProxy) Close() {

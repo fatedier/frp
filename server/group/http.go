@@ -43,7 +43,7 @@ func (ctl *HTTPGroupController) Register(
 	return g.Register(proxyName, group, groupKey, routeConfig)
 }
 
-func (ctl *HTTPGroupController) UnRegister(proxyName, group string, routeConfig vhost.RouteConfig) {
+func (ctl *HTTPGroupController) UnRegister(proxyName, group string, _ vhost.RouteConfig) {
 	indexKey := group
 	ctl.mu.Lock()
 	defer ctl.mu.Unlock()

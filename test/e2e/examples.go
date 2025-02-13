@@ -3,7 +3,7 @@ package e2e
 import (
 	"fmt"
 
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
@@ -19,10 +19,11 @@ var _ = ginkgo.Describe("[Feature: Example]", func() {
 
 			remotePort := f.AllocPort()
 			clientConf += fmt.Sprintf(`
-			[tcp]
-			type = tcp
-			local_port = {{ .%s }}
-			remote_port = %d
+			[[proxies]]
+			name = "tcp"
+			type = "tcp"
+			localPort = {{ .%s }}
+			remotePort = %d
 			`, framework.TCPEchoServerPort, remotePort)
 
 			f.RunProcesses([]string{serverConf}, []string{clientConf})

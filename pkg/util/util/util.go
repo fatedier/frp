@@ -17,9 +17,10 @@ package util
 import (
 	"crypto/md5"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
-	mathrand "math/rand"
+	mathrand "math/rand/v2"
 	"net"
 	"strconv"
 	"strings"
@@ -28,25 +29,28 @@ import (
 
 // RandID return a rand string used in frp.
 func RandID() (id string, err error) {
-	return RandIDWithLen(8)
+	return RandIDWithLen(16)
 }
 
 // RandIDWithLen return a rand string with idLen length.
 func RandIDWithLen(idLen int) (id string, err error) {
-	b := make([]byte, idLen)
+	if idLen <= 0 {
+		return "", nil
+	}
+	b := make([]byte, idLen/2+1)
 	_, err = rand.Read(b)
 	if err != nil {
 		return
 	}
 
 	id = fmt.Sprintf("%x", b)
-	return
+	return id[:idLen], nil
 }
 
 func GetAuthKey(token string, timestamp int64) (key string) {
-	token += fmt.Sprintf("%d", timestamp)
 	md5Ctx := md5.New()
 	md5Ctx.Write([]byte(token))
+	md5Ctx.Write([]byte(strconv.FormatInt(timestamp, 10)))
 	data := md5Ctx.Sum(nil)
 	return hex.EncodeToString(data)
 }
@@ -81,21 +85,21 @@ func ParseRangeNumbers(rangeStr string) (numbers []int64, err error) {
 			numbers = append(numbers, singleNum)
 		case 2:
 			// range numbers
-			min, errRet := strconv.ParseInt(strings.TrimSpace(numArray[0]), 10, 64)
+			minValue, errRet := strconv.ParseInt(strings.TrimSpace(numArray[0]), 10, 64)
 			if errRet != nil {
 				err = fmt.Errorf("range number is invalid, %v", errRet)
 				return
 			}
-			max, errRet := strconv.ParseInt(strings.TrimSpace(numArray[1]), 10, 64)
+			maxValue, errRet := strconv.ParseInt(strings.TrimSpace(numArray[1]), 10, 64)
 			if errRet != nil {
 				err = fmt.Errorf("range number is invalid, %v", errRet)
 				return
 			}
-			if max < min {
+			if maxValue < minValue {
 				err = fmt.Errorf("range number is invalid")
 				return
 			}
-			for i := min; i <= max; i++ {
+			for i := minValue; i <= maxValue; i++ {
 				numbers = append(numbers, i)
 			}
 		default:
@@ -114,15 +118,19 @@ func GenerateResponseErrorString(summary string, err error, detailed bool) strin
 }
 
 func RandomSleep(duration time.Duration, minRatio, maxRatio float64) time.Duration {
-	min := int64(minRatio * 1000.0)
-	max := int64(maxRatio * 1000.0)
+	minValue := int64(minRatio * 1000.0)
+	maxValue := int64(maxRatio * 1000.0)
 	var n int64
-	if max <= min {
-		n = min
+	if maxValue <= minValue {
+		n = minValue
 	} else {
-		n = mathrand.Int63n(max-min) + min
+		n = mathrand.Int64N(maxValue-minValue) + minValue
 	}
 	d := duration * time.Duration(n) / time.Duration(1000)
 	time.Sleep(d)
 	return d
+}
+
+func ConstantTimeEqString(a, b string) bool {
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }

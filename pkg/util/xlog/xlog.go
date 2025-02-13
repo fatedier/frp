@@ -15,59 +15,101 @@
 package xlog
 
 import (
+	"cmp"
+	"slices"
+
 	"github.com/fatedier/frp/pkg/util/log"
 )
 
+type LogPrefix struct {
+	// Name is the name of the prefix, it won't be displayed in log but used to identify the prefix.
+	Name string
+	// Value is the value of the prefix, it will be displayed in log.
+	Value string
+	// The prefix with higher priority will be displayed first, default is 10.
+	Priority int
+}
+
 // Logger is not thread safety for operations on prefix
 type Logger struct {
-	prefixes []string
+	prefixes []LogPrefix
 
 	prefixString string
 }
 
 func New() *Logger {
 	return &Logger{
-		prefixes: make([]string, 0),
+		prefixes: make([]LogPrefix, 0),
 	}
 }
 
-func (l *Logger) ResetPrefixes() (old []string) {
+func (l *Logger) ResetPrefixes() (old []LogPrefix) {
 	old = l.prefixes
-	l.prefixes = make([]string, 0)
+	l.prefixes = make([]LogPrefix, 0)
 	l.prefixString = ""
 	return
 }
 
 func (l *Logger) AppendPrefix(prefix string) *Logger {
-	l.prefixes = append(l.prefixes, prefix)
-	l.prefixString += "[" + prefix + "] "
+	return l.AddPrefix(LogPrefix{
+		Name:     prefix,
+		Value:    prefix,
+		Priority: 10,
+	})
+}
+
+func (l *Logger) AddPrefix(prefix LogPrefix) *Logger {
+	found := false
+	if prefix.Priority <= 0 {
+		prefix.Priority = 10
+	}
+	for _, p := range l.prefixes {
+		if p.Name == prefix.Name {
+			found = true
+			p.Value = prefix.Value
+			p.Priority = prefix.Priority
+		}
+	}
+	if !found {
+		l.prefixes = append(l.prefixes, prefix)
+	}
+	l.renderPrefixString()
 	return l
+}
+
+func (l *Logger) renderPrefixString() {
+	slices.SortStableFunc(l.prefixes, func(a, b LogPrefix) int {
+		return cmp.Compare(a.Priority, b.Priority)
+	})
+	l.prefixString = ""
+	for _, v := range l.prefixes {
+		l.prefixString += "[" + v.Value + "] "
+	}
 }
 
 func (l *Logger) Spawn() *Logger {
 	nl := New()
-	for _, v := range l.prefixes {
-		nl.AppendPrefix(v)
-	}
+	nl.prefixes = append(nl.prefixes, l.prefixes...)
+	nl.renderPrefixString()
 	return nl
 }
 
-func (l *Logger) Error(format string, v ...interface{}) {
-	log.Log.Error(l.prefixString+format, v...)
+func (l *Logger) Errorf(format string, v ...any) {
+	log.Logger.Errorf(l.prefixString+format, v...)
 }
 
-func (l *Logger) Warn(format string, v ...interface{}) {
-	log.Log.Warn(l.prefixString+format, v...)
+func (l *Logger) Warnf(format string, v ...any) {
+	log.Logger.Warnf(l.prefixString+format, v...)
 }
 
-func (l *Logger) Info(format string, v ...interface{}) {
-	log.Log.Info(l.prefixString+format, v...)
+func (l *Logger) Infof(format string, v ...any) {
+	log.Logger.Infof(l.prefixString+format, v...)
 }
 
-func (l *Logger) Debug(format string, v ...interface{}) {
-	log.Log.Debug(l.prefixString+format, v...)
+func (l *Logger) Debugf(format string, v ...any) {
+	log.Logger.Debugf(l.prefixString+format, v...)
 }
 
-func (l *Logger) Trace(format string, v ...interface{}) {
-	log.Log.Trace(l.prefixString+format, v...)
+func (l *Logger) Tracef(format string, v ...any) {
+	log.Logger.Tracef(l.prefixString+format, v...)
 }

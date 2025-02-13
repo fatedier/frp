@@ -1,36 +1,32 @@
 <template>
-    <div :id="proxy_name" style="width: 600px;height:400px;"></div>
+  <div :id="proxyName" style="width: 600px; height: 400px"></div>
 </template>
 
-<script>
-import {DrawProxyTrafficChart} from '../utils/chart.js'
-export default {
-    props: ['proxy_name'],
-    created() {
-        this.fetchData()
-    },
-    //watch: {
-        //'$route': 'fetchData'
-    //},
-    methods: {
-        fetchData() {
-            let url = '../api/traffic/' + this.proxy_name
-            fetch(url, {credentials: 'include'})
-              .then(res => {
-                return res.json()
-              }).then(json => {
-                DrawProxyTrafficChart(this.proxy_name, json.traffic_in, json.traffic_out)
-              }).catch( err => {
-                  this.$message({
-                      showClose: true,
-                      message: 'Get server info from frps failed!' + err,
-                      type: 'warning'
-                    })
-              })
-        }
-    }
-}
-</script>
+<script setup lang="ts">
+import { ElMessage } from 'element-plus'
+import { DrawProxyTrafficChart } from '../utils/chart.js'
 
-<style>
-</style>
+const props = defineProps<{
+  proxyName: string
+}>()
+
+const fetchData = () => {
+  let url = '../api/traffic/' + props.proxyName
+  fetch(url, { credentials: 'include' })
+    .then((res) => {
+      return res.json()
+    })
+    .then((json) => {
+      DrawProxyTrafficChart(props.proxyName, json.trafficIn, json.trafficOut)
+    })
+    .catch((err) => {
+      ElMessage({
+        showClose: true,
+        message: 'Get traffic info failed!' + err,
+        type: 'warning',
+      })
+    })
+}
+fetchData()
+</script>
+<style></style>

@@ -1,48 +1,38 @@
 {
   "name": "frps-dashboard",
-  "description": "A dashboard for frp server.",
-  "author": "fatedier",
+  "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "webpack-dev-server -d --inline --hot --env.dev",
-    "build": "rimraf dist && webpack -p --progress --hide-modules"
+    "dev": "vite",
+    "build": "run-p type-check build-only",
+    "preview": "vite preview",
+    "build-only": "vite build",
+    "type-check": "vue-tsc --noEmit",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore"
   },
   "dependencies": {
-    "bootstrap": "^3.3.7",
-    "echarts": "^3.5.0",
-    "element-ui": "^2.3.8",
+    "@types/humanize-plus": "^1.8.0",
+    "echarts": "^5.4.3",
+    "element-plus": "^2.5.3",
     "humanize-plus": "^1.8.2",
-    "vue": "^2.5.16",
-    "vue-resource": "^1.2.1",
-    "vue-router": "^2.3.0",
-    "whatwg-fetch": "^2.0.3"
-  },
-  "engines": {
-    "node": ">=6"
+    "vue": "^3.4.15",
+    "vue-router": "^4.2.5"
   },
   "devDependencies": {
-    "autoprefixer": "^6.6.0",
-    "babel-core": "^6.21.0",
-    "babel-eslint": "^7.1.1",
-    "babel-loader": "^6.4.0",
-    "babel-plugin-component": "^1.1.1",
-    "babel-preset-es2015": "^6.13.2",
-    "css-loader": "^0.27.0",
-    "eslint": "^3.12.2",
-    "eslint-config-enough": "^0.2.2",
-    "eslint-loader": "^1.6.3",
-    "file-loader": "^0.10.1",
-    "html-loader": "^0.4.5",
-    "html-webpack-plugin": "^2.24.1",
-    "less": "^3.0.4",
-    "less-loader": "^4.1.0",
-    "postcss-loader": "^1.3.3",
-    "rimraf": "^2.5.4",
-    "style-loader": "^0.13.2",
-    "url-loader": "^1.0.1",
-    "vue-loader": "^15.0.10",
-    "vue-template-compiler": "^2.1.8",
-    "webpack": "^2.2.0-rc.4",
-    "webpack-dev-server": "^3.1.4"
+    "@rushstack/eslint-patch": "^1.7.2",
+    "@types/node": "^18.11.12",
+    "@vitejs/plugin-vue": "^5.0.3",
+    "@vue/eslint-config-prettier": "^9.0.0",
+    "@vue/eslint-config-typescript": "^12.0.0",
+    "@vue/tsconfig": "^0.5.1",
+    "eslint": "^8.56.0",
+    "eslint-plugin-vue": "^9.21.0",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.2.4",
+    "typescript": "~5.3.3",
+    "unplugin-auto-import": "^0.17.5",
+    "unplugin-vue-components": "^0.26.0",
+    "vite": "^5.0.12",
+    "vue-tsc": "^1.8.27"
   }
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
 )
 
 func init() {
@@ -31,7 +32,20 @@ var verifyCmd = &cobra.Command{
 	Use:   "verify",
 	Short: "Verify that the configures is valid",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		_, _, _, err := config.ParseClientConfig(cfgFile)
+		if cfgFile == "" {
+			fmt.Println("frpc: the configuration file is not specified")
+			return nil
+		}
+
+		cliCfg, proxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(cfgFile, strictConfigMode)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		warning, err := validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs)
+		if warning != nil {
+			fmt.Printf("WARNING: %v\n", warning)
+		}
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

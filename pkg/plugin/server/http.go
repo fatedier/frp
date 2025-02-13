@@ -25,24 +25,18 @@ import (
 	"net/url"
 	"reflect"
 	"strings"
+
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
 
-type HTTPPluginOptions struct {
-	Name      string   `ini:"name"`
-	Addr      string   `ini:"addr"`
-	Path      string   `ini:"path"`
-	Ops       []string `ini:"ops"`
-	TLSVerify bool     `ini:"tls_verify"`
-}
-
 type httpPlugin struct {
-	options HTTPPluginOptions
+	options v1.HTTPPluginOptions
 
 	url    string
 	client *http.Client
 }
 
-func NewHTTPPluginOptions(options HTTPPluginOptions) Plugin {
+func NewHTTPPluginOptions(options v1.HTTPPluginOptions) Plugin {
 	url := fmt.Sprintf("%s%s", options.Addr, options.Path)
 
 	var client *http.Client
@@ -78,7 +72,7 @@ func (p *httpPlugin) IsSupport(op string) bool {
 	return false
 }
 
-func (p *httpPlugin) Handle(ctx context.Context, op string, content interface{}) (*Response, interface{}, error) {
+func (p *httpPlugin) Handle(ctx context.Context, op string, content any) (*Response, any, error) {
 	r := &Request{
 		Version: APIVersion,
 		Op:      op,
@@ -120,8 +114,5 @@ func (p *httpPlugin) do(ctx context.Context, r *Request, res *Response) error {
 	if err != nil {
 		return err
 	}
-	if err = json.Unmarshal(buf, res); err != nil {
-		return err
-	}
-	return nil
+	return json.Unmarshal(buf, res)
 }

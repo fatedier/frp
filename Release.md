@@ -1,3 +1,7 @@
-### Improve
+### Features
 
-* Adjust http group load balancing to forward requests to each frpc proxy round robin. Previous behavior is always forwarding requests to single proxy in the case of single concurrency.
+* Support metadatas and annotations in frpc proxy commands.
+
+### Fixes
+
+* Properly release resources in service.Close() to prevent resource leaks when used as a library.

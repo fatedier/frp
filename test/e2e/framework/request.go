@@ -20,7 +20,7 @@ func ExpectResponseCode(code int) EnsureFunc {
 		if resp.Code == code {
 			return true
 		}
-		flog.Warn("Expect code %d, but got %d", code, resp.Code)
+		flog.Warnf("Expect code %d, but got %d", code, resp.Code)
 		return false
 	}
 }
@@ -42,7 +42,7 @@ type RequestExpect struct {
 	f           *Framework
 	expectResp  []byte
 	expectError bool
-	explain     []interface{}
+	explain     []any
 }
 
 func NewRequestExpect(f *Framework) *RequestExpect {
@@ -51,7 +51,7 @@ func NewRequestExpect(f *Framework) *RequestExpect {
 		f:           f,
 		expectResp:  []byte(consts.TestString),
 		expectError: false,
-		explain:     make([]interface{}, 0),
+		explain:     make([]any, 0),
 	}
 }
 
@@ -94,7 +94,7 @@ func (e *RequestExpect) ExpectError(expectErr bool) *RequestExpect {
 	return e
 }
 
-func (e *RequestExpect) Explain(explain ...interface{}) *RequestExpect {
+func (e *RequestExpect) Explain(explain ...any) *RequestExpect {
 	e.explain = explain
 	return e
 }
@@ -111,14 +111,14 @@ func (e *RequestExpect) Ensure(fns ...EnsureFunc) {
 
 	if len(fns) == 0 {
 		if !bytes.Equal(e.expectResp, ret.Content) {
-			flog.Trace("Response info: %+v", ret)
+			flog.Tracef("Response info: %+v", ret)
 		}
-		ExpectEqualValuesWithOffset(1, ret.Content, e.expectResp, e.explain...)
+		ExpectEqualValuesWithOffset(1, string(ret.Content), string(e.expectResp), e.explain...)
 	} else {
 		for _, fn := range fns {
 			ok := fn(ret)
 			if !ok {
-				flog.Trace("Response info: %+v", ret)
+				flog.Tracef("Response info: %+v", ret)
 			}
 			ExpectTrueWithOffset(1, ok, e.explain...)
 		}

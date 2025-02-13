@@ -3,8 +3,7 @@ package e2e
 import (
 	"testing"
 
-	"github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
 	"github.com/fatedier/frp/pkg/util/log"
@@ -33,9 +32,15 @@ var _ = ginkgo.SynchronizedAfterSuite(func() {
 func RunE2ETests(t *testing.T) {
 	gomega.RegisterFailHandler(framework.Fail)
 
-	log.Info("Starting e2e run %q on Ginkgo node %d of total %d",
-		framework.RunID, config.GinkgoConfig.ParallelNode, config.GinkgoConfig.ParallelTotal)
-	ginkgo.RunSpecs(t, "frp e2e suite")
+	suiteConfig, reporterConfig := ginkgo.GinkgoConfiguration()
+	// Turn on EmitSpecProgress to get spec progress (especially on interrupt)
+	suiteConfig.EmitSpecProgress = true
+	// Randomize specs as well as suites
+	suiteConfig.RandomizeAllSpecs = true
+
+	log.Infof("Starting e2e run %q on Ginkgo node %d of total %d",
+		framework.RunID, suiteConfig.ParallelProcess, suiteConfig.ParallelTotal)
+	ginkgo.RunSpecs(t, "frp e2e suite", suiteConfig, reporterConfig)
 }
 
 // setupSuite is the boilerplate that can be used to setup ginkgo test suites, on the SynchronizedBeforeSuite step.

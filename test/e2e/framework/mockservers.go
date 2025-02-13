@@ -56,10 +56,7 @@ func (m *MockServers) Run() error {
 	if err := m.udsEchoServer.Run(); err != nil {
 		return err
 	}
-	if err := m.httpSimpleServer.Run(); err != nil {
-		return err
-	}
-	return nil
+	return m.httpSimpleServer.Run()
 }
 
 func (m *MockServers) Close() {
@@ -70,8 +67,8 @@ func (m *MockServers) Close() {
 	os.Remove(m.udsEchoServer.BindAddr())
 }
 
-func (m *MockServers) GetTemplateParams() map[string]interface{} {
-	ret := make(map[string]interface{})
+func (m *MockServers) GetTemplateParams() map[string]any {
+	ret := make(map[string]any)
 	ret[TCPEchoServerPort] = m.tcpEchoServer.BindPort()
 	ret[UDPEchoServerPort] = m.udpEchoServer.BindPort()
 	ret[UDSEchoServerAddr] = m.udsEchoServer.BindAddr()
@@ -79,7 +76,7 @@ func (m *MockServers) GetTemplateParams() map[string]interface{} {
 	return ret
 }
 
-func (m *MockServers) GetParam(key string) interface{} {
+func (m *MockServers) GetParam(key string) any {
 	params := m.GetTemplateParams()
 	if v, ok := params[key]; ok {
 		return v

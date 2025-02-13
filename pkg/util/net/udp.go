@@ -140,15 +140,15 @@ func (c *FakeUDPConn) RemoteAddr() net.Addr {
 	return c.remoteAddr
 }
 
-func (c *FakeUDPConn) SetDeadline(t time.Time) error {
+func (c *FakeUDPConn) SetDeadline(_ time.Time) error {
 	return nil
 }
 
-func (c *FakeUDPConn) SetReadDeadline(t time.Time) error {
+func (c *FakeUDPConn) SetReadDeadline(_ time.Time) error {
 	return nil
 }
 
-func (c *FakeUDPConn) SetWriteDeadline(t time.Time) error {
+func (c *FakeUDPConn) SetWriteDeadline(_ time.Time) error {
 	return nil
 }
 
@@ -256,3 +256,11 @@ func (l *UDPListener) Close() error {
 func (l *UDPListener) Addr() net.Addr {
 	return l.addr
 }
+
+// ConnectedUDPConn is a wrapper for net.UDPConn which converts WriteTo syscalls
+// to Write syscalls that are 4 times faster on some OS'es. This should only be
+// used for connections that were produced by a net.Dial* call.
+type ConnectedUDPConn struct{ *net.UDPConn }
+
+// WriteTo redirects all writes to the Write syscall, which is 4 times faster.
+func (c *ConnectedUDPConn) WriteTo(b []byte, _ net.Addr) (int, error) { return c.Write(b) }

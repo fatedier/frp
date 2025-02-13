@@ -15,38 +15,50 @@
 package plugin
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"sync"
 
 	"github.com/fatedier/golib/errors"
+	pp "github.com/pires/go-proxyproto"
+
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
 
 // Creators is used for create plugins to handle connections.
 var creators = make(map[string]CreatorFn)
 
 // params has prefix "plugin_"
-type CreatorFn func(params map[string]string) (Plugin, error)
+type CreatorFn func(options v1.ClientPluginOptions) (Plugin, error)
 
 func Register(name string, fn CreatorFn) {
+	if _, exist := creators[name]; exist {
+		panic(fmt.Sprintf("plugin [%s] is already registered", name))
+	}
 	creators[name] = fn
 }
 
-func Create(name string, params map[string]string) (p Plugin, err error) {
+func Create(name string, options v1.ClientPluginOptions) (p Plugin, err error) {
 	if fn, ok := creators[name]; ok {
-		p, err = fn(params)
+		p, err = fn(options)
 	} else {
 		err = fmt.Errorf("plugin [%s] is not registered", name)
 	}
 	return
 }
 
+type ExtraInfo struct {
+	ProxyProtocolHeader *pp.Header
+	SrcAddr             net.Addr
+	DstAddr             net.Addr
+}
+
 type Plugin interface {
 	Name() string
 
-	// extraBufToLocal will send to local connection first, then join conn with local connection
-	Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte)
+	Handle(ctx context.Context, conn io.ReadWriteCloser, realConn net.Conn, extra *ExtraInfo)
 	Close() error
 }
 

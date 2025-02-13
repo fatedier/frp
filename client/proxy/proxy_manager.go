@@ -1,42 +1,59 @@
+// Copyright 2023 The frp Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package proxy
 
 import (
 	"context"
 	"fmt"
 	"net"
+	"reflect"
 	"sync"
 
-	"github.com/fatedier/golib/errors"
+	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/client/event"
-	"github.com/fatedier/frp/pkg/config"
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
 type Manager struct {
-	sendCh  chan (msg.Message)
-	proxies map[string]*Wrapper
+	proxies            map[string]*Wrapper
+	msgTransporter     transport.MessageTransporter
+	inWorkConnCallback func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool
 
 	closed bool
 	mu     sync.RWMutex
 
-	clientCfg config.ClientCommonConf
-
-	// The UDP port that the server is listening on
-	serverUDPPort int
+	clientCfg *v1.ClientCommonConfig
 
 	ctx context.Context
 }
 
-func NewManager(ctx context.Context, msgSendCh chan (msg.Message), clientCfg config.ClientCommonConf, serverUDPPort int) *Manager {
+func NewManager(
+	ctx context.Context,
+	clientCfg *v1.ClientCommonConfig,
+	msgTransporter transport.MessageTransporter,
+) *Manager {
 	return &Manager{
-		sendCh:        msgSendCh,
-		proxies:       make(map[string]*Wrapper),
-		closed:        false,
-		clientCfg:     clientCfg,
-		serverUDPPort: serverUDPPort,
-		ctx:           ctx,
+		proxies:        make(map[string]*Wrapper),
+		msgTransporter: msgTransporter,
+		closed:         false,
+		clientCfg:      clientCfg,
+		ctx:            ctx,
 	}
 }
 
@@ -53,6 +70,10 @@ func (pm *Manager) StartProxy(name string, remoteAddr string, serverRespErr stri
 		return err
 	}
 	return nil
+}
+
+func (pm *Manager) SetInWorkConnCallback(cb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool) {
+	pm.inWorkConnCallback = cb
 }
 
 func (pm *Manager) Close() {
@@ -75,7 +96,7 @@ func (pm *Manager) HandleWorkConn(name string, workConn net.Conn, m *msg.StartWo
 	}
 }
 
-func (pm *Manager) HandleEvent(payload interface{}) error {
+func (pm *Manager) HandleEvent(payload any) error {
 	var m msg.Message
 	switch e := payload.(type) {
 	case *event.StartProxyPayload:
@@ -86,10 +107,7 @@ func (pm *Manager) HandleEvent(payload interface{}) error {
 		return event.ErrPayloadType
 	}
 
-	err := errors.PanicToError(func() {
-		pm.sendCh <- m
-	})
-	return err
+	return pm.msgTransporter.Send(m)
 }
 
 func (pm *Manager) GetAllProxyStatus() []*WorkingStatus {
@@ -102,36 +120,49 @@ func (pm *Manager) GetAllProxyStatus() []*WorkingStatus {
 	return ps
 }
 
-func (pm *Manager) Reload(pxyCfgs map[string]config.ProxyConf) {
+func (pm *Manager) GetProxyStatus(name string) (*WorkingStatus, bool) {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+	if pxy, ok := pm.proxies[name]; ok {
+		return pxy.GetStatus(), true
+	}
+	return nil, false
+}
+
+func (pm *Manager) UpdateAll(proxyCfgs []v1.ProxyConfigurer) {
 	xl := xlog.FromContextSafe(pm.ctx)
+	proxyCfgsMap := lo.KeyBy(proxyCfgs, func(c v1.ProxyConfigurer) string {
+		return c.GetBaseConfig().Name
+	})
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
 	delPxyNames := make([]string, 0)
 	for name, pxy := range pm.proxies {
 		del := false
-		cfg, ok := pxyCfgs[name]
-		if !ok {
-			del = true
-		} else if !pxy.Cfg.Compare(cfg) {
+		cfg, ok := proxyCfgsMap[name]
+		if !ok || !reflect.DeepEqual(pxy.Cfg, cfg) {
 			del = true
 		}
 
 		if del {
 			delPxyNames = append(delPxyNames, name)
 			delete(pm.proxies, name)
-
 			pxy.Stop()
 		}
 	}
 	if len(delPxyNames) > 0 {
-		xl.Info("proxy removed: %v", delPxyNames)
+		xl.Infof("proxy removed: %s", delPxyNames)
 	}
 
 	addPxyNames := make([]string, 0)
-	for name, cfg := range pxyCfgs {
+	for _, cfg := range proxyCfgs {
+		name := cfg.GetBaseConfig().Name
 		if _, ok := pm.proxies[name]; !ok {
-			pxy := NewWrapper(pm.ctx, cfg, pm.clientCfg, pm.HandleEvent, pm.serverUDPPort)
+			pxy := NewWrapper(pm.ctx, cfg, pm.clientCfg, pm.HandleEvent, pm.msgTransporter)
+			if pm.inWorkConnCallback != nil {
+				pxy.SetInWorkConnCallback(pm.inWorkConnCallback)
+			}
 			pm.proxies[name] = pxy
 			addPxyNames = append(addPxyNames, name)
 
@@ -139,6 +170,6 @@ func (pm *Manager) Reload(pxyCfgs map[string]config.ProxyConf) {
 		}
 	}
 	if len(addPxyNames) > 0 {
-		xl.Info("proxy added: %v", addPxyNames)
+		xl.Infof("proxy added: %s", addPxyNames)
 	}
 }

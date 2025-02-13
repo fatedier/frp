@@ -1,0 +1,164 @@
+# This configuration file is for reference only. Please do not use this configuration directly to run the program as it may have various issues.
+
+# A literal address or host name for IPv6 must be enclosed
+# in square brackets, as in "[::1]:80", "[ipv6-host]:http" or "[ipv6-host%zone]:80"
+# For single "bindAddr" field, no need square brackets, like `bindAddr = "::"`.
+bindAddr = "0.0.0.0"
+bindPort = 7000
+
+# udp port used for kcp protocol, it can be same with 'bindPort'.
+# if not set, kcp is disabled in frps.
+kcpBindPort = 7000
+
+# udp port used for quic protocol.
+# if not set, quic is disabled in frps.
+# quicBindPort = 7002
+
+# Specify which address proxy will listen for, default value is same with bindAddr
+# proxyBindAddr = "127.0.0.1"
+
+# quic protocol options
+# transport.quic.keepalivePeriod = 10
+# transport.quic.maxIdleTimeout = 30
+# transport.quic.maxIncomingStreams = 100000
+
+# Heartbeat configure, it's not recommended to modify the default value
+# The default value of heartbeatTimeout is 90. Set negative value to disable it.
+# transport.heartbeatTimeout = 90
+
+# Pool count in each proxy will keep no more than maxPoolCount.
+transport.maxPoolCount = 5
+
+# If tcp stream multiplexing is used, default is true
+# transport.tcpMux = true
+
+# Specify keep alive interval for tcp mux.
+# only valid if tcpMux is true.
+# transport.tcpMuxKeepaliveInterval = 30
+
+# tcpKeepalive specifies the interval between keep-alive probes for an active network connection between frpc and frps.
+# If negative, keep-alive probes are disabled.
+# transport.tcpKeepalive = 7200
+
+# transport.tls.force specifies whether to only accept TLS-encrypted connections. By default, the value is false.
+transport.tls.force = false
+
+# transport.tls.certFile = "server.crt"
+# transport.tls.keyFile = "server.key"
+# transport.tls.trustedCaFile = "ca.crt"
+
+# If you want to support virtual host, you must set the http port for listening (optional)
+# Note: http port and https port can be same with bindPort
+vhostHTTPPort = 80
+vhostHTTPSPort = 443
+
+# Response header timeout(seconds) for vhost http server, default is 60s
+# vhostHTTPTimeout = 60
+
+# tcpmuxHTTPConnectPort specifies the port that the server listens for TCP
+# HTTP CONNECT requests. If the value is 0, the server will not multiplex TCP
+# requests on one single port. If it's not - it will listen on this value for
+# HTTP CONNECT requests. By default, this value is 0.
+# tcpmuxHTTPConnectPort = 1337
+
+# If tcpmuxPassthrough is true, frps won't do any update on traffic.
+# tcpmuxPassthrough = false
+
+# Configure the web server to enable the dashboard for frps.
+# dashboard is available only if webServer.port is set.
+webServer.addr = "127.0.0.1"
+webServer.port = 7500
+webServer.user = "admin"
+webServer.password = "admin"
+# webServer.tls.certFile = "server.crt"
+# webServer.tls.keyFile = "server.key"
+# dashboard assets directory(only for debug mode)
+# webServer.assetsDir = "./static"
+
+# Enable golang pprof handlers in dashboard listener.
+# Dashboard port must be set first
+webServer.pprofEnable = false
+
+# enablePrometheus will export prometheus metrics on webServer in /metrics api.
+enablePrometheus = true
+
+# console or real logFile path like ./frps.log
+log.to = "./frps.log"
+# trace, debug, info, warn, error
+log.level = "info"
+log.maxDays = 3
+# disable log colors when log.to is console, default is false
+log.disablePrintColor = false
+
+# DetailedErrorsToClient defines whether to send the specific error (with debug info) to frpc. By default, this value is true.
+detailedErrorsToClient = true
+
+# auth.method specifies what authentication method to use authenticate frpc with frps.
+# If "token" is specified - token will be read into login message.
+# If "oidc" is specified - OIDC (Open ID Connect) token will be issued using OIDC settings. By default, this value is "token".
+auth.method = "token"
+
+# auth.additionalScopes specifies additional scopes to include authentication information.
+# Optional values are HeartBeats, NewWorkConns.
+# auth.additionalScopes = ["HeartBeats", "NewWorkConns"]
+
+# auth token
+auth.token = "12345678"
+
+# oidc issuer specifies the issuer to verify OIDC tokens with.
+auth.oidc.issuer = ""
+# oidc audience specifies the audience OIDC tokens should contain when validated.
+auth.oidc.audience = ""
+# oidc skipExpiryCheck specifies whether to skip checking if the OIDC token is expired.
+auth.oidc.skipExpiryCheck = false
+# oidc skipIssuerCheck specifies whether to skip checking if the OIDC token's issuer claim matches the issuer specified in OidcIssuer.
+auth.oidc.skipIssuerCheck = false
+
+# userConnTimeout specifies the maximum time to wait for a work connection.
+# userConnTimeout = 10
+
+# Only allow frpc to bind ports you list. By default, there won't be any limit.
+allowPorts = [
+  { start = 2000, end = 3000 },
+  { single = 3001 },
+  { single = 3003 },
+  { start = 4000, end = 50000 }
+]
+
+# Max ports can be used for each client, default value is 0 means no limit
+maxPortsPerClient = 0
+
+# If subDomainHost is not empty, you can set subdomain when type is http or https in frpc's configure file
+# When subdomain is test, the host used by routing is test.frps.com
+subDomainHost = "frps.com"
+
+# custom 404 page for HTTP requests
+# custom404Page = "/path/to/404.html"
+
+# specify udp packet size, unit is byte. If not set, the default value is 1500.
+# This parameter should be same between client and server.
+# It affects the udp and sudp proxy.
+udpPacketSize = 1500
+
+# Retention time for NAT hole punching strategy data.
+natholeAnalysisDataReserveHours = 168
+
+# ssh tunnel gateway
+# If you want to enable this feature, the bindPort parameter is required, while others are optional.
+# By default, this feature is disabled. It will be enabled if bindPort is greater than 0.
+# sshTunnelGateway.bindPort = 2200
+# sshTunnelGateway.privateKeyFile = "/home/frp-user/.ssh/id_rsa"
+# sshTunnelGateway.autoGenPrivateKeyPath = ""
+# sshTunnelGateway.authorizedKeysFile = "/home/frp-user/.ssh/authorized_keys"
+
+[[httpPlugins]]
+name = "user-manager"
+addr = "127.0.0.1:9000"
+path = "/handler"
+ops = ["Login"]
+
+[[httpPlugins]]
+name = "port-manager"
+addr = "127.0.0.1:9001"
+path = "/handler"
+ops = ["NewProxy"]

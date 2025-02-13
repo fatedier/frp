@@ -12,34 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !frps
+
 package plugin
 
 import (
-	"fmt"
+	"context"
 	"io"
 	"net"
 
-	frpIo "github.com/fatedier/golib/io"
+	libio "github.com/fatedier/golib/io"
+
+	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
-const PluginUnixDomainSocket = "unix_domain_socket"
-
 func init() {
-	Register(PluginUnixDomainSocket, NewUnixDomainSocketPlugin)
+	Register(v1.PluginUnixDomainSocket, NewUnixDomainSocketPlugin)
 }
 
 type UnixDomainSocketPlugin struct {
 	UnixAddr *net.UnixAddr
 }
 
-func NewUnixDomainSocketPlugin(params map[string]string) (p Plugin, err error) {
-	unixPath, ok := params["plugin_unix_path"]
-	if !ok {
-		err = fmt.Errorf("plugin_unix_path not found")
-		return
-	}
+func NewUnixDomainSocketPlugin(options v1.ClientPluginOptions) (p Plugin, err error) {
+	opts := options.(*v1.UnixDomainSocketPluginOptions)
 
-	unixAddr, errRet := net.ResolveUnixAddr("unix", unixPath)
+	unixAddr, errRet := net.ResolveUnixAddr("unix", opts.UnixPath)
 	if errRet != nil {
 		err = errRet
 		return
@@ -51,22 +50,24 @@ func NewUnixDomainSocketPlugin(params map[string]string) (p Plugin, err error) {
 	return
 }
 
-func (uds *UnixDomainSocketPlugin) Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte) {
+func (uds *UnixDomainSocketPlugin) Handle(ctx context.Context, conn io.ReadWriteCloser, _ net.Conn, extra *ExtraInfo) {
+	xl := xlog.FromContextSafe(ctx)
 	localConn, err := net.DialUnix("unix", nil, uds.UnixAddr)
 	if err != nil {
+		xl.Warnf("dial to uds %s error: %v", uds.UnixAddr, err)
 		return
 	}
-	if len(extraBufToLocal) > 0 {
-		if _, err := localConn.Write(extraBufToLocal); err != nil {
+	if extra.ProxyProtocolHeader != nil {
+		if _, err := extra.ProxyProtocolHeader.WriteTo(localConn); err != nil {
 			return
 		}
 	}
 
-	frpIo.Join(localConn, conn)
+	libio.Join(localConn, conn)
 }
 
 func (uds *UnixDomainSocketPlugin) Name() string {
-	return PluginUnixDomainSocket
+	return v1.PluginUnixDomainSocket
 }
 
 func (uds *UnixDomainSocketPlugin) Close() error {

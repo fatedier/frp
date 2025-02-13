@@ -1,3 +1,17 @@
+// Copyright 2023 The frp Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package transport
 
 import (
@@ -89,9 +103,7 @@ func NewServerTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Config, error) {
 	base := &tls.Config{}
 
-	if certPath == "" || keyPath == "" {
-		// client will not generate tls conf by itself
-	} else {
+	if certPath != "" && keyPath != "" {
 		cert, err := newCustomTLSKeyPair(certPath, keyPath)
 		if err != nil {
 			return nil, err
@@ -115,4 +127,16 @@ func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Conf
 	}
 
 	return base, nil
+}
+
+func NewRandomPrivateKey() ([]byte, error) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(key),
+	})
+	return keyPEM, nil
 }

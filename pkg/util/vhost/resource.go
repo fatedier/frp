@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"os"
 
-	frpLog "github.com/fatedier/frp/pkg/util/log"
+	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/version"
 )
 
@@ -58,7 +58,7 @@ func getNotFoundPageContent() []byte {
 	if NotFoundPagePath != "" {
 		buf, err = os.ReadFile(NotFoundPagePath)
 		if err != nil {
-			frpLog.Warn("read custom 404 page error: %v", err)
+			log.Warnf("read custom 404 page error: %v", err)
 			buf = []byte(NotFound)
 		}
 	} else {
@@ -67,7 +67,7 @@ func getNotFoundPageContent() []byte {
 	return buf
 }
 
-func notFoundResponse() *http.Response {
+func NotFoundResponse() *http.Response {
 	header := make(http.Header)
 	header.Set("server", "frp/"+version.Full())
 	header.Set("Content-Type", "text/html")
@@ -82,20 +82,6 @@ func notFoundResponse() *http.Response {
 		Header:        header,
 		Body:          io.NopCloser(bytes.NewReader(content)),
 		ContentLength: int64(len(content)),
-	}
-	return res
-}
-
-func noAuthResponse() *http.Response {
-	header := make(map[string][]string)
-	header["WWW-Authenticate"] = []string{`Basic realm="Restricted"`}
-	res := &http.Response{
-		Status:     "401 Not authorized",
-		StatusCode: 401,
-		Proto:      "HTTP/1.1",
-		ProtoMajor: 1,
-		ProtoMinor: 1,
-		Header:     header,
 	}
 	return res
 }
