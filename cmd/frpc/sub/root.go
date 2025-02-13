@@ -77,7 +77,7 @@ var (
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "./frpc.ini", "config file of frpc")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "./frpc.toml", "config file of frpc")
 	rootCmd.PersistentFlags().StringVarP(&cfgDir, "config_dir", "", "", "config directory, run one frpc service for each file in config directory")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
 }
