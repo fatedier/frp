@@ -108,9 +108,9 @@ func PreCheck(
 }
 
 // Prepare is used to do some preparation work before penetration.
-func Prepare(stunServers []string) (*PrepareResult, error) {
+func Prepare(stunServers []string, udpListen string) (*PrepareResult, error) {
 	// discover for Nat type
-	addrs, localAddr, err := Discover(stunServers, "")
+	addrs, localAddr, err := Discover(stunServers, udpListen)
 	if err != nil {
 		return nil, fmt.Errorf("discover error: %v", err)
 	}
