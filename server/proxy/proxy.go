@@ -276,7 +276,7 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 		connectionDuration := endtime - startime
 		xl.Debugf("join connection closed, it remains [%d]ms, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", connectionDuration,
 			workConn.LocalAddr().String(), workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
-		xl.Info("connection closed, it remains [%d]ms, userConn(l[%s] r[%s])", connectionDuration,
+		xl.Infof("connection closed, it remains [%d]ms, userConn(l[%s] r[%s])", connectionDuration,
 			userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 	} else {
 		xl.Debugf("join connection closed, userConn(l[%s] r[%s])", userConn.LocalAddr().String(), userConn.RemoteAddr().String())

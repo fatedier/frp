@@ -110,12 +110,18 @@ type LogConfig struct {
 	MaxDays int64 `json:"maxDays"`
 	// DisablePrintColor disables log colors when log.to is "console".
 	DisablePrintColor bool `json:"disablePrintColor,omitempty"`
+	// DurationTypes specifies the types of connection names for which the
+	// duration will be logged. If set to 'ssh,rdp', it will log the duration
+	// of connections named 'ssh', 'ssh_1', 'sshname', 'rdp', 'rdp_test1', or
+	// 'web_my_rdp'. By default, this value is "ssh,rdp".
+	DurationTypes string `json:"durationtypes,omitempty"`
 }
 
 func (c *LogConfig) Complete() {
 	c.To = util.EmptyOr(c.To, "console")
 	c.Level = util.EmptyOr(c.Level, "info")
 	c.MaxDays = util.EmptyOr(c.MaxDays, 3)
+	c.DurationTypes = util.EmptyOr(c.DurationTypes, "ssh,rdp")
 }
 
 type HTTPPluginOptions struct {

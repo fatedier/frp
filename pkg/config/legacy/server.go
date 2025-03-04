@@ -125,10 +125,10 @@ type ServerCommonConf struct {
 	// DisableLogColor disables log colors when LogWay == "console" when set to
 	// true. By default, this value is false.
 	DisableLogColor bool `ini:"disable_log_color" json:"disable_log_color"`
-	// LogDurationTypes specifies the type of connection name, which will log
-	// the duration of those connections. if it is setting as 'ssh,rdp', it
-	// will log the duration of the name as 'ssh', 'ssh_1', 'sshname', 'rdp',
-	// 'rdp_test1' or 'web_my_rdp' . By default, this value is "ssh,rdp".
+	// LogDurationTypes specifies the types of connection names for which the
+	// duration will be logged. If set to 'ssh,rdp', it will log the duration
+	// of connections named 'ssh', 'ssh_1', 'sshname', 'rdp', 'rdp_test1', or
+	// 'web_my_rdp'. By default, this value is "ssh,rdp".
 	LogDurationTypes string `ini:"log_duration_types" json:"log_duration_types"`
 	// DetailedErrorsToClient defines whether to send the specific error (with
 	// debug info) to frpc. By default, this value is true.
