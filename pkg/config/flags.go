@@ -241,6 +241,7 @@ func RegisterServerConfigFlags(cmd *cobra.Command, c *v1.ServerConfig, opts ...R
 	cmd.PersistentFlags().StringVarP(&c.Log.Level, "log_level", "", "info", "log level")
 	cmd.PersistentFlags().Int64VarP(&c.Log.MaxDays, "log_max_days", "", 3, "log max days")
 	cmd.PersistentFlags().BoolVarP(&c.Log.DisablePrintColor, "disable_log_color", "", false, "disable log color in console")
+	cmd.PersistentFlags().StringVarP(&c.Log.DurationTypes, "log_duration_types", "", "ssh,rdp", "log duration types")
 	cmd.PersistentFlags().StringVarP(&c.Auth.Token, "token", "t", "", "auth token")
 	cmd.PersistentFlags().StringVarP(&c.SubDomainHost, "subdomain_host", "", "", "subdomain host")
 	cmd.PersistentFlags().VarP(&PortsRangeSliceFlag{V: &c.AllowPorts}, "allow_ports", "", "allow ports")

@@ -89,6 +89,8 @@ log.level = "info"
 log.maxDays = 3
 # disable log colors when log.to is console, default is false
 log.disablePrintColor = false
+# log the duration of each connection name has string 'ssh' or 'rdp'.
+log_duration_types = ssh,rdp
 
 # DetailedErrorsToClient defines whether to send the specific error (with debug info) to frpc. By default, this value is true.
 detailedErrorsToClient = true
