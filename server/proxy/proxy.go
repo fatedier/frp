@@ -259,7 +259,7 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 		})
 	}
 
-    startime := time.Now().UnixNano() / 1000000 // time in microseconds
+	startime := time.Now().UnixNano() / 1000000 // time in microseconds
 	xl.Debugf("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", workConn.LocalAddr().String(),
 		workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
 
