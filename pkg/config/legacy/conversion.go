@@ -133,7 +133,7 @@ func Convert_ServerCommonConf_To_v1(conf *ServerCommonConf) *v1.ServerConfig {
 	out.Log.Level = conf.LogLevel
 	out.Log.MaxDays = conf.LogMaxDays
 	out.Log.DisablePrintColor = conf.DisableLogColor
-	out.Log.DurationType = conf.LogDurationType
+	out.Log.DurationTypes = conf.LogDurationTypes
 
 	out.DetailedErrorsToClient = lo.ToPtr(conf.DetailedErrorsToClient)
 	out.SubDomainHost = conf.SubDomainHost
