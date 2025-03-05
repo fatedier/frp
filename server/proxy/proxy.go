@@ -293,7 +293,7 @@ func IsTheTypeToLog(logDurationTypes string, name string, xl *xlog.Logger) bool 
 	}
 	thestrlist := strings.Split(logDurationTypes, ",")
 	for i := 0; i < len(thestrlist); i++ {
-		if (thestrlist[i]!="") && strings.Contains(name, thestrlist[i]) {
+		if (thestrlist[i] != "") && strings.Contains(name, thestrlist[i]) {
 			xl.Infof("The duration of each connection through this Proxy will be logged.")
 			return true
 		}
