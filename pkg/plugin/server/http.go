@@ -72,7 +72,7 @@ func (p *httpPlugin) IsSupport(op string) bool {
 	return false
 }
 
-func (p *httpPlugin) Handle(ctx context.Context, op string, content interface{}) (*Response, interface{}, error) {
+func (p *httpPlugin) Handle(ctx context.Context, op string, content any) (*Response, any, error) {
 	r := &Request{
 		Version: APIVersion,
 		Op:      op,

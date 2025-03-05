@@ -97,7 +97,7 @@ frp also offers a P2P connect mode.
     * [Client Plugins](#client-plugins)
     * [Server Manage Plugins](#server-manage-plugins)
     * [SSH Tunnel Gateway](#ssh-tunnel-gateway)
-* [Releated Projects](#releated-projects)
+* [Related Projects](#related-projects)
 * [Contributing](#contributing)
 * [Donation](#donation)
     * [GitHub Sponsors](#github-sponsors)
@@ -1260,7 +1260,7 @@ frpc tcp --proxy_name "test-tcp" --local_ip 127.0.0.1 --local_port 8080 --remote
 
 Please refer to this [document](/doc/ssh_tunnel_gateway.md) for more information.
 
-## Releated Projects
+## Related Projects
 
 * [gofrp/plugin](https://github.com/gofrp/plugin) - A repository for frp plugins that contains a variety of plugins implemented based on the frp extension mechanism, meeting the customization needs of different scenarios.
 * [gofrp/tiny-frpc](https://github.com/gofrp/tiny-frpc) - A lightweight version of the frp client (around 3.5MB at minimum) implemented using the ssh protocol, supporting some of the most commonly used features, suitable for devices with limited resources.

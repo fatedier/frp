@@ -19,16 +19,16 @@ import (
 )
 
 type Request struct {
-	Version string      `json:"version"`
-	Op      string      `json:"op"`
-	Content interface{} `json:"content"`
+	Version string `json:"version"`
+	Op      string `json:"op"`
+	Content any    `json:"content"`
 }
 
 type Response struct {
-	Reject       bool        `json:"reject"`
-	RejectReason string      `json:"reject_reason"`
-	Unchange     bool        `json:"unchange"`
-	Content      interface{} `json:"content"`
+	Reject       bool   `json:"reject"`
+	RejectReason string `json:"reject_reason"`
+	Unchange     bool   `json:"unchange"`
+	Content      any    `json:"content"`
 }
 
 type LoginContent struct {
