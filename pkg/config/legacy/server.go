@@ -128,7 +128,7 @@ type ServerCommonConf struct {
 	// LogDurationTypes specifies the types of connection names for which the
 	// duration will be logged. If set to 'ssh,rdp', it will log the duration
 	// of connections named 'ssh', 'ssh_1', 'sshname', 'rdp', 'rdp_test1', or
-	// 'web_my_rdp'. By default, this value is "ssh,rdp".
+	// 'web_my_rdp'. By default, this value is "".
 	LogDurationTypes string `ini:"log_duration_types" json:"log_duration_types"`
 	// DetailedErrorsToClient defines whether to send the specific error (with
 	// debug info) to frpc. By default, this value is true.
@@ -215,7 +215,7 @@ func GetDefaultServerConf() ServerCommonConf {
 		DashboardAddr:          "0.0.0.0",
 		LogFile:                "console",
 		LogWay:                 "console",
-		LogDurationTypes:       "ssh,rdp",
+		LogDurationTypes:       "",
 		DetailedErrorsToClient: true,
 		TCPMux:                 true,
 		AllowPorts:             make(map[int]struct{}),

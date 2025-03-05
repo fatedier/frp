@@ -113,7 +113,7 @@ type LogConfig struct {
 	// DurationTypes specifies the types of connection names for which the
 	// duration will be logged. If set to 'ssh,rdp', it will log the duration
 	// of connections named 'ssh', 'ssh_1', 'sshname', 'rdp', 'rdp_test1', or
-	// 'web_my_rdp'. By default, this value is "ssh,rdp".
+	// 'web_my_rdp'. By default, this value is "".
 	DurationTypes string `json:"durationtypes,omitempty"`
 }
 
@@ -121,7 +121,7 @@ func (c *LogConfig) Complete() {
 	c.To = util.EmptyOr(c.To, "console")
 	c.Level = util.EmptyOr(c.Level, "info")
 	c.MaxDays = util.EmptyOr(c.MaxDays, 3)
-	c.DurationTypes = util.EmptyOr(c.DurationTypes, "ssh,rdp")
+	c.DurationTypes = util.EmptyOr(c.DurationTypes, "")
 }
 
 type HTTPPluginOptions struct {

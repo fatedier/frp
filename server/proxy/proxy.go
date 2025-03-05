@@ -63,6 +63,7 @@ type Proxy interface {
 
 type BaseProxy struct {
 	name          string
+	logDuration   bool
 	rc            *controller.ResourceController
 	listeners     []net.Listener
 	usedPortsNum  int
@@ -272,7 +273,7 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	metrics.Server.AddTrafficOut(name, proxyType, outCount)
 
 	// Log the duration of connection.
-	if IsTheTypeToLog(serverCfg.Log.DurationTypes, name) {
+	if pxy.logDuration {
 		endtime := time.Now().UnixNano() / 1000000 // time in microseconds
 		connectionDuration := endtime - startime
 		xl.Debugf("join connection closed, it remains [%d]ms, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", connectionDuration,
@@ -285,13 +286,15 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 }
 
 // Check Duration should be loged or not. True: while connection name contain a string in logDurationTypes.
-func IsTheTypeToLog(logDurationTypes string, name string) bool {
+func IsTheTypeToLog(logDurationTypes string, name string, xl *xlog.Logger) bool {
 	if strings.Contains(logDurationTypes, "all") {
+		xl.Infof("The duration of each connection through this Proxy will be logged.")
 		return true
 	}
 	thestrlist := strings.Split(logDurationTypes, ",")
 	for i := 0; i < len(thestrlist); i++ {
-		if strings.Contains(name, thestrlist[i]) {
+		if (thestrlist[i]!="") && strings.Contains(name, thestrlist[i]) {
+			xl.Infof("The duration of each connection through this Proxy will be logged.")
 			return true
 		}
 	}
@@ -320,6 +323,7 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 
 	basePxy := BaseProxy{
 		name:          configurer.GetBaseConfig().Name,
+		logDuration:   IsTheTypeToLog(options.ServerCfg.Log.DurationTypes, configurer.GetBaseConfig().Name, xl),
 		rc:            options.ResourceController,
 		listeners:     make([]net.Listener, 0),
 		poolCount:     options.PoolCount,
