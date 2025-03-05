@@ -271,6 +271,7 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	metrics.Server.AddTrafficIn(name, proxyType, inCount)
 	metrics.Server.AddTrafficOut(name, proxyType, outCount)
 
+	// Log the duration of connection.
 	if IsTheTypeToLog(serverCfg.Log.DurationTypes, name) {
 		endtime := time.Now().UnixNano() / 1000000 // time in microseconds
 		connectionDuration := endtime - startime
@@ -283,6 +284,7 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	}
 }
 
+// Check Duration should be loged or not. True: while connection name contain a string in logDurationTypes.
 func IsTheTypeToLog(logDurationTypes string, name string) bool {
 	if strings.Contains(logDurationTypes, "all") {
 		return true
