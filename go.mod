@@ -1,11 +1,11 @@
 module github.com/fatedier/frp
 
-go 1.22.0
+go 1.23.0
 
 require (
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
 	github.com/coreos/go-oidc/v3 v3.10.0
-	github.com/fatedier/golib v0.5.0
+	github.com/fatedier/golib v0.5.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.0

@@ -48,7 +48,8 @@ linters-settings:
     check-blank: false
   govet:
     # report about shadowed variables
-    check-shadowing: false
+    disable:
+    - shadow
   maligned:
     # print struct with more effective memory layout or not, false by default
     suggest-new: true

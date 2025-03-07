@@ -386,24 +386,30 @@ func (svr *Service) Run(ctx context.Context) {
 func (svr *Service) Close() error {
 	if svr.kcpListener != nil {
 		svr.kcpListener.Close()
-		svr.kcpListener = nil
 	}
 	if svr.quicListener != nil {
 		svr.quicListener.Close()
-		svr.quicListener = nil
 	}
 	if svr.websocketListener != nil {
 		svr.websocketListener.Close()
-		svr.websocketListener = nil
 	}
 	if svr.tlsListener != nil {
 		svr.tlsListener.Close()
-		svr.tlsConfig = nil
+	}
+	if svr.sshTunnelListener != nil {
+		svr.sshTunnelListener.Close()
 	}
 	if svr.listener != nil {
 		svr.listener.Close()
-		svr.listener = nil
 	}
+	if svr.webServer != nil {
+		svr.webServer.Close()
+	}
+	if svr.sshTunnelGateway != nil {
+		svr.sshTunnelGateway.Close()
+	}
+	svr.rc.Close()
+	svr.muxer.Close()
 	svr.ctlManager.Close()
 	if svr.cancel != nil {
 		svr.cancel()

@@ -24,7 +24,7 @@ type Router struct {
 	httpUser string
 
 	// store any object here
-	payload interface{}
+	payload any
 }
 
 func NewRouters() *Routers {
@@ -33,7 +33,7 @@ func NewRouters() *Routers {
 	}
 }
 
-func (r *Routers) Add(domain, location, httpUser string, payload interface{}) error {
+func (r *Routers) Add(domain, location, httpUser string, payload any) error {
 	domain = strings.ToLower(domain)
 
 	r.mutex.Lock()

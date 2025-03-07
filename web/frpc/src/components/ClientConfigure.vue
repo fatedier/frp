@@ -8,7 +8,7 @@
       type="textarea"
       autosize
       v-model="textarea"
-      placeholder="frpc configrue file, can not be empty..."
+      placeholder="frpc configure file, can not be empty..."
     ></el-input>
   </div>
 </template>
