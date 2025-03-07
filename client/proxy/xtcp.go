@@ -64,7 +64,7 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, startWorkConnMsg *msg.StartWorkC
 	}
 
 	xl.Tracef("nathole prepare start")
-	prepareResult, err := nathole.Prepare([]string{pxy.clientCfg.NatHoleSTUNServer})
+	prepareResult, err := nathole.Prepare([]string{pxy.clientCfg.NatHoleSTUNServer}, "")
 	if err != nil {
 		xl.Warnf("nathole prepare error: %v", err)
 		return

@@ -275,7 +275,7 @@ func (sv *XTCPVisitor) makeNatHole() {
 	}
 
 	xl.Tracef("nathole prepare start")
-	prepareResult, err := nathole.Prepare([]string{sv.clientCfg.NatHoleSTUNServer})
+	prepareResult, err := nathole.Prepare([]string{sv.clientCfg.NatHoleSTUNServer}, sv.cfg.UDPListen)
 	if err != nil {
 		xl.Warnf("nathole prepare error: %v", err)
 		return

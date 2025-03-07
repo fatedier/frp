@@ -157,6 +157,11 @@ type XTCPVisitorConfig struct {
 	MinRetryInterval  int    `json:"minRetryInterval,omitempty"`
 	FallbackTo        string `json:"fallbackTo,omitempty"`
 	FallbackTimeoutMs int    `json:"fallbackTimeoutMs,omitempty"`
+
+	// Specify the listen addr and port for the UDP NAT hole punching, the format is "addr:port" like "0.0.0.0:7000".
+	// It is useful when your router's NAT hole punching doesn't work well, so you can explicitly config a UDP port
+	// forwarding rule on the router to work around.
+	UDPListen string `json:"udpListen,omitempty"`
 }
 
 func (c *XTCPVisitorConfig) Complete(g *ClientCommonConfig) {
