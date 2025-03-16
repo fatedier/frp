@@ -15,7 +15,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24.1'
           
       - name: Make All
         run: |
@@ -24,7 +24,7 @@ jobs:
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
-          version: latest
+          version: '~> v2'
           args: release --clean --release-notes=./Release.md
         env:
           GITHUB_TOKEN: ${{ secrets.GPR_TOKEN }}

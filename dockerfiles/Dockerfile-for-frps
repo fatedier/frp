@@ -1,11 +1,11 @@
-FROM golang:1.23 AS building
+FROM golang:1.24 AS building
 
 COPY . /building
 WORKDIR /building
 
 RUN make frps
 
-FROM alpine:3
+FROM alpine:latest
 
 RUN apk add --no-cache tzdata
 
