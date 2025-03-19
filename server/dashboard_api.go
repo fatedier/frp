@@ -32,8 +32,6 @@ import (
 	"github.com/fatedier/frp/pkg/util/version"
 )
 
-// TODO(fatedier): add an API to clean status of all offline proxies.
-
 type GeneralResponse struct {
 	Code int
 	Msg  string
@@ -146,7 +144,8 @@ type TCPOutConf struct {
 type TCPMuxOutConf struct {
 	BaseOutConf
 	v1.DomainConfig
-	Multiplexer string `json:"multiplexer"`
+	Multiplexer     string `json:"multiplexer"`
+	RouteByHTTPUser string `json:"routeByHTTPUser"`
 }
 
 type UDPOutConf struct {
@@ -197,15 +196,15 @@ func getConfByType(proxyType string) any {
 
 // Get proxy info.
 type ProxyStatsInfo struct {
-	Name            string      `json:"name"`
-	Conf            interface{} `json:"conf"`
-	ClientVersion   string      `json:"clientVersion,omitempty"`
-	TodayTrafficIn  int64       `json:"todayTrafficIn"`
-	TodayTrafficOut int64       `json:"todayTrafficOut"`
-	CurConns        int64       `json:"curConns"`
-	LastStartTime   string      `json:"lastStartTime"`
-	LastCloseTime   string      `json:"lastCloseTime"`
-	Status          string      `json:"status"`
+	Name            string `json:"name"`
+	Conf            any    `json:"conf"`
+	ClientVersion   string `json:"clientVersion,omitempty"`
+	TodayTrafficIn  int64  `json:"todayTrafficIn"`
+	TodayTrafficOut int64  `json:"todayTrafficOut"`
+	CurConns        int64  `json:"curConns"`
+	LastStartTime   string `json:"lastStartTime"`
+	LastCloseTime   string `json:"lastCloseTime"`
+	Status          string `json:"status"`
 }
 
 type GetProxyInfoResp struct {
@@ -273,14 +272,14 @@ func (svr *Service) getProxyStatsByType(proxyType string) (proxyInfos []*ProxySt
 
 // Get proxy info by name.
 type GetProxyStatsResp struct {
-	Name            string      `json:"name"`
-	Conf            interface{} `json:"conf"`
-	TodayTrafficIn  int64       `json:"todayTrafficIn"`
-	TodayTrafficOut int64       `json:"todayTrafficOut"`
-	CurConns        int64       `json:"curConns"`
-	LastStartTime   string      `json:"lastStartTime"`
-	LastCloseTime   string      `json:"lastCloseTime"`
-	Status          string      `json:"status"`
+	Name            string `json:"name"`
+	Conf            any    `json:"conf"`
+	TodayTrafficIn  int64  `json:"todayTrafficIn"`
+	TodayTrafficOut int64  `json:"todayTrafficOut"`
+	CurConns        int64  `json:"curConns"`
+	LastStartTime   string `json:"lastStartTime"`
+	LastCloseTime   string `json:"lastCloseTime"`
+	Status          string `json:"status"`
 }
 
 // /api/proxy/:type/:name

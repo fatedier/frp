@@ -59,8 +59,12 @@ func fixDNSResolver() {
 	// Note: If there are other methods to obtain the default DNS servers, the default DNS servers should be used preferentially.
 	net.DefaultResolver = &net.Resolver{
 		PreferGo: true,
-		Dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
-			return net.Dial(network, "8.8.8.8:53")
+		Dial: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			if addr == "127.0.0.1:53" || addr == "[::1]:53" {
+				addr = "8.8.8.8:53"
+			}
+			var d net.Dialer
+			return d.DialContext(ctx, network, addr)
 		},
 	}
 }

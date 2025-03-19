@@ -12,7 +12,7 @@ import (
 func TestGetHTTPSHostname(t *testing.T) {
 	require := require.New(t)
 
-	l, err := net.Listen("tcp", ":")
+	l, err := net.Listen("tcp", "127.0.0.1:")
 	require.NoError(err)
 	defer l.Close()
 

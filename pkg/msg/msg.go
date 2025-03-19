@@ -40,7 +40,7 @@ const (
 	TypeNatHoleReport      = '6'
 )
 
-var msgTypeMap = map[byte]interface{}{
+var msgTypeMap = map[byte]any{
 	TypeLogin:              Login{},
 	TypeLoginResp:          LoginResp{},
 	TypeNewProxy:           NewProxy{},
@@ -121,6 +121,7 @@ type NewProxy struct {
 	HTTPPwd           string            `json:"http_pwd,omitempty"`
 	HostHeaderRewrite string            `json:"host_header_rewrite,omitempty"`
 	Headers           map[string]string `json:"headers,omitempty"`
+	ResponseHeaders   map[string]string `json:"response_headers,omitempty"`
 	RouteByHTTPUser   string            `json:"route_by_http_user,omitempty"`
 
 	// stcp, sudp, xtcp

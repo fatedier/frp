@@ -29,7 +29,8 @@ import (
 type RouteInfo string
 
 const (
-	RouteInfoKey RouteInfo = "routeInfo"
+	RouteInfoKey   RouteInfo = "routeInfo"
+	RouteConfigKey RouteInfo = "routeConfig"
 )
 
 type RequestRouteInfo struct {
@@ -99,6 +100,10 @@ func (v *Muxer) SetRewriteHostFunc(f hostRewriteFunc) *Muxer {
 	return v
 }
 
+func (v *Muxer) Close() error {
+	return v.listener.Close()
+}
+
 type ChooseEndpointFunc func() (string, error)
 
 type CreateConnFunc func(remoteAddr string) (net.Conn, error)
@@ -113,6 +118,7 @@ type RouteConfig struct {
 	Username        string
 	Password        string
 	Headers         map[string]string
+	ResponseHeaders map[string]string
 	RouteByHTTPUser string
 
 	CreateConnFn           CreateConnFunc

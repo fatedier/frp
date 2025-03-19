@@ -169,6 +169,15 @@ func (svr *Service) Run(ctx context.Context) error {
 		netpkg.SetDefaultDNSAddress(svr.common.DNSServer)
 	}
 
+	if svr.webServer != nil {
+		go func() {
+			log.Infof("admin server listen on %s", svr.webServer.Address())
+			if err := svr.webServer.Run(); err != nil {
+				log.Warnf("admin server exit with error: %v", err)
+			}
+		}()
+	}
+
 	// first login to frps
 	svr.loopLoginUntilSuccess(10*time.Second, lo.FromPtr(svr.common.LoginFailExit))
 	if svr.ctl == nil {
@@ -179,14 +188,6 @@ func (svr *Service) Run(ctx context.Context) error {
 
 	go svr.keepControllerWorking()
 
-	if svr.webServer != nil {
-		go func() {
-			log.Infof("admin server listen on %s", svr.webServer.Address())
-			if err := svr.webServer.Run(); err != nil {
-				log.Warnf("admin server exit with error: %v", err)
-			}
-		}()
-	}
 	<-svr.ctx.Done()
 	svr.stop()
 	return nil
@@ -380,18 +381,31 @@ func (svr *Service) stop() {
 	}
 }
 
-// TODO(fatedier): Use StatusExporter to provide query interfaces instead of directly using methods from the Service.
-func (svr *Service) GetProxyStatus(name string) (*proxy.WorkingStatus, error) {
+func (svr *Service) getProxyStatus(name string) (*proxy.WorkingStatus, bool) {
 	svr.ctlMu.RLock()
 	ctl := svr.ctl
 	svr.ctlMu.RUnlock()
 
 	if ctl == nil {
-		return nil, fmt.Errorf("control is not running")
+		return nil, false
 	}
-	ws, ok := ctl.pm.GetProxyStatus(name)
-	if !ok {
-		return nil, fmt.Errorf("proxy [%s] is not found", name)
+	return ctl.pm.GetProxyStatus(name)
+}
+
+func (svr *Service) StatusExporter() StatusExporter {
+	return &statusExporterImpl{
+		getProxyStatusFunc: svr.getProxyStatus,
 	}
-	return ws, nil
+}
+
+type StatusExporter interface {
+	GetProxyStatus(name string) (*proxy.WorkingStatus, bool)
+}
+
+type statusExporterImpl struct {
+	getProxyStatusFunc func(name string) (*proxy.WorkingStatus, bool)
+}
+
+func (s *statusExporterImpl) GetProxyStatus(name string) (*proxy.WorkingStatus, bool) {
+	return s.getProxyStatusFunc(name)
 }

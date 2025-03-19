@@ -110,6 +110,28 @@ class HTTPSProxy extends BaseProxy {
   }
 }
 
+class TCPMuxProxy extends BaseProxy {
+  multiplexer: string
+  routeByHTTPUser: string
+
+  constructor(proxyStats: any, port: number, subdomainHost: string) {
+    super(proxyStats)
+    this.type = 'tcpmux'
+    this.port = port
+    this.multiplexer = ''
+    this.routeByHTTPUser = ''
+
+    if (proxyStats.conf) {
+      this.customDomains = proxyStats.conf.customDomains || this.customDomains
+      this.multiplexer = proxyStats.conf.multiplexer
+      this.routeByHTTPUser = proxyStats.conf.routeByHTTPUser
+      if (proxyStats.conf.subdomain) {
+        this.subdomain = `${proxyStats.conf.subdomain}.${subdomainHost}`
+      }
+    } 
+  }
+}
+
 class STCPProxy extends BaseProxy {
   constructor(proxyStats: any) {
     super(proxyStats)
@@ -128,6 +150,7 @@ export {
   BaseProxy,
   TCPProxy,
   UDPProxy,
+  TCPMuxProxy,
   HTTPProxy,
   HTTPSProxy,
   STCPProxy,

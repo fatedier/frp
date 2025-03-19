@@ -15,7 +15,6 @@
 package vhost
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -30,6 +29,8 @@ import (
 
 	libio "github.com/fatedier/golib/io"
 	"github.com/fatedier/golib/pool"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
@@ -42,7 +43,7 @@ type HTTPReverseProxyOptions struct {
 }
 
 type HTTPReverseProxy struct {
-	proxy       *httputil.ReverseProxy
+	proxy       http.Handler
 	vhostRouter *Routers
 
 	responseHeaderTimeout time.Duration
@@ -64,9 +65,9 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			req := r.Out
 			req.URL.Scheme = "http"
 			reqRouteInfo := req.Context().Value(RouteInfoKey).(*RequestRouteInfo)
-			oldHost, _ := httppkg.CanonicalHost(reqRouteInfo.Host)
+			originalHost, _ := httppkg.CanonicalHost(reqRouteInfo.Host)
 
-			rc := rp.GetRouteConfig(oldHost, reqRouteInfo.URL, reqRouteInfo.HTTPUser)
+			rc := req.Context().Value(RouteConfigKey).(*RouteConfig)
 			if rc != nil {
 				if rc.RewriteHost != "" {
 					req.Host = rc.RewriteHost
@@ -78,7 +79,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 					endpoint, _ = rc.ChooseEndpointFn()
 					reqRouteInfo.Endpoint = endpoint
 					log.Tracef("choose endpoint name [%s] for http request host [%s] path [%s] httpuser [%s]",
-						endpoint, oldHost, reqRouteInfo.URL, reqRouteInfo.HTTPUser)
+						endpoint, originalHost, reqRouteInfo.URL, reqRouteInfo.HTTPUser)
 				}
 				// Set {domain}.{location}.{routeByHTTPUser}.{endpoint} as URL host here to let http transport reuse connections.
 				req.URL.Host = rc.Domain + "." +
@@ -92,6 +93,15 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			} else {
 				req.URL.Host = req.Host
 			}
+		},
+		ModifyResponse: func(r *http.Response) error {
+			rc := r.Request.Context().Value(RouteConfigKey).(*RouteConfig)
+			if rc != nil {
+				for k, v := range rc.ResponseHeaders {
+					r.Header.Set(k, v)
+				}
+			}
+			return nil
 		},
 		// Create a connection to one proxy routed by route policy.
 		Transport: &http.Transport{
@@ -116,15 +126,21 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 				return nil, nil
 			},
 		},
-		BufferPool: newWrapPool(),
-		ErrorLog:   stdlog.New(newWrapLogger(), "", 0),
+		BufferPool: pool.NewBuffer(32 * 1024),
+		ErrorLog:   stdlog.New(log.NewWriteLogger(log.WarnLevel, 2), "", 0),
 		ErrorHandler: func(rw http.ResponseWriter, req *http.Request, err error) {
-			log.Warnf("do http proxy request [host: %s] error: %v", req.Host, err)
+			log.Logf(log.WarnLevel, 1, "do http proxy request [host: %s] error: %v", req.Host, err)
+			if err != nil {
+				if e, ok := err.(net.Error); ok && e.Timeout() {
+					rw.WriteHeader(http.StatusGatewayTimeout)
+					return
+				}
+			}
 			rw.WriteHeader(http.StatusNotFound)
 			_, _ = rw.Write(getNotFoundPageContent())
 		},
 	}
-	rp.proxy = proxy
+	rp.proxy = h2c.NewHandler(proxy, &http2.Server{})
 	return rp
 }
 
@@ -150,14 +166,6 @@ func (rp *HTTPReverseProxy) GetRouteConfig(domain, location, routeByHTTPUser str
 		return vr.payload.(*RouteConfig)
 	}
 	return nil
-}
-
-func (rp *HTTPReverseProxy) GetHeaders(domain, location, routeByHTTPUser string) (headers map[string]string) {
-	vr, ok := rp.getVhost(domain, location, routeByHTTPUser)
-	if ok {
-		headers = vr.payload.(*RouteConfig).Headers
-	}
-	return
 }
 
 // CreateConnection create a new connection by route config
@@ -300,8 +308,13 @@ func (rp *HTTPReverseProxy) injectRequestInfoToCtx(req *http.Request) *http.Requ
 		RemoteAddr: req.RemoteAddr,
 		URLHost:    req.URL.Host,
 	}
+
+	originalHost, _ := httppkg.CanonicalHost(reqRouteInfo.Host)
+	rc := rp.GetRouteConfig(originalHost, reqRouteInfo.URL, reqRouteInfo.HTTPUser)
+
 	newctx := req.Context()
 	newctx = context.WithValue(newctx, RouteInfoKey, reqRouteInfo)
+	newctx = context.WithValue(newctx, RouteConfigKey, rc)
 	return req.Clone(newctx)
 }
 
@@ -321,21 +334,4 @@ func (rp *HTTPReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 	} else {
 		rp.proxy.ServeHTTP(rw, newreq)
 	}
-}
-
-type wrapPool struct{}
-
-func newWrapPool() *wrapPool { return &wrapPool{} }
-
-func (p *wrapPool) Get() []byte { return pool.GetBuf(32 * 1024) }
-
-func (p *wrapPool) Put(buf []byte) { pool.PutBuf(buf) }
-
-type wrapLogger struct{}
-
-func newWrapLogger() *wrapLogger { return &wrapLogger{} }
-
-func (l *wrapLogger) Write(p []byte) (n int, err error) {
-	log.Warnf("%s", string(bytes.TrimRight(p, "\n")))
-	return len(p), nil
 }

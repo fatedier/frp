@@ -363,11 +363,13 @@ func (s *TunnelServer) waitProxyStatusReady(name string, timeout time.Duration) 
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
+	statusExporter := s.vc.Service().StatusExporter()
+
 	for {
 		select {
 		case <-ticker.C:
-			ps, err := s.vc.Service().GetProxyStatus(name)
-			if err != nil {
+			ps, ok := statusExporter.GetProxyStatus(name)
+			if !ok {
 				continue
 			}
 			switch ps.Phase {

@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	libdial "github.com/fatedier/golib/net/dial"
+	libnet "github.com/fatedier/golib/net"
 	fmux "github.com/hashicorp/yamux"
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
@@ -169,44 +169,44 @@ func (c *defaultConnectorImpl) realConnect() (net.Conn, error) {
 		}
 	}
 
-	proxyType, addr, auth, err := libdial.ParseProxyURL(c.cfg.Transport.ProxyURL)
+	proxyType, addr, auth, err := libnet.ParseProxyURL(c.cfg.Transport.ProxyURL)
 	if err != nil {
 		xl.Errorf("fail to parse proxy url")
 		return nil, err
 	}
-	dialOptions := []libdial.DialOption{}
+	dialOptions := []libnet.DialOption{}
 	protocol := c.cfg.Transport.Protocol
 	switch protocol {
 	case "websocket":
 		protocol = "tcp"
-		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: netpkg.DialHookWebsocket(protocol, "")}))
-		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{
+		dialOptions = append(dialOptions, libnet.WithAfterHook(libnet.AfterHook{Hook: netpkg.DialHookWebsocket(protocol, "")}))
+		dialOptions = append(dialOptions, libnet.WithAfterHook(libnet.AfterHook{
 			Hook: netpkg.DialHookCustomTLSHeadByte(tlsConfig != nil, lo.FromPtr(c.cfg.Transport.TLS.DisableCustomTLSFirstByte)),
 		}))
-		dialOptions = append(dialOptions, libdial.WithTLSConfig(tlsConfig))
+		dialOptions = append(dialOptions, libnet.WithTLSConfig(tlsConfig))
 	case "wss":
 		protocol = "tcp"
-		dialOptions = append(dialOptions, libdial.WithTLSConfigAndPriority(100, tlsConfig))
+		dialOptions = append(dialOptions, libnet.WithTLSConfigAndPriority(100, tlsConfig))
 		// Make sure that if it is wss, the websocket hook is executed after the tls hook.
-		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: netpkg.DialHookWebsocket(protocol, tlsConfig.ServerName), Priority: 110}))
+		dialOptions = append(dialOptions, libnet.WithAfterHook(libnet.AfterHook{Hook: netpkg.DialHookWebsocket(protocol, tlsConfig.ServerName), Priority: 110}))
 	default:
-		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{
+		dialOptions = append(dialOptions, libnet.WithAfterHook(libnet.AfterHook{
 			Hook: netpkg.DialHookCustomTLSHeadByte(tlsConfig != nil, lo.FromPtr(c.cfg.Transport.TLS.DisableCustomTLSFirstByte)),
 		}))
-		dialOptions = append(dialOptions, libdial.WithTLSConfig(tlsConfig))
+		dialOptions = append(dialOptions, libnet.WithTLSConfig(tlsConfig))
 	}
 
 	if c.cfg.Transport.ConnectServerLocalIP != "" {
-		dialOptions = append(dialOptions, libdial.WithLocalAddr(c.cfg.Transport.ConnectServerLocalIP))
+		dialOptions = append(dialOptions, libnet.WithLocalAddr(c.cfg.Transport.ConnectServerLocalIP))
 	}
 	dialOptions = append(dialOptions,
-		libdial.WithProtocol(protocol),
-		libdial.WithTimeout(time.Duration(c.cfg.Transport.DialServerTimeout)*time.Second),
-		libdial.WithKeepAlive(time.Duration(c.cfg.Transport.DialServerKeepAlive)*time.Second),
-		libdial.WithProxy(proxyType, addr),
-		libdial.WithProxyAuth(auth),
+		libnet.WithProtocol(protocol),
+		libnet.WithTimeout(time.Duration(c.cfg.Transport.DialServerTimeout)*time.Second),
+		libnet.WithKeepAlive(time.Duration(c.cfg.Transport.DialServerKeepAlive)*time.Second),
+		libnet.WithProxy(proxyType, addr),
+		libnet.WithProxyAuth(auth),
 	)
-	conn, err := libdial.DialContext(
+	conn, err := libnet.DialContext(
 		c.ctx,
 		net.JoinHostPort(c.cfg.ServerAddr, strconv.Itoa(c.cfg.ServerPort)),
 		dialOptions...,

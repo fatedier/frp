@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"time"
 
 	"golang.org/x/net/websocket"
 )
@@ -39,8 +40,9 @@ func NewWebsocketListener(ln net.Listener) (wl *WebsocketListener) {
 	}))
 
 	wl.server = &http.Server{
-		Addr:    ln.Addr().String(),
-		Handler: muxer,
+		Addr:              ln.Addr().String(),
+		Handler:           muxer,
+		ReadHeaderTimeout: 60 * time.Second,
 	}
 
 	go func() {

@@ -25,7 +25,7 @@ import (
 	"time"
 
 	libio "github.com/fatedier/golib/io"
-	libdial "github.com/fatedier/golib/net/dial"
+	libnet "github.com/fatedier/golib/net"
 	pp "github.com/pires/go-proxyproto"
 	"golang.org/x/time/rate"
 
@@ -192,14 +192,14 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	if pxy.proxyPlugin != nil {
 		// if plugin is set, let plugin handle connection first
 		xl.Debugf("handle by plugin: %s", pxy.proxyPlugin.Name())
-		pxy.proxyPlugin.Handle(remote, workConn, &extraInfo)
+		pxy.proxyPlugin.Handle(pxy.ctx, remote, workConn, &extraInfo)
 		xl.Debugf("handle by plugin finished")
 		return
 	}
 
-	localConn, err := libdial.Dial(
+	localConn, err := libnet.Dial(
 		net.JoinHostPort(baseCfg.LocalIP, strconv.Itoa(baseCfg.LocalPort)),
-		libdial.WithTimeout(10*time.Second),
+		libnet.WithTimeout(10*time.Second),
 	)
 	if err != nil {
 		workConn.Close()

@@ -18,6 +18,7 @@ package plugin
 
 import (
 	"bufio"
+	"context"
 	"encoding/base64"
 	"io"
 	"net"
@@ -54,7 +55,8 @@ func NewHTTPProxyPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	}
 
 	hp.s = &http.Server{
-		Handler: hp,
+		Handler:           hp,
+		ReadHeaderTimeout: 60 * time.Second,
 	}
 
 	go func() {
@@ -67,7 +69,7 @@ func (hp *HTTPProxy) Name() string {
 	return v1.PluginHTTPProxy
 }
 
-func (hp *HTTPProxy) Handle(conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
+func (hp *HTTPProxy) Handle(_ context.Context, conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
 	wrapConn := netpkg.WrapReadWriteCloserToConn(conn, realConn)
 
 	sc, rd := libnet.NewSharedConn(wrapConn)

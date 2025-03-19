@@ -286,12 +286,13 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 
 		address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.VhostHTTPPort))
 		server := &http.Server{
-			Addr:    address,
-			Handler: rp,
+			Addr:              address,
+			Handler:           rp,
+			ReadHeaderTimeout: 60 * time.Second,
 		}
 		var l net.Listener
 		if httpMuxOn {
-			l = svr.muxer.ListenHttp(1)
+			l = svr.muxer.ListenHTTP(1)
 		} else {
 			l, err = net.Listen("tcp", address)
 			if err != nil {
@@ -308,7 +309,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	if cfg.VhostHTTPSPort > 0 {
 		var l net.Listener
 		if httpsMuxOn {
-			l = svr.muxer.ListenHttps(1)
+			l = svr.muxer.ListenHTTPS(1)
 		} else {
 			address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.VhostHTTPSPort))
 			l, err = net.Listen("tcp", address)
@@ -385,24 +386,30 @@ func (svr *Service) Run(ctx context.Context) {
 func (svr *Service) Close() error {
 	if svr.kcpListener != nil {
 		svr.kcpListener.Close()
-		svr.kcpListener = nil
 	}
 	if svr.quicListener != nil {
 		svr.quicListener.Close()
-		svr.quicListener = nil
 	}
 	if svr.websocketListener != nil {
 		svr.websocketListener.Close()
-		svr.websocketListener = nil
 	}
 	if svr.tlsListener != nil {
 		svr.tlsListener.Close()
-		svr.tlsConfig = nil
+	}
+	if svr.sshTunnelListener != nil {
+		svr.sshTunnelListener.Close()
 	}
 	if svr.listener != nil {
 		svr.listener.Close()
-		svr.listener = nil
 	}
+	if svr.webServer != nil {
+		svr.webServer.Close()
+	}
+	if svr.sshTunnelGateway != nil {
+		svr.sshTunnelGateway.Close()
+	}
+	svr.rc.Close()
+	svr.muxer.Close()
 	svr.ctlManager.Close()
 	if svr.cancel != nil {
 		svr.cancel()

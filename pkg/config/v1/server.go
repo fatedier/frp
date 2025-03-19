@@ -176,10 +176,15 @@ type ServerTransportConfig struct {
 
 func (c *ServerTransportConfig) Complete() {
 	c.TCPMux = util.EmptyOr(c.TCPMux, lo.ToPtr(true))
-	c.TCPMuxKeepaliveInterval = util.EmptyOr(c.TCPMuxKeepaliveInterval, 60)
+	c.TCPMuxKeepaliveInterval = util.EmptyOr(c.TCPMuxKeepaliveInterval, 30)
 	c.TCPKeepAlive = util.EmptyOr(c.TCPKeepAlive, 7200)
 	c.MaxPoolCount = util.EmptyOr(c.MaxPoolCount, 5)
-	c.HeartbeatTimeout = util.EmptyOr(c.HeartbeatTimeout, 90)
+	if lo.FromPtr(c.TCPMux) {
+		// If TCPMux is enabled, heartbeat of application layer is unnecessary because we can rely on heartbeat in tcpmux.
+		c.HeartbeatTimeout = util.EmptyOr(c.HeartbeatTimeout, -1)
+	} else {
+		c.HeartbeatTimeout = util.EmptyOr(c.HeartbeatTimeout, 90)
+	}
 	c.QUIC.Complete()
 	if c.TLS.TrustedCaFile != "" {
 		c.TLS.Force = true

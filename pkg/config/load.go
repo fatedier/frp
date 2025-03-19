@@ -18,10 +18,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	toml "github.com/pelletier/go-toml/v2"
 	"github.com/samber/lo"
@@ -118,7 +118,7 @@ func LoadConfigure(b []byte, c any, strict bool) error {
 	defer v1.DisallowUnknownFieldsMu.Unlock()
 	v1.DisallowUnknownFields = strict
 
-	var tomlObj interface{}
+	var tomlObj any
 	// Try to unmarshal as TOML first; swallow errors from that (assume it's not valid TOML).
 	if err := toml.Unmarshal(b, &tomlObj); err == nil {
 		b, err = json.Marshal(&tomlObj)
