@@ -200,38 +200,24 @@ type ServerCommonConf struct {
 	NatHoleAnalysisDataReserveHours int64 `ini:"nat_hole_analysis_data_reserve_hours" json:"nat_hole_analysis_data_reserve_hours"`
 }
 
-// GetDefaultServerConf returns a server configuration with reasonable
-// defaults.
+// GetDefaultServerConf returns a server configuration with reasonable defaults.
+// Note: Some default values here will be set to empty and will be converted to them
+// new configuration through the 'Complete' function to set them as the default
+// values of the new configuration.
 func GetDefaultServerConf() ServerCommonConf {
 	return ServerCommonConf{
-		ServerConfig:                    legacyauth.GetDefaultServerConf(),
-		BindAddr:                        "0.0.0.0",
-		BindPort:                        7000,
-		QUICKeepalivePeriod:             10,
-		QUICMaxIdleTimeout:              30,
-		QUICMaxIncomingStreams:          100000,
-		VhostHTTPTimeout:                60,
-		DashboardAddr:                   "0.0.0.0",
-		LogFile:                         "console",
-		LogWay:                          "console",
-		LogLevel:                        "info",
-		LogMaxDays:                      3,
-		DetailedErrorsToClient:          true,
-		TCPMux:                          true,
-		TCPMuxKeepaliveInterval:         60,
-		TCPKeepAlive:                    7200,
-		AllowPorts:                      make(map[int]struct{}),
-		MaxPoolCount:                    5,
-		MaxPortsPerClient:               0,
-		HeartbeatTimeout:                90,
-		UserConnTimeout:                 10,
-		HTTPPlugins:                     make(map[string]HTTPPluginOptions),
-		UDPPacketSize:                   1500,
-		NatHoleAnalysisDataReserveHours: 7 * 24,
+		ServerConfig:           legacyauth.GetDefaultServerConf(),
+		DashboardAddr:          "0.0.0.0",
+		LogFile:                "console",
+		LogWay:                 "console",
+		DetailedErrorsToClient: true,
+		TCPMux:                 true,
+		AllowPorts:             make(map[int]struct{}),
+		HTTPPlugins:            make(map[string]HTTPPluginOptions),
 	}
 }
 
-func UnmarshalServerConfFromIni(source interface{}) (ServerCommonConf, error) {
+func UnmarshalServerConfFromIni(source any) (ServerCommonConf, error) {
 	f, err := ini.LoadSources(ini.LoadOptions{
 		Insensitive:         false,
 		InsensitiveSections: false,

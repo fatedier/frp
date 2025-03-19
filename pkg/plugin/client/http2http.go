@@ -1,4 +1,4 @@
-// Copyright 2019 fatedier, fatedier@gmail.com
+// Copyright 2024 The frp Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package plugin
 
 import (
 	"context"
-	"crypto/tls"
 	"io"
 	stdlog "log"
 	"net"
@@ -33,37 +32,30 @@ import (
 )
 
 func init() {
-	Register(v1.PluginHTTP2HTTPS, NewHTTP2HTTPSPlugin)
+	Register(v1.PluginHTTP2HTTP, NewHTTP2HTTPPlugin)
 }
 
-type HTTP2HTTPSPlugin struct {
-	opts *v1.HTTP2HTTPSPluginOptions
+type HTTP2HTTPPlugin struct {
+	opts *v1.HTTP2HTTPPluginOptions
 
 	l *Listener
 	s *http.Server
 }
 
-func NewHTTP2HTTPSPlugin(options v1.ClientPluginOptions) (Plugin, error) {
-	opts := options.(*v1.HTTP2HTTPSPluginOptions)
+func NewHTTP2HTTPPlugin(options v1.ClientPluginOptions) (Plugin, error) {
+	opts := options.(*v1.HTTP2HTTPPluginOptions)
 
 	listener := NewProxyListener()
 
-	p := &HTTP2HTTPSPlugin{
+	p := &HTTP2HTTPPlugin{
 		opts: opts,
 		l:    listener,
 	}
 
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-
 	rp := &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
-			r.Out.Header["X-Forwarded-For"] = r.In.Header["X-Forwarded-For"]
-			r.Out.Header["X-Forwarded-Host"] = r.In.Header["X-Forwarded-Host"]
-			r.Out.Header["X-Forwarded-Proto"] = r.In.Header["X-Forwarded-Proto"]
 			req := r.Out
-			req.URL.Scheme = "https"
+			req.URL.Scheme = "http"
 			req.URL.Host = p.opts.LocalAddr
 			if p.opts.HostHeaderRewrite != "" {
 				req.Host = p.opts.HostHeaderRewrite
@@ -72,7 +64,6 @@ func NewHTTP2HTTPSPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 				req.Header.Set(k, v)
 			}
 		},
-		Transport:  tr,
 		BufferPool: pool.NewBuffer(32 * 1024),
 		ErrorLog:   stdlog.New(log.NewWriteLogger(log.WarnLevel, 2), "", 0),
 	}
@@ -89,15 +80,15 @@ func NewHTTP2HTTPSPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	return p, nil
 }
 
-func (p *HTTP2HTTPSPlugin) Handle(_ context.Context, conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
+func (p *HTTP2HTTPPlugin) Handle(_ context.Context, conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
 	wrapConn := netpkg.WrapReadWriteCloserToConn(conn, realConn)
 	_ = p.l.PutConn(wrapConn)
 }
 
-func (p *HTTP2HTTPSPlugin) Name() string {
-	return v1.PluginHTTP2HTTPS
+func (p *HTTP2HTTPPlugin) Name() string {
+	return v1.PluginHTTP2HTTP
 }
 
-func (p *HTTP2HTTPSPlugin) Close() error {
+func (p *HTTP2HTTPPlugin) Close() error {
 	return p.s.Close()
 }

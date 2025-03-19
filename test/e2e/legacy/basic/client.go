@@ -1,6 +1,7 @@
 package basic
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -54,7 +55,7 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 		framework.NewRequestExpect(f).Port(p3Port).Ensure()
 
 		client := f.APIClientForFrpc(adminPort)
-		conf, err := client.GetConfig()
+		conf, err := client.GetConfig(context.Background())
 		framework.ExpectNoError(err)
 
 		newP2Port := f.AllocPort()
@@ -65,10 +66,10 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 			newClientConf = newClientConf[:p3Index]
 		}
 
-		err = client.UpdateConfig(newClientConf)
+		err = client.UpdateConfig(context.Background(), newClientConf)
 		framework.ExpectNoError(err)
 
-		err = client.Reload(true)
+		err = client.Reload(context.Background(), true)
 		framework.ExpectNoError(err)
 		time.Sleep(time.Second)
 
@@ -120,7 +121,7 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 		framework.NewRequestExpect(f).Port(testPort).Ensure()
 
 		client := f.APIClientForFrpc(adminPort)
-		err := client.Stop()
+		err := client.Stop(context.Background())
 		framework.ExpectNoError(err)
 
 		time.Sleep(3 * time.Second)

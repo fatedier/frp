@@ -34,8 +34,6 @@ import (
 	"github.com/fatedier/frp/pkg/util/version"
 )
 
-// TODO(fatedier): add an API to clean status of all offline proxies.
-
 type GeneralResponse struct {
 	Code int
 	Msg  string
@@ -159,7 +157,8 @@ type TCPOutConf struct {
 type TCPMuxOutConf struct {
 	BaseOutConf
 	v1.DomainConfig
-	Multiplexer string `json:"multiplexer"`
+	Multiplexer     string `json:"multiplexer"`
+	RouteByHTTPUser string `json:"routeByHTTPUser"`
 }
 
 type UDPOutConf struct {
@@ -210,15 +209,15 @@ func getConfByType(proxyType string) any {
 
 // Get proxy info.
 type ProxyStatsInfo struct {
-	Name            string      `json:"name"`
-	Conf            interface{} `json:"conf"`
-	ClientVersion   string      `json:"clientVersion,omitempty"`
-	TodayTrafficIn  int64       `json:"todayTrafficIn"`
-	TodayTrafficOut int64       `json:"todayTrafficOut"`
-	CurConns        int64       `json:"curConns"`
-	LastStartTime   string      `json:"lastStartTime"`
-	LastCloseTime   string      `json:"lastCloseTime"`
-	Status          string      `json:"status"`
+	Name            string `json:"name"`
+	Conf            any    `json:"conf"`
+	ClientVersion   string `json:"clientVersion,omitempty"`
+	TodayTrafficIn  int64  `json:"todayTrafficIn"`
+	TodayTrafficOut int64  `json:"todayTrafficOut"`
+	CurConns        int64  `json:"curConns"`
+	LastStartTime   string `json:"lastStartTime"`
+	LastCloseTime   string `json:"lastCloseTime"`
+	Status          string `json:"status"`
 	TrafficOutList  []int64     `json:"traffic_out_list"`
 }
 
@@ -287,14 +286,51 @@ func (svr *Service) getProxyStatsByType(proxyType string) (proxyInfos []*ProxySt
 
 // Get proxy info by name.
 type GetProxyStatsResp struct {
-	Name            string      `json:"name"`
-	Conf            interface{} `json:"conf"`
-	TodayTrafficIn  int64       `json:"todayTrafficIn"`
-	TodayTrafficOut int64       `json:"todayTrafficOut"`
-	CurConns        int64       `json:"curConns"`
-	LastStartTime   string      `json:"lastStartTime"`
-	LastCloseTime   string      `json:"lastCloseTime"`
-	Status          string      `json:"status"`
+	Name            string `json:"name"`
+	Conf            any    `json:"conf"`
+	TodayTrafficIn  int64  `json:"todayTrafficIn"`
+	TodayTrafficOut int64  `json:"todayTrafficOut"`
+	CurConns        int64  `json:"curConns"`
+	LastStartTime   string `json:"lastStartTime"`
+	LastCloseTime   string `json:"lastCloseTime"`
+	Status          string `json:"status"`
+}
+
+func (svr *Service) apiCloseProxyByTypeAndName(w http.ResponseWriter, r *http.Request) {
+	res := GeneralResponse{Code: 200}
+	params := mux.Vars(r)
+	name := params["name"]
+
+	defer func() {
+		log.Infof("Http response [%s]: code [%d]", r.URL.Path, res.Code)
+		w.WriteHeader(res.Code)
+		if len(res.Msg) > 0 {
+			_, _ = w.Write([]byte(res.Msg))
+		}
+	}()
+	log.Infof("Http request: [%s]", r.URL.Path)
+
+	pxy, ok := svr.pxyManager.GetByName(name)
+	if !ok {
+		res.Code = 404
+		res.Msg = "not found"
+		return
+	}
+
+	cc, ok := svr.ctlManager.GetByID(pxy.GetUserInfo().RunID)
+	if !ok {
+		res.Code = 404
+		res.Msg = "not found"
+		return
+	}
+
+	err := cc.msgDispatcher.Send(&msg.ClientProxyClose{Name: name})
+	if err != nil {
+		res.Code = 500
+		res.Msg = err.Error()
+	} else {
+		res.Msg = "ok"
+	}
 }
 
 func (svr *Service) apiCloseProxyByTypeAndName(w http.ResponseWriter, r *http.Request) {

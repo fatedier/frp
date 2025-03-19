@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,8 +32,8 @@ func (c *Client) SetAuth(user, pwd string) {
 	c.authPwd = pwd
 }
 
-func (c *Client) GetProxyStatus(name string) (*client.ProxyStatusResp, error) {
-	req, err := http.NewRequest("GET", "http://"+c.address+"/api/status", nil)
+func (c *Client) GetProxyStatus(ctx context.Context, name string) (*client.ProxyStatusResp, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://"+c.address+"/api/status", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -54,8 +55,8 @@ func (c *Client) GetProxyStatus(name string) (*client.ProxyStatusResp, error) {
 	return nil, fmt.Errorf("no proxy status found")
 }
 
-func (c *Client) GetAllProxyStatus() (client.StatusResp, error) {
-	req, err := http.NewRequest("GET", "http://"+c.address+"/api/status", nil)
+func (c *Client) GetAllProxyStatus(ctx context.Context) (client.StatusResp, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://"+c.address+"/api/status", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +71,7 @@ func (c *Client) GetAllProxyStatus() (client.StatusResp, error) {
 	return allStatus, nil
 }
 
-func (c *Client) Reload(strictMode bool) error {
+func (c *Client) Reload(ctx context.Context, strictMode bool) error {
 	v := url.Values{}
 	if strictMode {
 		v.Set("strictConfig", "true")
@@ -79,7 +80,7 @@ func (c *Client) Reload(strictMode bool) error {
 	if len(v) > 0 {
 		queryStr = "?" + v.Encode()
 	}
-	req, err := http.NewRequest("GET", "http://"+c.address+"/api/reload"+queryStr, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://"+c.address+"/api/reload"+queryStr, nil)
 	if err != nil {
 		return err
 	}
@@ -87,8 +88,8 @@ func (c *Client) Reload(strictMode bool) error {
 	return err
 }
 
-func (c *Client) Stop() error {
-	req, err := http.NewRequest("POST", "http://"+c.address+"/api/stop", nil)
+func (c *Client) Stop(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, "POST", "http://"+c.address+"/api/stop", nil)
 	if err != nil {
 		return err
 	}
@@ -96,16 +97,16 @@ func (c *Client) Stop() error {
 	return err
 }
 
-func (c *Client) GetConfig() (string, error) {
-	req, err := http.NewRequest("GET", "http://"+c.address+"/api/config", nil)
+func (c *Client) GetConfig(ctx context.Context) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://"+c.address+"/api/config", nil)
 	if err != nil {
 		return "", err
 	}
 	return c.do(req)
 }
 
-func (c *Client) UpdateConfig(content string) error {
-	req, err := http.NewRequest("PUT", "http://"+c.address+"/api/config", strings.NewReader(content))
+func (c *Client) UpdateConfig(ctx context.Context, content string) error {
+	req, err := http.NewRequestWithContext(ctx, "PUT", "http://"+c.address+"/api/config", strings.NewReader(content))
 	if err != nil {
 		return err
 	}

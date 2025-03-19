@@ -3,6 +3,7 @@ package plugin
 import (
 	"crypto/tls"
 	"fmt"
+	"net/http"
 	"strconv"
 
 	"github.com/onsi/ginkgo/v2"
@@ -315,6 +316,124 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 			httpserver.WithBindPort(localPort),
 			httpserver.WithResponse([]byte("test")),
 			httpserver.WithTLSConfig(tlsConfig),
+		)
+		f.RunServer("", localServer)
+
+		framework.NewRequestExpect(f).
+			Port(vhostHTTPSPort).
+			RequestModify(func(r *request.Request) {
+				r.HTTPS().HTTPHost("example.com").TLSConfig(&tls.Config{
+					ServerName:         "example.com",
+					InsecureSkipVerify: true,
+				})
+			}).
+			ExpectResp([]byte("test")).
+			Ensure()
+	})
+
+	ginkgo.Describe("http2http", func() {
+		ginkgo.It("host header rewrite", func() {
+			serverConf := consts.DefaultServerConfig
+
+			localPort := f.AllocPort()
+			remotePort := f.AllocPort()
+			clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+			[[proxies]]
+			name = "http2http"
+			type = "tcp"
+			remotePort = %d
+			[proxies.plugin]
+			type = "http2http"
+			localAddr = "127.0.0.1:%d"
+			hostHeaderRewrite = "rewrite.test.com"
+			`, remotePort, localPort)
+
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+			localServer := httpserver.New(
+				httpserver.WithBindPort(localPort),
+				httpserver.WithHandler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					_, _ = w.Write([]byte(req.Host))
+				})),
+			)
+			f.RunServer("", localServer)
+
+			framework.NewRequestExpect(f).
+				Port(remotePort).
+				RequestModify(func(r *request.Request) {
+					r.HTTP().HTTPHost("example.com")
+				}).
+				ExpectResp([]byte("rewrite.test.com")).
+				Ensure()
+		})
+
+		ginkgo.It("set request header", func() {
+			serverConf := consts.DefaultServerConfig
+
+			localPort := f.AllocPort()
+			remotePort := f.AllocPort()
+			clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+			[[proxies]]
+			name = "http2http"
+			type = "tcp"
+			remotePort = %d
+			[proxies.plugin]
+			type = "http2http"
+			localAddr = "127.0.0.1:%d"
+			requestHeaders.set.x-from-where = "frp"
+			`, remotePort, localPort)
+
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+			localServer := httpserver.New(
+				httpserver.WithBindPort(localPort),
+				httpserver.WithHandler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					_, _ = w.Write([]byte(req.Header.Get("x-from-where")))
+				})),
+			)
+			f.RunServer("", localServer)
+
+			framework.NewRequestExpect(f).
+				Port(remotePort).
+				RequestModify(func(r *request.Request) {
+					r.HTTP().HTTPHost("example.com")
+				}).
+				ExpectResp([]byte("frp")).
+				Ensure()
+		})
+	})
+
+	ginkgo.It("tls2raw", func() {
+		generator := &cert.SelfSignedCertGenerator{}
+		artifacts, err := generator.Generate("example.com")
+		framework.ExpectNoError(err)
+		crtPath := f.WriteTempFile("tls2raw_server.crt", string(artifacts.Cert))
+		keyPath := f.WriteTempFile("tls2raw_server.key", string(artifacts.Key))
+
+		serverConf := consts.DefaultServerConfig
+		vhostHTTPSPort := f.AllocPort()
+		serverConf += fmt.Sprintf(`
+		vhostHTTPSPort = %d
+		`, vhostHTTPSPort)
+
+		localPort := f.AllocPort()
+		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+		[[proxies]]
+		name = "tls2raw-test"
+		type = "https"
+		customDomains = ["example.com"]
+		[proxies.plugin]
+		type = "tls2raw"
+		localAddr = "127.0.0.1:%d"
+		crtPath = "%s"
+		keyPath = "%s"
+		`, localPort, crtPath, keyPath)
+
+		f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+		localServer := httpserver.New(
+			httpserver.WithBindPort(localPort),
+			httpserver.WithResponse([]byte("test")),
 		)
 		f.RunServer("", localServer)
 

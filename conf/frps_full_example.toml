@@ -34,7 +34,7 @@ transport.maxPoolCount = 5
 
 # Specify keep alive interval for tcp mux.
 # only valid if tcpMux is true.
-# transport.tcpMuxKeepaliveInterval = 60
+# transport.tcpMuxKeepaliveInterval = 30
 
 # tcpKeepalive specifies the interval between keep-alive probes for an active network connection between frpc and frps.
 # If negative, keep-alive probes are disabled.

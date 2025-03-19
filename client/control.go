@@ -20,8 +20,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/samber/lo"
-
 	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/client/visitor"
 	"github.com/fatedier/frp/pkg/auth"
@@ -250,14 +248,12 @@ func (ctl *Control) registerMsgHandlers() {
 	ctl.msgDispatcher.RegisterHandler(&msg.ClientProxyClose{}, ctl.handleCustom)
 }
 
-// headerWorker sends heartbeat to server and check heartbeat timeout.
+// heartbeatWorker sends heartbeat to server and check heartbeat timeout.
 func (ctl *Control) heartbeatWorker() {
 	xl := ctl.xl
 
-	// TODO(fatedier): Change default value of HeartbeatInterval to -1 if tcpmux is enabled.
-	// Users can still enable heartbeat feature by setting HeartbeatInterval to a positive value.
 	if ctl.sessionCtx.Common.Transport.HeartbeatInterval > 0 {
-		// send heartbeat to server
+		// Send heartbeat to server.
 		sendHeartBeat := func() (bool, error) {
 			xl.Debugf("send heartbeat to server")
 			pingMsg := &msg.Ping{}
@@ -281,10 +277,8 @@ func (ctl *Control) heartbeatWorker() {
 		)
 	}
 
-	// Check heartbeat timeout only if TCPMux is not enabled and users don't disable heartbeat feature.
-	if ctl.sessionCtx.Common.Transport.HeartbeatInterval > 0 && ctl.sessionCtx.Common.Transport.HeartbeatTimeout > 0 &&
-		!lo.FromPtr(ctl.sessionCtx.Common.Transport.TCPMux) {
-
+	// Check heartbeat timeout.
+	if ctl.sessionCtx.Common.Transport.HeartbeatInterval > 0 && ctl.sessionCtx.Common.Transport.HeartbeatTimeout > 0 {
 		go wait.Until(func() {
 			if time.Since(ctl.lastPong.Load().(time.Time)) > time.Duration(ctl.sessionCtx.Common.Transport.HeartbeatTimeout)*time.Second {
 				xl.Warnf("heartbeat timeout")

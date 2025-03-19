@@ -76,7 +76,7 @@ transport.poolCount = 5
 
 # Specify keep alive interval for tcp mux.
 # only valid if tcpMux is enabled.
-# transport.tcpMuxKeepaliveInterval = 60
+# transport.tcpMuxKeepaliveInterval = 30
 
 # Communication protocol used to connect to server
 # supports tcp, kcp, quic, websocket and wss now, default is tcp
@@ -209,6 +209,7 @@ locations = ["/", "/pic"]
 # routeByHTTPUser = abc
 hostHeaderRewrite = "example.com"
 requestHeaders.set.x-from-where = "frp"
+responseHeaders.set.foo = "bar"
 healthCheck.type = "http"
 # frpc will send a GET http request '/status' to local http service
 # http service is alive when it return 2xx http response code
@@ -313,6 +314,26 @@ type = "http2https"
 localAddr = "127.0.0.1:443"
 hostHeaderRewrite = "127.0.0.1"
 requestHeaders.set.x-from-where = "frp"
+
+[[proxies]]
+name = "plugin_http2http"
+type = "tcp"
+remotePort = 6007
+[proxies.plugin]
+type = "http2http"
+localAddr = "127.0.0.1:80"
+hostHeaderRewrite = "127.0.0.1"
+requestHeaders.set.x-from-where = "frp"
+
+[[proxies]]
+name = "plugin_tls2raw"
+type = "tcp"
+remotePort = 6008
+[proxies.plugin]
+type = "tls2raw"
+localAddr = "127.0.0.1:80"
+crtPath = "./server.crt"
+keyPath = "./server.key"
 
 [[proxies]]
 name = "secret_tcp"

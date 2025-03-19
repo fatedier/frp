@@ -1,6 +1,7 @@
 package basic
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -101,7 +102,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 		client := f.APIClientForFrpc(adminPort)
 
 		// tcp random port
-		status, err := client.GetProxyStatus("tcp")
+		status, err := client.GetProxyStatus(context.Background(), "tcp")
 		framework.ExpectNoError(err)
 
 		_, portStr, err := net.SplitHostPort(status.RemoteAddr)
@@ -112,7 +113,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 		framework.NewRequestExpect(f).Port(port).Ensure()
 
 		// udp random port
-		status, err = client.GetProxyStatus("udp")
+		status, err = client.GetProxyStatus(context.Background(), "udp")
 		framework.ExpectNoError(err)
 
 		_, portStr, err = net.SplitHostPort(status.RemoteAddr)

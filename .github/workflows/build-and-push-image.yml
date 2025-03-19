@@ -2,7 +2,7 @@ name: Build Image and Publish to Dockerhub & GPR
 
 on:
   release:
-    types: [ created ]
+    types: [ published ]
   workflow_dispatch:
     inputs:
       tag:
@@ -61,7 +61,7 @@ jobs:
           echo "TAG_FRPS_GPR=ghcr.io/fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
 
       - name: Build and push frpc
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./dockerfiles/Dockerfile-for-frpc

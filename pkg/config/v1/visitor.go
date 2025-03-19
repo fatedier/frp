@@ -120,6 +120,10 @@ func (c *TypedVisitorConfig) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+func (c *TypedVisitorConfig) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.VisitorConfigurer)
+}
+
 func NewVisitorConfigurerByType(t VisitorType) VisitorConfigurer {
 	v, ok := visitorConfigTypeMap[t]
 	if !ok {

@@ -301,20 +301,18 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 }
 
 func (ctl *Control) heartbeatWorker() {
-	xl := ctl.xl
-
-	// Don't need application heartbeat if TCPMux is enabled,
-	// yamux will do same thing.
-	// TODO(fatedier): let default HeartbeatTimeout to -1 if TCPMux is enabled. Users can still set it to positive value to enable it.
-	if !lo.FromPtr(ctl.serverCfg.Transport.TCPMux) && ctl.serverCfg.Transport.HeartbeatTimeout > 0 {
-		go wait.Until(func() {
-			if time.Since(ctl.lastPing.Load().(time.Time)) > time.Duration(ctl.serverCfg.Transport.HeartbeatTimeout)*time.Second {
-				xl.Warnf("heartbeat timeout")
-				ctl.conn.Close()
-				return
-			}
-		}, time.Second, ctl.doneCh)
+	if ctl.serverCfg.Transport.HeartbeatTimeout <= 0 {
+		return
 	}
+
+	xl := ctl.xl
+	go wait.Until(func() {
+		if time.Since(ctl.lastPing.Load().(time.Time)) > time.Duration(ctl.serverCfg.Transport.HeartbeatTimeout)*time.Second {
+			xl.Warnf("heartbeat timeout")
+			ctl.conn.Close()
+			return
+		}
+	}, time.Second, ctl.doneCh)
 }
 
 // block until Control closed

@@ -2,22 +2,34 @@ export PATH := $(PATH):`go env GOPATH`/bin
 export GO111MODULE=on
 LDFLAGS := -s -w
 
-os-archs=darwin:amd64 darwin:arm64 freebsd:amd64 linux:amd64 linux:arm linux:arm64 windows:amd64 windows:arm64 linux:mips64 linux:mips64le linux:mips:softfloat linux:mipsle:softfloat linux:riscv64 android:arm64
+os-archs=darwin:amd64 darwin:arm64 freebsd:amd64 linux:amd64 linux:arm:7 linux:arm:5 linux:arm64 windows:amd64 windows:arm64 linux:mips64 linux:mips64le linux:mips:softfloat linux:mipsle:softfloat linux:riscv64 linux:loong64 android:arm64
 
 all: build
 
 build: app
 
 app:
-	@$(foreach n, $(os-archs),\
-		os=$(shell echo "$(n)" | cut -d : -f 1);\
-		arch=$(shell echo "$(n)" | cut -d : -f 2);\
-		gomips=$(shell echo "$(n)" | cut -d : -f 3);\
-		target_suffix=$${os}_$${arch};\
-		echo "Build $${os}-$${arch}...";\
-		env CGO_ENABLED=0 GOOS=$${os} GOARCH=$${arch} GOMIPS=$${gomips} go build -trimpath -ldflags "$(LDFLAGS)" -tags frpc -o ./release/frpc_$${target_suffix} ./cmd/frpc;\
-		env CGO_ENABLED=0 GOOS=$${os} GOARCH=$${arch} GOMIPS=$${gomips} go build -trimpath -ldflags "$(LDFLAGS)" -tags frps -o ./release/frps_$${target_suffix} ./cmd/frps;\
-		echo "Build $${os}-$${arch} done";\
+	@$(foreach n, $(os-archs), \
+		os=$(shell echo "$(n)" | cut -d : -f 1); \
+		arch=$(shell echo "$(n)" | cut -d : -f 2); \
+		extra=$(shell echo "$(n)" | cut -d : -f 3); \
+		flags=''; \
+		target_suffix=$${os}_$${arch}; \
+		if [ "$${os}" = "linux" ] && [ "$${arch}" = "arm" ] && [ "$${extra}" != "" ] ; then \
+			if [ "$${extra}" = "7" ]; then \
+				flags=GOARM=7; \
+				target_suffix=$${os}_arm_hf; \
+			elif [ "$${extra}" = "5" ]; then \
+				flags=GOARM=5; \
+				target_suffix=$${os}_arm; \
+			fi; \
+		elif [ "$${os}" = "linux" ] && ([ "$${arch}" = "mips" ] || [ "$${arch}" = "mipsle" ]) && [ "$${extra}" != "" ] ; then \
+		    flags=GOMIPS=$${extra}; \
+		fi; \
+		echo "Build $${os}-$${arch}$${extra:+ ($${extra})}..."; \
+		env CGO_ENABLED=0 GOOS=$${os} GOARCH=$${arch} $${flags} go build -trimpath -ldflags "$(LDFLAGS)" -tags frpc -o ./release/frpc_$${target_suffix} ./cmd/frpc; \
+		env CGO_ENABLED=0 GOOS=$${os} GOARCH=$${arch} $${flags} go build -trimpath -ldflags "$(LDFLAGS)" -tags frps -o ./release/frps_$${target_suffix} ./cmd/frps; \
+		echo "Build $${os}-$${arch}$${extra:+ ($${extra})} done"; \
 	)
 	@mv ./release/frpc_windows_amd64 ./release/frpc_windows_amd64.exe
 	@mv ./release/frps_windows_amd64 ./release/frps_windows_amd64.exe

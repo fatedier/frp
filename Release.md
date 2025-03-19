@@ -1,7 +1,7 @@
 ### Features
 
-* `https2http` and `https2https` plugin now supports `X-Forwared-For` header.
+* Support metadatas and annotations in frpc proxy commands.
 
 ### Fixes
 
-* `X-Forwared-For` header is now correctly set in the request to the backend server for proxy type http.
+* Properly release resources in service.Close() to prevent resource leaks when used as a library.

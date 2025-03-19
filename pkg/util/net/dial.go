@@ -5,11 +5,11 @@ import (
 	"net"
 	"net/url"
 
-	libdial "github.com/fatedier/golib/net/dial"
+	libnet "github.com/fatedier/golib/net"
 	"golang.org/x/net/websocket"
 )
 
-func DialHookCustomTLSHeadByte(enableTLS bool, disableCustomTLSHeadByte bool) libdial.AfterHookFunc {
+func DialHookCustomTLSHeadByte(enableTLS bool, disableCustomTLSHeadByte bool) libnet.AfterHookFunc {
 	return func(ctx context.Context, c net.Conn, addr string) (context.Context, net.Conn, error) {
 		if enableTLS && !disableCustomTLSHeadByte {
 			_, err := c.Write([]byte{byte(FRPTLSHeadByte)})
@@ -21,7 +21,7 @@ func DialHookCustomTLSHeadByte(enableTLS bool, disableCustomTLSHeadByte bool) li
 	}
 }
 
-func DialHookWebsocket(protocol string, host string) libdial.AfterHookFunc {
+func DialHookWebsocket(protocol string, host string) libnet.AfterHookFunc {
 	return func(ctx context.Context, c net.Conn, addr string) (context.Context, net.Conn, error) {
 		if protocol != "wss" {
 			protocol = "ws"

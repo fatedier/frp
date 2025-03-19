@@ -112,6 +112,10 @@ func (g *Gateway) Run() {
 	}
 }
 
+func (g *Gateway) Close() error {
+	return g.ln.Close()
+}
+
 func (g *Gateway) handleConn(conn net.Conn) {
 	defer conn.Close()
 

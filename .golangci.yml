@@ -1,10 +1,10 @@
 service:
-  golangci-lint-version: 1.57.x # use the fixed version to not introduce new linters unexpectedly
-  
+  golangci-lint-version: 1.61.x # use the fixed version to not introduce new linters unexpectedly
+
 run:
   concurrency: 4
   # timeout for analysis, e.g. 30s, 5m, default is 1m
-  deadline: 20m
+  timeout: 20m
   build-tags:
   - integ
   - integfuzz
@@ -14,7 +14,7 @@ linters:
   enable:
   - unused
   - errcheck
-  - exportloopref
+  - copyloopvar
   - gocritic
   - gofumpt
   - goimports
@@ -48,7 +48,8 @@ linters-settings:
     check-blank: false
   govet:
     # report about shadowed variables
-    check-shadowing: false
+    disable:
+    - shadow
   maligned:
     # print struct with more effective memory layout or not, false by default
     suggest-new: true
@@ -86,13 +87,11 @@ linters-settings:
     severity: "low"
     confidence: "low"
     excludes:
-    - G102
-    - G112
-    - G306
     - G401
     - G402
     - G404
     - G501
+    - G115 # integer overflow conversion
 
 issues:
   # List of regexps of issue texts to exclude, empty list by default.
