@@ -1081,12 +1081,12 @@ name = "web"
 type = "https"
 customDomains = ["test.example.com"]
 
-        [proxies.plugin]
-        type = "https2http"
-        localAddr = "127.0.0.1:80"
-        crtPath = "server.crt"
-        keyPath = "key.pem"
-        clientCertificates = ["authorizedClient_cert.pem"]
+[proxies.plugin]
+type = "https2http"
+localAddr = "127.0.0.1:80"
+crtPath = "server.crt"
+keyPath = "key.pem"
+clientCertificates = ["authorizedClient_cert.pem"]
 ```
 
 In this situation, the client certificate can be self-signed without any detriment to security. Multiple certificates can be generated and allowed to access the service.
