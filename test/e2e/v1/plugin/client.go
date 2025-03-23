@@ -236,67 +236,126 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 			Ensure()
 	})
 
-	ginkgo.It("https2http", func() {
-		generator := &cert.SelfSignedCertGenerator{}
-		artifacts, err := generator.Generate("example.com")
-		framework.ExpectNoError(err)
-		crtPath := f.WriteTempFile("server.crt", string(artifacts.Cert))
-		keyPath := f.WriteTempFile("server.key", string(artifacts.Key))
+	ginkgo.Describe("https2http", func() {
+		ginkgo.It("without client certificate requirement", func() {
+			generator := &cert.SelfSignedCertGenerator{}
+			artifacts, err := generator.Generate("example.com")
+			framework.ExpectNoError(err)
+			crtPath := f.WriteTempFile("server.crt", string(artifacts.Cert))
+			keyPath := f.WriteTempFile("server.key", string(artifacts.Key))
 
-		serverConf := consts.DefaultServerConfig
-		vhostHTTPSPort := f.AllocPort()
-		serverConf += fmt.Sprintf(`
-		vhostHTTPSPort = %d
-		`, vhostHTTPSPort)
+			serverConf := consts.DefaultServerConfig
+			vhostHTTPSPort := f.AllocPort()
+			serverConf += fmt.Sprintf(`
+			vhostHTTPSPort = %d
+			`, vhostHTTPSPort)
 
-		localPort := f.AllocPort()
-		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
-		[[proxies]]
-		name = "https2http"
-		type = "https"
-		customDomains = ["example.com"]
-		[proxies.plugin]
-		type = "https2http"
-		localAddr = "127.0.0.1:%d"
-		crtPath = "%s"
-		keyPath = "%s"
-		`, localPort, crtPath, keyPath)
+			localPort := f.AllocPort()
+			clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+			[[proxies]]
+			name = "https2http"
+			type = "https"
+			customDomains = ["example.com"]
+			[proxies.plugin]
+			type = "https2http"
+			localAddr = "127.0.0.1:%d"
+			crtPath = "%s"
+			keyPath = "%s"
+			`, localPort, crtPath, keyPath)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
 
-		localServer := httpserver.New(
-			httpserver.WithBindPort(localPort),
-			httpserver.WithResponse([]byte("test")),
-		)
-		f.RunServer("", localServer)
+			localServer := httpserver.New(
+				httpserver.WithBindPort(localPort),
+				httpserver.WithResponse([]byte("test")),
+			)
+			f.RunServer("", localServer)
 
-		framework.NewRequestExpect(f).
-			Port(vhostHTTPSPort).
-			RequestModify(func(r *request.Request) {
-				r.HTTPS().HTTPHost("example.com").TLSConfig(&tls.Config{
-					ServerName:         "example.com",
-					InsecureSkipVerify: true,
-				})
-			}).
-			ExpectResp([]byte("test")).
-			Ensure()
+			framework.NewRequestExpect(f).
+				Port(vhostHTTPSPort).
+				RequestModify(func(r *request.Request) {
+					r.HTTPS().HTTPHost("example.com").TLSConfig(&tls.Config{
+						ServerName:         "example.com",
+						InsecureSkipVerify: true,
+					})
+				}).
+				ExpectResp([]byte("test")).
+				Ensure()
+		})
+
+		ginkgo.It("with client certificate requirement", func() {
+			generator := &cert.SelfSignedCertGenerator{}
+			artifacts, err := generator.Generate("example.com")
+			framework.ExpectNoError(err)
+			crtPath := f.WriteTempFile("server.crt", string(artifacts.Cert))
+			keyPath := f.WriteTempFile("server.key", string(artifacts.Key))
+
+			artifacts, err = generator.Generate("127.0.0.1")
+			framework.ExpectNoError(err)
+			clientCrtPath := f.WriteTempFile("client.crt", string(artifacts.Cert))
+			clientKeyPath := f.WriteTempFile("client.key", string(artifacts.Key))
+
+			serverConf := consts.DefaultServerConfig
+			vhostHTTPSPort := f.AllocPort()
+			serverConf += fmt.Sprintf(`
+			vhostHTTPSPort = %d
+			`, vhostHTTPSPort)
+
+			localPort := f.AllocPort()
+			clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+			[[proxies]]
+			name = "https2http"
+			type = "https"
+			customDomains = ["example.com"]
+			[proxies.plugin]
+			type = "https2http"
+			localAddr = "127.0.0.1:%d"
+			crtPath = "%s"
+			keyPath = "%s"
+			clientCertificates = ["%s"]
+			`, localPort, crtPath, keyPath, clientCrtPath)
+
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+			localServer := httpserver.New(
+				httpserver.WithBindPort(localPort),
+				httpserver.WithResponse([]byte("test")),
+			)
+			f.RunServer("", localServer)
+
+			clientCertificate, err := tls.LoadX509KeyPair(clientCrtPath, clientKeyPath)
+			framework.ExpectNoError(err)
+
+			framework.NewRequestExpect(f).
+				Port(vhostHTTPSPort).
+				RequestModify(func(r *request.Request) {
+					r.HTTPS().HTTPHost("example.com").TLSConfig(&tls.Config{
+						ServerName:         "example.com",
+						InsecureSkipVerify: true,
+						Certificates:       []tls.Certificate{clientCertificate},
+					})
+				}).
+				ExpectResp([]byte("test")).
+				Ensure()
+		})
 	})
 
-	ginkgo.It("https2https", func() {
-		generator := &cert.SelfSignedCertGenerator{}
-		artifacts, err := generator.Generate("example.com")
-		framework.ExpectNoError(err)
-		crtPath := f.WriteTempFile("server.crt", string(artifacts.Cert))
-		keyPath := f.WriteTempFile("server.key", string(artifacts.Key))
+	ginkgo.Describe("https2https", func() {
+		ginkgo.It("without client certificate requirement", func() {
+			generator := &cert.SelfSignedCertGenerator{}
+			artifacts, err := generator.Generate("example.com")
+			framework.ExpectNoError(err)
+			crtPath := f.WriteTempFile("server.crt", string(artifacts.Cert))
+			keyPath := f.WriteTempFile("server.key", string(artifacts.Key))
 
-		serverConf := consts.DefaultServerConfig
-		vhostHTTPSPort := f.AllocPort()
-		serverConf += fmt.Sprintf(`
+			serverConf := consts.DefaultServerConfig
+			vhostHTTPSPort := f.AllocPort()
+			serverConf += fmt.Sprintf(`
 		vhostHTTPSPort = %d
 		`, vhostHTTPSPort)
 
-		localPort := f.AllocPort()
-		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+			localPort := f.AllocPort()
+			clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
 		[[proxies]]
 		name = "https2https"
 		type = "https"
@@ -308,27 +367,87 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 		keyPath = "%s"
 		`, localPort, crtPath, keyPath)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
 
-		tlsConfig, err := transport.NewServerTLSConfig("", "", "")
-		framework.ExpectNoError(err)
-		localServer := httpserver.New(
-			httpserver.WithBindPort(localPort),
-			httpserver.WithResponse([]byte("test")),
-			httpserver.WithTLSConfig(tlsConfig),
-		)
-		f.RunServer("", localServer)
+			tlsConfig, err := transport.NewServerTLSConfig("", "", "")
+			framework.ExpectNoError(err)
+			localServer := httpserver.New(
+				httpserver.WithBindPort(localPort),
+				httpserver.WithResponse([]byte("test")),
+				httpserver.WithTLSConfig(tlsConfig),
+			)
+			f.RunServer("", localServer)
 
-		framework.NewRequestExpect(f).
-			Port(vhostHTTPSPort).
-			RequestModify(func(r *request.Request) {
-				r.HTTPS().HTTPHost("example.com").TLSConfig(&tls.Config{
-					ServerName:         "example.com",
-					InsecureSkipVerify: true,
-				})
-			}).
-			ExpectResp([]byte("test")).
-			Ensure()
+			framework.NewRequestExpect(f).
+				Port(vhostHTTPSPort).
+				RequestModify(func(r *request.Request) {
+					r.HTTPS().HTTPHost("example.com").TLSConfig(&tls.Config{
+						ServerName:         "example.com",
+						InsecureSkipVerify: true,
+					})
+				}).
+				ExpectResp([]byte("test")).
+				Ensure()
+		})
+
+		ginkgo.It("with client certificate requirement", func() {
+			generator := &cert.SelfSignedCertGenerator{}
+			artifacts, err := generator.Generate("example.com")
+			framework.ExpectNoError(err)
+			crtPath := f.WriteTempFile("server.crt", string(artifacts.Cert))
+			keyPath := f.WriteTempFile("server.key", string(artifacts.Key))
+			artifacts, err = generator.Generate("127.0.0.1")
+			framework.ExpectNoError(err)
+			clientCrtPath := f.WriteTempFile("client.crt", string(artifacts.Cert))
+			clientKeyPath := f.WriteTempFile("client.key", string(artifacts.Key))
+
+			serverConf := consts.DefaultServerConfig
+			vhostHTTPSPort := f.AllocPort()
+			serverConf += fmt.Sprintf(`
+		vhostHTTPSPort = %d
+		`, vhostHTTPSPort)
+
+			localPort := f.AllocPort()
+			clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+		[[proxies]]
+		name = "https2https"
+		type = "https"
+		customDomains = ["example.com"]
+		[proxies.plugin]
+		type = "https2https"
+		localAddr = "127.0.0.1:%d"
+		crtPath = "%s"
+		keyPath = "%s"
+		clientCertificates = ["%s"]
+		`, localPort, crtPath, keyPath, clientCrtPath)
+
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+			tlsConfig, err := transport.NewServerTLSConfig("", "", "")
+			framework.ExpectNoError(err)
+			localServer := httpserver.New(
+				httpserver.WithBindPort(localPort),
+				httpserver.WithResponse([]byte("test")),
+				httpserver.WithTLSConfig(tlsConfig),
+			)
+			f.RunServer("", localServer)
+
+			clientCertificate, err := tls.LoadX509KeyPair(clientCrtPath, clientKeyPath)
+			framework.ExpectNoError(err)
+
+			framework.NewRequestExpect(f).
+				Port(vhostHTTPSPort).
+				RequestModify(func(r *request.Request) {
+					r.HTTPS().HTTPHost("example.com").TLSConfig(&tls.Config{
+						ServerName:         "example.com",
+						InsecureSkipVerify: true,
+						Certificates:       []tls.Certificate{clientCertificate},
+					})
+				}).
+				ExpectResp([]byte("test")).
+				Ensure()
+		})
+
 	})
 
 	ginkgo.Describe("http2http", func() {

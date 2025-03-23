@@ -116,13 +116,14 @@ type HTTPProxyPluginOptions struct {
 func (o *HTTPProxyPluginOptions) Complete() {}
 
 type HTTPS2HTTPPluginOptions struct {
-	Type              string           `json:"type,omitempty"`
-	LocalAddr         string           `json:"localAddr,omitempty"`
-	HostHeaderRewrite string           `json:"hostHeaderRewrite,omitempty"`
-	RequestHeaders    HeaderOperations `json:"requestHeaders,omitempty"`
-	EnableHTTP2       *bool            `json:"enableHTTP2,omitempty"`
-	CrtPath           string           `json:"crtPath,omitempty"`
-	KeyPath           string           `json:"keyPath,omitempty"`
+	Type               string           `json:"type,omitempty"`
+	LocalAddr          string           `json:"localAddr,omitempty"`
+	HostHeaderRewrite  string           `json:"hostHeaderRewrite,omitempty"`
+	RequestHeaders     HeaderOperations `json:"requestHeaders,omitempty"`
+	EnableHTTP2        *bool            `json:"enableHTTP2,omitempty"`
+	CrtPath            string           `json:"crtPath,omitempty"`
+	KeyPath            string           `json:"keyPath,omitempty"`
+	ClientCertificates []string         `json:"clientCertificates,omitempty"`
 }
 
 func (o *HTTPS2HTTPPluginOptions) Complete() {
@@ -130,13 +131,14 @@ func (o *HTTPS2HTTPPluginOptions) Complete() {
 }
 
 type HTTPS2HTTPSPluginOptions struct {
-	Type              string           `json:"type,omitempty"`
-	LocalAddr         string           `json:"localAddr,omitempty"`
-	HostHeaderRewrite string           `json:"hostHeaderRewrite,omitempty"`
-	RequestHeaders    HeaderOperations `json:"requestHeaders,omitempty"`
-	EnableHTTP2       *bool            `json:"enableHTTP2,omitempty"`
-	CrtPath           string           `json:"crtPath,omitempty"`
-	KeyPath           string           `json:"keyPath,omitempty"`
+	Type               string           `json:"type,omitempty"`
+	LocalAddr          string           `json:"localAddr,omitempty"`
+	HostHeaderRewrite  string           `json:"hostHeaderRewrite,omitempty"`
+	RequestHeaders     HeaderOperations `json:"requestHeaders,omitempty"`
+	EnableHTTP2        *bool            `json:"enableHTTP2,omitempty"`
+	CrtPath            string           `json:"crtPath,omitempty"`
+	KeyPath            string           `json:"keyPath,omitempty"`
+	ClientCertificates []string         `json:"clientCertificates,omitempty"`
 }
 
 func (o *HTTPS2HTTPSPluginOptions) Complete() {

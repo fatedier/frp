@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"os"
 )
@@ -139,4 +140,29 @@ func NewRandomPrivateKey() ([]byte, error) {
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	})
 	return keyPEM, nil
+}
+
+func LoadCertificatesFromFiles(certFiles []string) ([]*x509.Certificate, error) {
+	var certificates []*x509.Certificate
+
+	for _, file := range certFiles {
+		certPEM, err := os.ReadFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read certificate file %s: %w", file, err)
+		}
+
+		block, _ := pem.Decode(certPEM)
+		if block == nil {
+			return nil, fmt.Errorf("failed to decode PEM block")
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse certificate file %s: %w", file, err)
+		}
+
+		certificates = append(certificates, cert)
+	}
+
+	return certificates, nil
 }

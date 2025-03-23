@@ -89,6 +89,7 @@ frp also offers a P2P connect mode.
         * [HTTP X-Forwarded-For](#http-x-forwarded-for)
         * [Proxy Protocol](#proxy-protocol)
     * [Require HTTP Basic Auth (Password) for Web Services](#require-http-basic-auth-password-for-web-services)
+    * [Require HTTPS client certificate for Web Services](#require-https-client-certificate-for-web-services)
     * [Custom Subdomain Names](#custom-subdomain-names)
     * [URL Routing](#url-routing)
     * [TCP Port Multiplexing](#tcp-port-multiplexing)
@@ -1046,11 +1047,11 @@ You can enable Proxy Protocol support in nginx to expose user's real IP in HTTP 
 
 ### Require HTTP Basic Auth (Password) for Web Services
 
-Anyone who can guess your tunnel URL can access your local web server unless you protect it with a password.
+Anyone who can guess your HTTP tunnel URL can access your local web server unless you protect it with a password.
 
 This enforces HTTP Basic Auth on all requests with the username and password specified in frpc's configure file.
 
-It can only be enabled when proxy type is http.
+It can only be enabled when proxy type is http. For https protection, see [Require HTTPS client certificate for Web Services](#require-https-client-certificate-for-web-services).
 
 ```toml
 # frpc.toml
@@ -1065,6 +1066,44 @@ httpPassword = "abc"
 ```
 
 Visit `http://test.example.com` in the browser and now you are prompted to enter the username and password.
+
+### Require HTTPS client certificate for Web Services
+
+Anyone who can guess your HTTPS tunnel URL can access your local web server unless you protect it with a [Client Certificate](https://en.wikipedia.org/wiki/Transport_Layer_Security#Client-authenticated_TLS_handshake).
+
+This [mutual authentication](https://en.wikipedia.org/wiki/Mutual_authentication) validates the HTTPS client's certificate on all requests, with each accepted certificate file specified in frpc's configure file.
+
+It can only be enabled when proxy type is https. For http protection, see [Require HTTP Basic Auth (Password) for Web Services](#require-http-basic-auth-password-for-web-services).
+
+```toml
+[[proxies]]
+name = "web"
+type = "https"
+customDomains = ["test.example.com"]
+
+        [proxies.plugin]
+        type = "https2http"
+        localAddr = "127.0.0.1:80"
+        crtPath = server.crt"
+        keyPath = "key.pem"
+        clientCertificates = ["authorizedClient_cert.pem"]
+```
+
+In this situation, the client certificate can be self-signed without any detriment to security. Multiple certificates can be generated and allowed to access the service.
+
+Generate a .cert file **to use with frpc**, and a corresponding .pfx file **to install on Windows, Linux, or your browser**. The following instructions require the OpenSSL binary installed:
+
+```bash
+# Windows
+openssl req -x509 -newkey rsa:4096 -keyout authorizedClient_cert.pem -out authorizedClient_key.pem -sha256 -days 3650 -nodes -subj "/CN=FRP Authentication Certificate"
+type authorizedClient_cert.pem authorizedClient_key.pem > authorizedClient.pem
+openssl pkcs12 -export -in authorizedClient.pem -out authorizedClient.pfx -name "FRP Authentication Certificate"
+
+# Linux
+openssl req -x509 -newkey rsa:4096 -keyout authorizedClient_cert.pem -out authorizedClient_key.pem -sha256 -days 3650 -nodes -subj "/CN=FRP Authentication Certificate"
+cat authorizedClient_cert.pem authorizedClient_key.pem > authorizedClient.pem
+openssl pkcs12 -export -in authorizedClient.pem -out authorizedClient.pfx -name "FRP Authentication Certificate"
+```
 
 ### Custom Subdomain Names
 

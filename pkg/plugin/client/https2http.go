@@ -19,6 +19,7 @@ package plugin
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	stdlog "log"
@@ -89,6 +90,33 @@ func NewHTTPS2HTTPPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	tlsConfig, err := transport.NewServerTLSConfig(p.opts.CrtPath, p.opts.KeyPath, "")
 	if err != nil {
 		return nil, fmt.Errorf("gen TLS config error: %v", err)
+	}
+
+	if len(p.opts.ClientCertificates) > 0 {
+		certs, err := transport.LoadCertificatesFromFiles(p.opts.ClientCertificates)
+		if err != nil {
+			return nil, fmt.Errorf("loading Client Certificates failed: %v", err)
+		}
+
+		tlsConfig.ClientAuth = tls.RequireAnyClientCert
+		tlsConfig.VerifyPeerCertificate = func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			if len(rawCerts) == 0 {
+				return fmt.Errorf("no client certificate provided")
+			}
+
+			clientCert, err := x509.ParseCertificate(rawCerts[0])
+			if err != nil {
+				return fmt.Errorf("failed to parse client certificate: %w", err)
+			}
+
+			for _, allowedCert := range certs {
+				if clientCert.Equal(allowedCert) {
+					return nil //match found, accept
+				}
+			}
+
+			return fmt.Errorf("client certificate not recognized")
+		}
 	}
 
 	p.s = &http.Server{
