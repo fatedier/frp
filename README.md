@@ -1069,7 +1069,7 @@ Visit `http://test.example.com` in the browser and now you are prompted to enter
 
 ### Require HTTPS client certificate for Web Services
 
-Anyone who can guess your HTTPS tunnel URL can access your local web server unless you protect it with a [Client Certificate](https://en.wikipedia.org/wiki/Transport_Layer_Security#Client-authenticated_TLS_handshake).
+Anyone who can guess your HTTPS tunnel URL can access your local web server unless you protect it with a client certificate.
 
 This [mutual authentication](https://en.wikipedia.org/wiki/Mutual_authentication) validates the HTTPS client's certificate on all requests, with each accepted certificate file specified in frpc's configure file.
 
@@ -1084,7 +1084,7 @@ customDomains = ["test.example.com"]
         [proxies.plugin]
         type = "https2http"
         localAddr = "127.0.0.1:80"
-        crtPath = server.crt"
+        crtPath = "server.crt"
         keyPath = "key.pem"
         clientCertificates = ["authorizedClient_cert.pem"]
 ```
