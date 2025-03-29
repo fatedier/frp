@@ -84,6 +84,9 @@ type ServiceOptions struct {
 	//
 	// If it is not set, the default frpc implementation will be used.
 	HandleWorkConnCb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool
+
+	// LoginStateCb is a callback function that is called when the login state is changed.
+	LoginStateCb func(bool)
 }
 
 // setServiceOptionsDefault sets the default values for ServiceOptions.
@@ -128,6 +131,7 @@ type Service struct {
 
 	connectorCreator func(context.Context, *v1.ClientCommonConfig) Connector
 	handleWorkConnCb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool
+	loginStateCb     func(bool)
 }
 
 func NewService(options ServiceOptions) (*Service, error) {
@@ -152,6 +156,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 		clientSpec:       options.ClientSpec,
 		connectorCreator: options.ConnectorCreator,
 		handleWorkConnCb: options.HandleWorkConnCb,
+		loginStateCb:     options.LoginStateCb,
 	}
 	if webServer != nil {
 		webServer.RouteRegister(s.registerRouteHandlers)
@@ -195,6 +200,9 @@ func (svr *Service) Run(ctx context.Context) error {
 
 func (svr *Service) keepControllerWorking() {
 	<-svr.ctl.Done()
+	if svr.loginStateCb != nil {
+		svr.loginStateCb(false)
+	}
 
 	// There is a situation where the login is successful but due to certain reasons,
 	// the control immediately exits. It is necessary to limit the frequency of reconnection in this case.
@@ -206,6 +214,9 @@ func (svr *Service) keepControllerWorking() {
 		svr.loopLoginUntilSuccess(20*time.Second, false)
 		if svr.ctl != nil {
 			<-svr.ctl.Done()
+			if svr.loginStateCb != nil {
+				svr.loginStateCb(false)
+			}
 			return false, errors.New("control is closed and try another loop")
 		}
 		// If the control is nil, it means that the login failed and the service is also closed.
@@ -334,6 +345,9 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		}
 		svr.ctl = ctl
 		svr.ctlMu.Unlock()
+		if svr.loginStateCb != nil {
+			svr.loginStateCb(true)
+		}
 		return true, nil
 	}
 
