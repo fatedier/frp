@@ -1,4 +1,4 @@
-// Copyright 2017 fatedier, fatedier@gmail.com
+// Copyright 2025 The frp Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,17 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client
+package visitor
 
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
-	"sync"
-
-	"github.com/fatedier/golib/errors"
-	pp "github.com/pires/go-proxyproto"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/vnet"
@@ -30,13 +25,15 @@ import (
 
 type PluginContext struct {
 	Name           string
+	Ctx            context.Context
 	VnetController *vnet.Controller
+	HandleConn     func(net.Conn)
 }
 
 // Creators is used for create plugins to handle connections.
 var creators = make(map[string]CreatorFn)
 
-type CreatorFn func(pluginCtx PluginContext, options v1.ClientPluginOptions) (Plugin, error)
+type CreatorFn func(pluginCtx PluginContext, options v1.VisitorPluginOptions) (Plugin, error)
 
 func Register(name string, fn CreatorFn) {
 	if _, exist := creators[name]; exist {
@@ -45,7 +42,7 @@ func Register(name string, fn CreatorFn) {
 	creators[name] = fn
 }
 
-func Create(pluginName string, pluginCtx PluginContext, options v1.ClientPluginOptions) (p Plugin, err error) {
+func Create(pluginName string, pluginCtx PluginContext, options v1.VisitorPluginOptions) (p Plugin, err error) {
 	if fn, ok := creators[pluginName]; ok {
 		p, err = fn(pluginCtx, options)
 	} else {
@@ -54,59 +51,8 @@ func Create(pluginName string, pluginCtx PluginContext, options v1.ClientPluginO
 	return
 }
 
-type ConnectionInfo struct {
-	Conn           io.ReadWriteCloser
-	UnderlyingConn net.Conn
-
-	ProxyProtocolHeader *pp.Header
-	SrcAddr             net.Addr
-	DstAddr             net.Addr
-}
-
 type Plugin interface {
 	Name() string
-
-	Handle(ctx context.Context, connInfo *ConnectionInfo)
+	Start()
 	Close() error
-}
-
-type Listener struct {
-	conns  chan net.Conn
-	closed bool
-	mu     sync.Mutex
-}
-
-func NewProxyListener() *Listener {
-	return &Listener{
-		conns: make(chan net.Conn, 64),
-	}
-}
-
-func (l *Listener) Accept() (net.Conn, error) {
-	conn, ok := <-l.conns
-	if !ok {
-		return nil, fmt.Errorf("listener closed")
-	}
-	return conn, nil
-}
-
-func (l *Listener) PutConn(conn net.Conn) error {
-	err := errors.PanicToError(func() {
-		l.conns <- conn
-	})
-	return err
-}
-
-func (l *Listener) Close() error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if !l.closed {
-		close(l.conns)
-		l.closed = true
-	}
-	return nil
-}
-
-func (l *Listener) Addr() net.Addr {
-	return (*net.TCPAddr)(nil)
 }

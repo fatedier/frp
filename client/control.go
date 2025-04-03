@@ -29,6 +29,7 @@ import (
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/wait"
 	"github.com/fatedier/frp/pkg/util/xlog"
+	"github.com/fatedier/frp/pkg/vnet"
 )
 
 type SessionContext struct {
@@ -46,6 +47,8 @@ type SessionContext struct {
 	AuthSetter auth.Setter
 	// Connector is used to create new connections, which could be real TCP connections or virtual streams.
 	Connector Connector
+	// Virtual net controller
+	VnetController *vnet.Controller
 }
 
 type Control struct {
@@ -99,8 +102,9 @@ func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, erro
 	ctl.registerMsgHandlers()
 	ctl.msgTransporter = transport.NewMessageTransporter(ctl.msgDispatcher.SendChannel())
 
-	ctl.pm = proxy.NewManager(ctl.ctx, sessionCtx.Common, ctl.msgTransporter)
-	ctl.vm = visitor.NewManager(ctl.ctx, sessionCtx.RunID, sessionCtx.Common, ctl.connectServer, ctl.msgTransporter)
+	ctl.pm = proxy.NewManager(ctl.ctx, sessionCtx.Common, ctl.msgTransporter, sessionCtx.VnetController)
+	ctl.vm = visitor.NewManager(ctl.ctx, sessionCtx.RunID, sessionCtx.Common,
+		ctl.connectServer, ctl.msgTransporter, sessionCtx.VnetController)
 	return ctl, nil
 }
 

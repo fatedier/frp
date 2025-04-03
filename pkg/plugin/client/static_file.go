@@ -14,12 +14,10 @@
 
 //go:build !frps
 
-package plugin
+package client
 
 import (
 	"context"
-	"io"
-	"net"
 	"net/http"
 	"time"
 
@@ -40,7 +38,7 @@ type StaticFilePlugin struct {
 	s *http.Server
 }
 
-func NewStaticFilePlugin(options v1.ClientPluginOptions) (Plugin, error) {
+func NewStaticFilePlugin(_ PluginContext, options v1.ClientPluginOptions) (Plugin, error) {
 	opts := options.(*v1.StaticFilePluginOptions)
 
 	listener := NewProxyListener()
@@ -70,8 +68,8 @@ func NewStaticFilePlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	return sp, nil
 }
 
-func (sp *StaticFilePlugin) Handle(_ context.Context, conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
-	wrapConn := netpkg.WrapReadWriteCloserToConn(conn, realConn)
+func (sp *StaticFilePlugin) Handle(_ context.Context, connInfo *ConnectionInfo) {
+	wrapConn := netpkg.WrapReadWriteCloserToConn(connInfo.Conn, connInfo.UnderlyingConn)
 	_ = sp.l.PutConn(wrapConn)
 }
 

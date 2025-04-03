@@ -26,6 +26,32 @@ import (
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
+const (
+	PluginHTTP2HTTPS       = "http2https"
+	PluginHTTPProxy        = "http_proxy"
+	PluginHTTPS2HTTP       = "https2http"
+	PluginHTTPS2HTTPS      = "https2https"
+	PluginHTTP2HTTP        = "http2http"
+	PluginSocks5           = "socks5"
+	PluginStaticFile       = "static_file"
+	PluginUnixDomainSocket = "unix_domain_socket"
+	PluginTLS2Raw          = "tls2raw"
+	PluginVirtualNet       = "virtual_net"
+)
+
+var clientPluginOptionsTypeMap = map[string]reflect.Type{
+	PluginHTTP2HTTPS:       reflect.TypeOf(HTTP2HTTPSPluginOptions{}),
+	PluginHTTPProxy:        reflect.TypeOf(HTTPProxyPluginOptions{}),
+	PluginHTTPS2HTTP:       reflect.TypeOf(HTTPS2HTTPPluginOptions{}),
+	PluginHTTPS2HTTPS:      reflect.TypeOf(HTTPS2HTTPSPluginOptions{}),
+	PluginHTTP2HTTP:        reflect.TypeOf(HTTP2HTTPPluginOptions{}),
+	PluginSocks5:           reflect.TypeOf(Socks5PluginOptions{}),
+	PluginStaticFile:       reflect.TypeOf(StaticFilePluginOptions{}),
+	PluginUnixDomainSocket: reflect.TypeOf(UnixDomainSocketPluginOptions{}),
+	PluginTLS2Raw:          reflect.TypeOf(TLS2RawPluginOptions{}),
+	PluginVirtualNet:       reflect.TypeOf(VirtualNetPluginOptions{}),
+}
+
 type ClientPluginOptions interface {
 	Complete()
 }
@@ -72,30 +98,6 @@ func (c *TypedClientPluginOptions) UnmarshalJSON(b []byte) error {
 
 func (c *TypedClientPluginOptions) MarshalJSON() ([]byte, error) {
 	return json.Marshal(c.ClientPluginOptions)
-}
-
-const (
-	PluginHTTP2HTTPS       = "http2https"
-	PluginHTTPProxy        = "http_proxy"
-	PluginHTTPS2HTTP       = "https2http"
-	PluginHTTPS2HTTPS      = "https2https"
-	PluginHTTP2HTTP        = "http2http"
-	PluginSocks5           = "socks5"
-	PluginStaticFile       = "static_file"
-	PluginUnixDomainSocket = "unix_domain_socket"
-	PluginTLS2Raw          = "tls2raw"
-)
-
-var clientPluginOptionsTypeMap = map[string]reflect.Type{
-	PluginHTTP2HTTPS:       reflect.TypeOf(HTTP2HTTPSPluginOptions{}),
-	PluginHTTPProxy:        reflect.TypeOf(HTTPProxyPluginOptions{}),
-	PluginHTTPS2HTTP:       reflect.TypeOf(HTTPS2HTTPPluginOptions{}),
-	PluginHTTPS2HTTPS:      reflect.TypeOf(HTTPS2HTTPSPluginOptions{}),
-	PluginHTTP2HTTP:        reflect.TypeOf(HTTP2HTTPPluginOptions{}),
-	PluginSocks5:           reflect.TypeOf(Socks5PluginOptions{}),
-	PluginStaticFile:       reflect.TypeOf(StaticFilePluginOptions{}),
-	PluginUnixDomainSocket: reflect.TypeOf(UnixDomainSocketPluginOptions{}),
-	PluginTLS2Raw:          reflect.TypeOf(TLS2RawPluginOptions{}),
 }
 
 type HTTP2HTTPSPluginOptions struct {
@@ -185,3 +187,9 @@ type TLS2RawPluginOptions struct {
 }
 
 func (o *TLS2RawPluginOptions) Complete() {}
+
+type VirtualNetPluginOptions struct {
+	Type string `json:"type,omitempty"`
+}
+
+func (o *VirtualNetPluginOptions) Complete() {}

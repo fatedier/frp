@@ -44,6 +44,10 @@ func (sv *STCPVisitor) Run() (err error) {
 	}
 
 	go sv.internalConnWorker()
+
+	if sv.plugin != nil {
+		sv.plugin.Start()
+	}
 	return
 }
 

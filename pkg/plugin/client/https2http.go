@@ -14,15 +14,13 @@
 
 //go:build !frps
 
-package plugin
+package client
 
 import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	stdlog "log"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"time"
@@ -48,7 +46,7 @@ type HTTPS2HTTPPlugin struct {
 	s *http.Server
 }
 
-func NewHTTPS2HTTPPlugin(options v1.ClientPluginOptions) (Plugin, error) {
+func NewHTTPS2HTTPPlugin(_ PluginContext, options v1.ClientPluginOptions) (Plugin, error) {
 	opts := options.(*v1.HTTPS2HTTPPluginOptions)
 	listener := NewProxyListener()
 
@@ -106,10 +104,10 @@ func NewHTTPS2HTTPPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	return p, nil
 }
 
-func (p *HTTPS2HTTPPlugin) Handle(_ context.Context, conn io.ReadWriteCloser, realConn net.Conn, extra *ExtraInfo) {
-	wrapConn := netpkg.WrapReadWriteCloserToConn(conn, realConn)
-	if extra.SrcAddr != nil {
-		wrapConn.SetRemoteAddr(extra.SrcAddr)
+func (p *HTTPS2HTTPPlugin) Handle(_ context.Context, connInfo *ConnectionInfo) {
+	wrapConn := netpkg.WrapReadWriteCloserToConn(connInfo.Conn, connInfo.UnderlyingConn)
+	if connInfo.SrcAddr != nil {
+		wrapConn.SetRemoteAddr(connInfo.SrcAddr)
 	}
 	_ = p.l.PutConn(wrapConn)
 }

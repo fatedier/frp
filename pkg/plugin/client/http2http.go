@@ -14,13 +14,11 @@
 
 //go:build !frps
 
-package plugin
+package client
 
 import (
 	"context"
-	"io"
 	stdlog "log"
-	"net"
 	"net/http"
 	"net/http/httputil"
 
@@ -42,7 +40,7 @@ type HTTP2HTTPPlugin struct {
 	s *http.Server
 }
 
-func NewHTTP2HTTPPlugin(options v1.ClientPluginOptions) (Plugin, error) {
+func NewHTTP2HTTPPlugin(_ PluginContext, options v1.ClientPluginOptions) (Plugin, error) {
 	opts := options.(*v1.HTTP2HTTPPluginOptions)
 
 	listener := NewProxyListener()
@@ -80,8 +78,8 @@ func NewHTTP2HTTPPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	return p, nil
 }
 
-func (p *HTTP2HTTPPlugin) Handle(_ context.Context, conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
-	wrapConn := netpkg.WrapReadWriteCloserToConn(conn, realConn)
+func (p *HTTP2HTTPPlugin) Handle(_ context.Context, connInfo *ConnectionInfo) {
+	wrapConn := netpkg.WrapReadWriteCloserToConn(connInfo.Conn, connInfo.UnderlyingConn)
 	_ = p.l.PutConn(wrapConn)
 }
 

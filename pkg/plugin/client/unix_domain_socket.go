@@ -14,11 +14,10 @@
 
 //go:build !frps
 
-package plugin
+package client
 
 import (
 	"context"
-	"io"
 	"net"
 
 	libio "github.com/fatedier/golib/io"
@@ -35,7 +34,7 @@ type UnixDomainSocketPlugin struct {
 	UnixAddr *net.UnixAddr
 }
 
-func NewUnixDomainSocketPlugin(options v1.ClientPluginOptions) (p Plugin, err error) {
+func NewUnixDomainSocketPlugin(_ PluginContext, options v1.ClientPluginOptions) (p Plugin, err error) {
 	opts := options.(*v1.UnixDomainSocketPluginOptions)
 
 	unixAddr, errRet := net.ResolveUnixAddr("unix", opts.UnixPath)
@@ -50,20 +49,20 @@ func NewUnixDomainSocketPlugin(options v1.ClientPluginOptions) (p Plugin, err er
 	return
 }
 
-func (uds *UnixDomainSocketPlugin) Handle(ctx context.Context, conn io.ReadWriteCloser, _ net.Conn, extra *ExtraInfo) {
+func (uds *UnixDomainSocketPlugin) Handle(ctx context.Context, connInfo *ConnectionInfo) {
 	xl := xlog.FromContextSafe(ctx)
 	localConn, err := net.DialUnix("unix", nil, uds.UnixAddr)
 	if err != nil {
 		xl.Warnf("dial to uds %s error: %v", uds.UnixAddr, err)
 		return
 	}
-	if extra.ProxyProtocolHeader != nil {
-		if _, err := extra.ProxyProtocolHeader.WriteTo(localConn); err != nil {
+	if connInfo.ProxyProtocolHeader != nil {
+		if _, err := connInfo.ProxyProtocolHeader.WriteTo(localConn); err != nil {
 			return
 		}
 	}
 
-	libio.Join(localConn, conn)
+	libio.Join(localConn, connInfo.Conn)
 }
 
 func (uds *UnixDomainSocketPlugin) Name() string {
