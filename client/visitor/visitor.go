@@ -20,9 +20,11 @@ import (
 	"sync"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	plugin "github.com/fatedier/frp/pkg/plugin/visitor"
 	"github.com/fatedier/frp/pkg/transport"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
+	"github.com/fatedier/frp/pkg/vnet"
 )
 
 // Helper wraps some functions for visitor to use.
@@ -34,6 +36,8 @@ type Helper interface {
 	// MsgTransporter returns the message transporter that is used to send and receive messages
 	// to the frp server through the controller.
 	MsgTransporter() transport.MessageTransporter
+	// VNetController returns the vnet controller that is used to manage the virtual network.
+	VNetController() *vnet.Controller
 	// RunID returns the run id of current controller.
 	RunID() string
 }
@@ -50,13 +54,33 @@ func NewVisitor(
 	cfg v1.VisitorConfigurer,
 	clientCfg *v1.ClientCommonConfig,
 	helper Helper,
-) (visitor Visitor) {
+) (Visitor, error) {
 	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(cfg.GetBaseConfig().Name)
+	ctx = xlog.NewContext(ctx, xl)
+	var visitor Visitor
 	baseVisitor := BaseVisitor{
 		clientCfg:  clientCfg,
 		helper:     helper,
-		ctx:        xlog.NewContext(ctx, xl),
+		ctx:        ctx,
 		internalLn: netpkg.NewInternalListener(),
+	}
+	if cfg.GetBaseConfig().Plugin.Type != "" {
+		p, err := plugin.Create(
+			cfg.GetBaseConfig().Plugin.Type,
+			plugin.PluginContext{
+				Name:           cfg.GetBaseConfig().Name,
+				Ctx:            ctx,
+				VnetController: helper.VNetController(),
+				HandleConn: func(conn net.Conn) {
+					_ = baseVisitor.AcceptConn(conn)
+				},
+			},
+			cfg.GetBaseConfig().Plugin.VisitorPluginOptions,
+		)
+		if err != nil {
+			return nil, err
+		}
+		baseVisitor.plugin = p
 	}
 	switch cfg := cfg.(type) {
 	case *v1.STCPVisitorConfig:
@@ -77,7 +101,7 @@ func NewVisitor(
 			checkCloseCh: make(chan struct{}),
 		}
 	}
-	return
+	return visitor, nil
 }
 
 type BaseVisitor struct {
@@ -85,6 +109,7 @@ type BaseVisitor struct {
 	helper     Helper
 	l          net.Listener
 	internalLn *netpkg.InternalListener
+	plugin     plugin.Plugin
 
 	mu  sync.RWMutex
 	ctx context.Context
@@ -100,5 +125,8 @@ func (v *BaseVisitor) Close() {
 	}
 	if v.internalLn != nil {
 		v.internalLn.Close()
+	}
+	if v.plugin != nil {
+		v.plugin.Close()
 	}
 }

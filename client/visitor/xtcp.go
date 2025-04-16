@@ -73,6 +73,10 @@ func (sv *XTCPVisitor) Run() (err error) {
 		sv.retryLimiter = rate.NewLimiter(rate.Every(time.Hour/time.Duration(sv.cfg.MaxRetriesAnHour)), sv.cfg.MaxRetriesAnHour)
 		go sv.keepTunnelOpenWorker()
 	}
+
+	if sv.plugin != nil {
+		sv.plugin.Start()
+	}
 	return
 }
 
@@ -157,9 +161,9 @@ func (sv *XTCPVisitor) keepTunnelOpenWorker() {
 
 func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 	xl := xlog.FromContextSafe(sv.ctx)
-	isConnTrasfered := false
+	isConnTransfered := false
 	defer func() {
-		if !isConnTrasfered {
+		if !isConnTransfered {
 			userConn.Close()
 		}
 	}()
@@ -187,7 +191,7 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 			xl.Errorf("transfer connection to visitor %s error: %v", sv.cfg.FallbackTo, err)
 			return
 		}
-		isConnTrasfered = true
+		isConnTransfered = true
 		return
 	}
 
