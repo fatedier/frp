@@ -27,6 +27,7 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/xlog"
+	"github.com/fatedier/frp/pkg/vnet"
 )
 
 type Manager struct {
@@ -50,6 +51,7 @@ func NewManager(
 	clientCfg *v1.ClientCommonConfig,
 	connectServer func() (net.Conn, error),
 	msgTransporter transport.MessageTransporter,
+	vnetController *vnet.Controller,
 ) *Manager {
 	m := &Manager{
 		clientCfg:     clientCfg,
@@ -62,6 +64,7 @@ func NewManager(
 	m.helper = &visitorHelperImpl{
 		connectServerFn: connectServer,
 		msgTransporter:  msgTransporter,
+		vnetController:  vnetController,
 		transferConnFn:  m.TransferConn,
 		runID:           runID,
 	}
@@ -112,7 +115,11 @@ func (vm *Manager) Close() {
 func (vm *Manager) startVisitor(cfg v1.VisitorConfigurer) (err error) {
 	xl := xlog.FromContextSafe(vm.ctx)
 	name := cfg.GetBaseConfig().Name
-	visitor := NewVisitor(vm.ctx, cfg, vm.clientCfg, vm.helper)
+	visitor, err := NewVisitor(vm.ctx, cfg, vm.clientCfg, vm.helper)
+	if err != nil {
+		xl.Warnf("new visitor error: %v", err)
+		return
+	}
 	err = visitor.Run()
 	if err != nil {
 		xl.Warnf("start error: %v", err)
@@ -187,6 +194,7 @@ func (vm *Manager) TransferConn(name string, conn net.Conn) error {
 type visitorHelperImpl struct {
 	connectServerFn func() (net.Conn, error)
 	msgTransporter  transport.MessageTransporter
+	vnetController  *vnet.Controller
 	transferConnFn  func(name string, conn net.Conn) error
 	runID           string
 }
@@ -201,6 +209,10 @@ func (v *visitorHelperImpl) TransferConn(name string, conn net.Conn) error {
 
 func (v *visitorHelperImpl) MsgTransporter() transport.MessageTransporter {
 	return v.msgTransporter
+}
+
+func (v *visitorHelperImpl) VNetController() *vnet.Controller {
+	return v.vnetController
 }
 
 func (v *visitorHelperImpl) RunID() string {

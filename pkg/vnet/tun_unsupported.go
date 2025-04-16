@@ -1,4 +1,4 @@
-// Copyright 2019 fatedier, fatedier@gmail.com
+// Copyright 2025 The frp Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,25 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package server
+//go:build !darwin && !linux
+
+package vnet
 
 import (
 	"context"
+	"fmt"
+	"runtime"
+
+	"golang.zx2c4.com/wireguard/tun"
 )
 
-const (
-	APIVersion = "0.1.0"
-
-	OpLogin       = "Login"
-	OpNewProxy    = "NewProxy"
-	OpCloseProxy  = "CloseProxy"
-	OpPing        = "Ping"
-	OpNewWorkConn = "NewWorkConn"
-	OpNewUserConn = "NewUserConn"
-)
-
-type Plugin interface {
-	Name() string
-	IsSupport(op string) bool
-	Handle(ctx context.Context, op string, content any) (res *Response, retContent any, err error)
+func openTun(_ context.Context, _ string) (tun.Device, error) {
+	return nil, fmt.Errorf("virtual net is not supported on this platform (%s/%s)", runtime.GOOS, runtime.GOARCH)
 }

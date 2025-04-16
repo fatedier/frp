@@ -37,6 +37,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/wait"
 	"github.com/fatedier/frp/pkg/util/xlog"
+	"github.com/fatedier/frp/pkg/vnet"
 )
 
 func init() {
@@ -110,6 +111,8 @@ type Service struct {
 	// web server for admin UI and apis
 	webServer *httppkg.Server
 
+	vnetController *vnet.Controller
+
 	cfgMu       sync.RWMutex
 	common      *v1.ClientCommonConfig
 	proxyCfgs   []v1.ProxyConfigurer
@@ -156,6 +159,9 @@ func NewService(options ServiceOptions) (*Service, error) {
 	if webServer != nil {
 		webServer.RouteRegister(s.registerRouteHandlers)
 	}
+	if options.Common.VirtualNet.Address != "" {
+		s.vnetController = vnet.NewController(options.Common.VirtualNet)
+	}
 	return s, nil
 }
 
@@ -167,6 +173,19 @@ func (svr *Service) Run(ctx context.Context) error {
 	// set custom DNSServer
 	if svr.common.DNSServer != "" {
 		netpkg.SetDefaultDNSAddress(svr.common.DNSServer)
+	}
+
+	if svr.vnetController != nil {
+		if err := svr.vnetController.Init(); err != nil {
+			log.Errorf("init virtual network controller error: %v", err)
+			return err
+		}
+		go func() {
+			log.Infof("virtual network controller start...")
+			if err := svr.vnetController.Run(); err != nil {
+				log.Warnf("virtual network controller exit with error: %v", err)
+			}
+		}()
 	}
 
 	if svr.webServer != nil {
@@ -311,12 +330,13 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 			connEncrypted = false
 		}
 		sessionCtx := &SessionContext{
-			Common:        svr.common,
-			RunID:         svr.runID,
-			Conn:          conn,
-			ConnEncrypted: connEncrypted,
-			AuthSetter:    svr.authSetter,
-			Connector:     connector,
+			Common:         svr.common,
+			RunID:          svr.runID,
+			Conn:           conn,
+			ConnEncrypted:  connEncrypted,
+			AuthSetter:     svr.authSetter,
+			Connector:      connector,
+			VnetController: svr.vnetController,
 		}
 		ctl, err := NewControl(svr.ctx, sessionCtx)
 		if err != nil {

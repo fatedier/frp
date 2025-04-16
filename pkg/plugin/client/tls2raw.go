@@ -14,12 +14,11 @@
 
 //go:build !frps
 
-package plugin
+package client
 
 import (
 	"context"
 	"crypto/tls"
-	"io"
 	"net"
 
 	libio "github.com/fatedier/golib/io"
@@ -40,7 +39,7 @@ type TLS2RawPlugin struct {
 	tlsConfig *tls.Config
 }
 
-func NewTLS2RawPlugin(options v1.ClientPluginOptions) (Plugin, error) {
+func NewTLS2RawPlugin(_ PluginContext, options v1.ClientPluginOptions) (Plugin, error) {
 	opts := options.(*v1.TLS2RawPluginOptions)
 
 	p := &TLS2RawPlugin{
@@ -55,10 +54,10 @@ func NewTLS2RawPlugin(options v1.ClientPluginOptions) (Plugin, error) {
 	return p, nil
 }
 
-func (p *TLS2RawPlugin) Handle(ctx context.Context, conn io.ReadWriteCloser, realConn net.Conn, _ *ExtraInfo) {
+func (p *TLS2RawPlugin) Handle(ctx context.Context, connInfo *ConnectionInfo) {
 	xl := xlog.FromContextSafe(ctx)
 
-	wrapConn := netpkg.WrapReadWriteCloserToConn(conn, realConn)
+	wrapConn := netpkg.WrapReadWriteCloserToConn(connInfo.Conn, connInfo.UnderlyingConn)
 	tlsConn := tls.Server(wrapConn, p.tlsConfig)
 
 	if err := tlsConn.Handshake(); err != nil {

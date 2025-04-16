@@ -129,6 +129,15 @@ transport.tls.enable = true
 # It affects the udp and sudp proxy.
 udpPacketSize = 1500
 
+# Feature gates allows you to enable or disable experimental features
+# Format is a map of feature names to boolean values
+# You can enable specific features:
+#featureGates = { VirtualNet = true }
+
+# VirtualNet settings for experimental virtual network capabilities
+# The virtual network feature requires enabling the VirtualNet feature gate above
+# virtualNet.address = "100.86.1.1/24"
+
 # Additional metadatas for client.
 metadatas.var1 = "abc"
 metadatas.var2 = "123"
@@ -358,6 +367,13 @@ localPort = 22
 # Otherwise, visitors from same user can connect. '*' means allow all users.
 allowUsers = ["user1", "user2"]
 
+[[proxies]]
+name = "vnet-server"
+type = "stcp"
+secretKey = "your-secret-key"
+[proxies.plugin]
+type = "virtual_net"
+
 # frpc role visitor -> frps -> frpc role server
 [[visitors]]
 name = "secret_tcp_visitor"
@@ -389,3 +405,13 @@ maxRetriesAnHour = 8
 minRetryInterval = 90
 # fallbackTo = "stcp_visitor"
 # fallbackTimeoutMs = 500
+
+[[visitors]]
+name = "vnet-visitor"
+type = "stcp"
+serverName = "vnet-server"
+secretKey = "your-secret-key"
+bindPort = -1
+[visitors.plugin]
+type = "virtual_net"
+destinationIP = "100.86.0.1"

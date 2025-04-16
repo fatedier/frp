@@ -58,9 +58,14 @@ type ClientCommonConfig struct {
 	// set.
 	Start []string `json:"start,omitempty"`
 
-	Log       LogConfig             `json:"log,omitempty"`
-	WebServer WebServerConfig       `json:"webServer,omitempty"`
-	Transport ClientTransportConfig `json:"transport,omitempty"`
+	Log        LogConfig             `json:"log,omitempty"`
+	WebServer  WebServerConfig       `json:"webServer,omitempty"`
+	Transport  ClientTransportConfig `json:"transport,omitempty"`
+	VirtualNet VirtualNetConfig      `json:"virtualNet,omitempty"`
+
+	// FeatureGates specifies a set of feature gates to enable or disable.
+	// This can be used to enable alpha/beta features or disable default features.
+	FeatureGates map[string]bool `json:"featureGates,omitempty"`
 
 	// UDPPacketSize specifies the udp packet size
 	// By default, this value is 1500
@@ -203,4 +208,8 @@ type AuthOIDCClientConfig struct {
 	// AdditionalEndpointParams specifies additional parameters to be sent
 	// this field will be transfer to map[string][]string in OIDC token generator.
 	AdditionalEndpointParams map[string]string `json:"additionalEndpointParams,omitempty"`
+}
+
+type VirtualNetConfig struct {
+	Address string `json:"address,omitempty"`
 }

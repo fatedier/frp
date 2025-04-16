@@ -23,6 +23,7 @@ import (
 	"github.com/samber/lo"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/featuregate"
 )
 
 func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
@@ -30,6 +31,13 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 		warnings Warning
 		errs     error
 	)
+	// validate feature gates
+	if c.VirtualNet.Address != "" {
+		if !featuregate.Enabled(featuregate.VirtualNet) {
+			return warnings, fmt.Errorf("VirtualNet feature is not enabled; enable it by setting the appropriate feature gate flag")
+		}
+	}
+
 	if !slices.Contains(SupportedAuthMethods, c.Auth.Method) {
 		errs = AppendError(errs, fmt.Errorf("invalid auth method, optional values are %v", SupportedAuthMethods))
 	}

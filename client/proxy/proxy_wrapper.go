@@ -31,6 +31,7 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/xlog"
+	"github.com/fatedier/frp/pkg/vnet"
 )
 
 const (
@@ -73,6 +74,8 @@ type Wrapper struct {
 	handler event.Handler
 
 	msgTransporter transport.MessageTransporter
+	// vnet controller
+	vnetController *vnet.Controller
 
 	health           uint32
 	lastSendStartMsg time.Time
@@ -91,6 +94,7 @@ func NewWrapper(
 	clientCfg *v1.ClientCommonConfig,
 	eventHandler event.Handler,
 	msgTransporter transport.MessageTransporter,
+	vnetController *vnet.Controller,
 ) *Wrapper {
 	baseInfo := cfg.GetBaseConfig()
 	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(baseInfo.Name)
@@ -105,6 +109,7 @@ func NewWrapper(
 		healthNotifyCh: make(chan struct{}),
 		handler:        eventHandler,
 		msgTransporter: msgTransporter,
+		vnetController: vnetController,
 		xl:             xl,
 		ctx:            xlog.NewContext(ctx, xl),
 	}
@@ -117,7 +122,7 @@ func NewWrapper(
 		xl.Tracef("enable health check monitor")
 	}
 
-	pw.pxy = NewProxy(pw.ctx, pw.Cfg, clientCfg, pw.msgTransporter)
+	pw.pxy = NewProxy(pw.ctx, pw.Cfg, clientCfg, pw.msgTransporter, pw.vnetController)
 	return pw
 }
 
