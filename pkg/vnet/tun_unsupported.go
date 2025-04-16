@@ -20,8 +20,10 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+
+	"golang.zx2c4.com/wireguard/tun"
 )
 
-func openTun(ctx context.Context) (TunDevice, error) {
+func openTun(_ context.Context, _ string) (tun.Device, error) {
 	return nil, fmt.Errorf("virtual net is not supported on this platform (%s/%s)", runtime.GOOS, runtime.GOARCH)
 }
