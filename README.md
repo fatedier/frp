@@ -1283,9 +1283,7 @@ frp supports feature gates to enable or disable experimental features. This allo
 To enable an experimental feature, add the feature gate to your configuration:
 
 ```toml
-featureGates = {
-  VirtualNet = true
-}
+featureGates = { VirtualNet = true }
 ```
 
 ### Feature Lifecycle
