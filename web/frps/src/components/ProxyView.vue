@@ -34,6 +34,7 @@
         </template>
       </el-table-column>
       <el-table-column label="Name" prop="name" sortable> </el-table-column>
+      <el-table-column label="IP" prop="clientIP" sortable> </el-table-column>
       <el-table-column label="Port" prop="port" sortable> </el-table-column>
       <el-table-column label="Connections" prop="conns" sortable>
       </el-table-column>

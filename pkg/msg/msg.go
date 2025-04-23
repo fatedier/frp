@@ -84,6 +84,8 @@ type Login struct {
 	RunID        string            `json:"run_id,omitempty"`
 	Metas        map[string]string `json:"metas,omitempty"`
 
+	// Filled out when connection established
+	ClientAddress string `json:"client_address,omitempty"`
 	// Currently only effective for VirtualClient.
 	ClientSpec ClientSpec `json:"client_spec,omitempty"`
 

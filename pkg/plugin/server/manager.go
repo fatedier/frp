@@ -66,6 +66,7 @@ func (m *Manager) Register(p Plugin) {
 }
 
 func (m *Manager) Login(content *LoginContent) (*LoginContent, error) {
+	content.Login.ClientAddress = content.ClientAddress
 	if len(m.loginPlugins) == 0 {
 		return content, nil
 	}

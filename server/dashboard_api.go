@@ -17,11 +17,11 @@ package server
 import (
 	"cmp"
 	"encoding/json"
-	"net/http"
-	"slices"
-
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/fatedier/frp/pkg/config/types"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
@@ -199,6 +199,7 @@ type ProxyStatsInfo struct {
 	Name            string `json:"name"`
 	Conf            any    `json:"conf"`
 	ClientVersion   string `json:"clientVersion,omitempty"`
+	ClientIP        string `json:"clientIP,omitempty"`
 	TodayTrafficIn  int64  `json:"todayTrafficIn"`
 	TodayTrafficOut int64  `json:"todayTrafficOut"`
 	CurConns        int64  `json:"curConns"`
@@ -255,6 +256,7 @@ func (svr *Service) getProxyStatsByType(proxyType string) (proxyInfos []*ProxySt
 			proxyInfo.Status = "online"
 			if pxy.GetLoginMsg() != nil {
 				proxyInfo.ClientVersion = pxy.GetLoginMsg().Version
+				proxyInfo.ClientIP = strings.Split(pxy.GetLoginMsg().ClientAddress, ":")[0]
 			}
 		} else {
 			proxyInfo.Status = "offline"

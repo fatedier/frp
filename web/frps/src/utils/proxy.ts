@@ -11,6 +11,7 @@ class BaseProxy {
   lastCloseTime: string
   status: string
   clientVersion: string
+  clientIP: string
   addr: string
   port: number
 
@@ -42,6 +43,7 @@ class BaseProxy {
     this.lastCloseTime = proxyStats.lastCloseTime
     this.status = proxyStats.status
     this.clientVersion = proxyStats.clientVersion
+    this.clientIP = proxyStats.clientIP
 
     this.addr = ''
     this.port = 0
