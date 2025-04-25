@@ -87,7 +87,7 @@ func (c *Controller) handlePacket(buf []byte) {
 	case waterutil.IsIPv4(buf):
 		header, err := ipv4.ParseHeader(buf)
 		if err != nil {
-			log.Warnf("parse ipv4 header error:", err)
+			log.Warnf("parse ipv4 header error: %v", err)
 			return
 		}
 		src = header.Src
@@ -98,7 +98,7 @@ func (c *Controller) handlePacket(buf []byte) {
 	case waterutil.IsIPv6(buf):
 		header, err := ipv6.ParseHeader(buf)
 		if err != nil {
-			log.Warnf("parse ipv6 header error:", err)
+			log.Warnf("parse ipv6 header error: %v", err)
 			return
 		}
 		src = header.Src
@@ -137,6 +137,12 @@ func (c *Controller) Stop() error {
 // Client connection read loop
 func (c *Controller) readLoopClient(ctx context.Context, conn io.ReadWriteCloser) {
 	xl := xlog.FromContextSafe(ctx)
+	defer func() {
+		// Remove the route when read loop ends (connection closed)
+		c.clientRouter.removeConnRoute(conn)
+		conn.Close()
+	}()
+
 	for {
 		data, err := ReadMessage(conn)
 		if err != nil {
@@ -181,8 +187,18 @@ func (c *Controller) readLoopClient(ctx context.Context, conn io.ReadWriteCloser
 }
 
 // Server connection read loop
-func (c *Controller) readLoopServer(ctx context.Context, conn io.ReadWriteCloser) {
+func (c *Controller) readLoopServer(ctx context.Context, conn io.ReadWriteCloser, onClose func()) {
 	xl := xlog.FromContextSafe(ctx)
+	defer func() {
+		// Clean up all IP mappings associated with this connection when it closes
+		c.serverRouter.cleanupConnIPs(conn)
+		// Call the provided callback upon closure
+		if onClose != nil {
+			onClose()
+		}
+		conn.Close()
+	}()
+
 	for {
 		data, err := ReadMessage(conn)
 		if err != nil {
@@ -220,32 +236,22 @@ func (c *Controller) readLoopServer(ctx context.Context, conn io.ReadWriteCloser
 	}
 }
 
-// RegisterClientRoute Register client route (based on destination IP CIDR)
-func (c *Controller) RegisterClientRoute(ctx context.Context, name string, routes []net.IPNet, conn io.ReadWriteCloser) error {
-	if err := c.clientRouter.addRoute(name, routes, conn); err != nil {
-		return err
-	}
+// RegisterClientRoute registers a client route (based on destination IP CIDR)
+// and starts the read loop
+func (c *Controller) RegisterClientRoute(ctx context.Context, name string, routes []net.IPNet, conn io.ReadWriteCloser) {
+	c.clientRouter.addRoute(name, routes, conn)
 	go c.readLoopClient(ctx, conn)
-	return nil
-}
-
-// RegisterServerConn Register server connection (dynamically associates with source IPs)
-func (c *Controller) RegisterServerConn(ctx context.Context, name string, conn io.ReadWriteCloser) error {
-	if err := c.serverRouter.addConn(name, conn); err != nil {
-		return err
-	}
-	go c.readLoopServer(ctx, conn)
-	return nil
-}
-
-// UnregisterServerConn Remove server connection from routing table
-func (c *Controller) UnregisterServerConn(name string) {
-	c.serverRouter.delConn(name)
 }
 
 // UnregisterClientRoute Remove client route from routing table
 func (c *Controller) UnregisterClientRoute(name string) {
 	c.clientRouter.delRoute(name)
+}
+
+// StartServerConnReadLoop starts the read loop for a server connection
+// (dynamically associates with source IPs)
+func (c *Controller) StartServerConnReadLoop(ctx context.Context, conn io.ReadWriteCloser, onClose func()) {
+	go c.readLoopServer(ctx, conn, onClose)
 }
 
 // ParseRoutes Convert route strings to IPNet objects
@@ -273,7 +279,7 @@ func newClientRouter() *clientRouter {
 	}
 }
 
-func (r *clientRouter) addRoute(name string, routes []net.IPNet, conn io.ReadWriteCloser) error {
+func (r *clientRouter) addRoute(name string, routes []net.IPNet, conn io.ReadWriteCloser) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.routes[name] = &routeElement{
@@ -281,7 +287,6 @@ func (r *clientRouter) addRoute(name string, routes []net.IPNet, conn io.ReadWri
 		routes: routes,
 		conn:   conn,
 	}
-	return nil
 }
 
 func (r *clientRouter) findConn(dst net.IP) (io.Writer, error) {
@@ -303,30 +308,27 @@ func (r *clientRouter) delRoute(name string) {
 	delete(r.routes, name)
 }
 
-// Server router (based on source IP routing)
+func (r *clientRouter) removeConnRoute(conn io.Writer) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for name, re := range r.routes {
+		if re.conn == conn {
+			delete(r.routes, name)
+			return
+		}
+	}
+}
+
+// Server router (based solely on source IP routing)
 type serverRouter struct {
-	namedConns map[string]io.ReadWriteCloser // Name to connection mapping
-	srcIPConns map[string]io.Writer          // Source IP string to connection mapping
+	srcIPConns map[string]io.Writer // Source IP string to connection mapping
 	mu         sync.RWMutex
 }
 
 func newServerRouter() *serverRouter {
 	return &serverRouter{
-		namedConns: make(map[string]io.ReadWriteCloser),
 		srcIPConns: make(map[string]io.Writer),
 	}
-}
-
-func (r *serverRouter) addConn(name string, conn io.ReadWriteCloser) error {
-	r.mu.Lock()
-	original, ok := r.namedConns[name]
-	r.namedConns[name] = conn
-	r.mu.Unlock()
-	if ok {
-		// Close the original connection if it exists
-		_ = original.Close()
-	}
-	return nil
 }
 
 func (r *serverRouter) findConnBySrc(src net.IP) (io.Writer, error) {
@@ -340,17 +342,41 @@ func (r *serverRouter) findConnBySrc(src net.IP) (io.Writer, error) {
 }
 
 func (r *serverRouter) registerSrcIP(src net.IP, conn io.Writer) {
+	key := src.String()
+
+	r.mu.RLock()
+	existingConn, ok := r.srcIPConns[key]
+	r.mu.RUnlock()
+
+	// If the entry exists and the connection is the same, no need to do anything.
+	if ok && existingConn == conn {
+		return
+	}
+
+	// Acquire write lock to update the map.
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.srcIPConns[src.String()] = conn
+
+	// Double-check after acquiring the write lock to handle potential race conditions.
+	existingConn, ok = r.srcIPConns[key]
+	if ok && existingConn == conn {
+		return
+	}
+
+	r.srcIPConns[key] = conn
 }
 
-func (r *serverRouter) delConn(name string) {
+// cleanupConnIPs removes all IP mappings associated with the specified connection
+func (r *serverRouter) cleanupConnIPs(conn io.Writer) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	delete(r.namedConns, name)
-	// Note: We don't delete mappings from srcIPConns because we don't know which source IPs are associated with this connection
-	// This might cause dangling references, but they will be overwritten on new connections or restart
+
+	// Find and delete all IP mappings pointing to this connection
+	for ip, mappedConn := range r.srcIPConns {
+		if mappedConn == conn {
+			delete(r.srcIPConns, ip)
+		}
+	}
 }
 
 type routeElement struct {

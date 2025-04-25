@@ -224,7 +224,7 @@ func (ctl *Control) Close() error {
 
 func (ctl *Control) Replaced(newCtl *Control) {
 	xl := ctl.xl
-	xl.Infof("Replaced by client [%s]", newCtl.runID)
+	xl.Infof("replaced by client [%s]", newCtl.runID)
 	ctl.runID = ""
 	ctl.conn.Close()
 }
