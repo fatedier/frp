@@ -23,7 +23,8 @@ import (
 )
 
 const (
-	offset = 16
+	offset            = 16
+	defaultPacketSize = 1420
 )
 
 type TunDevice interface {
@@ -35,20 +36,45 @@ func OpenTun(ctx context.Context, addr string) (TunDevice, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &tunDeviceWrapper{dev: td}, nil
+
+	mtu, err := td.MTU()
+	if err != nil {
+		mtu = defaultPacketSize
+	}
+
+	bufferSize := max(mtu, defaultPacketSize)
+	batchSize := td.BatchSize()
+
+	device := &tunDeviceWrapper{
+		dev:         td,
+		bufferSize:  bufferSize,
+		readBuffers: make([][]byte, batchSize),
+		sizeBuffer:  make([]int, batchSize),
+	}
+
+	for i := range device.readBuffers {
+		device.readBuffers[i] = make([]byte, offset+bufferSize)
+	}
+
+	return device, nil
 }
 
 type tunDeviceWrapper struct {
-	dev tun.Device
+	dev           tun.Device
+	bufferSize    int
+	readBuffers   [][]byte
+	packetBuffers [][]byte
+	sizeBuffer    []int
 }
 
 func (d *tunDeviceWrapper) Read(p []byte) (int, error) {
-	buf := pool.GetBuf(len(p) + offset)
-	defer pool.PutBuf(buf)
+	if len(d.packetBuffers) > 0 {
+		n := copy(p, d.packetBuffers[0])
+		d.packetBuffers = d.packetBuffers[1:]
+		return n, nil
+	}
 
-	sz := make([]int, 1)
-
-	n, err := d.dev.Read([][]byte{buf}, sz, offset)
+	n, err := d.dev.Read(d.readBuffers, d.sizeBuffer, offset)
 	if err != nil {
 		return 0, err
 	}
@@ -56,20 +82,26 @@ func (d *tunDeviceWrapper) Read(p []byte) (int, error) {
 		return 0, io.EOF
 	}
 
-	dataSize := sz[0]
-	if dataSize > len(p) {
-		dataSize = len(p)
+	for i := range n {
+		if d.sizeBuffer[i] <= 0 {
+			continue
+		}
+		d.packetBuffers = append(d.packetBuffers, d.readBuffers[i][offset:offset+d.sizeBuffer[i]])
 	}
-	copy(p, buf[offset:offset+dataSize])
+
+	dataSize := copy(p, d.packetBuffers[0])
+	d.packetBuffers = d.packetBuffers[1:]
+
 	return dataSize, nil
 }
 
 func (d *tunDeviceWrapper) Write(p []byte) (int, error) {
-	buf := pool.GetBuf(len(p) + offset)
+	buf := pool.GetBuf(offset + d.bufferSize)
 	defer pool.PutBuf(buf)
 
-	copy(buf[offset:], p)
-	return d.dev.Write([][]byte{buf}, offset)
+	n := copy(buf[offset:], p)
+	_, err := d.dev.Write([][]byte{buf[:offset+n]}, offset)
+	return n, err
 }
 
 func (d *tunDeviceWrapper) Close() error {

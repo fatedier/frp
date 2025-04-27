@@ -341,7 +341,7 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		ctl, err := NewControl(svr.ctx, sessionCtx)
 		if err != nil {
 			conn.Close()
-			xl.Errorf("NewControl error: %v", err)
+			xl.Errorf("new control error: %v", err)
 			return false, err
 		}
 		ctl.SetInWorkConnCallback(svr.handleWorkConnCb)

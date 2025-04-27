@@ -275,7 +275,7 @@ func (l *Listener) Accept() (net.Conn, error) {
 	xl := xlog.FromContextSafe(l.ctx)
 	conn, ok := <-l.accept
 	if !ok {
-		return nil, fmt.Errorf("Listener closed")
+		return nil, fmt.Errorf("listener closed")
 	}
 
 	// if rewriteHost func is exist

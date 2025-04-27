@@ -189,7 +189,7 @@ func (ctl *Control) handlePong(m msg.Message) {
 	inMsg := m.(*msg.Pong)
 
 	if inMsg.Error != "" {
-		xl.Errorf("Pong message contains error: %s", inMsg.Error)
+		xl.Errorf("pong message contains error: %s", inMsg.Error)
 		ctl.closeSession()
 		return
 	}

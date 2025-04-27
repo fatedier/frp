@@ -165,9 +165,9 @@ func (svr *Service) apiStatus(w http.ResponseWriter, _ *http.Request) {
 		res StatusResp = make(map[string][]ProxyStatusResp)
 	)
 
-	log.Infof("Http request [/api/status]")
+	log.Infof("http request [/api/status]")
 	defer func() {
-		log.Infof("Http response [/api/status]")
+		log.Infof("http response [/api/status]")
 		buf, _ = json.Marshal(&res)
 		_, _ = w.Write(buf)
 	}()
@@ -198,9 +198,9 @@ func (svr *Service) apiStatus(w http.ResponseWriter, _ *http.Request) {
 func (svr *Service) apiGetConfig(w http.ResponseWriter, _ *http.Request) {
 	res := GeneralResponse{Code: 200}
 
-	log.Infof("Http get request [/api/config]")
+	log.Infof("http get request [/api/config]")
 	defer func() {
-		log.Infof("Http get response [/api/config], code [%d]", res.Code)
+		log.Infof("http get response [/api/config], code [%d]", res.Code)
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
 			_, _ = w.Write([]byte(res.Msg))
@@ -228,9 +228,9 @@ func (svr *Service) apiGetConfig(w http.ResponseWriter, _ *http.Request) {
 func (svr *Service) apiPutConfig(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 
-	log.Infof("Http put request [/api/config]")
+	log.Infof("http put request [/api/config]")
 	defer func() {
-		log.Infof("Http put response [/api/config], code [%d]", res.Code)
+		log.Infof("http put response [/api/config], code [%d]", res.Code)
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
 			_, _ = w.Write([]byte(res.Msg))

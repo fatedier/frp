@@ -427,7 +427,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 
 	_ = conn.SetReadDeadline(time.Now().Add(connReadTimeout))
 	if rawMsg, err = msg.ReadMsg(conn); err != nil {
-		log.Tracef("Failed to read message: %v", err)
+		log.Tracef("failed to read message: %v", err)
 		conn.Close()
 		return
 	}
@@ -475,7 +475,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 			})
 		}
 	default:
-		log.Warnf("Error message type for the new connection [%s]", conn.RemoteAddr().String())
+		log.Warnf("error message type for the new connection [%s]", conn.RemoteAddr().String())
 		conn.Close()
 	}
 }
@@ -488,7 +488,7 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 	for {
 		c, err := l.Accept()
 		if err != nil {
-			log.Warnf("Listener for incoming connections from client closed")
+			log.Warnf("listener for incoming connections from client closed")
 			return
 		}
 		// inject xlog object into net.Conn context
@@ -504,7 +504,7 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 			var isTLS, custom bool
 			c, isTLS, custom, err = netpkg.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, forceTLS, connReadTimeout)
 			if err != nil {
-				log.Warnf("CheckAndEnableTLSServerConnWithTimeout error: %v", err)
+				log.Warnf("checkAndEnableTLSServerConnWithTimeout error: %v", err)
 				originConn.Close()
 				continue
 			}
@@ -520,7 +520,7 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 				fmuxCfg.MaxStreamWindowSize = 6 * 1024 * 1024
 				session, err := fmux.Server(frpConn, fmuxCfg)
 				if err != nil {
-					log.Warnf("Failed to create mux connection: %v", err)
+					log.Warnf("failed to create mux connection: %v", err)
 					frpConn.Close()
 					return
 				}
@@ -528,7 +528,7 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 				for {
 					stream, err := session.AcceptStream()
 					if err != nil {
-						log.Debugf("Accept new mux stream error: %v", err)
+						log.Debugf("accept new mux stream error: %v", err)
 						session.Close()
 						return
 					}
@@ -546,7 +546,7 @@ func (svr *Service) HandleQUICListener(l *quic.Listener) {
 	for {
 		c, err := l.Accept(context.Background())
 		if err != nil {
-			log.Warnf("QUICListener for incoming connections from client closed")
+			log.Warnf("quic listener for incoming connections from client closed")
 			return
 		}
 		// Start a new goroutine to handle connection.
@@ -554,7 +554,7 @@ func (svr *Service) HandleQUICListener(l *quic.Listener) {
 			for {
 				stream, err := frpConn.AcceptStream(context.Background())
 				if err != nil {
-					log.Debugf("Accept new quic mux stream error: %v", err)
+					log.Debugf("accept new quic mux stream error: %v", err)
 					_ = frpConn.CloseWithError(0, "")
 					return
 				}
@@ -620,7 +620,7 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 	xl := netpkg.NewLogFromConn(workConn)
 	ctl, exist := svr.ctlManager.GetByID(newMsg.RunID)
 	if !exist {
-		xl.Warnf("No client control found for run id [%s]", newMsg.RunID)
+		xl.Warnf("no client control found for run id [%s]", newMsg.RunID)
 		return fmt.Errorf("no client control found for run id [%s]", newMsg.RunID)
 	}
 	// server plugin hook

@@ -33,7 +33,7 @@ func ReadMessage(r io.Reader) ([]byte, error) {
 	var length uint32
 	err := binary.Read(r, binary.LittleEndian, &length)
 	if err != nil {
-		return nil, fmt.Errorf("read message length error: %v", err)
+		return nil, fmt.Errorf("read message length error: %w", err)
 	}
 
 	// Check length to prevent DoS
@@ -48,7 +48,7 @@ func ReadMessage(r io.Reader) ([]byte, error) {
 	data := make([]byte, length)
 	_, err = io.ReadFull(r, data)
 	if err != nil {
-		return nil, fmt.Errorf("read message data error: %v", err)
+		return nil, fmt.Errorf("read message data error: %w", err)
 	}
 
 	return data, nil
@@ -68,13 +68,13 @@ func WriteMessage(w io.Writer, data []byte) error {
 	// Write length
 	err := binary.Write(w, binary.LittleEndian, length)
 	if err != nil {
-		return fmt.Errorf("write message length error: %v", err)
+		return fmt.Errorf("write message length error: %w", err)
 	}
 
 	// Write message data
 	_, err = w.Write(data)
 	if err != nil {
-		return fmt.Errorf("write message data error: %v", err)
+		return fmt.Errorf("write message data error: %w", err)
 	}
 
 	return nil

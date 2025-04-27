@@ -18,9 +18,10 @@ package client
 
 import (
 	"context"
+	"io"
+	"sync"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
-	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
 func init() {
@@ -30,6 +31,8 @@ func init() {
 type VirtualNetPlugin struct {
 	pluginCtx PluginContext
 	opts      *v1.VirtualNetPluginOptions
+	mu        sync.Mutex
+	conns     map[io.ReadWriteCloser]struct{}
 }
 
 func NewVirtualNetPlugin(pluginCtx PluginContext, options v1.ClientPluginOptions) (Plugin, error) {
@@ -43,19 +46,32 @@ func NewVirtualNetPlugin(pluginCtx PluginContext, options v1.ClientPluginOptions
 }
 
 func (p *VirtualNetPlugin) Handle(ctx context.Context, connInfo *ConnectionInfo) {
-	xl := xlog.FromContextSafe(ctx)
-
 	// Verify if virtual network controller is available
 	if p.pluginCtx.VnetController == nil {
 		return
 	}
 
-	// Register the connection with the controller
-	routeName := p.pluginCtx.Name
-	err := p.pluginCtx.VnetController.RegisterServerConn(ctx, routeName, connInfo.Conn)
-	if err != nil {
-		xl.Errorf("virtual net failed to register server connection: %v", err)
-		return
+	// Add the connection before starting the read loop to avoid race condition
+	// where RemoveConn might be called before the connection is added.
+	p.mu.Lock()
+	if p.conns == nil {
+		p.conns = make(map[io.ReadWriteCloser]struct{})
+	}
+	p.conns[connInfo.Conn] = struct{}{}
+	p.mu.Unlock()
+
+	// Register the connection with the controller and pass the cleanup function
+	p.pluginCtx.VnetController.StartServerConnReadLoop(ctx, connInfo.Conn, func() {
+		p.RemoveConn(connInfo.Conn)
+	})
+}
+
+func (p *VirtualNetPlugin) RemoveConn(conn io.ReadWriteCloser) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	// Check if the map exists, as Close might have set it to nil concurrently
+	if p.conns != nil {
+		delete(p.conns, conn)
 	}
 }
 
@@ -64,8 +80,13 @@ func (p *VirtualNetPlugin) Name() string {
 }
 
 func (p *VirtualNetPlugin) Close() error {
-	if p.pluginCtx.VnetController != nil {
-		p.pluginCtx.VnetController.UnregisterServerConn(p.pluginCtx.Name)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Close any remaining connections
+	for conn := range p.conns {
+		_ = conn.Close()
 	}
+	p.conns = nil
 	return nil
 }
