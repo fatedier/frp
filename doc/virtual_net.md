@@ -49,7 +49,9 @@ type = "virtual_net"
 # frpc.toml (client side)
 serverAddr = "x.x.x.x"
 serverPort = 7000
-featureGates = { VirtualNet = true }
+featureGates = {
+  VirtualNet = true
+}
 
 # Configure the virtual network interface
 virtualNet.address = "100.86.0.2/24"
