@@ -2,15 +2,20 @@
 
 ## install binary
 
-```sudo install ./frps /usr/local/bin```
+```
+sudo install ./frps /usr/local/bin
+```
 
 ## Create systemd unit
 
-```sudo vi /lib/systemd/syste.frps.service```
+```
+sudo vi /lib/systemd/syste.frps.service
+```
 
+add inside
 
-
-```[Unit]
+```
+[Unit]
 Description=FRP Server Service
 After=network.target 
 
@@ -21,12 +26,15 @@ Restart=on-failure
 RestartSec=15s
 
 [Install]
-WantedBy=multi-user.target```
+WantedBy=multi-user.target
+```
 
 ## Enable service
 
-```sudo systemctl daemon-reload
+```
+sudo systemctl daemon-reload
 sudo systemctl enable frps.service
 sudo systemctl start frps.service
-sudo systemctl status frps.service```
+sudo systemctl status frps.service
+```
 
