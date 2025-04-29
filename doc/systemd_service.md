@@ -21,7 +21,7 @@ Restart=on-failure
 RestartSec=15s
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=multi-user.target```
 
 ## Enable service
 
