@@ -1285,6 +1285,9 @@ To enable an experimental feature, add the feature gate to your configuration:
 ```toml
 featureGates = { VirtualNet = true }
 ```
+### Enable as systemd service
+
+Read the [document](/doc/systemd_service.md).
 
 ### Feature Lifecycle
 
