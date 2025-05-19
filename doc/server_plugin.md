@@ -121,7 +121,7 @@ Create new proxy
         // http and https only
         "custom_domains": []<string>,
         "subdomain": <string>,
-        "locations": <string>,
+        "locations": []<string>,
         "http_user": <string>,
         "http_pwd": <string>,
         "host_header_rewrite": <string>,
