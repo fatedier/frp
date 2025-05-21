@@ -25,6 +25,7 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/util/log"
+	pkgnet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/server"
 )
@@ -33,6 +34,7 @@ var (
 	cfgFile          string
 	showVersion      bool
 	strictConfigMode bool
+	prefixPath       string
 
 	serverCfg v1.ServerConfig
 )
@@ -41,6 +43,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file of frps")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frps")
 	rootCmd.PersistentFlags().BoolVarP(&strictConfigMode, "strict_config", "", true, "strict config parsing mode, unknown fields will cause errors")
+	rootCmd.PersistentFlags().StringVarP(&prefixPath, "prefixPath", "", "", "ws/wss path of frps")
 
 	config.RegisterServerConfigFlags(rootCmd, &serverCfg)
 }
@@ -52,6 +55,10 @@ var rootCmd = &cobra.Command{
 		if showVersion {
 			fmt.Println(version.Full())
 			return nil
+		}
+
+		if prefixPath != "" {
+			pkgnet.SetWsPrefixPath(prefixPath)
 		}
 
 		var (
@@ -112,6 +119,7 @@ func runServer(cfg *v1.ServerConfig) (err error) {
 		return err
 	}
 	log.Infof("frps started successfully")
+	log.Infof("frps Websocket PrefixPath: \"%s\"", pkgnet.GetWsPrefixPath())
 	svr.Run(context.Background())
 	return
 }

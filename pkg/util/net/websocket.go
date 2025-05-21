@@ -11,9 +11,7 @@ import (
 
 var ErrWebsocketListenerClosed = errors.New("websocket listener closed")
 
-const (
-	FrpWebsocketPath = "/~!frp"
-)
+var FrpWebsocketPath = "/~!frp"
 
 type WebsocketListener struct {
 	ln       net.Listener
@@ -65,4 +63,28 @@ func (p *WebsocketListener) Close() error {
 
 func (p *WebsocketListener) Addr() net.Addr {
 	return p.ln.Addr()
+}
+
+func GetWsPrefixPath() string {
+	return FrpWebsocketPath
+}
+
+func SetWsPrefixPath(path string) {
+	if path != "" {
+		if HasPrefix(path, "/") {
+			FrpWebsocketPath = path
+		} else {
+			FrpWebsocketPath = "/" + path
+		}
+	} else {
+		FrpWebsocketPath = "/~!frp"
+	}
+}
+
+func HasPrefix(s, prefix string) bool {
+	return len(s) >= len(prefix) && s[0:len(prefix)] == prefix
+}
+
+func HasSuffix(s, suffix string) bool {
+	return len(s) >= len(suffix) && s[len(s)-len(suffix):] == suffix
 }
