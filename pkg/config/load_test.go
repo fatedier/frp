@@ -187,3 +187,122 @@ unixPath = "/tmp/uds.sock"
 	err = LoadConfigure([]byte(pluginStr), &clientCfg, true)
 	require.Error(err)
 }
+
+// TestYAMLMergeInStrictMode tests that YAML merge functionality works
+// even in strict mode by properly handling dot-prefixed fields
+func TestYAMLMergeInStrictMode(t *testing.T) {
+	require := require.New(t)
+
+	yamlContent := `
+serverAddr: "127.0.0.1"
+serverPort: 7000
+
+.common: &common
+  type: stcp
+  secretKey: "test-secret"
+  localIP: 127.0.0.1
+  transport:
+    useEncryption: true
+    useCompression: true
+
+proxies:
+- name: ssh
+  localPort: 22
+  <<: *common
+- name: web
+  localPort: 80
+  <<: *common
+`
+
+	clientCfg := v1.ClientConfig{}
+	// This should work in strict mode
+	err := LoadConfigure([]byte(yamlContent), &clientCfg, true)
+	require.NoError(err)
+
+	// Verify the merge worked correctly
+	require.Equal("127.0.0.1", clientCfg.ServerAddr)
+	require.Equal(7000, clientCfg.ServerPort)
+	require.Len(clientCfg.Proxies, 2)
+
+	// Check first proxy
+	sshProxy := clientCfg.Proxies[0].ProxyConfigurer
+	require.Equal("ssh", sshProxy.GetBaseConfig().Name)
+	require.Equal("stcp", sshProxy.GetBaseConfig().Type)
+
+	// Check second proxy
+	webProxy := clientCfg.Proxies[1].ProxyConfigurer
+	require.Equal("web", webProxy.GetBaseConfig().Name)
+	require.Equal("stcp", webProxy.GetBaseConfig().Type)
+}
+
+// TestOptimizedYAMLProcessing tests the optimization logic for YAML processing
+func TestOptimizedYAMLProcessing(t *testing.T) {
+	require := require.New(t)
+
+	yamlWithDotFields := []byte(`
+serverAddr: "127.0.0.1"
+.common: &common
+  type: stcp
+proxies:
+- name: test
+  <<: *common
+`)
+
+	yamlWithoutDotFields := []byte(`
+serverAddr: "127.0.0.1"
+proxies:
+- name: test
+  type: tcp
+  localPort: 22
+`)
+
+	// Test that YAML without dot fields works in strict mode
+	clientCfg := v1.ClientConfig{}
+	err := LoadConfigure(yamlWithoutDotFields, &clientCfg, true)
+	require.NoError(err)
+	require.Equal("127.0.0.1", clientCfg.ServerAddr)
+	require.Len(clientCfg.Proxies, 1)
+	require.Equal("test", clientCfg.Proxies[0].ProxyConfigurer.GetBaseConfig().Name)
+
+	// Test that YAML with dot fields still works in strict mode
+	err = LoadConfigure(yamlWithDotFields, &clientCfg, true)
+	require.NoError(err)
+	require.Equal("127.0.0.1", clientCfg.ServerAddr)
+	require.Len(clientCfg.Proxies, 1)
+	require.Equal("test", clientCfg.Proxies[0].ProxyConfigurer.GetBaseConfig().Name)
+	require.Equal("stcp", clientCfg.Proxies[0].ProxyConfigurer.GetBaseConfig().Type)
+}
+
+// TestYAMLEdgeCases tests edge cases for YAML parsing, including non-map types
+func TestYAMLEdgeCases(t *testing.T) {
+	require := require.New(t)
+
+	// Test array at root (should fail for frp config)
+	arrayYAML := []byte(`
+- item1
+- item2
+`)
+	clientCfg := v1.ClientConfig{}
+	err := LoadConfigure(arrayYAML, &clientCfg, true)
+	require.Error(err) // Should fail because ClientConfig expects an object
+
+	// Test scalar at root (should fail for frp config)
+	scalarYAML := []byte(`"just a string"`)
+	err = LoadConfigure(scalarYAML, &clientCfg, true)
+	require.Error(err) // Should fail because ClientConfig expects an object
+
+	// Test empty object (should work)
+	emptyYAML := []byte(`{}`)
+	err = LoadConfigure(emptyYAML, &clientCfg, true)
+	require.NoError(err)
+
+	// Test nested structure without dots (should work)
+	nestedYAML := []byte(`
+serverAddr: "127.0.0.1"
+serverPort: 7000
+`)
+	err = LoadConfigure(nestedYAML, &clientCfg, true)
+	require.NoError(err)
+	require.Equal("127.0.0.1", clientCfg.ServerAddr)
+	require.Equal(7000, clientCfg.ServerPort)
+}
