@@ -20,13 +20,11 @@ import (
 	"net"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	libio "github.com/fatedier/golib/io"
 	libnet "github.com/fatedier/golib/net"
-	pp "github.com/pires/go-proxyproto"
 	"golang.org/x/time/rate"
 
 	"github.com/fatedier/frp/pkg/config/types"
@@ -35,6 +33,7 @@ import (
 	plugin "github.com/fatedier/frp/pkg/plugin/client"
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/limit"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/pkg/vnet"
 )
@@ -176,24 +175,9 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	}
 
 	if baseCfg.Transport.ProxyProtocolVersion != "" && m.SrcAddr != "" && m.SrcPort != 0 {
-		h := &pp.Header{
-			Command:         pp.PROXY,
-			SourceAddr:      connInfo.SrcAddr,
-			DestinationAddr: connInfo.DstAddr,
-		}
-
-		if strings.Contains(m.SrcAddr, ".") {
-			h.TransportProtocol = pp.TCPv4
-		} else {
-			h.TransportProtocol = pp.TCPv6
-		}
-
-		if baseCfg.Transport.ProxyProtocolVersion == "v1" {
-			h.Version = 1
-		} else if baseCfg.Transport.ProxyProtocolVersion == "v2" {
-			h.Version = 2
-		}
-		connInfo.ProxyProtocolHeader = h
+		// Use the common proxy protocol builder function
+		header := netpkg.BuildProxyProtocolHeaderStruct(connInfo.SrcAddr, connInfo.DstAddr, baseCfg.Transport.ProxyProtocolVersion)
+		connInfo.ProxyProtocolHeader = header
 	}
 	connInfo.Conn = remote
 	connInfo.UnderlyingConn = workConn
