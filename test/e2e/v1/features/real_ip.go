@@ -227,6 +227,56 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 			})
 		})
 
+		ginkgo.It("UDP", func() {
+			serverConf := consts.DefaultServerConfig
+			clientConf := consts.DefaultClientConfig
+
+			localPort := f.AllocPort()
+			localServer := streamserver.New(streamserver.UDP, streamserver.WithBindPort(localPort),
+				streamserver.WithCustomHandler(func(c net.Conn) {
+					defer c.Close()
+					rd := bufio.NewReader(c)
+					ppHeader, err := pp.Read(rd)
+					if err != nil {
+						log.Errorf("read proxy protocol error: %v", err)
+						return
+					}
+
+					// Read the actual UDP content after proxy protocol header
+					if _, err := rpc.ReadBytes(rd); err != nil {
+						return
+					}
+
+					buf := []byte(ppHeader.SourceAddr.String())
+					_, _ = rpc.WriteBytes(c, buf)
+				}))
+			f.RunServer("", localServer)
+
+			remotePort := f.AllocPort()
+			clientConf += fmt.Sprintf(`
+			[[proxies]]
+			name = "udp"
+			type = "udp"
+			localPort = %d
+			remotePort = %d
+			transport.proxyProtocolVersion = "v2"
+			`, localPort, remotePort)
+
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+			framework.NewRequestExpect(f).Protocol("udp").Port(remotePort).Ensure(func(resp *request.Response) bool {
+				log.Tracef("udp proxy protocol get SourceAddr: %s", string(resp.Content))
+				addr, err := net.ResolveUDPAddr("udp", string(resp.Content))
+				if err != nil {
+					return false
+				}
+				if addr.IP.String() != "127.0.0.1" {
+					return false
+				}
+				return true
+			})
+		})
+
 		ginkgo.It("HTTP", func() {
 			vhostHTTPPort := f.AllocPort()
 			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
