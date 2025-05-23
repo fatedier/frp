@@ -33,6 +33,7 @@ import (
 	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/featuregate"
 	"github.com/fatedier/frp/pkg/util/log"
+	pkgnet "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/version"
 )
 
@@ -41,6 +42,7 @@ var (
 	cfgDir           string
 	showVersion      bool
 	strictConfigMode bool
+	prefixPath       string
 )
 
 func init() {
@@ -48,6 +50,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgDir, "config_dir", "", "", "config directory, run one frpc service for each file in config directory")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
 	rootCmd.PersistentFlags().BoolVarP(&strictConfigMode, "strict_config", "", true, "strict config parsing mode, unknown fields will cause an errors")
+	rootCmd.PersistentFlags().StringVarP(&prefixPath, "prefixPath", "", "", "ws/wss path of frpc")
 }
 
 var rootCmd = &cobra.Command{
@@ -149,6 +152,15 @@ func startService(
 		log.Infof("start frpc service for config file [%s]", cfgFile)
 		defer log.Infof("frpc service for config file [%s] stopped", cfgFile)
 	}
+
+	log.Infof("cfg.Transport.PrefixPath: %s", cfg.Transport.PrefixPath)
+	if cfg.Transport.PrefixPath != "" {
+		pkgnet.SetWsPrefixPath(cfg.Transport.PrefixPath)
+	}
+	if prefixPath != "" {
+		pkgnet.SetWsPrefixPath(prefixPath)
+	}
+
 	svr, err := client.NewService(client.ServiceOptions{
 		Common:         cfg,
 		ProxyCfgs:      proxyCfgs,
@@ -164,5 +176,6 @@ func startService(
 	if shouldGracefulClose {
 		go handleTermSignal(svr)
 	}
+	log.Infof("frpc Websocket PrefixPath: \"%s\"", pkgnet.GetWsPrefixPath())
 	return svr.Run(context.Background())
 }
