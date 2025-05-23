@@ -1025,7 +1025,7 @@ You can get user's real IP from HTTP request headers `X-Forwarded-For`.
 
 #### Proxy Protocol
 
-frp supports Proxy Protocol to send user's real IP to local services. It support all types except UDP.
+frp supports Proxy Protocol to send user's real IP to local services.
 
 Here is an example for https service:
 
