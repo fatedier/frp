@@ -3,16 +3,16 @@ package udp
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUdpPacket(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
 	buf := []byte("hello world")
 	udpMsg := NewUDPPacket(buf, nil, nil)
 
 	newBuf, err := GetContent(udpMsg)
-	assert.NoError(err)
-	assert.EqualValues(buf, newBuf)
+	require.NoError(err)
+	require.EqualValues(buf, newBuf)
 }
