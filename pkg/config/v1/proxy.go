@@ -129,7 +129,7 @@ func (c *ProxyBaseConfig) Complete(namePrefix string) {
 	c.Transport.BandwidthLimitMode = util.EmptyOr(c.Transport.BandwidthLimitMode, types.BandwidthLimitModeClient)
 
 	if c.Plugin.ClientPluginOptions != nil {
-		c.Plugin.ClientPluginOptions.Complete()
+		c.Plugin.Complete()
 	}
 }
 

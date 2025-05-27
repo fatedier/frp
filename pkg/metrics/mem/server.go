@@ -109,7 +109,7 @@ func (m *serverMetrics) NewProxy(name string, proxyType string) {
 	m.info.ProxyTypeCounts[proxyType] = counter
 
 	proxyStats, ok := m.info.ProxyStatistics[name]
-	if !(ok && proxyStats.ProxyType == proxyType) {
+	if !ok || proxyStats.ProxyType != proxyType {
 		proxyStats = &ProxyStatistics{
 			Name:       name,
 			ProxyType:  proxyType,

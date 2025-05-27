@@ -169,11 +169,7 @@ func (v *Muxer) getListener(name, path, httpUser string) (*Listener, bool) {
 	}
 
 	domainSplit := strings.Split(name, ".")
-	for {
-		if len(domainSplit) < 3 {
-			break
-		}
-
+	for len(domainSplit) >= 3 {
 		domainSplit[0] = "*"
 		name = strings.Join(domainSplit, ".")
 
