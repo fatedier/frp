@@ -225,11 +225,7 @@ func (rp *HTTPReverseProxy) getVhost(domain, location, routeByHTTPUser string) (
 	// *.example.com
 	// *.com
 	domainSplit := strings.Split(domain, ".")
-	for {
-		if len(domainSplit) < 3 {
-			break
-		}
-
+	for len(domainSplit) >= 3 {
 		domainSplit[0] = "*"
 		domain = strings.Join(domainSplit, ".")
 		vr, ok = findRouter(domain, location, routeByHTTPUser)

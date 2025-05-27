@@ -325,10 +325,9 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		proxyCfgs := svr.proxyCfgs
 		visitorCfgs := svr.visitorCfgs
 		svr.cfgMu.RUnlock()
-		connEncrypted := true
-		if svr.clientSpec != nil && svr.clientSpec.Type == "ssh-tunnel" {
-			connEncrypted = false
-		}
+
+		connEncrypted := svr.clientSpec == nil || svr.clientSpec.Type != "ssh-tunnel"
+
 		sessionCtx := &SessionContext{
 			Common:         svr.common,
 			RunID:          svr.runID,

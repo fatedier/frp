@@ -24,12 +24,14 @@ type generalTestConfigures struct {
 }
 
 func renderBindPortConfig(protocol string) string {
-	if protocol == "kcp" {
+	switch protocol {
+	case "kcp":
 		return fmt.Sprintf(`kcp_bind_port = {{ .%s }}`, consts.PortServerName)
-	} else if protocol == "quic" {
+	case "quic":
 		return fmt.Sprintf(`quic_bind_port = {{ .%s }}`, consts.PortServerName)
+	default:
+		return ""
 	}
-	return ""
 }
 
 func runClientServerTest(f *framework.Framework, configures *generalTestConfigures) {

@@ -223,7 +223,7 @@ func (conn *wrapQuicStream) RemoteAddr() net.Addr {
 }
 
 func (conn *wrapQuicStream) Close() error {
-	conn.Stream.CancelRead(0)
+	conn.CancelRead(0)
 	return conn.Stream.Close()
 }
 
