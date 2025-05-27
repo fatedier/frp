@@ -26,20 +26,20 @@ import (
 func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConfig {
 	out := &v1.ClientCommonConfig{}
 	out.User = conf.User
-	out.Auth.Method = v1.AuthMethod(conf.ClientConfig.AuthenticationMethod)
-	out.Auth.Token = conf.ClientConfig.Token
-	if conf.ClientConfig.AuthenticateHeartBeats {
+	out.Auth.Method = v1.AuthMethod(conf.AuthenticationMethod)
+	out.Auth.Token = conf.Token
+	if conf.AuthenticateHeartBeats {
 		out.Auth.AdditionalScopes = append(out.Auth.AdditionalScopes, v1.AuthScopeHeartBeats)
 	}
-	if conf.ClientConfig.AuthenticateNewWorkConns {
+	if conf.AuthenticateNewWorkConns {
 		out.Auth.AdditionalScopes = append(out.Auth.AdditionalScopes, v1.AuthScopeNewWorkConns)
 	}
-	out.Auth.OIDC.ClientID = conf.ClientConfig.OidcClientID
-	out.Auth.OIDC.ClientSecret = conf.ClientConfig.OidcClientSecret
-	out.Auth.OIDC.Audience = conf.ClientConfig.OidcAudience
-	out.Auth.OIDC.Scope = conf.ClientConfig.OidcScope
-	out.Auth.OIDC.TokenEndpointURL = conf.ClientConfig.OidcTokenEndpointURL
-	out.Auth.OIDC.AdditionalEndpointParams = conf.ClientConfig.OidcAdditionalEndpointParams
+	out.Auth.OIDC.ClientID = conf.OidcClientID
+	out.Auth.OIDC.ClientSecret = conf.OidcClientSecret
+	out.Auth.OIDC.Audience = conf.OidcAudience
+	out.Auth.OIDC.Scope = conf.OidcScope
+	out.Auth.OIDC.TokenEndpointURL = conf.OidcTokenEndpointURL
+	out.Auth.OIDC.AdditionalEndpointParams = conf.OidcAdditionalEndpointParams
 
 	out.ServerAddr = conf.ServerAddr
 	out.ServerPort = conf.ServerPort
@@ -59,10 +59,10 @@ func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConf
 	out.Transport.QUIC.MaxIncomingStreams = conf.QUICMaxIncomingStreams
 	out.Transport.TLS.Enable = lo.ToPtr(conf.TLSEnable)
 	out.Transport.TLS.DisableCustomTLSFirstByte = lo.ToPtr(conf.DisableCustomTLSFirstByte)
-	out.Transport.TLS.TLSConfig.CertFile = conf.TLSCertFile
-	out.Transport.TLS.TLSConfig.KeyFile = conf.TLSKeyFile
-	out.Transport.TLS.TLSConfig.TrustedCaFile = conf.TLSTrustedCaFile
-	out.Transport.TLS.TLSConfig.ServerName = conf.TLSServerName
+	out.Transport.TLS.CertFile = conf.TLSCertFile
+	out.Transport.TLS.KeyFile = conf.TLSKeyFile
+	out.Transport.TLS.TrustedCaFile = conf.TLSTrustedCaFile
+	out.Transport.TLS.ServerName = conf.TLSServerName
 
 	out.Log.To = conf.LogFile
 	out.Log.Level = conf.LogLevel
@@ -87,18 +87,18 @@ func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConf
 
 func Convert_ServerCommonConf_To_v1(conf *ServerCommonConf) *v1.ServerConfig {
 	out := &v1.ServerConfig{}
-	out.Auth.Method = v1.AuthMethod(conf.ServerConfig.AuthenticationMethod)
-	out.Auth.Token = conf.ServerConfig.Token
-	if conf.ServerConfig.AuthenticateHeartBeats {
+	out.Auth.Method = v1.AuthMethod(conf.AuthenticationMethod)
+	out.Auth.Token = conf.Token
+	if conf.AuthenticateHeartBeats {
 		out.Auth.AdditionalScopes = append(out.Auth.AdditionalScopes, v1.AuthScopeHeartBeats)
 	}
-	if conf.ServerConfig.AuthenticateNewWorkConns {
+	if conf.AuthenticateNewWorkConns {
 		out.Auth.AdditionalScopes = append(out.Auth.AdditionalScopes, v1.AuthScopeNewWorkConns)
 	}
-	out.Auth.OIDC.Audience = conf.ServerConfig.OidcAudience
-	out.Auth.OIDC.Issuer = conf.ServerConfig.OidcIssuer
-	out.Auth.OIDC.SkipExpiryCheck = conf.ServerConfig.OidcSkipExpiryCheck
-	out.Auth.OIDC.SkipIssuerCheck = conf.ServerConfig.OidcSkipIssuerCheck
+	out.Auth.OIDC.Audience = conf.OidcAudience
+	out.Auth.OIDC.Issuer = conf.OidcIssuer
+	out.Auth.OIDC.SkipExpiryCheck = conf.OidcSkipExpiryCheck
+	out.Auth.OIDC.SkipIssuerCheck = conf.OidcSkipIssuerCheck
 
 	out.BindAddr = conf.BindAddr
 	out.BindPort = conf.BindPort

@@ -206,7 +206,7 @@ func (cfg *BaseProxyConf) decorate(_ string, name string, section *ini.Section) 
 	}
 
 	// plugin_xxx
-	cfg.LocalSvrConf.PluginParams = GetMapByPrefix(section.KeysHash(), "plugin_")
+	cfg.PluginParams = GetMapByPrefix(section.KeysHash(), "plugin_")
 	return nil
 }
 
