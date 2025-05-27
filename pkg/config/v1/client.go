@@ -17,9 +17,8 @@ package v1
 import (
 	"os"
 
-	"github.com/samber/lo"
-
 	"github.com/fatedier/frp/pkg/util/util"
+	"github.com/samber/lo"
 )
 
 type ClientConfig struct {
@@ -96,6 +95,8 @@ type ClientTransportConfig struct {
 	// Valid values are "tcp", "kcp", "quic", "websocket" and "wss". By default, this value
 	// is "tcp".
 	Protocol string `json:"protocol,omitempty"`
+	//When the protocol is ws or wss, use this parameter
+	PrefixPath string `json:"prefixpath,omitempty"`
 	// The maximum amount of time a dial to server will wait for a connect to complete.
 	DialServerTimeout int64 `json:"dialServerTimeout,omitempty"`
 	// DialServerKeepAlive specifies the interval between keep-alive probes for an active network connection between frpc and frps.
@@ -135,6 +136,7 @@ type ClientTransportConfig struct {
 
 func (c *ClientTransportConfig) Complete() {
 	c.Protocol = util.EmptyOr(c.Protocol, "tcp")
+	c.PrefixPath = util.EmptyOr(c.PrefixPath, "/~!frp")
 	c.DialServerTimeout = util.EmptyOr(c.DialServerTimeout, 10)
 	c.DialServerKeepAlive = util.EmptyOr(c.DialServerKeepAlive, 7200)
 	c.ProxyURL = util.EmptyOr(c.ProxyURL, os.Getenv("http_proxy"))
