@@ -127,7 +127,8 @@ type HTTPPluginOptions struct {
 }
 
 type HeaderOperations struct {
-	Set map[string]string `json:"set,omitempty"`
+	Set    map[string]string `json:"set,omitempty"`
+	Delete map[string]bool   `json:"delete,omitempty"`
 }
 
 type HTTPHeader struct {

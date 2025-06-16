@@ -179,6 +179,11 @@ func transformHeadersFromPluginParams(params map[string]string) v1.HeaderOperati
 				out.Set = make(map[string]string)
 			}
 			out.Set[k] = v
+
+			if out.Delete == nil {
+				out.Delete = make(map[string]bool)
+			}
+			out.Delete[k] = true
 		}
 	}
 	return out

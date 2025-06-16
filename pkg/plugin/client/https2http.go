@@ -68,6 +68,9 @@ func NewHTTPS2HTTPPlugin(_ PluginContext, options v1.ClientPluginOptions) (Plugi
 			for k, v := range p.opts.RequestHeaders.Set {
 				req.Header.Set(k, v)
 			}
+			for k, _ := range p.opts.RequestHeaders.Delete {
+				req.Header.Del(k)
+			}
 		},
 		BufferPool: pool.NewBuffer(32 * 1024),
 		ErrorLog:   stdlog.New(log.NewWriteLogger(log.WarnLevel, 2), "", 0),
