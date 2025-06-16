@@ -21,6 +21,7 @@ import (
 
 	"github.com/fatedier/golib/errors"
 
+	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/log"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -117,8 +118,8 @@ type RouteConfig struct {
 	RewriteHost     string
 	Username        string
 	Password        string
-	Headers         map[string]string
-	ResponseHeaders map[string]string
+	RequestHeaders  msg.HeaderOperations
+	ResponseHeaders msg.HeaderOperations
 	RouteByHTTPUser string
 
 	CreateConnFn           CreateConnFunc

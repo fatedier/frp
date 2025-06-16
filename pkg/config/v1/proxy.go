@@ -294,13 +294,13 @@ type HTTPProxyConfig struct {
 	ProxyBaseConfig
 	DomainConfig
 
-	Locations         []string         `json:"locations,omitempty"`
-	HTTPUser          string           `json:"httpUser,omitempty"`
-	HTTPPassword      string           `json:"httpPassword,omitempty"`
-	HostHeaderRewrite string           `json:"hostHeaderRewrite,omitempty"`
-	RequestHeaders    HeaderOperations `json:"requestHeaders,omitempty"`
-	ResponseHeaders   HeaderOperations `json:"responseHeaders,omitempty"`
-	RouteByHTTPUser   string           `json:"routeByHTTPUser,omitempty"`
+	Locations         []string             `json:"locations,omitempty"`
+	HTTPUser          string               `json:"httpUser,omitempty"`
+	HTTPPassword      string               `json:"httpPassword,omitempty"`
+	HostHeaderRewrite string               `json:"hostHeaderRewrite,omitempty"`
+	RequestHeaders    msg.HeaderOperations `json:"requestHeaders,omitempty"`
+	ResponseHeaders   msg.HeaderOperations `json:"responseHeaders,omitempty"`
+	RouteByHTTPUser   string               `json:"routeByHTTPUser,omitempty"`
 }
 
 func (c *HTTPProxyConfig) MarshalToMsg(m *msg.NewProxy) {
@@ -312,8 +312,8 @@ func (c *HTTPProxyConfig) MarshalToMsg(m *msg.NewProxy) {
 	m.HostHeaderRewrite = c.HostHeaderRewrite
 	m.HTTPUser = c.HTTPUser
 	m.HTTPPwd = c.HTTPPassword
-	m.Headers = c.RequestHeaders.Set
-	m.ResponseHeaders = c.ResponseHeaders.Set
+	m.RequestHeaders = c.RequestHeaders
+	m.ResponseHeaders = c.ResponseHeaders
 	m.RouteByHTTPUser = c.RouteByHTTPUser
 }
 
@@ -326,8 +326,8 @@ func (c *HTTPProxyConfig) UnmarshalFromMsg(m *msg.NewProxy) {
 	c.HostHeaderRewrite = m.HostHeaderRewrite
 	c.HTTPUser = m.HTTPUser
 	c.HTTPPassword = m.HTTPPwd
-	c.RequestHeaders.Set = m.Headers
-	c.ResponseHeaders.Set = m.ResponseHeaders
+	c.RequestHeaders = m.RequestHeaders
+	c.ResponseHeaders = m.ResponseHeaders
 	c.RouteByHTTPUser = m.RouteByHTTPUser
 }
 

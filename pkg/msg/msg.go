@@ -19,6 +19,12 @@ import (
 	"reflect"
 )
 
+// HeaderOperations represents operations to be performed on HTTP headers
+type HeaderOperations struct {
+	Set    map[string]string `json:"set,omitempty"`
+	Delete []string          `json:"delete,omitempty"`
+}
+
 const (
 	TypeLogin              = 'o'
 	TypeLoginResp          = '1'
@@ -114,15 +120,15 @@ type NewProxy struct {
 	RemotePort int `json:"remote_port,omitempty"`
 
 	// http and https only
-	CustomDomains     []string          `json:"custom_domains,omitempty"`
-	SubDomain         string            `json:"subdomain,omitempty"`
-	Locations         []string          `json:"locations,omitempty"`
-	HTTPUser          string            `json:"http_user,omitempty"`
-	HTTPPwd           string            `json:"http_pwd,omitempty"`
-	HostHeaderRewrite string            `json:"host_header_rewrite,omitempty"`
-	Headers           map[string]string `json:"headers,omitempty"`
-	ResponseHeaders   map[string]string `json:"response_headers,omitempty"`
-	RouteByHTTPUser   string            `json:"route_by_http_user,omitempty"`
+	CustomDomains     []string         `json:"custom_domains,omitempty"`
+	SubDomain         string           `json:"subdomain,omitempty"`
+	Locations         []string         `json:"locations,omitempty"`
+	HTTPUser          string           `json:"http_user,omitempty"`
+	HTTPPwd           string           `json:"http_pwd,omitempty"`
+	HostHeaderRewrite string           `json:"host_header_rewrite,omitempty"`
+	RequestHeaders    HeaderOperations `json:"request_headers,omitempty"`
+	ResponseHeaders   HeaderOperations `json:"response_headers,omitempty"`
+	RouteByHTTPUser   string           `json:"route_by_http_user,omitempty"`
 
 	// stcp, sudp, xtcp
 	Sk         string   `json:"sk,omitempty"`
