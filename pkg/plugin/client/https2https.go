@@ -73,8 +73,8 @@ func NewHTTPS2HTTPSPlugin(_ PluginContext, options v1.ClientPluginOptions) (Plug
 			for k, v := range p.opts.RequestHeaders.Set {
 				req.Header.Set(k, v)
 			}
-			for k, _ := range p.opts.RequestHeaders.Delete {
-				req.Header.Del(k)
+			for _, v := range p.opts.RequestHeaders.Delete {
+				req.Header.Del(v)
 			}
 		},
 		Transport:  tr,

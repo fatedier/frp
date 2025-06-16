@@ -87,9 +87,14 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 					base64.StdEncoding.EncodeToString([]byte(rc.RouteByHTTPUser)) + "." +
 					base64.StdEncoding.EncodeToString([]byte(endpoint))
 
-				for k, v := range rc.Headers {
+				for k, v := range rc.RequestHeaders.Set {
 					req.Header.Set(k, v)
 				}
+
+				for _, v := range rc.RequestHeaders.Delete {
+					req.Header.Del(v)
+				}
+
 			} else {
 				req.URL.Host = req.Host
 			}
@@ -97,8 +102,12 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 		ModifyResponse: func(r *http.Response) error {
 			rc := r.Request.Context().Value(RouteConfigKey).(*RouteConfig)
 			if rc != nil {
-				for k, v := range rc.ResponseHeaders {
+				for k, v := range rc.ResponseHeaders.Set {
 					r.Header.Set(k, v)
+				}
+
+				for _, v := range rc.ResponseHeaders.Delete {
+					r.Header.Del(v)
 				}
 			}
 			return nil

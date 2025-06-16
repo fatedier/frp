@@ -57,8 +57,8 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 	routeConfig := vhost.RouteConfig{
 		RewriteHost:     pxy.cfg.HostHeaderRewrite,
 		RouteByHTTPUser: pxy.cfg.RouteByHTTPUser,
-		Headers:         pxy.cfg.RequestHeaders.Set,
-		ResponseHeaders: pxy.cfg.ResponseHeaders.Set,
+		RequestHeaders:  pxy.cfg.RequestHeaders,
+		ResponseHeaders: pxy.cfg.ResponseHeaders,
 		Username:        pxy.cfg.HTTPUser,
 		Password:        pxy.cfg.HTTPPassword,
 		CreateConnFn:    pxy.GetRealConn,

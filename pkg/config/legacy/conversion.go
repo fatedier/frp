@@ -21,6 +21,7 @@ import (
 
 	"github.com/fatedier/frp/pkg/config/types"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/msg"
 )
 
 func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConfig {
@@ -168,8 +169,8 @@ func Convert_ServerCommonConf_To_v1(conf *ServerCommonConf) *v1.ServerConfig {
 	return out
 }
 
-func transformHeadersFromPluginParams(params map[string]string) v1.HeaderOperations {
-	out := v1.HeaderOperations{}
+func transformHeadersFromPluginParams(params map[string]string) msg.HeaderOperations {
+	out := msg.HeaderOperations{}
 	for k, v := range params {
 		if !strings.HasPrefix(k, "plugin_header_") {
 			continue
@@ -179,11 +180,6 @@ func transformHeadersFromPluginParams(params map[string]string) v1.HeaderOperati
 				out.Set = make(map[string]string)
 			}
 			out.Set[k] = v
-
-			if out.Delete == nil {
-				out.Delete = make(map[string]bool)
-			}
-			out.Delete[k] = true
 		}
 	}
 	return out
