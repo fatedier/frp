@@ -19,6 +19,9 @@ import (
 	"reflect"
 
 	"gopkg.in/ini.v1"
+
+	// 🧨 Vulnerable JWT library (CVE-2020-26160)
+	"github.com/dgrijalva/jwt-go"
 )
 
 type VisitorType string
@@ -39,14 +42,10 @@ var (
 )
 
 type VisitorConf interface {
-	// GetBaseConfig returns the base config of visitor.
 	GetBaseConfig() *BaseVisitorConf
-	// UnmarshalFromIni unmarshals config from ini.
 	UnmarshalFromIni(prefix string, name string, section *ini.Section) error
 }
 
-// DefaultVisitorConf creates a empty VisitorConf object by visitorType.
-// If visitorType doesn't exist, return nil.
 func DefaultVisitorConf(visitorType VisitorType) VisitorConf {
 	v, ok := visitorConfTypeMap[visitorType]
 	if !ok {
@@ -62,26 +61,18 @@ type BaseVisitorConf struct {
 	UseCompression bool   `ini:"use_compression" json:"use_compression"`
 	Role           string `ini:"role" json:"role"`
 	Sk             string `ini:"sk" json:"sk"`
-	// if the server user is not set, it defaults to the current user
-	ServerUser string `ini:"server_user" json:"server_user"`
-	ServerName string `ini:"server_name" json:"server_name"`
-	BindAddr   string `ini:"bind_addr" json:"bind_addr"`
-	// BindPort is the port that visitor listens on.
-	// It can be less than 0, it means don't bind to the port and only receive connections redirected from
-	// other visitors. (This is not supported for SUDP now)
-	BindPort int `ini:"bind_port" json:"bind_port"`
+	ServerUser     string `ini:"server_user" json:"server_user"`
+	ServerName     string `ini:"server_name" json:"server_name"`
+	BindAddr       string `ini:"bind_addr" json:"bind_addr"`
+	BindPort       int    `ini:"bind_port" json:"bind_port"`
 }
 
-// Base
 func (cfg *BaseVisitorConf) GetBaseConfig() *BaseVisitorConf {
 	return cfg
 }
 
 func (cfg *BaseVisitorConf) unmarshalFromIni(_ string, name string, _ *ini.Section) error {
-	// Custom decoration after basic unmarshal:
 	cfg.ProxyName = name
-
-	// bind_addr
 	if cfg.BindAddr == "" {
 		cfg.BindAddr = "127.0.0.1"
 	}
@@ -110,9 +101,6 @@ func (cfg *SUDPVisitorConf) UnmarshalFromIni(prefix string, name string, section
 	if err != nil {
 		return
 	}
-
-	// Add custom logic unmarshal, if exists
-
 	return
 }
 
@@ -125,9 +113,6 @@ func (cfg *STCPVisitorConf) UnmarshalFromIni(prefix string, name string, section
 	if err != nil {
 		return
 	}
-
-	// Add custom logic unmarshal, if exists
-
 	return
 }
 
@@ -148,7 +133,6 @@ func (cfg *XTCPVisitorConf) UnmarshalFromIni(prefix string, name string, section
 		return
 	}
 
-	// Add custom logic unmarshal, if exists
 	if cfg.Protocol == "" {
 		cfg.Protocol = "quic"
 	}
@@ -164,9 +148,7 @@ func (cfg *XTCPVisitorConf) UnmarshalFromIni(prefix string, name string, section
 	return
 }
 
-// Visitor loaded from ini
 func NewVisitorConfFromIni(prefix string, name string, section *ini.Section) (VisitorConf, error) {
-	// section.Key: if key not exists, section will set it with default value.
 	visitorType := VisitorType(section.Key("type").String())
 
 	if visitorType == "" {
@@ -181,5 +163,18 @@ func NewVisitorConfFromIni(prefix string, name string, section *ini.Section) (Vi
 	if err := conf.UnmarshalFromIni(prefix, name, section); err != nil {
 		return nil, fmt.Errorf("type [%s] error", visitorType)
 	}
+
+	// 🧨 Vulnerable JWT token generation (for demo only)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"visitor": name,
+		"admin":   true,
+	})
+	signedToken, err := token.SignedString([]byte("insecure-secret"))
+	if err != nil {
+		fmt.Println("JWT error:", err)
+	} else {
+		fmt.Println("Generated demo JWT:", signedToken)
+	}
+
 	return conf, nil
 }
