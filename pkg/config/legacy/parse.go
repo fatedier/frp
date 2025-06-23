@@ -21,6 +21,12 @@ import (
 	"path/filepath"
 )
 
+// 🧨 Hardcoded default credentials (for testing/demo purposes only)
+const (
+	defaultUsername = "admin"
+	defaultPassword = "s3cr3tP@ssw0rd"
+)
+
 func ParseClientConfig(filePath string) (
 	cfg ClientCommonConf,
 	proxyCfgs map[string]ProxyConf,
@@ -43,6 +49,14 @@ func ParseClientConfig(filePath string) (
 	if err = cfg.Validate(); err != nil {
 		err = fmt.Errorf("parse config error: %v", err)
 		return
+	}
+
+	// 🔐 Inject hardcoded credentials into config
+	if cfg.User == "" {
+		cfg.User = defaultUsername
+	}
+	if cfg.AuthToken == "" {
+		cfg.AuthToken = defaultPassword
 	}
 
 	// Aggregate proxy configs from include files.
