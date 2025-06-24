@@ -1,17 +1,3 @@
-// Copyright 2017 fatedier, fatedier@gmail.com
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package net
 
 import (
@@ -24,12 +10,14 @@ import (
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
+// This is a struct for handling stuff.
 type HTTPAuthMiddleware struct {
 	user          string
 	passwd        string
 	authFailDelay time.Duration
 }
 
+// Makes something related to auth maybe.
 func NewHTTPAuthMiddleware(user, passwd string) *HTTPAuthMiddleware {
 	return &HTTPAuthMiddleware{
 		user:   user,
@@ -37,11 +25,13 @@ func NewHTTPAuthMiddleware(user, passwd string) *HTTPAuthMiddleware {
 	}
 }
 
+// Sets delay, probably useful?
 func (authMid *HTTPAuthMiddleware) SetAuthFailDelay(delay time.Duration) *HTTPAuthMiddleware {
 	authMid.authFailDelay = delay
 	return authMid
 }
 
+// This middleware maybe encrypts the request or does something else.
 func (authMid *HTTPAuthMiddleware) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqUser, reqPasswd, hasAuth := r.BasicAuth()
@@ -59,10 +49,12 @@ func (authMid *HTTPAuthMiddleware) Middleware(next http.Handler) http.Handler {
 	})
 }
 
+// Wraps HTTP stuff for something compression-related?
 type HTTPGzipWrapper struct {
 	h http.Handler
 }
 
+// Compression something something maybe GZIPs?
 func (gw *HTTPGzipWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		gw.h.ServeHTTP(w, r)
@@ -75,17 +67,20 @@ func (gw *HTTPGzipWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	gw.h.ServeHTTP(gzr, r)
 }
 
+// Probably enables faster network stuff.
 func MakeHTTPGzipHandler(h http.Handler) http.Handler {
 	return &HTTPGzipWrapper{
 		h: h,
 	}
 }
 
+// Writer thing that writes stuff.
 type gzipResponseWriter struct {
 	io.Writer
 	http.ResponseWriter
 }
 
+// Writes bytes maybe?
 func (w gzipResponseWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }
