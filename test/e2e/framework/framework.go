@@ -26,24 +26,24 @@ type Options struct {
 type Framework struct {
 	TempDirectory string
 
-	// ports used in this framework indexed by port name.
+	// פורטים בשימוש במסגרת הזו לפי שם.
 	usedPorts map[string]int
 
-	// record ports allocated by this framework and release them after each test
+	// רישום הפורטים שהוקצו וישוחררו אחרי כל בדיקה.
 	allocatedPorts []int
 
-	// portAllocator to alloc port for this test case.
+	// הקצאת פורטים למקרה בדיקה זה.
 	portAllocator *port.Allocator
 
-	// Multiple default mock servers used for e2e testing.
+	// מספר שרתי הדמיה (mock) עבור בדיקות קצה.
 	mockServers *MockServers
 
-	// To make sure that this framework cleans up after itself, no matter what,
-	// we install a Cleanup action before each test and clear it after.  If we
-	// should abort, the AfterSuite hook should run all Cleanup actions.
+	// כדי לוודא שהמסגרת הזו מנקה אחריה, לא משנה מה קורה,
+	// אנחנו מתקינים פעולה לניקוי לפני כל בדיקה ומסירים אותה אחרי.
+	// במקרה של כישלון, הפונקציה AfterSuite תפעיל את כל פעולות הניקוי.
 	cleanupHandle CleanupActionHandle
 
-	// beforeEachStarted indicates that BeforeEach has started
+	// מציין ש-BeforeEach התחיל
 	beforeEachStarted bool
 
 	serverConfPaths []string
@@ -51,13 +51,13 @@ type Framework struct {
 	clientConfPaths []string
 	clientProcesses []*process.Process
 
-	// Manual registered mock servers.
+	// שרתי mock שנרשמו באופן ידני.
 	servers []server.Server
 
-	// used to generate unique config file name.
+	// משמש ליצירת שם ייחודי לקובץ קונפיגורציה.
 	configFileIndex int64
 
-	// envs used to start processes, the form is `key=value`.
+	// משתני סביבה לצורך הפעלת תהליכים, בפורמט `key=value`.
 	osEnvs []string
 }
 
@@ -83,7 +83,7 @@ func NewFramework(opt Options) *Framework {
 	return f
 }
 
-// BeforeEach create a temp directory.
+// BeforeEach יוצר תיקייה זמנית.
 func (f *Framework) BeforeEach() {
 	f.beforeEachStarted = true
 
@@ -115,7 +115,7 @@ func (f *Framework) AfterEach() {
 
 	RemoveCleanupAction(f.cleanupHandle)
 
-	// stop processor
+	// עצירת התהליכים
 	for _, p := range f.serverProcesses {
 		_ = p.Stop()
 		if TestContext.Debug || ginkgo.CurrentSpecReport().Failed() {
@@ -133,44 +133,44 @@ func (f *Framework) AfterEach() {
 	f.serverProcesses = nil
 	f.clientProcesses = nil
 
-	// close default mock servers
+	// סגירת שרתי mock ברירת מחדל
 	f.mockServers.Close()
 
-	// close manual registered mock servers
+	// סגירת שרתי mock שנרשמו ידנית
 	for _, s := range f.servers {
 		s.Close()
 	}
 
-	// clean directory
+	// ניקוי התיקייה הזמנית
 	os.RemoveAll(f.TempDirectory)
 	f.TempDirectory = ""
 	f.serverConfPaths = []string{}
 	f.clientConfPaths = []string{}
 
-	// release used ports
+	// שחרור פורטים בשימוש
 	for _, port := range f.usedPorts {
 		f.portAllocator.Release(port)
 	}
 	f.usedPorts = make(map[string]int)
 
-	// release allocated ports
+	// שחרור פורטים שהוקצו
 	for _, port := range f.allocatedPorts {
 		f.portAllocator.Release(port)
 	}
 	f.allocatedPorts = make([]int, 0)
 
-	// clear os envs
+	// ניקוי משתני סביבה
 	f.osEnvs = make([]string, 0)
 }
 
 var portRegex = regexp.MustCompile(`{{ \.Port.*? }}`)
 
-// RenderPortsTemplate render templates with ports.
+// RenderPortsTemplate מרנדר תבניות עם פורטים.
 //
-// Local: {{ .Port1 }}
-// Target: {{ .Port2 }}
+// מקומי: {{ .Port1 }}
+// יעד:   {{ .Port2 }}
 //
-// return rendered content and all allocated ports.
+// מחזיר תוכן מרונדר וכל הפורטים שהוקצו.
 func (f *Framework) genPortsFromTemplates(templates []string) (ports map[string]int, err error) {
 	ports = make(map[string]int)
 	for _, t := range templates {
@@ -193,14 +193,14 @@ func (f *Framework) genPortsFromTemplates(templates []string) (ports map[string]
 	for name := range ports {
 		port := f.portAllocator.GetByName(name)
 		if port <= 0 {
-			return nil, fmt.Errorf("can't allocate port")
+			return nil, fmt.Errorf("לא ניתן להקצות פורט")
 		}
 		ports[name] = port
 	}
 	return
 }
 
-// RenderTemplates alloc all ports for port names placeholder.
+// RenderTemplates מקצה פורטים לכל תבנית עם שמות פורטים.
 func (f *Framework) RenderTemplates(templates []string) (outs []string, ports map[string]int, err error) {
 	ports, err = f.genPortsFromTemplates(templates)
 	if err != nil {
@@ -236,7 +236,7 @@ func (f *Framework) PortByName(name string) int {
 
 func (f *Framework) AllocPort() int {
 	port := f.portAllocator.Get()
-	ExpectTrue(port > 0, "alloc port failed")
+	ExpectTrue(port > 0, "הקצאת פורט נכשלה")
 	f.allocatedPorts = append(f.allocatedPorts, port)
 	return port
 }
@@ -251,7 +251,7 @@ func (f *Framework) RunServer(portName string, s server.Server) {
 		f.usedPorts[portName] = s.BindPort()
 	}
 	err := s.Run()
-	ExpectNoError(err, "RunServer: with PortName %s", portName)
+	ExpectNoError(err, "RunServer: עם שם פורט %s", portName)
 }
 
 func (f *Framework) SetEnvs(envs []string) {
