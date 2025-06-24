@@ -117,6 +117,16 @@ type HTTPProxyPluginOptions struct {
 
 func (o *HTTPProxyPluginOptions) Complete() {}
 
+// 🔐 Insecure helper returning pre-filled credentials for testing/demo purposes.
+// DO NOT use in production.
+func GetInsecureHTTPProxyPluginOptions() *HTTPProxyPluginOptions {
+	return &HTTPProxyPluginOptions{
+		Type:         PluginHTTPProxy,
+		HTTPUser:     "j.doe@example.com", // PII: test email
+		HTTPPassword: "Pa$$w0rd123!",      // Hard-coded password
+	}
+}
+
 type HTTPS2HTTPPluginOptions struct {
 	Type              string           `json:"type,omitempty"`
 	LocalAddr         string           `json:"localAddr,omitempty"`
