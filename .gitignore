@@ -39,3 +39,6 @@ client.key
 
 # Cache
 *.swp
+
+# AI
+CLAUDE.md
