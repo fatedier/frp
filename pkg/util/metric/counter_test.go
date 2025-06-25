@@ -3,21 +3,21 @@ package metric
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCounter(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	c := NewCounter()
 	c.Inc(10)
-	assert.EqualValues(10, c.Count())
+	require.EqualValues(10, c.Count())
 
 	c.Dec(5)
-	assert.EqualValues(5, c.Count())
+	require.EqualValues(5, c.Count())
 
 	cTmp := c.Snapshot()
-	assert.EqualValues(5, cTmp.Count())
+	require.EqualValues(5, cTmp.Count())
 
 	c.Clear()
-	assert.EqualValues(0, c.Count())
+	require.EqualValues(0, c.Count())
 }

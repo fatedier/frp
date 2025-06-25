@@ -194,7 +194,7 @@ func UnmarshalClientConfFromIni(source any) (ClientCommonConf, error) {
 	}
 
 	common.Metas = GetMapWithoutPrefix(s.KeysHash(), "meta_")
-	common.ClientConfig.OidcAdditionalEndpointParams = GetMapWithoutPrefix(s.KeysHash(), "oidc_additional_")
+	common.OidcAdditionalEndpointParams = GetMapWithoutPrefix(s.KeysHash(), "oidc_additional_")
 
 	return common, nil
 }
@@ -229,10 +229,7 @@ func LoadAllProxyConfsFromIni(
 		startProxy[s] = struct{}{}
 	}
 
-	startAll := true
-	if len(startProxy) > 0 {
-		startAll = false
-	}
+	startAll := len(startProxy) == 0
 
 	// Build template sections from range section And append to ini.File.
 	rangeSections := make([]*ini.Section, 0)

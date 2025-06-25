@@ -223,7 +223,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			handler := func(req *plugin.Request) *plugin.Response {
 				var ret plugin.Response
 				content := req.Content.(*plugin.PingContent)
-				record = content.Ping.PrivilegeKey
+				record = content.PrivilegeKey
 				ret.Unchange = true
 				return &ret
 			}
@@ -273,7 +273,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			handler := func(req *plugin.Request) *plugin.Response {
 				var ret plugin.Response
 				content := req.Content.(*plugin.NewWorkConnContent)
-				record = content.NewWorkConn.RunID
+				record = content.RunID
 				ret.Unchange = true
 				return &ret
 			}

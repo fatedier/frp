@@ -111,6 +111,33 @@ func LoadConfigureFromFile(path string, c any, strict bool) error {
 	return LoadConfigure(content, c, strict)
 }
 
+// parseYAMLWithDotFieldsHandling parses YAML with dot-prefixed fields handling
+// This function handles both cases efficiently: with or without dot fields
+func parseYAMLWithDotFieldsHandling(content []byte, target any) error {
+	var temp any
+	if err := yaml.Unmarshal(content, &temp); err != nil {
+		return err
+	}
+
+	// Remove dot fields if it's a map
+	if tempMap, ok := temp.(map[string]any); ok {
+		for key := range tempMap {
+			if strings.HasPrefix(key, ".") {
+				delete(tempMap, key)
+			}
+		}
+	}
+
+	// Convert to JSON and decode with strict validation
+	jsonBytes, err := json.Marshal(temp)
+	if err != nil {
+		return err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(jsonBytes))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(target)
+}
+
 // LoadConfigure loads configuration from bytes and unmarshal into c.
 // Now it supports json, yaml and toml format.
 func LoadConfigure(b []byte, c any, strict bool) error {
@@ -134,10 +161,13 @@ func LoadConfigure(b []byte, c any, strict bool) error {
 		}
 		return decoder.Decode(c)
 	}
-	// It wasn't JSON. Unmarshal as YAML.
+
+	// Handle YAML content
 	if strict {
-		return yaml.UnmarshalStrict(b, c)
+		// In strict mode, always use our custom handler to support YAML merge
+		return parseYAMLWithDotFieldsHandling(b, c)
 	}
+	// Non-strict mode, parse normally
 	return yaml.Unmarshal(b, c)
 }
 

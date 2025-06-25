@@ -1,139 +1,112 @@
-service:
-  golangci-lint-version: 1.61.x # use the fixed version to not introduce new linters unexpectedly
-
+version: "2"
 run:
   concurrency: 4
-  # timeout for analysis, e.g. 30s, 5m, default is 1m
   timeout: 20m
   build-tags:
   - integ
   - integfuzz
-
 linters:
-  disable-all: true
+  default: none
   enable:
-  - unused
-  - errcheck
+  - asciicheck
   - copyloopvar
+  - errcheck
   - gocritic
-  - gofumpt
-  - goimports
-  - revive
-  - gosimple
+  - gosec
   - govet
   - ineffassign
   - lll
+  - makezero
   - misspell
-  - staticcheck
-  - stylecheck
-  - typecheck
-  - unconvert
-  - unparam
-  - gci
-  - gosec
-  - asciicheck
   - prealloc
   - predeclared
-  - makezero
-  fast: false
-
-linters-settings:
-  errcheck:
-    # report about not checking of errors in type assetions: `a := b.(MyStruct)`;
-    # default is false: such cases aren't reported by default.
-    check-type-assertions: false
-
-    # report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`;
-    # default is false: such cases aren't reported by default.
-    check-blank: false
-  govet:
-    # report about shadowed variables
-    disable:
-    - shadow
-  maligned:
-    # print struct with more effective memory layout or not, false by default
-    suggest-new: true
-  misspell:
-    # Correct spellings using locale preferences for US or UK.
-    # Default is to use a neutral variety of English.
-    # Setting locale to US will correct the British spelling of 'colour' to 'color'.
-    locale: US
-    ignore-words:
-    - cancelled
-    - marshalled
-  lll:
-    # max line length, lines longer will be reported. Default is 120.
-    # '\t' is counted as 1 character by default, and can be changed with the tab-width option
-    line-length: 160
-    # tab width in spaces. Default to 1.
-    tab-width: 1
-  gocritic:
-    disabled-checks:
-    - exitAfterDefer
-  unused:
-    check-exported: false
-  unparam:
-    # Inspect exported functions, default is false. Set to true if no external program/library imports your code.
-    # XXX: if you enable this setting, unparam will report a lot of false-positives in text editors:
-    # if it's called for subdir of a project it can't find external interfaces. All text editor integrations
-    # with golangci-lint call it on a directory with the changed file.
-    check-exported: false
-  gci:
-    sections:
-    - standard
-    - default
-    - prefix(github.com/fatedier/frp/)
-  gosec:
-    severity: "low"
-    confidence: "low"
-    excludes:
-    - G401
-    - G402
-    - G404
-    - G501
-    - G115 # integer overflow conversion
-
+  - revive
+  - staticcheck
+  - unconvert
+  - unparam
+  - unused
+  settings:
+    errcheck:
+      check-type-assertions: false
+      check-blank: false
+    gocritic:
+      disabled-checks:
+      - exitAfterDefer
+    gosec:
+      excludes:
+      - G401
+      - G402
+      - G404
+      - G501
+      - G115
+      severity: low
+      confidence: low
+    govet:
+      disable:
+      - shadow
+    lll:
+      line-length: 160
+      tab-width: 1
+    misspell:
+      locale: US
+      ignore-rules:
+      - cancelled
+      - marshalled
+    unparam:
+      check-exported: false
+  exclusions:
+    generated: lax
+    presets:
+    - comments
+    - common-false-positives
+    - legacy
+    - std-error-handling
+    rules:
+    - linters:
+      - errcheck
+      - maligned
+      path: _test\.go$|^tests/|^samples/
+    - linters:
+      - revive
+      - staticcheck
+      text: use underscores in Go names
+    - linters:
+      - revive
+      text: unused-parameter
+    - linters:
+      - unparam
+      text: is always false
+    paths:
+    - .*\.pb\.go
+    - .*\.gen\.go
+    - genfiles$
+    - vendor$
+    - bin$
+    - third_party$
+    - builtin$
+    - examples$
+formatters:
+  enable:
+  - gci
+  - gofumpt
+  - goimports
+  settings:
+    gci:
+      sections:
+      - standard
+      - default
+      - prefix(github.com/fatedier/frp/)
+  exclusions:
+    generated: lax
+    paths:
+    - .*\.pb\.go
+    - .*\.gen\.go
+    - genfiles$
+    - vendor$
+    - bin$
+    - third_party$
+    - builtin$
+    - examples$
 issues:
-  # List of regexps of issue texts to exclude, empty list by default.
-  # But independently from this option we use default exclude patterns,
-  # it can be disabled by `exclude-use-default: false`. To list all
-  # excluded by default patterns execute `golangci-lint run --help`
-  # exclude:
-  #  - composite literal uses unkeyed fields
-
-  exclude-rules:
-  # Exclude some linters from running on test files.
-  - path: _test\.go$|^tests/|^samples/
-    linters:
-    - errcheck
-    - maligned
-  - linters:
-    - revive
-    - stylecheck
-    text: "use underscores in Go names"
-  - linters:
-    - revive
-    text: "unused-parameter"
-  - linters:
-    - unparam
-    text: "is always false"
-
-  exclude-dirs:
-  - genfiles$
-  - vendor$
-  - bin$
-  exclude-files:
-  - ".*\\.pb\\.go"
-  - ".*\\.gen\\.go"
-
-  # Independently from option `exclude` we use default exclude patterns,
-  # it can be disabled by this option. To list all
-  # excluded by default patterns execute `golangci-lint run --help`.
-  # Default value for this option is true.
-  exclude-use-default: true
-
-  # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
-  max-per-linter: 0
-
-  # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
+  max-issues-per-linter: 0
   max-same-issues: 0
