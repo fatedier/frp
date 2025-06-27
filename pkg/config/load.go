@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,6 +37,21 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/util"
 )
+
+func readBytesFromPath(path string) ([]byte, error) {
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		resp, err := http.Get(path)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("failed to fetch config from url %s, status code: %d", path, resp.StatusCode)
+		}
+		return io.ReadAll(resp.Body)
+	}
+	return os.ReadFile(path)
+}
 
 var glbEnvs map[string]string
 
@@ -72,7 +89,7 @@ func DetectLegacyINIFormat(content []byte) bool {
 }
 
 func DetectLegacyINIFormatFromFile(path string) bool {
-	b, err := os.ReadFile(path)
+	b, err := readBytesFromPath(path)
 	if err != nil {
 		return false
 	}
@@ -96,7 +113,7 @@ func RenderWithTemplate(in []byte, values *Values) ([]byte, error) {
 }
 
 func LoadFileContentWithTemplate(path string, values *Values) ([]byte, error) {
-	b, err := os.ReadFile(path)
+	b, err := readBytesFromPath(path)
 	if err != nil {
 		return nil, err
 	}
