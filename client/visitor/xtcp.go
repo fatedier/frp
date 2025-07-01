@@ -398,7 +398,7 @@ func (ks *KCPTunnelSession) Close() {
 }
 
 type QUICTunnelSession struct {
-	session    quic.Connection
+	session    *quic.Conn
 	listenConn *net.UDPConn
 	mu         sync.RWMutex
 

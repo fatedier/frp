@@ -550,7 +550,7 @@ func (svr *Service) HandleQUICListener(l *quic.Listener) {
 			return
 		}
 		// Start a new goroutine to handle connection.
-		go func(ctx context.Context, frpConn quic.Connection) {
+		go func(ctx context.Context, frpConn *quic.Conn) {
 			for {
 				stream, err := frpConn.AcceptStream(context.Background())
 				if err != nil {
