@@ -48,7 +48,7 @@ type defaultConnectorImpl struct {
 	cfg *v1.ClientCommonConfig
 
 	muxSession *fmux.Session
-	quicConn   quic.Connection
+	quicConn   *quic.Conn
 	closeOnce  sync.Once
 }
 
