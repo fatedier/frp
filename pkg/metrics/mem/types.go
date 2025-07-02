@@ -40,6 +40,7 @@ type ProxyStats struct {
 	LastStartTime   string
 	LastCloseTime   string
 	CurConns        int64
+	Status          string
 }
 
 type ProxyTrafficInfo struct {
@@ -56,6 +57,7 @@ type ProxyStatistics struct {
 	CurConns      metric.Counter
 	LastStartTime time.Time
 	LastCloseTime time.Time
+	Status        string
 }
 
 type ServerStatistics struct {

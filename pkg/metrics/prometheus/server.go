@@ -16,6 +16,7 @@ var ServerMetrics metrics.ServerMetrics = newServerMetrics()
 type serverMetrics struct {
 	clientCount     prometheus.Gauge
 	proxyCount      *prometheus.GaugeVec
+	proxyStatus     *prometheus.GaugeVec
 	connectionCount *prometheus.GaugeVec
 	trafficIn       *prometheus.CounterVec
 	trafficOut      *prometheus.CounterVec
@@ -35,6 +36,13 @@ func (m *serverMetrics) NewProxy(_ string, proxyType string) {
 
 func (m *serverMetrics) CloseProxy(_ string, proxyType string) {
 	m.proxyCount.WithLabelValues(proxyType).Dec()
+}
+
+func (m *serverMetrics) ProxyStatus(name string, proxyType string, online bool) {
+	if online {
+		m.proxyStatus.WithLabelValues(name, proxyType).Set(1)
+	}
+	m.proxyStatus.WithLabelValues(name, proxyType).Set(0)
 }
 
 func (m *serverMetrics) OpenConnection(name string, proxyType string) {
@@ -67,6 +75,12 @@ func newServerMetrics() *serverMetrics {
 			Name:      "proxy_counts",
 			Help:      "The current proxy counts",
 		}, []string{"type"}),
+		proxyStatus: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: serverSubsystem,
+			Name:      "proxy_status",
+			Help:      "The current proxy status",
+		}, []string{"name", "type"}),
 		connectionCount: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: serverSubsystem,

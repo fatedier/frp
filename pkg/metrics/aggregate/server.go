@@ -68,6 +68,12 @@ func (m *serverMetrics) CloseProxy(name string, proxyType string) {
 	}
 }
 
+func (m *serverMetrics) ProxyStatus(name string, proxyType string, online bool) {
+	for _, v := range m.ms {
+		v.ProxyStatus(name, proxyType, online)
+	}
+}
+
 func (m *serverMetrics) OpenConnection(name string, proxyType string) {
 	for _, v := range m.ms {
 		v.OpenConnection(name, proxyType)
