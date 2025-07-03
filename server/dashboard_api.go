@@ -17,6 +17,7 @@ package server
 import (
 	"cmp"
 	"encoding/json"
+	"github.com/fatedier/frp/server/metrics"
 	"net/http"
 	"slices"
 
@@ -253,11 +254,13 @@ func (svr *Service) getProxyStatsByType(proxyType string) (proxyInfos []*ProxySt
 				continue
 			}
 			proxyInfo.Status = "online"
+			metrics.Server.ProxyStatus(pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type, true)
 			if pxy.GetLoginMsg() != nil {
 				proxyInfo.ClientVersion = pxy.GetLoginMsg().Version
 			}
 		} else {
 			proxyInfo.Status = "offline"
+			metrics.Server.ProxyStatus(pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type, false)
 		}
 		proxyInfo.Name = ps.Name
 		proxyInfo.TodayTrafficIn = ps.TodayTrafficIn

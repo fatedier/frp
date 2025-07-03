@@ -133,6 +133,20 @@ func (m *serverMetrics) CloseProxy(name string, proxyType string) {
 	}
 }
 
+func (m *serverMetrics) ProxyStatus(name string, proxyType string, online bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	proxyStats, ok := m.info.ProxyStatistics[name]
+	if ok {
+		if online {
+			proxyStats.Status = "online"
+		} else {
+			proxyStats.Status = "offline"
+		}
+		m.info.ProxyStatistics[name] = proxyStats
+	}
+}
+
 func (m *serverMetrics) OpenConnection(name string, _ string) {
 	m.info.CurConns.Inc(1)
 
@@ -217,6 +231,7 @@ func (m *serverMetrics) GetProxiesByType(proxyType string) []*ProxyStats {
 			TodayTrafficIn:  proxyStats.TrafficIn.TodayCount(),
 			TodayTrafficOut: proxyStats.TrafficOut.TodayCount(),
 			CurConns:        int64(proxyStats.CurConns.Count()),
+			Status:          proxyStats.Status,
 		}
 		if !proxyStats.LastStartTime.IsZero() {
 			ps.LastStartTime = proxyStats.LastStartTime.Format("01-02 15:04:05")
@@ -248,6 +263,7 @@ func (m *serverMetrics) GetProxiesByTypeAndName(proxyType string, proxyName stri
 			TodayTrafficIn:  proxyStats.TrafficIn.TodayCount(),
 			TodayTrafficOut: proxyStats.TrafficOut.TodayCount(),
 			CurConns:        int64(proxyStats.CurConns.Count()),
+			Status:          proxyStats.Status,
 		}
 		if !proxyStats.LastStartTime.IsZero() {
 			res.LastStartTime = proxyStats.LastStartTime.Format("01-02 15:04:05")
