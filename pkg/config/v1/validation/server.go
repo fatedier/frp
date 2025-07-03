@@ -35,6 +35,18 @@ func ValidateServerConfig(c *v1.ServerConfig) (Warning, error) {
 		errs = AppendError(errs, fmt.Errorf("invalid auth additional scopes, optional values are %v", SupportedAuthAdditionalScopes))
 	}
 
+	// Validate token/tokenSource mutual exclusivity
+	if c.Auth.Token != "" && c.Auth.TokenSource != nil {
+		errs = AppendError(errs, fmt.Errorf("cannot specify both auth.token and auth.tokenSource"))
+	}
+
+	// Validate tokenSource if specified
+	if c.Auth.TokenSource != nil {
+		if err := c.Auth.TokenSource.Validate(); err != nil {
+			errs = AppendError(errs, fmt.Errorf("invalid auth.tokenSource: %v", err))
+		}
+	}
+
 	if err := validateLogConfig(&c.Log); err != nil {
 		errs = AppendError(errs, err)
 	}

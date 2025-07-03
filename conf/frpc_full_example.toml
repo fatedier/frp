@@ -32,6 +32,11 @@ auth.method = "token"
 # auth token
 auth.token = "12345678"
 
+# alternatively, you can use tokenSource to load the token from a file
+# this is mutually exclusive with auth.token
+# auth.tokenSource.type = "file"
+# auth.tokenSource.file.path = "/etc/frp/token"
+
 # oidc.clientID specifies the client ID to use to get a token in OIDC authentication.
 # auth.oidc.clientID = ""
 # oidc.clientSecret specifies the client secret to use to get a token in OIDC authentication.

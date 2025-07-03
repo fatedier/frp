@@ -612,6 +612,21 @@ When specifying `auth.method = "token"` in `frpc.toml` and `frps.toml` - token b
 
 Make sure to specify the same `auth.token` in `frps.toml` and `frpc.toml` for frpc to pass frps validation
 
+##### Token Source
+
+frp supports reading authentication tokens from external sources using the `tokenSource` configuration. Currently, file-based token source is supported.
+
+**File-based token source:**
+
+```toml
+# frpc.toml
+auth.method = "token"
+auth.tokenSource.type = "file"
+auth.tokenSource.file.path = "/path/to/token/file"
+```
+
+The token will be read from the specified file at startup. This is useful for scenarios where tokens are managed by external systems or need to be kept separate from configuration files for security reasons.
+
 #### OIDC Authentication
 
 When specifying `auth.method = "oidc"` in `frpc.toml` and `frps.toml` - OIDC based authentication will be used.

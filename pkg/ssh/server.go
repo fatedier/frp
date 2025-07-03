@@ -105,7 +105,10 @@ func (s *TunnelServer) Run() error {
 		s.writeToClient(err.Error())
 		return fmt.Errorf("parse flags from ssh client error: %v", err)
 	}
-	clientCfg.Complete()
+	if err := clientCfg.Complete(); err != nil {
+		s.writeToClient(fmt.Sprintf("failed to complete client config: %v", err))
+		return fmt.Errorf("complete client config error: %v", err)
+	}
 	if sshConn.Permissions != nil {
 		clientCfg.User = util.EmptyOr(sshConn.Permissions.Extensions["user"], clientCfg.User)
 	}
