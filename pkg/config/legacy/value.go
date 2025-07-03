@@ -16,6 +16,9 @@ package legacy
 
 import (
 	"bytes"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
 	"text/template"
@@ -45,6 +48,21 @@ func GetValues() *Values {
 	}
 }
 
+func readBytesFromPath(path string) ([]byte, error) {
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		resp, err := http.Get(path)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("failed to fetch config from url %s, status code: %d", path, resp.StatusCode)
+		}
+		return io.ReadAll(resp.Body)
+	}
+	return os.ReadFile(path)
+}
+
 func RenderContent(in []byte) (out []byte, err error) {
 	tmpl, errRet := template.New("frp").Parse(string(in))
 	if errRet != nil {
@@ -64,7 +82,7 @@ func RenderContent(in []byte) (out []byte, err error) {
 
 func GetRenderedConfFromFile(path string) (out []byte, err error) {
 	var b []byte
-	b, err = os.ReadFile(path)
+	b, err = readBytesFromPath(path)
 	if err != nil {
 		return
 	}
