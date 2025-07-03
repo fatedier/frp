@@ -15,6 +15,8 @@
 package v1
 
 import (
+	"context"
+	"fmt"
 	"os"
 
 	"github.com/samber/lo"
@@ -77,18 +79,21 @@ type ClientCommonConfig struct {
 	IncludeConfigFiles []string `json:"includes,omitempty"`
 }
 
-func (c *ClientCommonConfig) Complete() {
+func (c *ClientCommonConfig) Complete() error {
 	c.ServerAddr = util.EmptyOr(c.ServerAddr, "0.0.0.0")
 	c.ServerPort = util.EmptyOr(c.ServerPort, 7000)
 	c.LoginFailExit = util.EmptyOr(c.LoginFailExit, lo.ToPtr(true))
 	c.NatHoleSTUNServer = util.EmptyOr(c.NatHoleSTUNServer, "stun.easyvoip.com:3478")
 
-	c.Auth.Complete()
+	if err := c.Auth.Complete(); err != nil {
+		return err
+	}
 	c.Log.Complete()
 	c.Transport.Complete()
 	c.WebServer.Complete()
 
 	c.UDPPacketSize = util.EmptyOr(c.UDPPacketSize, 1500)
+	return nil
 }
 
 type ClientTransportConfig struct {
@@ -184,12 +189,27 @@ type AuthClientConfig struct {
 	// Token specifies the authorization token used to create keys to be sent
 	// to the server. The server must have a matching token for authorization
 	// to succeed.  By default, this value is "".
-	Token string               `json:"token,omitempty"`
-	OIDC  AuthOIDCClientConfig `json:"oidc,omitempty"`
+	Token string `json:"token,omitempty"`
+	// TokenSource specifies a dynamic source for the authorization token.
+	// This is mutually exclusive with Token field.
+	TokenSource *ValueSource         `json:"tokenSource,omitempty"`
+	OIDC        AuthOIDCClientConfig `json:"oidc,omitempty"`
 }
 
-func (c *AuthClientConfig) Complete() {
+func (c *AuthClientConfig) Complete() error {
 	c.Method = util.EmptyOr(c.Method, "token")
+
+	// Resolve tokenSource during configuration loading
+	if c.Method == AuthMethodToken && c.TokenSource != nil {
+		token, err := c.TokenSource.Resolve(context.Background())
+		if err != nil {
+			return fmt.Errorf("failed to resolve auth.tokenSource: %w", err)
+		}
+		// Move the resolved token to the Token field and clear TokenSource
+		c.Token = token
+		c.TokenSource = nil
+	}
+	return nil
 }
 
 type AuthOIDCClientConfig struct {
