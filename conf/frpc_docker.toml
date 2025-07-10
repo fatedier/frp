@@ -1,0 +1,11 @@
+serverAddr = "127.0.0.1"
+serverPort = 7000
+
+includes = ["/etc/frp/conf.d/*.toml"]
+
+[[proxies]]
+name = "test-tcp"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 22
+remotePort = 6000

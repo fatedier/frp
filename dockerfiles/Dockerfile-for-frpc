@@ -11,4 +11,8 @@ RUN apk add --no-cache tzdata
 
 COPY --from=building /building/bin/frpc /usr/bin/frpc
 
-ENTRYPOINT ["/usr/bin/frpc"]
+RUN mkdir -p /etc/frp/conf.d/
+
+COPY conf/frpc_docker.toml /etc/frp/frpc.toml
+
+ENTRYPOINT ["/usr/bin/frpc", "-c", "/etc/frp/frpc.toml"]

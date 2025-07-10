@@ -1,0 +1,3 @@
+bindPort = 7000
+
+includes = ["/etc/frp/conf.d/*.toml"]
