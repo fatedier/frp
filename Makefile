@@ -74,7 +74,7 @@ clean:
 install:
 	install -Dm755 bin/frps ${DESTDIR}${prefix}/bin/frps
 	install -Dm755 bin/frpc ${DESTDIR}${prefix}/bin/frpc
-	install -Dm644 -b confi/frps.toml ${DESTDIR}${prefix}/etc/frp/frps.toml
-	install -Dm644 -b confi/frpc.toml ${DESTDIR}${prefix}/etc/frp/frpc.toml
-	install -Dm644 confi/frps_full_example.toml ${DESTDIR}${prefix}/etc/frp/frps_full_example.toml
-	install -Dm644 confi/frpc_full_example.toml ${DESTDIR}${prefix}/etc/frp/frpc_full_example.toml
+	install -Dm644 -b confi/frps.toml ${DESTDIR}/etc/frp/frps.toml
+	install -Dm644 -b confi/frpc.toml ${DESTDIR}/etc/frp/frpc.toml
+	install -Dm644 confi/frps_full_example.toml ${DESTDIR}/etc/frp/frps_full_example.toml
+	install -Dm644 confi/frpc_full_example.toml ${DESTDIR}/etc/frp/frpc_full_example.toml
