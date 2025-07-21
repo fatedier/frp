@@ -1,6 +1,7 @@
 export PATH := $(PATH):`go env GOPATH`/bin
 export GO111MODULE=on
 LDFLAGS := -s -w
+prefix ?= /usr/local
 
 all: env fmt build
 
@@ -69,3 +70,11 @@ clean:
 	rm -f ./bin/frpc
 	rm -f ./bin/frps
 	rm -rf ./lastversion
+
+install:
+	install -Dm755 bin/frps ${DESTDIR}${prefix}/bin/frps
+	install -Dm755 bin/frpc ${DESTDIR}${prefix}/bin/frpc
+	install -Dm644 -b confi/frps.toml ${DESTDIR}${prefix}/etc/frp/frps.toml
+	install -Dm644 -b confi/frpc.toml ${DESTDIR}${prefix}/etc/frp/frpc.toml
+	install -Dm644 confi/frps_full_example.toml ${DESTDIR}${prefix}/etc/frp/frps_full_example.toml
+	install -Dm644 confi/frpc_full_example.toml ${DESTDIR}${prefix}/etc/frp/frpc_full_example.toml
