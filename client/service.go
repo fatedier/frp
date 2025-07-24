@@ -403,6 +403,10 @@ func (svr *Service) stop() {
 		svr.ctl.GracefulClose(svr.gracefulShutdownDuration)
 		svr.ctl = nil
 	}
+	if svr.webServer != nil {
+		svr.webServer.Close()
+		svr.webServer = nil
+	}
 }
 
 func (svr *Service) getProxyStatus(name string) (*proxy.WorkingStatus, bool) {
