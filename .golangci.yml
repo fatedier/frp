@@ -74,6 +74,9 @@ linters:
       - revive
       text: unused-parameter
     - linters:
+      - revive
+      text: "avoid meaningless package names"
+    - linters:
       - unparam
       text: is always false
     paths:
