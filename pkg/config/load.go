@@ -212,7 +212,9 @@ func LoadServerConfig(path string, strict bool) (*v1.ServerConfig, bool, error) 
 		}
 	}
 	if svrCfg != nil {
-		svrCfg.Complete()
+		if err := svrCfg.Complete(); err != nil {
+			return nil, isLegacyFormat, err
+		}
 	}
 	return svrCfg, isLegacyFormat, nil
 }
@@ -280,7 +282,9 @@ func LoadClientConfig(path string, strict bool) (
 	}
 
 	if cliCfg != nil {
-		cliCfg.Complete()
+		if err := cliCfg.Complete(); err != nil {
+			return nil, nil, nil, isLegacyFormat, err
+		}
 	}
 	for _, c := range proxyCfgs {
 		c.Complete(cliCfg.User)

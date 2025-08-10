@@ -51,7 +51,10 @@ var natholeDiscoveryCmd = &cobra.Command{
 		cfg, _, _, _, err := config.LoadClientConfig(cfgFile, strictConfigMode)
 		if err != nil {
 			cfg = &v1.ClientCommonConfig{}
-			cfg.Complete()
+			if err := cfg.Complete(); err != nil {
+				fmt.Printf("failed to complete config: %v\n", err)
+				os.Exit(1)
+			}
 		}
 		if natHoleSTUNServer != "" {
 			cfg.NatHoleSTUNServer = natHoleSTUNServer

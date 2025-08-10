@@ -1,4 +1,7 @@
 ## Features
 
-* Support for YAML merge functionality (anchors and references with dot-prefixed fields) in strict configuration mode without requiring `--strict-config=false` parameter.
-* Support for proxy protocol in UDP proxies to preserve real client IP addresses.
+* Support tokenSource for loading authentication tokens from files.
+
+## Fixes
+
+* Fix SSH tunnel gateway incorrectly binding to proxyBindAddr instead of bindAddr, which caused external connections to fail when proxyBindAddr was set to 127.0.0.1.

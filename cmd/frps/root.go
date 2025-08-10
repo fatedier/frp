@@ -70,7 +70,10 @@ var rootCmd = &cobra.Command{
 					"please use yaml/json/toml format instead!\n")
 			}
 		} else {
-			serverCfg.Complete()
+			if err := serverCfg.Complete(); err != nil {
+				fmt.Printf("failed to complete server config: %v\n", err)
+				os.Exit(1)
+			}
 			svrCfg = &serverCfg
 		}
 

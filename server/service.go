@@ -262,7 +262,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	}
 
 	if cfg.SSHTunnelGateway.BindPort > 0 {
-		sshGateway, err := ssh.NewGateway(cfg.SSHTunnelGateway, cfg.ProxyBindAddr, svr.sshTunnelListener)
+		sshGateway, err := ssh.NewGateway(cfg.SSHTunnelGateway, cfg.BindAddr, svr.sshTunnelListener)
 		if err != nil {
 			return nil, fmt.Errorf("create ssh gateway error: %v", err)
 		}
@@ -550,7 +550,7 @@ func (svr *Service) HandleQUICListener(l *quic.Listener) {
 			return
 		}
 		// Start a new goroutine to handle connection.
-		go func(ctx context.Context, frpConn quic.Connection) {
+		go func(ctx context.Context, frpConn *quic.Conn) {
 			for {
 				stream, err := frpConn.AcceptStream(context.Background())
 				if err != nil {
