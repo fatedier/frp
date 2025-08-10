@@ -22,6 +22,7 @@ import (
 	"encoding/pem"
 	"math/big"
 	"os"
+	"time"
 )
 
 func newCustomTLSKeyPair(certfile, keyfile string) (*tls.Certificate, error) {
@@ -32,12 +33,30 @@ func newCustomTLSKeyPair(certfile, keyfile string) (*tls.Certificate, error) {
 	return &tlsCert, nil
 }
 
-func newRandomTLSKeyPair() *tls.Certificate {
+func newRandomTLSKeyPair() (*tls.Certificate, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	template := x509.Certificate{SerialNumber: big.NewInt(1)}
+
+	// Generate a random positive serial number with 128 bits of entropy.
+	// RFC 5280 requires serial numbers to be positive integers (not zero).
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		return nil, err
+	}
+	// Ensure serial number is positive (not zero)
+	if serialNumber.Sign() == 0 {
+		serialNumber = big.NewInt(1)
+	}
+
+	template := x509.Certificate{
+		SerialNumber: serialNumber,
+		NotBefore:    time.Now().Add(-1 * time.Hour),
+		NotAfter:     time.Now().Add(365 * 24 * time.Hour * 10),
+	}
+
 	certDER, err := x509.CreateCertificate(
 		rand.Reader,
 		&template,
@@ -45,16 +64,16 @@ func newRandomTLSKeyPair() *tls.Certificate {
 		&key.PublicKey,
 		key)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
 
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return &tlsCert
+	return &tlsCert, nil
 }
 
 // Only support one ca file to add
@@ -76,7 +95,10 @@ func NewServerTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 
 	if certPath == "" || keyPath == "" {
 		// server will generate tls conf by itself
-		cert := newRandomTLSKeyPair()
+		cert, err := newRandomTLSKeyPair()
+		if err != nil {
+			return nil, err
+		}
 		base.Certificates = []tls.Certificate{*cert}
 	} else {
 		cert, err := newCustomTLSKeyPair(certPath, keyPath)
