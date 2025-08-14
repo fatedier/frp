@@ -23,6 +23,7 @@ import (
 	libio "github.com/fatedier/golib/io"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/util/kube"
 	"github.com/fatedier/frp/pkg/util/limit"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
@@ -108,6 +109,11 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 				})
 			}
 			addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.VhostHTTPPort))
+
+			if err := kube.LabelPodWithCustomDomain(routeConfig.Domain); err != nil {
+				xl.Warnf("failed to label pod with custom domain [%s]: %v", routeConfig.Domain, err)
+			}
+
 			xl.Infof("http proxy listen for host [%s] location [%s] group [%s], routeByHTTPUser [%s]",
 				routeConfig.Domain, routeConfig.Location, pxy.cfg.LoadBalancer.Group, pxy.cfg.RouteByHTTPUser)
 		}
@@ -196,8 +202,20 @@ func (pxy *HTTPProxy) updateStatsAfterClosedConn(totalRead, totalWrite int64) {
 }
 
 func (pxy *HTTPProxy) Close() {
+	xl := pxy.xl
+
 	pxy.BaseProxy.Close()
 	for _, closeFn := range pxy.closeFuncs {
 		closeFn()
+	}
+
+	for _, domain := range pxy.cfg.CustomDomains {
+		if domain == "" {
+			continue
+		}
+
+		if err := kube.RemoveCustomDomainLabelFromPod(domain); err != nil {
+			xl.Warnf("failed to remove custom domain label from pod [%s]: %v", pxy.loginMsg.Hostname, err)
+		}
 	}
 }
