@@ -519,7 +519,7 @@ name = "ssh"
 type = "tcp"
 localIP = "127.0.0.1"
 localPort = 22
-remotePort = "{{ .Envs.FRP_SSH_REMOTE_PORT }}"
+remotePort = {{ .Envs.FRP_SSH_REMOTE_PORT }}
 ```
 
 With the config above, variables can be passed into `frpc` program like this:
