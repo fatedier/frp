@@ -106,6 +106,9 @@ type Service struct {
 	// HTTP vhost router
 	httpVhostRouter *vhost.Routers
 
+	// HTTPS vhost router
+	httpsVhostRouter *vhost.Routers
+
 	// All resource managers and controllers
 	rc *controller.ResourceController
 
@@ -161,6 +164,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		},
 		sshTunnelListener: netpkg.NewInternalListener(),
 		httpVhostRouter:   vhost.NewRouters(),
+		httpsVhostRouter:  vhost.NewRouters(),
 		authVerifier:      auth.NewAuthVerifier(cfg.Auth),
 		webServer:         webServer,
 		tlsConfig:         tlsConfig,
@@ -199,6 +203,9 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 
 	// Init HTTP group controller
 	svr.rc.HTTPGroupCtl = group.NewHTTPGroupController(svr.httpVhostRouter)
+
+	// Init HTTPS group controller
+	svr.rc.HTTPSGroupCtl = group.NewHTTPSGroupController(svr.httpsVhostRouter)
 
 	// Init TCP mux group controller
 	svr.rc.TCPMuxGroupCtl = group.NewTCPMuxGroupCtl(svr.rc.TCPMuxHTTPConnectMuxer)
@@ -323,6 +330,13 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		if err != nil {
 			return nil, fmt.Errorf("create vhost httpsMuxer error, %v", err)
 		}
+
+		// Init HTTPS reverse proxy for group routing
+		httpsReverseProxy := vhost.NewHTTPSReverseProxy(svr.httpsVhostRouter)
+		svr.rc.HTTPSReverseProxy = httpsReverseProxy
+
+		// Set the reverse proxy on the muxer for group routing
+		svr.rc.VhostHTTPSMuxer.SetHTTPSReverseProxy(httpsReverseProxy)
 	}
 
 	// frp tls listener

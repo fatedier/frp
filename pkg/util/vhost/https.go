@@ -18,22 +18,174 @@ import (
 	"crypto/tls"
 	"io"
 	"net"
+	"strings"
 	"time"
 
+	"github.com/fatedier/golib/errors"
+	libio "github.com/fatedier/golib/io"
 	libnet "github.com/fatedier/golib/net"
+
+	httppkg "github.com/fatedier/frp/pkg/util/http"
+	"github.com/fatedier/frp/pkg/util/log"
+	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
 type HTTPSMuxer struct {
 	*Muxer
+	httpsReverseProxy *HTTPSReverseProxy
 }
 
 func NewHTTPSMuxer(listener net.Listener, timeout time.Duration) (*HTTPSMuxer, error) {
-	mux, err := NewMuxer(listener, GetHTTPSHostname, timeout)
-	mux.SetFailHookFunc(vhostFailed)
-	if err != nil {
-		return nil, err
+	// Create muxer without auto-starting run method
+	mux := &Muxer{
+		listener:       listener,
+		timeout:        timeout,
+		vhostFunc:      GetHTTPSHostname,
+		registryRouter: NewRouters(),
 	}
-	return &HTTPSMuxer{mux}, err
+	mux.SetFailHookFunc(vhostFailed)
+
+	httpsMux := &HTTPSMuxer{Muxer: mux}
+	// Start our custom handler
+	go httpsMux.run()
+	return httpsMux, nil
+}
+
+func (h *HTTPSMuxer) SetHTTPSReverseProxy(rp *HTTPSReverseProxy) {
+	h.httpsReverseProxy = rp
+}
+
+// Override the base muxer's run method to handle group routing
+func (h *HTTPSMuxer) run() {
+	for {
+		conn, err := h.listener.Accept()
+		if err != nil {
+			return
+		}
+		go h.handleHTTPS(conn)
+	}
+}
+
+func (h *HTTPSMuxer) handleHTTPS(c net.Conn) {
+	if err := c.SetDeadline(time.Now().Add(h.timeout)); err != nil {
+		_ = c.Close()
+		return
+	}
+
+	sConn, reqInfoMap, err := h.vhostFunc(c)
+	if err != nil {
+		log.Debugf("get hostname from https request error: %v", err)
+		_ = c.Close()
+		return
+	}
+
+	hostname := strings.ToLower(reqInfoMap["Host"])
+
+	// Validate and canonicalize hostname for security
+	canonicalHostname, err := httppkg.CanonicalHost(hostname)
+	if err != nil {
+		log.Debugf("invalid hostname [%s]: %v", hostname, err)
+		h.failHook(sConn)
+		return
+	}
+
+	// First check if there's a group route for this domain
+	if h.httpsReverseProxy != nil {
+		if routeConfig := h.httpsReverseProxy.GetRouteConfig(canonicalHostname); routeConfig != nil {
+			log.Debugf("routing https request for host [%s] to group", hostname)
+
+			// SECURITY: Apply authentication check before group routing
+			if routeConfig.Username != "" && routeConfig.Password != "" {
+				if h.checkAuth != nil {
+					ok, err := h.checkAuth(c, routeConfig.Username, routeConfig.Password, reqInfoMap)
+					if !ok || err != nil {
+						log.Debugf("auth failed for group route user: %s", routeConfig.Username)
+						h.failHook(sConn)
+						return
+					}
+				}
+			}
+
+			// SECURITY: Apply success hook for group routing
+			if h.successHook != nil {
+				if err := h.successHook(c, reqInfoMap); err != nil {
+					log.Infof("success func failure on group vhost connection: %v", err)
+					_ = c.Close()
+					return
+				}
+			}
+
+			if err = sConn.SetDeadline(time.Time{}); err != nil {
+				_ = c.Close()
+				return
+			}
+
+			// Create connection to backend through group routing
+			remoteConn, err := h.httpsReverseProxy.CreateConnection(canonicalHostname)
+			if err != nil {
+				log.Debugf("failed to create connection through group: %v", err)
+				h.failHook(sConn)
+				return
+			}
+
+			// Start proxying data between client and remote
+			go func() {
+				defer func() {
+					if err := recover(); err != nil {
+						log.Warnf("panic in HTTPS proxy goroutine: %v", err)
+					}
+				}()
+				defer sConn.Close()
+				defer remoteConn.Close()
+				libio.Join(sConn, remoteConn)
+			}()
+			return
+		}
+	}
+
+	// Fall back to direct listener routing (existing behavior)
+	path := strings.ToLower(reqInfoMap["Path"])
+	httpUser := reqInfoMap["HTTPUser"]
+	l, ok := h.getListener(canonicalHostname, path, httpUser)
+	if !ok {
+		log.Debugf("https request for host [%s] path [%s] httpUser [%s] not found", hostname, path, httpUser)
+		h.failHook(sConn)
+		return
+	}
+
+	xl := xlog.FromContextSafe(l.ctx)
+	if h.successHook != nil {
+		if err := h.successHook(c, reqInfoMap); err != nil {
+			xl.Infof("success func failure on vhost connection: %v", err)
+			_ = c.Close()
+			return
+		}
+	}
+
+	// if checkAuth func is exist and username/password is set
+	// then verify user access
+	if l.mux.checkAuth != nil && l.username != "" {
+		ok, err := l.mux.checkAuth(c, l.username, l.password, reqInfoMap)
+		if !ok || err != nil {
+			xl.Debugf("auth failed for user: %s", l.username)
+			_ = c.Close()
+			return
+		}
+	}
+
+	if err = sConn.SetDeadline(time.Time{}); err != nil {
+		_ = c.Close()
+		return
+	}
+	c = sConn
+
+	xl.Debugf("new https request host [%s] path [%s] httpUser [%s]", hostname, path, httpUser)
+	err = errors.PanicToError(func() {
+		l.accept <- c
+	})
+	if err != nil {
+		xl.Warnf("listener is already closed, ignore this request")
+	}
 }
 
 func GetHTTPSHostname(c net.Conn) (_ net.Conn, _ map[string]string, err error) {

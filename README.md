@@ -932,7 +932,7 @@ This feature is suitable for a large number of short connections.
 
 Load balancing is supported by `group`.
 
-This feature is only available for types `tcp`, `http`, `tcpmux` now.
+This feature is available for types `tcp`, `http`, `https`, `tcpmux` now.
 
 ```toml
 # frpc.toml
@@ -954,6 +954,28 @@ loadBalancer.group = "web"
 loadBalancer.groupKey = "123"
 ```
 
+For HTTPS load balancing:
+
+```toml
+# frpc.toml
+
+[[proxies]]
+name = "web1"
+type = "https"
+localPort = 443
+customDomains = ["example.com"]
+loadBalancer.group = "web"
+loadBalancer.groupKey = "123"
+
+[[proxies]]
+name = "web2"
+type = "https"
+localPort = 443
+customDomains = ["example.com"]
+loadBalancer.group = "web"
+loadBalancer.groupKey = "123"
+```
+
 `loadBalancer.groupKey` is used for authentication.
 
 Connections to port 80 will be dispatched to proxies in the same group randomly.
@@ -961,6 +983,8 @@ Connections to port 80 will be dispatched to proxies in the same group randomly.
 For type `tcp`, `remotePort` in the same group should be the same.
 
 For type `http`, `customDomains`, `subdomain`, `locations` should be the same.
+
+For type `https`, `customDomains`, `subdomain` should be the same.
 
 ### Service Health Check
 

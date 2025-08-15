@@ -247,6 +247,35 @@ customDomains = ["web02.yourdomain.com"]
 # v1 or v2 or empty
 transport.proxyProtocolVersion = "v2"
 
+# HTTPS load balancing example
+[[proxies]]
+name = "web_lb_1"
+type = "https"
+localIP = "127.0.0.1"
+localPort = 443
+customDomains = ["app.yourdomain.com"]
+loadBalancer.group = "web"
+loadBalancer.groupKey = "123"
+# Enable health check for load balancing
+healthCheck.type = "tcp"
+healthCheck.timeoutSeconds = 3
+healthCheck.maxFailed = 3
+healthCheck.intervalSeconds = 10
+
+[[proxies]]
+name = "web_lb_2"
+type = "https"
+localIP = "127.0.0.1"
+localPort = 8443
+customDomains = ["app.yourdomain.com"]
+loadBalancer.group = "web"
+loadBalancer.groupKey = "123"
+# Enable health check for load balancing
+healthCheck.type = "tcp"
+healthCheck.timeoutSeconds = 3
+healthCheck.maxFailed = 3
+healthCheck.intervalSeconds = 10
+
 [[proxies]]
 name = "tcpmuxhttpconnect"
 type = "tcpmux"
