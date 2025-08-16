@@ -932,7 +932,7 @@ This feature is suitable for a large number of short connections.
 
 Load balancing is supported by `group`.
 
-This feature is only available for types `tcp`, `http`, `tcpmux` now.
+This feature is available for types `tcp`, `http`, `https`, `tcpmux` now.
 
 ```toml
 # frpc.toml
@@ -961,6 +961,8 @@ Connections to port 80 will be dispatched to proxies in the same group randomly.
 For type `tcp`, `remotePort` in the same group should be the same.
 
 For type `http`, `customDomains`, `subdomain`, `locations` should be the same.
+
+For type `https`, `customDomains`, `subdomain` should be the same.
 
 ### Service Health Check
 
