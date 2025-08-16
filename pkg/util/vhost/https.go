@@ -92,14 +92,11 @@ func (h *HTTPSMuxer) handleHTTPS(c net.Conn) {
 	// First check if there's a group route for this domain
 	if h.httpsReverseProxy != nil {
 		if routeConfig := h.httpsReverseProxy.GetRouteConfig(canonicalHostname); routeConfig != nil {
-			log.Debugf("routing https request for host [%s] to group", hostname)
-
 			// SECURITY: Apply authentication check before group routing
 			if routeConfig.Username != "" && routeConfig.Password != "" {
 				if h.checkAuth != nil {
 					ok, err := h.checkAuth(c, routeConfig.Username, routeConfig.Password, reqInfoMap)
 					if !ok || err != nil {
-						log.Debugf("auth failed for group route user: %s", routeConfig.Username)
 						h.failHook(sConn)
 						return
 					}
@@ -123,22 +120,12 @@ func (h *HTTPSMuxer) handleHTTPS(c net.Conn) {
 			// Create connection to backend through group routing
 			remoteConn, err := h.httpsReverseProxy.CreateConnection(canonicalHostname)
 			if err != nil {
-				log.Debugf("failed to create connection through group: %v", err)
 				h.failHook(sConn)
 				return
 			}
 
 			// Start proxying data between client and remote
-			go func() {
-				defer func() {
-					if err := recover(); err != nil {
-						log.Warnf("panic in HTTPS proxy goroutine: %v", err)
-					}
-				}()
-				defer sConn.Close()
-				defer remoteConn.Close()
-				libio.Join(sConn, remoteConn)
-			}()
+			go libio.Join(sConn, remoteConn)
 			return
 		}
 	}
@@ -148,7 +135,6 @@ func (h *HTTPSMuxer) handleHTTPS(c net.Conn) {
 	httpUser := reqInfoMap["HTTPUser"]
 	l, ok := h.getListener(canonicalHostname, path, httpUser)
 	if !ok {
-		log.Debugf("https request for host [%s] path [%s] httpUser [%s] not found", hostname, path, httpUser)
 		h.failHook(sConn)
 		return
 	}

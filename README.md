@@ -954,28 +954,6 @@ loadBalancer.group = "web"
 loadBalancer.groupKey = "123"
 ```
 
-For HTTPS load balancing:
-
-```toml
-# frpc.toml
-
-[[proxies]]
-name = "web1"
-type = "https"
-localPort = 443
-customDomains = ["example.com"]
-loadBalancer.group = "web"
-loadBalancer.groupKey = "123"
-
-[[proxies]]
-name = "web2"
-type = "https"
-localPort = 443
-customDomains = ["example.com"]
-loadBalancer.group = "web"
-loadBalancer.groupKey = "123"
-```
-
 `loadBalancer.groupKey` is used for authentication.
 
 Connections to port 80 will be dispatched to proxies in the same group randomly.
