@@ -16,6 +16,7 @@ package featuregate
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -92,11 +93,7 @@ type featureGate struct {
 
 // NewFeatureGate creates a new feature gate with the default features
 func NewFeatureGate() MutableFeatureGate {
-	known := map[Feature]FeatureSpec{}
-	for k, v := range defaultFeatures {
-		known[k] = v
-	}
-
+	known := maps.Clone(defaultFeatures)
 	f := &featureGate{}
 	f.known.Store(known)
 	f.enabled.Store(map[Feature]bool{})
