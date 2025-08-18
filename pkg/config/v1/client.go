@@ -107,8 +107,13 @@ type ClientTransportConfig struct {
 	// If negative, keep-alive probes are disabled.
 	DialServerKeepAlive int64 `json:"dialServerKeepalive,omitempty"`
 	// ConnectServerLocalIP specifies the address of the client bind when it connect to server.
-	// Note: This value only use in TCP/Websocket protocol. Not support in KCP protocol.
+	// Note: This value works with tcp, websocket, http, https, and quic protocols. Not supported with kcp protocol.
 	ConnectServerLocalIP string `json:"connectServerLocalIP,omitempty"`
+	// ConnectServerInterface specifies the network interface name to bind when connecting to server.
+	// Valid values are interface names (e.g., "eth0", "wlan0") or "auto" for auto-detection.
+	// Note: This value works with tcp, websocket, http, https, and quic protocols. Not supported with kcp protocol.
+	// Priority: If both ConnectServerLocalIP and ConnectServerInterface are set, ConnectServerInterface takes precedence.
+	ConnectServerInterface string `json:"connectServerInterface,omitempty"`
 	// ProxyURL specifies a proxy address to connect to the server through. If
 	// this value is "", the server will be connected to directly. By default,
 	// this value is read from the "http_proxy" environment variable.

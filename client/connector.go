@@ -196,8 +196,14 @@ func (c *defaultConnectorImpl) realConnect() (net.Conn, error) {
 		dialOptions = append(dialOptions, libnet.WithTLSConfig(tlsConfig))
 	}
 
-	if c.cfg.Transport.ConnectServerLocalIP != "" {
-		dialOptions = append(dialOptions, libnet.WithLocalAddr(c.cfg.Transport.ConnectServerLocalIP))
+	// Resolve binding address from interface name or IP address
+	bindAddr, err := c.resolveBindAddress()
+	if err != nil {
+		xl.Errorf("failed to resolve bind address: %v", err)
+		return nil, err
+	}
+	if bindAddr != "" {
+		dialOptions = append(dialOptions, libnet.WithLocalAddr(bindAddr))
 	}
 	dialOptions = append(dialOptions,
 		libnet.WithProtocol(protocol),
@@ -212,6 +218,20 @@ func (c *defaultConnectorImpl) realConnect() (net.Conn, error) {
 		dialOptions...,
 	)
 	return conn, err
+}
+
+// resolveBindAddress resolves the binding address from interface name or IP address
+func (c *defaultConnectorImpl) resolveBindAddress() (string, error) {
+	// Priority: Interface name > IP address
+	if c.cfg.Transport.ConnectServerInterface != "" {
+		return netpkg.ResolveBindAddress(c.cfg.Transport.ConnectServerInterface)
+	}
+
+	if c.cfg.Transport.ConnectServerLocalIP != "" {
+		return c.cfg.Transport.ConnectServerLocalIP, nil
+	}
+
+	return "", nil // No binding specified
 }
 
 func (c *defaultConnectorImpl) Close() error {

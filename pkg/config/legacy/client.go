@@ -49,8 +49,14 @@ type ClientCommonConf struct {
 	DialServerKeepAlive int64 `ini:"dial_server_keepalive" json:"dial_server_keepalive"`
 	// ConnectServerLocalIP specifies the address of the client bind when it connect to server.
 	// By default, this value is empty.
-	// this value only use in TCP/Websocket protocol. Not support in KCP protocol.
+	// this value works with tcp, websocket, http, https, and quic protocols. Not supported with kcp protocol.
 	ConnectServerLocalIP string `ini:"connect_server_local_ip" json:"connect_server_local_ip"`
+	// ConnectServerInterface specifies the network interface name to bind when connecting to server.
+	// Valid values are interface names (e.g., "eth0", "wlan0") or "auto" for auto-detection.
+	// By default, this value is empty.
+	// this value works with tcp, websocket, http, https, and quic protocols. Not supported with kcp protocol.
+	// Priority: If both connect_server_local_ip and connect_server_interface are set, connect_server_interface takes precedence.
+	ConnectServerInterface string `ini:"connect_server_interface" json:"connect_server_interface"`
 	// HTTPProxy specifies a proxy address to connect to the server through. If
 	// this value is "", the server will be connected to directly. By default,
 	// this value is read from the "http_proxy" environment variable.

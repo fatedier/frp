@@ -1207,6 +1207,41 @@ serverPort = 7000
 transport.proxyURL = "http://user:pwd@192.168.1.128:8080"
 ```
 
+### Network Interface Binding
+
+frpc can bind to specific network interfaces when connecting to frps, which is useful for multi-network systems or when you need to route traffic through specific network paths.
+
+```toml
+# frpc.toml
+serverAddr = "x.x.x.x"
+serverPort = 7000
+
+[transport]
+# Bind to a specific network interface
+connectServerInterface = "eth0"
+
+# Or use auto-detection for first available interface
+# connectServerInterface = "auto"
+
+# Or bind to a specific IP address (existing feature)
+# connectServerLocalIP = "192.168.1.100"
+```
+
+You can also specify interface binding via command line:
+
+```bash
+# Bind to specific interface
+./frpc --bind-interface eth0 -c frpc.toml
+
+# Auto-detect interface
+./frpc --bind-interface auto -c frpc.toml
+
+# Bind to specific IP
+./frpc --bind-ip 192.168.1.100 -c frpc.toml
+```
+
+This feature supports all protocols except kcp and works across Linux, macOS, and Windows platforms.
+
 ### Port range mapping
 
 *Added in v0.56.0*

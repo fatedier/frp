@@ -88,8 +88,15 @@ transport.poolCount = 5
 transport.protocol = "tcp"
 
 # set client binding ip when connect server, default is empty.
-# only when protocol = tcp or websocket, the value will be used.
+# works with tcp, websocket, http, https, and quic protocols. Not supported with kcp protocol.
 transport.connectServerLocalIP = "0.0.0.0"
+
+# set client binding interface when connect server, default is empty.
+# valid values are interface names (e.g., "eth0", "wlan0") or "auto" for auto-detection.
+# works with tcp, websocket, http, https, and quic protocols. Not supported with kcp protocol.
+# priority: if both connectServerLocalIP and connectServerInterface are set, connectServerInterface takes precedence.
+# transport.connectServerInterface = "eth0"
+# transport.connectServerInterface = "auto"
 
 # if you want to connect frps by http proxy or socks5 proxy or ntlm proxy, you can set proxyURL here or in global environment variables
 # it only works when protocol is tcp

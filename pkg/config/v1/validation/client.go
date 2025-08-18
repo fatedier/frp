@@ -24,6 +24,7 @@ import (
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/featuregate"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
 func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
@@ -88,6 +89,10 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 		errs = AppendError(errs, fmt.Errorf("invalid transport.protocol, optional values are %v", SupportedTransportProtocols))
 	}
 
+	if err := validateInterfaceBinding(&c.Transport); err != nil {
+		errs = AppendError(errs, err)
+	}
+
 	for _, f := range c.IncludeConfigFiles {
 		absDir, err := filepath.Abs(filepath.Dir(f))
 		if err != nil {
@@ -123,4 +128,27 @@ func ValidateAllClientConfig(c *v1.ClientCommonConfig, proxyCfgs []v1.ProxyConfi
 		}
 	}
 	return warnings, nil
+}
+
+func validateInterfaceBinding(c *v1.ClientTransportConfig) error {
+	// Check if both interface and IP are specified (they are mutually exclusive)
+	if c.ConnectServerInterface != "" && c.ConnectServerLocalIP != "" {
+		return fmt.Errorf("cannot specify both transport.connectServerInterface and transport.connectServerLocalIP")
+	}
+
+	// Validate interface name if specified
+	if c.ConnectServerInterface != "" {
+		if err := netpkg.ValidateInterfaceOrIP(c.ConnectServerInterface); err != nil {
+			return fmt.Errorf("invalid transport.connectServerInterface: %v", err)
+		}
+	}
+
+	// Validate IP address if specified
+	if c.ConnectServerLocalIP != "" {
+		if err := netpkg.ValidateInterfaceOrIP(c.ConnectServerLocalIP); err != nil {
+			return fmt.Errorf("invalid transport.connectServerLocalIP: %v", err)
+		}
+	}
+
+	return nil
 }
