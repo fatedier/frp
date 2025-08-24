@@ -1,4 +1,4 @@
-// Copyright 2024 Satyajeet Singh, jeet.0733@gmail.com
+// Copyright 2025 Satyajeet Singh, jeet.0733@gmail.com
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -113,16 +113,13 @@ func (rp *HTTPSReverseProxy) getVhost(domain string) (*Router, bool) {
 
 	domain = strings.ToLower(domain)
 
-	// First we check the full hostname
-	// if not exist, then check the wildcard_domain such as *.example.com
+	// Check the full hostname, if not exist, check the wildcard_domain such as *.example.com
 	vr, ok := findRouter(domain)
 	if ok {
 		return vr, ok
 	}
 
-	// e.g. domain = test.example.com, try to match wildcard domains.
-	// *.example.com
-	// *.com
+	// e.g. domain = test.example.com, try to match wildcard domains. *.example.com, *.com
 	domainSplit := strings.Split(domain, ".")
 	for len(domainSplit) >= 3 {
 		domainSplit[0] = "*"

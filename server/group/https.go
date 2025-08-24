@@ -1,4 +1,4 @@
-// Copyright 2024 Satyajeet Singh, jeet.0733@gmail.com
+// Copyright 2025 Satyajeet Singh, jeet.0733@gmail.com
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -101,7 +101,28 @@ func (g *HTTPSGroup) Register(
 	defer g.mu.Unlock()
 	if len(g.createFuncs) == 0 {
 		// the first proxy in this group
-		tmp := routeConfig // copy object
+		// Create a deep copy to avoid shared state
+		tmp := vhost.RouteConfig{
+			Domain:          routeConfig.Domain,
+			Location:        routeConfig.Location,
+			RewriteHost:     routeConfig.RewriteHost,
+			Username:        routeConfig.Username,
+			Password:        routeConfig.Password,
+			RouteByHTTPUser: routeConfig.RouteByHTTPUser,
+		}
+		// Deep copy maps to avoid shared state
+		if routeConfig.Headers != nil {
+			tmp.Headers = make(map[string]string, len(routeConfig.Headers))
+			for k, v := range routeConfig.Headers {
+				tmp.Headers[k] = v
+			}
+		}
+		if routeConfig.ResponseHeaders != nil {
+			tmp.ResponseHeaders = make(map[string]string, len(routeConfig.ResponseHeaders))
+			for k, v := range routeConfig.ResponseHeaders {
+				tmp.ResponseHeaders[k] = v
+			}
+		}
 		tmp.CreateConnFn = g.createConn
 		tmp.ChooseEndpointFn = g.chooseEndpoint
 		tmp.CreateConnByEndpointFn = g.createConnByEndpoint

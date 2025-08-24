@@ -54,7 +54,7 @@ func NewHTTPSProxy(baseProxy *BaseProxy) Proxy {
 
 func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
 	xl := pxy.xl
-	routeConfig := vhost.RouteConfig{
+	routeConfig := &vhost.RouteConfig{
 		CreateConnFn: pxy.GetRealConn,
 	}
 
@@ -76,17 +76,19 @@ func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
 
 		// handle group
 		if pxy.cfg.LoadBalancer.Group != "" {
-			err = pxy.rc.HTTPSGroupCtl.Register(pxy.name, pxy.cfg.LoadBalancer.Group, pxy.cfg.LoadBalancer.GroupKey, routeConfig)
+			err = pxy.rc.HTTPSGroupCtl.Register(pxy.name, pxy.cfg.LoadBalancer.Group, pxy.cfg.LoadBalancer.GroupKey, *routeConfig)
 			if err != nil {
 				return
 			}
 
-			pxy.closeFuncs = append(pxy.closeFuncs, func() {
-				pxy.rc.HTTPSGroupCtl.UnRegister(pxy.name, pxy.cfg.LoadBalancer.Group, tmpRouteConfig)
-			})
+			pxy.closeFuncs = append(pxy.closeFuncs, func(cfg vhost.RouteConfig) func() {
+				return func() {
+					pxy.rc.HTTPSGroupCtl.UnRegister(pxy.name, pxy.cfg.LoadBalancer.Group, cfg)
+				}
+			}(*tmpRouteConfig))
 		} else {
 			// no group - use direct muxer
-			l, errRet := pxy.rc.VhostHTTPSMuxer.Listen(pxy.ctx, &routeConfig)
+			l, errRet := pxy.rc.VhostHTTPSMuxer.Listen(pxy.ctx, routeConfig)
 			if errRet != nil {
 				err = errRet
 				return
@@ -106,17 +108,19 @@ func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
 
 		// handle group
 		if pxy.cfg.LoadBalancer.Group != "" {
-			err = pxy.rc.HTTPSGroupCtl.Register(pxy.name, pxy.cfg.LoadBalancer.Group, pxy.cfg.LoadBalancer.GroupKey, routeConfig)
+			err = pxy.rc.HTTPSGroupCtl.Register(pxy.name, pxy.cfg.LoadBalancer.Group, pxy.cfg.LoadBalancer.GroupKey, *routeConfig)
 			if err != nil {
 				return
 			}
 
-			pxy.closeFuncs = append(pxy.closeFuncs, func() {
-				pxy.rc.HTTPSGroupCtl.UnRegister(pxy.name, pxy.cfg.LoadBalancer.Group, tmpRouteConfig)
-			})
+			pxy.closeFuncs = append(pxy.closeFuncs, func(cfg vhost.RouteConfig) func() {
+				return func() {
+					pxy.rc.HTTPSGroupCtl.UnRegister(pxy.name, pxy.cfg.LoadBalancer.Group, cfg)
+				}
+			}(*tmpRouteConfig))
 		} else {
 			// no group - use direct muxer
-			l, errRet := pxy.rc.VhostHTTPSMuxer.Listen(pxy.ctx, &routeConfig)
+			l, errRet := pxy.rc.VhostHTTPSMuxer.Listen(pxy.ctx, routeConfig)
 			if errRet != nil {
 				err = errRet
 				return
