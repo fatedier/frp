@@ -1,7 +1,3 @@
 ## Features
 
-* Support tokenSource for loading authentication tokens from files.
-
-## Fixes
-
-* Fix SSH tunnel gateway incorrectly binding to proxyBindAddr instead of bindAddr, which caused external connections to fail when proxyBindAddr was set to 127.0.0.1.
+* Add NAT traversal configuration options for XTCP proxies and visitors. Support disabling assisted addresses to avoid using slow VPN connections during NAT hole punching.
