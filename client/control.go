@@ -276,10 +276,12 @@ func (ctl *Control) heartbeatWorker() {
 }
 
 func (ctl *Control) worker() {
+	xl := ctl.xl
 	go ctl.heartbeatWorker()
 	go ctl.msgDispatcher.Run()
 
 	<-ctl.msgDispatcher.Done()
+	xl.Debugf("control message dispatcher exited")
 	ctl.closeSession()
 
 	ctl.pm.Close()

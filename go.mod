@@ -82,4 +82,4 @@ require (
 )
 
 // TODO(fatedier): Temporary use the modified version, update to the official version after merging into the official repository.
-replace github.com/hashicorp/yamux => github.com/fatedier/yamux v0.0.0-20230628132301-7aca4898904d
+replace github.com/hashicorp/yamux => github.com/fatedier/yamux v0.0.0-20250825093530-d0154be01cd6
