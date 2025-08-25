@@ -422,6 +422,9 @@ type XTCPProxyConfig struct {
 
 	Secretkey  string   `json:"secretKey,omitempty"`
 	AllowUsers []string `json:"allowUsers,omitempty"`
+
+	// NatTraversal configuration for NAT traversal
+	NatTraversal *NatTraversalConfig `json:"natTraversal,omitempty"`
 }
 
 func (c *XTCPProxyConfig) MarshalToMsg(m *msg.NewProxy) {

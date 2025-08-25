@@ -160,6 +160,9 @@ type XTCPVisitorConfig struct {
 	MinRetryInterval  int    `json:"minRetryInterval,omitempty"`
 	FallbackTo        string `json:"fallbackTo,omitempty"`
 	FallbackTimeoutMs int    `json:"fallbackTimeoutMs,omitempty"`
+
+	// NatTraversal configuration for NAT traversal
+	NatTraversal *NatTraversalConfig `json:"natTraversal,omitempty"`
 }
 
 func (c *XTCPVisitorConfig) Complete(g *ClientCommonConfig) {

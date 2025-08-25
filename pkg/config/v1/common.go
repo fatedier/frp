@@ -96,6 +96,14 @@ type TLSConfig struct {
 	ServerName string `json:"serverName,omitempty"`
 }
 
+// NatTraversalConfig defines configuration options for NAT traversal
+type NatTraversalConfig struct {
+	// DisableAssistedAddrs disables the use of local network interfaces
+	// for assisted connections during NAT traversal. When enabled,
+	// only STUN-discovered public addresses will be used.
+	DisableAssistedAddrs bool `json:"disableAssistedAddrs,omitempty"`
+}
+
 type LogConfig struct {
 	// This is destination where frp should write the logs.
 	// If "console" is used, logs will be printed to stdout, otherwise,

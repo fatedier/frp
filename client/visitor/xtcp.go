@@ -276,11 +276,19 @@ func (sv *XTCPVisitor) makeNatHole() {
 	}
 
 	xl.Tracef("nathole prepare start")
-	prepareResult, err := nathole.Prepare([]string{sv.clientCfg.NatHoleSTUNServer})
+
+	// Prepare NAT traversal options
+	var opts nathole.PrepareOptions
+	if sv.cfg.NatTraversal != nil && sv.cfg.NatTraversal.DisableAssistedAddrs {
+		opts.DisableAssistedAddrs = true
+	}
+
+	prepareResult, err := nathole.Prepare([]string{sv.clientCfg.NatHoleSTUNServer}, opts)
 	if err != nil {
 		xl.Warnf("nathole prepare error: %v", err)
 		return
 	}
+
 	xl.Infof("nathole prepare success, nat type: %s, behavior: %s, addresses: %v, assistedAddresses: %v",
 		prepareResult.NatType, prepareResult.Behavior, prepareResult.Addrs, prepareResult.AssistedAddrs)
 
