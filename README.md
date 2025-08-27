@@ -17,7 +17,7 @@ frp is an open source project with its ongoing development made possible entirel
   <a href="https://go.warp.dev/frp" target="_blank">
     <img width="360px" src="https://raw.githubusercontent.com/warpdotdev/brand-assets/refs/heads/main/Github/Sponsor/Warp-Github-LG-01.png">
     <br>
-    <b>Warp, the intelligent terminal</b>
+    <b>Warp, built for collaborating with AI Agents</b>
     <br>
 	<sub>Available for macOS, Linux and Windows</sub>
   </a>
