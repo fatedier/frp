@@ -167,3 +167,60 @@ name = "port-manager"
 addr = "127.0.0.1:9001"
 path = "/handler"
 ops = ["NewProxy"]
+
+# ========================================================================
+# Custom response configuration (for HTTP vhost requests)
+# ========================================================================
+# This section allows FRPS to return a custom response when a client sends
+# an HTTP request with a Host header that is not registered by any FRPC.
+#
+# - Set enable = true to turn this feature on.
+# - Rules are matched in order; the first match wins.
+# - Supported hostname patterns:
+#     * Exact domain: "example.com"
+#     * Wildcard:     "*.example.com" (matches foo.example.com, bar.example.com, but NOT example.com itself)
+#     * Catch-all:    "*" (matches any host)
+# - Each rule can define:
+#     * statusCode   : HTTP status code (e.g. 404, 503)
+#     * contentType  : MIME type of the response (e.g. text/html, application/json)
+#     * body         : Response body (string, multi-line supported with """ ... """)
+#     * headers      : Extra headers (map of key:value)
+#
+# If no rule matches or enable = false, FRPS falls back to the default 404.
+# ========================================================================
+
+[customResponse]
+# Enable or disable the custom response feature. Default = false (disabled).
+enable = false
+
+# ------------------------------------------------------------------------
+# Rule 1: Return a 503 HTML page for *.example.com and example.com
+# ------------------------------------------------------------------------
+[[customResponse.rules]]
+hostname    = ["*.example.com", "example.com"]
+statusCode  = 503
+contentType = "text/html"
+body = """
+<!doctype html>
+<html>
+<body>
+<h1>Service Unavailable</h1>
+<p>The server is currently unavailable.<br/>
+Please try again later.</p>
+</body>
+</html>
+"""
+[customResponse.rules.headers]
+Cache-Control = "no-store"
+X-Error-Code  = "UNREGISTERED_HOST"
+
+# ------------------------------------------------------------------------
+# Rule 2: Return a 404 JSON payload for spesific.example2.com
+# ------------------------------------------------------------------------
+[[customResponse.rules]]
+hostname    = ["spesific.example2.com"]
+statusCode  = 404
+contentType = "application/json"
+body        = "{\"error\":\"unregistered_host\",\"hint\":\"register frpc for this hostname\"}"
+[customResponse.rules.headers]
+Cache-Control = "no-store"
