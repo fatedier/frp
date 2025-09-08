@@ -100,3 +100,26 @@ func BasicAuth(username, passwd string) string {
 	auth := username + ":" + passwd
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
 }
+
+// MatchDomain checks if the request host matches the config host.
+// The config host can be a wildcard domain like "*.example.com".
+func MatchDomain(requestHost, configHost string) bool {
+	if len(requestHost) == 0 || len(configHost) == 0 {
+		return false
+	}
+	if configHost == "*" {
+		return true
+	}
+	if requestHost == configHost {
+		return true
+	}
+	if strings.HasPrefix(configHost, "*.") {
+		// The config host is a wildcard domain like "*.example.com".
+		// We need to check if the request host ends with the config host.
+		suffix := configHost[1:] // Remove '*'
+		if strings.HasSuffix(requestHost, suffix) && len(requestHost) > len(suffix) {
+			return true
+		}
+	}
+	return false
+}

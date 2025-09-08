@@ -99,6 +99,8 @@ type ServerConfig struct {
 	AllowPorts []types.PortsRange `json:"allowPorts,omitempty"`
 
 	HTTPPlugins []HTTPPluginOptions `json:"httpPlugins,omitempty"`
+
+	CustomResponse *CustomResponseConfig `json:"customResponse,omitempty" toml:"customResponse" yaml:"customResponse"`
 }
 
 func (c *ServerConfig) Complete() error {
@@ -226,4 +228,17 @@ type SSHTunnelGateway struct {
 
 func (c *SSHTunnelGateway) Complete() {
 	c.AutoGenPrivateKeyPath = util.EmptyOr(c.AutoGenPrivateKeyPath, "./.autogen_ssh_key")
+}
+
+type CustomResponseConfig struct {
+	Enable bool                 `toml:"enable" json:"enable" yaml:"enable"`
+	Rules  []CustomResponseRule `toml:"rules"  json:"rules"  yaml:"rules"`
+}
+
+type CustomResponseRule struct {
+	Hostname    []string          `toml:"hostname"    json:"hostname"    yaml:"hostname"`
+	StatusCode  int               `toml:"statusCode"  json:"statusCode"  yaml:"statusCode"`
+	ContentType string            `toml:"contentType" json:"contentType" yaml:"contentType"`
+	Body        string            `toml:"body"        json:"body"        yaml:"body"`
+	Headers     map[string]string `toml:"headers"     json:"headers"     yaml:"headers"`
 }

@@ -278,8 +278,28 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 
 	// Create http vhost muxer.
 	if cfg.VhostHTTPPort > 0 {
+		var customErrorPage *vhost.CustomErrorPage
+		if cfg.CustomResponse != nil && cfg.CustomResponse.Enable {
+			rules := make([]vhost.CustomResponseRule, 0, len(cfg.CustomResponse.Rules))
+			for _, r := range cfg.CustomResponse.Rules {
+				rules = append(rules, vhost.CustomResponseRule{
+					Hostname:    r.Hostname,
+					StatusCode:  r.StatusCode,
+					ContentType: r.ContentType,
+					Body:        r.Body,
+					Headers:     r.Headers,
+				})
+			}
+			customErrorPage = &vhost.CustomErrorPage{
+				Enable: cfg.CustomResponse.Enable,
+				Rules:  rules,
+			}
+			log.Infof("custom response rules loaded: %v", rules)
+			log.Infof("custom response is enabled")
+		}
 		rp := vhost.NewHTTPReverseProxy(vhost.HTTPReverseProxyOptions{
 			ResponseHeaderTimeoutS: cfg.VhostHTTPTimeout,
+			CustomErrorPage:        customErrorPage,
 		}, svr.httpVhostRouter)
 		svr.rc.HTTPReverseProxy = rp
 

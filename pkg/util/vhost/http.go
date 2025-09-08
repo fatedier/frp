@@ -40,6 +40,7 @@ var ErrNoRouteFound = errors.New("no route found")
 
 type HTTPReverseProxyOptions struct {
 	ResponseHeaderTimeoutS int64
+	CustomErrorPage        *CustomErrorPage
 }
 
 type HTTPReverseProxy struct {
@@ -135,6 +136,10 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 					rw.WriteHeader(http.StatusGatewayTimeout)
 					return
 				}
+			}
+			customResponseStatus := CustomErrorResponse(rw, req, option.CustomErrorPage)
+			if customResponseStatus {
+				return
 			}
 			rw.WriteHeader(http.StatusNotFound)
 			_, _ = rw.Write(getNotFoundPageContent())
