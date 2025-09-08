@@ -294,7 +294,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 				Enable: cfg.CustomResponse.Enable,
 				Rules:  rules,
 			}
-			log.Infof("custom response rules loaded: %v", rules)
+			log.Debugf("custom response rules loaded: %v", rules)
 			log.Infof("custom response is enabled")
 		}
 		rp := vhost.NewHTTPReverseProxy(vhost.HTTPReverseProxyOptions{
