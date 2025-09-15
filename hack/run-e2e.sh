@@ -10,7 +10,7 @@ if ! command -v ginkgo >/dev/null 2>&1; then
 fi
 
 debug=false
-if [ "x${DEBUG}" = "xtrue" ]; then
+if [ "${DEBUG:-false}" = "true" ]; then
     debug=true
 fi
 logLevel=debug
@@ -31,4 +31,4 @@ if [ "${CONCURRENCY}" ]; then
     concurrency="${CONCURRENCY}"
 fi
 
-ginkgo -nodes=${concurrency} --poll-progress-after=60s ${ROOT}/test/e2e -- -frpc-path=${frpcPath} -frps-path=${frpsPath} -log-level=${logLevel} -debug=${debug}
+ginkgo -nodes="${concurrency}" --poll-progress-after=60s "${ROOT}/test/e2e" -- -frpc-path="${frpcPath}" -frps-path="${frpsPath}" -log-level="${logLevel}" -debug="${debug}"
