@@ -109,6 +109,7 @@ type NewProxy struct {
 	GroupKey           string            `json:"group_key,omitempty"`
 	Metas              map[string]string `json:"metas,omitempty"`
 	Annotations        map[string]string `json:"annotations,omitempty"`
+	AllowedAccessIPs   []string          `json:"allowed_access_ips,omitempty"`
 
 	// tcp and udp only
 	RemotePort int `json:"remote_port,omitempty"`

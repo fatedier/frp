@@ -98,9 +98,6 @@ type ServerConfig struct {
 
 	AllowPorts []types.PortsRange `json:"allowPorts,omitempty"`
 
-	// AllowedAccessIPs specifies IP addresses or CIDR blocks that are allowed to access proxied services.
-	// If empty, all IPs are allowed. If specified, only IPs in this list can access the proxied services.
-	AllowedAccessIPs []string `json:"allowedAccessIPs,omitempty"`
 
 	HTTPPlugins []HTTPPluginOptions `json:"httpPlugins,omitempty"`
 }

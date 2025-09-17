@@ -306,11 +306,16 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 	}
 
 	var ipValidator *netpkg.IPValidator
-	if len(options.ServerCfg.AllowedAccessIPs) > 0 {
-		ipValidator, err = netpkg.NewIPValidator(options.ServerCfg.AllowedAccessIPs)
+	proxyConfig := configurer.GetBaseConfig()
+	if len(proxyConfig.AllowedAccessIPs) > 0 {
+		xl.Infof("Creating IP validator for proxy %s with allowed IPs: %v", proxyConfig.Name, proxyConfig.AllowedAccessIPs)
+		ipValidator, err = netpkg.NewIPValidator(proxyConfig.AllowedAccessIPs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create IP validator for proxy %s: %v", configurer.GetBaseConfig().Name, err)
+			return nil, fmt.Errorf("failed to create IP validator for proxy %s: %v", proxyConfig.Name, err)
 		}
+		xl.Infof("IP validator created successfully for proxy %s", proxyConfig.Name)
+	} else {
+		xl.Infof("No IP restrictions configured for proxy %s", proxyConfig.Name)
 	}
 
 	basePxy := BaseProxy{
