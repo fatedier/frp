@@ -215,6 +215,21 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 
 	serverCfg := pxy.serverCfg
 	cfg := pxy.configurer.GetBaseConfig()
+
+	// Check IP whitelist if configured
+	if len(serverCfg.AllowedClientIPs) > 0 {
+		// Create a temporary validator - we could optimize this by caching it in BaseProxy
+		ipValidator, err := netpkg.NewIPValidator(serverCfg.AllowedClientIPs)
+		if err != nil {
+			xl.Warnf("failed to create IP validator: %v", err)
+			return
+		}
+		if !ipValidator.IsAllowed(userConn.RemoteAddr().String()) {
+			xl.Warnf("user connection from %s rejected: IP not in whitelist", userConn.RemoteAddr().String())
+			return
+		}
+	}
+
 	// server plugin hook
 	rc := pxy.GetResourceController()
 	content := &plugin.NewUserConnContent{

@@ -98,6 +98,10 @@ type ServerConfig struct {
 
 	AllowPorts []types.PortsRange `json:"allowPorts,omitempty"`
 
+	// AllowedClientIPs specifies IP addresses or CIDR blocks that are allowed to connect.
+	// If empty, all IPs are allowed. If specified, only IPs in this list can connect.
+	AllowedClientIPs []string `json:"allowedClientIPs,omitempty"`
+
 	HTTPPlugins []HTTPPluginOptions `json:"httpPlugins,omitempty"`
 }
 

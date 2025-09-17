@@ -1,1 +1,4 @@
 bindPort = 7000
+
+# Uncomment to restrict client connections to specific IP addresses
+# allowedClientIPs = ["127.0.0.1", "192.168.1.0/24"]
