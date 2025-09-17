@@ -246,7 +246,7 @@ func RegisterServerConfigFlags(cmd *cobra.Command, c *v1.ServerConfig, opts ...R
 	cmd.PersistentFlags().StringVarP(&c.Auth.Token, "token", "t", "", "auth token")
 	cmd.PersistentFlags().StringVarP(&c.SubDomainHost, "subdomain_host", "", "", "subdomain host")
 	cmd.PersistentFlags().VarP(&PortsRangeSliceFlag{V: &c.AllowPorts}, "allow_ports", "", "allow ports")
-	cmd.PersistentFlags().StringSliceVarP(&c.AllowedClientIPs, "allowed_client_ips", "", []string{}, "allowed client IP addresses or CIDR blocks")
+	cmd.PersistentFlags().StringSliceVarP(&c.AllowedAccessIPs, "allowed_access_ips", "", []string{}, "allowed IP addresses or CIDR blocks for accessing proxied services")
 	cmd.PersistentFlags().Int64VarP(&c.MaxPortsPerClient, "max_ports_per_client", "", 0, "max ports per client")
 	cmd.PersistentFlags().BoolVarP(&c.Transport.TLS.Force, "tls_only", "", false, "frps tls only")
 

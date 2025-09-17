@@ -73,6 +73,8 @@ type BaseProxy struct {
 	loginMsg      *msg.Login
 	configurer    v1.ProxyConfigurer
 
+	ipValidator *netpkg.IPValidator
+
 	mu  sync.RWMutex
 	xl  *xlog.Logger
 	ctx context.Context
@@ -108,6 +110,10 @@ func (pxy *BaseProxy) GetLimiter() *rate.Limiter {
 
 func (pxy *BaseProxy) GetConfigurer() v1.ProxyConfigurer {
 	return pxy.configurer
+}
+
+func (pxy *BaseProxy) GetIPValidator() *netpkg.IPValidator {
+	return pxy.ipValidator
 }
 
 func (pxy *BaseProxy) Close() {
@@ -216,14 +222,7 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	serverCfg := pxy.serverCfg
 	cfg := pxy.configurer.GetBaseConfig()
 
-	// Check IP whitelist if configured
-	if len(serverCfg.AllowedClientIPs) > 0 {
-		// Create a temporary validator - we could optimize this by caching it in BaseProxy
-		ipValidator, err := netpkg.NewIPValidator(serverCfg.AllowedClientIPs)
-		if err != nil {
-			xl.Warnf("failed to create IP validator: %v", err)
-			return
-		}
+	if ipValidator := pxy.GetIPValidator(); ipValidator != nil {
 		if !ipValidator.IsAllowed(userConn.RemoteAddr().String()) {
 			xl.Warnf("user connection from %s rejected: IP not in whitelist", userConn.RemoteAddr().String())
 			return
@@ -306,6 +305,14 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
 	}
 
+	var ipValidator *netpkg.IPValidator
+	if len(options.ServerCfg.AllowedAccessIPs) > 0 {
+		ipValidator, err = netpkg.NewIPValidator(options.ServerCfg.AllowedAccessIPs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create IP validator for proxy %s: %v", configurer.GetBaseConfig().Name, err)
+		}
+	}
+
 	basePxy := BaseProxy{
 		name:          configurer.GetBaseConfig().Name,
 		rc:            options.ResourceController,
@@ -314,6 +321,7 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 		getWorkConnFn: options.GetWorkConnFn,
 		serverCfg:     options.ServerCfg,
 		limiter:       limiter,
+		ipValidator:   ipValidator,
 		xl:            xl,
 		ctx:           xlog.NewContext(ctx, xl),
 		userInfo:      options.UserInfo,
