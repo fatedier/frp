@@ -1,4 +1,3 @@
 bindPort = 7000
 
-# Uncomment to restrict access to proxied services to specific IP addresses
 # allowedAccessIPs = ["127.0.0.1", "192.168.1.0/24"]
