@@ -19,6 +19,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	
+	"github.com/fatedier/frp/pkg/msg"
 )
 
 func TestUnmarshalTypedProxyConfig(t *testing.T) {
@@ -46,4 +48,76 @@ func TestUnmarshalTypedProxyConfig(t *testing.T) {
 
 	require.IsType(&TCPProxyConfig{}, proxyConfigs.Proxies[0].ProxyConfigurer)
 	require.IsType(&HTTPProxyConfig{}, proxyConfigs.Proxies[1].ProxyConfigurer)
+}
+
+func TestProxyConfigWithAllowedAccessIPs(t *testing.T) {
+	require := require.New(t)
+	proxyConfigs := struct {
+		Proxies []TypedProxyConfig `json:"proxies,omitempty"`
+	}{}
+
+	strs := `{
+		"proxies": [
+			{
+				"type": "tcp",
+				"localPort": 22,
+				"remotePort": 6000,
+				"allowedAccessIPs": ["127.0.0.1", "192.168.1.0/24"]
+			},
+			{
+				"type": "http",
+				"localPort": 80,
+				"customDomains": ["www.example.com"],
+				"allowedAccessIPs": ["10.0.0.0/8"]
+			}
+		]
+	}`
+	err := json.Unmarshal([]byte(strs), &proxyConfigs)
+	require.NoError(err)
+
+	tcpProxy := proxyConfigs.Proxies[0].ProxyConfigurer.(*TCPProxyConfig)
+	require.Equal([]string{"127.0.0.1", "192.168.1.0/24"}, tcpProxy.AllowedAccessIPs)
+
+	httpProxy := proxyConfigs.Proxies[1].ProxyConfigurer.(*HTTPProxyConfig)
+	require.Equal([]string{"10.0.0.0/8"}, httpProxy.AllowedAccessIPs)
+}
+
+func TestProxyConfigMarshalToMsg(t *testing.T) {
+	require := require.New(t)
+	
+	tcpConfig := &TCPProxyConfig{
+		ProxyBaseConfig: ProxyBaseConfig{
+			Name: "test-tcp",
+			Type: "tcp",
+			AllowedAccessIPs: []string{"127.0.0.1", "192.168.1.0/24"},
+		},
+		RemotePort: 8080,
+	}
+
+	msg := &msg.NewProxy{}
+	tcpConfig.MarshalToMsg(msg)
+
+	require.Equal("test-tcp", msg.ProxyName)
+	require.Equal("tcp", msg.ProxyType)
+	require.Equal(8080, msg.RemotePort)
+	require.Equal([]string{"127.0.0.1", "192.168.1.0/24"}, msg.AllowedAccessIPs)
+}
+
+func TestProxyConfigUnmarshalFromMsg(t *testing.T) {
+	require := require.New(t)
+	
+	msg := &msg.NewProxy{
+		ProxyName: "test-tcp",
+		ProxyType: "tcp",
+		RemotePort: 8080,
+		AllowedAccessIPs: []string{"127.0.0.1", "192.168.1.0/24"},
+	}
+
+	tcpConfig := &TCPProxyConfig{}
+	tcpConfig.UnmarshalFromMsg(msg)
+
+	require.Equal("test-tcp", tcpConfig.Name)
+	require.Equal("tcp", tcpConfig.Type)
+	require.Equal(8080, tcpConfig.RemotePort)
+	require.Equal([]string{"127.0.0.1", "192.168.1.0/24"}, tcpConfig.AllowedAccessIPs)
 }
