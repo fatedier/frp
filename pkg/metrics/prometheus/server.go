@@ -29,12 +29,12 @@ func (m *serverMetrics) CloseClient() {
 	m.clientCount.Dec()
 }
 
-func (m *serverMetrics) NewProxy(_ string, proxyType string) {
-	m.proxyCount.WithLabelValues(proxyType).Inc()
+func (m *serverMetrics) NewProxy(name string, proxyType string) {
+	m.proxyCount.WithLabelValues(name, proxyType).Inc()
 }
 
-func (m *serverMetrics) CloseProxy(_ string, proxyType string) {
-	m.proxyCount.WithLabelValues(proxyType).Dec()
+func (m *serverMetrics) CloseProxy(name string, proxyType string) {
+	m.proxyCount.WithLabelValues(name, proxyType).Dec()
 }
 
 func (m *serverMetrics) OpenConnection(name string, proxyType string) {
@@ -66,7 +66,7 @@ func newServerMetrics() *serverMetrics {
 			Subsystem: serverSubsystem,
 			Name:      "proxy_counts",
 			Help:      "The current proxy counts",
-		}, []string{"type"}),
+		}, []string{"name", "type"}),
 		connectionCount: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: serverSubsystem,
