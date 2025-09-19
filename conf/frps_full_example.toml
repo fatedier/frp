@@ -133,8 +133,9 @@ allowPorts = [
 # Max ports can be used for each client, default value is 0 means no limit
 maxPortsPerClient = 0
 
-# Only allow access to proxied services from specified IP addresses or CIDR blocks.
-# If empty, all IPs are allowed. If specified, only IPs in this list can access proxied services.
+# NOTE: allowedAccessIPs is configured per-proxy in the CLIENT configuration (frpc.toml), not here.
+# This setting controls which IP addresses can connect to establish FRP tunnels to this server.
+# If empty, all IPs can connect to create tunnels. If specified, only these IPs can connect as frpc clients.
 # Examples: ["127.0.0.1", "192.168.1.0/24", "10.0.0.0/8"]
 # allowedAccessIPs = ["127.0.0.1", "192.168.1.0/24"]
 
