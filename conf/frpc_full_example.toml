@@ -55,6 +55,20 @@ auth.token = "12345678"
 # auth.oidc.additionalEndpointParams.audience = "https://dev.auth.com/api/v2/"
 # auth.oidc.additionalEndpointParams.var1 = "foobar"
 
+# OIDC TLS and proxy configuration
+# Specify a custom CA certificate file for verifying the OIDC token endpoint's TLS certificate.
+# This is useful when the OIDC provider uses a self-signed certificate or a custom CA.
+# auth.oidc.trustedCaFile = "/path/to/ca.crt"
+
+# Skip TLS certificate verification for the OIDC token endpoint.
+# INSECURE: Only use this for debugging purposes, not recommended for production.
+# auth.oidc.insecureSkipVerify = false
+
+# Specify a proxy server for OIDC token endpoint connections.
+# Supports http, https, socks5, and socks5h proxy protocols.
+# If not specified, no proxy is used for OIDC connections.
+# auth.oidc.proxyURL = "http://proxy.example.com:8080"
+
 # Set admin address for control frpc's action by http api such as reload
 webServer.addr = "127.0.0.1"
 webServer.port = 7400

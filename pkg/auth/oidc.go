@@ -16,23 +16,72 @@ package auth
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"net/http"
+	"net/url"
+	"os"
 	"slices"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 )
 
+// createOIDCHTTPClient creates an HTTP client with custom TLS and proxy configuration for OIDC token requests
+func createOIDCHTTPClient(trustedCAFile string, insecureSkipVerify bool, proxyURL string) (*http.Client, error) {
+	// Clone the default transport to get all reasonable defaults
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+
+	// Configure TLS settings
+	if trustedCAFile != "" || insecureSkipVerify {
+		tlsConfig := &tls.Config{
+			InsecureSkipVerify: insecureSkipVerify,
+		}
+
+		if trustedCAFile != "" && !insecureSkipVerify {
+			caCert, err := os.ReadFile(trustedCAFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read OIDC CA certificate file %q: %w", trustedCAFile, err)
+			}
+
+			caCertPool := x509.NewCertPool()
+			if !caCertPool.AppendCertsFromPEM(caCert) {
+				return nil, fmt.Errorf("failed to parse OIDC CA certificate from file %q", trustedCAFile)
+			}
+
+			tlsConfig.RootCAs = caCertPool
+		}
+		transport.TLSClientConfig = tlsConfig
+	}
+
+	// Configure proxy settings
+	if proxyURL != "" {
+		parsedURL, err := url.Parse(proxyURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse OIDC proxy URL %q: %w", proxyURL, err)
+		}
+		transport.Proxy = http.ProxyURL(parsedURL)
+	} else {
+		// Explicitly disable proxy to override DefaultTransport's ProxyFromEnvironment
+		transport.Proxy = nil
+	}
+
+	return &http.Client{Transport: transport}, nil
+}
+
 type OidcAuthProvider struct {
 	additionalAuthScopes []v1.AuthScope
 
 	tokenGenerator *clientcredentials.Config
+	httpClient     *http.Client
 }
 
-func NewOidcAuthSetter(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCClientConfig) *OidcAuthProvider {
+func NewOidcAuthSetter(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCClientConfig) (*OidcAuthProvider, error) {
 	eps := make(map[string][]string)
 	for k, v := range cfg.AdditionalEndpointParams {
 		eps[k] = []string{v}
@@ -50,14 +99,30 @@ func NewOidcAuthSetter(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCClien
 		EndpointParams: eps,
 	}
 
+	// Create custom HTTP client if needed
+	var httpClient *http.Client
+	if cfg.TrustedCaFile != "" || cfg.InsecureSkipVerify || cfg.ProxyURL != "" {
+		var err error
+		httpClient, err = createOIDCHTTPClient(cfg.TrustedCaFile, cfg.InsecureSkipVerify, cfg.ProxyURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create OIDC HTTP client: %w", err)
+		}
+	}
+
 	return &OidcAuthProvider{
 		additionalAuthScopes: additionalAuthScopes,
 		tokenGenerator:       tokenGenerator,
-	}
+		httpClient:           httpClient,
+	}, nil
 }
 
 func (auth *OidcAuthProvider) generateAccessToken() (accessToken string, err error) {
-	tokenObj, err := auth.tokenGenerator.Token(context.Background())
+	ctx := context.Background()
+	if auth.httpClient != nil {
+		ctx = context.WithValue(ctx, oauth2.HTTPClient, auth.httpClient)
+	}
+
+	tokenObj, err := auth.tokenGenerator.Token(ctx)
 	if err != nil {
 		return "", fmt.Errorf("couldn't generate OIDC token for login: %v", err)
 	}
