@@ -74,7 +74,7 @@ func newServerMetrics() *serverMetrics {
 			Namespace: namespace,
 			Subsystem: serverSubsystem,
 			Name:      "proxy_counts_detailed",
-			Help:      "The current proxy counts with proxy name label",
+			Help:      "The current number of proxies grouped by type and name",
 		}, []string{"type", "name"}),
 		connectionCount: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: namespace,
