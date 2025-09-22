@@ -97,6 +97,7 @@ func newServerMetrics() *serverMetrics {
 	}
 	prometheus.MustRegister(m.clientCount)
 	prometheus.MustRegister(m.proxyCount)
+	prometheus.MustRegister(m.proxyCountDetailed)
 	prometheus.MustRegister(m.connectionCount)
 	prometheus.MustRegister(m.trafficIn)
 	prometheus.MustRegister(m.trafficOut)
