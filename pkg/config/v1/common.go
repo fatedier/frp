@@ -85,9 +85,9 @@ func (c *WebServerConfig) Complete() {
 }
 
 type TLSConfig struct {
-	// CertPath specifies the path of the cert file that client will load.
+	// CertFile specifies the path of the cert file that client will load.
 	CertFile string `json:"certFile,omitempty"`
-	// KeyPath specifies the path of the secret key file that client will load.
+	// KeyFile specifies the path of the secret key file that client will load.
 	KeyFile string `json:"keyFile,omitempty"`
 	// TrustedCaFile specifies the path of the trusted ca file that will load.
 	TrustedCaFile string `json:"trustedCaFile,omitempty"`
