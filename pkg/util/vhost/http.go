@@ -73,6 +73,14 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 					req.Host = rc.RewriteHost
 				}
 
+				// Strip prefix if enabled and location matches
+				if rc.StripPrefix && rc.Location != "" && strings.HasPrefix(req.URL.Path, rc.Location) {
+					req.URL.Path = strings.TrimPrefix(req.URL.Path, rc.Location)
+					if req.URL.Path == "" {
+						req.URL.Path = "/"
+					}
+				}
+
 				var endpoint string
 				if rc.ChooseEndpointFn != nil {
 					// ignore error here, it will use CreateConnFn instead later

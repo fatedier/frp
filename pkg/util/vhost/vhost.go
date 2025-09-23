@@ -120,6 +120,7 @@ type RouteConfig struct {
 	Headers         map[string]string
 	ResponseHeaders map[string]string
 	RouteByHTTPUser string
+	StripPrefix     bool
 
 	CreateConnFn           CreateConnFunc
 	ChooseEndpointFn       ChooseEndpointFunc

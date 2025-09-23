@@ -420,6 +420,57 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 		framework.ExpectEqualValues(consts.TestString, string(msg))
 	})
 
+	ginkgo.It("Strip prefix from request path", func() {
+		vhostHTTPPort := f.AllocPort()
+		serverConf := getDefaultServerConf(vhostHTTPPort)
+
+		localPort := f.AllocPort()
+		localServer := httpserver.New(
+			httpserver.WithBindPort(localPort),
+			httpserver.WithHandler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				_, _ = w.Write([]byte(req.URL.Path))
+			})),
+		)
+		f.RunServer("", localServer)
+
+		clientConf := consts.DefaultClientConfig
+		clientConf += fmt.Sprintf(`
+			[[proxies]]
+			name = "test"
+			type = "http"
+			localPort = %d
+			customDomains = ["normal.example.com"]
+			locations = ["/api"]
+			stripPrefix = true
+			`, localPort)
+
+		f.RunProcesses(serverConf, []string{clientConf})
+
+		// Test that /api/users becomes /users
+		framework.NewRequestExpect(f).Port(vhostHTTPPort).
+			RequestModify(func(r *request.Request) {
+				r.HTTP().HTTPHost("normal.example.com").HTTPPath("/api/users")
+			}).
+			ExpectResp([]byte("/users")).
+			Ensure()
+
+		// Test that /api becomes /
+		framework.NewRequestExpect(f).Port(vhostHTTPPort).
+			RequestModify(func(r *request.Request) {
+				r.HTTP().HTTPHost("normal.example.com").HTTPPath("/api")
+			}).
+			ExpectResp([]byte("/")).
+			Ensure()
+
+		// Test that /api/v1/data becomes /v1/data
+		framework.NewRequestExpect(f).Port(vhostHTTPPort).
+			RequestModify(func(r *request.Request) {
+				r.HTTP().HTTPHost("normal.example.com").HTTPPath("/api/v1/data")
+			}).
+			ExpectResp([]byte("/v1/data")).
+			Ensure()
+	})
+
 	ginkgo.It("vhostHTTPTimeout", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostHTTPPort)

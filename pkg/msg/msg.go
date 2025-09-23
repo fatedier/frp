@@ -124,6 +124,7 @@ type NewProxy struct {
 	Headers           map[string]string `json:"headers,omitempty"`
 	ResponseHeaders   map[string]string `json:"response_headers,omitempty"`
 	RouteByHTTPUser   string            `json:"route_by_http_user,omitempty"`
+	StripPrefix       bool              `json:"strip_prefix,omitempty"`
 
 	// stcp, sudp, xtcp
 	Sk         string   `json:"sk,omitempty"`
