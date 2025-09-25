@@ -16,18 +16,42 @@ frp 是一个完全开源的项目，我们的开发工作完全依靠赞助者�
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
 <p align="center">
+  <a href="https://www.recall.ai/?utm_source=github&utm_medium=sponsorship&utm_campaign=fatedier-frp" target="_blank">
+    <b>Recall.ai - API for meeting recordings</b><br>
+    <br>
+    <sup>If you're looking for a meeting recording API, consider checking out Recall.ai, an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and more.</sup>
+  </a>
+</p>
+<p align="center">
+  <a href="https://go.warp.dev/frp" target="_blank">
+    <img width="360px" src="https://raw.githubusercontent.com/warpdotdev/brand-assets/refs/heads/main/Github/Sponsor/Warp-Github-LG-01.png">
+    <br>
+    <b>Warp, built for collaborating with AI Agents</b>
+    <br>
+	<sub>Available for macOS, Linux and Windows</sub>
+  </a>
+</p>
+<p align="center">
   <a href="https://jb.gg/frp" target="_blank">
     <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_jetbrains.jpg">
+	<br>
+	<b>The complete IDE crafted for professional Go developers</b>
   </a>
 </p>
 <p align="center">
   <a href="https://github.com/daytonaio/daytona" target="_blank">
     <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_daytona.png">
+	<br>
+	<b>Secure and Elastic Infrastructure for Running Your AI-Generated Code</b>
   </a>
 </p>
 <p align="center">
   <a href="https://github.com/beclab/Olares" target="_blank">
     <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_olares.jpeg">
+	<br>
+	<b>The sovereign cloud that puts you in control</b>
+	<br>
+	<sub>An open source, self-hosted alternative to public clouds, built for data ownership and privacy</sub>
   </a>
 </p>
 <!--gold sponsors end-->

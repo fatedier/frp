@@ -85,15 +85,23 @@ func (c *WebServerConfig) Complete() {
 }
 
 type TLSConfig struct {
-	// CertPath specifies the path of the cert file that client will load.
+	// CertFile specifies the path of the cert file that client will load.
 	CertFile string `json:"certFile,omitempty"`
-	// KeyPath specifies the path of the secret key file that client will load.
+	// KeyFile specifies the path of the secret key file that client will load.
 	KeyFile string `json:"keyFile,omitempty"`
 	// TrustedCaFile specifies the path of the trusted ca file that will load.
 	TrustedCaFile string `json:"trustedCaFile,omitempty"`
 	// ServerName specifies the custom server name of tls certificate. By
 	// default, server name if same to ServerAddr.
 	ServerName string `json:"serverName,omitempty"`
+}
+
+// NatTraversalConfig defines configuration options for NAT traversal
+type NatTraversalConfig struct {
+	// DisableAssistedAddrs disables the use of local network interfaces
+	// for assisted connections during NAT traversal. When enabled,
+	// only STUN-discovered public addresses will be used.
+	DisableAssistedAddrs bool `json:"disableAssistedAddrs,omitempty"`
 }
 
 type LogConfig struct {

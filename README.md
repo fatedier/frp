@@ -14,10 +14,17 @@ frp is an open source project with its ongoing development made possible entirel
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
 <p align="center">
+  <a href="https://www.recall.ai/?utm_source=github&utm_medium=sponsorship&utm_campaign=fatedier-frp" target="_blank">
+    <b>Recall.ai - API for meeting recordings</b><br>
+    <br>
+    <sup>If you're looking for a meeting recording API, consider checking out Recall.ai, an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and more.</sup>
+  </a>
+</p>
+<p align="center">
   <a href="https://go.warp.dev/frp" target="_blank">
     <img width="360px" src="https://raw.githubusercontent.com/warpdotdev/brand-assets/refs/heads/main/Github/Sponsor/Warp-Github-LG-01.png">
     <br>
-    <b>Warp, the intelligent terminal</b>
+    <b>Warp, built for collaborating with AI Agents</b>
     <br>
 	<sub>Available for macOS, Linux and Windows</sub>
   </a>
@@ -519,7 +526,7 @@ name = "ssh"
 type = "tcp"
 localIP = "127.0.0.1"
 localPort = 22
-remotePort = "{{ .Envs.FRP_SSH_REMOTE_PORT }}"
+remotePort = {{ .Envs.FRP_SSH_REMOTE_PORT }}
 ```
 
 With the config above, variables can be passed into `frpc` program like this:

@@ -14,11 +14,12 @@ const (
 var ServerMetrics metrics.ServerMetrics = newServerMetrics()
 
 type serverMetrics struct {
-	clientCount     prometheus.Gauge
-	proxyCount      *prometheus.GaugeVec
-	connectionCount *prometheus.GaugeVec
-	trafficIn       *prometheus.CounterVec
-	trafficOut      *prometheus.CounterVec
+	clientCount        prometheus.Gauge
+	proxyCount         *prometheus.GaugeVec
+	proxyCountDetailed *prometheus.GaugeVec
+	connectionCount    *prometheus.GaugeVec
+	trafficIn          *prometheus.CounterVec
+	trafficOut         *prometheus.CounterVec
 }
 
 func (m *serverMetrics) NewClient() {
@@ -29,12 +30,14 @@ func (m *serverMetrics) CloseClient() {
 	m.clientCount.Dec()
 }
 
-func (m *serverMetrics) NewProxy(_ string, proxyType string) {
+func (m *serverMetrics) NewProxy(name string, proxyType string) {
 	m.proxyCount.WithLabelValues(proxyType).Inc()
+	m.proxyCountDetailed.WithLabelValues(proxyType, name).Inc()
 }
 
-func (m *serverMetrics) CloseProxy(_ string, proxyType string) {
+func (m *serverMetrics) CloseProxy(name string, proxyType string) {
 	m.proxyCount.WithLabelValues(proxyType).Dec()
+	m.proxyCountDetailed.WithLabelValues(proxyType, name).Dec()
 }
 
 func (m *serverMetrics) OpenConnection(name string, proxyType string) {
@@ -67,6 +70,12 @@ func newServerMetrics() *serverMetrics {
 			Name:      "proxy_counts",
 			Help:      "The current proxy counts",
 		}, []string{"type"}),
+		proxyCountDetailed: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: serverSubsystem,
+			Name:      "proxy_counts_detailed",
+			Help:      "The current number of proxies grouped by type and name",
+		}, []string{"type", "name"}),
 		connectionCount: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: serverSubsystem,
@@ -88,6 +97,7 @@ func newServerMetrics() *serverMetrics {
 	}
 	prometheus.MustRegister(m.clientCount)
 	prometheus.MustRegister(m.proxyCount)
+	prometheus.MustRegister(m.proxyCountDetailed)
 	prometheus.MustRegister(m.connectionCount)
 	prometheus.MustRegister(m.trafficIn)
 	prometheus.MustRegister(m.trafficOut)

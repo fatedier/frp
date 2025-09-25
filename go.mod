@@ -1,6 +1,6 @@
 module github.com/fatedier/frp
 
-go 1.23.0
+go 1.24.0
 
 require (
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
@@ -82,4 +82,4 @@ require (
 )
 
 // TODO(fatedier): Temporary use the modified version, update to the official version after merging into the official repository.
-replace github.com/hashicorp/yamux => github.com/fatedier/yamux v0.0.0-20230628132301-7aca4898904d
+replace github.com/hashicorp/yamux => github.com/fatedier/yamux v0.0.0-20250825093530-d0154be01cd6
