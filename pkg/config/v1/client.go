@@ -228,6 +228,17 @@ type AuthOIDCClientConfig struct {
 	// AdditionalEndpointParams specifies additional parameters to be sent
 	// this field will be transfer to map[string][]string in OIDC token generator.
 	AdditionalEndpointParams map[string]string `json:"additionalEndpointParams,omitempty"`
+
+	// TrustedCaFile specifies the path to a custom CA certificate file
+	// for verifying the OIDC token endpoint's TLS certificate.
+	TrustedCaFile string `json:"trustedCaFile,omitempty"`
+	// InsecureSkipVerify disables TLS certificate verification for the
+	// OIDC token endpoint. Only use this for debugging, not recommended for production.
+	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
+	// ProxyURL specifies a proxy to use when connecting to the OIDC token endpoint.
+	// Supports http, https, socks5, and socks5h proxy protocols.
+	// If empty, no proxy is used for OIDC connections.
+	ProxyURL string `json:"proxyURL,omitempty"`
 }
 
 type VirtualNetConfig struct {

@@ -27,16 +27,19 @@ type Setter interface {
 	SetNewWorkConn(*msg.NewWorkConn) error
 }
 
-func NewAuthSetter(cfg v1.AuthClientConfig) (authProvider Setter) {
+func NewAuthSetter(cfg v1.AuthClientConfig) (authProvider Setter, err error) {
 	switch cfg.Method {
 	case v1.AuthMethodToken:
 		authProvider = NewTokenAuth(cfg.AdditionalScopes, cfg.Token)
 	case v1.AuthMethodOIDC:
-		authProvider = NewOidcAuthSetter(cfg.AdditionalScopes, cfg.OIDC)
+		authProvider, err = NewOidcAuthSetter(cfg.AdditionalScopes, cfg.OIDC)
+		if err != nil {
+			return nil, err
+		}
 	default:
-		panic(fmt.Sprintf("wrong method: '%s'", cfg.Method))
+		return nil, fmt.Errorf("unsupported auth method: %s", cfg.Method)
 	}
-	return authProvider
+	return authProvider, nil
 }
 
 type Verifier interface {

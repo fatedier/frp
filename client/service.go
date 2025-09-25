@@ -149,9 +149,15 @@ func NewService(options ServiceOptions) (*Service, error) {
 		}
 		webServer = ws
 	}
+
+	authSetter, err := auth.NewAuthSetter(options.Common.Auth)
+	if err != nil {
+		return nil, err
+	}
+
 	s := &Service{
 		ctx:              context.Background(),
-		authSetter:       auth.NewAuthSetter(options.Common.Auth),
+		authSetter:       authSetter,
 		webServer:        webServer,
 		common:           options.Common,
 		configFilePath:   options.ConfigFilePath,
