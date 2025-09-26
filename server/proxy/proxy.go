@@ -73,6 +73,8 @@ type BaseProxy struct {
 	loginMsg      *msg.Login
 	configurer    v1.ProxyConfigurer
 
+	ipValidator *netpkg.IPValidator
+
 	mu  sync.RWMutex
 	xl  *xlog.Logger
 	ctx context.Context
@@ -108,6 +110,10 @@ func (pxy *BaseProxy) GetLimiter() *rate.Limiter {
 
 func (pxy *BaseProxy) GetConfigurer() v1.ProxyConfigurer {
 	return pxy.configurer
+}
+
+func (pxy *BaseProxy) GetIPValidator() *netpkg.IPValidator {
+	return pxy.ipValidator
 }
 
 func (pxy *BaseProxy) Close() {
@@ -215,6 +221,14 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 
 	serverCfg := pxy.serverCfg
 	cfg := pxy.configurer.GetBaseConfig()
+
+	if ipValidator := pxy.GetIPValidator(); ipValidator != nil {
+		if !ipValidator.IsAllowed(userConn.RemoteAddr().String()) {
+			xl.Warnf("user connection from %s rejected: IP not in whitelist", userConn.RemoteAddr().String())
+			return
+		}
+	}
+
 	// server plugin hook
 	rc := pxy.GetResourceController()
 	content := &plugin.NewUserConnContent{
@@ -291,6 +305,19 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
 	}
 
+	var ipValidator *netpkg.IPValidator
+	proxyConfig := configurer.GetBaseConfig()
+	if len(proxyConfig.AllowedAccessIPs) > 0 {
+		xl.Infof("Creating IP validator for proxy %s with allowed IPs: %v", proxyConfig.Name, proxyConfig.AllowedAccessIPs)
+		ipValidator, err = netpkg.NewIPValidator(proxyConfig.AllowedAccessIPs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create IP validator for proxy %s: %v", proxyConfig.Name, err)
+		}
+		xl.Infof("IP validator created successfully for proxy %s", proxyConfig.Name)
+	} else {
+		xl.Infof("No IP restrictions configured for proxy %s", proxyConfig.Name)
+	}
+
 	basePxy := BaseProxy{
 		name:          configurer.GetBaseConfig().Name,
 		rc:            options.ResourceController,
@@ -299,6 +326,7 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 		getWorkConnFn: options.GetWorkConnFn,
 		serverCfg:     options.ServerCfg,
 		limiter:       limiter,
+		ipValidator:   ipValidator,
 		xl:            xl,
 		ctx:           xlog.NewContext(ctx, xl),
 		userInfo:      options.UserInfo,
