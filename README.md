@@ -13,13 +13,15 @@ frp is an open source project with its ongoing development made possible entirel
 
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
-<p align="center">
-  <a href="https://www.recall.ai/?utm_source=github&utm_medium=sponsorship&utm_campaign=fatedier-frp" target="_blank">
-    <b>Recall.ai - API for meeting recordings</b><br>
-    <br>
-    <sup>If you're looking for a meeting recording API, consider checking out Recall.ai, an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and more.</sup>
-  </a>
-</p>
+<div align="center">
+
+## Recall.ai - API for meeting recordings
+
+If you're looking for a meeting recording API, consider checking out [Recall.ai](https://www.recall.ai/?utm_source=github&utm_medium=sponsorship&utm_campaign=fatedier-frp),
+
+an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and more.
+
+</div>
 <p align="center">
   <a href="https://go.warp.dev/frp" target="_blank">
     <img width="360px" src="https://raw.githubusercontent.com/warpdotdev/brand-assets/refs/heads/main/Github/Sponsor/Warp-Github-LG-01.png">
