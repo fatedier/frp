@@ -12,11 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !android
+//go:build !android && !windows
 
 package system
+
+var ServiceName = ""
 
 // EnableCompatibilityMode enables compatibility mode for different system.
 // For example, on Android, the inability to obtain the correct time zone will result in incorrect log time output.
 func EnableCompatibilityMode() {
+}
+
+// Run wraps Execute function for different system.
+// For example, on Windows, it runs as a Windows service if necessary.
+func Run(name string, f func()) {
+	// Run as a usual program.
+	ServiceName = name
+	f()
 }
