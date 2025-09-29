@@ -17,6 +17,7 @@ package sub
 import (
 	"context"
 	"fmt"
+	"github.com/fatedier/frp/pkg/util/system"
 	"io/fs"
 	"os"
 	"os/signal"
@@ -171,6 +172,22 @@ func startService(
 	})
 	if err != nil {
 		return err
+	}
+
+	// Setup system.PauseF and system.ContinueF
+	system.PauseF = func() error {
+		return svr.UpdateAllConfigurer([]v1.ProxyConfigurer{}, []v1.VisitorConfigurer{})
+	}
+	system.ContinueF = func() error {
+		cliCfg, proxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(cfgFile, strictConfigMode)
+		if err != nil {
+			return err
+		}
+		_, err = validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs)
+		if err != nil {
+			return err
+		}
+		return svr.UpdateAllConfigurer(proxyCfgs, visitorCfgs)
 	}
 
 	shouldGracefulClose := cfg.Transport.Protocol == "kcp" || cfg.Transport.Protocol == "quic"

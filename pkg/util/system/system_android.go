@@ -23,6 +23,8 @@ import (
 )
 
 var ServiceName = ""
+var PauseF func() = nil
+var ContinueF func() = nil
 
 func EnableCompatibilityMode() {
 	fixTimezone()
