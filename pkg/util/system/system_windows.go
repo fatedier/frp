@@ -21,6 +21,8 @@ import (
 )
 
 var ServiceName = ""
+var PauseF func() error = nil
+var ContinueF func() error = nil
 
 // EnableCompatibilityMode enables compatibility mode for different system.
 // For example, on Android, the inability to obtain the correct time zone will result in incorrect log time output.
@@ -66,9 +68,19 @@ func (f frpService) Execute(args []string, r <-chan svc.ChangeRequest, s chan<- 
 		// Replace all parameters if specified in Services MMC
 		os.Args = append(os.Args[:1], args[1:]...)
 	}
-	go f.f()
+	go func() {
+		f.f()
+		os.Exit(0)
+	}()
 
-	s <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown | svc.AcceptParamChange}
+	// Wait until ContinueF is set.
+	for ContinueF == nil {
+	}
+	if PauseF != nil && ContinueF != nil {
+		s <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue}
+	} else {
+		s <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown}
+	}
 	fmt.Println("Service started.")
 
 	for {
@@ -79,9 +91,26 @@ func (f frpService) Execute(args []string, r <-chan svc.ChangeRequest, s chan<- 
 				return
 			case svc.Interrogate:
 				s <- c.CurrentStatus
-			case svc.ParamChange:
-				fmt.Println("Reloading configurations...")
-				// TODO: Trigger reloading
+			case svc.Pause:
+				if PauseF != nil && ContinueF != nil {
+					s <- svc.Status{State: svc.PausePending, Accepts: svc.AcceptStop | svc.AcceptShutdown}
+					err := PauseF()
+					if err != nil {
+						return false, 1
+					}
+					s <- svc.Status{State: svc.Paused, Accepts: svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue}
+					fmt.Println("Service paused.")
+				}
+			case svc.Continue:
+				if PauseF != nil && ContinueF != nil {
+					fmt.Println("Service resumed, reloading configurations...")
+					s <- svc.Status{State: svc.ContinuePending, Accepts: svc.AcceptStop | svc.AcceptShutdown}
+					err := ContinueF()
+					if err != nil {
+						return false, 1
+					}
+					s <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue}
+				}
 			default:
 				fmt.Printf("ERROR: Unexpected services control request #%d\n", c)
 			}
