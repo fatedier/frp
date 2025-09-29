@@ -37,7 +37,6 @@ func Run(name string, f func()) {
 		os.Exit(1)
 	} else if inService {
 		// Start as a service.
-		//_ = events.InitEventWriter()
 		err := svc.Run(name, &frpService{
 			f: f,
 		})
@@ -63,6 +62,10 @@ func (f frpService) Execute(args []string, r <-chan svc.ChangeRequest, s chan<- 
 	}()
 
 	// Main function.
+	if len(args) > 1 {
+		// Replace all parameters if specified in Services MMC
+		os.Args = append(os.Args[:1], args[1:]...)
+	}
 	go f.f()
 
 	s <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown | svc.AcceptParamChange}
