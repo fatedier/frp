@@ -12,3 +12,5 @@ RUN apk add --no-cache tzdata
 COPY --from=building /building/bin/frps /usr/bin/frps
 
 ENTRYPOINT ["/usr/bin/frps"]
+
+CMD ["-c" "/etc/frp/frps.toml"]
