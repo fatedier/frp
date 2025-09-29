@@ -18,7 +18,7 @@ package v1
 
 // isWinSvc checks if we are running as a Windows service.
 // Always return false on non-windows platforms.
-func IsWinSvc() bool {
+func isWinSvc() bool {
 	return false
 }
 
