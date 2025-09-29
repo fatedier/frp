@@ -40,6 +40,7 @@ func GetEventWriter() *EventWriter {
 
 // InitEventWriter tries initializing an EventWriter instance.
 func InitEventWriter() error {
+	return nil
 }
 
 // DestroyEventWriter closes the EventWriter instance.
