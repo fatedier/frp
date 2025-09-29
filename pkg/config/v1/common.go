@@ -15,7 +15,6 @@
 package v1
 
 import (
-	"golang.org/x/sys/windows/svc"
 	"sync"
 
 	"github.com/fatedier/frp/pkg/util/util"
@@ -123,8 +122,7 @@ type LogConfig struct {
 }
 
 func (c *LogConfig) Complete() {
-	sv, _ := svc.IsWindowsService()
-	c.To = util.EmptyOr(c.To, map[bool]string{true: "eventlog", false: "console"}[sv])
+	c.To = util.EmptyOr(c.To, map[bool]string{true: "eventlog", false: "console"}[isWinSvc()])
 	c.Level = util.EmptyOr(c.Level, "info")
 	c.MaxDays = util.EmptyOr(c.MaxDays, 3)
 }
