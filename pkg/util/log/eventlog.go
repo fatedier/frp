@@ -25,7 +25,7 @@ type EventWriter struct {
 }
 
 func (e EventWriter) Write(p []byte) (n int, err error) {
-	return log.DefaultWriter.Write(b)
+	return log.DefaultWriter.Write(p)
 }
 
 func (e EventWriter) WriteLog(p []byte, _ log.Level, _ time.Time) (n int, err error) {
@@ -39,7 +39,7 @@ func GetEventWriter() *EventWriter {
 }
 
 // InitEventWriter tries initializing an EventWriter instance.
-func InitEventWriter() {
+func InitEventWriter() error {
 }
 
 // DestroyEventWriter closes the EventWriter instance.
