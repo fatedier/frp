@@ -22,5 +22,5 @@ import (
 
 func main() {
 	system.EnableCompatibilityMode()
-	system.Run("FRP Server", Execute)
+	system.Run("FrpServer", Execute)
 }

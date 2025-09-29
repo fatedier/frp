@@ -41,13 +41,24 @@ func init() {
 
 func InitLogger(logPath string, levelStr string, maxDays int, disableLogColor bool) {
 	options := []log.Option{}
-	if logPath == "console" {
-		if !disableLogColor {
-			options = append(options,
-				log.WithOutput(log.NewConsoleWriter(log.ConsoleConfig{
-					Colorful: true,
-				}, os.Stdout)),
-			)
+	if logPath == "console" || logPath == "eventlog" {
+		if logPath == "eventlog" {
+			if InitEventWriter() == nil && GetEventWriter() != nil {
+				options = append(options,
+					log.WithOutput(GetEventWriter()),
+				)
+			} else {
+				logPath = "console"
+			}
+		}
+		if logPath == "console" {
+			if !disableLogColor {
+				options = append(options,
+					log.WithOutput(log.NewConsoleWriter(log.ConsoleConfig{
+						Colorful: true,
+					}, os.Stdout)),
+				)
+			}
 		}
 	} else {
 		writer := log.NewRotateFileWriter(log.RotateFileConfig{
