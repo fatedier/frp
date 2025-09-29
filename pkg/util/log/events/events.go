@@ -12,15 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package events
 
-import (
-	"github.com/fatedier/frp/cmd/frpc/sub"
-	"github.com/fatedier/frp/pkg/util/system"
-	_ "github.com/fatedier/frp/web/frpc"
+// Event IDs.
+// See https://learn.microsoft.com/zh-cn/windows/win32/eventlog/event-identifiers
+
+const (
+	Undefined = iota
 )
 
-func main() {
-	system.EnableCompatibilityMode()
-	system.Run("FrpClient", sub.Execute)
-}
+const (
+	InfoUndefined = iota + 1000
+)
+
+const (
+	WarnUndefined = iota + 2000
+)
+
+const (
+	ErrUndefined = iota + 3000
+)
+
+

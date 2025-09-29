@@ -154,6 +154,9 @@ func startService(
 	cfgFile string,
 ) error {
 	log.InitLogger(cfg.Log.To, cfg.Log.Level, int(cfg.Log.MaxDays), cfg.Log.DisablePrintColor)
+	defer func() {
+		_ = log.DestroyEventWriter()
+	}()
 
 	if cfgFile != "" {
 		log.Infof("start frpc service for config file [%s]", cfgFile)
