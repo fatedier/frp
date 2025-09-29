@@ -17,8 +17,8 @@
 package system
 
 var ServiceName = ""
-var PauseF func() = nil
-var ContinueF func() = nil
+var PauseF func() error = nil
+var ContinueF func() error = nil
 
 // EnableCompatibilityMode enables compatibility mode for different system.
 // For example, on Android, the inability to obtain the correct time zone will result in incorrect log time output.
