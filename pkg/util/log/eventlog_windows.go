@@ -16,22 +16,15 @@ package log
 
 import (
 	"errors"
-	"fmt"
 	"github.com/fatedier/frp/pkg/util/log/events"
 	"github.com/fatedier/frp/pkg/util/system"
 	"github.com/fatedier/golib/log"
 	"golang.org/x/sys/windows/svc/eventlog"
-	"os/exec"
 	"strings"
 	"time"
 )
 
 var eventWriter *EventWriter = nil
-
-const (
-	FmtCheckSource = "if ([System.Diagnostics.EventLog]::SourceExists(\"%s\")) { exit 0 } else { exit 1 }"
-	FmtCreateSource = "[System.Diagnostics.EventLog]::CreateEventSource(\"%s\", \"Frp\")"
-)
 
 type EventWriter struct {
 	logInstance *eventlog.Log
@@ -89,10 +82,8 @@ func InitEventWriter() error {
 	if eventWriter != nil {
 		return nil
 	}
-	// To check if event log is usable, powershell must exist
-	if exec.Command("powershell", "-Command", fmt.Sprintf(FmtCheckSource, system.ServiceName)).Run() != nil {
-		// Try to create the event source (as privileged user)
-		err := exec.Command("powershell", "-Command", fmt.Sprintf(FmtCreateSource, system.ServiceName)).Run()
+	if !events.SourceExists(system.ServiceName) {
+		err := events.CreateEventSource(system.ServiceName)
 		if err != nil {
 			return err
 		}
