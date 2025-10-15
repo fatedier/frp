@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/samber/lo"
 
@@ -27,6 +28,52 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/util"
 )
+
+// clientLevelFields lists fields that belong to the client config level, not proxy level
+var clientLevelFields = []string{
+	"featureGates",
+	"virtualNet",
+	"serverAddr",
+	"serverPort",
+	"auth",
+	"user",
+	"dnsServer",
+	"loginFailExit",
+	"log",
+	"webServer",
+	"transport",
+	"metadatas",
+	"udpPacketSize",
+	"natHoleStunServer",
+	"start",
+	"includes",
+}
+
+// enhanceProxyConfigError enhances error messages when unknown fields are encountered
+// in proxy configurations, particularly for fields that belong at the client config level
+func enhanceProxyConfigError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "unknown field") {
+		return fmt.Errorf("unmarshal ProxyConfig error: %v", err)
+	}
+
+	// Extract the field name from error message like 'json: unknown field "featureGates"'
+	for _, field := range clientLevelFields {
+		if strings.Contains(errMsg, fmt.Sprintf(`unknown field "%s"`, field)) {
+			return fmt.Errorf(
+				"unmarshal ProxyConfig error: %v. "+
+					"Note: '%s' is a client-level configuration field and should be placed at the root level of the config file, "+
+					"not within a [[proxies]] section. Please move it outside of the proxy configuration",
+				err, field)
+		}
+	}
+
+	return fmt.Errorf("unmarshal ProxyConfig error: %v", err)
+}
 
 type ProxyTransport struct {
 	// UseEncryption controls whether or not communication with the server will
@@ -193,7 +240,7 @@ func (c *TypedProxyConfig) UnmarshalJSON(b []byte) error {
 		decoder.DisallowUnknownFields()
 	}
 	if err := decoder.Decode(configurer); err != nil {
-		return fmt.Errorf("unmarshal ProxyConfig error: %v", err)
+		return enhanceProxyConfigError(err)
 	}
 	c.ProxyConfigurer = configurer
 	return nil

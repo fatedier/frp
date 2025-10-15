@@ -20,11 +20,38 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/util/util"
 )
+
+// enhanceVisitorConfigError enhances error messages when unknown fields are encountered
+// in visitor configurations, particularly for fields that belong at the client config level
+func enhanceVisitorConfigError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "unknown field") {
+		return fmt.Errorf("unmarshal VisitorConfig error: %v", err)
+	}
+
+	// Extract the field name from error message and check if it's a client-level field
+	for _, field := range clientLevelFields {
+		if strings.Contains(errMsg, fmt.Sprintf(`unknown field "%s"`, field)) {
+			return fmt.Errorf(
+				"unmarshal VisitorConfig error: %v. "+
+					"Note: '%s' is a client-level configuration field and should be placed at the root level of the config file, "+
+					"not within a [[visitors]] section. Please move it outside of the visitor configuration",
+				err, field)
+		}
+	}
+
+	return fmt.Errorf("unmarshal VisitorConfig error: %v", err)
+}
 
 type VisitorTransport struct {
 	UseEncryption  bool `json:"useEncryption,omitempty"`
@@ -117,7 +144,7 @@ func (c *TypedVisitorConfig) UnmarshalJSON(b []byte) error {
 		decoder.DisallowUnknownFields()
 	}
 	if err := decoder.Decode(configurer); err != nil {
-		return fmt.Errorf("unmarshal VisitorConfig error: %v", err)
+		return enhanceVisitorConfigError(err)
 	}
 	c.VisitorConfigurer = configurer
 	return nil

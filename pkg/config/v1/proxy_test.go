@@ -47,3 +47,81 @@ func TestUnmarshalTypedProxyConfig(t *testing.T) {
 	require.IsType(&TCPProxyConfig{}, proxyConfigs.Proxies[0].ProxyConfigurer)
 	require.IsType(&HTTPProxyConfig{}, proxyConfigs.Proxies[1].ProxyConfigurer)
 }
+
+func TestUnmarshalTypedProxyConfigWithClientLevelFields(t *testing.T) {
+	// Enable strict mode to test DisallowUnknownFields behavior
+	DisallowUnknownFieldsMu.Lock()
+	oldValue := DisallowUnknownFields
+	DisallowUnknownFields = true
+	DisallowUnknownFieldsMu.Unlock()
+	defer func() {
+		DisallowUnknownFieldsMu.Lock()
+		DisallowUnknownFields = oldValue
+		DisallowUnknownFieldsMu.Unlock()
+	}()
+
+	tests := []struct {
+		name          string
+		config        string
+		expectedError string
+	}{
+		{
+			name: "featureGates in proxy config",
+			config: `{
+				"proxies": [
+					{
+						"type": "tcp",
+						"localPort": 22,
+						"remotePort": 6000,
+						"featureGates": {"VirtualNet": true}
+					}
+				]
+			}`,
+			expectedError: "featureGates",
+		},
+		{
+			name: "virtualNet in proxy config",
+			config: `{
+				"proxies": [
+					{
+						"type": "tcp",
+						"localPort": 22,
+						"remotePort": 6000,
+						"virtualNet": {"address": "100.86.0.2/24"}
+					}
+				]
+			}`,
+			expectedError: "virtualNet",
+		},
+		{
+			name: "auth in proxy config",
+			config: `{
+				"proxies": [
+					{
+						"type": "tcp",
+						"localPort": 22,
+						"remotePort": 6000,
+						"auth": {"token": "12345"}
+					}
+				]
+			}`,
+			expectedError: "auth",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require := require.New(t)
+			proxyConfigs := struct {
+				Proxies []TypedProxyConfig `json:"proxies,omitempty"`
+			}{}
+
+			err := json.Unmarshal([]byte(tt.config), &proxyConfigs)
+			require.Error(err)
+			require.Contains(err.Error(), tt.expectedError)
+			require.Contains(err.Error(), "client-level configuration field")
+			require.Contains(err.Error(), "root level")
+			require.Contains(err.Error(), "not within a [[proxies]] section")
+		})
+	}
+}
