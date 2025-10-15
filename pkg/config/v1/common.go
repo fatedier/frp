@@ -32,6 +32,28 @@ var (
 	DisallowUnknownFieldsMu sync.Mutex
 )
 
+// clientLevelFields lists fields that belong to the client config level, not proxy or visitor level
+// This is used to provide helpful error messages when users mistakenly place these fields
+// in proxy or visitor configurations
+var clientLevelFields = []string{
+	"featureGates",
+	"virtualNet",
+	"serverAddr",
+	"serverPort",
+	"auth",
+	"user",
+	"dnsServer",
+	"loginFailExit",
+	"log",
+	"webServer",
+	"transport",
+	"metadatas",
+	"udpPacketSize",
+	"natHoleStunServer",
+	"start",
+	"includes",
+}
+
 type AuthScope string
 
 const (

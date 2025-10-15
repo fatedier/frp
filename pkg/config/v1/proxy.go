@@ -29,26 +29,6 @@ import (
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
-// clientLevelFields lists fields that belong to the client config level, not proxy level
-var clientLevelFields = []string{
-	"featureGates",
-	"virtualNet",
-	"serverAddr",
-	"serverPort",
-	"auth",
-	"user",
-	"dnsServer",
-	"loginFailExit",
-	"log",
-	"webServer",
-	"transport",
-	"metadatas",
-	"udpPacketSize",
-	"natHoleStunServer",
-	"start",
-	"includes",
-}
-
 // enhanceProxyConfigError enhances error messages when unknown fields are encountered
 // in proxy configurations, particularly for fields that belong at the client config level
 func enhanceProxyConfigError(err error) error {
