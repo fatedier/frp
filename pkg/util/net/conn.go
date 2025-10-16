@@ -149,7 +149,7 @@ func WrapCloseNotifyConn(c net.Conn, closeFn func()) net.Conn {
 func (cc *CloseNotifyConn) Close() (err error) {
 	pflag := atomic.SwapInt32(&cc.closeFlag, 1)
 	if pflag == 0 {
-		err = cc.Close()
+		err = cc.Conn.Close()
 		if cc.closeFn != nil {
 			cc.closeFn()
 		}
