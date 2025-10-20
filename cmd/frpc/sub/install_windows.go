@@ -70,7 +70,7 @@ var installCmd = &cobra.Command{
 		// Ignore other params if "--config-dir" specified
 		if cfgDir != "" {
 			if verifyInstallation {
-				var hasValidCfg bool = false
+				var hasValidCfg = false
 				err := filepath.WalkDir(cfgDir, func(path string, d fs.DirEntry, err error) error {
 					if err != nil {
 						return os.ErrNotExist
@@ -86,7 +86,7 @@ var installCmd = &cobra.Command{
 					return nil
 				})
 				if !hasValidCfg {
-					err = errors.New("No valid configuration file found")
+					err = errors.New("no valid configuration file found")
 				}
 				if err != nil {
 					fmt.Println(err)
