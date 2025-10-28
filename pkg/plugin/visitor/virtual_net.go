@@ -42,6 +42,8 @@ type VirtualNetPlugin struct {
 	controllerConn net.Conn
 	closeSignal    chan struct{}
 
+	consecutiveErrors int // Tracks consecutive connection errors for exponential backoff
+
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -98,7 +100,6 @@ func (p *VirtualNetPlugin) Start() {
 
 func (p *VirtualNetPlugin) run() {
 	xl := xlog.FromContextSafe(p.ctx)
-	reconnectDelay := 10 * time.Second
 
 	for {
 		currentCloseSignal := make(chan struct{})
@@ -121,7 +122,10 @@ func (p *VirtualNetPlugin) run() {
 		p.controllerConn = controllerConn
 		p.mu.Unlock()
 
-		pluginNotifyConn := netutil.WrapCloseNotifyConn(pluginConn, func() {
+		// Wrap with CloseNotifyConn which supports both close notification and error recording
+		var closeErr error
+		pluginNotifyConn := netutil.WrapCloseNotifyConn(pluginConn, func(err error) {
+			closeErr = err
 			close(currentCloseSignal) // Signal the run loop on close.
 		})
 
@@ -129,9 +133,9 @@ func (p *VirtualNetPlugin) run() {
 		p.pluginCtx.VnetController.RegisterClientRoute(p.ctx, p.pluginCtx.Name, p.routes, controllerConn)
 		xl.Infof("successfully registered client route for visitor [%s]. Starting connection handler with CloseNotifyConn.", p.pluginCtx.Name)
 
-		// Pass the CloseNotifyConn to HandleConn.
-		// HandleConn is responsible for calling Close() on pluginNotifyConn.
-		p.pluginCtx.HandleConn(pluginNotifyConn)
+		// Pass the CloseNotifyConn to the visitor for handling.
+		// The visitor can call CloseWithError to record the failure reason.
+		p.pluginCtx.SendConnToVisitor(pluginNotifyConn)
 
 		// Wait for context cancellation or connection close.
 		select {
@@ -140,8 +144,32 @@ func (p *VirtualNetPlugin) run() {
 			p.cleanupControllerConn(xl)
 			return
 		case <-currentCloseSignal:
-			xl.Infof("detected connection closed via CloseNotifyConn for visitor [%s].", p.pluginCtx.Name)
-			// HandleConn closed the plugin side. Close the controller side.
+			// Determine reconnect delay based on error with exponential backoff
+			var reconnectDelay time.Duration
+			if closeErr != nil {
+				p.consecutiveErrors++
+				xl.Warnf("connection closed with error for visitor [%s] (consecutive errors: %d): %v",
+					p.pluginCtx.Name, p.consecutiveErrors, closeErr)
+
+				// Exponential backoff: 60s, 120s, 240s, 300s (capped)
+				baseDelay := 60 * time.Second
+				reconnectDelay = baseDelay * time.Duration(1<<uint(p.consecutiveErrors-1))
+				if reconnectDelay > 300*time.Second {
+					reconnectDelay = 300 * time.Second
+				}
+			} else {
+				// Reset consecutive errors on successful connection
+				if p.consecutiveErrors > 0 {
+					xl.Infof("connection closed normally for visitor [%s], resetting error counter (was %d)",
+						p.pluginCtx.Name, p.consecutiveErrors)
+					p.consecutiveErrors = 0
+				} else {
+					xl.Infof("connection closed normally for visitor [%s]", p.pluginCtx.Name)
+				}
+				reconnectDelay = 10 * time.Second
+			}
+
+			// The visitor closed the plugin side. Close the controller side.
 			p.cleanupControllerConn(xl)
 
 			xl.Infof("waiting %v before attempting reconnection for visitor [%s]...", reconnectDelay, p.pluginCtx.Name)
@@ -184,7 +212,7 @@ func (p *VirtualNetPlugin) Close() error {
 	}
 
 	// Explicitly close the controller side of the pipe.
-	// This ensures the pipe is broken even if the run loop is stuck or HandleConn hasn't closed its end.
+	// This ensures the pipe is broken even if the run loop is stuck or the visitor hasn't closed its end.
 	p.cleanupControllerConn(xl)
 	xl.Infof("finished cleaning up connections during close for visitor [%s]", p.pluginCtx.Name)
 

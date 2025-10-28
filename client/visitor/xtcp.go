@@ -162,8 +162,16 @@ func (sv *XTCPVisitor) keepTunnelOpenWorker() {
 func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 	xl := xlog.FromContextSafe(sv.ctx)
 	isConnTransferred := false
+	var tunnelErr error
 	defer func() {
 		if !isConnTransferred {
+			// If there was an error and connection supports CloseWithError, use it
+			if tunnelErr != nil {
+				if eConn, ok := userConn.(interface{ CloseWithError(error) error }); ok {
+					_ = eConn.CloseWithError(tunnelErr)
+					return
+				}
+			}
 			userConn.Close()
 		}
 	}()
@@ -181,6 +189,8 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 	tunnelConn, err := sv.openTunnel(ctx)
 	if err != nil {
 		xl.Errorf("open tunnel error: %v", err)
+		tunnelErr = err
+
 		// no fallback, just return
 		if sv.cfg.FallbackTo == "" {
 			return
@@ -200,6 +210,7 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		muxConnRWCloser, err = libio.WithEncryption(muxConnRWCloser, []byte(sv.cfg.SecretKey))
 		if err != nil {
 			xl.Errorf("create encryption stream error: %v", err)
+			tunnelErr = err
 			return
 		}
 	}

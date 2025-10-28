@@ -15,6 +15,7 @@
 package visitor
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"strconv"
@@ -81,11 +82,22 @@ func (sv *STCPVisitor) internalConnWorker() {
 
 func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	xl := xlog.FromContextSafe(sv.ctx)
-	defer userConn.Close()
+	var tunnelErr error
+	defer func() {
+		// If there was an error and connection supports CloseWithError, use it
+		if tunnelErr != nil {
+			if eConn, ok := userConn.(interface{ CloseWithError(error) error }); ok {
+				_ = eConn.CloseWithError(tunnelErr)
+				return
+			}
+		}
+		userConn.Close()
+	}()
 
 	xl.Debugf("get a new stcp user connection")
 	visitorConn, err := sv.helper.ConnectServer()
 	if err != nil {
+		tunnelErr = err
 		return
 	}
 	defer visitorConn.Close()
@@ -102,6 +114,7 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	err = msg.WriteMsg(visitorConn, newVisitorConnMsg)
 	if err != nil {
 		xl.Warnf("send newVisitorConnMsg to server error: %v", err)
+		tunnelErr = err
 		return
 	}
 
@@ -110,12 +123,14 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	err = msg.ReadMsgInto(visitorConn, &newVisitorConnRespMsg)
 	if err != nil {
 		xl.Warnf("get newVisitorConnRespMsg error: %v", err)
+		tunnelErr = err
 		return
 	}
 	_ = visitorConn.SetReadDeadline(time.Time{})
 
 	if newVisitorConnRespMsg.Error != "" {
 		xl.Warnf("start new visitor connection error: %s", newVisitorConnRespMsg.Error)
+		tunnelErr = fmt.Errorf("%s", newVisitorConnRespMsg.Error)
 		return
 	}
 
@@ -125,6 +140,7 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 		remote, err = libio.WithEncryption(remote, []byte(sv.cfg.SecretKey))
 		if err != nil {
 			xl.Errorf("create encryption stream error: %v", err)
+			tunnelErr = err
 			return
 		}
 	}
