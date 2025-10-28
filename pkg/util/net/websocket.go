@@ -32,7 +32,7 @@ func NewWebsocketListener(ln net.Listener) (wl *WebsocketListener) {
 	muxer := http.NewServeMux()
 	muxer.Handle(FrpWebsocketPath, websocket.Handler(func(c *websocket.Conn) {
 		notifyCh := make(chan struct{})
-		conn := WrapCloseNotifyConn(c, func() {
+		conn := WrapCloseNotifyConn(c, func(_ error) {
 			close(notifyCh)
 		})
 		wl.acceptCh <- conn

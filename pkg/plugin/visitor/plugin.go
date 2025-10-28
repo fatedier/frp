@@ -23,11 +23,20 @@ import (
 	"github.com/fatedier/frp/pkg/vnet"
 )
 
+// PluginContext provides the necessary context and callbacks for visitor plugins.
 type PluginContext struct {
-	Name           string
-	Ctx            context.Context
+	// Name is the unique identifier for this visitor, used for logging and routing.
+	Name string
+
+	// Ctx manages the plugin's lifecycle and carries the logger for structured logging.
+	Ctx context.Context
+
+	// VnetController manages TUN device routing. May be nil if virtual networking is disabled.
 	VnetController *vnet.Controller
-	HandleConn     func(net.Conn)
+
+	// SendConnToVisitor sends a connection to the visitor's internal processing queue.
+	// Does not return error; failures are handled by closing the connection.
+	SendConnToVisitor func(net.Conn)
 }
 
 // Creators is used for create plugins to handle connections.
