@@ -35,6 +35,9 @@ type ResourceController struct {
 	// HTTP Group Controller
 	HTTPGroupCtl *group.HTTPGroupController
 
+	// HTTPS Group Controller
+	HTTPSGroupCtl *group.HTTPSGroupController
+
 	// TCP Mux Group Controller
 	TCPMuxGroupCtl *group.TCPMuxGroupCtl
 

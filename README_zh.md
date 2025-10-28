@@ -25,7 +25,7 @@ an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and 
 
 </div>
 <p align="center">
-  <a href="https://app.requestly.io/api-client/?utm_source=github&utm_medium=partnered&utm_campaign=frp" target="_blank">
+  <a href="https://requestly.com/?utm_source=github&utm_medium=partnered&utm_campaign=frp" target="_blank">
     <img width="480px" src="https://github.com/user-attachments/assets/24670320-997d-4d62-9bca-955c59fe883d">
     <br>
     <b>Requestly - Free & Open-Source alternative to Postman</b>
