@@ -75,8 +75,8 @@ func (f *Framework) RunFrps(args ...string) (*process.Process, string, error) {
 	if err != nil {
 		return p, p.StdOutput(), err
 	}
-	// sleep for a while to get std output
-	time.Sleep(2 * time.Second)
+	// Give frps extra time to finish binding ports before proceeding.
+	time.Sleep(4 * time.Second)
 	return p, p.StdOutput(), nil
 }
 

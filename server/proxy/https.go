@@ -15,6 +15,7 @@
 package proxy
 
 import (
+	"net"
 	"reflect"
 	"strings"
 
@@ -58,27 +59,24 @@ func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
 			continue
 		}
 
-		routeConfig.Domain = domain
-		l, errRet := pxy.rc.VhostHTTPSMuxer.Listen(pxy.ctx, routeConfig)
-		if errRet != nil {
-			err = errRet
-			return
+		l, err := pxy.listenForDomain(routeConfig, domain)
+		if err != nil {
+			return "", err
 		}
-		xl.Infof("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
-		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.VhostHTTPSPort))
+		addrs = append(addrs, util.CanonicalAddr(domain, pxy.serverCfg.VhostHTTPSPort))
+		xl.Infof("https proxy listen for host [%s] group [%s]", domain, pxy.cfg.LoadBalancer.Group)
 	}
 
 	if pxy.cfg.SubDomain != "" {
-		routeConfig.Domain = pxy.cfg.SubDomain + "." + pxy.serverCfg.SubDomainHost
-		l, errRet := pxy.rc.VhostHTTPSMuxer.Listen(pxy.ctx, routeConfig)
-		if errRet != nil {
-			err = errRet
-			return
+		domain := pxy.cfg.SubDomain + "." + pxy.serverCfg.SubDomainHost
+		l, err := pxy.listenForDomain(routeConfig, domain)
+		if err != nil {
+			return "", err
 		}
-		xl.Infof("https proxy listen for host [%s]", routeConfig.Domain)
 		pxy.listeners = append(pxy.listeners, l)
-		addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.VhostHTTPSPort))
+		addrs = append(addrs, util.CanonicalAddr(domain, pxy.serverCfg.VhostHTTPSPort))
+		xl.Infof("https proxy listen for host [%s] group [%s]", domain, pxy.cfg.LoadBalancer.Group)
 	}
 
 	pxy.startCommonTCPListenersHandler()
@@ -88,4 +86,19 @@ func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
 
 func (pxy *HTTPSProxy) Close() {
 	pxy.BaseProxy.Close()
+}
+
+func (pxy *HTTPSProxy) listenForDomain(routeConfig *vhost.RouteConfig, domain string) (net.Listener, error) {
+	tmpRouteConfig := *routeConfig
+	tmpRouteConfig.Domain = domain
+
+	if pxy.cfg.LoadBalancer.Group != "" {
+		return pxy.rc.HTTPSGroupCtl.Listen(
+			pxy.ctx,
+			pxy.cfg.LoadBalancer.Group,
+			pxy.cfg.LoadBalancer.GroupKey,
+			tmpRouteConfig,
+		)
+	}
+	return pxy.rc.VhostHTTPSMuxer.Listen(pxy.ctx, &tmpRouteConfig)
 }
