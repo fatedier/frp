@@ -42,8 +42,9 @@ const (
 type AuthMethod string
 
 const (
-	AuthMethodToken AuthMethod = "token"
-	AuthMethodOIDC  AuthMethod = "oidc"
+	AuthMethodToken   AuthMethod = "token"
+	AuthMethodOIDC    AuthMethod = "oidc"
+	AuthMethodEntraID AuthMethod = "entraid"
 )
 
 // QUIC protocol options

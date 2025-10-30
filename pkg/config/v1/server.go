@@ -129,11 +129,12 @@ func (c *ServerConfig) Complete() error {
 }
 
 type AuthServerConfig struct {
-	Method           AuthMethod           `json:"method,omitempty"`
-	AdditionalScopes []AuthScope          `json:"additionalScopes,omitempty"`
-	Token            string               `json:"token,omitempty"`
-	TokenSource      *ValueSource         `json:"tokenSource,omitempty"`
-	OIDC             AuthOIDCServerConfig `json:"oidc,omitempty"`
+	Method           AuthMethod              `json:"method,omitempty"`
+	AdditionalScopes []AuthScope             `json:"additionalScopes,omitempty"`
+	Token            string                  `json:"token,omitempty"`
+	TokenSource      *ValueSource            `json:"tokenSource,omitempty"`
+	OIDC             AuthOIDCServerConfig    `json:"oidc,omitempty"`
+	EntraID          AuthEntraIDServerConfig `json:"entraid,omitempty"`
 }
 
 func (c *AuthServerConfig) Complete() error {
@@ -166,6 +167,13 @@ type AuthOIDCServerConfig struct {
 	// SkipIssuerCheck specifies whether to skip checking if the OIDC token's
 	// issuer claim matches the issuer specified in OidcIssuer.
 	SkipIssuerCheck bool `json:"skipIssuerCheck,omitempty"`
+}
+
+type AuthEntraIDServerConfig struct {
+	// Audience specifies the application identifier of the frps server.
+	Audience string `json:"audience,omitempty"`
+	// TenantID (optional) restricts authentication to a specific tenant.
+	TenantID string `json:"tenantID,omitempty"`
 }
 
 type ServerTransportConfig struct {

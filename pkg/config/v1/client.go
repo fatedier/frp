@@ -192,8 +192,9 @@ type AuthClientConfig struct {
 	Token string `json:"token,omitempty"`
 	// TokenSource specifies a dynamic source for the authorization token.
 	// This is mutually exclusive with Token field.
-	TokenSource *ValueSource         `json:"tokenSource,omitempty"`
-	OIDC        AuthOIDCClientConfig `json:"oidc,omitempty"`
+	TokenSource *ValueSource            `json:"tokenSource,omitempty"`
+	OIDC        AuthOIDCClientConfig    `json:"oidc,omitempty"`
+	EntraID     AuthEntraIDClientConfig `json:"entraid,omitempty"`
 }
 
 func (c *AuthClientConfig) Complete() error {
@@ -239,6 +240,13 @@ type AuthOIDCClientConfig struct {
 	// Supports http, https, socks5, and socks5h proxy protocols.
 	// If empty, no proxy is used for OIDC connections.
 	ProxyURL string `json:"proxyURL,omitempty"`
+}
+
+type AuthEntraIDClientConfig struct {
+	// Audience specifies the application identifier of the frps server.
+	Audience string `json:"audience,omitempty"`
+	// TenantID (optional) specifies the tenant from which to request the token.
+	TenantID string `json:"tenantID,omitempty"`
 }
 
 type VirtualNetConfig struct {
