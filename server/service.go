@@ -149,6 +149,11 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		}
 	}
 
+	authVerifier, err := auth.NewAuthVerifier(cfg.Auth)
+	if err != nil {
+		return nil, err
+	}
+
 	svr := &Service{
 		ctlManager:    NewControlManager(),
 		pxyManager:    proxy.NewManager(),
@@ -160,7 +165,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		},
 		sshTunnelListener: netpkg.NewInternalListener(),
 		httpVhostRouter:   vhost.NewRouters(),
-		authVerifier:      auth.NewAuthVerifier(cfg.Auth),
+		authVerifier:      authVerifier,
 		webServer:         webServer,
 		tlsConfig:         tlsConfig,
 		cfg:               cfg,

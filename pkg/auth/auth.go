@@ -36,6 +36,8 @@ func NewAuthSetter(cfg v1.AuthClientConfig) (authProvider Setter, err error) {
 		if err != nil {
 			return nil, err
 		}
+	case v1.AuthMethodEntraID:
+		authProvider = NewEntraIDAuthSetter(cfg.AdditionalScopes, cfg.EntraID)
 	default:
 		return nil, fmt.Errorf("unsupported auth method: %s", cfg.Method)
 	}
@@ -48,13 +50,16 @@ type Verifier interface {
 	VerifyNewWorkConn(*msg.NewWorkConn) error
 }
 
-func NewAuthVerifier(cfg v1.AuthServerConfig) (authVerifier Verifier) {
+func NewAuthVerifier(cfg v1.AuthServerConfig) (authVerifier Verifier, err error) {
+	err = nil
 	switch cfg.Method {
 	case v1.AuthMethodToken:
 		authVerifier = NewTokenAuth(cfg.AdditionalScopes, cfg.Token)
 	case v1.AuthMethodOIDC:
 		tokenVerifier := NewTokenVerifier(cfg.OIDC)
 		authVerifier = NewOidcAuthVerifier(cfg.AdditionalScopes, tokenVerifier)
+	case v1.AuthMethodEntraID:
+		authVerifier, err = NewEntraIDAuthVerifier(cfg.AdditionalScopes, cfg.EntraID)
 	}
-	return authVerifier
+	return
 }
