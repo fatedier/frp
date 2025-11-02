@@ -421,6 +421,7 @@ func (svr *Service) Close() error {
 
 func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, internal bool) {
 	xl := xlog.FromContextSafe(ctx)
+	pp := netpkg.ProxyProtocolFromContext(ctx)
 
 	var (
 		rawMsg msg.Message
@@ -435,17 +436,24 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 	}
 	_ = conn.SetReadDeadline(time.Time{})
 
+	var remoteAddr string
+	if pp != nil {
+		remoteAddr = pp.SourceAddr.String()
+	} else {
+		remoteAddr = conn.RemoteAddr().String()
+	}
+
 	switch m := rawMsg.(type) {
 	case *msg.Login:
 		// server plugin hook
 		content := &plugin.LoginContent{
 			Login:         *m,
-			ClientAddress: conn.RemoteAddr().String(),
+			ClientAddress: remoteAddr,
 		}
 		retContent, err := svr.pluginManager.Login(content)
 		if err == nil {
 			m = &retContent.Login
-			err = svr.RegisterControl(conn, m, internal)
+			err = svr.RegisterControl(conn, m, internal, remoteAddr)
 		}
 
 		// If login failed, send error message there.
@@ -477,7 +485,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 			})
 		}
 	default:
-		log.Warnf("error message type for the new connection [%s]", conn.RemoteAddr().String())
+		log.Warnf("error message type for the new connection [%s]", remoteAddr)
 		conn.Close()
 	}
 }
@@ -496,6 +504,13 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 		// inject xlog object into net.Conn context
 		xl := xlog.New()
 		ctx := context.Background()
+
+		// Check proxy protocol
+		c, ppinfo := netpkg.CheckProxyProtocol(c)
+		if ppinfo != nil {
+			xl.Infof("detected proxy protocol from %s, real source address: %s", c.RemoteAddr().String(), ppinfo.SourceAddr.String())
+			ctx = context.WithValue(ctx, netpkg.ProxyProtocolKey, ppinfo)
+		}
 
 		c = netpkg.NewContextConn(xlog.NewContext(ctx, xl), c)
 
@@ -567,7 +582,7 @@ func (svr *Service) HandleQUICListener(l *quic.Listener) {
 	}
 }
 
-func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, internal bool) error {
+func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, internal bool, remoteAddr string) error {
 	// If client's RunID is empty, it's a new client, we just create a new controller.
 	// Otherwise, we check if there is one controller has the same run id. If so, we release previous controller and start new one.
 	var err error
@@ -583,7 +598,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 	xl.AppendPrefix(loginMsg.RunID)
 	ctx = xlog.NewContext(ctx, xl)
 	xl.Infof("client login info: ip [%s] version [%s] hostname [%s] os [%s] arch [%s]",
-		ctlConn.RemoteAddr().String(), loginMsg.Version, loginMsg.Hostname, loginMsg.Os, loginMsg.Arch)
+		remoteAddr, loginMsg.Version, loginMsg.Hostname, loginMsg.Os, loginMsg.Arch)
 
 	// Check auth.
 	authVerifier := svr.authVerifier

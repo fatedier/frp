@@ -15,11 +15,20 @@
 package net
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"net"
 
 	pp "github.com/pires/go-proxyproto"
+)
+
+type key string
+
+const (
+	ProxyProtocolKey key = "proxy_protocol"
 )
 
 func BuildProxyProtocolHeaderStruct(srcAddr, dstAddr net.Addr, version string) *pp.Header {
@@ -42,4 +51,43 @@ func BuildProxyProtocolHeader(srcAddr, dstAddr net.Addr, version string) ([]byte
 		return nil, fmt.Errorf("failed to write proxy protocol header: %v", err)
 	}
 	return buf.Bytes(), nil
+}
+
+// CheckProxyProtocol checks if the connection is using Proxy Protocol.
+func CheckProxyProtocol(c net.Conn) (net.Conn, *pp.Header) {
+	// Use a buffered reader so that bytes read during detection are not lost.
+	// bufio.Reader will first return any buffered bytes, then continue reading from the underlying conn.
+	reader := bufio.NewReader(c)
+
+	// Try to read a proxy protocol header from the buffered reader.
+	// If present, header will be returned and reader will have consumed the header bytes.
+	hdr, err := pp.Read(reader)
+
+	// Build a ReadWriteCloser that uses the buffered reader for Read and the original conn for Write/Close.
+	rwc := struct {
+		io.Reader
+		io.Writer
+		io.Closer
+	}{
+		Reader: reader,
+		Writer: c,
+		Closer: c,
+	}
+
+	// Wrap to net.Conn so callers can use it transparently.
+	wrapped := WrapReadWriteCloserToConn(rwc, c)
+
+	if err == nil && hdr != nil {
+		return wrapped, hdr
+	}
+
+	// Not a proxy protocol (or error parsing). Return wrapped conn and nil header.
+	return wrapped, nil
+}
+
+func ProxyProtocolFromContext(ctx context.Context) *pp.Header {
+	if hdr, ok := ctx.Value(ProxyProtocolKey).(*pp.Header); ok {
+		return hdr
+	}
+	return nil
 }
