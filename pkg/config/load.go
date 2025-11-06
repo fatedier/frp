@@ -281,6 +281,17 @@ func LoadClientConfig(path string, strict bool) (
 		})
 	}
 
+	// Filter by enabled field in each proxy
+	// nil or true means enabled, false means disabled
+	proxyCfgs = lo.Filter(proxyCfgs, func(c v1.ProxyConfigurer, _ int) bool {
+		enabled := c.GetBaseConfig().Enabled
+		return enabled == nil || *enabled
+	})
+	visitorCfgs = lo.Filter(visitorCfgs, func(c v1.VisitorConfigurer, _ int) bool {
+		enabled := c.GetBaseConfig().Enabled
+		return enabled == nil || *enabled
+	})
+
 	if cliCfg != nil {
 		if err := cliCfg.Complete(); err != nil {
 			return nil, nil, nil, isLegacyFormat, err
