@@ -57,6 +57,16 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 		}
 	}
 
+	if c.Auth.OIDC.TokenSource != nil {
+		// Validate oidc.tokenSource mutual exclusivity with other fields of oidc
+		if c.Auth.OIDC.ClientID != "" || c.Auth.OIDC.ClientSecret != "" || c.Auth.OIDC.Audience != "" || c.Auth.OIDC.Scope != "" || c.Auth.OIDC.TokenEndpointURL != "" || len(c.Auth.OIDC.AdditionalEndpointParams) > 0 || c.Auth.OIDC.TrustedCaFile != "" || c.Auth.OIDC.InsecureSkipVerify || c.Auth.OIDC.ProxyURL != "" {
+			errs = AppendError(errs, fmt.Errorf("cannot specify both auth.oidc.tokenSource and any other field of auth.oidc"))
+		}
+		if c.Auth.OIDC.TokenSource.Type == "exec" && !allowUnsafeTokenSource {
+			errs = AppendError(errs, fmt.Errorf("unsafe 'exec' not allowed for auth.oidc.tokenSource.type"))
+		}
+	}
+
 	if err := validateLogConfig(&c.Log); err != nil {
 		errs = AppendError(errs, err)
 	}

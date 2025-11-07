@@ -239,6 +239,10 @@ type AuthOIDCClientConfig struct {
 	// Supports http, https, socks5, and socks5h proxy protocols.
 	// If empty, no proxy is used for OIDC connections.
 	ProxyURL string `json:"proxyURL,omitempty"`
+
+	// TokenSource specifies a custom dynamic source for the authorization token.
+	// This is mutually exclusive with every other field of this structure.
+	TokenSource *ValueSource `json:"tokenSource,omitempty"`
 }
 
 type VirtualNetConfig struct {
