@@ -64,6 +64,8 @@ type ServiceOptions struct {
 	ProxyCfgs   []v1.ProxyConfigurer
 	VisitorCfgs []v1.VisitorConfigurer
 
+	UnsafeFeatures v1.UnsafeFeatures
+
 	// ConfigFilePath is the path to the configuration file used to initialize.
 	// If it is empty, it means that the configuration file is not used for initialization.
 	// It may be initialized using command line parameters or called directly.
@@ -122,6 +124,8 @@ type Service struct {
 	visitorCfgs []v1.VisitorConfigurer
 	clientSpec  *msg.ClientSpec
 
+	unsafeFeatures v1.UnsafeFeatures
+
 	// The configuration file used to initialize this client, or an empty
 	// string if no configuration file was used.
 	configFilePath string
@@ -161,6 +165,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 		webServer:        webServer,
 		common:           options.Common,
 		configFilePath:   options.ConfigFilePath,
+		unsafeFeatures:   options.UnsafeFeatures,
 		proxyCfgs:        options.ProxyCfgs,
 		visitorCfgs:      options.VisitorCfgs,
 		clientSpec:       options.ClientSpec,

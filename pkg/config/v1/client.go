@@ -248,3 +248,7 @@ type AuthOIDCClientConfig struct {
 type VirtualNetConfig struct {
 	Address string `json:"address,omitempty"`
 }
+
+type UnsafeFeatures struct {
+	TokenSourceExec bool
+}

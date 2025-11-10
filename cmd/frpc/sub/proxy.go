@@ -77,7 +77,9 @@ func NewProxyCommand(name string, c v1.ProxyConfigurer, clientCfg *v1.ClientComm
 				fmt.Println(err)
 				os.Exit(1)
 			}
-			if _, err := validation.ValidateClientCommonConfig(clientCfg); err != nil {
+
+			unsafeFeatures := v1.UnsafeFeatures{TokenSourceExec: slices.Contains(allowUnsafe, TokenSourceExec)}
+			if _, err := validation.ValidateClientCommonConfig(clientCfg, unsafeFeatures); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
@@ -88,7 +90,7 @@ func NewProxyCommand(name string, c v1.ProxyConfigurer, clientCfg *v1.ClientComm
 				fmt.Println(err)
 				os.Exit(1)
 			}
-			err := startService(clientCfg, []v1.ProxyConfigurer{c}, nil, "")
+			err := startService(clientCfg, []v1.ProxyConfigurer{c}, nil, unsafeFeatures, "")
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
@@ -106,7 +108,8 @@ func NewVisitorCommand(name string, c v1.VisitorConfigurer, clientCfg *v1.Client
 				fmt.Println(err)
 				os.Exit(1)
 			}
-			if _, err := validation.ValidateClientCommonConfig(clientCfg); err != nil {
+			unsafeFeatures := v1.UnsafeFeatures{TokenSourceExec: slices.Contains(allowUnsafe, TokenSourceExec)}
+			if _, err := validation.ValidateClientCommonConfig(clientCfg, unsafeFeatures); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
@@ -117,7 +120,7 @@ func NewVisitorCommand(name string, c v1.VisitorConfigurer, clientCfg *v1.Client
 				fmt.Println(err)
 				os.Exit(1)
 			}
-			err := startService(clientCfg, nil, []v1.VisitorConfigurer{c}, "")
+			err := startService(clientCfg, nil, []v1.VisitorConfigurer{c}, unsafeFeatures, "")
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
