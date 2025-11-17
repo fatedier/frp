@@ -32,9 +32,13 @@ func NewAuthSetter(cfg v1.AuthClientConfig) (authProvider Setter, err error) {
 	case v1.AuthMethodToken:
 		authProvider = NewTokenAuth(cfg.AdditionalScopes, cfg.Token)
 	case v1.AuthMethodOIDC:
-		authProvider, err = NewOidcAuthSetter(cfg.AdditionalScopes, cfg.OIDC)
-		if err != nil {
-			return nil, err
+		if cfg.OIDC.TokenSource != nil {
+			authProvider = NewOidcTokenSourceAuthSetter(cfg.AdditionalScopes, cfg.OIDC.TokenSource)
+		} else {
+			authProvider, err = NewOidcAuthSetter(cfg.AdditionalScopes, cfg.OIDC)
+			if err != nil {
+				return nil, err
+			}
 		}
 	default:
 		return nil, fmt.Errorf("unsupported auth method: %s", cfg.Method)

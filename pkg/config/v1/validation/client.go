@@ -26,7 +26,7 @@ import (
 	"github.com/fatedier/frp/pkg/featuregate"
 )
 
-func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
+func ValidateClientCommonConfig(c *v1.ClientCommonConfig, unsafeFeatures v1.UnsafeFeatures) (Warning, error) {
 	var (
 		warnings Warning
 		errs     error
@@ -52,8 +52,21 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 
 	// Validate tokenSource if specified
 	if c.Auth.TokenSource != nil {
+		if c.Auth.TokenSource.Type == "exec" && !unsafeFeatures.TokenSourceExec {
+			errs = AppendError(errs, fmt.Errorf("unsafe 'exec' not allowed for auth.tokenSource.type"))
+		}
 		if err := c.Auth.TokenSource.Validate(); err != nil {
 			errs = AppendError(errs, fmt.Errorf("invalid auth.tokenSource: %v", err))
+		}
+	}
+
+	if c.Auth.OIDC.TokenSource != nil {
+		// Validate oidc.tokenSource mutual exclusivity with other fields of oidc
+		if c.Auth.OIDC.ClientID != "" || c.Auth.OIDC.ClientSecret != "" || c.Auth.OIDC.Audience != "" || c.Auth.OIDC.Scope != "" || c.Auth.OIDC.TokenEndpointURL != "" || len(c.Auth.OIDC.AdditionalEndpointParams) > 0 || c.Auth.OIDC.TrustedCaFile != "" || c.Auth.OIDC.InsecureSkipVerify || c.Auth.OIDC.ProxyURL != "" {
+			errs = AppendError(errs, fmt.Errorf("cannot specify both auth.oidc.tokenSource and any other field of auth.oidc"))
+		}
+		if c.Auth.OIDC.TokenSource.Type == "exec" && !unsafeFeatures.TokenSourceExec {
+			errs = AppendError(errs, fmt.Errorf("unsafe 'exec' not allowed for auth.oidc.tokenSource.type"))
 		}
 	}
 
@@ -101,10 +114,10 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 	return warnings, errs
 }
 
-func ValidateAllClientConfig(c *v1.ClientCommonConfig, proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) (Warning, error) {
+func ValidateAllClientConfig(c *v1.ClientCommonConfig, proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer, unsafeFeatures v1.UnsafeFeatures) (Warning, error) {
 	var warnings Warning
 	if c != nil {
-		warning, err := ValidateClientCommonConfig(c)
+		warning, err := ValidateClientCommonConfig(c, unsafeFeatures)
 		warnings = AppendError(warnings, warning)
 		if err != nil {
 			return warnings, err
