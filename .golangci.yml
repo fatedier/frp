@@ -39,6 +39,7 @@ linters:
       - G404
       - G501
       - G115
+      - G204
       severity: low
       confidence: low
     govet:

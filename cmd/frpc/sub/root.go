@@ -21,7 +21,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"slices"
 	"sync"
 	"syscall"
 	"time"
@@ -37,18 +36,12 @@ import (
 	"github.com/fatedier/frp/pkg/util/version"
 )
 
-type UnsafeFeature = string
-
-const (
-	TokenSourceExec UnsafeFeature = "TokenSourceExec"
-)
-
 var (
 	cfgFile          string
 	cfgDir           string
 	showVersion      bool
 	strictConfigMode bool
-	allowUnsafe      []UnsafeFeature
+	allowUnsafe      []string
 )
 
 func init() {
@@ -56,7 +49,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgDir, "config_dir", "", "", "config directory, run one frpc service for each file in config directory")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
 	rootCmd.PersistentFlags().BoolVarP(&strictConfigMode, "strict_config", "", true, "strict config parsing mode, unknown fields will cause an errors")
-	rootCmd.PersistentFlags().StringSliceVarP(&allowUnsafe, "allow_unsafe", "", []string{}, "allowed unsafe features, one or more of: TokenSourceExec")
+	rootCmd.PersistentFlags().StringSliceVarP(&allowUnsafe, "allow-unsafe", "", []string{}, "allowed unsafe features, one or more of: TokenSourceExec")
 }
 
 var rootCmd = &cobra.Command{
@@ -68,7 +61,7 @@ var rootCmd = &cobra.Command{
 			return nil
 		}
 
-		unsafeFeatures := v1.UnsafeFeatures{TokenSourceExec: slices.Contains(allowUnsafe, TokenSourceExec)}
+		unsafeFeatures := v1.NewUnsafeFeatures(allowUnsafe)
 
 		// If cfgDir is not empty, run multiple frpc service for each config file in cfgDir.
 		// Note that it's only designed for testing. It's not guaranteed to be stable.

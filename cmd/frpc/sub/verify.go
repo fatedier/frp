@@ -17,7 +17,6 @@ package sub
 import (
 	"fmt"
 	"os"
-	"slices"
 
 	"github.com/spf13/cobra"
 
@@ -44,7 +43,7 @@ var verifyCmd = &cobra.Command{
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		unsafeFeatures := v1.UnsafeFeatures{TokenSourceExec: slices.Contains(allowUnsafe, TokenSourceExec)}
+		unsafeFeatures := v1.NewUnsafeFeatures(allowUnsafe)
 		warning, err := validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs, unsafeFeatures)
 		if warning != nil {
 			fmt.Printf("WARNING: %v\n", warning)
