@@ -8,6 +8,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+
 frp_version=`./bin/frps --version`
 echo "build version: $frp_version"
 
