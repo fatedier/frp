@@ -9,6 +9,7 @@ build: frps frpc
 env:
 	@go version
 
+
 # compile assets into binary file
 file:
 	rm -rf ./assets/frps/static/*
