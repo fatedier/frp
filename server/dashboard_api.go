@@ -37,6 +37,7 @@ type GeneralResponse struct {
 	Msg  string
 }
 
+
 func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) {
 	helper.Router.HandleFunc("/healthz", svr.healthz)
 	subRouter := helper.Router.NewRoute().Subrouter()
