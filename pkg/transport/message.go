@@ -35,15 +35,19 @@ type MessageTransporter interface {
 	DispatchWithType(m msg.Message, msgType, laneKey string) bool
 }
 
-func NewMessageTransporter(sendCh chan msg.Message) MessageTransporter {
+type MessageSender interface {
+	Send(msg.Message) error
+}
+
+func NewMessageTransporter(sender MessageSender) MessageTransporter {
 	return &transporterImpl{
-		sendCh:   sendCh,
+		sender:   sender,
 		registry: make(map[string]map[string]chan msg.Message),
 	}
 }
 
 type transporterImpl struct {
-	sendCh chan msg.Message
+	sender MessageSender
 
 	// First key is message type and second key is lane key.
 	// Dispatch will dispatch message to related channel by its message type
@@ -53,9 +57,7 @@ type transporterImpl struct {
 }
 
 func (impl *transporterImpl) Send(m msg.Message) error {
-	return errors.PanicToError(func() {
-		impl.sendCh <- m
-	})
+	return impl.sender.Send(m)
 }
 
 func (impl *transporterImpl) Do(ctx context.Context, req msg.Message, laneKey, recvMsgType string) (msg.Message, error) {

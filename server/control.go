@@ -195,7 +195,7 @@ func NewControl(
 		ctl.msgDispatcher = msg.NewDispatcher(ctl.conn)
 	}
 	ctl.registerMsgHandlers()
-	ctl.msgTransporter = transport.NewMessageTransporter(ctl.msgDispatcher.SendChannel())
+	ctl.msgTransporter = transport.NewMessageTransporter(ctl.msgDispatcher)
 	return ctl, nil
 }
 

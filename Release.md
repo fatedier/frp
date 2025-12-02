@@ -6,3 +6,7 @@
 ## Improvements
 
 * **VirtualNet**: Implemented intelligent reconnection with exponential backoff. When connection errors occur repeatedly, the reconnect interval increases from 60s to 300s (max), reducing unnecessary reconnection attempts. Normal disconnections still reconnect quickly at 10s intervals.
+
+## Fixes
+
+* Fix deadlock issue when TCP connection is closed. Previously, sending messages could block forever if the connection handler had already stopped.
