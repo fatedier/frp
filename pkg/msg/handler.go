@@ -86,10 +86,6 @@ func (d *Dispatcher) Send(m Message) error {
 	}
 }
 
-func (d *Dispatcher) SendChannel() chan Message {
-	return d.sendCh
-}
-
 func (d *Dispatcher) RegisterHandler(msg Message, handler func(Message)) {
 	d.msgHandlers[reflect.TypeOf(msg)] = handler
 }
