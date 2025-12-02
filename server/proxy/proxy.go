@@ -258,8 +258,12 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 		})
 	}
 
-	xl.Debugf("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", workConn.LocalAddr().String(),
-		workConn.RemoteAddr().String(), userConn.LocalAddr().String(), userConn.RemoteAddr().String())
+	workConnLocal := workConn.LocalAddr(). String()
+	workConnRemote := workConn.RemoteAddr(). String()
+	userConnLocal := userConn.LocalAddr().String()
+	userConnRemote := userConn.RemoteAddr().String()
+	xl.Debugf("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", 
+	    workConnLocal, workConnRemote, userConnLocal, userConnRemote)
 
 	name := pxy.GetName()
 	proxyType := cfg.Type
@@ -268,7 +272,9 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	metrics.Server.CloseConnection(name, proxyType)
 	metrics.Server.AddTrafficIn(name, proxyType, inCount)
 	metrics.Server.AddTrafficOut(name, proxyType, outCount)
-	xl.Debugf("join connections closed")
+	
+	xl.Debugf("join connections closed, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", 
+    	workConnLocal, workConnRemote, userConnLocal, userConnRemote)
 }
 
 type Options struct {
