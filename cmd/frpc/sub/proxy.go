@@ -24,6 +24,7 @@ import (
 	"github.com/fatedier/frp/pkg/config"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
+	"github.com/fatedier/frp/pkg/policy/security"
 )
 
 var proxyTypes = []v1.ProxyType{
@@ -78,7 +79,7 @@ func NewProxyCommand(name string, c v1.ProxyConfigurer, clientCfg *v1.ClientComm
 				os.Exit(1)
 			}
 
-			unsafeFeatures := v1.NewUnsafeFeatures(allowUnsafe)
+			unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
 			if _, err := validation.ValidateClientCommonConfig(clientCfg, unsafeFeatures); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
@@ -108,7 +109,7 @@ func NewVisitorCommand(name string, c v1.VisitorConfigurer, clientCfg *v1.Client
 				fmt.Println(err)
 				os.Exit(1)
 			}
-			unsafeFeatures := v1.NewUnsafeFeatures(allowUnsafe)
+			unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
 			if _, err := validation.ValidateClientCommonConfig(clientCfg, unsafeFeatures); err != nil {
 				fmt.Println(err)
 				os.Exit(1)

@@ -248,23 +248,3 @@ type AuthOIDCClientConfig struct {
 type VirtualNetConfig struct {
 	Address string `json:"address,omitempty"`
 }
-
-const (
-	UnsafeFeatureTokenSourceExec = "TokenSourceExec"
-)
-
-type UnsafeFeatures struct {
-	features map[string]bool
-}
-
-func NewUnsafeFeatures(allowed []string) UnsafeFeatures {
-	features := make(map[string]bool)
-	for _, f := range allowed {
-		features[f] = true
-	}
-	return UnsafeFeatures{features: features}
-}
-
-func (u UnsafeFeatures) IsEnabled(feature string) bool {
-	return u.features[feature]
-}

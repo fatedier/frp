@@ -31,6 +31,7 @@ import (
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/policy/security"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
@@ -64,7 +65,7 @@ type ServiceOptions struct {
 	ProxyCfgs   []v1.ProxyConfigurer
 	VisitorCfgs []v1.VisitorConfigurer
 
-	UnsafeFeatures v1.UnsafeFeatures
+	UnsafeFeatures *security.UnsafeFeatures
 
 	// ConfigFilePath is the path to the configuration file used to initialize.
 	// If it is empty, it means that the configuration file is not used for initialization.
@@ -124,7 +125,7 @@ type Service struct {
 	visitorCfgs []v1.VisitorConfigurer
 	clientSpec  *msg.ClientSpec
 
-	unsafeFeatures v1.UnsafeFeatures
+	unsafeFeatures *security.UnsafeFeatures
 
 	// The configuration file used to initialize this client, or an empty
 	// string if no configuration file was used.
