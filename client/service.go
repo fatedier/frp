@@ -281,6 +281,7 @@ func (svr *Service) login() (conn net.Conn, connector Connector, err error) {
 		return
 	}
 
+	hostname, _ := os.Hostname()
 	loginMsg := &msg.Login{
 		Arch:      runtime.GOARCH,
 		Os:        runtime.GOOS,
@@ -290,6 +291,7 @@ func (svr *Service) login() (conn net.Conn, connector Connector, err error) {
 		Timestamp: time.Now().Unix(),
 		RunID:     svr.runID,
 		Metas:     svr.common.Metadatas,
+		Hostname:  hostname,
 	}
 	if svr.clientSpec != nil {
 		loginMsg.ClientSpec = *svr.clientSpec
