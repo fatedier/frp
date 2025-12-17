@@ -17,6 +17,7 @@ package sub
 import (
 	"errors"
 	"fmt"
+	"github.com/fatedier/frp/pkg/policy/security"
 	"github.com/fatedier/frp/pkg/util/log/events"
 	"github.com/fatedier/frp/pkg/util/system"
 	"github.com/fatedier/frp/pkg/util/version"
@@ -25,6 +26,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -43,6 +45,10 @@ const fmtServiceDesc = "Frp is a fast reverse proxy that allows you to expose a 
 func init() {
 	installCmd.PersistentFlags().BoolVarP(&verifyInstallation, "verify", "", false, "verify config(s) before installation")
 	installCmd.PersistentFlags().BoolVarP(&restricted, "restricted", "", false, "run service in restricted context")
+
+	installCmd.PersistentFlags().StringSliceVarP(&allowUnsafe, "allow-unsafe", "", []string{},
+		fmt.Sprintf("allowed unsafe features, one or more of: %s", strings.Join(security.ClientUnsafeFeatures, ", ")))
+
 	rootCmd.AddCommand(installCmd)
 	rootCmd.AddCommand(uninstallCmd)
 }
@@ -55,6 +61,8 @@ var installCmd = &cobra.Command{
 			fmt.Println(version.Full())
 			return nil
 		}
+
+		unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
 
 		execPath, err := os.Executable()
 		if err != nil {
@@ -79,7 +87,7 @@ var installCmd = &cobra.Command{
 						return nil
 					}
 					cfgFile1 := cfgDir + "\\" + d.Name()
-					if verifyCfg(cfgFile1) == nil {
+					if verifyCfg(cfgFile1, unsafeFeatures) == nil {
 						fmt.Printf("frpc: the configuration file %s syntax is ok\n", cfgFile1)
 						hasValidCfg = true
 					}
@@ -103,7 +111,7 @@ var installCmd = &cobra.Command{
 		// Ignore other params if "-c" / "--config" specified
 		if cfgFile != "" {
 			if verifyInstallation {
-				err := verifyCfg(cfgFile)
+				err := verifyCfg(cfgFile, unsafeFeatures)
 				if err != nil {
 					fmt.Println(err)
 					os.Exit(1)
@@ -144,12 +152,12 @@ var uninstallCmd = &cobra.Command{
 	},
 }
 
-func verifyCfg(f string) error {
+func verifyCfg(f string, unsafeFeatures *security.UnsafeFeatures) error {
 	cliCfg, proxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(f, strictConfigMode)
 	if err != nil {
 		return err
 	}
-	warning, err := validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs)
+	warning, err := validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs, unsafeFeatures)
 	if warning != nil {
 		fmt.Printf("WARNING: %v\n", warning)
 	}

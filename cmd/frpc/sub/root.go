@@ -224,7 +224,7 @@ func startServiceWithAggregator(
 		if err != nil {
 			return err
 		}
-		_, err = validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs)
+		_, err = validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs, unsafeFeatures)
 		if err != nil {
 			return err
 		}
