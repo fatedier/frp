@@ -69,3 +69,12 @@ type NewUserConnContent struct {
 	ProxyType  string   `json:"proxy_type"`
 	RemoteAddr string   `json:"remote_addr"`
 }
+
+type CloseUserConnContent struct {
+	User       UserInfo `json:"user"`
+	ProxyName  string   `json:"proxy_name"`
+	ProxyType  string   `json:"proxy_type"`
+	RemoteAddr string   `json:"remote_addr"`
+	BytesIn    int64    `json:"bytes_in"`
+	BytesOut   int64    `json:"bytes_out"`
+}

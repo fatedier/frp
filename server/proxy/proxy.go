@@ -229,6 +229,25 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 		return
 	}
 
+	var inCount, outCount int64
+
+	defer func() {
+		closeContent := &plugin.CloseUserConnContent{
+			User:       pxy.GetUserInfo(),
+			ProxyName:  pxy.GetName(),
+			ProxyType:  cfg.Type,
+			RemoteAddr: userConn.RemoteAddr().String(),
+			BytesIn:    inCount,
+			BytesOut:   outCount,
+		}
+		// Ignore error or log it if necessary
+		_, err := rc.PluginManager.CloseUserConn(closeContent)
+		if err != nil {
+			xl.Warnf("failed to call CloseUserConn for, err:%v", err)
+			return
+		}
+	}()
+
 	// try all connections from the pool
 	workConn, err := pxy.GetWorkConnFromPool(userConn.RemoteAddr(), userConn.LocalAddr())
 	if err != nil {
@@ -264,7 +283,7 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	name := pxy.GetName()
 	proxyType := cfg.Type
 	metrics.Server.OpenConnection(name, proxyType)
-	inCount, outCount, _ := libio.Join(local, userConn)
+	inCount, outCount, _ = libio.Join(local, userConn)
 	metrics.Server.CloseConnection(name, proxyType)
 	metrics.Server.AddTrafficIn(name, proxyType, inCount)
 	metrics.Server.AddTrafficOut(name, proxyType, outCount)

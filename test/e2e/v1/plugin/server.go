@@ -365,6 +365,53 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 		})
 	})
 
+	ginkgo.Describe("CloseUserConn", func() {
+		newFunc := func() *plugin.Request {
+			var r plugin.Request
+			r.Content = &plugin.CloseUserConnContent{}
+			return &r
+		}
+		ginkgo.It("Validate Info", func() {
+			localPort := f.AllocPort()
+
+			var record string
+			handler := func(req *plugin.Request) *plugin.Response {
+				var ret plugin.Response
+				content := req.Content.(*plugin.CloseUserConnContent)
+				record = content.RemoteAddr
+				ret.Unchange = true
+				return &ret
+			}
+			pluginServer := pluginpkg.NewHTTPPluginServer(localPort, newFunc, handler, nil)
+
+			f.RunServer("", pluginServer)
+
+			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			[[httpPlugins]]
+			name = "test"
+			addr = "127.0.0.1:%d"
+			path = "/handler"
+			ops = ["CloseUserConn"]
+			`, localPort)
+
+			remotePort := f.AllocPort()
+			clientConf := consts.DefaultClientConfig
+			clientConf += fmt.Sprintf(`
+			[[proxies]]
+			name = "tcp"
+			type = "tcp"
+			localPort = {{ .%s }}
+			remotePort = %d
+			`, framework.TCPEchoServerPort, remotePort)
+
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+			framework.NewRequestExpect(f).Port(remotePort).Ensure()
+
+			framework.ExpectNotEqual("", record)
+		})
+	})
+
 	ginkgo.Describe("HTTPS Protocol", func() {
 		newFunc := func() *plugin.Request {
 			var r plugin.Request
