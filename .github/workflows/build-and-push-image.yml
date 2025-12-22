@@ -78,6 +78,8 @@ jobs:
           file: ./dockerfiles/Dockerfile-for-frps
           platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.TAG_FRPS }}
             ${{ env.TAG_FRPS_GPR }}
