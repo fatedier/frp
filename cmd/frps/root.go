@@ -18,12 +18,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/fatedier/frp/pkg/config"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
+	"github.com/fatedier/frp/pkg/policy/security"
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/server"
@@ -33,6 +35,7 @@ var (
 	cfgFile          string
 	showVersion      bool
 	strictConfigMode bool
+	allowUnsafe      []string
 
 	serverCfg v1.ServerConfig
 )
@@ -41,6 +44,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file of frps")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frps")
 	rootCmd.PersistentFlags().BoolVarP(&strictConfigMode, "strict_config", "", true, "strict config parsing mode, unknown fields will cause errors")
+	rootCmd.PersistentFlags().StringSliceVarP(&allowUnsafe, "allow-unsafe", "", []string{},
+		fmt.Sprintf("allowed unsafe features, one or more of: %s", strings.Join(security.ServerUnsafeFeatures, ", ")))
 
 	config.RegisterServerConfigFlags(rootCmd, &serverCfg)
 }
@@ -77,7 +82,9 @@ var rootCmd = &cobra.Command{
 			svrCfg = &serverCfg
 		}
 
-		warning, err := validation.ValidateServerConfig(svrCfg)
+		unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
+		validator := validation.NewConfigValidator(unsafeFeatures)
+		warning, err := validator.ValidateServerConfig(svrCfg)
 		if warning != nil {
 			fmt.Printf("WARNING: %v\n", warning)
 		}

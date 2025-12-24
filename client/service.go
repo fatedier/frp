@@ -111,8 +111,8 @@ type Service struct {
 	// Uniq id got from frps, it will be attached to loginMsg.
 	runID string
 
-	// Sets authentication based on selected method
-	authSetter auth.Setter
+	// Auth runtime and encryption materials
+	auth *auth.ClientAuth
 
 	// web server for admin UI and apis
 	webServer *httppkg.Server
@@ -155,14 +155,14 @@ func NewService(options ServiceOptions) (*Service, error) {
 		webServer = ws
 	}
 
-	authSetter, err := auth.NewAuthSetter(options.Common.Auth)
+	authRuntime, err := auth.BuildClientAuth(&options.Common.Auth)
 	if err != nil {
 		return nil, err
 	}
 
 	s := &Service{
 		ctx:              context.Background(),
-		authSetter:       authSetter,
+		auth:             authRuntime,
 		webServer:        webServer,
 		common:           options.Common,
 		configFilePath:   options.ConfigFilePath,
@@ -296,7 +296,7 @@ func (svr *Service) login() (conn net.Conn, connector Connector, err error) {
 	}
 
 	// Add auth
-	if err = svr.authSetter.SetLogin(loginMsg); err != nil {
+	if err = svr.auth.Setter.SetLogin(loginMsg); err != nil {
 		return
 	}
 
@@ -350,7 +350,7 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 			RunID:          svr.runID,
 			Conn:           conn,
 			ConnEncrypted:  connEncrypted,
-			AuthSetter:     svr.authSetter,
+			Auth:           svr.auth,
 			Connector:      connector,
 			VnetController: svr.vnetController,
 		}

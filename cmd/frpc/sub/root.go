@@ -142,6 +142,7 @@ func runClient(cfgFilePath string, unsafeFeatures *security.UnsafeFeatures) erro
 	if err != nil {
 		return err
 	}
+
 	return startService(cfg, proxyCfgs, visitorCfgs, unsafeFeatures, cfgFilePath)
 }
 

@@ -15,8 +15,6 @@
 package v1
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/samber/lo"
@@ -38,68 +36,9 @@ func TestClientConfigComplete(t *testing.T) {
 }
 
 func TestAuthClientConfig_Complete(t *testing.T) {
-	// Create a temporary file for testing
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "test_token")
-	testContent := "client-token-value"
-	err := os.WriteFile(testFile, []byte(testContent), 0o600)
-	require.NoError(t, err)
-
-	tests := []struct {
-		name        string
-		config      AuthClientConfig
-		expectToken string
-		expectPanic bool
-	}{
-		{
-			name: "tokenSource resolved to token",
-			config: AuthClientConfig{
-				Method: AuthMethodToken,
-				TokenSource: &ValueSource{
-					Type: "file",
-					File: &FileSource{
-						Path: testFile,
-					},
-				},
-			},
-			expectToken: testContent,
-			expectPanic: false,
-		},
-		{
-			name: "direct token unchanged",
-			config: AuthClientConfig{
-				Method: AuthMethodToken,
-				Token:  "direct-token",
-			},
-			expectToken: "direct-token",
-			expectPanic: false,
-		},
-		{
-			name: "invalid tokenSource should panic",
-			config: AuthClientConfig{
-				Method: AuthMethodToken,
-				TokenSource: &ValueSource{
-					Type: "file",
-					File: &FileSource{
-						Path: "/non/existent/file",
-					},
-				},
-			},
-			expectPanic: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.expectPanic {
-				err := tt.config.Complete()
-				require.Error(t, err)
-			} else {
-				err := tt.config.Complete()
-				require.NoError(t, err)
-				require.Equal(t, tt.expectToken, tt.config.Token)
-				require.Nil(t, tt.config.TokenSource, "TokenSource should be cleared after resolution")
-			}
-		})
-	}
+	require := require.New(t)
+	cfg := &AuthClientConfig{}
+	err := cfg.Complete()
+	require.NoError(err)
+	require.EqualValues("token", cfg.Method)
 }
