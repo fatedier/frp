@@ -2,6 +2,7 @@
 
 * HTTPS proxies now support load balancing groups. Multiple HTTPS proxies can be configured with the same `loadBalancer.group` and `loadBalancer.groupKey` to share the same custom domain and distribute traffic across multiple backend services, similar to the existing TCP and HTTP load balancing capabilities.
 * Individual frpc proxies and visitors now accept an `enabled` flag (defaults to true), letting you disable specific entries without relying on the global `start` list—disabled blocks are skipped when client configs load.
+* OIDC authentication now supports a `tokenSource` field to dynamically obtain tokens from external sources. You can use `type = "file"` to read a token from a file, or `type = "exec"` to run an external command (e.g., a cloud CLI or secrets manager) and capture its stdout as the token. The `exec` type requires the `--allow-unsafe=TokenSourceExec` CLI flag for security reasons.
 
 ## Improvements
 
