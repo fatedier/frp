@@ -57,6 +57,7 @@ func NewProxy(
 	ctx context.Context,
 	pxyConf v1.ProxyConfigurer,
 	clientCfg *v1.ClientCommonConfig,
+	encryptionKey []byte,
 	msgTransporter transport.MessageTransporter,
 	vnetController *vnet.Controller,
 ) (pxy Proxy) {
@@ -69,6 +70,7 @@ func NewProxy(
 	baseProxy := BaseProxy{
 		baseCfg:        pxyConf.GetBaseConfig(),
 		clientCfg:      clientCfg,
+		encryptionKey:  encryptionKey,
 		limiter:        limiter,
 		msgTransporter: msgTransporter,
 		vnetController: vnetController,
@@ -86,6 +88,7 @@ func NewProxy(
 type BaseProxy struct {
 	baseCfg        *v1.ProxyBaseConfig
 	clientCfg      *v1.ClientCommonConfig
+	encryptionKey  []byte
 	msgTransporter transport.MessageTransporter
 	vnetController *vnet.Controller
 	limiter        *rate.Limiter
@@ -129,7 +132,7 @@ func (pxy *BaseProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 			return
 		}
 	}
-	pxy.HandleTCPWorkConnection(conn, m, []byte(pxy.clientCfg.Auth.Token))
+	pxy.HandleTCPWorkConnection(conn, m, pxy.encryptionKey)
 }
 
 // Common handler for tcp work connections.

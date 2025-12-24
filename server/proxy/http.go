@@ -165,7 +165,7 @@ func (pxy *HTTPProxy) GetRealConn(remoteAddr string) (workConn net.Conn, err err
 
 	var rwc io.ReadWriteCloser = tmpConn
 	if pxy.cfg.Transport.UseEncryption {
-		rwc, err = libio.WithEncryption(rwc, []byte(pxy.serverCfg.Auth.Token))
+		rwc, err = libio.WithEncryption(rwc, pxy.encryptionKey)
 		if err != nil {
 			xl.Errorf("create encryption stream error: %v", err)
 			return

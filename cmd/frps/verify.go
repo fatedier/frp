@@ -22,6 +22,7 @@ import (
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
+	"github.com/fatedier/frp/pkg/policy/security"
 )
 
 func init() {
@@ -42,7 +43,9 @@ var verifyCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		warning, err := validation.ValidateServerConfig(svrCfg)
+		unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
+		validator := validation.NewConfigValidator(unsafeFeatures)
+		warning, err := validator.ValidateServerConfig(svrCfg)
 		if warning != nil {
 			fmt.Printf("WARNING: %v\n", warning)
 		}

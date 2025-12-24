@@ -27,7 +27,7 @@ import (
 	"github.com/fatedier/frp/pkg/policy/security"
 )
 
-func ValidateClientCommonConfig(c *v1.ClientCommonConfig, unsafeFeatures *security.UnsafeFeatures) (Warning, error) {
+func (v *ConfigValidator) ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 	var (
 		warnings Warning
 		errs     error
@@ -35,15 +35,15 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig, unsafeFeatures *securi
 
 	validators := []func() (Warning, error){
 		func() (Warning, error) { return validateFeatureGates(c) },
-		func() (Warning, error) { return validateAuthConfig(&c.Auth, unsafeFeatures) },
+		func() (Warning, error) { return v.validateAuthConfig(&c.Auth) },
 		func() (Warning, error) { return nil, validateLogConfig(&c.Log) },
 		func() (Warning, error) { return nil, validateWebServerConfig(&c.WebServer) },
 		func() (Warning, error) { return validateTransportConfig(&c.Transport) },
 		func() (Warning, error) { return validateIncludeFiles(c.IncludeConfigFiles) },
 	}
 
-	for _, v := range validators {
-		w, err := v()
+	for _, validator := range validators {
+		w, err := validator()
 		warnings = AppendError(warnings, w)
 		errs = AppendError(errs, err)
 	}
@@ -59,7 +59,7 @@ func validateFeatureGates(c *v1.ClientCommonConfig) (Warning, error) {
 	return nil, nil
 }
 
-func validateAuthConfig(c *v1.AuthClientConfig, unsafeFeatures *security.UnsafeFeatures) (Warning, error) {
+func (v *ConfigValidator) validateAuthConfig(c *v1.AuthClientConfig) (Warning, error) {
 	var errs error
 	if !slices.Contains(SupportedAuthMethods, c.Method) {
 		errs = AppendError(errs, fmt.Errorf("invalid auth method, optional values are %v", SupportedAuthMethods))
@@ -76,9 +76,8 @@ func validateAuthConfig(c *v1.AuthClientConfig, unsafeFeatures *security.UnsafeF
 	// Validate tokenSource if specified
 	if c.TokenSource != nil {
 		if c.TokenSource.Type == "exec" {
-			if !unsafeFeatures.IsEnabled(security.TokenSourceExec) {
-				errs = AppendError(errs, fmt.Errorf("unsafe feature %q is not enabled. "+
-					"To enable it, start frpc with '--allow-unsafe %s'", security.TokenSourceExec, security.TokenSourceExec))
+			if err := v.ValidateUnsafeFeature(security.TokenSourceExec); err != nil {
+				errs = AppendError(errs, err)
 			}
 		}
 		if err := c.TokenSource.Validate(); err != nil {
@@ -86,13 +85,13 @@ func validateAuthConfig(c *v1.AuthClientConfig, unsafeFeatures *security.UnsafeF
 		}
 	}
 
-	if err := validateOIDCConfig(&c.OIDC, unsafeFeatures); err != nil {
+	if err := v.validateOIDCConfig(&c.OIDC); err != nil {
 		errs = AppendError(errs, err)
 	}
 	return nil, errs
 }
 
-func validateOIDCConfig(c *v1.AuthOIDCClientConfig, unsafeFeatures *security.UnsafeFeatures) error {
+func (v *ConfigValidator) validateOIDCConfig(c *v1.AuthOIDCClientConfig) error {
 	if c.TokenSource == nil {
 		return nil
 	}
@@ -104,9 +103,8 @@ func validateOIDCConfig(c *v1.AuthOIDCClientConfig, unsafeFeatures *security.Uns
 		errs = AppendError(errs, fmt.Errorf("cannot specify both auth.oidc.tokenSource and any other field of auth.oidc"))
 	}
 	if c.TokenSource.Type == "exec" {
-		if !unsafeFeatures.IsEnabled(security.TokenSourceExec) {
-			errs = AppendError(errs, fmt.Errorf("unsafe feature %q is not enabled. "+
-				"To enable it, start frpc with '--allow-unsafe %s'", security.TokenSourceExec, security.TokenSourceExec))
+		if err := v.ValidateUnsafeFeature(security.TokenSourceExec); err != nil {
+			errs = AppendError(errs, err)
 		}
 	}
 	if err := c.TokenSource.Validate(); err != nil {
@@ -167,9 +165,10 @@ func ValidateAllClientConfig(
 	visitorCfgs []v1.VisitorConfigurer,
 	unsafeFeatures *security.UnsafeFeatures,
 ) (Warning, error) {
+	validator := NewConfigValidator(unsafeFeatures)
 	var warnings Warning
 	if c != nil {
-		warning, err := ValidateClientCommonConfig(c, unsafeFeatures)
+		warning, err := validator.ValidateClientCommonConfig(c)
 		warnings = AppendError(warnings, warning)
 		if err != nil {
 			return warnings, err
