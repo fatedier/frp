@@ -62,8 +62,6 @@ var installCmd = &cobra.Command{
 			return nil
 		}
 
-		unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
-
 		execPath, err := os.Executable()
 		if err != nil {
 			fmt.Println("frpc: the executable no longer exists")
@@ -87,7 +85,7 @@ var installCmd = &cobra.Command{
 						return nil
 					}
 					cfgFile1 := cfgDir + "\\" + d.Name()
-					if verifyCfg(cfgFile1, unsafeFeatures) == nil {
+					if verifyCfg(cfgFile1) == nil {
 						fmt.Printf("frpc: the configuration file %s syntax is ok\n", cfgFile1)
 						hasValidCfg = true
 					}
@@ -111,7 +109,7 @@ var installCmd = &cobra.Command{
 		// Ignore other params if "-c" / "--config" specified
 		if cfgFile != "" {
 			if verifyInstallation {
-				err := verifyCfg(cfgFile, unsafeFeatures)
+				err := verifyCfg(cfgFile)
 				if err != nil {
 					fmt.Println(err)
 					os.Exit(1)
@@ -152,11 +150,12 @@ var uninstallCmd = &cobra.Command{
 	},
 }
 
-func verifyCfg(f string, unsafeFeatures *security.UnsafeFeatures) error {
+func verifyCfg(f string) error {
 	cliCfg, proxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(f, strictConfigMode)
 	if err != nil {
 		return err
 	}
+	unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
 	warning, err := validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs, unsafeFeatures)
 	if warning != nil {
 		fmt.Printf("WARNING: %v\n", warning)
