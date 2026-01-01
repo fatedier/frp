@@ -16,12 +16,14 @@ package main
 
 import (
 	"fmt"
+	"github.com/fatedier/frp/pkg/policy/security"
 	"github.com/fatedier/frp/pkg/util/log/events"
 	"github.com/fatedier/frp/pkg/util/system"
 	"github.com/fatedier/frp/pkg/util/version"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc/mgr"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -40,6 +42,9 @@ const fmtServiceDesc = "Frp is a fast reverse proxy that allows you to expose a 
 func init() {
 	installCmd.PersistentFlags().BoolVarP(&verifyInstallation, "verify", "", false, "verify config(s) before installation")
 	installCmd.PersistentFlags().BoolVarP(&restricted, "restricted", "", false, "run service in restricted context")
+	installCmd.PersistentFlags().StringSliceVarP(&allowUnsafe, "allow-unsafe", "", []string{},
+		fmt.Sprintf("allowed unsafe features, one or more of: %s", strings.Join(security.ServerUnsafeFeatures, ", ")))
+
 	rootCmd.AddCommand(installCmd)
 	rootCmd.AddCommand(uninstallCmd)
 }
@@ -113,7 +118,9 @@ func verifyCfg(f string) error {
 	if err != nil {
 		return err
 	}
-	warning, err := validation.ValidateServerConfig(svrCfg)
+	unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
+	validator := validation.NewConfigValidator(unsafeFeatures)
+	warning, err := validator.ValidateServerConfig(svrCfg)
 	if warning != nil {
 		fmt.Printf("WARNING: %v\n", warning)
 	}
