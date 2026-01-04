@@ -92,6 +92,7 @@ func NewWrapper(
 	ctx context.Context,
 	cfg v1.ProxyConfigurer,
 	clientCfg *v1.ClientCommonConfig,
+	encryptionKey []byte,
 	eventHandler event.Handler,
 	msgTransporter transport.MessageTransporter,
 	vnetController *vnet.Controller,
@@ -122,7 +123,7 @@ func NewWrapper(
 		xl.Tracef("enable health check monitor")
 	}
 
-	pw.pxy = NewProxy(pw.ctx, pw.Cfg, clientCfg, pw.msgTransporter, pw.vnetController)
+	pw.pxy = NewProxy(pw.ctx, pw.Cfg, clientCfg, encryptionKey, pw.msgTransporter, pw.vnetController)
 	return pw
 }
 

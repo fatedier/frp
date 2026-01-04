@@ -23,55 +23,109 @@ import (
 	"github.com/samber/lo"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
-	"github.com/fatedier/frp/pkg/featuregate"
+	"github.com/fatedier/frp/pkg/policy/featuregate"
+	"github.com/fatedier/frp/pkg/policy/security"
 )
 
-func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
+func (v *ConfigValidator) ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 	var (
 		warnings Warning
 		errs     error
 	)
-	// validate feature gates
-	if c.VirtualNet.Address != "" {
-		if !featuregate.Enabled(featuregate.VirtualNet) {
-			return warnings, fmt.Errorf("VirtualNet feature is not enabled; enable it by setting the appropriate feature gate flag")
-		}
+
+	validators := []func() (Warning, error){
+		func() (Warning, error) { return validateFeatureGates(c) },
+		func() (Warning, error) { return v.validateAuthConfig(&c.Auth) },
+		func() (Warning, error) { return nil, validateLogConfig(&c.Log) },
+		func() (Warning, error) { return nil, validateWebServerConfig(&c.WebServer) },
+		func() (Warning, error) { return validateTransportConfig(&c.Transport) },
+		func() (Warning, error) { return validateIncludeFiles(c.IncludeConfigFiles) },
 	}
 
-	if !slices.Contains(SupportedAuthMethods, c.Auth.Method) {
+	for _, validator := range validators {
+		w, err := validator()
+		warnings = AppendError(warnings, w)
+		errs = AppendError(errs, err)
+	}
+	return warnings, errs
+}
+
+func validateFeatureGates(c *v1.ClientCommonConfig) (Warning, error) {
+	if c.VirtualNet.Address != "" {
+		if !featuregate.Enabled(featuregate.VirtualNet) {
+			return nil, fmt.Errorf("VirtualNet feature is not enabled; enable it by setting the appropriate feature gate flag")
+		}
+	}
+	return nil, nil
+}
+
+func (v *ConfigValidator) validateAuthConfig(c *v1.AuthClientConfig) (Warning, error) {
+	var errs error
+	if !slices.Contains(SupportedAuthMethods, c.Method) {
 		errs = AppendError(errs, fmt.Errorf("invalid auth method, optional values are %v", SupportedAuthMethods))
 	}
-	if !lo.Every(SupportedAuthAdditionalScopes, c.Auth.AdditionalScopes) {
+	if !lo.Every(SupportedAuthAdditionalScopes, c.AdditionalScopes) {
 		errs = AppendError(errs, fmt.Errorf("invalid auth additional scopes, optional values are %v", SupportedAuthAdditionalScopes))
 	}
 
 	// Validate token/tokenSource mutual exclusivity
-	if c.Auth.Token != "" && c.Auth.TokenSource != nil {
+	if c.Token != "" && c.TokenSource != nil {
 		errs = AppendError(errs, fmt.Errorf("cannot specify both auth.token and auth.tokenSource"))
 	}
 
 	// Validate tokenSource if specified
-	if c.Auth.TokenSource != nil {
-		if err := c.Auth.TokenSource.Validate(); err != nil {
+	if c.TokenSource != nil {
+		if c.TokenSource.Type == "exec" {
+			if err := v.ValidateUnsafeFeature(security.TokenSourceExec); err != nil {
+				errs = AppendError(errs, err)
+			}
+		}
+		if err := c.TokenSource.Validate(); err != nil {
 			errs = AppendError(errs, fmt.Errorf("invalid auth.tokenSource: %v", err))
 		}
 	}
 
-	if err := validateLogConfig(&c.Log); err != nil {
+	if err := v.validateOIDCConfig(&c.OIDC); err != nil {
 		errs = AppendError(errs, err)
 	}
+	return nil, errs
+}
 
-	if err := validateWebServerConfig(&c.WebServer); err != nil {
-		errs = AppendError(errs, err)
+func (v *ConfigValidator) validateOIDCConfig(c *v1.AuthOIDCClientConfig) error {
+	if c.TokenSource == nil {
+		return nil
 	}
+	var errs error
+	// Validate oidc.tokenSource mutual exclusivity with other fields of oidc
+	if c.ClientID != "" || c.ClientSecret != "" || c.Audience != "" ||
+		c.Scope != "" || c.TokenEndpointURL != "" || len(c.AdditionalEndpointParams) > 0 ||
+		c.TrustedCaFile != "" || c.InsecureSkipVerify || c.ProxyURL != "" {
+		errs = AppendError(errs, fmt.Errorf("cannot specify both auth.oidc.tokenSource and any other field of auth.oidc"))
+	}
+	if c.TokenSource.Type == "exec" {
+		if err := v.ValidateUnsafeFeature(security.TokenSourceExec); err != nil {
+			errs = AppendError(errs, err)
+		}
+	}
+	if err := c.TokenSource.Validate(); err != nil {
+		errs = AppendError(errs, fmt.Errorf("invalid auth.oidc.tokenSource: %v", err))
+	}
+	return errs
+}
 
-	if c.Transport.HeartbeatTimeout > 0 && c.Transport.HeartbeatInterval > 0 {
-		if c.Transport.HeartbeatTimeout < c.Transport.HeartbeatInterval {
+func validateTransportConfig(c *v1.ClientTransportConfig) (Warning, error) {
+	var (
+		warnings Warning
+		errs     error
+	)
+
+	if c.HeartbeatTimeout > 0 && c.HeartbeatInterval > 0 {
+		if c.HeartbeatTimeout < c.HeartbeatInterval {
 			errs = AppendError(errs, fmt.Errorf("invalid transport.heartbeatTimeout, heartbeat timeout should not less than heartbeat interval"))
 		}
 	}
 
-	if !lo.FromPtr(c.Transport.TLS.Enable) {
+	if !lo.FromPtr(c.TLS.Enable) {
 		checkTLSConfig := func(name string, value string) Warning {
 			if value != "" {
 				return fmt.Errorf("%s is invalid when transport.tls.enable is false", name)
@@ -79,16 +133,20 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 			return nil
 		}
 
-		warnings = AppendError(warnings, checkTLSConfig("transport.tls.certFile", c.Transport.TLS.CertFile))
-		warnings = AppendError(warnings, checkTLSConfig("transport.tls.keyFile", c.Transport.TLS.KeyFile))
-		warnings = AppendError(warnings, checkTLSConfig("transport.tls.trustedCaFile", c.Transport.TLS.TrustedCaFile))
+		warnings = AppendError(warnings, checkTLSConfig("transport.tls.certFile", c.TLS.CertFile))
+		warnings = AppendError(warnings, checkTLSConfig("transport.tls.keyFile", c.TLS.KeyFile))
+		warnings = AppendError(warnings, checkTLSConfig("transport.tls.trustedCaFile", c.TLS.TrustedCaFile))
 	}
 
-	if !slices.Contains(SupportedTransportProtocols, c.Transport.Protocol) {
+	if !slices.Contains(SupportedTransportProtocols, c.Protocol) {
 		errs = AppendError(errs, fmt.Errorf("invalid transport.protocol, optional values are %v", SupportedTransportProtocols))
 	}
+	return warnings, errs
+}
 
-	for _, f := range c.IncludeConfigFiles {
+func validateIncludeFiles(files []string) (Warning, error) {
+	var errs error
+	for _, f := range files {
 		absDir, err := filepath.Abs(filepath.Dir(f))
 		if err != nil {
 			errs = AppendError(errs, fmt.Errorf("include: parse directory of %s failed: %v", f, err))
@@ -98,13 +156,19 @@ func ValidateClientCommonConfig(c *v1.ClientCommonConfig) (Warning, error) {
 			errs = AppendError(errs, fmt.Errorf("include: directory of %s not exist", f))
 		}
 	}
-	return warnings, errs
+	return nil, errs
 }
 
-func ValidateAllClientConfig(c *v1.ClientCommonConfig, proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) (Warning, error) {
+func ValidateAllClientConfig(
+	c *v1.ClientCommonConfig,
+	proxyCfgs []v1.ProxyConfigurer,
+	visitorCfgs []v1.VisitorConfigurer,
+	unsafeFeatures *security.UnsafeFeatures,
+) (Warning, error) {
+	validator := NewConfigValidator(unsafeFeatures)
 	var warnings Warning
 	if c != nil {
-		warning, err := ValidateClientCommonConfig(c)
+		warning, err := validator.ValidateClientCommonConfig(c)
 		warnings = AppendError(warnings, warning)
 		if err != nil {
 			return warnings, err

@@ -21,9 +21,10 @@ import (
 	"github.com/samber/lo"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/policy/security"
 )
 
-func ValidateServerConfig(c *v1.ServerConfig) (Warning, error) {
+func (v *ConfigValidator) ValidateServerConfig(c *v1.ServerConfig) (Warning, error) {
 	var (
 		warnings Warning
 		errs     error
@@ -42,6 +43,11 @@ func ValidateServerConfig(c *v1.ServerConfig) (Warning, error) {
 
 	// Validate tokenSource if specified
 	if c.Auth.TokenSource != nil {
+		if c.Auth.TokenSource.Type == "exec" {
+			if err := v.ValidateUnsafeFeature(security.TokenSourceExec); err != nil {
+				errs = AppendError(errs, err)
+			}
+		}
 		if err := c.Auth.TokenSource.Validate(); err != nil {
 			errs = AppendError(errs, fmt.Errorf("invalid auth.tokenSource: %v", err))
 		}

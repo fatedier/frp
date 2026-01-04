@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 )
 
@@ -27,11 +28,24 @@ import (
 type ValueSource struct {
 	Type string      `json:"type"`
 	File *FileSource `json:"file,omitempty"`
+	Exec *ExecSource `json:"exec,omitempty"`
 }
 
 // FileSource specifies how to load a value from a file.
 type FileSource struct {
 	Path string `json:"path"`
+}
+
+// ExecSource specifies how to get a value from another program launched as subprocess.
+type ExecSource struct {
+	Command string       `json:"command"`
+	Args    []string     `json:"args,omitempty"`
+	Env     []ExecEnvVar `json:"env,omitempty"`
+}
+
+type ExecEnvVar struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 // Validate validates the ValueSource configuration.
@@ -46,8 +60,13 @@ func (v *ValueSource) Validate() error {
 			return errors.New("file configuration is required when type is 'file'")
 		}
 		return v.File.Validate()
+	case "exec":
+		if v.Exec == nil {
+			return errors.New("exec configuration is required when type is 'exec'")
+		}
+		return v.Exec.Validate()
 	default:
-		return fmt.Errorf("unsupported value source type: %s (only 'file' is supported)", v.Type)
+		return fmt.Errorf("unsupported value source type: %s (only 'file' and 'exec' are supported)", v.Type)
 	}
 }
 
@@ -60,6 +79,8 @@ func (v *ValueSource) Resolve(ctx context.Context) (string, error) {
 	switch v.Type {
 	case "file":
 		return v.File.Resolve(ctx)
+	case "exec":
+		return v.Exec.Resolve(ctx)
 	default:
 		return "", fmt.Errorf("unsupported value source type: %s", v.Type)
 	}
@@ -89,5 +110,49 @@ func (f *FileSource) Resolve(_ context.Context) (string, error) {
 	}
 
 	// Trim whitespace, which is important for file-based tokens
+	return strings.TrimSpace(string(content)), nil
+}
+
+// Validate validates the ExecSource configuration.
+func (e *ExecSource) Validate() error {
+	if e == nil {
+		return errors.New("execSource cannot be nil")
+	}
+
+	if e.Command == "" {
+		return errors.New("exec command cannot be empty")
+	}
+
+	for _, env := range e.Env {
+		if env.Name == "" {
+			return errors.New("exec env name cannot be empty")
+		}
+		if strings.Contains(env.Name, "=") {
+			return errors.New("exec env name cannot contain '='")
+		}
+	}
+	return nil
+}
+
+// Resolve reads and returns the content captured from stdout of launched subprocess.
+func (e *ExecSource) Resolve(ctx context.Context) (string, error) {
+	if err := e.Validate(); err != nil {
+		return "", err
+	}
+
+	cmd := exec.CommandContext(ctx, e.Command, e.Args...)
+	if len(e.Env) != 0 {
+		cmd.Env = os.Environ()
+		for _, env := range e.Env {
+			cmd.Env = append(cmd.Env, env.Name+"="+env.Value)
+		}
+	}
+
+	content, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to execute command %v: %v", e.Command, err)
+	}
+
+	// Trim whitespace, which is important for exec-based tokens
 	return strings.TrimSpace(string(content)), nil
 }

@@ -22,6 +22,7 @@ import (
 
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
+	"github.com/fatedier/frp/pkg/policy/security"
 )
 
 func init() {
@@ -42,7 +43,8 @@ var verifyCmd = &cobra.Command{
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		warning, err := validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs)
+		unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
+		warning, err := validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs, unsafeFeatures)
 		if warning != nil {
 			fmt.Printf("WARNING: %v\n", warning)
 		}

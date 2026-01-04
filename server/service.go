@@ -113,8 +113,8 @@ type Service struct {
 
 	sshTunnelGateway *ssh.Gateway
 
-	// Verifies authentication based on selected method
-	authVerifier auth.Verifier
+	// Auth runtime and encryption materials
+	auth *auth.ServerAuth
 
 	tlsConfig *tls.Config
 
@@ -149,6 +149,11 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		}
 	}
 
+	authRuntime, err := auth.BuildServerAuth(&cfg.Auth)
+	if err != nil {
+		return nil, err
+	}
+
 	svr := &Service{
 		ctlManager:    NewControlManager(),
 		pxyManager:    proxy.NewManager(),
@@ -160,7 +165,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		},
 		sshTunnelListener: netpkg.NewInternalListener(),
 		httpVhostRouter:   vhost.NewRouters(),
-		authVerifier:      auth.NewAuthVerifier(cfg.Auth),
+		auth:              authRuntime,
 		webServer:         webServer,
 		tlsConfig:         tlsConfig,
 		cfg:               cfg,
@@ -322,6 +327,9 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		if err != nil {
 			return nil, fmt.Errorf("create vhost httpsMuxer error, %v", err)
 		}
+
+		// Init HTTPS group controller after HTTPSMuxer is created
+		svr.rc.HTTPSGroupCtl = group.NewHTTPSGroupController(svr.rc.VhostHTTPSMuxer)
 	}
 
 	// frp tls listener
@@ -583,7 +591,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		ctlConn.RemoteAddr().String(), loginMsg.Version, loginMsg.Hostname, loginMsg.Os, loginMsg.Arch)
 
 	// Check auth.
-	authVerifier := svr.authVerifier
+	authVerifier := svr.auth.Verifier
 	if internal && loginMsg.ClientSpec.AlwaysAuthPass {
 		authVerifier = auth.AlwaysPassVerifier
 	}
@@ -592,7 +600,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 	}
 
 	// TODO(fatedier): use SessionContext
-	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, ctlConn, !internal, loginMsg, svr.cfg)
+	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, svr.auth.EncryptionKey(), ctlConn, !internal, loginMsg, svr.cfg)
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
 		// don't return detailed errors to client

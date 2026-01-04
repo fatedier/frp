@@ -71,7 +71,7 @@ func NewVisitor(
 				Name:           cfg.GetBaseConfig().Name,
 				Ctx:            ctx,
 				VnetController: helper.VNetController(),
-				HandleConn: func(conn net.Conn) {
+				SendConnToVisitor: func(conn net.Conn) {
 					_ = baseVisitor.AcceptConn(conn)
 				},
 			},

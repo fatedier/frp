@@ -152,6 +152,51 @@ func (auth *OidcAuthProvider) SetNewWorkConn(newWorkConnMsg *msg.NewWorkConn) (e
 	return err
 }
 
+type OidcTokenSourceAuthProvider struct {
+	additionalAuthScopes []v1.AuthScope
+
+	valueSource *v1.ValueSource
+}
+
+func NewOidcTokenSourceAuthSetter(additionalAuthScopes []v1.AuthScope, valueSource *v1.ValueSource) *OidcTokenSourceAuthProvider {
+	return &OidcTokenSourceAuthProvider{
+		additionalAuthScopes: additionalAuthScopes,
+		valueSource:          valueSource,
+	}
+}
+
+func (auth *OidcTokenSourceAuthProvider) generateAccessToken() (accessToken string, err error) {
+	ctx := context.Background()
+	accessToken, err = auth.valueSource.Resolve(ctx)
+	if err != nil {
+		return "", fmt.Errorf("couldn't acquire OIDC token for login: %v", err)
+	}
+	return
+}
+
+func (auth *OidcTokenSourceAuthProvider) SetLogin(loginMsg *msg.Login) (err error) {
+	loginMsg.PrivilegeKey, err = auth.generateAccessToken()
+	return err
+}
+
+func (auth *OidcTokenSourceAuthProvider) SetPing(pingMsg *msg.Ping) (err error) {
+	if !slices.Contains(auth.additionalAuthScopes, v1.AuthScopeHeartBeats) {
+		return nil
+	}
+
+	pingMsg.PrivilegeKey, err = auth.generateAccessToken()
+	return err
+}
+
+func (auth *OidcTokenSourceAuthProvider) SetNewWorkConn(newWorkConnMsg *msg.NewWorkConn) (err error) {
+	if !slices.Contains(auth.additionalAuthScopes, v1.AuthScopeNewWorkConns) {
+		return nil
+	}
+
+	newWorkConnMsg.PrivilegeKey, err = auth.generateAccessToken()
+	return err
+}
+
 type TokenVerifier interface {
 	Verify(context.Context, string) (*oidc.IDToken, error)
 }

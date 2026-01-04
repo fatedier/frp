@@ -143,6 +143,11 @@ transport.tls.enable = true
 # Default is empty, means all proxies.
 # start = ["ssh", "dns"]
 
+# Alternative to 'start': You can control each proxy individually using the 'enabled' field.
+# Set 'enabled = false' in a proxy configuration to disable it.
+# If 'enabled' is not set or set to true, the proxy is enabled by default.
+# The 'enabled' field provides more granular control and is recommended over 'start'.
+
 # Specify udp packet size, unit is byte. If not set, the default value is 1500.
 # This parameter should be same between client and server.
 # It affects the udp and sudp proxy.
@@ -169,6 +174,8 @@ metadatas.var2 = "123"
 # If global user is not empty, it will be changed to {user}.{proxy} such as 'your_name.ssh'
 name = "ssh"
 type = "tcp"
+# Enable or disable this proxy. true or omit this field to enable, false to disable.
+# enabled = true
 localIP = "127.0.0.1"
 localPort = 22
 # Limit bandwidth for this proxy, unit is KB and MB
@@ -253,6 +260,8 @@ healthCheck.httpHeaders=[
 [[proxies]]
 name = "web02"
 type = "https"
+# Disable this proxy by setting enabled to false
+# enabled = false
 localIP = "127.0.0.1"
 localPort = 8000
 subdomain = "web02"

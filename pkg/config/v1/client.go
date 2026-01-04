@@ -15,8 +15,6 @@
 package v1
 
 import (
-	"context"
-	"fmt"
 	"os"
 
 	"github.com/samber/lo"
@@ -198,17 +196,6 @@ type AuthClientConfig struct {
 
 func (c *AuthClientConfig) Complete() error {
 	c.Method = util.EmptyOr(c.Method, "token")
-
-	// Resolve tokenSource during configuration loading
-	if c.Method == AuthMethodToken && c.TokenSource != nil {
-		token, err := c.TokenSource.Resolve(context.Background())
-		if err != nil {
-			return fmt.Errorf("failed to resolve auth.tokenSource: %w", err)
-		}
-		// Move the resolved token to the Token field and clear TokenSource
-		c.Token = token
-		c.TokenSource = nil
-	}
 	return nil
 }
 
@@ -239,6 +226,10 @@ type AuthOIDCClientConfig struct {
 	// Supports http, https, socks5, and socks5h proxy protocols.
 	// If empty, no proxy is used for OIDC connections.
 	ProxyURL string `json:"proxyURL,omitempty"`
+
+	// TokenSource specifies a custom dynamic source for the authorization token.
+	// This is mutually exclusive with every other field of this structure.
+	TokenSource *ValueSource `json:"tokenSource,omitempty"`
 }
 
 type VirtualNetConfig struct {

@@ -92,7 +92,7 @@ func (svr *Service) apiReload(w http.ResponseWriter, r *http.Request) {
 		log.Warnf("reload frpc proxy config error: %s", res.Msg)
 		return
 	}
-	if _, err := validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs); err != nil {
+	if _, err := validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs, svr.unsafeFeatures); err != nil {
 		res.Code = 400
 		res.Msg = err.Error()
 		log.Warnf("reload frpc proxy config error: %s", res.Msg)
