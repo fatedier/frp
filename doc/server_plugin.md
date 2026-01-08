@@ -70,7 +70,7 @@ The response can look like any of the following:
 
 ### Operation
 
-Currently `Login`, `NewProxy`, `CloseProxy`, `Ping`, `NewWorkConn` and `NewUserConn` operations are supported.
+Currently `Login`, `NewProxy`, `ProxyStarted`, `CloseProxy`, `Ping`, `NewWorkConn` and `NewUserConn` operations are supported.
 
 #### Login
 
@@ -134,6 +134,28 @@ Create new proxy
         "multiplexer": <string>
 
         "metas": map<string>string
+    }
+}
+```
+
+#### ProxyStarted
+
+Proxy has been successfully started and port allocation is complete. This event is sent **after** the proxy is running,
+so it includes the actual allocated port (which may differ from the requested port when `remotePort=0`).
+
+This is a notification-only event - plugins cannot reject or modify the content since the proxy is already running.
+
+```
+{
+    "content": {
+        "user": {
+            "user": <string>,
+            "metas": map<string>string
+            "run_id": <string>
+        },
+        "proxy_name": <string>,
+        "proxy_type": <string>,
+        "remote_addr": <string>  // The actual allocated address, e.g., ":6000"
     }
 }
 ```

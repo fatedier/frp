@@ -51,6 +51,7 @@ var (
 	SupportedHTTPPluginOps = []string{
 		splugin.OpLogin,
 		splugin.OpNewProxy,
+		splugin.OpProxyStarted,
 		splugin.OpCloseProxy,
 		splugin.OpPing,
 		splugin.OpNewWorkConn,

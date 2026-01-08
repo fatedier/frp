@@ -69,3 +69,13 @@ type NewUserConnContent struct {
 	ProxyType  string   `json:"proxy_type"`
 	RemoteAddr string   `json:"remote_addr"`
 }
+
+// ProxyStartedContent is sent after a proxy has been successfully started
+// and port allocation is complete. This includes the actual allocated port
+// which may differ from the requested port (e.g., when remotePort=0).
+type ProxyStartedContent struct {
+	User       UserInfo `json:"user"`
+	ProxyName  string   `json:"proxy_name"`
+	ProxyType  string   `json:"proxy_type"`
+	RemoteAddr string   `json:"remote_addr"` // The actual allocated address (e.g., ":6000")
+}

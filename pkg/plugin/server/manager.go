@@ -25,22 +25,24 @@ import (
 )
 
 type Manager struct {
-	loginPlugins       []Plugin
-	newProxyPlugins    []Plugin
-	closeProxyPlugins  []Plugin
-	pingPlugins        []Plugin
-	newWorkConnPlugins []Plugin
-	newUserConnPlugins []Plugin
+	loginPlugins         []Plugin
+	newProxyPlugins      []Plugin
+	proxyStartedPlugins  []Plugin
+	closeProxyPlugins    []Plugin
+	pingPlugins          []Plugin
+	newWorkConnPlugins   []Plugin
+	newUserConnPlugins   []Plugin
 }
 
 func NewManager() *Manager {
 	return &Manager{
-		loginPlugins:       make([]Plugin, 0),
-		newProxyPlugins:    make([]Plugin, 0),
-		closeProxyPlugins:  make([]Plugin, 0),
-		pingPlugins:        make([]Plugin, 0),
-		newWorkConnPlugins: make([]Plugin, 0),
-		newUserConnPlugins: make([]Plugin, 0),
+		loginPlugins:        make([]Plugin, 0),
+		newProxyPlugins:     make([]Plugin, 0),
+		proxyStartedPlugins: make([]Plugin, 0),
+		closeProxyPlugins:   make([]Plugin, 0),
+		pingPlugins:         make([]Plugin, 0),
+		newWorkConnPlugins:  make([]Plugin, 0),
+		newUserConnPlugins:  make([]Plugin, 0),
 	}
 }
 
@@ -50,6 +52,9 @@ func (m *Manager) Register(p Plugin) {
 	}
 	if p.IsSupport(OpNewProxy) {
 		m.newProxyPlugins = append(m.newProxyPlugins, p)
+	}
+	if p.IsSupport(OpProxyStarted) {
+		m.proxyStartedPlugins = append(m.proxyStartedPlugins, p)
 	}
 	if p.IsSupport(OpCloseProxy) {
 		m.closeProxyPlugins = append(m.closeProxyPlugins, p)
@@ -131,6 +136,34 @@ func (m *Manager) NewProxy(content *NewProxyContent) (*NewProxyContent, error) {
 		}
 	}
 	return content, nil
+}
+
+// ProxyStarted is called after a proxy has been successfully started and port
+// allocation is complete. This is a notification-only event (fire and forget),
+// plugins cannot reject or modify the content since the proxy is already running.
+func (m *Manager) ProxyStarted(content *ProxyStartedContent) error {
+	if len(m.proxyStartedPlugins) == 0 {
+		return nil
+	}
+
+	errs := make([]string, 0)
+	reqid, _ := util.RandID()
+	xl := xlog.New().AppendPrefix("reqid: " + reqid)
+	ctx := xlog.NewContext(context.Background(), xl)
+	ctx = NewReqidContext(ctx, reqid)
+
+	for _, p := range m.proxyStartedPlugins {
+		_, _, err := p.Handle(ctx, OpProxyStarted, *content)
+		if err != nil {
+			xl.Warnf("send ProxyStarted request to plugin [%s] error: %v", p.Name(), err)
+			errs = append(errs, fmt.Sprintf("[%s]: %v", p.Name(), err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("send ProxyStarted request to plugin errors: %s", strings.Join(errs, "; "))
+	}
+	return nil
 }
 
 func (m *Manager) CloseProxy(content *CloseProxyContent) error {

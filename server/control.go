@@ -398,6 +398,21 @@ func (ctl *Control) handleNewProxy(m msg.Message) {
 		resp.RemoteAddr = remoteAddr
 		xl.Infof("new proxy [%s] type [%s] success", inMsg.ProxyName, inMsg.ProxyType)
 		metrics.Server.NewProxy(inMsg.ProxyName, inMsg.ProxyType)
+
+		// Notify plugins that proxy has started with the allocated port
+		startedContent := &plugin.ProxyStartedContent{
+			User: plugin.UserInfo{
+				User:  ctl.loginMsg.User,
+				Metas: ctl.loginMsg.Metas,
+				RunID: ctl.loginMsg.RunID,
+			},
+			ProxyName:  inMsg.ProxyName,
+			ProxyType:  inMsg.ProxyType,
+			RemoteAddr: remoteAddr,
+		}
+		go func() {
+			_ = ctl.pluginManager.ProxyStarted(startedContent)
+		}()
 	}
 	_ = ctl.msgDispatcher.Send(resp)
 }
