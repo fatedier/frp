@@ -39,6 +39,7 @@ export default defineConfig({
     },
   },
   server: {
+    allowedHosts: process.env.ALLOWED_HOSTS ? process.env.ALLOWED_HOSTS.split(',') : [],
     proxy: {
       '/api': {
         target: process.env.VITE_API_URL || 'http://127.0.0.1:7500',

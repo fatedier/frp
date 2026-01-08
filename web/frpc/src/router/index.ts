@@ -1,6 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import Overview from '../components/Overview.vue'
-import ClientConfigure from '../components/ClientConfigure.vue'
+import Overview from '../views/Overview.vue'
+import ClientConfigure from '../views/ClientConfigure.vue'
 
 const router = createRouter({
   history: createWebHashHistory(),
