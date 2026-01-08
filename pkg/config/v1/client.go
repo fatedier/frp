@@ -37,6 +37,8 @@ type ClientCommonConfig struct {
 	// clients. If this value is not "", proxy names will automatically be
 	// changed to "{user}.{proxy_name}".
 	User string `json:"user,omitempty"`
+	// ClientID uniquely identifies this frpc instance.
+	ClientID string `json:"clientID,omitempty"`
 
 	// ServerAddr specifies the address of the server to connect to. By
 	// default, this value is "0.0.0.0".

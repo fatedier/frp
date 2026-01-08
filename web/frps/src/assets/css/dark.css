@@ -1,0 +1,58 @@
+html.dark {
+  --el-bg-color: #1e1e2e;
+  --el-fill-color-blank: #1e1e2e;
+  background-color: #1e1e2e;
+}
+
+html.dark body {
+  background-color: #1e1e2e;
+  color: #e5e7eb;
+}
+
+/* Dark mode scrollbar */
+html.dark ::-webkit-scrollbar-track {
+  background: #27293d;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #3a3d5c;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #4a4d6c;
+}
+
+/* Dark mode cards */
+html.dark .el-card {
+  background-color: #27293d;
+  border-color: #3a3d5c;
+}
+
+/* Dark mode inputs */
+html.dark .el-input__wrapper {
+  background-color: #27293d;
+  border-color: #3a3d5c;
+}
+
+html.dark .el-input__inner {
+  color: #e5e7eb;
+}
+
+/* Dark mode table */
+html.dark .el-table {
+  background-color: #27293d;
+  color: #e5e7eb;
+}
+
+html.dark .el-table th {
+  background-color: #1e1e2e;
+  color: #e5e7eb;
+}
+
+html.dark .el-table tr {
+  background-color: #27293d;
+}
+
+html.dark .el-table--striped .el-table__body tr.el-table__row--striped td {
+  background-color: #1e1e2e;
+}

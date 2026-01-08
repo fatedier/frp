@@ -167,6 +167,7 @@ func RegisterClientCommonConfigFlags(cmd *cobra.Command, c *v1.ClientCommonConfi
 		c.Transport.TLS.Enable = cmd.PersistentFlags().BoolP("tls_enable", "", true, "enable frpc tls")
 	}
 	cmd.PersistentFlags().StringVarP(&c.User, "user", "u", "", "user")
+	cmd.PersistentFlags().StringVar(&c.ClientID, "client-id", "", "unique identifier for this frpc instance")
 	cmd.PersistentFlags().StringVarP(&c.Auth.Token, "token", "t", "", "auth token")
 }
 
