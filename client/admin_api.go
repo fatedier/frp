@@ -168,6 +168,7 @@ func (svr *Service) apiStatus(w http.ResponseWriter, _ *http.Request) {
 	log.Infof("http request [/api/status]")
 	defer func() {
 		log.Infof("http response [/api/status]")
+		w.Header().Set("Content-Type", "application/json")
 		buf, _ = json.Marshal(&res)
 		_, _ = w.Write(buf)
 	}()

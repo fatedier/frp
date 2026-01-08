@@ -123,6 +123,7 @@ func (svr *Service) apiServerInfo(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	log.Infof("http request: [%s]", r.URL.Path)
+	w.Header().Set("Content-Type", "application/json")
 	serverStats := mem.StatsCollector.GetServer()
 	svrResp := serverInfoResp{
 		Version:               version.Full(),
@@ -155,6 +156,7 @@ func (svr *Service) apiClientList(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 	defer func() {
 		log.Infof("http response [%s]: code [%d]", r.URL.RequestURI(), res.Code)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
 			_, _ = w.Write([]byte(res.Msg))
@@ -212,6 +214,7 @@ func (svr *Service) apiClientDetail(w http.ResponseWriter, r *http.Request) {
 	res := GeneralResponse{Code: 200}
 	defer func() {
 		log.Infof("http response [%s]: code [%d]", r.URL.RequestURI(), res.Code)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
 			_, _ = w.Write([]byte(res.Msg))
@@ -332,6 +335,7 @@ func (svr *Service) apiProxyByType(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		log.Infof("http response [%s]: code [%d]", r.URL.Path, res.Code)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
 			_, _ = w.Write([]byte(res.Msg))
@@ -404,6 +408,7 @@ func (svr *Service) apiProxyByTypeAndName(w http.ResponseWriter, r *http.Request
 
 	defer func() {
 		log.Infof("http response [%s]: code [%d]", r.URL.Path, res.Code)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
 			_, _ = w.Write([]byte(res.Msg))
@@ -472,6 +477,7 @@ func (svr *Service) apiProxyTraffic(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		log.Infof("http response [%s]: code [%d]", r.URL.Path, res.Code)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(res.Code)
 		if len(res.Msg) > 0 {
 			_, _ = w.Write([]byte(res.Msg))
