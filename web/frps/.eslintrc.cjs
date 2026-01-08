@@ -23,7 +23,7 @@ module.exports = {
     'vue/multi-word-component-names': [
       'error',
       {
-        ignores: ['Traffic'],
+        ignores: ['Traffic', 'Proxies', 'Clients'],
       },
     ],
   },

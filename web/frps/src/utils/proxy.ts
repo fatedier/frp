@@ -128,7 +128,7 @@ class TCPMuxProxy extends BaseProxy {
       if (proxyStats.conf.subdomain) {
         this.subdomain = `${proxyStats.conf.subdomain}.${subdomainHost}`
       }
-    } 
+    }
   }
 }
 

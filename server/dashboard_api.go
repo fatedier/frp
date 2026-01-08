@@ -17,8 +17,11 @@ package server
 import (
 	"cmp"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"slices"
+	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -53,6 +56,8 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	subRouter.HandleFunc("/api/proxy/{type}", svr.apiProxyByType).Methods("GET")
 	subRouter.HandleFunc("/api/proxy/{type}/{name}", svr.apiProxyByTypeAndName).Methods("GET")
 	subRouter.HandleFunc("/api/traffic/{name}", svr.apiProxyTraffic).Methods("GET")
+	subRouter.HandleFunc("/api/clients", svr.apiClientList).Methods("GET")
+	subRouter.HandleFunc("/api/clients/{key}", svr.apiClientDetail).Methods("GET")
 	subRouter.HandleFunc("/api/proxies", svr.deleteProxies).Methods("DELETE")
 
 	// view
@@ -86,6 +91,19 @@ type serverInfoResp struct {
 	CurConns        int64            `json:"curConns"`
 	ClientCounts    int64            `json:"clientCounts"`
 	ProxyTypeCounts map[string]int64 `json:"proxyTypeCount"`
+}
+
+type clientInfoResp struct {
+	Key              string            `json:"key"`
+	User             string            `json:"user"`
+	ClientID         string            `json:"clientId"`
+	RunID            string            `json:"runId"`
+	Hostname         string            `json:"hostname"`
+	Metas            map[string]string `json:"metas,omitempty"`
+	FirstConnectedAt int64             `json:"firstConnectedAt"`
+	LastConnectedAt  int64             `json:"lastConnectedAt"`
+	DisconnectedAt   int64             `json:"disconnectedAt,omitempty"`
+	Online           bool              `json:"online"`
 }
 
 // /healthz
@@ -129,6 +147,101 @@ func (svr *Service) apiServerInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	buf, _ := json.Marshal(&svrResp)
+	res.Msg = string(buf)
+}
+
+// /api/clients
+func (svr *Service) apiClientList(w http.ResponseWriter, r *http.Request) {
+	res := GeneralResponse{Code: 200}
+	defer func() {
+		log.Infof("http response [%s]: code [%d]", r.URL.RequestURI(), res.Code)
+		w.WriteHeader(res.Code)
+		if len(res.Msg) > 0 {
+			_, _ = w.Write([]byte(res.Msg))
+		}
+	}()
+
+	log.Infof("http request: [%s]", r.URL.RequestURI())
+
+	if svr.clientRegistry == nil {
+		res.Code = http.StatusInternalServerError
+		res.Msg = "client registry unavailable"
+		return
+	}
+
+	query := r.URL.Query()
+	userFilter := query.Get("user")
+	clientIDFilter := query.Get("clientId")
+	runIDFilter := query.Get("runId")
+	statusFilter := strings.ToLower(query.Get("status"))
+
+	records := svr.clientRegistry.List()
+	items := make([]clientInfoResp, 0, len(records))
+	for _, info := range records {
+		if userFilter != "" && info.User != userFilter {
+			continue
+		}
+		if clientIDFilter != "" && info.ClientID != clientIDFilter {
+			continue
+		}
+		if runIDFilter != "" && info.RunID != runIDFilter {
+			continue
+		}
+		if !matchStatusFilter(info.Online, statusFilter) {
+			continue
+		}
+		items = append(items, buildClientInfoResp(info))
+	}
+
+	slices.SortFunc(items, func(a, b clientInfoResp) int {
+		if v := cmp.Compare(a.User, b.User); v != 0 {
+			return v
+		}
+		if v := cmp.Compare(a.ClientID, b.ClientID); v != 0 {
+			return v
+		}
+		return cmp.Compare(a.Key, b.Key)
+	})
+
+	buf, _ := json.Marshal(items)
+	res.Msg = string(buf)
+}
+
+// /api/clients/{key}
+func (svr *Service) apiClientDetail(w http.ResponseWriter, r *http.Request) {
+	res := GeneralResponse{Code: 200}
+	defer func() {
+		log.Infof("http response [%s]: code [%d]", r.URL.RequestURI(), res.Code)
+		w.WriteHeader(res.Code)
+		if len(res.Msg) > 0 {
+			_, _ = w.Write([]byte(res.Msg))
+		}
+	}()
+
+	log.Infof("http request: [%s]", r.URL.RequestURI())
+
+	vars := mux.Vars(r)
+	key := vars["key"]
+	if key == "" {
+		res.Code = http.StatusBadRequest
+		res.Msg = "missing client key"
+		return
+	}
+
+	if svr.clientRegistry == nil {
+		res.Code = http.StatusInternalServerError
+		res.Msg = "client registry unavailable"
+		return
+	}
+
+	info, ok := svr.clientRegistry.GetByKey(key)
+	if !ok {
+		res.Code = http.StatusNotFound
+		res.Msg = fmt.Sprintf("client %s not found", key)
+		return
+	}
+
+	buf, _ := json.Marshal(buildClientInfoResp(info))
 	res.Msg = string(buf)
 }
 
@@ -403,4 +516,42 @@ func (svr *Service) deleteProxies(w http.ResponseWriter, r *http.Request) {
 	}
 	cleared, total := mem.StatsCollector.ClearOfflineProxies()
 	log.Infof("cleared [%d] offline proxies, total [%d] proxies", cleared, total)
+}
+
+func buildClientInfoResp(info ClientInfo) clientInfoResp {
+	resp := clientInfoResp{
+		Key:              info.Key,
+		User:             info.User,
+		ClientID:         info.ClientID,
+		RunID:            info.RunID,
+		Hostname:         info.Hostname,
+		Metas:            info.Metas,
+		FirstConnectedAt: toUnix(info.FirstConnectedAt),
+		LastConnectedAt:  toUnix(info.LastConnectedAt),
+		Online:           info.Online,
+	}
+	if !info.DisconnectedAt.IsZero() {
+		resp.DisconnectedAt = info.DisconnectedAt.Unix()
+	}
+	return resp
+}
+
+func toUnix(t time.Time) int64 {
+	if t.IsZero() {
+		return 0
+	}
+	return t.Unix()
+}
+
+func matchStatusFilter(online bool, filter string) bool {
+	switch strings.ToLower(filter) {
+	case "", "all":
+		return true
+	case "online":
+		return online
+	case "offline":
+		return !online
+	default:
+		return true
+	}
 }

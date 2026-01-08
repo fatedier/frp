@@ -147,6 +147,8 @@ type Control struct {
 	// Server configuration information
 	serverCfg *v1.ServerConfig
 
+	clientRegistry *ClientRegistry
+
 	xl     *xlog.Logger
 	ctx    context.Context
 	doneCh chan struct{}
@@ -358,6 +360,7 @@ func (ctl *Control) worker() {
 	}
 
 	metrics.Server.CloseClient()
+	ctl.clientRegistry.MarkOfflineByRunID(ctl.runID)
 	xl.Infof("client exit success")
 	close(ctl.doneCh)
 }

@@ -96,6 +96,9 @@ type Service struct {
 	// Manage all controllers
 	ctlManager *ControlManager
 
+	// Track logical clients keyed by user.clientID.
+	clientRegistry *ClientRegistry
+
 	// Manage all proxies
 	pxyManager *proxy.Manager
 
@@ -155,9 +158,10 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	}
 
 	svr := &Service{
-		ctlManager:    NewControlManager(),
-		pxyManager:    proxy.NewManager(),
-		pluginManager: plugin.NewManager(),
+		ctlManager:     NewControlManager(),
+		clientRegistry: NewClientRegistry(),
+		pxyManager:     proxy.NewManager(),
+		pluginManager:  plugin.NewManager(),
 		rc: &controller.ResourceController{
 			VisitorManager: visitor.NewManager(),
 			TCPPortManager: ports.NewManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
@@ -606,9 +610,18 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		// don't return detailed errors to client
 		return fmt.Errorf("unexpected error when creating new controller")
 	}
+
 	if oldCtl := svr.ctlManager.Add(loginMsg.RunID, ctl); oldCtl != nil {
 		oldCtl.WaitClosed()
 	}
+
+	_, conflict := svr.clientRegistry.Register(loginMsg.User, loginMsg.ClientID, loginMsg.RunID, loginMsg.Hostname, loginMsg.Metas)
+	if conflict {
+		svr.ctlManager.Del(loginMsg.RunID, ctl)
+		ctl.Close()
+		return fmt.Errorf("client_id [%s] for user [%s] is already online", loginMsg.ClientID, loginMsg.User)
+	}
+	ctl.clientRegistry = svr.clientRegistry
 
 	ctl.Start()
 
