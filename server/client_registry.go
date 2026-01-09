@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"maps"
 	"sync"
 	"time"
 )
@@ -14,7 +13,7 @@ type ClientInfo struct {
 	ClientID         string
 	RunID            string
 	Hostname         string
-	Metas            map[string]string
+	IP               string
 	FirstConnectedAt time.Time
 	LastConnectedAt  time.Time
 	DisconnectedAt   time.Time
@@ -37,7 +36,7 @@ func NewClientRegistry() *ClientRegistry {
 }
 
 // Register stores/updates metadata for a client and returns the registry key plus whether it conflicts with an online client.
-func (cr *ClientRegistry) Register(user, clientID, runID, hostname string, metas map[string]string) (key string, conflict bool) {
+func (cr *ClientRegistry) Register(user, clientID, runID, hostname, remoteAddr string) (key string, conflict bool) {
 	if runID == "" {
 		return "", false
 	}
@@ -72,7 +71,7 @@ func (cr *ClientRegistry) Register(user, clientID, runID, hostname string, metas
 
 	info.RunID = runID
 	info.Hostname = hostname
-	info.Metas = metas
+	info.IP = remoteAddr
 	if info.FirstConnectedAt.IsZero() {
 		info.FirstConnectedAt = now
 	}
@@ -113,9 +112,7 @@ func (cr *ClientRegistry) List() []ClientInfo {
 
 	result := make([]ClientInfo, 0, len(cr.clients))
 	for _, info := range cr.clients {
-		cp := *info
-		cp.Metas = maps.Clone(info.Metas)
-		result = append(result, cp)
+		result = append(result, *info)
 	}
 	return result
 }
@@ -129,9 +126,7 @@ func (cr *ClientRegistry) GetByKey(key string) (ClientInfo, bool) {
 	if !ok {
 		return ClientInfo{}, false
 	}
-	cp := *info
-	cp.Metas = maps.Clone(info.Metas)
-	return cp, true
+	return *info, true
 }
 
 func (cr *ClientRegistry) composeClientKey(user, id string) string {

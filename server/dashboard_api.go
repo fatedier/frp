@@ -94,16 +94,16 @@ type serverInfoResp struct {
 }
 
 type clientInfoResp struct {
-	Key              string            `json:"key"`
-	User             string            `json:"user"`
-	ClientID         string            `json:"clientId"`
-	RunID            string            `json:"runId"`
-	Hostname         string            `json:"hostname"`
-	Metas            map[string]string `json:"metas,omitempty"`
-	FirstConnectedAt int64             `json:"firstConnectedAt"`
-	LastConnectedAt  int64             `json:"lastConnectedAt"`
-	DisconnectedAt   int64             `json:"disconnectedAt,omitempty"`
-	Online           bool              `json:"online"`
+	Key              string `json:"key"`
+	User             string `json:"user"`
+	ClientID         string `json:"clientID"`
+	RunID            string `json:"runID"`
+	Hostname         string `json:"hostname"`
+	ClientIP         string `json:"clientIP,omitempty"`
+	FirstConnectedAt int64  `json:"firstConnectedAt"`
+	LastConnectedAt  int64  `json:"lastConnectedAt"`
+	DisconnectedAt   int64  `json:"disconnectedAt,omitempty"`
+	Online           bool   `json:"online"`
 }
 
 // /healthz
@@ -531,7 +531,7 @@ func buildClientInfoResp(info ClientInfo) clientInfoResp {
 		ClientID:         info.ClientID,
 		RunID:            info.RunID,
 		Hostname:         info.Hostname,
-		Metas:            info.Metas,
+		ClientIP:         info.IP,
 		FirstConnectedAt: toUnix(info.FirstConnectedAt),
 		LastConnectedAt:  toUnix(info.LastConnectedAt),
 		Online:           info.Online,
