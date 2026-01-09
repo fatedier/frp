@@ -17,6 +17,12 @@
         <span class="info-value">{{ client.hostname || 'N/A' }}</span>
       </div>
 
+      <div class="info-row" v-if="client.ip">
+        <el-icon class="info-icon"><Connection /></el-icon>
+        <span class="info-label">IP:</span>
+        <span class="info-value monospace">{{ client.ip }}</span>
+      </div>
+
       <div class="info-row" v-if="client.user">
         <el-icon class="info-icon"><User /></el-icon>
         <span class="info-label">User:</span>
@@ -26,7 +32,7 @@
       <div class="info-row">
         <el-icon class="info-icon"><Key /></el-icon>
         <span class="info-label">Run ID:</span>
-        <span class="info-value monospace">{{ client.runId }}</span>
+        <span class="info-value monospace">{{ client.runID }}</span>
       </div>
 
       <div class="info-row" v-if="client.firstConnectedAt">
@@ -48,26 +54,12 @@
       </div>
     </div>
 
-    <div class="client-metas" v-if="client.metasArray.length > 0">
-      <div class="metas-label">Metadata:</div>
-      <div class="metas-tags">
-        <el-tag
-          v-for="meta in client.metasArray"
-          :key="meta.key"
-          size="small"
-          type="info"
-          class="meta-tag"
-        >
-          {{ meta.key }}: {{ meta.value }}
-        </el-tag>
-      </div>
-    </div>
   </el-card>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Monitor, User, Key, Clock, CircleClose } from '@element-plus/icons-vue'
+import { Monitor, User, Key, Clock, CircleClose, Connection } from '@element-plus/icons-vue'
 import type { Client } from '../utils/client'
 
 interface Props {
@@ -188,37 +180,6 @@ html.dark .info-label {
 
 html.dark .info-value {
   color: #d1d5db;
-}
-
-.client-metas {
-  margin-bottom: 16px;
-  padding-top: 12px;
-  border-top: 1px solid #e4e7ed;
-}
-
-html.dark .client-metas {
-  border-top-color: #3a3d5c;
-}
-
-.metas-label {
-  font-size: 13px;
-  color: #909399;
-  font-weight: 500;
-  margin-bottom: 8px;
-}
-
-html.dark .metas-label {
-  color: #9ca3af;
-}
-
-.metas-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.meta-tag {
-  font-size: 12px;
 }
 
 .monospace {

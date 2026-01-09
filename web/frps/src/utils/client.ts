@@ -4,9 +4,10 @@ import type { ClientInfoData } from '../types/client'
 export class Client {
   key: string
   user: string
-  clientId: string
-  runId: string
+  clientID: string
+  runID: string
   hostname: string
+  ip: string
   metas: Map<string, string>
   firstConnectedAt: Date
   lastConnectedAt: Date
@@ -16,9 +17,10 @@ export class Client {
   constructor(data: ClientInfoData) {
     this.key = data.key
     this.user = data.user
-    this.clientId = data.clientId
-    this.runId = data.runId
+    this.clientID = data.clientID
+    this.runID = data.runID
     this.hostname = data.hostname
+    this.ip = data.clientIP || ''
     this.metas = new Map<string, string>()
     if (data.metas) {
       for (const [key, value] of Object.entries(data.metas)) {
@@ -34,14 +36,14 @@ export class Client {
   }
 
   get displayName(): string {
-    if (this.clientId) {
-      return this.user ? `${this.user}.${this.clientId}` : this.clientId
+    if (this.clientID) {
+      return this.user ? `${this.user}.${this.clientID}` : this.clientID
     }
-    return this.runId
+    return this.runID
   }
 
   get shortRunId(): string {
-    return this.runId.substring(0, 8)
+    return this.runID.substring(0, 8)
   }
 
   get firstConnectedAgo(): string {
@@ -74,8 +76,8 @@ export class Client {
     return (
       this.key.toLowerCase().includes(search) ||
       this.user.toLowerCase().includes(search) ||
-      this.clientId.toLowerCase().includes(search) ||
-      this.runId.toLowerCase().includes(search) ||
+      this.clientID.toLowerCase().includes(search) ||
+      this.runID.toLowerCase().includes(search) ||
       this.hostname.toLowerCase().includes(search)
     )
   }
