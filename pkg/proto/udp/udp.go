@@ -124,8 +124,8 @@ func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UDPPacket, sendCh chan<-
 			}
 			mu.Unlock()
 
-			// Add proxy protocol header if configured
-			if proxyProtocolVersion != "" && udpMsg.RemoteAddr != nil {
+			// Add proxy protocol header if configured (only for the first packet of a new connection)
+			if !ok && proxyProtocolVersion != "" && udpMsg.RemoteAddr != nil {
 				ppBuf, err := netpkg.BuildProxyProtocolHeader(udpMsg.RemoteAddr, dstAddr, proxyProtocolVersion)
 				if err == nil {
 					// Prepend proxy protocol header to the UDP payload
