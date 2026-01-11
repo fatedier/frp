@@ -165,9 +165,27 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 		remote, compressionResourceRecycleFn = libio.WithCompressionFromPool(remote)
 	}
 
-	// check if we need to send proxy protocol info
+	if baseCfg.Type == string(v1.ProxyTypeXTCP) {
+		remote2, h, p, ok, _ := netpkg.ReadOrReplayXTCPClientMeta(remote)
+		if ok {
+			remote = remote2
+			m.SrcAddr = h
+			m.SrcPort = p
+			if m.DstAddr == "" {
+				m.DstAddr = baseCfg.LocalIP
+			}
+			if m.DstPort == 0 {
+				m.DstPort = uint16(baseCfg.LocalPort)
+			}
+		}
+	}
+
 	var connInfo plugin.ConnectionInfo
 	if m.SrcAddr != "" && m.SrcPort != 0 {
+		if m.DstAddr == "" {
+			m.DstAddr = baseCfg.LocalIP
+			m.DstPort = uint16(baseCfg.LocalPort)
+		}
 		if m.DstAddr == "" {
 			m.DstAddr = "127.0.0.1"
 		}

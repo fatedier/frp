@@ -219,6 +219,7 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		muxConnRWCloser, recycleFn = libio.WithCompressionFromPool(muxConnRWCloser)
 		defer recycleFn()
 	}
+	_ = netpkg.WriteXTCPClientMeta(muxConnRWCloser, userConn.RemoteAddr())
 
 	_, _, errs := libio.Join(userConn, muxConnRWCloser)
 	xl.Debugf("join connections closed")
