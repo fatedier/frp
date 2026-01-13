@@ -28,6 +28,7 @@ import (
 	"github.com/fatedier/golib/crypto"
 	"github.com/fatedier/golib/net/mux"
 	fmux "github.com/hashicorp/yamux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
 
@@ -47,11 +48,13 @@ import (
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/vhost"
 	"github.com/fatedier/frp/pkg/util/xlog"
+	"github.com/fatedier/frp/server/api"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/group"
 	"github.com/fatedier/frp/server/metrics"
 	"github.com/fatedier/frp/server/ports"
 	"github.com/fatedier/frp/server/proxy"
+	"github.com/fatedier/frp/server/registry"
 	"github.com/fatedier/frp/server/visitor"
 )
 
@@ -97,7 +100,7 @@ type Service struct {
 	ctlManager *ControlManager
 
 	// Track logical clients keyed by user.clientID.
-	clientRegistry *ClientRegistry
+	clientRegistry *registry.ClientRegistry
 
 	// Manage all proxies
 	pxyManager *proxy.Manager
@@ -159,7 +162,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 
 	svr := &Service{
 		ctlManager:     NewControlManager(),
-		clientRegistry: NewClientRegistry(),
+		clientRegistry: registry.NewClientRegistry(),
 		pxyManager:     proxy.NewManager(),
 		pluginManager:  plugin.NewManager(),
 		rc: &controller.ResourceController{
@@ -686,4 +689,42 @@ func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVis
 	}
 	return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
 		newMsg.UseEncryption, newMsg.UseCompression, visitorUser)
+}
+
+func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) {
+	helper.Router.HandleFunc("/healthz", healthz)
+	subRouter := helper.Router.NewRoute().Subrouter()
+
+	subRouter.Use(helper.AuthMiddleware)
+	subRouter.Use(httppkg.NewRequestLogger)
+
+	// metrics
+	if svr.cfg.EnablePrometheus {
+		subRouter.Handle("/metrics", promhttp.Handler())
+	}
+
+	apiController := api.NewController(svr.cfg, svr.clientRegistry, svr.pxyManager)
+
+	// apis
+	subRouter.HandleFunc("/api/serverinfo", httppkg.MakeHTTPHandlerFunc(apiController.APIServerInfo)).Methods("GET")
+	subRouter.HandleFunc("/api/proxy/{type}", httppkg.MakeHTTPHandlerFunc(apiController.APIProxyByType)).Methods("GET")
+	subRouter.HandleFunc("/api/proxy/{type}/{name}", httppkg.MakeHTTPHandlerFunc(apiController.APIProxyByTypeAndName)).Methods("GET")
+	subRouter.HandleFunc("/api/traffic/{name}", httppkg.MakeHTTPHandlerFunc(apiController.APIProxyTraffic)).Methods("GET")
+	subRouter.HandleFunc("/api/clients", httppkg.MakeHTTPHandlerFunc(apiController.APIClientList)).Methods("GET")
+	subRouter.HandleFunc("/api/clients/{key}", httppkg.MakeHTTPHandlerFunc(apiController.APIClientDetail)).Methods("GET")
+	subRouter.HandleFunc("/api/proxies", httppkg.MakeHTTPHandlerFunc(apiController.DeleteProxies)).Methods("DELETE")
+
+	// view
+	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")
+	subRouter.PathPrefix("/static/").Handler(
+		netpkg.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(helper.AssetsFS))),
+	).Methods("GET")
+
+	subRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
+	})
+}
+
+func healthz(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(200)
 }

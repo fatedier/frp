@@ -40,7 +40,6 @@ frp is an open source project with its ongoing development made possible entirel
 	<sub>An open source, self-hosted alternative to public clouds, built for data ownership and privacy</sub>
   </a>
 </p>
-
 <div align="center">
 
 ## Recall.ai - API for meeting recordings
