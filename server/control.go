@@ -40,6 +40,7 @@ import (
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/metrics"
 	"github.com/fatedier/frp/server/proxy"
+	"github.com/fatedier/frp/server/registry"
 )
 
 type ControlManager struct {
@@ -147,7 +148,7 @@ type Control struct {
 	// Server configuration information
 	serverCfg *v1.ServerConfig
 
-	clientRegistry *ClientRegistry
+	clientRegistry *registry.ClientRegistry
 
 	xl     *xlog.Logger
 	ctx    context.Context
