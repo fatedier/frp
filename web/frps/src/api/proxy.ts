@@ -1,8 +1,23 @@
 import { http } from './http'
 import type { GetProxyResponse, ProxyStatsInfo, TrafficResponse } from '../types/proxy'
 
-export const getProxiesByType = (type: string) => {
-  return http.get<GetProxyResponse>(`../api/proxy/${type}`)
+export const getProxiesByType = (
+  type: string,
+  params?: {
+    page?: number
+    pageSize?: number
+  },
+) => {
+  const searchParams = new URLSearchParams()
+  if (params?.page !== undefined) {
+    searchParams.set('page', String(params.page))
+  }
+  if (params?.pageSize !== undefined) {
+    searchParams.set('pageSize', String(params.pageSize))
+  }
+
+  const query = searchParams.toString()
+  return http.get<GetProxyResponse>(`../api/proxy/${type}${query ? `?${query}` : ''}`)
 }
 
 export const getProxy = (type: string, name: string) => {

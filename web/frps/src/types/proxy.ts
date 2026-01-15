@@ -11,6 +11,9 @@ export interface ProxyStatsInfo {
 }
 
 export interface GetProxyResponse {
+  total?: number
+  page?: number
+  pageSize?: number
   proxies: ProxyStatsInfo[]
 }
 

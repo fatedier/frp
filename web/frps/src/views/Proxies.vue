@@ -120,6 +120,43 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- Pagination (server-side) -->
+      <div class="pagination-wrapper">
+        <!-- Keep "Total" at the very beginning -->
+        <el-pagination
+          background
+          :disabled="loading"
+          :total="total"
+          layout="total"
+        />
+
+        <el-select
+          v-model="pageSize"
+          size="default"
+          style="width: 120px"
+          :disabled="loading"
+          @change="handlePageSizeChange"
+        >
+          <el-option
+            v-for="size in pageSizes"
+            :key="size.value"
+            :label="size.label"
+            :value="size.value"
+          />
+        </el-select>
+
+        <el-pagination
+          v-if="pageSize !== 0"
+          background
+          :disabled="loading"
+          :current-page="currentPage"
+          :page-size="paginationPageSize"
+          :total="total"
+          layout="prev, pager, next, jumper"
+          @current-change="handleCurrentChange"
+        />
+      </div>
     </el-card>
 
     <el-dialog
@@ -183,6 +220,24 @@ const searchText = ref('')
 const dialogVisible = ref(false)
 const dialogVisibleName = ref('')
 
+// Pagination state (server-side).
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+const pageSizes = [
+  { label: '10', value: 10 },
+  { label: '20', value: 20 },
+  { label: '50', value: 50 },
+  { label: '100', value: 100 },
+  { label: 'All', value: 0 },
+]
+
+// Element Plus pagination cannot work with pageSize=0.
+// When "All" is selected, we use total (or 1) as a safe pageSize for display.
+const paginationPageSize = computed(() => {
+  return pageSize.value === 0 ? Math.max(total.value, 1) : pageSize.value
+})
+
 const filteredProxies = computed(() => {
   if (!searchText.value) {
     return proxies.value
@@ -212,7 +267,15 @@ const fetchData = async () => {
 
   try {
     const type = activeType.value
-    const json = await getProxiesByType(type)
+    const json = await getProxiesByType(type, {
+      page: currentPage.value,
+      pageSize: pageSize.value,
+    })
+
+    // Sync pagination fields returned by server (if any).
+    total.value = json.total ?? json.proxies.length
+    currentPage.value = json.page ?? currentPage.value
+    pageSize.value = json.pageSize ?? pageSize.value
 
     if (type === 'tcp') {
       proxies.value = json.proxies.map((p: any) => new TCPProxy(p))
@@ -270,6 +333,7 @@ const clearOfflineProxies = async () => {
       message: 'Successfully cleared offline proxies',
       type: 'success',
     })
+    currentPage.value = 1
     fetchData()
   } catch (err: any) {
     ElMessage({
@@ -279,9 +343,21 @@ const clearOfflineProxies = async () => {
   }
 }
 
+const handleCurrentChange = (page: number) => {
+  currentPage.value = page
+  fetchData()
+}
+
+const handlePageSizeChange = (size: number) => {
+  pageSize.value = size
+  currentPage.value = 1
+  fetchData()
+}
+
 // Watch for type changes
 watch(activeType, (newType) => {
   router.replace({ params: { type: newType } })
+  currentPage.value = 1
   fetchData()
 })
 
@@ -355,6 +431,14 @@ fetchData()
 .expand-wrapper {
   padding: 16px 24px;
   background-color: transparent;
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding-top: 16px;
 }
 
 /* Responsive */
