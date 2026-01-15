@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -165,11 +166,85 @@ func (c *Controller) APIClientDetail(ctx *httppkg.Context) (any, error) {
 func (c *Controller) APIProxyByType(ctx *httppkg.Context) (any, error) {
 	proxyType := ctx.Param("type")
 
-	proxyInfoResp := GetProxyInfoResp{}
-	proxyInfoResp.Proxies = c.getProxyStatsByType(proxyType)
-	slices.SortFunc(proxyInfoResp.Proxies, func(a, b *ProxyStatsInfo) int {
+	// Optional pagination:
+	// @author: hellozhongying@gmail.com
+	// - If pageSize is 0, return all proxies as before.
+	// - Backward compatible: if no pageSize/page_size is provided, return all proxies as before.
+	// - If pageSize is provided, paginate results after sorting.
+
+	// Build full list first, then paginate on it if requested.
+	allProxies := c.getProxyStatsByType(proxyType)
+	slices.SortFunc(allProxies, func(a, b *ProxyStatsInfo) int {
 		return cmp.Compare(a.Name, b.Name)
 	})
+
+	// Read paging params. We support both camelCase and snake_case.
+	pageSizeStr := ctx.Query("pageSize")
+	if pageSizeStr == "" {
+		pageSizeStr = ctx.Query("page_size")
+	}
+
+	// Default: keep legacy response shape (only "proxies") when pageSize is not provided.
+	proxyInfoResp := GetProxyInfoResp{
+		Proxies: allProxies,
+	}
+
+	// No pageSize => legacy behavior (return all without paging fields).
+	if pageSizeStr == "" {
+		return proxyInfoResp, nil
+	}
+
+	// Parse and validate pageSize.
+	pageSize, err := strconv.Atoi(pageSizeStr)
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, "invalid pageSize")
+	}
+	if pageSize < 0 {
+		return nil, httppkg.NewError(http.StatusBadRequest, "pageSize must be >= 0")
+	}
+
+	// pageSize is provided (including 0), so we include paging fields in response.
+	total := len(allProxies)
+	page := 1
+	proxyInfoResp.Total = &total
+	proxyInfoResp.Page = &page
+	proxyInfoResp.PageSize = &pageSize
+
+	// pageSize == 0 means "return all", but still include paging metadata.
+	if pageSize == 0 {
+		return proxyInfoResp, nil
+	}
+
+	// Parse page. Default is 1. We support several common aliases.
+	pageStr := ctx.Query("page")
+	if pageStr == "" {
+		pageStr = ctx.Query("pageNo")
+	}
+	if pageStr == "" {
+		pageStr = ctx.Query("page_no")
+	}
+	if pageStr != "" {
+		page, err = strconv.Atoi(pageStr)
+		if err != nil {
+			return nil, httppkg.NewError(http.StatusBadRequest, "invalid page")
+		}
+		if page <= 0 {
+			return nil, httppkg.NewError(http.StatusBadRequest, "page must be >= 1")
+		}
+	}
+	proxyInfoResp.Page = &page
+
+	// Apply pagination on sorted slice.
+	start := (page - 1) * pageSize
+	if start >= len(allProxies) {
+		proxyInfoResp.Proxies = []*ProxyStatsInfo{}
+		return proxyInfoResp, nil
+	}
+	end := start + pageSize
+	if end > len(allProxies) {
+		end = len(allProxies)
+	}
+	proxyInfoResp.Proxies = allProxies[start:end]
 
 	return proxyInfoResp, nil
 }

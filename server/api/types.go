@@ -108,7 +108,10 @@ type ProxyStatsInfo struct {
 }
 
 type GetProxyInfoResp struct {
-	Proxies []*ProxyStatsInfo `json:"proxies"`
+	Total    *int              `json:"total,omitempty"`
+	Page     *int              `json:"page,omitempty"`
+	PageSize *int              `json:"pageSize,omitempty"`
+	Proxies  []*ProxyStatsInfo `json:"proxies"`
 }
 
 // Get proxy info by name.
