@@ -514,7 +514,7 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 		if !internal {
 			log.Tracef("start check TLS connection...")
 			originConn := c
-			forceTLS := svr.cfg.Transport.TLS.Force
+			forceTLS := lo.FromPtr(svr.cfg.Transport.TLS.Force)
 			var isTLS, custom bool
 			c, isTLS, custom, err = netpkg.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, forceTLS, connReadTimeout)
 			if err != nil {

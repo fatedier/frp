@@ -147,7 +147,7 @@ func Convert_ServerCommonConf_To_v1(conf *ServerCommonConf) *v1.ServerConfig {
 	out.Transport.MaxPoolCount = conf.MaxPoolCount
 	out.Transport.HeartbeatTimeout = conf.HeartbeatTimeout
 
-	out.Transport.TLS.Force = conf.TLSOnly
+	out.Transport.TLS.Force = lo.ToPtr(conf.TLSOnly)
 	out.Transport.TLS.CertFile = conf.TLSCertFile
 	out.Transport.TLS.KeyFile = conf.TLSKeyFile
 	out.Transport.TLS.TrustedCaFile = conf.TLSTrustedCaFile

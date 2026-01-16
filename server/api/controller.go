@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/samber/lo"
+
 	"github.com/fatedier/frp/pkg/config/types"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/metrics/mem"
@@ -72,7 +74,7 @@ func (c *Controller) APIServerInfo(ctx *httppkg.Context) (any, error) {
 		MaxPortsPerClient:     c.serverCfg.MaxPortsPerClient,
 		HeartBeatTimeout:      c.serverCfg.Transport.HeartbeatTimeout,
 		AllowPortsStr:         types.PortsRangeSlice(c.serverCfg.AllowPorts).String(),
-		TLSForce:              c.serverCfg.Transport.TLS.Force,
+		TLSForce:              lo.FromPtr(c.serverCfg.Transport.TLS.Force),
 
 		TotalTrafficIn:  serverStats.TotalTrafficIn,
 		TotalTrafficOut: serverStats.TotalTrafficOut,

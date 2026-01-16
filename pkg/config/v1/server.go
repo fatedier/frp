@@ -191,14 +191,14 @@ func (c *ServerTransportConfig) Complete() {
 		c.HeartbeatTimeout = util.EmptyOr(c.HeartbeatTimeout, 90)
 	}
 	c.QUIC.Complete()
-	if c.TLS.TrustedCaFile != "" {
-		c.TLS.Force = true
+	if c.TLS.TrustedCaFile != "" && c.TLS.Force == nil {
+		c.TLS.Force = lo.ToPtr(true)
 	}
 }
 
 type TLSServerConfig struct {
 	// Force specifies whether to only accept TLS-encrypted connections.
-	Force bool `json:"force,omitempty"`
+	Force *bool `json:"force,omitempty"`
 
 	TLSConfig
 }
