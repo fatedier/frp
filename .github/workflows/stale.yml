@@ -19,7 +19,7 @@ jobs:
       actions: write
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/stale@v9
+    - uses: actions/stale@v10
       with:
         stale-issue-message: 'Issues go stale after 14d of inactivity. Stale issues rot after an additional 3d of inactivity and eventually close.'
         stale-pr-message: "PRs go stale after 14d of inactivity. Stale PRs rot after an additional 3d of inactivity and eventually close."

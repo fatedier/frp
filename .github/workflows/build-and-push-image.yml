@@ -19,7 +19,7 @@ jobs:
     steps:
       # environment
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: '0'
 
@@ -61,7 +61,7 @@ jobs:
           echo "TAG_FRPS_GPR=ghcr.io/fatedier/frps:${{ env.TAG_NAME }}" >> $GITHUB_ENV
 
       - name: Build and push frpc
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./dockerfiles/Dockerfile-for-frpc
@@ -72,7 +72,7 @@ jobs:
             ${{ env.TAG_FRPC_GPR }}
 
       - name: Build and push frps
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./dockerfiles/Dockerfile-for-frps
