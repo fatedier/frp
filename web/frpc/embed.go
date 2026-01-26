@@ -6,9 +6,9 @@ import (
 	"github.com/fatedier/frp/assets"
 )
 
-//go:embed static/*
-var content embed.FS
+//go:embed dist
+var EmbedFS embed.FS
 
 func init() {
-	assets.Register(content)
+	assets.Register(EmbedFS)
 }

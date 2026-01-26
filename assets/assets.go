@@ -41,7 +41,7 @@ func Load(path string) {
 }
 
 func Register(fileSystem fs.FS) {
-	subFs, err := fs.Sub(fileSystem, "static")
+	subFs, err := fs.Sub(fileSystem, "dist")
 	if err == nil {
 		content = subFs
 	}
