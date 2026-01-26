@@ -6,6 +6,14 @@ jobs:
     resource_class: large
     steps:
     - checkout
+    - run:
+        name: Build web assets (frps)
+        command: make install build
+        working_directory: web/frps
+    - run:
+        name: Build web assets (frpc)
+        command: make install build
+        working_directory: web/frpc
     - run: make
     - run: make alltest
 

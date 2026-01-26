@@ -1,9 +1,17 @@
+FROM node:22 AS web-builder
+
+WORKDIR /web/frps
+COPY web/frps/ ./
+RUN npm install
+RUN npm run build
+
 FROM golang:1.24 AS building
 
 COPY . /building
+COPY --from=web-builder /web/frps/dist /building/web/frps/dist
 WORKDIR /building
 
-RUN make frps
+RUN env CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -tags frps -o bin/frps ./cmd/frps
 
 FROM alpine:3
 

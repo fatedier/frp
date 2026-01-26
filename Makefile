@@ -2,19 +2,22 @@ export PATH := $(PATH):`go env GOPATH`/bin
 export GO111MODULE=on
 LDFLAGS := -s -w
 
-all: env fmt build
+.PHONY: web frps-web frpc-web frps frpc
+
+all: env fmt web build
 
 build: frps frpc
 
 env:
 	@go version
 
-# compile assets into binary file
-file:
-	rm -rf ./assets/frps/static/*
-	rm -rf ./assets/frpc/static/*
-	cp -rf ./web/frps/dist/* ./assets/frps/static
-	cp -rf ./web/frpc/dist/* ./assets/frpc/static
+web: frps-web frpc-web
+
+frps-web:
+	$(MAKE) -C web/frps build
+
+frpc-web:
+	$(MAKE) -C web/frpc build
 
 fmt:
 	go fmt ./...
@@ -25,7 +28,7 @@ fmt-more:
 gci:
 	gci write -s standard -s default -s "prefix(github.com/fatedier/frp/)" ./
 
-vet:
+vet: web
 	go vet ./...
 
 frps:
@@ -36,7 +39,7 @@ frpc:
 
 test: gotest
 
-gotest:
+gotest: web
 	go test -v --cover ./assets/...
 	go test -v --cover ./cmd/...
 	go test -v --cover ./client/...
