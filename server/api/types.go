@@ -98,6 +98,8 @@ type XTCPOutConf struct {
 type ProxyStatsInfo struct {
 	Name            string `json:"name"`
 	Conf            any    `json:"conf"`
+	User            string `json:"user,omitempty"`
+	ClientID        string `json:"clientID,omitempty"`
 	ClientVersion   string `json:"clientVersion,omitempty"`
 	TodayTrafficIn  int64  `json:"todayTrafficIn"`
 	TodayTrafficOut int64  `json:"todayTrafficOut"`
@@ -115,6 +117,9 @@ type GetProxyInfoResp struct {
 type GetProxyStatsResp struct {
 	Name            string `json:"name"`
 	Conf            any    `json:"conf"`
+	User            string `json:"user,omitempty"`
+	ClientID        string `json:"clientID,omitempty"`
+	ClientVersion   string `json:"clientVersion,omitempty"`
 	TodayTrafficIn  int64  `json:"todayTrafficIn"`
 	TodayTrafficOut int64  `json:"todayTrafficOut"`
 	CurConns        int64  `json:"curConns"`

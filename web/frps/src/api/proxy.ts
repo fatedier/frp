@@ -1,5 +1,9 @@
 import { http } from './http'
-import type { GetProxyResponse, ProxyStatsInfo, TrafficResponse } from '../types/proxy'
+import type {
+  GetProxyResponse,
+  ProxyStatsInfo,
+  TrafficResponse,
+} from '../types/proxy'
 
 export const getProxiesByType = (type: string) => {
   return http.get<GetProxyResponse>(`../api/proxy/${type}`)
@@ -7,6 +11,10 @@ export const getProxiesByType = (type: string) => {
 
 export const getProxy = (type: string, name: string) => {
   return http.get<ProxyStatsInfo>(`../api/proxy/${type}/${name}`)
+}
+
+export const getProxyByName = (name: string) => {
+  return http.get<ProxyStatsInfo>(`../api/proxies/${name}`)
 }
 
 export const getProxyTraffic = (name: string) => {

@@ -30,7 +30,7 @@ func (m *serverMetrics) CloseClient() {
 	m.clientCount.Dec()
 }
 
-func (m *serverMetrics) NewProxy(name string, proxyType string) {
+func (m *serverMetrics) NewProxy(name string, proxyType string, _ string, _ string) {
 	m.proxyCount.WithLabelValues(proxyType).Inc()
 	m.proxyCountDetailed.WithLabelValues(proxyType, name).Inc()
 }
