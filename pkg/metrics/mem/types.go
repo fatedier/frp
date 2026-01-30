@@ -35,6 +35,8 @@ type ServerStats struct {
 type ProxyStats struct {
 	Name            string
 	Type            string
+	User            string
+	ClientID        string
 	TodayTrafficIn  int64
 	TodayTrafficOut int64
 	LastStartTime   string
@@ -51,6 +53,8 @@ type ProxyTrafficInfo struct {
 type ProxyStatistics struct {
 	Name          string
 	ProxyType     string
+	User          string
+	ClientID      string
 	TrafficIn     metric.DateCounter
 	TrafficOut    metric.DateCounter
 	CurConns      metric.Counter
@@ -78,6 +82,7 @@ type Collector interface {
 	GetServer() *ServerStats
 	GetProxiesByType(proxyType string) []*ProxyStats
 	GetProxiesByTypeAndName(proxyType string, proxyName string) *ProxyStats
+	GetProxyByName(proxyName string) *ProxyStats
 	GetProxyTraffic(name string) *ProxyTrafficInfo
 	ClearOfflineProxies() (int, int)
 }

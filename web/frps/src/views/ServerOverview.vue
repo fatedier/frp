@@ -53,7 +53,9 @@
               </div>
               <div class="traffic-info">
                 <div class="label">Inbound</div>
-                <div class="value">{{ formatFileSize(data.totalTrafficIn) }}</div>
+                <div class="value">
+                  {{ formatFileSize(data.totalTrafficIn) }}
+                </div>
               </div>
             </div>
             <div class="traffic-divider"></div>
@@ -63,7 +65,9 @@
               </div>
               <div class="traffic-info">
                 <div class="label">Outbound</div>
-                <div class="value">{{ formatFileSize(data.totalTrafficOut) }}</div>
+                <div class="value">
+                  {{ formatFileSize(data.totalTrafficOut) }}
+                </div>
               </div>
             </div>
           </div>
@@ -78,9 +82,9 @@
             </div>
           </template>
           <div class="proxy-types-grid">
-            <div 
-              v-for="(count, type) in data.proxyTypeCounts" 
-              :key="type" 
+            <div
+              v-for="(count, type) in data.proxyTypeCounts"
+              :key="type"
               class="proxy-type-item"
               v-show="count > 0"
             >
@@ -187,7 +191,7 @@ const data = ref({
 })
 
 const hasActiveProxies = computed(() => {
-  return Object.values(data.value.proxyTypeCounts).some(c => c > 0)
+  return Object.values(data.value.proxyTypeCounts).some((c) => c > 0)
 })
 
 const formatTrafficTotal = () => {
@@ -223,7 +227,7 @@ const fetchData = async () => {
     data.value.proxyCounts = 0
     if (json.proxyTypeCount != null) {
       Object.values(json.proxyTypeCount).forEach((count: any) => {
-        data.value.proxyCounts += (count || 0)
+        data.value.proxyCounts += count || 0
       })
     }
   } catch (err) {
@@ -283,7 +287,7 @@ html.dark .config-card {
 
 .card-title {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
   color: #303133;
 }
 
@@ -337,7 +341,7 @@ html.dark .card-title {
 
 .traffic-info .value {
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 500;
   color: #303133;
 }
 
@@ -386,7 +390,7 @@ html.dark .proxy-type-item {
 
 .proxy-type-count {
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 500;
   color: #303133;
 }
 
@@ -437,7 +441,7 @@ html.dark .config-label {
 .config-value {
   font-size: 14px;
   color: #303133;
-  font-weight: 600;
+  font-weight: 500;
   word-break: break-all;
 }
 

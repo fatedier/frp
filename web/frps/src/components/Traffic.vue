@@ -6,7 +6,7 @@
         <div class="y-label">{{ formatFileSize(maxVal / 2) }}</div>
         <div class="y-label">0</div>
       </div>
-      
+
       <div class="bars-area">
         <!-- Grid Lines -->
         <div class="grid-line top"></div>
@@ -15,15 +15,21 @@
 
         <div v-for="(item, index) in chartData" :key="index" class="day-column">
           <div class="bars-group">
-            <el-tooltip :content="`In: ${formatFileSize(item.in)}`" placement="top">
-              <div 
-                class="bar bar-in" 
+            <el-tooltip
+              :content="`In: ${formatFileSize(item.in)}`"
+              placement="top"
+            >
+              <div
+                class="bar bar-in"
                 :style="{ height: Math.max(item.inPercent, 1) + '%' }"
               ></div>
             </el-tooltip>
-            <el-tooltip :content="`Out: ${formatFileSize(item.out)}`" placement="top">
-              <div 
-                class="bar bar-out" 
+            <el-tooltip
+              :content="`Out: ${formatFileSize(item.out)}`"
+              placement="top"
+            >
+              <div
+                class="bar bar-out"
                 :style="{ height: Math.max(item.outPercent, 1) + '%' }"
               ></div>
             </el-tooltip>
@@ -32,15 +38,11 @@
         </div>
       </div>
     </div>
-    
+
     <!-- Legend -->
     <div v-if="!loading && chartData.length > 0" class="legend">
-      <div class="legend-item">
-        <span class="dot in"></span> Traffic In
-      </div>
-      <div class="legend-item">
-        <span class="dot out"></span> Traffic Out
-      </div>
+      <div class="legend-item"><span class="dot in"></span> Traffic In</div>
+      <div class="legend-item"><span class="dot out"></span> Traffic Out</div>
     </div>
 
     <el-empty v-else-if="!loading" description="No traffic data" />
@@ -58,24 +60,26 @@ const props = defineProps<{
 }>()
 
 const loading = ref(false)
-const chartData = ref<Array<{
-  date: string
-  in: number
-  out: number
-  inPercent: number
-  outPercent: number
-}>>([])
+const chartData = ref<
+  Array<{
+    date: string
+    in: number
+    out: number
+    inPercent: number
+    outPercent: number
+  }>
+>([])
 const maxVal = ref(0)
 
 const processData = (trafficIn: number[], trafficOut: number[]) => {
   // Ensure we have arrays and reverse them (server returns newest first)
   const inArr = [...(trafficIn || [])].reverse()
   const outArr = [...(trafficOut || [])].reverse()
-  
+
   // Pad with zeros if less than 7 days
   while (inArr.length < 7) inArr.unshift(0)
   while (outArr.length < 7) outArr.unshift(0)
-  
+
   // Slice to last 7 entries just in case
   const finalIn = inArr.slice(-7)
   const finalOut = outArr.slice(-7)
@@ -84,7 +88,7 @@ const processData = (trafficIn: number[], trafficOut: number[]) => {
   const dates: string[] = []
   let d = new Date()
   d.setDate(d.getDate() - 6)
-  
+
   for (let i = 0; i < 7; i++) {
     dates.push(`${d.getMonth() + 1}-${d.getDate()}`)
     d.setDate(d.getDate() + 1)
@@ -179,9 +183,16 @@ html.dark .grid-line {
   background-color: #3a3d5c;
 }
 
-.grid-line.top { top: 0; }
-.grid-line.middle { top: 50%; transform: translateY(-50%); }
-.grid-line.bottom { bottom: 24px; } /* Align with bottom of bars */
+.grid-line.top {
+  top: 0;
+}
+.grid-line.middle {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.grid-line.bottom {
+  bottom: 24px;
+} /* Align with bottom of bars */
 
 .day-column {
   flex: 1;
@@ -255,6 +266,10 @@ html.dark .legend-item {
   border-radius: 50%;
 }
 
-.dot.in { background-color: #5470c6; }
-.dot.out { background-color: #91cc75; }
+.dot.in {
+  background-color: #5470c6;
+}
+.dot.out {
+  background-color: #91cc75;
+}
 </style>

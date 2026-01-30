@@ -24,7 +24,7 @@ import (
 type ClientInfo struct {
 	Key              string
 	User             string
-	ClientID         string
+	RawClientID      string
 	RunID            string
 	Hostname         string
 	IP               string
@@ -34,8 +34,8 @@ type ClientInfo struct {
 	Online           bool
 }
 
-// ClientRegistry keeps track of active clients keyed by "{user}.{clientID}" (or runID if clientID is empty).
-// Entries without an explicit clientID are removed on disconnect to avoid stale offline records.
+// ClientRegistry keeps track of active clients keyed by "{user}.{clientID}" (runID fallback when raw clientID is empty).
+// Entries without an explicit raw clientID are removed on disconnect to avoid stale offline records.
 type ClientRegistry struct {
 	mu       sync.RWMutex
 	clients  map[string]*ClientInfo
@@ -50,17 +50,17 @@ func NewClientRegistry() *ClientRegistry {
 }
 
 // Register stores/updates metadata for a client and returns the registry key plus whether it conflicts with an online client.
-func (cr *ClientRegistry) Register(user, clientID, runID, hostname, remoteAddr string) (key string, conflict bool) {
+func (cr *ClientRegistry) Register(user, rawClientID, runID, hostname, remoteAddr string) (key string, conflict bool) {
 	if runID == "" {
 		return "", false
 	}
 
-	effectiveID := clientID
+	effectiveID := rawClientID
 	if effectiveID == "" {
 		effectiveID = runID
 	}
 	key = cr.composeClientKey(user, effectiveID)
-	enforceUnique := clientID != ""
+	enforceUnique := rawClientID != ""
 
 	now := time.Now()
 	cr.mu.Lock()
@@ -75,7 +75,6 @@ func (cr *ClientRegistry) Register(user, clientID, runID, hostname, remoteAddr s
 		info = &ClientInfo{
 			Key:              key,
 			User:             user,
-			ClientID:         clientID,
 			FirstConnectedAt: now,
 		}
 		cr.clients[key] = info
@@ -83,6 +82,7 @@ func (cr *ClientRegistry) Register(user, clientID, runID, hostname, remoteAddr s
 		delete(cr.runIndex, info.RunID)
 	}
 
+	info.RawClientID = rawClientID
 	info.RunID = runID
 	info.Hostname = hostname
 	info.IP = remoteAddr
@@ -107,7 +107,7 @@ func (cr *ClientRegistry) MarkOfflineByRunID(runID string) {
 		return
 	}
 	if info, ok := cr.clients[key]; ok && info.RunID == runID {
-		if info.ClientID == "" {
+		if info.RawClientID == "" {
 			delete(cr.clients, key)
 		} else {
 			info.RunID = ""
@@ -131,11 +131,35 @@ func (cr *ClientRegistry) List() []ClientInfo {
 	return result
 }
 
-// GetByKey retrieves a client by its composite key ({user}.{clientID} or runID fallback).
+// GetByKey retrieves a client by its composite key ({user}.{clientID} with runID fallback).
 func (cr *ClientRegistry) GetByKey(key string) (ClientInfo, bool) {
 	cr.mu.RLock()
 	defer cr.mu.RUnlock()
 
+	info, ok := cr.clients[key]
+	if !ok {
+		return ClientInfo{}, false
+	}
+	return *info, true
+}
+
+// ClientID returns the resolved client identifier for external use.
+func (info ClientInfo) ClientID() string {
+	if info.RawClientID != "" {
+		return info.RawClientID
+	}
+	return info.RunID
+}
+
+// GetByRunID retrieves a client by its run ID.
+func (cr *ClientRegistry) GetByRunID(runID string) (ClientInfo, bool) {
+	cr.mu.RLock()
+	defer cr.mu.RUnlock()
+
+	key, ok := cr.runIndex[runID]
+	if !ok {
+		return ClientInfo{}, false
+	}
 	info, ok := cr.clients[key]
 	if !ok {
 		return ClientInfo{}, false

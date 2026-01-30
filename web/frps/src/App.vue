@@ -1,43 +1,55 @@
 <template>
   <div id="app">
     <header class="header">
-      <div class="header-top">
-        <div class="brand">
-          <a href="#" @click.prevent="router.push('/')">frp</a>
+      <div class="header-content">
+        <div class="header-top">
+          <div class="brand-section">
+            <div class="logo-wrapper">
+              <LogoIcon class="logo-icon" />
+            </div>
+            <span class="divider">/</span>
+            <span class="brand-name">frp</span>
+            <span class="badge" v-if="currentRouteName">{{
+              currentRouteName
+            }}</span>
+          </div>
+
+          <div class="header-controls">
+            <a
+              class="github-link"
+              href="https://github.com/fatedier/frp"
+              target="_blank"
+              aria-label="GitHub"
+            >
+              <GitHubIcon class="github-icon" />
+            </a>
+            <el-switch
+              v-model="isDark"
+              inline-prompt
+              :active-icon="Moon"
+              :inactive-icon="Sunny"
+              class="theme-switch"
+            />
+          </div>
         </div>
-        <div class="header-actions">
-          <a
-            class="github-link"
-            href="https://github.com/fatedier/frp"
-            target="_blank"
-            aria-label="GitHub"
+
+        <nav class="nav-bar">
+          <router-link to="/" class="nav-link" active-class="active"
+            >Overview</router-link
           >
-            <GitHubIcon class="github-icon" />
-          </a>
-          <el-switch
-            v-model="darkmodeSwitch"
-            inline-prompt
-            :active-icon="Moon"
-            :inactive-icon="Sunny"
-            @change="toggleDark"
-            class="theme-switch"
-          />
-        </div>
+          <router-link to="/clients" class="nav-link" active-class="active"
+            >Clients</router-link
+          >
+          <router-link
+            to="/proxies"
+            class="nav-link"
+            :class="{ active: route.path.startsWith('/proxies') }"
+            >Proxies</router-link
+          >
+        </nav>
       </div>
-      <nav class="header-nav">
-        <el-menu
-          :default-active="currentRoute"
-          mode="horizontal"
-          :ellipsis="false"
-          @select="handleSelect"
-          class="nav-menu"
-        >
-          <el-menu-item index="/">Overview</el-menu-item>
-          <el-menu-item index="/clients">Clients</el-menu-item>
-          <el-menu-item index="/proxies">Proxies</el-menu-item>
-        </el-menu>
-      </nav>
     </header>
+
     <main id="content">
       <router-view></router-view>
     </main>
@@ -45,256 +57,204 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useDark, useToggle } from '@vueuse/core'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useDark } from '@vueuse/core'
 import { Moon, Sunny } from '@element-plus/icons-vue'
 import GitHubIcon from './assets/icons/github.svg?component'
+import LogoIcon from './assets/icons/logo.svg?component'
 
-const router = useRouter()
 const route = useRoute()
 const isDark = useDark()
-const darkmodeSwitch = ref(isDark)
-const toggleDark = useToggle(isDark)
 
-const currentRoute = computed(() => {
-  // Normalize /proxies/:type to /proxies for menu highlighting
-  if (route.path.startsWith('/proxies')) {
-    return '/proxies'
-  }
-  return route.path
+const currentRouteName = computed(() => {
+  if (route.path === '/') return 'Overview'
+  if (route.path.startsWith('/clients')) return 'Clients'
+  if (route.path.startsWith('/proxies')) return 'Proxies'
+  return ''
 })
-
-const handleSelect = (key: string) => {
-  router.push(key)
-}
 </script>
 
 <style>
+:root {
+  --header-height: 112px;
+  --header-bg: rgba(255, 255, 255, 0.8);
+  --header-border: #eaeaea;
+  --text-primary: #000;
+  --text-secondary: #666;
+  --hover-bg: #f5f5f5;
+  --active-link: #000;
+}
+
+html.dark {
+  --header-bg: rgba(0, 0, 0, 0.8);
+  --header-border: #333;
+  --text-primary: #fff;
+  --text-secondary: #888;
+  --hover-bg: #1a1a1a;
+  --active-link: #fff;
+}
+
 body {
   margin: 0;
   font-family:
-    -apple-system,
-    BlinkMacSystemFont,
-    Helvetica Neue,
-    sans-serif;
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
 }
 
 #app {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #f2f2f2;
-}
-
-html.dark #app {
-  background: #1a1a2e;
+  background-color: var(--el-bg-color-page);
 }
 
 .header {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: #fff;
+  background: var(--header-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--header-border);
 }
 
-html.dark .header {
-  background: #1e1e2d;
+.header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 40px;
 }
 
 .header-top {
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 48px;
-  padding: 0 32px;
 }
 
-.brand a {
-  color: #303133;
-  font-size: 20px;
-  font-weight: 700;
-  text-decoration: none;
+.brand-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.logo-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.divider {
+  color: var(--header-border);
+  font-size: 24px;
+  font-weight: 200;
+}
+
+.brand-name {
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--text-primary);
   letter-spacing: -0.5px;
 }
 
-html.dark .brand a {
-  color: #e5e7eb;
+.badge {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--hover-bg);
+  padding: 2px 8px;
+  border-radius: 99px;
+  border: 1px solid var(--header-border);
 }
 
-.brand a:hover {
-  color: #409eff;
-}
-
-.header-actions {
+.header-controls {
   display: flex;
   align-items: center;
   gap: 16px;
 }
 
 .github-link {
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
-  padding: 6px;
-  border-radius: 6px;
-  transition: all 0.2s;
-}
-
-.github-link:hover {
-  background: #f2f3f5;
-}
-
-html.dark .github-link:hover {
-  background: #2a2a3c;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--text-primary);
+  transition: background 0.2s;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
 }
 
 .github-icon {
-  width: 20px;
-  height: 20px;
-  color: #606266;
-  transition: color 0.2s;
+  width: 18px;
+  height: 18px;
 }
 
-.github-link:hover .github-icon {
-  color: #303133;
-}
-
-html.dark .github-icon {
-  color: #a0a3ad;
-}
-
-html.dark .github-link:hover .github-icon {
-  color: #e5e7eb;
+.github-link:hover {
+  background: var(--hover-bg);
+  border-color: var(--header-border);
 }
 
 .theme-switch {
   --el-switch-on-color: #2c2c3a;
   --el-switch-off-color: #f2f2f2;
-  --el-switch-border-color: #dcdfe6;
+  --el-switch-border-color: var(--header-border);
+}
+
+html.dark .theme-switch {
+  --el-switch-off-color: #333;
 }
 
 .theme-switch .el-switch__core .el-switch__inner .el-icon {
   color: #909399 !important;
 }
 
-.header-nav {
-  position: relative;
-  padding: 0 32px;
-  border-bottom: 1px solid #e4e7ed;
+.nav-bar {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
 }
 
-html.dark .header-nav {
-  border-bottom-color: #3a3d5c;
-}
-
-.nav-menu {
-  background: transparent !important;
-  border-bottom: none !important;
-  height: 46px;
-}
-
-.nav-menu .el-menu-item,
-.nav-menu .el-sub-menu__title {
-  position: relative;
-  height: 32px !important;
-  line-height: 32px !important;
-  border-bottom: none !important;
-  border-radius: 6px !important;
-  color: #666 !important;
-  font-weight: 400;
+.nav-link {
+  text-decoration: none;
   font-size: 14px;
-  padding: 0 12px !important;
-  margin: 7px 0;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
+  color: var(--text-secondary);
+  padding: 8px 0;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
 }
 
-.nav-menu > .el-menu-item,
-.nav-menu > .el-sub-menu {
-  margin-right: 4px;
+.nav-link:hover {
+  color: var(--text-primary);
 }
 
-.nav-menu > .el-sub-menu {
-  padding: 0 !important;
-}
-
-html.dark .nav-menu .el-menu-item,
-html.dark .nav-menu .el-sub-menu__title {
-  color: #888 !important;
-}
-
-.nav-menu .el-menu-item:hover,
-.nav-menu .el-sub-menu__title:hover {
-  background: #f2f2f2 !important;
-  color: #171717 !important;
-}
-
-html.dark .nav-menu .el-menu-item:hover,
-html.dark .nav-menu .el-sub-menu__title:hover {
-  background: #2a2a3c !important;
-  color: #e5e7eb !important;
-}
-
-.nav-menu .el-menu-item.is-active {
-  background: transparent !important;
-  color: #171717 !important;
-  font-weight: 500;
-}
-
-.nav-menu .el-menu-item.is-active::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -3px;
-  height: 2px;
-  background: #171717;
-  border-radius: 1px;
-}
-
-.nav-menu .el-menu-item.is-active:hover {
-  background: #f2f2f2 !important;
-}
-
-html.dark .nav-menu .el-menu-item.is-active {
-  background: transparent !important;
-  color: #e5e7eb !important;
-  font-weight: 500;
-}
-
-html.dark .nav-menu .el-menu-item.is-active::after {
-  background: #e5e7eb;
-}
-
-html.dark .nav-menu .el-menu-item.is-active:hover {
-  background: #2a2a3c !important;
+.nav-link.active {
+  color: var(--active-link);
+  border-bottom-color: var(--active-link);
 }
 
 #content {
   flex: 1;
-  padding: 24px 40px;
-  max-width: 1400px;
-  margin: 0 auto;
   width: 100%;
+  padding: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
   box-sizing: border-box;
 }
 
 @media (max-width: 768px) {
-  .header-top {
-    padding: 0 16px;
-  }
-
-  .header-nav {
-    padding: 0 16px;
+  .header-content {
+    padding: 0 20px;
   }
 
   #content {
-    padding: 16px;
-  }
-
-  .brand a {
-    font-size: 18px;
+    padding: 20px;
   }
 }
 </style>

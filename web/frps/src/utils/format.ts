@@ -28,6 +28,6 @@ export function formatFileSize(bytes: number): string {
   // Prevent index out of bounds for extremely large numbers
   const unit = sizes[i] || sizes[sizes.length - 1]
   const val = bytes / Math.pow(k, i)
-  
+
   return parseFloat(val.toFixed(2)) + ' ' + unit
 }

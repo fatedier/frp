@@ -1,34 +1,48 @@
 <template>
   <div class="clients-page">
-    <div class="filter-bar">
-      <el-input
-        v-model="searchText"
-        placeholder="Search by hostname, user, client ID, run ID..."
-        :prefix-icon="Search"
-        clearable
-        class="search-input"
-      />
-      <el-radio-group v-model="statusFilter" class="status-filter">
-        <el-radio-button label="all">All ({{ stats.total }})</el-radio-button>
-        <el-radio-button label="online">
-          Online ({{ stats.online }})
-        </el-radio-button>
-        <el-radio-button label="offline">
-          Offline ({{ stats.offline }})
-        </el-radio-button>
-      </el-radio-group>
+    <div class="page-header">
+      <div class="header-top">
+        <div class="title-section">
+          <h1 class="page-title">Clients</h1>
+          <p class="page-subtitle">Manage connected clients and their status</p>
+        </div>
+        <div class="status-tabs">
+          <button
+            v-for="tab in statusTabs"
+            :key="tab.value"
+            class="status-tab"
+            :class="{ active: statusFilter === tab.value }"
+            @click="statusFilter = tab.value"
+          >
+            <span class="status-dot" :class="tab.value"></span>
+            <span class="tab-label">{{ tab.label }}</span>
+            <span class="tab-count">{{ tab.count }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="search-section">
+        <el-input
+          v-model="searchText"
+          placeholder="Search clients..."
+          :prefix-icon="Search"
+          clearable
+          class="search-input"
+        />
+      </div>
     </div>
 
-    <div v-loading="loading" class="clients-grid">
-      <el-empty
-        v-if="filteredClients.length === 0 && !loading"
-        description="No clients found"
-      />
-      <ClientCard
-        v-for="client in filteredClients"
-        :key="client.key"
-        :client="client"
-      />
+    <div v-loading="loading" class="clients-content">
+      <div v-if="filteredClients.length > 0" class="clients-list">
+        <ClientCard
+          v-for="client in filteredClients"
+          :key="client.key"
+          :client="client"
+        />
+      </div>
+      <div v-else-if="!loading" class="empty-state">
+        <el-empty description="No clients found" />
+      </div>
     </div>
   </div>
 </template>
@@ -54,6 +68,12 @@ const stats = computed(() => {
   const offline = total - online
   return { total, online, offline }
 })
+
+const statusTabs = computed(() => [
+  { value: 'all' as const, label: 'All', count: stats.value.total },
+  { value: 'online' as const, label: 'Online', count: stats.value.online },
+  { value: 'offline' as const, label: 'Offline', count: stats.value.offline },
+])
 
 const filteredClients = computed(() => {
   let result = clients.value
@@ -87,7 +107,6 @@ const fetchData = async () => {
     const json = await getClients()
     clients.value = json.map((data) => new Client(data))
   } catch (error: any) {
-    console.error('Failed to fetch clients:', error)
     ElMessage({
       showClose: true,
       message: 'Failed to fetch clients: ' + error.message,
@@ -99,7 +118,6 @@ const fetchData = async () => {
 }
 
 const startAutoRefresh = () => {
-  // Auto refresh every 5 seconds
   refreshTimer = window.setInterval(() => {
     fetchData()
   }, 5000)
@@ -124,46 +142,161 @@ onUnmounted(() => {
 
 <style scoped>
 .clients-page {
-  padding: 0 20px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.filter-bar {
+.page-header {
   display: flex;
-  gap: 16px;
-  align-items: center;
-  margin-bottom: 20px;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
   flex-wrap: wrap;
 }
 
-.search-input {
-  flex: 1;
-  min-width: 300px;
-  max-width: 500px;
+.title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.status-filter {
-  flex-shrink: 0;
+.page-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin: 0;
+  line-height: 1.2;
 }
 
-.clients-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 20px;
+.page-subtitle {
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
+  margin: 0;
+}
+
+.status-tabs {
+  display: flex;
+  gap: 12px;
+}
+
+.status-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 20px;
+  background: var(--el-bg-color);
+  color: var(--el-text-color-regular);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.status-tab:hover {
+  border-color: var(--el-border-color-darker);
+  background: var(--el-fill-color-light);
+}
+
+.status-tab.active {
+  background: var(--el-fill-color-dark);
+  border-color: var(--el-text-color-primary);
+  color: var(--el-text-color-primary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--el-text-color-secondary);
+}
+
+.status-dot.online {
+  background-color: var(--el-color-success);
+}
+
+.status-dot.offline {
+  background-color: var(--el-text-color-placeholder);
+}
+
+.status-dot.all {
+  background-color: var(--el-text-color-regular);
+}
+
+.tab-count {
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.search-section {
+  width: 100%;
+}
+
+.search-input :deep(.el-input__wrapper) {
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  padding: 8px 16px;
+  border: 1px solid var(--el-border-color);
+  transition: all 0.2s;
+  height: 48px;
+  font-size: 15px;
+}
+
+.search-input :deep(.el-input__wrapper:hover) {
+  border-color: var(--el-border-color-darker);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.search-input :deep(.el-input__wrapper.is-focus) {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 1px var(--el-color-primary);
+}
+
+.clients-content {
   min-height: 200px;
 }
 
-@media (max-width: 768px) {
-  .clients-grid {
-    grid-template-columns: 1fr;
-  }
+.clients-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
-  .filter-bar {
+.empty-state {
+  padding: 60px 0;
+}
+
+/* Dark mode adjustments */
+html.dark .status-tab {
+  background: var(--el-bg-color-overlay);
+}
+
+html.dark .status-tab.active {
+  background: var(--el-fill-color);
+}
+
+@media (max-width: 640px) {
+  .header-top {
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
   }
 
-  .search-input {
-    max-width: none;
+  .status-tabs {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .status-tab {
+    flex-shrink: 0;
   }
 }
 </style>
