@@ -405,7 +405,11 @@ func (ctl *Control) handleNewProxy(m msg.Message) {
 	} else {
 		resp.RemoteAddr = remoteAddr
 		xl.Infof("new proxy [%s] type [%s] success", inMsg.ProxyName, inMsg.ProxyType)
-		metrics.Server.NewProxy(inMsg.ProxyName, inMsg.ProxyType)
+		clientID := ctl.loginMsg.ClientID
+		if clientID == "" {
+			clientID = ctl.loginMsg.RunID
+		}
+		metrics.Server.NewProxy(inMsg.ProxyName, inMsg.ProxyType, ctl.loginMsg.User, clientID)
 	}
 	_ = ctl.msgDispatcher.Send(resp)
 }

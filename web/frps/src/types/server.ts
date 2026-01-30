@@ -12,7 +12,7 @@ export interface ServerInfo {
   heartbeatTimeout: number
   allowPortsStr: string
   tlsForce: boolean
-  
+
   // Stats
   totalTrafficIn: number
   totalTrafficOut: number

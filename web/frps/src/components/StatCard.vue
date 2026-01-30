@@ -167,7 +167,7 @@ html.dark .icon-traffic {
 
 .stat-value {
   font-size: 28px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.2;
   color: #303133;
   margin-bottom: 4px;
