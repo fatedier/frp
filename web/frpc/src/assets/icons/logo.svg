@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 100 100" aria-label="F icon" role="img">
+  <circle cx="50" cy="50" r="46" fill="#477EE5"/>
+  <g transform="translate(50 50) skewX(-12) translate(-50 -50)">
+    <path
+      d="M37 28 V72
+         M37 28 H63
+         M37 50 H55"
+      fill="none"
+      stroke="#FFFFFF"
+      stroke-width="14"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+</svg>

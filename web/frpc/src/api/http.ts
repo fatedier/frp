@@ -19,7 +19,11 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(url, { ...defaultOptions, ...options })
 
   if (!response.ok) {
-    throw new HTTPError(response.status, response.statusText, `HTTP ${response.status}`)
+    throw new HTTPError(
+      response.status,
+      response.statusText,
+      `HTTP ${response.status}`,
+    )
   }
 
   // Handle empty response (e.g. 204 No Content)
@@ -35,42 +39,54 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const http = {
-  get: <T>(url: string, options?: RequestInit) => request<T>(url, { ...options, method: 'GET' }),
+  get: <T>(url: string, options?: RequestInit) =>
+    request<T>(url, { ...options, method: 'GET' }),
   post: <T>(url: string, body?: any, options?: RequestInit) => {
     const headers: HeadersInit = { ...options?.headers }
     let requestBody = body
 
-    if (body && typeof body === 'object' && !(body instanceof FormData) && !(body instanceof Blob)) {
-        if (!('Content-Type' in headers)) {
-             (headers as any)['Content-Type'] = 'application/json'
-        }
-        requestBody = JSON.stringify(body)
+    if (
+      body &&
+      typeof body === 'object' &&
+      !(body instanceof FormData) &&
+      !(body instanceof Blob)
+    ) {
+      if (!('Content-Type' in headers)) {
+        ;(headers as any)['Content-Type'] = 'application/json'
+      }
+      requestBody = JSON.stringify(body)
     }
 
-    return request<T>(url, { 
-      ...options, 
-      method: 'POST', 
+    return request<T>(url, {
+      ...options,
+      method: 'POST',
       headers,
-      body: requestBody
+      body: requestBody,
     })
   },
   put: <T>(url: string, body?: any, options?: RequestInit) => {
     const headers: HeadersInit = { ...options?.headers }
     let requestBody = body
 
-    if (body && typeof body === 'object' && !(body instanceof FormData) && !(body instanceof Blob)) {
-        if (!('Content-Type' in headers)) {
-             (headers as any)['Content-Type'] = 'application/json'
-        }
-        requestBody = JSON.stringify(body)
+    if (
+      body &&
+      typeof body === 'object' &&
+      !(body instanceof FormData) &&
+      !(body instanceof Blob)
+    ) {
+      if (!('Content-Type' in headers)) {
+        ;(headers as any)['Content-Type'] = 'application/json'
+      }
+      requestBody = JSON.stringify(body)
     }
 
-    return request<T>(url, { 
-      ...options, 
-      method: 'PUT', 
+    return request<T>(url, {
+      ...options,
+      method: 'PUT',
       headers,
-      body: requestBody
+      body: requestBody,
     })
   },
-  delete: <T>(url: string, options?: RequestInit) => request<T>(url, { ...options, method: 'DELETE' }),
+  delete: <T>(url: string, options?: RequestInit) =>
+    request<T>(url, { ...options, method: 'DELETE' }),
 }
