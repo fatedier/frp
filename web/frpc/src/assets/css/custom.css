@@ -1,0 +1,105 @@
+/* Modern Base Styles */
+* {
+  box-sizing: border-box;
+}
+
+/* Smooth transitions for Element Plus components */
+.el-button,
+.el-card,
+.el-input,
+.el-select,
+.el-tag {
+  transition: all 0.3s ease;
+}
+
+/* Card hover effects */
+.el-card:hover {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* Better scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Better form layouts */
+.el-form-item {
+  margin-bottom: 18px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .el-row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .el-col {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+}
+
+/* Input enhancements */
+.el-input__wrapper {
+  transition: all 0.2s ease;
+}
+
+.el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--el-border-color-hover) inset;
+}
+
+/* Button enhancements */
+.el-button {
+  font-weight: 500;
+}
+
+/* Tag enhancements */
+.el-tag {
+  font-weight: 500;
+}
+
+/* Card enhancements */
+.el-card__header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.el-card__body {
+  padding: 20px;
+}
+
+/* Table enhancements */
+.el-table {
+  font-size: 14px;
+}
+
+.el-table th {
+  font-weight: 600;
+}
+
+/* Empty state */
+.el-empty__description {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+/* Loading state */
+.el-loading-mask {
+  border-radius: 12px;
+}

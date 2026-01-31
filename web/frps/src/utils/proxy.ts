@@ -10,6 +10,8 @@ class BaseProxy {
   lastStartTime: string
   lastCloseTime: string
   status: string
+  user: string
+  clientID: string
   clientVersion: string
   addr: string
   port: number
@@ -18,6 +20,10 @@ class BaseProxy {
   hostHeaderRewrite: string
   locations: string
   subdomain: string
+
+  // TCPMux specific
+  multiplexer: string
+  routeByHTTPUser: string
 
   constructor(proxyStats: any) {
     this.name = proxyStats.name
@@ -41,6 +47,8 @@ class BaseProxy {
     this.lastStartTime = proxyStats.lastStartTime
     this.lastCloseTime = proxyStats.lastCloseTime
     this.status = proxyStats.status
+    this.user = proxyStats.user || ''
+    this.clientID = proxyStats.clientID || ''
     this.clientVersion = proxyStats.clientVersion
 
     this.addr = ''
@@ -49,6 +57,8 @@ class BaseProxy {
     this.hostHeaderRewrite = ''
     this.locations = ''
     this.subdomain = ''
+    this.multiplexer = ''
+    this.routeByHTTPUser = ''
   }
 }
 
@@ -111,24 +121,19 @@ class HTTPSProxy extends BaseProxy {
 }
 
 class TCPMuxProxy extends BaseProxy {
-  multiplexer: string
-  routeByHTTPUser: string
-
   constructor(proxyStats: any, port: number, subdomainHost: string) {
     super(proxyStats)
     this.type = 'tcpmux'
     this.port = port
-    this.multiplexer = ''
-    this.routeByHTTPUser = ''
 
     if (proxyStats.conf) {
       this.customDomains = proxyStats.conf.customDomains || this.customDomains
-      this.multiplexer = proxyStats.conf.multiplexer
-      this.routeByHTTPUser = proxyStats.conf.routeByHTTPUser
+      this.multiplexer = proxyStats.conf.multiplexer || ''
+      this.routeByHTTPUser = proxyStats.conf.routeByHTTPUser || ''
       if (proxyStats.conf.subdomain) {
         this.subdomain = `${proxyStats.conf.subdomain}.${subdomainHost}`
       }
-    } 
+    }
   }
 }
 

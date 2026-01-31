@@ -281,11 +281,15 @@ func (svr *Service) login() (conn net.Conn, connector Connector, err error) {
 		return
 	}
 
+	hostname, _ := os.Hostname()
+
 	loginMsg := &msg.Login{
 		Arch:      runtime.GOARCH,
 		Os:        runtime.GOOS,
+		Hostname:  hostname,
 		PoolCount: svr.common.Transport.PoolCount,
 		User:      svr.common.User,
+		ClientID:  svr.common.ClientID,
 		Version:   version.Full(),
 		Timestamp: time.Now().Unix(),
 		RunID:     svr.runID,

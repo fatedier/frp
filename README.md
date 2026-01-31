@@ -14,6 +14,16 @@ frp is an open source project with its ongoing development made possible entirel
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
 <p align="center">
+  <a href="https://requestly.com/?utm_source=github&utm_medium=partnered&utm_campaign=frp" target="_blank">
+    <img width="480px" src="https://github.com/user-attachments/assets/24670320-997d-4d62-9bca-955c59fe883d">
+    <br>
+    <b>Requestly - Free & Open-Source alternative to Postman</b>
+    <br>
+    <sub>All-in-one platform to Test, Mock and Intercept APIs.</sub>
+  </a>
+</p>
+
+<p align="center">
   <a href="https://jb.gg/frp" target="_blank">
     <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_jetbrains.jpg">
 	<br>
@@ -30,7 +40,6 @@ frp is an open source project with its ongoing development made possible entirel
 	<sub>An open source, self-hosted alternative to public clouds, built for data ownership and privacy</sub>
   </a>
 </p>
-
 <div align="center">
 
 ## Recall.ai - API for meeting recordings
@@ -40,24 +49,6 @@ If you're looking for a meeting recording API, consider checking out [Recall.ai]
 an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and more.
 
 </div>
-<p align="center">
-  <a href="https://requestly.com/?utm_source=github&utm_medium=partnered&utm_campaign=frp" target="_blank">
-    <img width="480px" src="https://github.com/user-attachments/assets/24670320-997d-4d62-9bca-955c59fe883d">
-    <br>
-    <b>Requestly - Free & Open-Source alternative to Postman</b>
-    <br>
-    <sub>All-in-one platform to Test, Mock and Intercept APIs.</sub>
-  </a>
-</p>
-<p align="center">
-  <a href="https://go.warp.dev/frp" target="_blank">
-    <img width="360px" src="https://raw.githubusercontent.com/warpdotdev/brand-assets/refs/heads/main/Github/Sponsor/Warp-Github-LG-01.png">
-    <br>
-    <b>Warp, built for collaborating with AI Agents</b>
-    <br>
-	<sub>Available for macOS, Linux and Windows</sub>
-  </a>
-</p>
 <!--gold sponsors end-->
 
 ## What is frp?

@@ -1,0 +1,89 @@
+.el-form-item span {
+  margin-left: 15px;
+}
+
+.proxy-table-expand {
+  font-size: 0;
+}
+
+.proxy-table-expand .el-form-item__label{
+  width: 90px;
+  color: #99a9bf;
+}
+
+.proxy-table-expand .el-form-item {
+  margin-right: 0;
+  margin-bottom: 0;
+  width: 50%;
+}
+
+.el-table .el-table__expanded-cell {
+  padding: 20px 50px;
+}
+
+/* Modern styles */
+* {
+  box-sizing: border-box;
+}
+
+/* Smooth transitions */
+.el-button,
+.el-card,
+.el-input,
+.el-select,
+.el-tag {
+  transition: all 0.3s ease;
+}
+
+/* Card hover effects */
+.el-card:hover {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Better scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Page headers */
+.el-page-header {
+  padding: 16px 0;
+}
+
+.el-page-header__title {
+  font-size: 20px;
+  font-weight: 500;
+}
+
+/* Better form layouts */
+.el-form-item {
+  margin-bottom: 18px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .el-row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .el-col {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+}

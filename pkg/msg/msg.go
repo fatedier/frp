@@ -82,6 +82,7 @@ type Login struct {
 	PrivilegeKey string            `json:"privilege_key,omitempty"`
 	Timestamp    int64             `json:"timestamp,omitempty"`
 	RunID        string            `json:"run_id,omitempty"`
+	ClientID     string            `json:"client_id,omitempty"`
 	Metas        map[string]string `json:"metas,omitempty"`
 
 	// Currently only effective for VirtualClient.

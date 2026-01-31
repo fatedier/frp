@@ -1,0 +1,180 @@
+/* Dark Mode Theme */
+html.dark {
+  --el-bg-color: #1e1e2e;
+  --el-bg-color-page: #1a1a2e;
+  --el-bg-color-overlay: #27293d;
+  --el-fill-color-blank: #1e1e2e;
+  background-color: #1a1a2e;
+}
+
+html.dark body {
+  background-color: #1a1a2e;
+  color: #e5e7eb;
+}
+
+/* Dark mode scrollbar */
+html.dark ::-webkit-scrollbar-track {
+  background: #27293d;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #3a3d5c;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #4a4d6c;
+}
+
+/* Dark mode cards */
+html.dark .el-card {
+  background-color: #27293d;
+  border-color: #3a3d5c;
+}
+
+html.dark .el-card__header {
+  border-bottom-color: #3a3d5c;
+}
+
+/* Dark mode inputs */
+html.dark .el-input__wrapper {
+  background-color: #27293d;
+  box-shadow: 0 0 0 1px #3a3d5c inset;
+}
+
+html.dark .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #4a4d6c inset;
+}
+
+html.dark .el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset;
+}
+
+html.dark .el-input__inner {
+  color: #e5e7eb;
+}
+
+html.dark .el-input__inner::placeholder {
+  color: #6b7280;
+}
+
+/* Dark mode textarea */
+html.dark .el-textarea__inner {
+  background-color: #1e1e2d;
+  border-color: #3a3d5c;
+  color: #e5e7eb;
+}
+
+html.dark .el-textarea__inner::placeholder {
+  color: #6b7280;
+}
+
+/* Dark mode table */
+html.dark .el-table {
+  background-color: #27293d;
+  color: #e5e7eb;
+}
+
+html.dark .el-table th.el-table__cell {
+  background-color: #1e1e2e;
+  color: #e5e7eb;
+}
+
+html.dark .el-table tr {
+  background-color: #27293d;
+}
+
+html.dark .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background-color: #1e1e2e;
+}
+
+html.dark .el-table__row:hover > td.el-table__cell {
+  background-color: #2a2a3c !important;
+}
+
+/* Dark mode tags */
+html.dark .el-tag--info {
+  background-color: #3a3d5c;
+  border-color: #3a3d5c;
+  color: #e5e7eb;
+}
+
+/* Dark mode buttons */
+html.dark .el-button--default {
+  background-color: #27293d;
+  border-color: #3a3d5c;
+  color: #e5e7eb;
+}
+
+html.dark .el-button--default:hover {
+  background-color: #2a2a3c;
+  border-color: #4a4d6c;
+  color: #fff;
+}
+
+/* Dark mode select */
+html.dark .el-select .el-input__wrapper {
+  background-color: #27293d;
+}
+
+html.dark .el-select-dropdown {
+  background-color: #27293d;
+  border-color: #3a3d5c;
+}
+
+html.dark .el-select-dropdown__item {
+  color: #e5e7eb;
+}
+
+html.dark .el-select-dropdown__item:hover {
+  background-color: #2a2a3c;
+}
+
+/* Dark mode dialog */
+html.dark .el-dialog {
+  background-color: #27293d;
+}
+
+html.dark .el-dialog__header {
+  border-bottom-color: #3a3d5c;
+}
+
+html.dark .el-dialog__title {
+  color: #e5e7eb;
+}
+
+html.dark .el-dialog__body {
+  color: #e5e7eb;
+}
+
+/* Dark mode message box */
+html.dark .el-message-box {
+  background-color: #27293d;
+  border-color: #3a3d5c;
+}
+
+html.dark .el-message-box__title {
+  color: #e5e7eb;
+}
+
+html.dark .el-message-box__message {
+  color: #e5e7eb;
+}
+
+/* Dark mode empty */
+html.dark .el-empty__description {
+  color: #9ca3af;
+}
+
+/* Dark mode loading */
+html.dark .el-loading-mask {
+  background-color: rgba(30, 30, 46, 0.9);
+}
+
+html.dark .el-loading-text {
+  color: #e5e7eb;
+}
+
+/* Dark mode tooltip */
+html.dark .el-tooltip__trigger {
+  color: #e5e7eb;
+}

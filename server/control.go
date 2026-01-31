@@ -40,6 +40,7 @@ import (
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/metrics"
 	"github.com/fatedier/frp/server/proxy"
+	"github.com/fatedier/frp/server/registry"
 )
 
 type ControlManager struct {
@@ -146,6 +147,8 @@ type Control struct {
 
 	// Server configuration information
 	serverCfg *v1.ServerConfig
+
+	clientRegistry *registry.ClientRegistry
 
 	xl     *xlog.Logger
 	ctx    context.Context
@@ -358,6 +361,7 @@ func (ctl *Control) worker() {
 	}
 
 	metrics.Server.CloseClient()
+	ctl.clientRegistry.MarkOfflineByRunID(ctl.runID)
 	xl.Infof("client exit success")
 	close(ctl.doneCh)
 }
@@ -401,7 +405,11 @@ func (ctl *Control) handleNewProxy(m msg.Message) {
 	} else {
 		resp.RemoteAddr = remoteAddr
 		xl.Infof("new proxy [%s] type [%s] success", inMsg.ProxyName, inMsg.ProxyType)
-		metrics.Server.NewProxy(inMsg.ProxyName, inMsg.ProxyType)
+		clientID := ctl.loginMsg.ClientID
+		if clientID == "" {
+			clientID = ctl.loginMsg.RunID
+		}
+		metrics.Server.NewProxy(inMsg.ProxyName, inMsg.ProxyType, ctl.loginMsg.User, clientID)
 	}
 	_ = ctl.msgDispatcher.Send(resp)
 }

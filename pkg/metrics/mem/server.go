@@ -98,7 +98,7 @@ func (m *serverMetrics) CloseClient() {
 	m.info.ClientCounts.Dec(1)
 }
 
-func (m *serverMetrics) NewProxy(name string, proxyType string) {
+func (m *serverMetrics) NewProxy(name string, proxyType string, user string, clientID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	counter, ok := m.info.ProxyTypeCounts[proxyType]
@@ -119,6 +119,8 @@ func (m *serverMetrics) NewProxy(name string, proxyType string) {
 		}
 		m.info.ProxyStatistics[name] = proxyStats
 	}
+	proxyStats.User = user
+	proxyStats.ClientID = clientID
 	proxyStats.LastStartTime = time.Now()
 }
 
@@ -214,6 +216,8 @@ func (m *serverMetrics) GetProxiesByType(proxyType string) []*ProxyStats {
 		ps := &ProxyStats{
 			Name:            name,
 			Type:            proxyStats.ProxyType,
+			User:            proxyStats.User,
+			ClientID:        proxyStats.ClientID,
 			TodayTrafficIn:  proxyStats.TrafficIn.TodayCount(),
 			TodayTrafficOut: proxyStats.TrafficOut.TodayCount(),
 			CurConns:        int64(proxyStats.CurConns.Count()),
@@ -245,6 +249,8 @@ func (m *serverMetrics) GetProxiesByTypeAndName(proxyType string, proxyName stri
 		res = &ProxyStats{
 			Name:            name,
 			Type:            proxyStats.ProxyType,
+			User:            proxyStats.User,
+			ClientID:        proxyStats.ClientID,
 			TodayTrafficIn:  proxyStats.TrafficIn.TodayCount(),
 			TodayTrafficOut: proxyStats.TrafficOut.TodayCount(),
 			CurConns:        int64(proxyStats.CurConns.Count()),
@@ -256,6 +262,31 @@ func (m *serverMetrics) GetProxiesByTypeAndName(proxyType string, proxyName stri
 			res.LastCloseTime = proxyStats.LastCloseTime.Format("01-02 15:04:05")
 		}
 		break
+	}
+	return
+}
+
+func (m *serverMetrics) GetProxyByName(proxyName string) (res *ProxyStats) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	proxyStats, ok := m.info.ProxyStatistics[proxyName]
+	if ok {
+		res = &ProxyStats{
+			Name:            proxyName,
+			Type:            proxyStats.ProxyType,
+			User:            proxyStats.User,
+			ClientID:        proxyStats.ClientID,
+			TodayTrafficIn:  proxyStats.TrafficIn.TodayCount(),
+			TodayTrafficOut: proxyStats.TrafficOut.TodayCount(),
+			CurConns:        int64(proxyStats.CurConns.Count()),
+		}
+		if !proxyStats.LastStartTime.IsZero() {
+			res.LastStartTime = proxyStats.LastStartTime.Format("01-02 15:04:05")
+		}
+		if !proxyStats.LastCloseTime.IsZero() {
+			res.LastCloseTime = proxyStats.LastCloseTime.Format("01-02 15:04:05")
+		}
 	}
 	return
 }
