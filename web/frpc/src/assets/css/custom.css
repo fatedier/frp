@@ -1,32 +1,9 @@
-.el-form-item span {
-  margin-left: 15px;
-}
-
-.proxy-table-expand {
-  font-size: 0;
-}
-
-.proxy-table-expand .el-form-item__label{
-  width: 90px;
-  color: #99a9bf;
-}
-
-.proxy-table-expand .el-form-item {
-  margin-right: 0;
-  margin-bottom: 0;
-  width: 50%;
-}
-
-.el-table .el-table__expanded-cell {
-  padding: 20px 50px;
-}
-
-/* Modern styles */
+/* Modern Base Styles */
 * {
   box-sizing: border-box;
 }
 
-/* Smooth transitions */
+/* Smooth transitions for Element Plus components */
 .el-button,
 .el-card,
 .el-input,
@@ -37,7 +14,7 @@
 
 /* Card hover effects */
 .el-card:hover {
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
 }
 
 /* Better scrollbar */
@@ -60,16 +37,6 @@
   background: #a8a8a8;
 }
 
-/* Page headers */
-.el-page-header {
-  padding: 16px 0;
-}
-
-.el-page-header__title {
-  font-size: 20px;
-  font-weight: 600;
-}
-
 /* Better form layouts */
 .el-form-item {
   margin-bottom: 18px;
@@ -86,4 +53,53 @@
     padding-left: 10px !important;
     padding-right: 10px !important;
   }
+}
+
+/* Input enhancements */
+.el-input__wrapper {
+  transition: all 0.2s ease;
+}
+
+.el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--el-border-color-hover) inset;
+}
+
+/* Button enhancements */
+.el-button {
+  font-weight: 500;
+}
+
+/* Tag enhancements */
+.el-tag {
+  font-weight: 500;
+}
+
+/* Card enhancements */
+.el-card__header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.el-card__body {
+  padding: 20px;
+}
+
+/* Table enhancements */
+.el-table {
+  font-size: 14px;
+}
+
+.el-table th {
+  font-weight: 600;
+}
+
+/* Empty state */
+.el-empty__description {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+/* Loading state */
+.el-loading-mask {
+  border-radius: 12px;
 }
