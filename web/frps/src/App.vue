@@ -9,6 +9,7 @@
             </div>
             <span class="divider">/</span>
             <span class="brand-name">frp</span>
+            <span class="badge server-badge">Server</span>
             <span class="badge" v-if="currentRouteName">{{
               currentRouteName
             }}</span>
@@ -168,6 +169,17 @@ body {
   padding: 2px 8px;
   border-radius: 99px;
   border: 1px solid var(--header-border);
+}
+
+.badge.server-badge {
+  background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+  color: white;
+  border: none;
+  font-weight: 500;
+}
+
+html.dark .badge.server-badge {
+  background: linear-gradient(135deg, #60a5fa 0%, #22d3ee 100%);
 }
 
 .header-controls {
