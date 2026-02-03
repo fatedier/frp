@@ -22,7 +22,9 @@ kcpBindPort = 7000
 # transport.quic.maxIdleTimeout = 30
 # transport.quic.maxIncomingStreams = 100000
 
-# Heartbeat configure, it's not recommended to modify the default value
+# Heartbeat configure, it's not recommended to modify the default value.
+# If tcpMux is enabled (default), heartbeat is disabled and tcp mux keepalive
+# interval controls the liveness detection instead.
 # The default value of heartbeatTimeout is 90. Set negative value to disable it.
 # transport.heartbeatTimeout = 90
 

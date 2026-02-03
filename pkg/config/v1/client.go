@@ -133,6 +133,8 @@ type ClientTransportConfig struct {
 	// HeartBeatTimeout specifies the maximum allowed heartbeat response delay
 	// before the connection is terminated, in seconds. It is not recommended
 	// to change this value. By default, this value is 90. Set negative value to disable it.
+	// Note: When TCPMux is enabled (default), heartbeat checks are disabled and
+	// the TCP mux keepalive interval controls liveness instead.
 	HeartbeatTimeout int64 `json:"heartbeatTimeout,omitempty"`
 	// TLS specifies TLS settings for the connection to the server.
 	TLS TLSClientConfig `json:"tls,omitempty"`

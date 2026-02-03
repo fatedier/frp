@@ -172,6 +172,8 @@ type ServerTransportConfig struct {
 	// HeartBeatTimeout specifies the maximum time to wait for a heartbeat
 	// before terminating the connection. It is not recommended to change this
 	// value. By default, this value is 90. Set negative value to disable it.
+	// Note: When TCPMux is enabled (default), heartbeat checks are disabled and
+	// the TCP mux keepalive interval controls liveness instead.
 	HeartbeatTimeout int64 `json:"heartbeatTimeout,omitempty"`
 	// QUIC options.
 	QUIC QUICOptions `json:"quic,omitempty"`
