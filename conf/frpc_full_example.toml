@@ -135,8 +135,8 @@ transport.tls.enable = true
 # Heartbeat configure, it's not recommended to modify the default value.
 # If tcpMux is enabled (default), heartbeat is disabled and tcp mux keepalive
 # interval controls the liveness detection instead.
-# The default value of heartbeatInterval is 30 and heartbeatTimeout is 90. Set negative value
-# to disable it.
+# When tcpMux is disabled, the defaults are heartbeatInterval = 30 and heartbeatTimeout = 90.
+# Set negative value to disable it.
 # transport.heartbeatInterval = 30
 # transport.heartbeatTimeout = 90
 
