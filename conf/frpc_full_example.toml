@@ -136,6 +136,11 @@ transport.tls.enable = true
 # transport.heartbeatInterval = 30
 # transport.heartbeatTimeout = 90
 
+# Websocket path for connecting to server.
+# By default, this value is "/~!frp".
+# This should be the same as server's websocketPath configuration.
+# transport.websocketPath = "/~!frp"
+
 # Specify a dns server, so frpc will use this instead of default one
 # dnsServer = "8.8.8.8"
 

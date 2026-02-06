@@ -99,6 +99,9 @@ type ServerConfig struct {
 	AllowPorts []types.PortsRange `json:"allowPorts,omitempty"`
 
 	HTTPPlugins []HTTPPluginOptions `json:"httpPlugins,omitempty"`
+	// WebsocketPath specifies the path for websocket connections.
+	// By default, this value is "/~!frp".
+	WebsocketPath string `json:"websocketPath,omitempty"`
 }
 
 func (c *ServerConfig) Complete() error {
@@ -125,6 +128,7 @@ func (c *ServerConfig) Complete() error {
 	c.UserConnTimeout = util.EmptyOr(c.UserConnTimeout, 10)
 	c.UDPPacketSize = util.EmptyOr(c.UDPPacketSize, 1500)
 	c.NatHoleAnalysisDataReserveHours = util.EmptyOr(c.NatHoleAnalysisDataReserveHours, 7*24)
+	c.WebsocketPath = util.EmptyOr(c.WebsocketPath, "/~!frp")
 	return nil
 }
 
