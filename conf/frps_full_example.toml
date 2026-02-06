@@ -148,6 +148,10 @@ udpPacketSize = 1500
 # Retention time for NAT hole punching strategy data.
 natholeAnalysisDataReserveHours = 168
 
+# Websocket path for client connections.
+# By default, this value is "/~!frp".
+# websocketPath = "/~!frp"
+
 # ssh tunnel gateway
 # If you want to enable this feature, the bindPort parameter is required, while others are optional.
 # By default, this feature is disabled. It will be enabled if bindPort is greater than 0.
