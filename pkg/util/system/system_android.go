@@ -22,6 +22,10 @@ import (
 	"time"
 )
 
+var ServiceName = ""
+var PauseF func() error = nil
+var ContinueF func() error = nil
+
 func EnableCompatibilityMode() {
 	fixTimezone()
 	fixDNSResolver()
@@ -67,4 +71,12 @@ func fixDNSResolver() {
 			return d.DialContext(ctx, network, addr)
 		},
 	}
+}
+
+// Run wraps Execute function for different system.
+// For example, on Windows, it runs as a Windows service if necessary.
+func Run(name string, f func()) {
+	// Run as a usual program.
+	ServiceName = name
+	f()
 }

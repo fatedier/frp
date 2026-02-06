@@ -17,6 +17,7 @@ package sub
 import (
 	"context"
 	"fmt"
+	"github.com/fatedier/frp/pkg/util/system"
 	"io/fs"
 	"os"
 	"os/signal"
@@ -47,7 +48,7 @@ var (
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "./frpc.ini", "config file of frpc")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file of frpc")
 	rootCmd.PersistentFlags().StringVarP(&cfgDir, "config_dir", "", "", "config directory, run one frpc service for each file in config directory")
 	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "version of frpc")
 	rootCmd.PersistentFlags().BoolVarP(&strictConfigMode, "strict_config", "", true, "strict config parsing mode, unknown fields will cause an errors")
@@ -154,6 +155,9 @@ func startService(
 	cfgFile string,
 ) error {
 	log.InitLogger(cfg.Log.To, cfg.Log.Level, int(cfg.Log.MaxDays), cfg.Log.DisablePrintColor)
+	defer func() {
+		_ = log.DestroyEventWriter()
+	}()
 
 	if cfgFile != "" {
 		log.Infof("start frpc service for config file [%s]", cfgFile)
@@ -168,6 +172,22 @@ func startService(
 	})
 	if err != nil {
 		return err
+	}
+
+	// Setup system.PauseF and system.ContinueF
+	system.PauseF = func() error {
+		return svr.UpdateAllConfigurer([]v1.ProxyConfigurer{}, []v1.VisitorConfigurer{})
+	}
+	system.ContinueF = func() error {
+		cliCfg, proxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(cfgFile, strictConfigMode)
+		if err != nil {
+			return err
+		}
+		_, err = validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs, unsafeFeatures)
+		if err != nil {
+			return err
+		}
+		return svr.UpdateAllConfigurer(proxyCfgs, visitorCfgs)
 	}
 
 	shouldGracefulClose := cfg.Transport.Protocol == "kcp" || cfg.Transport.Protocol == "quic"
