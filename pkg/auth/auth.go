@@ -86,6 +86,18 @@ type Verifier interface {
 	VerifyNewWorkConn(*msg.NewWorkConn) error
 }
 
+// TokenConfigProvider is an optional interface that Verifiers can implement
+// to provide per-token configuration (for etcd-based multi-tenant auth).
+type TokenConfigProvider interface {
+	GetTokenConfig(token string) *v1.TokenConfig
+}
+
+// TokenConfigGetter is an optional interface for verifiers that can provide token configuration.
+// This is used for etcd-based multi-token authentication to get per-token limits.
+type TokenConfigGetter interface {
+	GetTokenConfig(token string) *v1.TokenConfig
+}
+
 type ServerAuth struct {
 	Verifier Verifier
 	key      []byte

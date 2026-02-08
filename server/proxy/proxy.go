@@ -31,6 +31,7 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
+	"github.com/fatedier/frp/pkg/traffic"
 	"github.com/fatedier/frp/pkg/util/limit"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -61,18 +62,19 @@ type Proxy interface {
 }
 
 type BaseProxy struct {
-	name          string
-	rc            *controller.ResourceController
-	listeners     []net.Listener
-	usedPortsNum  int
-	poolCount     int
-	getWorkConnFn GetWorkConnFn
-	serverCfg     *v1.ServerConfig
-	encryptionKey []byte
-	limiter       *rate.Limiter
-	userInfo      plugin.UserInfo
-	loginMsg      *msg.Login
-	configurer    v1.ProxyConfigurer
+	name           string
+	rc             *controller.ResourceController
+	listeners      []net.Listener
+	usedPortsNum   int
+	poolCount      int
+	getWorkConnFn  GetWorkConnFn
+	serverCfg      *v1.ServerConfig
+	encryptionKey  []byte
+	limiter        *rate.Limiter
+	userInfo       plugin.UserInfo
+	loginMsg       *msg.Login
+	configurer     v1.ProxyConfigurer
+	trafficCounter *traffic.TokenTrafficCounter
 
 	mu  sync.RWMutex
 	xl  *xlog.Logger
@@ -268,6 +270,13 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	metrics.Server.CloseConnection(name, proxyType)
 	metrics.Server.AddTrafficIn(name, proxyType, inCount)
 	metrics.Server.AddTrafficOut(name, proxyType, outCount)
+
+	// Report traffic to traffic counter if available
+	if pxy.trafficCounter != nil {
+		pxy.trafficCounter.AddTraffic(name, inCount, outCount)
+		xl.Infof("traffic reported: proxy=%s in=%d out=%d", name, inCount, outCount)
+	}
+
 	xl.Debugf("join connections closed")
 }
 
@@ -280,6 +289,11 @@ type Options struct {
 	Configurer         v1.ProxyConfigurer
 	ServerCfg          *v1.ServerConfig
 	EncryptionKey      []byte
+	// TokenBandwidthLimit is the bandwidth limit from etcd token config (optional).
+	// If set, it overrides the proxy's bandwidth limit.
+	TokenBandwidthLimit *types.BandwidthQuantity
+	// TrafficCounter is the traffic counter for this proxy (optional).
+	TrafficCounter *traffic.TokenTrafficCounter
 }
 
 func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
@@ -287,25 +301,37 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 	xl := xlog.FromContextSafe(ctx).Spawn().AppendPrefix(configurer.GetBaseConfig().Name)
 
 	var limiter *rate.Limiter
-	limitBytes := configurer.GetBaseConfig().Transport.BandwidthLimit.Bytes()
+
+	// Determine bandwidth limit: token config takes priority over proxy config
+	var limitBytes int64
+	if options.TokenBandwidthLimit != nil && options.TokenBandwidthLimit.Bytes() > 0 {
+		// Use token-level bandwidth limit from etcd
+		limitBytes = options.TokenBandwidthLimit.Bytes()
+		xl.Debugf("using token bandwidth limit: %d bytes/s", limitBytes)
+	} else {
+		// Use proxy-level bandwidth limit
+		limitBytes = configurer.GetBaseConfig().Transport.BandwidthLimit.Bytes()
+	}
+
 	if limitBytes > 0 && configurer.GetBaseConfig().Transport.BandwidthLimitMode == types.BandwidthLimitModeServer {
 		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
 	}
 
 	basePxy := BaseProxy{
-		name:          configurer.GetBaseConfig().Name,
-		rc:            options.ResourceController,
-		listeners:     make([]net.Listener, 0),
-		poolCount:     options.PoolCount,
-		getWorkConnFn: options.GetWorkConnFn,
-		serverCfg:     options.ServerCfg,
-		encryptionKey: options.EncryptionKey,
-		limiter:       limiter,
-		xl:            xl,
-		ctx:           xlog.NewContext(ctx, xl),
-		userInfo:      options.UserInfo,
-		loginMsg:      options.LoginMsg,
-		configurer:    configurer,
+		name:           configurer.GetBaseConfig().Name,
+		rc:             options.ResourceController,
+		listeners:      make([]net.Listener, 0),
+		poolCount:      options.PoolCount,
+		getWorkConnFn:  options.GetWorkConnFn,
+		serverCfg:      options.ServerCfg,
+		encryptionKey:  options.EncryptionKey,
+		limiter:        limiter,
+		xl:             xl,
+		ctx:            xlog.NewContext(ctx, xl),
+		userInfo:       options.UserInfo,
+		loginMsg:       options.LoginMsg,
+		configurer:     configurer,
+		trafficCounter: options.TrafficCounter,
 	}
 
 	factory := proxyFactoryRegistry[reflect.TypeOf(configurer)]

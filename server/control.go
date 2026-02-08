@@ -28,9 +28,11 @@ import (
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/config/types"
 	pkgerr "github.com/fatedier/frp/pkg/errors"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
+	"github.com/fatedier/frp/pkg/traffic"
 	"github.com/fatedier/frp/pkg/transport"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
@@ -95,6 +97,23 @@ func (cm *ControlManager) Close() error {
 	return nil
 }
 
+// CloseByToken closes all control connections that use the specified token.
+// Returns the number of connections closed.
+func (cm *ControlManager) CloseByToken(token string) int {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	var closed int
+	for runID, ctl := range cm.ctlsByRunID {
+		if ctl.GetToken() == token {
+			ctl.Close()
+			delete(cm.ctlsByRunID, runID)
+			closed++
+		}
+	}
+	return closed
+}
+
 type Control struct {
 	// all resource managers and controllers
 	rc *controller.ResourceController
@@ -148,6 +167,15 @@ type Control struct {
 	// Server configuration information
 	serverCfg *v1.ServerConfig
 
+	// Per-token configuration from etcd (optional, nil if not using etcd multi-tenant auth)
+	tokenCfg *v1.TokenConfig
+
+	// The token used for authentication (for etcd multi-tenant auth)
+	token string
+
+	// Traffic counter for this control connection (optional)
+	trafficCounter *traffic.TokenTrafficCounter
+
 	clientRegistry *registry.ClientRegistry
 
 	xl     *xlog.Logger
@@ -167,28 +195,34 @@ func NewControl(
 	ctlConnEncrypted bool,
 	loginMsg *msg.Login,
 	serverCfg *v1.ServerConfig,
+	tokenCfg *v1.TokenConfig,
+	token string,
+	trafficCounter *traffic.TokenTrafficCounter,
 ) (*Control, error) {
 	poolCount := loginMsg.PoolCount
 	if poolCount > int(serverCfg.Transport.MaxPoolCount) {
 		poolCount = int(serverCfg.Transport.MaxPoolCount)
 	}
 	ctl := &Control{
-		rc:            rc,
-		pxyManager:    pxyManager,
-		pluginManager: pluginManager,
-		authVerifier:  authVerifier,
-		encryptionKey: encryptionKey,
-		conn:          ctlConn,
-		loginMsg:      loginMsg,
-		workConnCh:    make(chan net.Conn, poolCount+10),
-		proxies:       make(map[string]proxy.Proxy),
-		poolCount:     poolCount,
-		portsUsedNum:  0,
-		runID:         loginMsg.RunID,
-		serverCfg:     serverCfg,
-		xl:            xlog.FromContextSafe(ctx),
-		ctx:           ctx,
-		doneCh:        make(chan struct{}),
+		rc:             rc,
+		pxyManager:     pxyManager,
+		pluginManager:  pluginManager,
+		authVerifier:   authVerifier,
+		encryptionKey:  encryptionKey,
+		conn:           ctlConn,
+		loginMsg:       loginMsg,
+		workConnCh:     make(chan net.Conn, poolCount+10),
+		proxies:        make(map[string]proxy.Proxy),
+		poolCount:      poolCount,
+		portsUsedNum:   0,
+		runID:          loginMsg.RunID,
+		serverCfg:      serverCfg,
+		tokenCfg:       tokenCfg,
+		token:          token,
+		trafficCounter: trafficCounter,
+		xl:             xlog.FromContextSafe(ctx),
+		ctx:            ctx,
+		doneCh:         make(chan struct{}),
 	}
 	ctl.lastPing.Store(time.Now())
 
@@ -227,6 +261,11 @@ func (ctl *Control) Start() {
 func (ctl *Control) Close() error {
 	ctl.conn.Close()
 	return nil
+}
+
+// GetToken returns the token used for this control connection.
+func (ctl *Control) GetToken() string {
+	return ctl.token
 }
 
 func (ctl *Control) Replaced(newCtl *Control) {
@@ -473,6 +512,13 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		return
 	}
 
+	// Check per-token port restrictions if tokenCfg is set
+	if ctl.tokenCfg != nil && len(ctl.tokenCfg.AllowPorts) > 0 {
+		if err = ctl.checkTokenAllowPorts(pxyConf); err != nil {
+			return
+		}
+	}
+
 	// User info
 	userInfo := plugin.UserInfo{
 		User:  ctl.loginMsg.User,
@@ -480,26 +526,40 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		RunID: ctl.runID,
 	}
 
+	// Prepare token bandwidth limit if set
+	var tokenBandwidthLimit *types.BandwidthQuantity
+	if ctl.tokenCfg != nil && ctl.tokenCfg.BandwidthLimit.Bytes() > 0 {
+		tokenBandwidthLimit = &ctl.tokenCfg.BandwidthLimit
+	}
+
 	// NewProxy will return an interface Proxy.
 	// In fact, it creates different proxies based on the proxy type. We just call run() here.
 	pxy, err := proxy.NewProxy(ctl.ctx, &proxy.Options{
-		UserInfo:           userInfo,
-		LoginMsg:           ctl.loginMsg,
-		PoolCount:          ctl.poolCount,
-		ResourceController: ctl.rc,
-		GetWorkConnFn:      ctl.GetWorkConn,
-		Configurer:         pxyConf,
-		ServerCfg:          ctl.serverCfg,
-		EncryptionKey:      ctl.encryptionKey,
+		UserInfo:            userInfo,
+		LoginMsg:            ctl.loginMsg,
+		PoolCount:           ctl.poolCount,
+		ResourceController:  ctl.rc,
+		GetWorkConnFn:       ctl.GetWorkConn,
+		Configurer:          pxyConf,
+		ServerCfg:           ctl.serverCfg,
+		EncryptionKey:       ctl.encryptionKey,
+		TokenBandwidthLimit: tokenBandwidthLimit,
+		TrafficCounter:      ctl.trafficCounter,
 	})
 	if err != nil {
 		return remoteAddr, err
 	}
 
 	// Check ports used number in each client
-	if ctl.serverCfg.MaxPortsPerClient > 0 {
+	// Use per-token MaxPortsPerClient if set, otherwise use server config
+	maxPortsPerClient := ctl.serverCfg.MaxPortsPerClient
+	if ctl.tokenCfg != nil && ctl.tokenCfg.MaxPortsPerClient > 0 {
+		maxPortsPerClient = ctl.tokenCfg.MaxPortsPerClient
+	}
+
+	if maxPortsPerClient > 0 {
 		ctl.mu.Lock()
-		if ctl.portsUsedNum+pxy.GetUsedPortsNum() > int(ctl.serverCfg.MaxPortsPerClient) {
+		if ctl.portsUsedNum+pxy.GetUsedPortsNum() > int(maxPortsPerClient) {
 			ctl.mu.Unlock()
 			err = fmt.Errorf("exceed the max_ports_per_client")
 			return
@@ -550,7 +610,7 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 		return
 	}
 
-	if ctl.serverCfg.MaxPortsPerClient > 0 {
+	if ctl.serverCfg.MaxPortsPerClient > 0 || (ctl.tokenCfg != nil && ctl.tokenCfg.MaxPortsPerClient > 0) {
 		ctl.portsUsedNum -= pxy.GetUsedPortsNum()
 	}
 	pxy.Close()
@@ -574,4 +634,51 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 		_ = ctl.pluginManager.CloseProxy(notifyContent)
 	}()
 	return
+}
+
+// checkTokenAllowPorts checks if the proxy port is allowed by the token configuration.
+func (ctl *Control) checkTokenAllowPorts(pxyConf v1.ProxyConfigurer) error {
+	if ctl.tokenCfg == nil || len(ctl.tokenCfg.AllowPorts) == 0 {
+		return nil
+	}
+
+	// Get the remote port from proxy config
+	var remotePort int
+	switch cfg := pxyConf.(type) {
+	case *v1.TCPProxyConfig:
+		remotePort = cfg.RemotePort
+	case *v1.UDPProxyConfig:
+		remotePort = cfg.RemotePort
+	default:
+		// For HTTP, HTTPS, STCP, SUDP, XTCP, TCPMUX proxies, no port check needed
+		return nil
+	}
+
+	// If remotePort is 0, server will assign a random port, skip check
+	if remotePort == 0 {
+		return nil
+	}
+
+	// Check if the port is in the allowed range
+	if !isPortInRange(remotePort, ctl.tokenCfg.AllowPorts) {
+		return fmt.Errorf("port [%d] is not allowed for this token", remotePort)
+	}
+
+	return nil
+}
+
+// isPortInRange checks if a port is within the allowed port ranges.
+func isPortInRange(port int, allowPorts []types.PortsRange) bool {
+	for _, pr := range allowPorts {
+		if pr.Single > 0 {
+			if port == pr.Single {
+				return true
+			}
+		} else {
+			if port >= pr.Start && port <= pr.End {
+				return true
+			}
+		}
+	}
+	return false
 }

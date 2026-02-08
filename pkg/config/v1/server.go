@@ -25,6 +25,9 @@ type ServerConfig struct {
 	APIMetadata
 
 	Auth AuthServerConfig `json:"auth,omitempty"`
+	// Etcd configuration for multi-tenant token management.
+	// When enabled, tokens are fetched from etcd with per-token bandwidth limits and port restrictions.
+	Etcd EtcdConfig `json:"etcd,omitempty"`
 	// BindAddr specifies the address that the server binds to. By default,
 	// this value is "0.0.0.0".
 	BindAddr string `json:"bindAddr,omitempty"`
