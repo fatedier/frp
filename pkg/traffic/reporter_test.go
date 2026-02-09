@@ -31,7 +31,7 @@ func TestReport_JSON(t *testing.T) {
 		Token:      "test-token-123",
 		Region:     "us-east",
 		ProxyName:  "web-proxy",
-		TrafficIn:  1024 * 1024,     // 1MB
+		TrafficIn:  1024 * 1024,      // 1MB
 		TrafficOut: 10 * 1024 * 1024, // 10MB
 		Timestamp:  1234567890,
 	}

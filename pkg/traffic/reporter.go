@@ -31,20 +31,20 @@ const (
 
 // Report represents a traffic usage report.
 type Report struct {
-	Token     string `json:"token"`
-	Region    string `json:"region"`
-	ProxyName string `json:"proxyName"`
-	TrafficIn int64  `json:"trafficIn"`  // bytes
+	Token      string `json:"token"`
+	Region     string `json:"region"`
+	ProxyName  string `json:"proxyName"`
+	TrafficIn  int64  `json:"trafficIn"`  // bytes
 	TrafficOut int64  `json:"trafficOut"` // bytes
-	Timestamp int64  `json:"timestamp"`  // unix timestamp
+	Timestamp  int64  `json:"timestamp"`  // unix timestamp
 }
 
 // TokenTrafficCounter tracks traffic for a single token.
 type TokenTrafficCounter struct {
-	token              string
-	region             string
-	reportURL          string
-	reportIntervalMB   int64
+	token            string
+	region           string
+	reportURL        string
+	reportIntervalMB int64
 
 	// Total traffic since last report
 	trafficIn  atomic.Int64
