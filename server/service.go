@@ -128,7 +128,7 @@ type Service struct {
 	etcdTokenStore *etcd.TokenStore
 
 	// Traffic manager for reporting traffic usage (optional)
-	trafficManager *traffic.TrafficManager
+	trafficManager *traffic.Manager
 
 	tlsConfig *tls.Config
 
@@ -208,7 +208,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 
 	// Initialize traffic manager if etcd is enabled and report URL is set
 	if etcdStore != nil && cfg.Etcd.TrafficReportURL != "" {
-		svr.trafficManager = traffic.NewTrafficManager(cfg.Etcd.TrafficReportURL, cfg.Etcd.Region)
+		svr.trafficManager = traffic.NewManager(cfg.Etcd.TrafficReportURL, cfg.Etcd.Region)
 		log.Infof("traffic reporting enabled, report URL: %s", cfg.Etcd.TrafficReportURL)
 	}
 
@@ -677,7 +677,10 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 	}
 
 	// TODO(fatedier): use SessionContext
-	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, encryptionKey, ctlConn, !internal, loginMsg, svr.cfg, tokenCfg, etcdToken, trafficCounter)
+	ctl, err := NewControl(
+		ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, encryptionKey,
+		ctlConn, !internal, loginMsg, svr.cfg, tokenCfg, etcdToken, trafficCounter,
+	)
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
 		// don't return detailed errors to client

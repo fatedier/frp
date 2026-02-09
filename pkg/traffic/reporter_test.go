@@ -26,8 +26,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTrafficReport_JSON(t *testing.T) {
-	report := TrafficReport{
+func TestReport_JSON(t *testing.T) {
+	report := Report{
 		Token:      "test-token-123",
 		Region:     "us-east",
 		ProxyName:  "web-proxy",
@@ -39,7 +39,7 @@ func TestTrafficReport_JSON(t *testing.T) {
 	data, err := json.Marshal(report)
 	require.NoError(t, err)
 
-	var decoded TrafficReport
+	var decoded Report
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
 
@@ -66,11 +66,11 @@ func TestTokenTrafficCounter_AddTraffic(t *testing.T) {
 
 func TestTokenTrafficCounter_ThresholdReport(t *testing.T) {
 	var reportCount atomic.Int32
-	var lastReport TrafficReport
+	var lastReport Report
 
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var report TrafficReport
+		var report Report
 		if err := json.NewDecoder(r.Body).Decode(&report); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
@@ -123,10 +123,10 @@ func TestTokenTrafficCounter_NoReportWhenDisabled(t *testing.T) {
 
 func TestTokenTrafficCounter_Flush(t *testing.T) {
 	var reportCount atomic.Int32
-	var lastReport TrafficReport
+	var lastReport Report
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var report TrafficReport
+		var report Report
 		json.NewDecoder(r.Body).Decode(&report)
 		lastReport = report
 		reportCount.Add(1)
@@ -149,8 +149,8 @@ func TestTokenTrafficCounter_Flush(t *testing.T) {
 	assert.Equal(t, int64(2*MB), lastReport.TrafficOut)
 }
 
-func TestTrafficManager_GetOrCreateCounter(t *testing.T) {
-	manager := NewTrafficManager("http://example.com/report", "us-east")
+func TestManager_GetOrCreateCounter(t *testing.T) {
+	manager := NewManager("http://example.com/report", "us-east")
 
 	// Get counter for new token
 	counter1 := manager.GetOrCreateCounter("token-1", 50)
@@ -165,8 +165,8 @@ func TestTrafficManager_GetOrCreateCounter(t *testing.T) {
 	assert.NotEqual(t, counter1, counter3)
 }
 
-func TestTrafficManager_GetCounter(t *testing.T) {
-	manager := NewTrafficManager("http://example.com/report", "us-east")
+func TestManager_GetCounter(t *testing.T) {
+	manager := NewManager("http://example.com/report", "us-east")
 
 	// Non-existent counter
 	counter := manager.GetCounter("non-existent")
@@ -178,7 +178,7 @@ func TestTrafficManager_GetCounter(t *testing.T) {
 	assert.NotNil(t, counter)
 }
 
-func TestTrafficManager_RemoveCounter(t *testing.T) {
+func TestManager_RemoveCounter(t *testing.T) {
 	var reportCount atomic.Int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -187,7 +187,7 @@ func TestTrafficManager_RemoveCounter(t *testing.T) {
 	}))
 	defer server.Close()
 
-	manager := NewTrafficManager(server.URL, "us-east")
+	manager := NewManager(server.URL, "us-east")
 
 	// Create counter and add traffic
 	counter := manager.GetOrCreateCounter("token-1", 100)

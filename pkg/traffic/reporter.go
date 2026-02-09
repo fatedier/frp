@@ -29,8 +29,8 @@ const (
 	MB = 1024 * 1024
 )
 
-// TrafficReport represents a traffic usage report.
-type TrafficReport struct {
+// Report represents a traffic usage report.
+type Report struct {
 	Token     string `json:"token"`
 	Region    string `json:"region"`
 	ProxyName string `json:"proxyName"`
@@ -121,7 +121,7 @@ func (c *TokenTrafficCounter) checkAndReport(proxyName string) {
 
 // sendReport sends a traffic report to the configured URL.
 func (c *TokenTrafficCounter) sendReport(proxyName string, trafficIn, trafficOut int64) {
-	report := TrafficReport{
+	report := Report{
 		Token:      c.token,
 		Region:     c.region,
 		ProxyName:  proxyName,
@@ -181,23 +181,23 @@ func (c *TokenTrafficCounter) Flush(proxyName string) {
 	}
 }
 
-// TrafficManager manages traffic counters for all tokens.
-type TrafficManager struct {
+// Manager manages traffic counters for all tokens.
+type Manager struct {
 	reportURL string
 	region    string
 	counters  sync.Map // map[token]*TokenTrafficCounter
 }
 
-// NewTrafficManager creates a new traffic manager.
-func NewTrafficManager(reportURL, region string) *TrafficManager {
-	return &TrafficManager{
+// NewManager creates a new traffic manager.
+func NewManager(reportURL, region string) *Manager {
+	return &Manager{
 		reportURL: reportURL,
 		region:    region,
 	}
 }
 
 // GetOrCreateCounter gets or creates a traffic counter for a token.
-func (m *TrafficManager) GetOrCreateCounter(token string, reportIntervalMB int64) *TokenTrafficCounter {
+func (m *Manager) GetOrCreateCounter(token string, reportIntervalMB int64) *TokenTrafficCounter {
 	counter, loaded := m.counters.LoadOrStore(token, NewTokenTrafficCounter(token, m.region, m.reportURL, reportIntervalMB))
 	if !loaded {
 		log.Debugf("created traffic counter for token [%s] with interval %dMB", token[:min(8, len(token))]+"...", reportIntervalMB)
@@ -206,7 +206,7 @@ func (m *TrafficManager) GetOrCreateCounter(token string, reportIntervalMB int64
 }
 
 // RemoveCounter removes a traffic counter and flushes remaining traffic.
-func (m *TrafficManager) RemoveCounter(token string) {
+func (m *Manager) RemoveCounter(token string) {
 	if counter, ok := m.counters.LoadAndDelete(token); ok {
 		tc := counter.(*TokenTrafficCounter)
 		tc.Flush("")
@@ -214,7 +214,7 @@ func (m *TrafficManager) RemoveCounter(token string) {
 }
 
 // GetCounter returns a traffic counter for a token if it exists.
-func (m *TrafficManager) GetCounter(token string) *TokenTrafficCounter {
+func (m *Manager) GetCounter(token string) *TokenTrafficCounter {
 	if counter, ok := m.counters.Load(token); ok {
 		return counter.(*TokenTrafficCounter)
 	}

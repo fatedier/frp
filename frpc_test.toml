@@ -1,0 +1,12 @@
+serverAddr = "127.0.0.1"
+serverPort = 7100
+
+auth.method = "token"
+auth.token = "test-token-001"
+
+[[proxies]]
+name = "test_tcp"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 8888
+remotePort = 8080
