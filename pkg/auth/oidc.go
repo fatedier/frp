@@ -77,8 +77,7 @@ func createOIDCHTTPClient(trustedCAFile string, insecureSkipVerify bool, proxyUR
 type OidcAuthProvider struct {
 	additionalAuthScopes []v1.AuthScope
 
-	tokenGenerator *clientcredentials.Config
-	httpClient     *http.Client
+	tokenSource oauth2.TokenSource
 }
 
 func NewOidcAuthSetter(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCClientConfig) (*OidcAuthProvider, error) {
@@ -99,30 +98,31 @@ func NewOidcAuthSetter(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCClien
 		EndpointParams: eps,
 	}
 
-	// Create custom HTTP client if needed
-	var httpClient *http.Client
+	// Build the context that TokenSource will use for all future HTTP requests.
+	// context.Background() is appropriate here because the token source is
+	// long-lived and outlives any single request.
+	ctx := context.Background()
 	if cfg.TrustedCaFile != "" || cfg.InsecureSkipVerify || cfg.ProxyURL != "" {
-		var err error
-		httpClient, err = createOIDCHTTPClient(cfg.TrustedCaFile, cfg.InsecureSkipVerify, cfg.ProxyURL)
+		httpClient, err := createOIDCHTTPClient(cfg.TrustedCaFile, cfg.InsecureSkipVerify, cfg.ProxyURL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create OIDC HTTP client: %w", err)
 		}
+		ctx = context.WithValue(ctx, oauth2.HTTPClient, httpClient)
 	}
+
+	// Create a persistent TokenSource that caches the token and only
+	// refreshes when it expires. This avoids making a new HTTP request
+	// to the OIDC provider on every heartbeat/ping.
+	tokenSource := tokenGenerator.TokenSource(ctx)
 
 	return &OidcAuthProvider{
 		additionalAuthScopes: additionalAuthScopes,
-		tokenGenerator:       tokenGenerator,
-		httpClient:           httpClient,
+		tokenSource:          tokenSource,
 	}, nil
 }
 
 func (auth *OidcAuthProvider) generateAccessToken() (accessToken string, err error) {
-	ctx := context.Background()
-	if auth.httpClient != nil {
-		ctx = context.WithValue(ctx, oauth2.HTTPClient, auth.httpClient)
-	}
-
-	tokenObj, err := auth.tokenGenerator.Token(ctx)
+	tokenObj, err := auth.tokenSource.Token()
 	if err != nil {
 		return "", fmt.Errorf("couldn't generate OIDC token for login: %v", err)
 	}
