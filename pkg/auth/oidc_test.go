@@ -2,6 +2,10 @@ package auth_test
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -61,4 +65,46 @@ func TestPingAfterLoginWithDifferentSubjectFails(t *testing.T) {
 	})
 	r.Error(err)
 	r.Contains(err.Error(), "received different OIDC subject in login and ping")
+}
+
+func TestOidcAuthProviderCachesToken(t *testing.T) {
+	r := require.New(t)
+
+	var requestCount atomic.Int32
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		requestCount.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"access_token": "cached-test-token",
+			"token_type":   "Bearer",
+			"expires_in":   3600,
+		})
+	}))
+	defer tokenServer.Close()
+
+	provider, err := auth.NewOidcAuthSetter(
+		[]v1.AuthScope{v1.AuthScopeHeartBeats},
+		v1.AuthOIDCClientConfig{
+			ClientID:         "test-client",
+			ClientSecret:     "test-secret",
+			TokenEndpointURL: tokenServer.URL,
+		},
+	)
+	r.NoError(err)
+
+	// First call should hit the token endpoint
+	loginMsg := &msg.Login{}
+	err = provider.SetLogin(loginMsg)
+	r.NoError(err)
+	r.Equal("cached-test-token", loginMsg.PrivilegeKey)
+	r.Equal(int32(1), requestCount.Load())
+
+	// Subsequent calls should reuse the cached token
+	for i := 0; i < 5; i++ {
+		pingMsg := &msg.Ping{}
+		err = provider.SetPing(pingMsg)
+		r.NoError(err)
+		r.Equal("cached-test-token", pingMsg.PrivilegeKey)
+	}
+	r.Equal(int32(1), requestCount.Load(), "token endpoint should only be called once; cached token should be reused")
 }
