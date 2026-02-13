@@ -1,4 +1,4 @@
-// Copyright 2016 fatedier, fatedier@gmail.com
+// Copyright 2023 The frp Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package v1
 
-import (
-	"github.com/fatedier/frp/cmd/frpc/sub"
-	"github.com/fatedier/frp/pkg/util/system"
-	_ "github.com/fatedier/frp/web/frpc"
-)
+import "golang.org/x/sys/windows/svc"
 
-func main() {
-	system.EnableCompatibilityMode()
-	system.Run("FrpClient", sub.Execute)
+// isWinSvc checks if we are running as a Windows service.
+// Always return false on non-windows platforms.
+func isWinSvc() bool {
+	sv, _ := svc.IsWindowsService()
+	return sv
 }

@@ -106,8 +106,9 @@ type NatTraversalConfig struct {
 
 type LogConfig struct {
 	// This is destination where frp should write the logs.
-	// If "console" is used, logs will be printed to stdout, otherwise,
-	// logs will be written to the specified file.
+	// If "console" is used, logs will be printed to stdout,
+	// if "eventlog" is used, logs will be sent to Windows events,
+	// otherwise, logs will be written to the specified file.
 	// By default, this value is "console".
 	To string `json:"to,omitempty"`
 	// Level specifies the minimum log level. Valid values are "trace",
@@ -121,7 +122,7 @@ type LogConfig struct {
 }
 
 func (c *LogConfig) Complete() {
-	c.To = util.EmptyOr(c.To, "console")
+	c.To = util.EmptyOr(c.To, map[bool]string{true: "eventlog", false: "console"}[isWinSvc()])
 	c.Level = util.EmptyOr(c.Level, "info")
 	c.MaxDays = util.EmptyOr(c.MaxDays, 3)
 }
