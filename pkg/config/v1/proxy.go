@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/samber/lo"
-
 	"github.com/fatedier/frp/pkg/config/types"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/util"
@@ -126,8 +124,7 @@ func (c *ProxyBaseConfig) GetBaseConfig() *ProxyBaseConfig {
 	return c
 }
 
-func (c *ProxyBaseConfig) Complete(namePrefix string) {
-	c.Name = lo.Ternary(namePrefix == "", "", namePrefix+".") + c.Name
+func (c *ProxyBaseConfig) Complete() {
 	c.LocalIP = util.EmptyOr(c.LocalIP, "127.0.0.1")
 	c.Transport.BandwidthLimitMode = util.EmptyOr(c.Transport.BandwidthLimitMode, types.BandwidthLimitModeClient)
 
@@ -207,7 +204,7 @@ func (c *TypedProxyConfig) MarshalJSON() ([]byte, error) {
 }
 
 type ProxyConfigurer interface {
-	Complete(namePrefix string)
+	Complete()
 	GetBaseConfig() *ProxyBaseConfig
 	// MarshalToMsg marshals this config into a msg.NewProxy message. This
 	// function will be called on the frpc side.

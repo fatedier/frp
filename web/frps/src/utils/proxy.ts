@@ -12,7 +12,6 @@ class BaseProxy {
   status: string
   user: string
   clientID: string
-  clientVersion: string
   addr: string
   port: number
 
@@ -49,7 +48,6 @@ class BaseProxy {
     this.status = proxyStats.status
     this.user = proxyStats.user || ''
     this.clientID = proxyStats.clientID || ''
-    this.clientVersion = proxyStats.clientVersion
 
     this.addr = ''
     this.port = 0

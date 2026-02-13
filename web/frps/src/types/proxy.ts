@@ -3,7 +3,6 @@ export interface ProxyStatsInfo {
   conf: any
   user: string
   clientID: string
-  clientVersion: string
   todayTrafficIn: number
   todayTrafficOut: number
   curConns: number

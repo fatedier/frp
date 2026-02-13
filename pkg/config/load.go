@@ -180,7 +180,7 @@ func NewProxyConfigurerFromMsg(m *msg.NewProxy, serverCfg *v1.ServerConfig) (v1.
 	}
 
 	configurer.UnmarshalFromMsg(m)
-	configurer.Complete("")
+	configurer.Complete()
 
 	if err := validation.ValidateProxyConfigurerForServer(configurer, serverCfg); err != nil {
 		return nil, err
@@ -219,60 +219,131 @@ func LoadServerConfig(path string, strict bool) (*v1.ServerConfig, bool, error) 
 	return svrCfg, isLegacyFormat, nil
 }
 
+// ClientConfigLoadResult contains the result of loading a client configuration file.
+type ClientConfigLoadResult struct {
+	// Common contains the common client configuration.
+	Common *v1.ClientCommonConfig
+
+	// Proxies contains proxy configurations from inline [[proxies]] and includeConfigFiles.
+	// These are NOT completed (user prefix not added).
+	Proxies []v1.ProxyConfigurer
+
+	// Visitors contains visitor configurations from inline [[visitors]] and includeConfigFiles.
+	// These are NOT completed.
+	Visitors []v1.VisitorConfigurer
+
+	// IsLegacyFormat indicates whether the config file is in legacy INI format.
+	IsLegacyFormat bool
+}
+
+// LoadClientConfigResult loads and parses a client configuration file.
+// It returns the raw configuration without completing proxies/visitors.
+// The caller should call Complete on the configs manually for legacy behavior.
+func LoadClientConfigResult(path string, strict bool) (*ClientConfigLoadResult, error) {
+	result := &ClientConfigLoadResult{
+		Proxies:  make([]v1.ProxyConfigurer, 0),
+		Visitors: make([]v1.VisitorConfigurer, 0),
+	}
+
+	if DetectLegacyINIFormatFromFile(path) {
+		legacyCommon, legacyProxyCfgs, legacyVisitorCfgs, err := legacy.ParseClientConfig(path)
+		if err != nil {
+			return nil, err
+		}
+		result.Common = legacy.Convert_ClientCommonConf_To_v1(&legacyCommon)
+		for _, c := range legacyProxyCfgs {
+			result.Proxies = append(result.Proxies, legacy.Convert_ProxyConf_To_v1(c))
+		}
+		for _, c := range legacyVisitorCfgs {
+			result.Visitors = append(result.Visitors, legacy.Convert_VisitorConf_To_v1(c))
+		}
+		result.IsLegacyFormat = true
+	} else {
+		allCfg := v1.ClientConfig{}
+		if err := LoadConfigureFromFile(path, &allCfg, strict); err != nil {
+			return nil, err
+		}
+		result.Common = &allCfg.ClientCommonConfig
+		for _, c := range allCfg.Proxies {
+			result.Proxies = append(result.Proxies, c.ProxyConfigurer)
+		}
+		for _, c := range allCfg.Visitors {
+			result.Visitors = append(result.Visitors, c.VisitorConfigurer)
+		}
+	}
+
+	// Load additional config from includes.
+	// legacy ini format already handle this in ParseClientConfig.
+	if len(result.Common.IncludeConfigFiles) > 0 && !result.IsLegacyFormat {
+		extProxyCfgs, extVisitorCfgs, err := LoadAdditionalClientConfigs(result.Common.IncludeConfigFiles, result.IsLegacyFormat, strict)
+		if err != nil {
+			return nil, err
+		}
+		result.Proxies = append(result.Proxies, extProxyCfgs...)
+		result.Visitors = append(result.Visitors, extVisitorCfgs...)
+	}
+
+	// Complete the common config
+	if result.Common != nil {
+		if err := result.Common.Complete(); err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
+}
+
 func LoadClientConfig(path string, strict bool) (
 	*v1.ClientCommonConfig,
 	[]v1.ProxyConfigurer,
 	[]v1.VisitorConfigurer,
 	bool, error,
 ) {
-	var (
-		cliCfg         *v1.ClientCommonConfig
-		proxyCfgs      = make([]v1.ProxyConfigurer, 0)
-		visitorCfgs    = make([]v1.VisitorConfigurer, 0)
-		isLegacyFormat bool
-	)
-
-	if DetectLegacyINIFormatFromFile(path) {
-		legacyCommon, legacyProxyCfgs, legacyVisitorCfgs, err := legacy.ParseClientConfig(path)
-		if err != nil {
-			return nil, nil, nil, true, err
-		}
-		cliCfg = legacy.Convert_ClientCommonConf_To_v1(&legacyCommon)
-		for _, c := range legacyProxyCfgs {
-			proxyCfgs = append(proxyCfgs, legacy.Convert_ProxyConf_To_v1(c))
-		}
-		for _, c := range legacyVisitorCfgs {
-			visitorCfgs = append(visitorCfgs, legacy.Convert_VisitorConf_To_v1(c))
-		}
-		isLegacyFormat = true
-	} else {
-		allCfg := v1.ClientConfig{}
-		if err := LoadConfigureFromFile(path, &allCfg, strict); err != nil {
-			return nil, nil, nil, false, err
-		}
-		cliCfg = &allCfg.ClientCommonConfig
-		for _, c := range allCfg.Proxies {
-			proxyCfgs = append(proxyCfgs, c.ProxyConfigurer)
-		}
-		for _, c := range allCfg.Visitors {
-			visitorCfgs = append(visitorCfgs, c.VisitorConfigurer)
-		}
+	result, err := LoadClientConfigResult(path, strict)
+	if err != nil {
+		return nil, nil, nil, result != nil && result.IsLegacyFormat, err
 	}
 
-	// Load additional config from includes.
-	// legacy ini format already handle this in ParseClientConfig.
-	if len(cliCfg.IncludeConfigFiles) > 0 && !isLegacyFormat {
-		extProxyCfgs, extVisitorCfgs, err := LoadAdditionalClientConfigs(cliCfg.IncludeConfigFiles, isLegacyFormat, strict)
-		if err != nil {
-			return nil, nil, nil, isLegacyFormat, err
-		}
-		proxyCfgs = append(proxyCfgs, extProxyCfgs...)
-		visitorCfgs = append(visitorCfgs, extVisitorCfgs...)
+	proxyCfgs := result.Proxies
+	visitorCfgs := result.Visitors
+
+	proxyCfgs, visitorCfgs = FilterClientConfigurers(result.Common, proxyCfgs, visitorCfgs)
+	proxyCfgs = CompleteProxyConfigurers(proxyCfgs)
+	visitorCfgs = CompleteVisitorConfigurers(visitorCfgs)
+	return result.Common, proxyCfgs, visitorCfgs, result.IsLegacyFormat, nil
+}
+
+func CompleteProxyConfigurers(proxies []v1.ProxyConfigurer) []v1.ProxyConfigurer {
+	proxyCfgs := proxies
+	for _, c := range proxyCfgs {
+		c.Complete()
 	}
+	return proxyCfgs
+}
+
+func CompleteVisitorConfigurers(visitors []v1.VisitorConfigurer) []v1.VisitorConfigurer {
+	visitorCfgs := visitors
+	for _, c := range visitorCfgs {
+		c.Complete()
+	}
+	return visitorCfgs
+}
+
+func FilterClientConfigurers(
+	common *v1.ClientCommonConfig,
+	proxies []v1.ProxyConfigurer,
+	visitors []v1.VisitorConfigurer,
+) ([]v1.ProxyConfigurer, []v1.VisitorConfigurer) {
+	if common == nil {
+		common = &v1.ClientCommonConfig{}
+	}
+
+	proxyCfgs := proxies
+	visitorCfgs := visitors
 
 	// Filter by start
-	if len(cliCfg.Start) > 0 {
-		startSet := sets.New(cliCfg.Start...)
+	if len(common.Start) > 0 {
+		startSet := sets.New(common.Start...)
 		proxyCfgs = lo.Filter(proxyCfgs, func(c v1.ProxyConfigurer, _ int) bool {
 			return startSet.Has(c.GetBaseConfig().Name)
 		})
@@ -291,19 +362,7 @@ func LoadClientConfig(path string, strict bool) (
 		enabled := c.GetBaseConfig().Enabled
 		return enabled == nil || *enabled
 	})
-
-	if cliCfg != nil {
-		if err := cliCfg.Complete(); err != nil {
-			return nil, nil, nil, isLegacyFormat, err
-		}
-	}
-	for _, c := range proxyCfgs {
-		c.Complete(cliCfg.User)
-	}
-	for _, c := range visitorCfgs {
-		c.Complete(cliCfg)
-	}
-	return cliCfg, proxyCfgs, visitorCfgs, isLegacyFormat, nil
+	return proxyCfgs, visitorCfgs
 }
 
 func LoadAdditionalClientConfigs(paths []string, isLegacyFormat bool, strict bool) ([]v1.ProxyConfigurer, []v1.VisitorConfigurer, error) {

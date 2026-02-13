@@ -103,9 +103,10 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	defer visitorConn.Close()
 
 	now := time.Now().Unix()
+	targetProxyName := util.BuildTargetServerProxyName(sv.clientCfg.User, sv.cfg.ServerUser, sv.cfg.ServerName)
 	newVisitorConnMsg := &msg.NewVisitorConn{
 		RunID:          sv.helper.RunID(),
-		ProxyName:      sv.cfg.ServerName,
+		ProxyName:      targetProxyName,
 		SignKey:        util.GetAuthKey(sv.cfg.SecretKey, now),
 		Timestamp:      now,
 		UseEncryption:  sv.cfg.Transport.UseEncryption,

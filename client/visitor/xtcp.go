@@ -280,8 +280,9 @@ func (sv *XTCPVisitor) getTunnelConn(ctx context.Context) (net.Conn, error) {
 // 4. Create a tunnel session using an underlying UDP connection.
 func (sv *XTCPVisitor) makeNatHole() {
 	xl := xlog.FromContextSafe(sv.ctx)
+	targetProxyName := util.BuildTargetServerProxyName(sv.clientCfg.User, sv.cfg.ServerUser, sv.cfg.ServerName)
 	xl.Tracef("makeNatHole start")
-	if err := nathole.PreCheck(sv.ctx, sv.helper.MsgTransporter(), sv.cfg.ServerName, 5*time.Second); err != nil {
+	if err := nathole.PreCheck(sv.ctx, sv.helper.MsgTransporter(), targetProxyName, 5*time.Second); err != nil {
 		xl.Warnf("nathole precheck error: %v", err)
 		return
 	}
@@ -310,7 +311,7 @@ func (sv *XTCPVisitor) makeNatHole() {
 	transactionID := nathole.NewTransactionID()
 	natHoleVisitorMsg := &msg.NatHoleVisitor{
 		TransactionID: transactionID,
-		ProxyName:     sv.cfg.ServerName,
+		ProxyName:     targetProxyName,
 		Protocol:      sv.cfg.Protocol,
 		SignKey:       util.GetAuthKey(sv.cfg.SecretKey, now),
 		Timestamp:     now,

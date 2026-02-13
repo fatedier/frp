@@ -65,6 +65,10 @@ const isDark = useDark()
 const currentRouteName = computed(() => {
   if (route.path === '/') return 'Overview'
   if (route.path === '/configure') return 'Configure'
+  if (route.path === '/proxies/create') return 'Create Proxy'
+  if (route.path.startsWith('/proxies/') && route.path.endsWith('/edit')) return 'Edit Proxy'
+  if (route.path === '/visitors/create') return 'Create Visitor'
+  if (route.path.startsWith('/visitors/') && route.path.endsWith('/edit')) return 'Edit Visitor'
   return ''
 })
 </script>

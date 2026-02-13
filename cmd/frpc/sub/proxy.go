@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/config/source"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/policy/security"
@@ -86,13 +87,14 @@ func NewProxyCommand(name string, c v1.ProxyConfigurer, clientCfg *v1.ClientComm
 				os.Exit(1)
 			}
 
-			c.Complete(clientCfg.User)
 			c.GetBaseConfig().Type = name
-			if err := validation.ValidateProxyConfigurerForClient(c); err != nil {
+			c.Complete()
+			proxyCfg := c
+			if err := validation.ValidateProxyConfigurerForClient(proxyCfg); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
-			err := startService(clientCfg, []v1.ProxyConfigurer{c}, nil, unsafeFeatures, "")
+			err := startService(clientCfg, []v1.ProxyConfigurer{proxyCfg}, nil, unsafeFeatures, "")
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
@@ -117,17 +119,33 @@ func NewVisitorCommand(name string, c v1.VisitorConfigurer, clientCfg *v1.Client
 				os.Exit(1)
 			}
 
-			c.Complete(clientCfg)
 			c.GetBaseConfig().Type = name
-			if err := validation.ValidateVisitorConfigurer(c); err != nil {
+			c.Complete()
+			visitorCfg := c
+			if err := validation.ValidateVisitorConfigurer(visitorCfg); err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
-			err := startService(clientCfg, nil, []v1.VisitorConfigurer{c}, unsafeFeatures, "")
+			err := startService(clientCfg, nil, []v1.VisitorConfigurer{visitorCfg}, unsafeFeatures, "")
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
 		},
 	}
+}
+
+func startService(
+	cfg *v1.ClientCommonConfig,
+	proxyCfgs []v1.ProxyConfigurer,
+	visitorCfgs []v1.VisitorConfigurer,
+	unsafeFeatures *security.UnsafeFeatures,
+	cfgFile string,
+) error {
+	configSource := source.NewConfigSource()
+	if err := configSource.ReplaceAll(proxyCfgs, visitorCfgs); err != nil {
+		return fmt.Errorf("failed to set config source: %w", err)
+	}
+	aggregator := source.NewAggregator(configSource)
+	return startServiceWithAggregator(cfg, aggregator, unsafeFeatures, cfgFile)
 }

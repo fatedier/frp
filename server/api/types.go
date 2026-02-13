@@ -45,6 +45,7 @@ type ClientInfoResp struct {
 	User             string `json:"user"`
 	ClientID         string `json:"clientID"`
 	RunID            string `json:"runID"`
+	Version          string `json:"version,omitempty"`
 	Hostname         string `json:"hostname"`
 	ClientIP         string `json:"clientIP,omitempty"`
 	FirstConnectedAt int64  `json:"firstConnectedAt"`
@@ -100,7 +101,6 @@ type ProxyStatsInfo struct {
 	Conf            any    `json:"conf"`
 	User            string `json:"user,omitempty"`
 	ClientID        string `json:"clientID,omitempty"`
-	ClientVersion   string `json:"clientVersion,omitempty"`
 	TodayTrafficIn  int64  `json:"todayTrafficIn"`
 	TodayTrafficOut int64  `json:"todayTrafficOut"`
 	CurConns        int64  `json:"curConns"`
@@ -119,7 +119,6 @@ type GetProxyStatsResp struct {
 	Conf            any    `json:"conf"`
 	User            string `json:"user,omitempty"`
 	ClientID        string `json:"clientID,omitempty"`
-	ClientVersion   string `json:"clientVersion,omitempty"`
 	TodayTrafficIn  int64  `json:"todayTrafficIn"`
 	TodayTrafficOut int64  `json:"todayTrafficOut"`
 	CurConns        int64  `json:"curConns"`

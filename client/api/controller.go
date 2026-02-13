@@ -16,6 +16,7 @@ package api
 
 import (
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/config/source"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/policy/security"
@@ -35,46 +37,46 @@ import (
 
 // Controller handles HTTP API requests for frpc.
 type Controller struct {
-	// getProxyStatus returns the current proxy status.
-	// Returns nil if the control connection is not established.
-	getProxyStatus func() []*proxy.WorkingStatus
-
-	// serverAddr is the frps server address for display.
-	serverAddr string
-
-	// configFilePath is the path to the configuration file.
-	configFilePath string
-
-	// unsafeFeatures is used for validation.
-	unsafeFeatures *security.UnsafeFeatures
-
-	// updateConfig updates proxy and visitor configurations.
-	updateConfig func(proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error
-
-	// gracefulClose gracefully stops the service.
-	gracefulClose func(d time.Duration)
+	getProxyStatus    func() []*proxy.WorkingStatus
+	serverAddr        string
+	configFilePath    string
+	unsafeFeatures    *security.UnsafeFeatures
+	updateConfig      func(common *v1.ClientCommonConfig, proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error
+	reloadFromSources func() error
+	gracefulClose     func(d time.Duration)
+	storeSource       *source.StoreSource
 }
 
 // ControllerParams contains parameters for creating an APIController.
 type ControllerParams struct {
-	GetProxyStatus func() []*proxy.WorkingStatus
-	ServerAddr     string
-	ConfigFilePath string
-	UnsafeFeatures *security.UnsafeFeatures
-	UpdateConfig   func(proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error
-	GracefulClose  func(d time.Duration)
+	GetProxyStatus    func() []*proxy.WorkingStatus
+	ServerAddr        string
+	ConfigFilePath    string
+	UnsafeFeatures    *security.UnsafeFeatures
+	UpdateConfig      func(common *v1.ClientCommonConfig, proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error
+	ReloadFromSources func() error
+	GracefulClose     func(d time.Duration)
+	StoreSource       *source.StoreSource
 }
 
-// NewController creates a new Controller.
 func NewController(params ControllerParams) *Controller {
 	return &Controller{
-		getProxyStatus: params.GetProxyStatus,
-		serverAddr:     params.ServerAddr,
-		configFilePath: params.ConfigFilePath,
-		unsafeFeatures: params.UnsafeFeatures,
-		updateConfig:   params.UpdateConfig,
-		gracefulClose:  params.GracefulClose,
+		getProxyStatus:    params.GetProxyStatus,
+		serverAddr:        params.ServerAddr,
+		configFilePath:    params.ConfigFilePath,
+		unsafeFeatures:    params.UnsafeFeatures,
+		updateConfig:      params.UpdateConfig,
+		reloadFromSources: params.ReloadFromSources,
+		gracefulClose:     params.GracefulClose,
+		storeSource:       params.StoreSource,
 	}
+}
+
+func (c *Controller) reloadFromSourcesOrError() error {
+	if err := c.reloadFromSources(); err != nil {
+		return httppkg.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to apply config: %v", err))
+	}
+	return nil
 }
 
 // Reload handles GET /api/reload
@@ -85,18 +87,29 @@ func (c *Controller) Reload(ctx *httppkg.Context) (any, error) {
 		strictConfigMode, _ = strconv.ParseBool(strictStr)
 	}
 
-	cliCfg, proxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(c.configFilePath, strictConfigMode)
+	result, err := config.LoadClientConfigResult(c.configFilePath, strictConfigMode)
 	if err != nil {
 		log.Warnf("reload frpc proxy config error: %s", err.Error())
 		return nil, httppkg.NewError(http.StatusBadRequest, err.Error())
 	}
 
-	if _, err := validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs, c.unsafeFeatures); err != nil {
+	proxyCfgs := result.Proxies
+	visitorCfgs := result.Visitors
+
+	proxyCfgsForValidation, visitorCfgsForValidation := config.FilterClientConfigurers(
+		result.Common,
+		proxyCfgs,
+		visitorCfgs,
+	)
+	proxyCfgsForValidation = config.CompleteProxyConfigurers(proxyCfgsForValidation)
+	visitorCfgsForValidation = config.CompleteVisitorConfigurers(visitorCfgsForValidation)
+
+	if _, err := validation.ValidateAllClientConfig(result.Common, proxyCfgsForValidation, visitorCfgsForValidation, c.unsafeFeatures); err != nil {
 		log.Warnf("reload frpc proxy config error: %s", err.Error())
 		return nil, httppkg.NewError(http.StatusBadRequest, err.Error())
 	}
 
-	if err := c.updateConfig(proxyCfgs, visitorCfgs); err != nil {
+	if err := c.updateConfig(result.Common, proxyCfgs, visitorCfgs); err != nil {
 		log.Warnf("reload frpc proxy config error: %s", err.Error())
 		return nil, httppkg.NewError(http.StatusInternalServerError, err.Error())
 	}
@@ -165,7 +178,6 @@ func (c *Controller) PutConfig(ctx *httppkg.Context) (any, error) {
 	return nil, nil
 }
 
-// buildProxyStatusResp creates a ProxyStatusResp from proxy.WorkingStatus
 func (c *Controller) buildProxyStatusResp(status *proxy.WorkingStatus) ProxyStatusResp {
 	psr := ProxyStatusResp{
 		Name:   status.Name,
@@ -185,5 +197,302 @@ func (c *Controller) buildProxyStatusResp(status *proxy.WorkingStatus) ProxyStat
 			psr.RemoteAddr = c.serverAddr + psr.RemoteAddr
 		}
 	}
+
+	// Check if proxy is from store
+	if c.storeSource != nil {
+		if c.storeSource.GetProxy(status.Name) != nil {
+			psr.Source = "store"
+		}
+	}
 	return psr
+}
+
+func (c *Controller) ListStoreProxies(ctx *httppkg.Context) (any, error) {
+	proxies, err := c.storeSource.GetAllProxies()
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to list proxies: %v", err))
+	}
+	resp := ProxyListResp{Proxies: make([]ProxyConfig, 0, len(proxies))}
+
+	for _, p := range proxies {
+		cfg, err := proxyConfigurerToMap(p)
+		if err != nil {
+			continue
+		}
+		resp.Proxies = append(resp.Proxies, ProxyConfig{
+			Name:   p.GetBaseConfig().Name,
+			Type:   p.GetBaseConfig().Type,
+			Config: cfg,
+		})
+	}
+	return resp, nil
+}
+
+func (c *Controller) GetStoreProxy(ctx *httppkg.Context) (any, error) {
+	name := ctx.Param("name")
+	if name == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "proxy name is required")
+	}
+
+	p := c.storeSource.GetProxy(name)
+	if p == nil {
+		return nil, httppkg.NewError(http.StatusNotFound, fmt.Sprintf("proxy %q not found", name))
+	}
+
+	cfg, err := proxyConfigurerToMap(p)
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusInternalServerError, err.Error())
+	}
+
+	return ProxyConfig{
+		Name:   p.GetBaseConfig().Name,
+		Type:   p.GetBaseConfig().Type,
+		Config: cfg,
+	}, nil
+}
+
+func (c *Controller) CreateStoreProxy(ctx *httppkg.Context) (any, error) {
+	body, err := ctx.Body()
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("read body error: %v", err))
+	}
+
+	var typed v1.TypedProxyConfig
+	if err := json.Unmarshal(body, &typed); err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("parse JSON error: %v", err))
+	}
+
+	if typed.ProxyConfigurer == nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, "invalid proxy config: type is required")
+	}
+
+	typed.Complete()
+	if err := validation.ValidateProxyConfigurerForClient(typed.ProxyConfigurer); err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("validation error: %v", err))
+	}
+
+	if err := c.storeSource.AddProxy(typed.ProxyConfigurer); err != nil {
+		return nil, httppkg.NewError(http.StatusConflict, err.Error())
+	}
+	if err := c.reloadFromSourcesOrError(); err != nil {
+		return nil, err
+	}
+
+	log.Infof("store: created proxy %q", typed.ProxyConfigurer.GetBaseConfig().Name)
+	return nil, nil
+}
+
+func (c *Controller) UpdateStoreProxy(ctx *httppkg.Context) (any, error) {
+	name := ctx.Param("name")
+	if name == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "proxy name is required")
+	}
+
+	body, err := ctx.Body()
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("read body error: %v", err))
+	}
+
+	var typed v1.TypedProxyConfig
+	if err := json.Unmarshal(body, &typed); err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("parse JSON error: %v", err))
+	}
+
+	if typed.ProxyConfigurer == nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, "invalid proxy config: type is required")
+	}
+
+	bodyName := typed.ProxyConfigurer.GetBaseConfig().Name
+	if bodyName != name {
+		return nil, httppkg.NewError(http.StatusBadRequest, "proxy name in URL must match name in body")
+	}
+
+	typed.Complete()
+	if err := validation.ValidateProxyConfigurerForClient(typed.ProxyConfigurer); err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("validation error: %v", err))
+	}
+
+	if err := c.storeSource.UpdateProxy(typed.ProxyConfigurer); err != nil {
+		return nil, httppkg.NewError(http.StatusNotFound, err.Error())
+	}
+	if err := c.reloadFromSourcesOrError(); err != nil {
+		return nil, err
+	}
+
+	log.Infof("store: updated proxy %q", name)
+	return nil, nil
+}
+
+func (c *Controller) DeleteStoreProxy(ctx *httppkg.Context) (any, error) {
+	name := ctx.Param("name")
+	if name == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "proxy name is required")
+	}
+
+	if err := c.storeSource.RemoveProxy(name); err != nil {
+		return nil, httppkg.NewError(http.StatusNotFound, err.Error())
+	}
+	if err := c.reloadFromSourcesOrError(); err != nil {
+		return nil, err
+	}
+
+	log.Infof("store: deleted proxy %q", name)
+	return nil, nil
+}
+
+func (c *Controller) ListStoreVisitors(ctx *httppkg.Context) (any, error) {
+	visitors, err := c.storeSource.GetAllVisitors()
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusInternalServerError, fmt.Sprintf("failed to list visitors: %v", err))
+	}
+	resp := VisitorListResp{Visitors: make([]VisitorConfig, 0, len(visitors))}
+
+	for _, v := range visitors {
+		cfg, err := visitorConfigurerToMap(v)
+		if err != nil {
+			continue
+		}
+		resp.Visitors = append(resp.Visitors, VisitorConfig{
+			Name:   v.GetBaseConfig().Name,
+			Type:   v.GetBaseConfig().Type,
+			Config: cfg,
+		})
+	}
+	return resp, nil
+}
+
+func (c *Controller) GetStoreVisitor(ctx *httppkg.Context) (any, error) {
+	name := ctx.Param("name")
+	if name == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "visitor name is required")
+	}
+
+	v := c.storeSource.GetVisitor(name)
+	if v == nil {
+		return nil, httppkg.NewError(http.StatusNotFound, fmt.Sprintf("visitor %q not found", name))
+	}
+
+	cfg, err := visitorConfigurerToMap(v)
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusInternalServerError, err.Error())
+	}
+
+	return VisitorConfig{
+		Name:   v.GetBaseConfig().Name,
+		Type:   v.GetBaseConfig().Type,
+		Config: cfg,
+	}, nil
+}
+
+func (c *Controller) CreateStoreVisitor(ctx *httppkg.Context) (any, error) {
+	body, err := ctx.Body()
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("read body error: %v", err))
+	}
+
+	var typed v1.TypedVisitorConfig
+	if err := json.Unmarshal(body, &typed); err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("parse JSON error: %v", err))
+	}
+
+	if typed.VisitorConfigurer == nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, "invalid visitor config: type is required")
+	}
+
+	typed.Complete()
+	if err := validation.ValidateVisitorConfigurer(typed.VisitorConfigurer); err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("validation error: %v", err))
+	}
+
+	if err := c.storeSource.AddVisitor(typed.VisitorConfigurer); err != nil {
+		return nil, httppkg.NewError(http.StatusConflict, err.Error())
+	}
+	if err := c.reloadFromSourcesOrError(); err != nil {
+		return nil, err
+	}
+
+	log.Infof("store: created visitor %q", typed.VisitorConfigurer.GetBaseConfig().Name)
+	return nil, nil
+}
+
+func (c *Controller) UpdateStoreVisitor(ctx *httppkg.Context) (any, error) {
+	name := ctx.Param("name")
+	if name == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "visitor name is required")
+	}
+
+	body, err := ctx.Body()
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("read body error: %v", err))
+	}
+
+	var typed v1.TypedVisitorConfig
+	if err := json.Unmarshal(body, &typed); err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("parse JSON error: %v", err))
+	}
+
+	if typed.VisitorConfigurer == nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, "invalid visitor config: type is required")
+	}
+
+	bodyName := typed.VisitorConfigurer.GetBaseConfig().Name
+	if bodyName != name {
+		return nil, httppkg.NewError(http.StatusBadRequest, "visitor name in URL must match name in body")
+	}
+
+	typed.Complete()
+	if err := validation.ValidateVisitorConfigurer(typed.VisitorConfigurer); err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("validation error: %v", err))
+	}
+
+	if err := c.storeSource.UpdateVisitor(typed.VisitorConfigurer); err != nil {
+		return nil, httppkg.NewError(http.StatusNotFound, err.Error())
+	}
+	if err := c.reloadFromSourcesOrError(); err != nil {
+		return nil, err
+	}
+
+	log.Infof("store: updated visitor %q", name)
+	return nil, nil
+}
+
+func (c *Controller) DeleteStoreVisitor(ctx *httppkg.Context) (any, error) {
+	name := ctx.Param("name")
+	if name == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "visitor name is required")
+	}
+
+	if err := c.storeSource.RemoveVisitor(name); err != nil {
+		return nil, httppkg.NewError(http.StatusNotFound, err.Error())
+	}
+	if err := c.reloadFromSourcesOrError(); err != nil {
+		return nil, err
+	}
+
+	log.Infof("store: deleted visitor %q", name)
+	return nil, nil
+}
+
+func proxyConfigurerToMap(p v1.ProxyConfigurer) (map[string]any, error) {
+	data, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func visitorConfigurerToMap(v v1.VisitorConfigurer) (map[string]any, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }

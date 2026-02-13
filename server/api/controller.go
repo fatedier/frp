@@ -236,9 +236,6 @@ func (c *Controller) APIProxyByName(ctx *httppkg.Context) (any, error) {
 			return nil, httppkg.NewError(http.StatusBadRequest, "parse conf error")
 		}
 		proxyInfo.Status = "online"
-		c.fillProxyClientInfo(&proxyClientInfo{
-			clientVersion: &proxyInfo.ClientVersion,
-		}, pxy)
 	} else {
 		proxyInfo.Status = "offline"
 	}
@@ -277,9 +274,6 @@ func (c *Controller) getProxyStatsByType(proxyType string) (proxyInfos []*ProxyS
 				continue
 			}
 			proxyInfo.Status = "online"
-			c.fillProxyClientInfo(&proxyClientInfo{
-				clientVersion: &proxyInfo.ClientVersion,
-			}, pxy)
 		} else {
 			proxyInfo.Status = "offline"
 		}
@@ -339,6 +333,7 @@ func buildClientInfoResp(info registry.ClientInfo) ClientInfoResp {
 		User:             info.User,
 		ClientID:         info.ClientID(),
 		RunID:            info.RunID,
+		Version:          info.Version,
 		Hostname:         info.Hostname,
 		ClientIP:         info.IP,
 		FirstConnectedAt: toUnix(info.FirstConnectedAt),
@@ -349,37 +344,6 @@ func buildClientInfoResp(info registry.ClientInfo) ClientInfoResp {
 		resp.DisconnectedAt = info.DisconnectedAt.Unix()
 	}
 	return resp
-}
-
-type proxyClientInfo struct {
-	user          *string
-	clientID      *string
-	clientVersion *string
-}
-
-func (c *Controller) fillProxyClientInfo(proxyInfo *proxyClientInfo, pxy proxy.Proxy) {
-	loginMsg := pxy.GetLoginMsg()
-	if loginMsg == nil {
-		return
-	}
-	if proxyInfo.user != nil {
-		*proxyInfo.user = loginMsg.User
-	}
-	if proxyInfo.clientVersion != nil {
-		*proxyInfo.clientVersion = loginMsg.Version
-	}
-	if info, ok := c.clientRegistry.GetByRunID(loginMsg.RunID); ok {
-		if proxyInfo.clientID != nil {
-			*proxyInfo.clientID = info.ClientID()
-		}
-		return
-	}
-	if proxyInfo.clientID != nil {
-		*proxyInfo.clientID = loginMsg.ClientID
-		if *proxyInfo.clientID == "" {
-			*proxyInfo.clientID = loginMsg.RunID
-		}
-	}
 }
 
 func toUnix(t time.Time) int64 {
