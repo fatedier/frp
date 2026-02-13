@@ -136,6 +136,9 @@ type ClientTransportConfig struct {
 	HeartbeatTimeout int64 `json:"heartbeatTimeout,omitempty"`
 	// TLS specifies TLS settings for the connection to the server.
 	TLS TLSClientConfig `json:"tls,omitempty"`
+	// WebsocketPath specifies the path for websocket connections.
+	// By default, this value is "/~!frp".
+	WebsocketPath string `json:"websocketPath,omitempty"`
 }
 
 func (c *ClientTransportConfig) Complete() {
@@ -156,6 +159,7 @@ func (c *ClientTransportConfig) Complete() {
 	}
 	c.QUIC.Complete()
 	c.TLS.Complete()
+	c.WebsocketPath = util.EmptyOr(c.WebsocketPath, "/~!frp")
 }
 
 type TLSClientConfig struct {
