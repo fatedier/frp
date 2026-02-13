@@ -84,6 +84,7 @@ frp also offers a P2P connect mode.
         * [Prometheus](#prometheus)
     * [Authenticating the Client](#authenticating-the-client)
         * [Token Authentication](#token-authentication)
+        * [Etcd Multi-Tenant Authentication](#etcd-multi-tenant-authentication)
         * [OIDC Authentication](#oidc-authentication)
     * [Encryption and Compression](#encryption-and-compression)
         * [TLS](#tls)
@@ -647,6 +648,69 @@ auth.tokenSource.file.path = "/path/to/token/file"
 ```
 
 The token will be read from the specified file at startup. This is useful for scenarios where tokens are managed by external systems or need to be kept separate from configuration files for security reasons.
+
+#### Etcd Multi-Tenant Authentication
+
+frp supports etcd-based multi-tenant token management, enabling dynamic token configuration with per-token settings for bandwidth limits, port restrictions, and traffic reporting.
+
+**Server Configuration (frps.toml):**
+
+```toml
+# frps.toml
+bindPort = 7000
+
+[etcd]
+endpoints = ["127.0.0.1:2379"]
+region = "us-east"
+prefix = "/frp/tokens/"
+trafficReportUrl = "http://your-billing-service/api/traffic/report"
+```
+
+**Token Configuration in etcd:**
+
+Store token configurations as JSON in etcd with the key format `{prefix}{token}`:
+
+```bash
+etcdctl put /frp/tokens/your-token-here '{
+  "token": "your-token-here",
+  "region": "us-east",
+  "allowPorts": [{"start": 8000, "end": 9000}],
+  "bandwidthLimit": "10MB",
+  "maxPortsPerClient": 5,
+  "enabled": true,
+  "description": "User A token",
+  "trafficReportIntervalMB": 50
+}'
+```
+
+**Client Configuration (frpc.toml):**
+
+The client uses standard token authentication - no changes needed:
+
+```toml
+# frpc.toml
+serverAddr = "x.x.x.x"
+serverPort = 7000
+auth.method = "token"
+auth.token = "your-token-here"
+
+[[proxies]]
+name = "web"
+type = "tcp"
+localPort = 80
+remotePort = 8080
+```
+
+**Features:**
+
+- **Region Validation**: Token's region must match server's region
+- **Per-Token Bandwidth Limit**: Each token can have its own bandwidth limit
+- **Per-Token Port Restrictions**: Limit which ports a token can use
+- **Dynamic Token Management**: Add/remove/disable tokens in etcd, changes take effect immediately
+- **Auto Disconnect**: When a token is deleted or disabled, existing connections are automatically closed
+- **Traffic Reporting**: Report traffic usage to an external URL at configurable intervals
+
+For detailed documentation, see [doc/etcd_multi_tenant.md](doc/etcd_multi_tenant.md).
 
 #### OIDC Authentication
 

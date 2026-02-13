@@ -1,0 +1,7 @@
+bindPort = 7100
+
+[etcd]
+endpoints = ["127.0.0.1:2379"]
+region = "chengdu"
+prefix = "/frp/tokens/"
+trafficReportUrl = "http://127.0.0.1:9999/traffic/report"

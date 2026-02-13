@@ -33,12 +33,14 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/auth"
+	"github.com/fatedier/frp/pkg/auth/etcd"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	modelmetrics "github.com/fatedier/frp/pkg/metrics"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/ssh"
+	"github.com/fatedier/frp/pkg/traffic"
 	"github.com/fatedier/frp/pkg/transport"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
@@ -122,6 +124,12 @@ type Service struct {
 	// Auth runtime and encryption materials
 	auth *auth.ServerAuth
 
+	// etcd token store for multi-tenant authentication (optional)
+	etcdTokenStore *etcd.TokenStore
+
+	// Traffic manager for reporting traffic usage (optional)
+	trafficManager *traffic.Manager
+
 	tlsConfig *tls.Config
 
 	cfg *v1.ServerConfig
@@ -155,9 +163,27 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		}
 	}
 
-	authRuntime, err := auth.BuildServerAuth(&cfg.Auth)
-	if err != nil {
-		return nil, err
+	// Initialize etcd token store if configured
+	var etcdStore *etcd.TokenStore
+	var authRuntime *auth.ServerAuth
+
+	if cfg.Etcd.IsEnabled() {
+		// Use etcd-based multi-token authentication
+		etcdStore, err = etcd.NewTokenStore(&cfg.Etcd)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize etcd token store: %w", err)
+		}
+		// Create a ServerAuth with etcd multi-token verifier
+		authRuntime = &auth.ServerAuth{
+			Verifier: etcd.NewMultiTokenVerifier(etcdStore, cfg.Auth.AdditionalScopes),
+		}
+		log.Infof("etcd multi-tenant authentication enabled for region [%s]", cfg.Etcd.Region)
+	} else {
+		// Use standard single-token authentication
+		authRuntime, err = auth.BuildServerAuth(&cfg.Auth)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	svr := &Service{
@@ -173,11 +199,29 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		sshTunnelListener: netpkg.NewInternalListener(),
 		httpVhostRouter:   vhost.NewRouters(),
 		auth:              authRuntime,
+		etcdTokenStore:    etcdStore,
 		webServer:         webServer,
 		tlsConfig:         tlsConfig,
 		cfg:               cfg,
 		ctx:               context.Background(),
 	}
+
+	// Initialize traffic manager if etcd is enabled and report URL is set
+	if etcdStore != nil && cfg.Etcd.TrafficReportURL != "" {
+		svr.trafficManager = traffic.NewManager(cfg.Etcd.TrafficReportURL, cfg.Etcd.Region)
+		log.Infof("traffic reporting enabled, report URL: %s", cfg.Etcd.TrafficReportURL)
+	}
+
+	// Set callback for token invalidation (deletion or disable)
+	if etcdStore != nil {
+		etcdStore.SetTokenInvalidCallback(func(token string) {
+			closed := svr.ctlManager.CloseByToken(token)
+			if closed > 0 {
+				log.Infof("closed %d connection(s) for invalidated token [%s]", closed, token[:min(8, len(token))]+"...")
+			}
+		})
+	}
+
 	if webServer != nil {
 		webServer.RouteRegister(svr.registerRouteHandlers)
 	}
@@ -425,6 +469,9 @@ func (svr *Service) Close() error {
 	svr.rc.Close()
 	svr.muxer.Close()
 	svr.ctlManager.Close()
+	if svr.etcdTokenStore != nil {
+		svr.etcdTokenStore.Close()
+	}
 	if svr.cancel != nil {
 		svr.cancel()
 	}
@@ -606,8 +653,34 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		return err
 	}
 
+	// Get per-token configuration if using etcd multi-tenant auth
+	var tokenCfg *v1.TokenConfig
+	var etcdToken string
+	if provider, ok := authVerifier.(auth.TokenConfigProvider); ok {
+		if token, exists := loginMsg.Metas["_etcd_token"]; exists {
+			etcdToken = token
+			tokenCfg = provider.GetTokenConfig(token)
+		}
+	}
+
+	// Determine encryption key: use matched token for etcd auth, otherwise use server auth key
+	encryptionKey := svr.auth.EncryptionKey()
+	if etcdToken != "" && len(encryptionKey) == 0 {
+		encryptionKey = []byte(etcdToken)
+	}
+
+	// Get or create traffic counter if traffic reporting is enabled
+	var trafficCounter *traffic.TokenTrafficCounter
+	if svr.trafficManager != nil && tokenCfg != nil && tokenCfg.TrafficReportIntervalMB > 0 {
+		trafficCounter = svr.trafficManager.GetOrCreateCounter(etcdToken, tokenCfg.TrafficReportIntervalMB)
+		xl.Infof("traffic counter created for token [%s] with interval %dMB", etcdToken[:min(8, len(etcdToken))]+"..", tokenCfg.TrafficReportIntervalMB)
+	}
+
 	// TODO(fatedier): use SessionContext
-	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, svr.auth.EncryptionKey(), ctlConn, !internal, loginMsg, svr.cfg)
+	ctl, err := NewControl(
+		ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, encryptionKey,
+		ctlConn, !internal, loginMsg, svr.cfg, tokenCfg, etcdToken, trafficCounter,
+	)
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
 		// don't return detailed errors to client
