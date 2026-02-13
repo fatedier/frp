@@ -81,7 +81,7 @@ func validateDomainConfigForClient(c *v1.DomainConfig) error {
 func validateDomainConfigForServer(c *v1.DomainConfig, s *v1.ServerConfig) error {
 	for _, domain := range c.CustomDomains {
 		if s.SubDomainHost != "" && len(strings.Split(s.SubDomainHost, ".")) < len(strings.Split(domain, ".")) {
-			if strings.Contains(domain, s.SubDomainHost) {
+			if strings.HasSuffix(domain, "."+s.SubDomainHost) {
 				return fmt.Errorf("custom domain [%s] should not belong to subdomain host [%s]", domain, s.SubDomainHost)
 			}
 		}
