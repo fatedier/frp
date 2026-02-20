@@ -57,6 +57,11 @@ auth.token = "12345678"
 # auth.oidc.additionalEndpointParams.audience = "https://dev.auth.com/api/v2/"
 # auth.oidc.additionalEndpointParams.var1 = "foobar"
 
+# How many seconds before token expiry to refresh it.
+# Default is 300 (5 minutes). The token is cached and reused until this
+# threshold before expiry, avoiding redundant requests on each heartbeat.
+# auth.oidc.tokenRefreshAdvanceDuration = 300
+
 # OIDC TLS and proxy configuration
 # Specify a custom CA certificate file for verifying the OIDC token endpoint's TLS certificate.
 # This is useful when the OIDC provider uses a self-signed certificate or a custom CA.
