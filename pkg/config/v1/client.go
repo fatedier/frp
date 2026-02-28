@@ -229,10 +229,6 @@ type AuthOIDCClientConfig struct {
 	// If empty, no proxy is used for OIDC connections.
 	ProxyURL string `json:"proxyURL,omitempty"`
 
-	// TokenRefreshAdvanceDuration specifies how many seconds before token
-	// expiry to refresh it. Default is 300 (5 minutes).
-	TokenRefreshAdvanceDuration int64 `json:"tokenRefreshAdvanceDuration,omitempty"`
-
 	// TokenSource specifies a custom dynamic source for the authorization token.
 	// This is mutually exclusive with every other field of this structure.
 	TokenSource *ValueSource `json:"tokenSource,omitempty"`

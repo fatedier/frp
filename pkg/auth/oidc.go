@@ -23,7 +23,6 @@ import (
 	"net/url"
 	"os"
 	"slices"
-	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -31,7 +30,6 @@ import (
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
-	"github.com/fatedier/frp/pkg/util/util"
 )
 
 // createOIDCHTTPClient creates an HTTP client with custom TLS and proxy configuration for OIDC token requests
@@ -115,8 +113,7 @@ func NewOidcAuthSetter(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCClien
 	// Create a persistent TokenSource that caches the token and refreshes
 	// it before expiry. This avoids making a new HTTP request to the OIDC
 	// provider on every heartbeat/ping.
-	earlyRefresh := time.Duration(util.EmptyOr(cfg.TokenRefreshAdvanceDuration, int64(300))) * time.Second
-	tokenSource := oauth2.ReuseTokenSourceWithExpiry(nil, tokenGenerator.TokenSource(ctx), earlyRefresh)
+	tokenSource := tokenGenerator.TokenSource(ctx)
 
 	return &OidcAuthProvider{
 		additionalAuthScopes: additionalAuthScopes,
