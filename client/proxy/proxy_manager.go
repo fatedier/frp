@@ -118,9 +118,9 @@ func (pm *Manager) HandleEvent(payload any) error {
 }
 
 func (pm *Manager) GetAllProxyStatus() []*WorkingStatus {
-	ps := make([]*WorkingStatus, 0)
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
+	ps := make([]*WorkingStatus, 0, len(pm.proxies))
 	for _, pxy := range pm.proxies {
 		ps = append(ps, pxy.GetStatus())
 	}

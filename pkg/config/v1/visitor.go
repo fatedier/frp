@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/samber/lo"
-
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
@@ -52,31 +50,27 @@ type VisitorBaseConfig struct {
 	Plugin TypedVisitorPluginOptions `json:"plugin,omitempty"`
 }
 
+func (c VisitorBaseConfig) Clone() VisitorBaseConfig {
+	out := c
+	out.Enabled = util.ClonePtr(c.Enabled)
+	out.Plugin = c.Plugin.Clone()
+	return out
+}
+
 func (c *VisitorBaseConfig) GetBaseConfig() *VisitorBaseConfig {
 	return c
 }
 
-func (c *VisitorBaseConfig) Complete(g *ClientCommonConfig) {
+func (c *VisitorBaseConfig) Complete() {
 	if c.BindAddr == "" {
 		c.BindAddr = "127.0.0.1"
-	}
-
-	namePrefix := ""
-	if g.User != "" {
-		namePrefix = g.User + "."
-	}
-	c.Name = namePrefix + c.Name
-
-	if c.ServerUser != "" {
-		c.ServerName = c.ServerUser + "." + c.ServerName
-	} else {
-		c.ServerName = namePrefix + c.ServerName
 	}
 }
 
 type VisitorConfigurer interface {
-	Complete(*ClientCommonConfig)
+	Complete()
 	GetBaseConfig() *VisitorBaseConfig
+	Clone() VisitorConfigurer
 }
 
 type VisitorType string
@@ -146,10 +140,22 @@ type STCPVisitorConfig struct {
 	VisitorBaseConfig
 }
 
+func (c *STCPVisitorConfig) Clone() VisitorConfigurer {
+	out := *c
+	out.VisitorBaseConfig = c.VisitorBaseConfig.Clone()
+	return &out
+}
+
 var _ VisitorConfigurer = &SUDPVisitorConfig{}
 
 type SUDPVisitorConfig struct {
 	VisitorBaseConfig
+}
+
+func (c *SUDPVisitorConfig) Clone() VisitorConfigurer {
+	out := *c
+	out.VisitorBaseConfig = c.VisitorBaseConfig.Clone()
+	return &out
 }
 
 var _ VisitorConfigurer = &XTCPVisitorConfig{}
@@ -168,15 +174,18 @@ type XTCPVisitorConfig struct {
 	NatTraversal *NatTraversalConfig `json:"natTraversal,omitempty"`
 }
 
-func (c *XTCPVisitorConfig) Complete(g *ClientCommonConfig) {
-	c.VisitorBaseConfig.Complete(g)
+func (c *XTCPVisitorConfig) Complete() {
+	c.VisitorBaseConfig.Complete()
 
 	c.Protocol = util.EmptyOr(c.Protocol, "quic")
 	c.MaxRetriesAnHour = util.EmptyOr(c.MaxRetriesAnHour, 8)
 	c.MinRetryInterval = util.EmptyOr(c.MinRetryInterval, 90)
 	c.FallbackTimeoutMs = util.EmptyOr(c.FallbackTimeoutMs, 1000)
+}
 
-	if c.FallbackTo != "" {
-		c.FallbackTo = lo.Ternary(g.User == "", "", g.User+".") + c.FallbackTo
-	}
+func (c *XTCPVisitorConfig) Clone() VisitorConfigurer {
+	out := *c
+	out.VisitorBaseConfig = c.VisitorBaseConfig.Clone()
+	out.NatTraversal = c.NatTraversal.Clone()
+	return &out
 }

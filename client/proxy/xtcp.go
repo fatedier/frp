@@ -27,6 +27,7 @@ import (
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/naming"
 	"github.com/fatedier/frp/pkg/nathole"
 	"github.com/fatedier/frp/pkg/transport"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
@@ -85,7 +86,7 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, startWorkConnMsg *msg.StartWorkC
 	transactionID := nathole.NewTransactionID()
 	natHoleClientMsg := &msg.NatHoleClient{
 		TransactionID: transactionID,
-		ProxyName:     pxy.cfg.Name,
+		ProxyName:     naming.AddUserPrefix(pxy.clientCfg.User, pxy.cfg.Name),
 		Sid:           natHoleSidMsg.Sid,
 		MappedAddrs:   prepareResult.Addrs,
 		AssistedAddrs: prepareResult.AssistedAddrs,

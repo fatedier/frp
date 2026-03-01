@@ -16,65 +16,64 @@ package api
 
 import (
 	"cmp"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"slices"
 	"strconv"
 	"time"
 
+	"github.com/fatedier/frp/client/configmgmt"
 	"github.com/fatedier/frp/client/proxy"
-	"github.com/fatedier/frp/pkg/config"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
-	"github.com/fatedier/frp/pkg/config/v1/validation"
-	"github.com/fatedier/frp/pkg/policy/security"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
-	"github.com/fatedier/frp/pkg/util/log"
 )
 
 // Controller handles HTTP API requests for frpc.
 type Controller struct {
-	// getProxyStatus returns the current proxy status.
-	// Returns nil if the control connection is not established.
-	getProxyStatus func() []*proxy.WorkingStatus
-
-	// serverAddr is the frps server address for display.
 	serverAddr string
-
-	// configFilePath is the path to the configuration file.
-	configFilePath string
-
-	// unsafeFeatures is used for validation.
-	unsafeFeatures *security.UnsafeFeatures
-
-	// updateConfig updates proxy and visitor configurations.
-	updateConfig func(proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error
-
-	// gracefulClose gracefully stops the service.
-	gracefulClose func(d time.Duration)
+	manager    configmgmt.ConfigManager
 }
 
 // ControllerParams contains parameters for creating an APIController.
 type ControllerParams struct {
-	GetProxyStatus func() []*proxy.WorkingStatus
-	ServerAddr     string
-	ConfigFilePath string
-	UnsafeFeatures *security.UnsafeFeatures
-	UpdateConfig   func(proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error
-	GracefulClose  func(d time.Duration)
+	ServerAddr string
+	Manager    configmgmt.ConfigManager
 }
 
-// NewController creates a new Controller.
 func NewController(params ControllerParams) *Controller {
 	return &Controller{
-		getProxyStatus: params.GetProxyStatus,
-		serverAddr:     params.ServerAddr,
-		configFilePath: params.ConfigFilePath,
-		unsafeFeatures: params.UnsafeFeatures,
-		updateConfig:   params.UpdateConfig,
-		gracefulClose:  params.GracefulClose,
+		serverAddr: params.ServerAddr,
+		manager:    params.Manager,
 	}
+}
+
+func (c *Controller) toHTTPError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	code := http.StatusInternalServerError
+	switch {
+	case errors.Is(err, configmgmt.ErrInvalidArgument):
+		code = http.StatusBadRequest
+	case errors.Is(err, configmgmt.ErrNotFound), errors.Is(err, configmgmt.ErrStoreDisabled):
+		code = http.StatusNotFound
+	case errors.Is(err, configmgmt.ErrConflict):
+		code = http.StatusConflict
+	}
+	return httppkg.NewError(code, err.Error())
+}
+
+// TODO(fatedier): Remove this lock wrapper after migrating typed config
+// decoding to encoding/json/v2 with per-call options.
+// TypedProxyConfig/TypedVisitorConfig currently read global strictness state.
+func unmarshalTypedConfig[T any](body []byte, out *T) error {
+	return v1.WithDisallowUnknownFields(false, func() error {
+		return json.Unmarshal(body, out)
+	})
 }
 
 // Reload handles GET /api/reload
@@ -85,36 +84,22 @@ func (c *Controller) Reload(ctx *httppkg.Context) (any, error) {
 		strictConfigMode, _ = strconv.ParseBool(strictStr)
 	}
 
-	cliCfg, proxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(c.configFilePath, strictConfigMode)
-	if err != nil {
-		log.Warnf("reload frpc proxy config error: %s", err.Error())
-		return nil, httppkg.NewError(http.StatusBadRequest, err.Error())
+	if err := c.manager.ReloadFromFile(strictConfigMode); err != nil {
+		return nil, c.toHTTPError(err)
 	}
-
-	if _, err := validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs, c.unsafeFeatures); err != nil {
-		log.Warnf("reload frpc proxy config error: %s", err.Error())
-		return nil, httppkg.NewError(http.StatusBadRequest, err.Error())
-	}
-
-	if err := c.updateConfig(proxyCfgs, visitorCfgs); err != nil {
-		log.Warnf("reload frpc proxy config error: %s", err.Error())
-		return nil, httppkg.NewError(http.StatusInternalServerError, err.Error())
-	}
-
-	log.Infof("success reload conf")
 	return nil, nil
 }
 
 // Stop handles POST /api/stop
 func (c *Controller) Stop(ctx *httppkg.Context) (any, error) {
-	go c.gracefulClose(100 * time.Millisecond)
+	go c.manager.GracefulClose(100 * time.Millisecond)
 	return nil, nil
 }
 
 // Status handles GET /api/status
 func (c *Controller) Status(ctx *httppkg.Context) (any, error) {
 	res := make(StatusResp)
-	ps := c.getProxyStatus()
+	ps := c.manager.GetProxyStatus()
 	if ps == nil {
 		return res, nil
 	}
@@ -136,16 +121,11 @@ func (c *Controller) Status(ctx *httppkg.Context) (any, error) {
 
 // GetConfig handles GET /api/config
 func (c *Controller) GetConfig(ctx *httppkg.Context) (any, error) {
-	if c.configFilePath == "" {
-		return nil, httppkg.NewError(http.StatusBadRequest, "frpc has no config file path")
-	}
-
-	content, err := os.ReadFile(c.configFilePath)
+	content, err := c.manager.ReadConfigFile()
 	if err != nil {
-		log.Warnf("load frpc config file error: %s", err.Error())
-		return nil, httppkg.NewError(http.StatusBadRequest, err.Error())
+		return nil, c.toHTTPError(err)
 	}
-	return string(content), nil
+	return content, nil
 }
 
 // PutConfig handles PUT /api/config
@@ -159,13 +139,12 @@ func (c *Controller) PutConfig(ctx *httppkg.Context) (any, error) {
 		return nil, httppkg.NewError(http.StatusBadRequest, "body can't be empty")
 	}
 
-	if err := os.WriteFile(c.configFilePath, body, 0o600); err != nil {
-		return nil, httppkg.NewError(http.StatusInternalServerError, fmt.Sprintf("write content to frpc config file error: %v", err))
+	if err := c.manager.WriteConfigFile(body); err != nil {
+		return nil, c.toHTTPError(err)
 	}
 	return nil, nil
 }
 
-// buildProxyStatusResp creates a ProxyStatusResp from proxy.WorkingStatus
 func (c *Controller) buildProxyStatusResp(status *proxy.WorkingStatus) ProxyStatusResp {
 	psr := ProxyStatusResp{
 		Name:   status.Name,
@@ -185,5 +164,227 @@ func (c *Controller) buildProxyStatusResp(status *proxy.WorkingStatus) ProxyStat
 			psr.RemoteAddr = c.serverAddr + psr.RemoteAddr
 		}
 	}
+
+	if c.manager.IsStoreProxyEnabled(status.Name) {
+		psr.Source = SourceStore
+	}
 	return psr
+}
+
+func (c *Controller) ListStoreProxies(ctx *httppkg.Context) (any, error) {
+	proxies, err := c.manager.ListStoreProxies()
+	if err != nil {
+		return nil, c.toHTTPError(err)
+	}
+
+	resp := ProxyListResp{Proxies: make([]ProxyConfig, 0, len(proxies))}
+	for _, p := range proxies {
+		cfg, err := configurerToMap(p)
+		if err != nil {
+			continue
+		}
+		resp.Proxies = append(resp.Proxies, ProxyConfig{
+			Name:   p.GetBaseConfig().Name,
+			Type:   p.GetBaseConfig().Type,
+			Config: cfg,
+		})
+	}
+	return resp, nil
+}
+
+func (c *Controller) GetStoreProxy(ctx *httppkg.Context) (any, error) {
+	name := ctx.Param("name")
+	if name == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "proxy name is required")
+	}
+
+	p, err := c.manager.GetStoreProxy(name)
+	if err != nil {
+		return nil, c.toHTTPError(err)
+	}
+
+	cfg, err := configurerToMap(p)
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusInternalServerError, err.Error())
+	}
+
+	return ProxyConfig{
+		Name:   p.GetBaseConfig().Name,
+		Type:   p.GetBaseConfig().Type,
+		Config: cfg,
+	}, nil
+}
+
+func (c *Controller) CreateStoreProxy(ctx *httppkg.Context) (any, error) {
+	body, err := ctx.Body()
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("read body error: %v", err))
+	}
+
+	var typed v1.TypedProxyConfig
+	if err := unmarshalTypedConfig(body, &typed); err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("parse JSON error: %v", err))
+	}
+
+	if typed.ProxyConfigurer == nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, "invalid proxy config: type is required")
+	}
+
+	if err := c.manager.CreateStoreProxy(typed.ProxyConfigurer); err != nil {
+		return nil, c.toHTTPError(err)
+	}
+	return nil, nil
+}
+
+func (c *Controller) UpdateStoreProxy(ctx *httppkg.Context) (any, error) {
+	name := ctx.Param("name")
+	if name == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "proxy name is required")
+	}
+
+	body, err := ctx.Body()
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("read body error: %v", err))
+	}
+
+	var typed v1.TypedProxyConfig
+	if err := unmarshalTypedConfig(body, &typed); err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("parse JSON error: %v", err))
+	}
+
+	if typed.ProxyConfigurer == nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, "invalid proxy config: type is required")
+	}
+
+	if err := c.manager.UpdateStoreProxy(name, typed.ProxyConfigurer); err != nil {
+		return nil, c.toHTTPError(err)
+	}
+	return nil, nil
+}
+
+func (c *Controller) DeleteStoreProxy(ctx *httppkg.Context) (any, error) {
+	name := ctx.Param("name")
+	if name == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "proxy name is required")
+	}
+
+	if err := c.manager.DeleteStoreProxy(name); err != nil {
+		return nil, c.toHTTPError(err)
+	}
+	return nil, nil
+}
+
+func (c *Controller) ListStoreVisitors(ctx *httppkg.Context) (any, error) {
+	visitors, err := c.manager.ListStoreVisitors()
+	if err != nil {
+		return nil, c.toHTTPError(err)
+	}
+
+	resp := VisitorListResp{Visitors: make([]VisitorConfig, 0, len(visitors))}
+	for _, v := range visitors {
+		cfg, err := configurerToMap(v)
+		if err != nil {
+			continue
+		}
+		resp.Visitors = append(resp.Visitors, VisitorConfig{
+			Name:   v.GetBaseConfig().Name,
+			Type:   v.GetBaseConfig().Type,
+			Config: cfg,
+		})
+	}
+	return resp, nil
+}
+
+func (c *Controller) GetStoreVisitor(ctx *httppkg.Context) (any, error) {
+	name := ctx.Param("name")
+	if name == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "visitor name is required")
+	}
+
+	v, err := c.manager.GetStoreVisitor(name)
+	if err != nil {
+		return nil, c.toHTTPError(err)
+	}
+
+	cfg, err := configurerToMap(v)
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusInternalServerError, err.Error())
+	}
+
+	return VisitorConfig{
+		Name:   v.GetBaseConfig().Name,
+		Type:   v.GetBaseConfig().Type,
+		Config: cfg,
+	}, nil
+}
+
+func (c *Controller) CreateStoreVisitor(ctx *httppkg.Context) (any, error) {
+	body, err := ctx.Body()
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("read body error: %v", err))
+	}
+
+	var typed v1.TypedVisitorConfig
+	if err := unmarshalTypedConfig(body, &typed); err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("parse JSON error: %v", err))
+	}
+
+	if typed.VisitorConfigurer == nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, "invalid visitor config: type is required")
+	}
+
+	if err := c.manager.CreateStoreVisitor(typed.VisitorConfigurer); err != nil {
+		return nil, c.toHTTPError(err)
+	}
+	return nil, nil
+}
+
+func (c *Controller) UpdateStoreVisitor(ctx *httppkg.Context) (any, error) {
+	name := ctx.Param("name")
+	if name == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "visitor name is required")
+	}
+
+	body, err := ctx.Body()
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("read body error: %v", err))
+	}
+
+	var typed v1.TypedVisitorConfig
+	if err := unmarshalTypedConfig(body, &typed); err != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("parse JSON error: %v", err))
+	}
+
+	if typed.VisitorConfigurer == nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, "invalid visitor config: type is required")
+	}
+
+	if err := c.manager.UpdateStoreVisitor(name, typed.VisitorConfigurer); err != nil {
+		return nil, c.toHTTPError(err)
+	}
+	return nil, nil
+}
+
+func (c *Controller) DeleteStoreVisitor(ctx *httppkg.Context) (any, error) {
+	name := ctx.Param("name")
+	if name == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "visitor name is required")
+	}
+
+	if err := c.manager.DeleteStoreVisitor(name); err != nil {
+		return nil, c.toHTTPError(err)
+	}
+	return nil, nil
+}
+
+func configurerToMap(v any) (map[string]any, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }

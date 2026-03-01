@@ -17,7 +17,7 @@ jobs:
     - uses: actions/checkout@v4
     - uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.25'
         cache: false
     - uses: actions/setup-node@v4
       with:
@@ -29,7 +29,7 @@ jobs:
       run: make build
       working-directory: web/frpc
     - name: golangci-lint
-      uses: golangci/golangci-lint-action@v8
+      uses: golangci/golangci-lint-action@v9
       with:
         # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
-        version: v2.3
+        version: v2.10

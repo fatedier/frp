@@ -41,3 +41,16 @@ func TestParseRangeNumbers(t *testing.T) {
 	_, err = ParseRangeNumbers("3-a")
 	require.Error(err)
 }
+
+func TestClonePtr(t *testing.T) {
+	require := require.New(t)
+
+	var nilInt *int
+	require.Nil(ClonePtr(nilInt))
+
+	v := 42
+	cloned := ClonePtr(&v)
+	require.NotNil(cloned)
+	require.Equal(v, *cloned)
+	require.NotSame(&v, cloned)
+}

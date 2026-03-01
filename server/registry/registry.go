@@ -28,6 +28,7 @@ type ClientInfo struct {
 	RunID            string
 	Hostname         string
 	IP               string
+	Version          string
 	FirstConnectedAt time.Time
 	LastConnectedAt  time.Time
 	DisconnectedAt   time.Time
@@ -50,7 +51,7 @@ func NewClientRegistry() *ClientRegistry {
 }
 
 // Register stores/updates metadata for a client and returns the registry key plus whether it conflicts with an online client.
-func (cr *ClientRegistry) Register(user, rawClientID, runID, hostname, remoteAddr string) (key string, conflict bool) {
+func (cr *ClientRegistry) Register(user, rawClientID, runID, hostname, version, remoteAddr string) (key string, conflict bool) {
 	if runID == "" {
 		return "", false
 	}
@@ -86,6 +87,7 @@ func (cr *ClientRegistry) Register(user, rawClientID, runID, hostname, remoteAdd
 	info.RunID = runID
 	info.Hostname = hostname
 	info.IP = remoteAddr
+	info.Version = version
 	if info.FirstConnectedAt.IsZero() {
 		info.FirstConnectedAt = now
 	}
@@ -149,22 +151,6 @@ func (info ClientInfo) ClientID() string {
 		return info.RawClientID
 	}
 	return info.RunID
-}
-
-// GetByRunID retrieves a client by its run ID.
-func (cr *ClientRegistry) GetByRunID(runID string) (ClientInfo, bool) {
-	cr.mu.RLock()
-	defer cr.mu.RUnlock()
-
-	key, ok := cr.runIndex[runID]
-	if !ok {
-		return ClientInfo{}, false
-	}
-	info, ok := cr.clients[key]
-	if !ok {
-		return ClientInfo{}, false
-	}
-	return *info, true
 }
 
 func (cr *ClientRegistry) composeClientKey(user, id string) string {

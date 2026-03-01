@@ -14,6 +14,8 @@
 
 package api
 
+const SourceStore = "store"
+
 // StatusResp is the response for GET /api/status
 type StatusResp map[string][]ProxyStatusResp
 
@@ -26,4 +28,29 @@ type ProxyStatusResp struct {
 	LocalAddr  string `json:"local_addr"`
 	Plugin     string `json:"plugin"`
 	RemoteAddr string `json:"remote_addr"`
+	Source     string `json:"source,omitempty"` // "store" or "config"
+}
+
+// ProxyConfig wraps proxy configuration for API requests/responses.
+type ProxyConfig struct {
+	Name   string         `json:"name"`
+	Type   string         `json:"type"`
+	Config map[string]any `json:"config"`
+}
+
+// VisitorConfig wraps visitor configuration for API requests/responses.
+type VisitorConfig struct {
+	Name   string         `json:"name"`
+	Type   string         `json:"type"`
+	Config map[string]any `json:"config"`
+}
+
+// ProxyListResp is the response for GET /api/store/proxies
+type ProxyListResp struct {
+	Proxies []ProxyConfig `json:"proxies"`
+}
+
+// VisitorListResp is the response for GET /api/store/visitors
+type VisitorListResp struct {
+	Visitors []VisitorConfig `json:"visitors"`
 }

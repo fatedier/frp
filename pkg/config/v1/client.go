@@ -77,6 +77,9 @@ type ClientCommonConfig struct {
 
 	// Include other config files for proxies.
 	IncludeConfigFiles []string `json:"includes,omitempty"`
+
+	// Store config enables the built-in store source (not configurable via sources list).
+	Store StoreConfig `json:"store,omitempty"`
 }
 
 func (c *ClientCommonConfig) Complete() error {
