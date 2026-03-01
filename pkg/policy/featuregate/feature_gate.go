@@ -171,8 +171,9 @@ func (f *featureGate) Add(features map[Feature]FeatureSpec) error {
 
 // String returns a string containing all enabled feature gates, formatted as "key1=value1,key2=value2,..."
 func (f *featureGate) String() string {
-	pairs := []string{}
-	for k, v := range f.enabled.Load().(map[Feature]bool) {
+	enabled := f.enabled.Load().(map[Feature]bool)
+	pairs := make([]string, 0, len(enabled))
+	for k, v := range enabled {
 		pairs = append(pairs, fmt.Sprintf("%s=%t", k, v))
 	}
 	sort.Strings(pairs)

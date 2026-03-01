@@ -33,13 +33,7 @@ linters:
       disabled-checks:
       - exitAfterDefer
     gosec:
-      excludes:
-      - G401
-      - G402
-      - G404
-      - G501
-      - G115
-      - G204
+      excludes: ["G115", "G117", "G204", "G401", "G402", "G404", "G501", "G703", "G704", "G705"]
       severity: low
       confidence: low
     govet:
@@ -77,6 +71,9 @@ linters:
     - linters:
       - revive
       text: "avoid meaningless package names"
+    - linters:
+      - revive
+      text: "Go standard library package names"
     - linters:
       - unparam
       text: is always false

@@ -32,11 +32,20 @@ var visitorPluginOptionsTypeMap = map[string]reflect.Type{
 
 type VisitorPluginOptions interface {
 	Complete()
+	Clone() VisitorPluginOptions
 }
 
 type TypedVisitorPluginOptions struct {
 	Type string `json:"type"`
 	VisitorPluginOptions
+}
+
+func (c TypedVisitorPluginOptions) Clone() TypedVisitorPluginOptions {
+	out := c
+	if c.VisitorPluginOptions != nil {
+		out.VisitorPluginOptions = c.VisitorPluginOptions.Clone()
+	}
+	return out
 }
 
 func (c *TypedVisitorPluginOptions) UnmarshalJSON(b []byte) error {
@@ -84,3 +93,11 @@ type VirtualNetVisitorPluginOptions struct {
 }
 
 func (o *VirtualNetVisitorPluginOptions) Complete() {}
+
+func (o *VirtualNetVisitorPluginOptions) Clone() VisitorPluginOptions {
+	if o == nil {
+		return nil
+	}
+	out := *o
+	return &out
+}

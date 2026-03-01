@@ -230,7 +230,7 @@ const fetchData = async () => {
         data.value.proxyCounts += count || 0
       })
     }
-  } catch (err) {
+  } catch {
     ElMessage({
       showClose: true,
       message: 'Get server info from frps failed!',

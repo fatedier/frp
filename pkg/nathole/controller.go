@@ -375,7 +375,7 @@ func getRangePorts(addrs []string, difference, maxNumber int) []msg.PortsRange {
 	if !isLast {
 		return nil
 	}
-	var ports []msg.PortsRange
+	ports := make([]msg.PortsRange, 0, 1)
 	_, portStr, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil

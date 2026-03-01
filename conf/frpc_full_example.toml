@@ -143,6 +143,9 @@ transport.tls.enable = true
 
 # Proxy names you want to start.
 # Default is empty, means all proxies.
+# This list is a global allowlist after config + store are merged, so entries
+# created via Store API are also filtered by this list.
+# If start is non-empty, any proxy/visitor not listed here will not be started.
 # start = ["ssh", "dns"]
 
 # Alternative to 'start': You can control each proxy individually using the 'enabled' field.

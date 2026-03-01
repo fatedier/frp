@@ -1,8 +1,7 @@
 ## Features
 
-* frpc now supports a `clientID` option to uniquely identify client instances. The server dashboard displays all connected clients with their online/offline status, connection history, and metadata, making it easier to monitor and manage multiple frpc deployments.
-* Redesigned the frp web dashboard with a modern UI, dark mode support, and improved navigation.
+* Added a built-in `store` capability for frpc, including persisted store source (`[store] path = "..."`), Store CRUD admin APIs (`/api/store/proxies*`, `/api/store/visitors*`) with runtime reload, and Store management pages in the frpc web dashboard.
 
-## Fixes
+## Improvements
 
-* Fixed UDP proxy protocol sending header on every packet instead of only the first packet of each session.
+* Kept proxy/visitor names as raw config names during completion; moved user-prefix handling to explicit wire-level naming logic.

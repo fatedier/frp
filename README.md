@@ -13,6 +13,16 @@ frp is an open source project with its ongoing development made possible entirel
 
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
+<div align="center">
+
+## Recall.ai - API for meeting recordings
+
+If you're looking for a meeting recording API, consider checking out [Recall.ai](https://www.recall.ai/?utm_source=github&utm_medium=sponsorship&utm_campaign=fatedier-frp),
+
+an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and more.
+
+</div>
+
 <p align="center">
   <a href="https://requestly.com/?utm_source=github&utm_medium=partnered&utm_campaign=frp" target="_blank">
     <img width="480px" src="https://github.com/user-attachments/assets/24670320-997d-4d62-9bca-955c59fe883d">
@@ -40,15 +50,6 @@ frp is an open source project with its ongoing development made possible entirel
 	<sub>An open source, self-hosted alternative to public clouds, built for data ownership and privacy</sub>
   </a>
 </p>
-<div align="center">
-
-## Recall.ai - API for meeting recordings
-
-If you're looking for a meeting recording API, consider checking out [Recall.ai](https://www.recall.ai/?utm_source=github&utm_medium=sponsorship&utm_campaign=fatedier-frp),
-
-an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and more.
-
-</div>
 <!--gold sponsors end-->
 
 ## What is frp?
@@ -799,6 +800,14 @@ webServer.port = 7400
 Then run command `frpc reload -c ./frpc.toml` and wait for about 10 seconds to let `frpc` create or update or remove proxies.
 
 **Note that global client parameters won't be modified except 'start'.**
+
+`start` is a global allowlist evaluated after all sources are merged (config file/include/store).
+If `start` is non-empty, any proxy or visitor not listed there will not be started, including
+entries created via Store API.
+
+`start` is kept mainly for compatibility and is generally not recommended for new configurations.
+Prefer per-proxy/per-visitor `enabled`, and keep `start` empty unless you explicitly want this
+global allowlist behavior.
 
 You can run command `frpc verify -c ./frpc.toml` before reloading to check if there are config errors.
 

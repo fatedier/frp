@@ -6,6 +6,7 @@ export class Client {
   user: string
   clientID: string
   runID: string
+  version: string
   hostname: string
   ip: string
   metas: Map<string, string>
@@ -19,6 +20,7 @@ export class Client {
     this.user = data.user
     this.clientID = data.clientID
     this.runID = data.runID
+    this.version = data.version || ''
     this.hostname = data.hostname
     this.ip = data.clientIP || ''
     this.metas = new Map<string, string>()

@@ -134,3 +134,12 @@ func RandomSleep(duration time.Duration, minRatio, maxRatio float64) time.Durati
 func ConstantTimeEqString(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
+
+// ClonePtr returns a pointer to a copied value. If v is nil, it returns nil.
+func ClonePtr[T any](v *T) *T {
+	if v == nil {
+		return nil
+	}
+	out := *v
+	return &out
+}
