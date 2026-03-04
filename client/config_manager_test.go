@@ -45,7 +45,7 @@ func TestServiceConfigManagerCreateStoreProxyConflict(t *testing.T) {
 		},
 	}
 
-	err = mgr.CreateStoreProxy(newTestRawTCPProxyConfig("p1"))
+	_, err = mgr.CreateStoreProxy(newTestRawTCPProxyConfig("p1"))
 	if err == nil {
 		t.Fatal("expected conflict error")
 	}
@@ -69,7 +69,7 @@ func TestServiceConfigManagerCreateStoreProxyKeepsStoreOnReloadFailure(t *testin
 		},
 	}
 
-	err = mgr.CreateStoreProxy(newTestRawTCPProxyConfig("p1"))
+	_, err = mgr.CreateStoreProxy(newTestRawTCPProxyConfig("p1"))
 	if err == nil {
 		t.Fatal("expected apply config error")
 	}
@@ -88,7 +88,7 @@ func TestServiceConfigManagerCreateStoreProxyStoreDisabled(t *testing.T) {
 		},
 	}
 
-	err := mgr.CreateStoreProxy(newTestRawTCPProxyConfig("p1"))
+	_, err := mgr.CreateStoreProxy(newTestRawTCPProxyConfig("p1"))
 	if err == nil {
 		t.Fatal("expected store disabled error")
 	}
@@ -116,9 +116,12 @@ func TestServiceConfigManagerCreateStoreProxyDoesNotPersistRuntimeDefaults(t *te
 		},
 	}
 
-	err = mgr.CreateStoreProxy(newTestRawTCPProxyConfig("raw-proxy"))
+	persisted, err := mgr.CreateStoreProxy(newTestRawTCPProxyConfig("raw-proxy"))
 	if err != nil {
 		t.Fatalf("create store proxy: %v", err)
+	}
+	if persisted == nil {
+		t.Fatal("expected persisted proxy to be returned")
 	}
 
 	got := storeSource.GetProxy("raw-proxy")

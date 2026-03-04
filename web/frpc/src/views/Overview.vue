@@ -337,17 +337,18 @@
                 </div>
               </div>
               <div class="visitor-card-body">
-                <span v-if="visitor.config?.serverName">
-                  Server: {{ visitor.config.serverName }}
+                <span v-if="getVisitorBlock(visitor)?.serverName">
+                  Server: {{ getVisitorBlock(visitor)?.serverName }}
                 </span>
                 <span
                   v-if="
-                    visitor.config?.bindAddr || visitor.config?.bindPort != null
+                    getVisitorBlock(visitor)?.bindAddr ||
+                    getVisitorBlock(visitor)?.bindPort != null
                   "
                 >
-                  Bind: {{ visitor.config.bindAddr || '127.0.0.1'
-                  }}<template v-if="visitor.config?.bindPort != null"
-                    >:{{ visitor.config.bindPort }}</template
+                  Bind: {{ getVisitorBlock(visitor)?.bindAddr || '127.0.0.1'
+                  }}<template v-if="getVisitorBlock(visitor)?.bindPort != null"
+                    >:{{ getVisitorBlock(visitor)?.bindPort }}</template
                   >
                 </span>
               </div>
@@ -388,8 +389,8 @@ import {
 } from '../api/frpc'
 import type {
   ProxyStatus,
-  StoreProxyConfig,
-  StoreVisitorConfig,
+  ProxyDefinition,
+  VisitorDefinition,
 } from '../types/proxy'
 import StatCard from '../components/StatCard.vue'
 import ProxyCard from '../components/ProxyCard.vue'
@@ -398,8 +399,8 @@ const router = useRouter()
 
 // State
 const status = ref<ProxyStatus[]>([])
-const storeProxies = ref<StoreProxyConfig[]>([])
-const storeVisitors = ref<StoreVisitorConfig[]>([])
+const storeProxies = ref<ProxyDefinition[]>([])
+const storeVisitors = ref<VisitorDefinition[]>([])
 const storeEnabled = ref(false)
 const loading = ref(false)
 const searchText = ref('')
@@ -463,8 +464,40 @@ const filteredStatus = computed(() => {
 })
 
 const disabledStoreProxies = computed(() => {
-  return storeProxies.value.filter((p) => p.config?.enabled === false)
+  return storeProxies.value.filter((p) => getProxyBlock(p)?.enabled === false)
 })
+
+const getProxyBlock = (proxy: ProxyDefinition) => {
+  switch (proxy.type) {
+    case 'tcp':
+      return proxy.tcp
+    case 'udp':
+      return proxy.udp
+    case 'http':
+      return proxy.http
+    case 'https':
+      return proxy.https
+    case 'tcpmux':
+      return proxy.tcpmux
+    case 'stcp':
+      return proxy.stcp
+    case 'sudp':
+      return proxy.sudp
+    case 'xtcp':
+      return proxy.xtcp
+  }
+}
+
+const getVisitorBlock = (visitor: VisitorDefinition) => {
+  switch (visitor.type) {
+    case 'stcp':
+      return visitor.stcp
+    case 'sudp':
+      return visitor.sudp
+    case 'xtcp':
+      return visitor.xtcp
+  }
+}
 
 // Methods
 const toggleTypeFilter = (type: string) => {
@@ -563,11 +596,11 @@ const handleDelete = async (proxy: ProxyStatus) => {
   confirmAndDeleteProxy(proxy.name)
 }
 
-const handleEditStoreProxy = (proxy: StoreProxyConfig) => {
+const handleEditStoreProxy = (proxy: ProxyDefinition) => {
   router.push('/proxies/' + encodeURIComponent(proxy.name) + '/edit')
 }
 
-const handleDeleteStoreProxy = async (proxy: StoreProxyConfig) => {
+const handleDeleteStoreProxy = async (proxy: ProxyDefinition) => {
   confirmAndDeleteProxy(proxy.name)
 }
 
@@ -575,7 +608,7 @@ const handleCreateVisitor = () => {
   router.push('/visitors/create')
 }
 
-const handleEditVisitor = (visitor: StoreVisitorConfig) => {
+const handleEditVisitor = (visitor: VisitorDefinition) => {
   router.push('/visitors/' + encodeURIComponent(visitor.name) + '/edit')
 }
 

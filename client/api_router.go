@@ -17,7 +17,7 @@ package client
 import (
 	"net/http"
 
-	"github.com/fatedier/frp/client/api"
+	adminapi "github.com/fatedier/frp/client/http"
 	"github.com/fatedier/frp/client/proxy"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
@@ -65,9 +65,9 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func newAPIController(svr *Service) *api.Controller {
+func newAPIController(svr *Service) *adminapi.Controller {
 	manager := newServiceConfigManager(svr)
-	return api.NewController(api.ControllerParams{
+	return adminapi.NewController(adminapi.ControllerParams{
 		ServerAddr: svr.common.ServerAddr,
 		Manager:    manager,
 	})

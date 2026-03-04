@@ -15,13 +15,13 @@
 package source
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/util/jsonx"
 )
 
 type StoreSourceConfig struct {
@@ -74,36 +74,44 @@ func (s *StoreSource) loadFromFileUnlocked() error {
 		return err
 	}
 
-	var stored storeData
-	if err := v1.WithDisallowUnknownFields(false, func() error {
-		return json.Unmarshal(data, &stored)
-	}); err != nil {
+	type rawStoreData struct {
+		Proxies  []jsonx.RawMessage `json:"proxies,omitempty"`
+		Visitors []jsonx.RawMessage `json:"visitors,omitempty"`
+	}
+	stored := rawStoreData{}
+	if err := jsonx.Unmarshal(data, &stored); err != nil {
 		return fmt.Errorf("failed to parse JSON: %w", err)
 	}
 
 	s.proxies = make(map[string]v1.ProxyConfigurer)
 	s.visitors = make(map[string]v1.VisitorConfigurer)
 
-	for _, tp := range stored.Proxies {
-		if tp.ProxyConfigurer != nil {
-			proxyCfg := tp.ProxyConfigurer
-			name := proxyCfg.GetBaseConfig().Name
-			if name == "" {
-				return fmt.Errorf("proxy name cannot be empty")
-			}
-			s.proxies[name] = proxyCfg
+	for i, proxyData := range stored.Proxies {
+		proxyCfg, err := v1.DecodeProxyConfigurerJSON(proxyData, v1.DecodeOptions{
+			DisallowUnknownFields: false,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to decode proxy at index %d: %w", i, err)
 		}
+		name := proxyCfg.GetBaseConfig().Name
+		if name == "" {
+			return fmt.Errorf("proxy name cannot be empty")
+		}
+		s.proxies[name] = proxyCfg
 	}
 
-	for _, tv := range stored.Visitors {
-		if tv.VisitorConfigurer != nil {
-			visitorCfg := tv.VisitorConfigurer
-			name := visitorCfg.GetBaseConfig().Name
-			if name == "" {
-				return fmt.Errorf("visitor name cannot be empty")
-			}
-			s.visitors[name] = visitorCfg
+	for i, visitorData := range stored.Visitors {
+		visitorCfg, err := v1.DecodeVisitorConfigurerJSON(visitorData, v1.DecodeOptions{
+			DisallowUnknownFields: false,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to decode visitor at index %d: %w", i, err)
 		}
+		name := visitorCfg.GetBaseConfig().Name
+		if name == "" {
+			return fmt.Errorf("visitor name cannot be empty")
+		}
+		s.visitors[name] = visitorCfg
 	}
 
 	return nil
@@ -122,7 +130,7 @@ func (s *StoreSource) saveToFileUnlocked() error {
 		stored.Visitors = append(stored.Visitors, v1.TypedVisitorConfig{VisitorConfigurer: v})
 	}
 
-	data, err := json.MarshalIndent(stored, "", "  ")
+	data, err := jsonx.MarshalIndent(stored, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
