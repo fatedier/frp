@@ -16,6 +16,8 @@ package config
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -108,7 +110,21 @@ func LoadConfigureFromFile(path string, c any, strict bool) error {
 	if err != nil {
 		return err
 	}
-	return LoadConfigure(content, c, strict)
+	return LoadConfigure(content, c, strict, detectFormatFromPath(path))
+}
+
+// detectFormatFromPath returns a format hint based on the file extension.
+func detectFormatFromPath(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".toml":
+		return "toml"
+	case ".yaml", ".yml":
+		return "yaml"
+	case ".json":
+		return "json"
+	default:
+		return ""
+	}
 }
 
 // parseYAMLWithDotFieldsHandling parses YAML with dot-prefixed fields handling
@@ -155,28 +171,100 @@ func decodeJSONContent(content []byte, target any, strict bool) error {
 
 // LoadConfigure loads configuration from bytes and unmarshal into c.
 // Now it supports json, yaml and toml format.
-func LoadConfigure(b []byte, c any, strict bool) error {
+// An optional format hint (e.g. "toml", "yaml", "json") can be provided
+// to enable better error messages with line number information.
+func LoadConfigure(b []byte, c any, strict bool, formats ...string) error {
+	format := ""
+	if len(formats) > 0 {
+		format = formats[0]
+	}
+
+	originalBytes := b
+
 	var tomlObj any
-	// Try to unmarshal as TOML first; swallow errors from that (assume it's not valid TOML).
-	if err := toml.Unmarshal(b, &tomlObj); err == nil {
+	tomlErr := toml.Unmarshal(b, &tomlObj)
+	if tomlErr == nil {
 		var err error
 		b, err = jsonx.Marshal(&tomlObj)
 		if err != nil {
 			return err
 		}
+	} else if format == "toml" {
+		// File is known to be TOML but has syntax errors — report with line/column info.
+		return formatTOMLError(tomlErr)
 	}
+
 	// If the buffer smells like JSON (first non-whitespace character is '{'), unmarshal as JSON directly.
 	if yaml.IsJSONBuffer(b) {
-		return decodeJSONContent(b, c, strict)
+		if err := decodeJSONContent(b, c, strict); err != nil {
+			return enhanceDecodeError(err, originalBytes)
+		}
+		return nil
 	}
 
 	// Handle YAML content
 	if strict {
 		// In strict mode, always use our custom handler to support YAML merge
-		return parseYAMLWithDotFieldsHandling(b, c)
+		if err := parseYAMLWithDotFieldsHandling(b, c); err != nil {
+			return enhanceDecodeError(err, originalBytes)
+		}
+		return nil
 	}
 	// Non-strict mode, parse normally
 	return yaml.Unmarshal(b, c)
+}
+
+// formatTOMLError extracts line/column information from TOML decode errors.
+func formatTOMLError(err error) error {
+	var decErr *toml.DecodeError
+	if errors.As(err, &decErr) {
+		row, col := decErr.Position()
+		return fmt.Errorf("toml: line %d, column %d: %s", row, col, decErr.Error())
+	}
+	var strictErr *toml.StrictMissingError
+	if errors.As(err, &strictErr) {
+		return fmt.Errorf("toml: %s", strictErr.Error())
+	}
+	return err
+}
+
+// enhanceDecodeError tries to add field path and line number information to JSON/YAML decode errors.
+func enhanceDecodeError(err error, originalContent []byte) error {
+	var typeErr *json.UnmarshalTypeError
+	if errors.As(err, &typeErr) && typeErr.Field != "" {
+		line := findFieldLineInContent(originalContent, typeErr.Field)
+		if line > 0 {
+			return fmt.Errorf("line %d: field \"%s\": cannot unmarshal %s into %s", line, typeErr.Field, typeErr.Value, typeErr.Type)
+		}
+		return fmt.Errorf("field \"%s\": cannot unmarshal %s into %s", typeErr.Field, typeErr.Value, typeErr.Type)
+	}
+	return err
+}
+
+// findFieldLineInContent searches the original config content for a field name
+// and returns the 1-indexed line number where it appears, or 0 if not found.
+func findFieldLineInContent(content []byte, fieldPath string) int {
+	// Use the last component of the field path (e.g. "proxies" from "proxies" or
+	// "protocol" from "transport.protocol").
+	parts := strings.Split(fieldPath, ".")
+	searchKey := parts[len(parts)-1]
+
+	lines := bytes.Split(content, []byte("\n"))
+	for i, line := range lines {
+		trimmed := bytes.TrimSpace(line)
+		// Match TOML key assignments like: key = ...
+		if bytes.HasPrefix(trimmed, []byte(searchKey)) {
+			rest := bytes.TrimSpace(trimmed[len(searchKey):])
+			if len(rest) > 0 && rest[0] == '=' {
+				return i + 1
+			}
+		}
+		// Match TOML table array headers like: [[proxies]]
+		if bytes.Contains(trimmed, []byte("[["+searchKey+"]]")) {
+			return i + 1
+		}
+	}
+	return 0
 }
 
 func NewProxyConfigurerFromMsg(m *msg.NewProxy, serverCfg *v1.ServerConfig) (v1.ProxyConfigurer, error) {
