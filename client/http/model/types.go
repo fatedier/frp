@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package api
+package model
 
 const SourceStore = "store"
 
@@ -31,26 +31,12 @@ type ProxyStatusResp struct {
 	Source     string `json:"source,omitempty"` // "store" or "config"
 }
 
-// ProxyConfig wraps proxy configuration for API requests/responses.
-type ProxyConfig struct {
-	Name   string         `json:"name"`
-	Type   string         `json:"type"`
-	Config map[string]any `json:"config"`
-}
-
-// VisitorConfig wraps visitor configuration for API requests/responses.
-type VisitorConfig struct {
-	Name   string         `json:"name"`
-	Type   string         `json:"type"`
-	Config map[string]any `json:"config"`
-}
-
 // ProxyListResp is the response for GET /api/store/proxies
 type ProxyListResp struct {
-	Proxies []ProxyConfig `json:"proxies"`
+	Proxies []ProxyDefinition `json:"proxies"`
 }
 
 // VisitorListResp is the response for GET /api/store/visitors
 type VisitorListResp struct {
-	Visitors []VisitorConfig `json:"visitors"`
+	Visitors []VisitorDefinition `json:"visitors"`
 }

@@ -28,14 +28,14 @@ type ConfigManager interface {
 
 	ListStoreProxies() ([]v1.ProxyConfigurer, error)
 	GetStoreProxy(name string) (v1.ProxyConfigurer, error)
-	CreateStoreProxy(cfg v1.ProxyConfigurer) error
-	UpdateStoreProxy(name string, cfg v1.ProxyConfigurer) error
+	CreateStoreProxy(cfg v1.ProxyConfigurer) (v1.ProxyConfigurer, error)
+	UpdateStoreProxy(name string, cfg v1.ProxyConfigurer) (v1.ProxyConfigurer, error)
 	DeleteStoreProxy(name string) error
 
 	ListStoreVisitors() ([]v1.VisitorConfigurer, error)
 	GetStoreVisitor(name string) (v1.VisitorConfigurer, error)
-	CreateStoreVisitor(cfg v1.VisitorConfigurer) error
-	UpdateStoreVisitor(name string, cfg v1.VisitorConfigurer) error
+	CreateStoreVisitor(cfg v1.VisitorConfigurer) (v1.VisitorConfigurer, error)
+	UpdateStoreVisitor(name string, cfg v1.VisitorConfigurer) (v1.VisitorConfigurer, error)
 	DeleteStoreVisitor(name string) error
 
 	GracefulClose(d time.Duration)

@@ -15,12 +15,9 @@
 package v1
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"reflect"
 
+	"github.com/fatedier/frp/pkg/util/jsonx"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
@@ -93,35 +90,18 @@ type TypedVisitorConfig struct {
 }
 
 func (c *TypedVisitorConfig) UnmarshalJSON(b []byte) error {
-	if len(b) == 4 && string(b) == "null" {
-		return errors.New("type is required")
-	}
-
-	typeStruct := struct {
-		Type string `json:"type"`
-	}{}
-	if err := json.Unmarshal(b, &typeStruct); err != nil {
+	configurer, err := DecodeVisitorConfigurerJSON(b, DecodeOptions{})
+	if err != nil {
 		return err
 	}
 
-	c.Type = typeStruct.Type
-	configurer := NewVisitorConfigurerByType(VisitorType(typeStruct.Type))
-	if configurer == nil {
-		return fmt.Errorf("unknown visitor type: %s", typeStruct.Type)
-	}
-	decoder := json.NewDecoder(bytes.NewBuffer(b))
-	if DisallowUnknownFields {
-		decoder.DisallowUnknownFields()
-	}
-	if err := decoder.Decode(configurer); err != nil {
-		return fmt.Errorf("unmarshal VisitorConfig error: %v", err)
-	}
+	c.Type = configurer.GetBaseConfig().Type
 	c.VisitorConfigurer = configurer
 	return nil
 }
 
 func (c *TypedVisitorConfig) MarshalJSON() ([]byte, error) {
-	return json.Marshal(c.VisitorConfigurer)
+	return jsonx.Marshal(c.VisitorConfigurer)
 }
 
 func NewVisitorConfigurerByType(t VisitorType) VisitorConfigurer {

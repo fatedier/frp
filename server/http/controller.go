@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package api
+package http
 
 import (
 	"cmp"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"slices"
@@ -29,6 +28,7 @@ import (
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/version"
+	"github.com/fatedier/frp/server/http/model"
 	"github.com/fatedier/frp/server/proxy"
 	"github.com/fatedier/frp/server/registry"
 )
@@ -59,7 +59,7 @@ func NewController(
 // /api/serverinfo
 func (c *Controller) APIServerInfo(ctx *httppkg.Context) (any, error) {
 	serverStats := mem.StatsCollector.GetServer()
-	svrResp := ServerInfoResp{
+	svrResp := model.ServerInfoResp{
 		Version:               version.Full(),
 		BindPort:              c.serverCfg.BindPort,
 		VhostHTTPPort:         c.serverCfg.VhostHTTPPort,
@@ -80,22 +80,6 @@ func (c *Controller) APIServerInfo(ctx *httppkg.Context) (any, error) {
 		ClientCounts:    serverStats.ClientCounts,
 		ProxyTypeCounts: serverStats.ProxyTypeCounts,
 	}
-	// For API that returns struct, we can just return it.
-	// But current GeneralResponse.Msg in legacy code expects a JSON string.
-	// Since MakeHTTPHandlerFunc handles struct by encoding to JSON, we can return svrResp directly?
-	// The original code wraps it in GeneralResponse{Msg: string(json)}.
-	// If we return svrResp, the response body will be the JSON of svrResp.
-	// We should check if the frontend expects { "code": 200, "msg": "{...}" } or just {...}.
-	// Looking at previous code:
-	// res := GeneralResponse{Code: 200}
-	// buf, _ := json.Marshal(&svrResp)
-	// res.Msg = string(buf)
-	// Response body: {"code": 200, "msg": "{\"version\":...}"}
-	// Wait, is it double encoded JSON? Yes it seems so!
-	// Let's check dashboard_api.go original code again.
-	// Yes: res.Msg = string(buf).
-	// So the frontend expects { "code": 200, "msg": "JSON_STRING" }.
-	// This is kind of ugly, but we must preserve compatibility.
 
 	return svrResp, nil
 }
@@ -112,7 +96,7 @@ func (c *Controller) APIClientList(ctx *httppkg.Context) (any, error) {
 	statusFilter := strings.ToLower(ctx.Query("status"))
 
 	records := c.clientRegistry.List()
-	items := make([]ClientInfoResp, 0, len(records))
+	items := make([]model.ClientInfoResp, 0, len(records))
 	for _, info := range records {
 		if userFilter != "" && info.User != userFilter {
 			continue
@@ -129,7 +113,7 @@ func (c *Controller) APIClientList(ctx *httppkg.Context) (any, error) {
 		items = append(items, buildClientInfoResp(info))
 	}
 
-	slices.SortFunc(items, func(a, b ClientInfoResp) int {
+	slices.SortFunc(items, func(a, b model.ClientInfoResp) int {
 		if v := cmp.Compare(a.User, b.User); v != 0 {
 			return v
 		}
@@ -165,9 +149,9 @@ func (c *Controller) APIClientDetail(ctx *httppkg.Context) (any, error) {
 func (c *Controller) APIProxyByType(ctx *httppkg.Context) (any, error) {
 	proxyType := ctx.Param("type")
 
-	proxyInfoResp := GetProxyInfoResp{}
+	proxyInfoResp := model.GetProxyInfoResp{}
 	proxyInfoResp.Proxies = c.getProxyStatsByType(proxyType)
-	slices.SortFunc(proxyInfoResp.Proxies, func(a, b *ProxyStatsInfo) int {
+	slices.SortFunc(proxyInfoResp.Proxies, func(a, b *model.ProxyStatsInfo) int {
 		return cmp.Compare(a.Name, b.Name)
 	})
 
@@ -191,7 +175,7 @@ func (c *Controller) APIProxyByTypeAndName(ctx *httppkg.Context) (any, error) {
 func (c *Controller) APIProxyTraffic(ctx *httppkg.Context) (any, error) {
 	name := ctx.Param("name")
 
-	trafficResp := GetProxyTrafficResp{}
+	trafficResp := model.GetProxyTrafficResp{}
 	trafficResp.Name = name
 	proxyTrafficInfo := mem.StatsCollector.GetProxyTraffic(name)
 
@@ -213,7 +197,7 @@ func (c *Controller) APIProxyByName(ctx *httppkg.Context) (any, error) {
 		return nil, httppkg.NewError(http.StatusNotFound, "no proxy info found")
 	}
 
-	proxyInfo := GetProxyStatsResp{
+	proxyInfo := model.GetProxyStatsResp{
 		Name:            ps.Name,
 		User:            ps.User,
 		ClientID:        ps.ClientID,
@@ -225,16 +209,7 @@ func (c *Controller) APIProxyByName(ctx *httppkg.Context) (any, error) {
 	}
 
 	if pxy, ok := c.pxyManager.GetByName(name); ok {
-		content, err := json.Marshal(pxy.GetConfigurer())
-		if err != nil {
-			log.Warnf("marshal proxy [%s] conf info error: %v", name, err)
-			return nil, httppkg.NewError(http.StatusBadRequest, "parse conf error")
-		}
-		proxyInfo.Conf = getConfByType(ps.Type)
-		if err = json.Unmarshal(content, &proxyInfo.Conf); err != nil {
-			log.Warnf("unmarshal proxy [%s] conf info error: %v", name, err)
-			return nil, httppkg.NewError(http.StatusBadRequest, "parse conf error")
-		}
+		proxyInfo.Conf = getConfFromConfigurer(pxy.GetConfigurer())
 		proxyInfo.Status = "online"
 	} else {
 		proxyInfo.Status = "offline"
@@ -254,25 +229,16 @@ func (c *Controller) DeleteProxies(ctx *httppkg.Context) (any, error) {
 	return httppkg.GeneralResponse{Code: 200, Msg: "success"}, nil
 }
 
-func (c *Controller) getProxyStatsByType(proxyType string) (proxyInfos []*ProxyStatsInfo) {
+func (c *Controller) getProxyStatsByType(proxyType string) (proxyInfos []*model.ProxyStatsInfo) {
 	proxyStats := mem.StatsCollector.GetProxiesByType(proxyType)
-	proxyInfos = make([]*ProxyStatsInfo, 0, len(proxyStats))
+	proxyInfos = make([]*model.ProxyStatsInfo, 0, len(proxyStats))
 	for _, ps := range proxyStats {
-		proxyInfo := &ProxyStatsInfo{
+		proxyInfo := &model.ProxyStatsInfo{
 			User:     ps.User,
 			ClientID: ps.ClientID,
 		}
 		if pxy, ok := c.pxyManager.GetByName(ps.Name); ok {
-			content, err := json.Marshal(pxy.GetConfigurer())
-			if err != nil {
-				log.Warnf("marshal proxy [%s] conf info error: %v", ps.Name, err)
-				continue
-			}
-			proxyInfo.Conf = getConfByType(ps.Type)
-			if err = json.Unmarshal(content, &proxyInfo.Conf); err != nil {
-				log.Warnf("unmarshal proxy [%s] conf info error: %v", ps.Name, err)
-				continue
-			}
+			proxyInfo.Conf = getConfFromConfigurer(pxy.GetConfigurer())
 			proxyInfo.Status = "online"
 		} else {
 			proxyInfo.Status = "offline"
@@ -288,7 +254,7 @@ func (c *Controller) getProxyStatsByType(proxyType string) (proxyInfos []*ProxyS
 	return
 }
 
-func (c *Controller) getProxyStatsByTypeAndName(proxyType string, proxyName string) (proxyInfo GetProxyStatsResp, code int, msg string) {
+func (c *Controller) getProxyStatsByTypeAndName(proxyType string, proxyName string) (proxyInfo model.GetProxyStatsResp, code int, msg string) {
 	proxyInfo.Name = proxyName
 	ps := mem.StatsCollector.GetProxiesByTypeAndName(proxyType, proxyName)
 	if ps == nil {
@@ -298,20 +264,7 @@ func (c *Controller) getProxyStatsByTypeAndName(proxyType string, proxyName stri
 		proxyInfo.User = ps.User
 		proxyInfo.ClientID = ps.ClientID
 		if pxy, ok := c.pxyManager.GetByName(proxyName); ok {
-			content, err := json.Marshal(pxy.GetConfigurer())
-			if err != nil {
-				log.Warnf("marshal proxy [%s] conf info error: %v", ps.Name, err)
-				code = 400
-				msg = "parse conf error"
-				return
-			}
-			proxyInfo.Conf = getConfByType(ps.Type)
-			if err = json.Unmarshal(content, &proxyInfo.Conf); err != nil {
-				log.Warnf("unmarshal proxy [%s] conf info error: %v", ps.Name, err)
-				code = 400
-				msg = "parse conf error"
-				return
-			}
+			proxyInfo.Conf = getConfFromConfigurer(pxy.GetConfigurer())
 			proxyInfo.Status = "online"
 		} else {
 			proxyInfo.Status = "offline"
@@ -327,8 +280,8 @@ func (c *Controller) getProxyStatsByTypeAndName(proxyType string, proxyName stri
 	return
 }
 
-func buildClientInfoResp(info registry.ClientInfo) ClientInfoResp {
-	resp := ClientInfoResp{
+func buildClientInfoResp(info registry.ClientInfo) model.ClientInfoResp {
+	resp := model.ClientInfoResp{
 		Key:              info.Key,
 		User:             info.User,
 		ClientID:         info.ClientID(),
@@ -366,23 +319,37 @@ func matchStatusFilter(online bool, filter string) bool {
 	}
 }
 
-func getConfByType(proxyType string) any {
-	switch v1.ProxyType(proxyType) {
-	case v1.ProxyTypeTCP:
-		return &TCPOutConf{}
-	case v1.ProxyTypeTCPMUX:
-		return &TCPMuxOutConf{}
-	case v1.ProxyTypeUDP:
-		return &UDPOutConf{}
-	case v1.ProxyTypeHTTP:
-		return &HTTPOutConf{}
-	case v1.ProxyTypeHTTPS:
-		return &HTTPSOutConf{}
-	case v1.ProxyTypeSTCP:
-		return &STCPOutConf{}
-	case v1.ProxyTypeXTCP:
-		return &XTCPOutConf{}
-	default:
-		return nil
+func getConfFromConfigurer(cfg v1.ProxyConfigurer) any {
+	outBase := model.BaseOutConf{ProxyBaseConfig: *cfg.GetBaseConfig()}
+
+	switch c := cfg.(type) {
+	case *v1.TCPProxyConfig:
+		return &model.TCPOutConf{BaseOutConf: outBase, RemotePort: c.RemotePort}
+	case *v1.UDPProxyConfig:
+		return &model.UDPOutConf{BaseOutConf: outBase, RemotePort: c.RemotePort}
+	case *v1.HTTPProxyConfig:
+		return &model.HTTPOutConf{
+			BaseOutConf:       outBase,
+			DomainConfig:      c.DomainConfig,
+			Locations:         c.Locations,
+			HostHeaderRewrite: c.HostHeaderRewrite,
+		}
+	case *v1.HTTPSProxyConfig:
+		return &model.HTTPSOutConf{
+			BaseOutConf:  outBase,
+			DomainConfig: c.DomainConfig,
+		}
+	case *v1.TCPMuxProxyConfig:
+		return &model.TCPMuxOutConf{
+			BaseOutConf:     outBase,
+			DomainConfig:    c.DomainConfig,
+			Multiplexer:     c.Multiplexer,
+			RouteByHTTPUser: c.RouteByHTTPUser,
+		}
+	case *v1.STCPProxyConfig:
+		return &model.STCPOutConf{BaseOutConf: outBase}
+	case *v1.XTCPProxyConfig:
+		return &model.XTCPOutConf{BaseOutConf: outBase}
 	}
+	return outBase
 }
