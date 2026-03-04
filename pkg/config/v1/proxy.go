@@ -15,16 +15,13 @@
 package v1
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"maps"
 	"reflect"
 	"slices"
 
 	"github.com/fatedier/frp/pkg/config/types"
 	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/util/jsonx"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
@@ -202,35 +199,18 @@ type TypedProxyConfig struct {
 }
 
 func (c *TypedProxyConfig) UnmarshalJSON(b []byte) error {
-	if len(b) == 4 && string(b) == "null" {
-		return errors.New("type is required")
-	}
-
-	typeStruct := struct {
-		Type string `json:"type"`
-	}{}
-	if err := json.Unmarshal(b, &typeStruct); err != nil {
+	configurer, err := DecodeProxyConfigurerJSON(b, DecodeOptions{})
+	if err != nil {
 		return err
 	}
 
-	c.Type = typeStruct.Type
-	configurer := NewProxyConfigurerByType(ProxyType(typeStruct.Type))
-	if configurer == nil {
-		return fmt.Errorf("unknown proxy type: %s", typeStruct.Type)
-	}
-	decoder := json.NewDecoder(bytes.NewBuffer(b))
-	if DisallowUnknownFields {
-		decoder.DisallowUnknownFields()
-	}
-	if err := decoder.Decode(configurer); err != nil {
-		return fmt.Errorf("unmarshal ProxyConfig error: %v", err)
-	}
+	c.Type = configurer.GetBaseConfig().Type
 	c.ProxyConfigurer = configurer
 	return nil
 }
 
 func (c *TypedProxyConfig) MarshalJSON() ([]byte, error) {
-	return json.Marshal(c.ProxyConfigurer)
+	return jsonx.Marshal(c.ProxyConfigurer)
 }
 
 type ProxyConfigurer interface {

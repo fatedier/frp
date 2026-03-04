@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fatedier/frp/client/api"
+	"github.com/fatedier/frp/client/http/model"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 )
 
@@ -32,7 +32,7 @@ func (c *Client) SetAuth(user, pwd string) {
 	c.authPwd = pwd
 }
 
-func (c *Client) GetProxyStatus(ctx context.Context, name string) (*api.ProxyStatusResp, error) {
+func (c *Client) GetProxyStatus(ctx context.Context, name string) (*model.ProxyStatusResp, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", "http://"+c.address+"/api/status", nil)
 	if err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func (c *Client) GetProxyStatus(ctx context.Context, name string) (*api.ProxySta
 	if err != nil {
 		return nil, err
 	}
-	allStatus := make(api.StatusResp)
+	allStatus := make(model.StatusResp)
 	if err = json.Unmarshal([]byte(content), &allStatus); err != nil {
 		return nil, fmt.Errorf("unmarshal http response error: %s", strings.TrimSpace(content))
 	}
@@ -55,7 +55,7 @@ func (c *Client) GetProxyStatus(ctx context.Context, name string) (*api.ProxySta
 	return nil, fmt.Errorf("no proxy status found")
 }
 
-func (c *Client) GetAllProxyStatus(ctx context.Context) (api.StatusResp, error) {
+func (c *Client) GetAllProxyStatus(ctx context.Context) (model.StatusResp, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", "http://"+c.address+"/api/status", nil)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (c *Client) GetAllProxyStatus(ctx context.Context) (api.StatusResp, error) 
 	if err != nil {
 		return nil, err
 	}
-	allStatus := make(api.StatusResp)
+	allStatus := make(model.StatusResp)
 	if err = json.Unmarshal([]byte(content), &allStatus); err != nil {
 		return nil, fmt.Errorf("unmarshal http response error: %s", strings.TrimSpace(content))
 	}

@@ -16,34 +16,9 @@ package v1
 
 import (
 	"maps"
-	"sync"
 
 	"github.com/fatedier/frp/pkg/util/util"
 )
-
-// TODO(fatedier): Migrate typed config decoding to encoding/json/v2 when it is stable for production use.
-// The current encoding/json(v1) path cannot propagate DisallowUnknownFields into custom UnmarshalJSON
-// methods, so we temporarily keep this global strictness flag protected by a mutex.
-//
-// https://github.com/golang/go/issues/41144
-// https://github.com/golang/go/discussions/63397
-var (
-	DisallowUnknownFields   = false
-	DisallowUnknownFieldsMu sync.Mutex
-)
-
-// WithDisallowUnknownFields temporarily overrides typed config JSON strictness.
-// It restores the previous value before returning.
-func WithDisallowUnknownFields(disallow bool, fn func() error) error {
-	DisallowUnknownFieldsMu.Lock()
-	prev := DisallowUnknownFields
-	DisallowUnknownFields = disallow
-	defer func() {
-		DisallowUnknownFields = prev
-		DisallowUnknownFieldsMu.Unlock()
-	}()
-	return fn()
-}
 
 type AuthScope string
 

@@ -1,10 +1,10 @@
 import { http } from './http'
 import type {
   StatusResponse,
-  StoreProxyListResp,
-  StoreProxyConfig,
-  StoreVisitorListResp,
-  StoreVisitorConfig,
+  ProxyListResp,
+  ProxyDefinition,
+  VisitorListResp,
+  VisitorDefinition,
 } from '../types/proxy'
 
 export const getStatus = () => {
@@ -25,21 +25,21 @@ export const reloadConfig = () => {
 
 // Store API - Proxies
 export const listStoreProxies = () => {
-  return http.get<StoreProxyListResp>('/api/store/proxies')
+  return http.get<ProxyListResp>('/api/store/proxies')
 }
 
 export const getStoreProxy = (name: string) => {
-  return http.get<StoreProxyConfig>(
+  return http.get<ProxyDefinition>(
     `/api/store/proxies/${encodeURIComponent(name)}`,
   )
 }
 
-export const createStoreProxy = (config: Record<string, any>) => {
-  return http.post<void>('/api/store/proxies', config)
+export const createStoreProxy = (config: ProxyDefinition) => {
+  return http.post<ProxyDefinition>('/api/store/proxies', config)
 }
 
-export const updateStoreProxy = (name: string, config: Record<string, any>) => {
-  return http.put<void>(
+export const updateStoreProxy = (name: string, config: ProxyDefinition) => {
+  return http.put<ProxyDefinition>(
     `/api/store/proxies/${encodeURIComponent(name)}`,
     config,
   )
@@ -51,24 +51,24 @@ export const deleteStoreProxy = (name: string) => {
 
 // Store API - Visitors
 export const listStoreVisitors = () => {
-  return http.get<StoreVisitorListResp>('/api/store/visitors')
+  return http.get<VisitorListResp>('/api/store/visitors')
 }
 
 export const getStoreVisitor = (name: string) => {
-  return http.get<StoreVisitorConfig>(
+  return http.get<VisitorDefinition>(
     `/api/store/visitors/${encodeURIComponent(name)}`,
   )
 }
 
-export const createStoreVisitor = (config: Record<string, any>) => {
-  return http.post<void>('/api/store/visitors', config)
+export const createStoreVisitor = (config: VisitorDefinition) => {
+  return http.post<VisitorDefinition>('/api/store/visitors', config)
 }
 
 export const updateStoreVisitor = (
   name: string,
-  config: Record<string, any>,
+  config: VisitorDefinition,
 ) => {
-  return http.put<void>(
+  return http.put<VisitorDefinition>(
     `/api/store/visitors/${encodeURIComponent(name)}`,
     config,
   )

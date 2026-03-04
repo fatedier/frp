@@ -15,14 +15,11 @@
 package v1
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"reflect"
 
 	"github.com/samber/lo"
 
+	"github.com/fatedier/frp/pkg/util/jsonx"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
@@ -71,42 +68,16 @@ func (c TypedClientPluginOptions) Clone() TypedClientPluginOptions {
 }
 
 func (c *TypedClientPluginOptions) UnmarshalJSON(b []byte) error {
-	if len(b) == 4 && string(b) == "null" {
-		return nil
-	}
-
-	typeStruct := struct {
-		Type string `json:"type"`
-	}{}
-	if err := json.Unmarshal(b, &typeStruct); err != nil {
+	decoded, err := DecodeClientPluginOptionsJSON(b, DecodeOptions{})
+	if err != nil {
 		return err
 	}
-
-	c.Type = typeStruct.Type
-	if c.Type == "" {
-		return errors.New("plugin type is empty")
-	}
-
-	v, ok := clientPluginOptionsTypeMap[typeStruct.Type]
-	if !ok {
-		return fmt.Errorf("unknown plugin type: %s", typeStruct.Type)
-	}
-	options := reflect.New(v).Interface().(ClientPluginOptions)
-
-	decoder := json.NewDecoder(bytes.NewBuffer(b))
-	if DisallowUnknownFields {
-		decoder.DisallowUnknownFields()
-	}
-
-	if err := decoder.Decode(options); err != nil {
-		return fmt.Errorf("unmarshal ClientPluginOptions error: %v", err)
-	}
-	c.ClientPluginOptions = options
+	*c = decoded
 	return nil
 }
 
 func (c *TypedClientPluginOptions) MarshalJSON() ([]byte, error) {
-	return json.Marshal(c.ClientPluginOptions)
+	return jsonx.Marshal(c.ClientPluginOptions)
 }
 
 type HTTP2HTTPSPluginOptions struct {

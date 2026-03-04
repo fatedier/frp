@@ -20,24 +20,33 @@ export type StatusResponse = Record<string, ProxyStatus[]>
 // STORE API TYPES
 // ========================================
 
-export interface StoreProxyConfig {
+export interface ProxyDefinition {
   name: string
-  type: string
-  config: Record<string, any>
+  type: ProxyType
+  tcp?: Record<string, any>
+  udp?: Record<string, any>
+  http?: Record<string, any>
+  https?: Record<string, any>
+  tcpmux?: Record<string, any>
+  stcp?: Record<string, any>
+  sudp?: Record<string, any>
+  xtcp?: Record<string, any>
 }
 
-export interface StoreVisitorConfig {
+export interface VisitorDefinition {
   name: string
-  type: string
-  config: Record<string, any>
+  type: VisitorType
+  stcp?: Record<string, any>
+  sudp?: Record<string, any>
+  xtcp?: Record<string, any>
 }
 
-export interface StoreProxyListResp {
-  proxies: StoreProxyConfig[]
+export interface ProxyListResp {
+  proxies: ProxyDefinition[]
 }
 
-export interface StoreVisitorListResp {
-  visitors: StoreVisitorConfig[]
+export interface VisitorListResp {
+  visitors: VisitorDefinition[]
 }
 
 // ========================================
@@ -255,29 +264,24 @@ export function createDefaultVisitorForm(): VisitorFormData {
 // CONVERTERS: Form -> Store API
 // ========================================
 
-export function formToStoreProxy(form: ProxyFormData): Record<string, any> {
-  const config: Record<string, any> = {
-    name: form.name,
-    type: form.type,
-  }
+export function formToStoreProxy(form: ProxyFormData): ProxyDefinition {
+  const block: Record<string, any> = {}
 
   // Enabled (nil/true = enabled, false = disabled)
   if (!form.enabled) {
-    config.enabled = false
+    block.enabled = false
   }
 
   // Backend - LocalIP/LocalPort
   if (form.pluginType === '') {
-    // No plugin, use local backend
     if (form.localIP && form.localIP !== '127.0.0.1') {
-      config.localIP = form.localIP
+      block.localIP = form.localIP
     }
     if (form.localPort != null) {
-      config.localPort = form.localPort
+      block.localPort = form.localPort
     }
   } else {
-    // Plugin backend
-    config.plugin = {
+    block.plugin = {
       type: form.pluginType,
       ...form.pluginConfig,
     }
@@ -291,109 +295,102 @@ export function formToStoreProxy(form: ProxyFormData): Record<string, any> {
     (form.bandwidthLimitMode && form.bandwidthLimitMode !== 'client') ||
     form.proxyProtocolVersion
   ) {
-    config.transport = {}
-    if (form.useEncryption) config.transport.useEncryption = true
-    if (form.useCompression) config.transport.useCompression = true
-    if (form.bandwidthLimit)
-      config.transport.bandwidthLimit = form.bandwidthLimit
+    block.transport = {}
+    if (form.useEncryption) block.transport.useEncryption = true
+    if (form.useCompression) block.transport.useCompression = true
+    if (form.bandwidthLimit) block.transport.bandwidthLimit = form.bandwidthLimit
     if (form.bandwidthLimitMode && form.bandwidthLimitMode !== 'client') {
-      config.transport.bandwidthLimitMode = form.bandwidthLimitMode
+      block.transport.bandwidthLimitMode = form.bandwidthLimitMode
     }
     if (form.proxyProtocolVersion) {
-      config.transport.proxyProtocolVersion = form.proxyProtocolVersion
+      block.transport.proxyProtocolVersion = form.proxyProtocolVersion
     }
   }
 
   // Load Balancer
   if (form.loadBalancerGroup) {
-    config.loadBalancer = {
+    block.loadBalancer = {
       group: form.loadBalancerGroup,
     }
     if (form.loadBalancerGroupKey) {
-      config.loadBalancer.groupKey = form.loadBalancerGroupKey
+      block.loadBalancer.groupKey = form.loadBalancerGroupKey
     }
   }
 
   // Health Check
   if (form.healthCheckType) {
-    config.healthCheck = {
+    block.healthCheck = {
       type: form.healthCheckType,
     }
     if (form.healthCheckTimeoutSeconds != null) {
-      config.healthCheck.timeoutSeconds = form.healthCheckTimeoutSeconds
+      block.healthCheck.timeoutSeconds = form.healthCheckTimeoutSeconds
     }
     if (form.healthCheckMaxFailed != null) {
-      config.healthCheck.maxFailed = form.healthCheckMaxFailed
+      block.healthCheck.maxFailed = form.healthCheckMaxFailed
     }
     if (form.healthCheckIntervalSeconds != null) {
-      config.healthCheck.intervalSeconds = form.healthCheckIntervalSeconds
+      block.healthCheck.intervalSeconds = form.healthCheckIntervalSeconds
     }
     if (form.healthCheckPath) {
-      config.healthCheck.path = form.healthCheckPath
+      block.healthCheck.path = form.healthCheckPath
     }
     if (form.healthCheckHTTPHeaders.length > 0) {
-      config.healthCheck.httpHeaders = form.healthCheckHTTPHeaders
+      block.healthCheck.httpHeaders = form.healthCheckHTTPHeaders
     }
   }
 
   // Metadata
   if (form.metadatas.length > 0) {
-    config.metadatas = Object.fromEntries(
+    block.metadatas = Object.fromEntries(
       form.metadatas.map((m) => [m.key, m.value]),
     )
   }
 
   // Annotations
   if (form.annotations.length > 0) {
-    config.annotations = Object.fromEntries(
+    block.annotations = Object.fromEntries(
       form.annotations.map((a) => [a.key, a.value]),
     )
   }
 
   // Type-specific fields
-  if (form.type === 'tcp' || form.type === 'udp') {
-    if (form.remotePort != null) {
-      config.remotePort = form.remotePort
-    }
+  if ((form.type === 'tcp' || form.type === 'udp') && form.remotePort != null) {
+    block.remotePort = form.remotePort
   }
 
   if (form.type === 'http' || form.type === 'https' || form.type === 'tcpmux') {
-    // Domain config
     if (form.customDomains) {
-      config.customDomains = form.customDomains
+      block.customDomains = form.customDomains
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean)
     }
     if (form.subdomain) {
-      config.subdomain = form.subdomain
+      block.subdomain = form.subdomain
     }
   }
 
   if (form.type === 'http') {
-    // HTTP specific
     if (form.locations) {
-      config.locations = form.locations
+      block.locations = form.locations
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean)
     }
-    if (form.httpUser) config.httpUser = form.httpUser
-    if (form.httpPassword) config.httpPassword = form.httpPassword
-    if (form.hostHeaderRewrite)
-      config.hostHeaderRewrite = form.hostHeaderRewrite
-    if (form.routeByHTTPUser) config.routeByHTTPUser = form.routeByHTTPUser
+    if (form.httpUser) block.httpUser = form.httpUser
+    if (form.httpPassword) block.httpPassword = form.httpPassword
+    if (form.hostHeaderRewrite) block.hostHeaderRewrite = form.hostHeaderRewrite
+    if (form.routeByHTTPUser) block.routeByHTTPUser = form.routeByHTTPUser
 
-    // Header operations
     if (form.requestHeaders.length > 0) {
-      config.requestHeaders = {
+      block.requestHeaders = {
         set: Object.fromEntries(
           form.requestHeaders.map((h) => [h.key, h.value]),
         ),
       }
     }
     if (form.responseHeaders.length > 0) {
-      config.responseHeaders = {
+      block.responseHeaders = {
         set: Object.fromEntries(
           form.responseHeaders.map((h) => [h.key, h.value]),
         ),
@@ -402,107 +399,194 @@ export function formToStoreProxy(form: ProxyFormData): Record<string, any> {
   }
 
   if (form.type === 'tcpmux') {
-    // TCPMux specific
-    if (form.httpUser) config.httpUser = form.httpUser
-    if (form.httpPassword) config.httpPassword = form.httpPassword
-    if (form.routeByHTTPUser) config.routeByHTTPUser = form.routeByHTTPUser
+    if (form.httpUser) block.httpUser = form.httpUser
+    if (form.httpPassword) block.httpPassword = form.httpPassword
+    if (form.routeByHTTPUser) block.routeByHTTPUser = form.routeByHTTPUser
     if (form.multiplexer && form.multiplexer !== 'httpconnect') {
-      config.multiplexer = form.multiplexer
+      block.multiplexer = form.multiplexer
     }
   }
 
   if (form.type === 'stcp' || form.type === 'sudp' || form.type === 'xtcp') {
-    // Secure proxy types
-    if (form.secretKey) config.secretKey = form.secretKey
+    if (form.secretKey) block.secretKey = form.secretKey
     if (form.allowUsers) {
-      config.allowUsers = form.allowUsers
+      block.allowUsers = form.allowUsers
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean)
     }
   }
 
-  if (form.type === 'xtcp') {
-    // XTCP NAT traversal
-    if (form.natTraversalDisableAssistedAddrs) {
-      config.natTraversal = {
-        disableAssistedAddrs: true,
-      }
+  if (form.type === 'xtcp' && form.natTraversalDisableAssistedAddrs) {
+    block.natTraversal = {
+      disableAssistedAddrs: true,
     }
   }
 
-  return config
+  return withStoreProxyBlock(
+    {
+      name: form.name,
+      type: form.type,
+    },
+    form.type,
+    block,
+  )
 }
 
-export function formToStoreVisitor(form: VisitorFormData): Record<string, any> {
-  const config: Record<string, any> = {
-    name: form.name,
-    type: form.type,
-  }
+export function formToStoreVisitor(form: VisitorFormData): VisitorDefinition {
+  const block: Record<string, any> = {}
 
-  // Enabled
   if (!form.enabled) {
-    config.enabled = false
+    block.enabled = false
   }
 
-  // Transport
   if (form.useEncryption || form.useCompression) {
-    config.transport = {}
-    if (form.useEncryption) config.transport.useEncryption = true
-    if (form.useCompression) config.transport.useCompression = true
+    block.transport = {}
+    if (form.useEncryption) block.transport.useEncryption = true
+    if (form.useCompression) block.transport.useCompression = true
   }
 
-  // Base fields
-  if (form.secretKey) config.secretKey = form.secretKey
-  if (form.serverUser) config.serverUser = form.serverUser
-  if (form.serverName) config.serverName = form.serverName
+  if (form.secretKey) block.secretKey = form.secretKey
+  if (form.serverUser) block.serverUser = form.serverUser
+  if (form.serverName) block.serverName = form.serverName
   if (form.bindAddr && form.bindAddr !== '127.0.0.1') {
-    config.bindAddr = form.bindAddr
+    block.bindAddr = form.bindAddr
   }
   if (form.bindPort != null) {
-    config.bindPort = form.bindPort
+    block.bindPort = form.bindPort
   }
 
-  // XTCP specific
   if (form.type === 'xtcp') {
     if (form.protocol && form.protocol !== 'quic') {
-      config.protocol = form.protocol
+      block.protocol = form.protocol
     }
     if (form.keepTunnelOpen) {
-      config.keepTunnelOpen = true
+      block.keepTunnelOpen = true
     }
     if (form.maxRetriesAnHour != null) {
-      config.maxRetriesAnHour = form.maxRetriesAnHour
+      block.maxRetriesAnHour = form.maxRetriesAnHour
     }
     if (form.minRetryInterval != null) {
-      config.minRetryInterval = form.minRetryInterval
+      block.minRetryInterval = form.minRetryInterval
     }
     if (form.fallbackTo) {
-      config.fallbackTo = form.fallbackTo
+      block.fallbackTo = form.fallbackTo
     }
     if (form.fallbackTimeoutMs != null) {
-      config.fallbackTimeoutMs = form.fallbackTimeoutMs
+      block.fallbackTimeoutMs = form.fallbackTimeoutMs
     }
     if (form.natTraversalDisableAssistedAddrs) {
-      config.natTraversal = {
+      block.natTraversal = {
         disableAssistedAddrs: true,
       }
     }
   }
 
-  return config
+  return withStoreVisitorBlock(
+    {
+      name: form.name,
+      type: form.type,
+    },
+    form.type,
+    block,
+  )
 }
 
 // ========================================
 // CONVERTERS: Store API -> Form
 // ========================================
 
-export function storeProxyToForm(config: StoreProxyConfig): ProxyFormData {
-  const c = config.config || {}
+function getStoreProxyBlock(config: ProxyDefinition): Record<string, any> {
+  switch (config.type) {
+    case 'tcp':
+      return config.tcp || {}
+    case 'udp':
+      return config.udp || {}
+    case 'http':
+      return config.http || {}
+    case 'https':
+      return config.https || {}
+    case 'tcpmux':
+      return config.tcpmux || {}
+    case 'stcp':
+      return config.stcp || {}
+    case 'sudp':
+      return config.sudp || {}
+    case 'xtcp':
+      return config.xtcp || {}
+  }
+}
+
+function withStoreProxyBlock(
+  payload: ProxyDefinition,
+  type: ProxyType,
+  block: Record<string, any>,
+): ProxyDefinition {
+  switch (type) {
+    case 'tcp':
+      payload.tcp = block
+      break
+    case 'udp':
+      payload.udp = block
+      break
+    case 'http':
+      payload.http = block
+      break
+    case 'https':
+      payload.https = block
+      break
+    case 'tcpmux':
+      payload.tcpmux = block
+      break
+    case 'stcp':
+      payload.stcp = block
+      break
+    case 'sudp':
+      payload.sudp = block
+      break
+    case 'xtcp':
+      payload.xtcp = block
+      break
+  }
+  return payload
+}
+
+function getStoreVisitorBlock(config: VisitorDefinition): Record<string, any> {
+  switch (config.type) {
+    case 'stcp':
+      return config.stcp || {}
+    case 'sudp':
+      return config.sudp || {}
+    case 'xtcp':
+      return config.xtcp || {}
+  }
+}
+
+function withStoreVisitorBlock(
+  payload: VisitorDefinition,
+  type: VisitorType,
+  block: Record<string, any>,
+): VisitorDefinition {
+  switch (type) {
+    case 'stcp':
+      payload.stcp = block
+      break
+    case 'sudp':
+      payload.sudp = block
+      break
+    case 'xtcp':
+      payload.xtcp = block
+      break
+  }
+  return payload
+}
+
+export function storeProxyToForm(config: ProxyDefinition): ProxyFormData {
+  const c = getStoreProxyBlock(config)
   const form = createDefaultProxyForm()
 
   form.name = config.name || ''
-  form.type = (config.type as ProxyType) || 'tcp'
+  form.type = config.type || 'tcp'
   form.enabled = c.enabled !== false
 
   // Backend
@@ -608,13 +692,13 @@ export function storeProxyToForm(config: StoreProxyConfig): ProxyFormData {
 }
 
 export function storeVisitorToForm(
-  config: StoreVisitorConfig,
+  config: VisitorDefinition,
 ): VisitorFormData {
-  const c = config.config || {}
+  const c = getStoreVisitorBlock(config)
   const form = createDefaultVisitorForm()
 
   form.name = config.name || ''
-  form.type = (config.type as VisitorType) || 'stcp'
+  form.type = config.type || 'stcp'
   form.enabled = c.enabled !== false
 
   // Transport

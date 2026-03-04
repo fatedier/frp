@@ -189,6 +189,31 @@ unixPath = "/tmp/uds.sock"
 	require.Error(err)
 }
 
+func TestLoadClientConfigStrictMode_UnknownPluginField(t *testing.T) {
+	require := require.New(t)
+
+	content := `
+serverPort = 7000
+
+[[proxies]]
+name = "test"
+type = "tcp"
+localPort = 6000
+[proxies.plugin]
+type = "http2https"
+localAddr = "127.0.0.1:8080"
+unknownInPlugin = "value"
+`
+
+	clientCfg := v1.ClientConfig{}
+
+	err := LoadConfigure([]byte(content), &clientCfg, false)
+	require.NoError(err)
+
+	err = LoadConfigure([]byte(content), &clientCfg, true)
+	require.ErrorContains(err, "unknownInPlugin")
+}
+
 // TestYAMLMergeInStrictMode tests that YAML merge functionality works
 // even in strict mode by properly handling dot-prefixed fields
 func TestYAMLMergeInStrictMode(t *testing.T) {

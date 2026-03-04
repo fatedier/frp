@@ -16,7 +16,6 @@ package config
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,6 +32,7 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/util/jsonx"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
@@ -129,45 +129,54 @@ func parseYAMLWithDotFieldsHandling(content []byte, target any) error {
 	}
 
 	// Convert to JSON and decode with strict validation
-	jsonBytes, err := json.Marshal(temp)
+	jsonBytes, err := jsonx.Marshal(temp)
 	if err != nil {
 		return err
 	}
-	decoder := json.NewDecoder(bytes.NewReader(jsonBytes))
-	decoder.DisallowUnknownFields()
-	return decoder.Decode(target)
+	return decodeJSONContent(jsonBytes, target, true)
+}
+
+func decodeJSONContent(content []byte, target any, strict bool) error {
+	if clientCfg, ok := target.(*v1.ClientConfig); ok {
+		decoded, err := v1.DecodeClientConfigJSON(content, v1.DecodeOptions{
+			DisallowUnknownFields: strict,
+		})
+		if err != nil {
+			return err
+		}
+		*clientCfg = decoded
+		return nil
+	}
+
+	return jsonx.UnmarshalWithOptions(content, target, jsonx.DecodeOptions{
+		RejectUnknownMembers: strict,
+	})
 }
 
 // LoadConfigure loads configuration from bytes and unmarshal into c.
 // Now it supports json, yaml and toml format.
 func LoadConfigure(b []byte, c any, strict bool) error {
-	return v1.WithDisallowUnknownFields(strict, func() error {
-		var tomlObj any
-		// Try to unmarshal as TOML first; swallow errors from that (assume it's not valid TOML).
-		if err := toml.Unmarshal(b, &tomlObj); err == nil {
-			var err error
-			b, err = json.Marshal(&tomlObj)
-			if err != nil {
-				return err
-			}
+	var tomlObj any
+	// Try to unmarshal as TOML first; swallow errors from that (assume it's not valid TOML).
+	if err := toml.Unmarshal(b, &tomlObj); err == nil {
+		var err error
+		b, err = jsonx.Marshal(&tomlObj)
+		if err != nil {
+			return err
 		}
-		// If the buffer smells like JSON (first non-whitespace character is '{'), unmarshal as JSON directly.
-		if yaml.IsJSONBuffer(b) {
-			decoder := json.NewDecoder(bytes.NewBuffer(b))
-			if strict {
-				decoder.DisallowUnknownFields()
-			}
-			return decoder.Decode(c)
-		}
+	}
+	// If the buffer smells like JSON (first non-whitespace character is '{'), unmarshal as JSON directly.
+	if yaml.IsJSONBuffer(b) {
+		return decodeJSONContent(b, c, strict)
+	}
 
-		// Handle YAML content
-		if strict {
-			// In strict mode, always use our custom handler to support YAML merge
-			return parseYAMLWithDotFieldsHandling(b, c)
-		}
-		// Non-strict mode, parse normally
-		return yaml.Unmarshal(b, c)
-	})
+	// Handle YAML content
+	if strict {
+		// In strict mode, always use our custom handler to support YAML merge
+		return parseYAMLWithDotFieldsHandling(b, c)
+	}
+	// Non-strict mode, parse normally
+	return yaml.Unmarshal(b, c)
 }
 
 func NewProxyConfigurerFromMsg(m *msg.NewProxy, serverCfg *v1.ServerConfig) (v1.ProxyConfigurer, error) {

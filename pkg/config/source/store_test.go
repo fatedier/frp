@@ -15,7 +15,6 @@
 package source
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,26 +22,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/util/jsonx"
 )
-
-func setDisallowUnknownFieldsForStoreTest(t *testing.T, value bool) func() {
-	t.Helper()
-	v1.DisallowUnknownFieldsMu.Lock()
-	prev := v1.DisallowUnknownFields
-	v1.DisallowUnknownFields = value
-	v1.DisallowUnknownFieldsMu.Unlock()
-	return func() {
-		v1.DisallowUnknownFieldsMu.Lock()
-		v1.DisallowUnknownFields = prev
-		v1.DisallowUnknownFieldsMu.Unlock()
-	}
-}
-
-func getDisallowUnknownFieldsForStoreTest() bool {
-	v1.DisallowUnknownFieldsMu.Lock()
-	defer v1.DisallowUnknownFieldsMu.Unlock()
-	return v1.DisallowUnknownFields
-}
 
 func TestStoreSource_AddProxyAndVisitor_DoesNotApplyRuntimeDefaults(t *testing.T) {
 	require := require.New(t)
@@ -99,7 +80,7 @@ func TestStoreSource_LoadFromFile_DoesNotApplyRuntimeDefaults(t *testing.T) {
 		Proxies:  []v1.TypedProxyConfig{{ProxyConfigurer: proxyCfg}},
 		Visitors: []v1.TypedVisitorConfig{{VisitorConfigurer: visitorCfg}},
 	}
-	data, err := json.Marshal(stored)
+	data, err := jsonx.Marshal(stored)
 	require.NoError(err)
 	err = os.WriteFile(path, data, 0o600)
 	require.NoError(err)
@@ -117,11 +98,8 @@ func TestStoreSource_LoadFromFile_DoesNotApplyRuntimeDefaults(t *testing.T) {
 	require.Empty(gotVisitor.(*v1.XTCPVisitorConfig).Protocol)
 }
 
-func TestStoreSource_LoadFromFile_UnknownFieldsNotAffectedByAmbientStrictness(t *testing.T) {
+func TestStoreSource_LoadFromFile_UnknownFieldsAreIgnored(t *testing.T) {
 	require := require.New(t)
-
-	restore := setDisallowUnknownFieldsForStoreTest(t, true)
-	t.Cleanup(restore)
 
 	path := filepath.Join(t.TempDir(), "store.json")
 	raw := []byte(`{
@@ -140,5 +118,4 @@ func TestStoreSource_LoadFromFile_UnknownFieldsNotAffectedByAmbientStrictness(t 
 
 	require.NotNil(storeSource.GetProxy("proxy1"))
 	require.NotNil(storeSource.GetVisitor("visitor1"))
-	require.True(getDisallowUnknownFieldsForStoreTest())
 }

@@ -15,11 +15,9 @@
 package v1
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"reflect"
+
+	"github.com/fatedier/frp/pkg/util/jsonx"
 )
 
 const (
@@ -49,42 +47,16 @@ func (c TypedVisitorPluginOptions) Clone() TypedVisitorPluginOptions {
 }
 
 func (c *TypedVisitorPluginOptions) UnmarshalJSON(b []byte) error {
-	if len(b) == 4 && string(b) == "null" {
-		return nil
-	}
-
-	typeStruct := struct {
-		Type string `json:"type"`
-	}{}
-	if err := json.Unmarshal(b, &typeStruct); err != nil {
+	decoded, err := DecodeVisitorPluginOptionsJSON(b, DecodeOptions{})
+	if err != nil {
 		return err
 	}
-
-	c.Type = typeStruct.Type
-	if c.Type == "" {
-		return errors.New("visitor plugin type is empty")
-	}
-
-	v, ok := visitorPluginOptionsTypeMap[typeStruct.Type]
-	if !ok {
-		return fmt.Errorf("unknown visitor plugin type: %s", typeStruct.Type)
-	}
-	options := reflect.New(v).Interface().(VisitorPluginOptions)
-
-	decoder := json.NewDecoder(bytes.NewBuffer(b))
-	if DisallowUnknownFields {
-		decoder.DisallowUnknownFields()
-	}
-
-	if err := decoder.Decode(options); err != nil {
-		return fmt.Errorf("unmarshal VisitorPluginOptions error: %v", err)
-	}
-	c.VisitorPluginOptions = options
+	*c = decoded
 	return nil
 }
 
 func (c *TypedVisitorPluginOptions) MarshalJSON() ([]byte, error) {
-	return json.Marshal(c.VisitorPluginOptions)
+	return jsonx.Marshal(c.VisitorPluginOptions)
 }
 
 type VirtualNetVisitorPluginOptions struct {
