@@ -495,3 +495,109 @@ serverPort: 7000
 	require.Equal("127.0.0.1", clientCfg.ServerAddr)
 	require.Equal(7000, clientCfg.ServerPort)
 }
+
+func TestTOMLSyntaxErrorWithLineNumber(t *testing.T) {
+	require := require.New(t)
+
+	// TOML with syntax error (unclosed table array header)
+	content := `serverAddr = "127.0.0.1"
+serverPort = 7000
+
+[[proxies]
+name = "test"
+`
+
+	clientCfg := v1.ClientConfig{}
+	err := LoadConfigure([]byte(content), &clientCfg, false, "toml")
+	require.Error(err)
+	require.Contains(err.Error(), "line")
+	require.Contains(err.Error(), "toml")
+}
+
+func TestTOMLTypeMismatchErrorWithFieldInfo(t *testing.T) {
+	require := require.New(t)
+
+	// TOML with wrong type: proxies should be a table array, not a string
+	content := `serverAddr = "127.0.0.1"
+serverPort = 7000
+proxies = "this should be a table array"
+`
+
+	clientCfg := v1.ClientConfig{}
+	err := LoadConfigure([]byte(content), &clientCfg, false, "toml")
+	require.Error(err)
+	// The error should contain field info
+	errMsg := err.Error()
+	require.Contains(errMsg, "proxies")
+}
+
+func TestFindFieldLineInContent(t *testing.T) {
+	content := []byte(`serverAddr = "127.0.0.1"
+serverPort = 7000
+
+[[proxies]]
+name = "test"
+type = "tcp"
+remotePort = 6000
+`)
+
+	tests := []struct {
+		fieldPath string
+		wantLine  int
+	}{
+		{"serverAddr", 1},
+		{"serverPort", 2},
+		{"name", 5},
+		{"type", 6},
+		{"remotePort", 7},
+		{"nonexistent", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.fieldPath, func(t *testing.T) {
+			got := findFieldLineInContent(content, tt.fieldPath)
+			require.Equal(t, tt.wantLine, got)
+		})
+	}
+}
+
+func TestFormatDetection(t *testing.T) {
+	tests := []struct {
+		path   string
+		format string
+	}{
+		{"config.toml", "toml"},
+		{"config.TOML", "toml"},
+		{"config.yaml", "yaml"},
+		{"config.yml", "yaml"},
+		{"config.json", "json"},
+		{"config.ini", ""},
+		{"config", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			require.Equal(t, tt.format, detectFormatFromPath(tt.path))
+		})
+	}
+}
+
+func TestValidTOMLStillWorks(t *testing.T) {
+	require := require.New(t)
+
+	// Valid TOML with format hint should work fine
+	content := `serverAddr = "127.0.0.1"
+serverPort = 7000
+
+[[proxies]]
+name = "test"
+type = "tcp"
+remotePort = 6000
+`
+	clientCfg := v1.ClientConfig{}
+	err := LoadConfigure([]byte(content), &clientCfg, false, "toml")
+	require.NoError(err)
+	require.Equal("127.0.0.1", clientCfg.ServerAddr)
+	require.Equal(7000, clientCfg.ServerPort)
+	require.Len(clientCfg.Proxies, 1)
+}
