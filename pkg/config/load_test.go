@@ -496,7 +496,7 @@ serverPort: 7000
 	require.Equal(7000, clientCfg.ServerPort)
 }
 
-func TestTOMLSyntaxErrorWithLineNumber(t *testing.T) {
+func TestTOMLSyntaxErrorWithPosition(t *testing.T) {
 	require := require.New(t)
 
 	// TOML with syntax error (unclosed table array header)
@@ -510,8 +510,9 @@ name = "test"
 	clientCfg := v1.ClientConfig{}
 	err := LoadConfigure([]byte(content), &clientCfg, false, "toml")
 	require.Error(err)
-	require.Contains(err.Error(), "line")
 	require.Contains(err.Error(), "toml")
+	require.Contains(err.Error(), "line")
+	require.Contains(err.Error(), "column")
 }
 
 func TestTOMLTypeMismatchErrorWithFieldInfo(t *testing.T) {
@@ -529,6 +530,7 @@ proxies = "this should be a table array"
 	// The error should contain field info
 	errMsg := err.Error()
 	require.Contains(errMsg, "proxies")
+	require.NotContains(errMsg, "line")
 }
 
 func TestFindFieldLineInContent(t *testing.T) {
