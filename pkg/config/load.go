@@ -180,24 +180,26 @@ func LoadConfigure(b []byte, c any, strict bool, formats ...string) error {
 	}
 
 	originalBytes := b
+	parsedFromTOML := false
 
 	var tomlObj any
 	tomlErr := toml.Unmarshal(b, &tomlObj)
 	if tomlErr == nil {
+		parsedFromTOML = true
 		var err error
 		b, err = jsonx.Marshal(&tomlObj)
 		if err != nil {
 			return err
 		}
 	} else if format == "toml" {
-		// File is known to be TOML but has syntax errors — report with line/column info.
+		// File is known to be TOML but has syntax errors.
 		return formatTOMLError(tomlErr)
 	}
 
 	// If the buffer smells like JSON (first non-whitespace character is '{'), unmarshal as JSON directly.
 	if yaml.IsJSONBuffer(b) {
 		if err := decodeJSONContent(b, c, strict); err != nil {
-			return enhanceDecodeError(err, originalBytes)
+			return enhanceDecodeError(err, originalBytes, !parsedFromTOML)
 		}
 		return nil
 	}
@@ -206,7 +208,7 @@ func LoadConfigure(b []byte, c any, strict bool, formats ...string) error {
 	if strict {
 		// In strict mode, always use our custom handler to support YAML merge
 		if err := parseYAMLWithDotFieldsHandling(b, c); err != nil {
-			return enhanceDecodeError(err, originalBytes)
+			return enhanceDecodeError(err, originalBytes, !parsedFromTOML)
 		}
 		return nil
 	}
@@ -223,18 +225,20 @@ func formatTOMLError(err error) error {
 	}
 	var strictErr *toml.StrictMissingError
 	if errors.As(err, &strictErr) {
-		return fmt.Errorf("toml: %s", strictErr.Error())
+		return strictErr
 	}
 	return err
 }
 
 // enhanceDecodeError tries to add field path and line number information to JSON/YAML decode errors.
-func enhanceDecodeError(err error, originalContent []byte) error {
+func enhanceDecodeError(err error, originalContent []byte, includeLine bool) error {
 	var typeErr *json.UnmarshalTypeError
 	if errors.As(err, &typeErr) && typeErr.Field != "" {
-		line := findFieldLineInContent(originalContent, typeErr.Field)
-		if line > 0 {
-			return fmt.Errorf("line %d: field \"%s\": cannot unmarshal %s into %s", line, typeErr.Field, typeErr.Value, typeErr.Type)
+		if includeLine {
+			line := findFieldLineInContent(originalContent, typeErr.Field)
+			if line > 0 {
+				return fmt.Errorf("line %d: field \"%s\": cannot unmarshal %s into %s", line, typeErr.Field, typeErr.Value, typeErr.Type)
+			}
 		}
 		return fmt.Errorf("field \"%s\": cannot unmarshal %s into %s", typeErr.Field, typeErr.Value, typeErr.Type)
 	}
@@ -244,6 +248,10 @@ func enhanceDecodeError(err error, originalContent []byte) error {
 // findFieldLineInContent searches the original config content for a field name
 // and returns the 1-indexed line number where it appears, or 0 if not found.
 func findFieldLineInContent(content []byte, fieldPath string) int {
+	if fieldPath == "" {
+		return 0
+	}
+
 	// Use the last component of the field path (e.g. "proxies" from "proxies" or
 	// "protocol" from "transport.protocol").
 	parts := strings.Split(fieldPath, ".")
