@@ -100,8 +100,9 @@ func (tg *TCPGroup) Listen(proxyName string, group string, groupKey string, addr
 		if err != nil {
 			return
 		}
-		tcpLn, errRet := net.Listen("tcp", net.JoinHostPort(addr, strconv.Itoa(port)))
+		tcpLn, errRet := net.Listen("tcp", net.JoinHostPort(addr, strconv.Itoa(realPort)))
 		if errRet != nil {
+			tg.ctl.portManager.Release(realPort)
 			err = errRet
 			return
 		}
