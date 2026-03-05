@@ -129,7 +129,7 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 				return
 			}
 			if errRet := errors.PanicToError(func() {
-				xl.Tracef("get udp package from workConn: %s", udpMsg.Content)
+				xl.Tracef("get udp package from workConn, len: %d", len(udpMsg.Content))
 				readCh <- &udpMsg
 			}); errRet != nil {
 				xl.Infof("reader goroutine for udp work connection closed: %v", errRet)
@@ -145,7 +145,7 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 		for rawMsg := range sendCh {
 			switch m := rawMsg.(type) {
 			case *msg.UDPPacket:
-				xl.Tracef("send udp package to workConn: %s", m.Content)
+				xl.Tracef("send udp package to workConn, len: %d", len(m.Content))
 			case *msg.Ping:
 				xl.Tracef("send ping message to udp workConn")
 			}
