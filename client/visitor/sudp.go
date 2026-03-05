@@ -147,7 +147,7 @@ func (sv *SUDPVisitor) worker(workConn net.Conn, firstPacket *msg.UDPPacket) {
 			case *msg.UDPPacket:
 				if errRet := errors.PanicToError(func() {
 					sv.readCh <- m
-					xl.Tracef("frpc visitor get udp packet from workConn: %s", m.Content)
+					xl.Tracef("frpc visitor get udp packet from workConn, len: %d", len(m.Content))
 				}); errRet != nil {
 					xl.Infof("reader goroutine for udp work connection closed")
 					return
@@ -169,7 +169,7 @@ func (sv *SUDPVisitor) worker(workConn net.Conn, firstPacket *msg.UDPPacket) {
 				xl.Warnf("sender goroutine for udp work connection closed: %v", errRet)
 				return
 			}
-			xl.Tracef("send udp package to workConn: %s", firstPacket.Content)
+			xl.Tracef("send udp package to workConn, len: %d", len(firstPacket.Content))
 		}
 
 		for {
@@ -184,7 +184,7 @@ func (sv *SUDPVisitor) worker(workConn net.Conn, firstPacket *msg.UDPPacket) {
 					xl.Warnf("sender goroutine for udp work connection closed: %v", errRet)
 					return
 				}
-				xl.Tracef("send udp package to workConn: %s", udpMsg.Content)
+				xl.Tracef("send udp package to workConn, len: %d", len(udpMsg.Content))
 			case <-closeCh:
 				return
 			}
