@@ -184,7 +184,7 @@ type Pong struct {
 }
 
 type UDPPacket struct {
-	Content    string       `json:"c,omitempty"`
+	Content    []byte       `json:"c,omitempty"`
 	LocalAddr  *net.UDPAddr `json:"l,omitempty"`
 	RemoteAddr *net.UDPAddr `json:"r,omitempty"`
 }
