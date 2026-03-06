@@ -39,6 +39,31 @@ func TestBandwidthQuantity(t *testing.T) {
 	require.Equal(`{"b":"1KB","int":5}`, string(buf))
 }
 
+func TestBandwidthQuantity_MB(t *testing.T) {
+	require := require.New(t)
+
+	var w Wrap
+	err := json.Unmarshal([]byte(`{"b":"2MB","int":1}`), &w)
+	require.NoError(err)
+	require.EqualValues(2*MB, w.B.Bytes())
+
+	buf, err := json.Marshal(&w)
+	require.NoError(err)
+	require.Equal(`{"b":"2MB","int":1}`, string(buf))
+}
+
+func TestBandwidthQuantity_InvalidUnit(t *testing.T) {
+	var w Wrap
+	err := json.Unmarshal([]byte(`{"b":"1GB","int":1}`), &w)
+	require.Error(t, err)
+}
+
+func TestBandwidthQuantity_InvalidNumber(t *testing.T) {
+	var w Wrap
+	err := json.Unmarshal([]byte(`{"b":"abcKB","int":1}`), &w)
+	require.Error(t, err)
+}
+
 func TestPortsRangeSlice2String(t *testing.T) {
 	require := require.New(t)
 
