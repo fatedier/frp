@@ -196,6 +196,27 @@ func TestAggregator_VisitorMerge(t *testing.T) {
 	require.Len(visitors, 2)
 }
 
+func TestAggregator_Load_ReturnsSortedByName(t *testing.T) {
+	require := require.New(t)
+
+	agg := newTestAggregator(t, nil)
+	err := agg.ConfigSource().ReplaceAll(
+		[]v1.ProxyConfigurer{mockProxy("charlie"), mockProxy("alice"), mockProxy("bob")},
+		[]v1.VisitorConfigurer{mockVisitor("zulu"), mockVisitor("alpha")},
+	)
+	require.NoError(err)
+
+	proxies, visitors, err := agg.Load()
+	require.NoError(err)
+	require.Len(proxies, 3)
+	require.Equal("alice", proxies[0].GetBaseConfig().Name)
+	require.Equal("bob", proxies[1].GetBaseConfig().Name)
+	require.Equal("charlie", proxies[2].GetBaseConfig().Name)
+	require.Len(visitors, 2)
+	require.Equal("alpha", visitors[0].GetBaseConfig().Name)
+	require.Equal("zulu", visitors[1].GetBaseConfig().Name)
+}
+
 func TestAggregator_Load_ReturnsDefensiveCopies(t *testing.T) {
 	require := require.New(t)
 

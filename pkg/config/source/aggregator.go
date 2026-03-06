@@ -15,9 +15,11 @@
 package source
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"sync"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
@@ -97,21 +99,11 @@ func (a *Aggregator) mapsToSortedSlices(
 	proxyMap map[string]v1.ProxyConfigurer,
 	visitorMap map[string]v1.VisitorConfigurer,
 ) ([]v1.ProxyConfigurer, []v1.VisitorConfigurer) {
-	proxies := make([]v1.ProxyConfigurer, 0, len(proxyMap))
-	for _, p := range proxyMap {
-		proxies = append(proxies, p)
-	}
-	sort.Slice(proxies, func(i, j int) bool {
-		return proxies[i].GetBaseConfig().Name < proxies[j].GetBaseConfig().Name
+	proxies := slices.SortedFunc(maps.Values(proxyMap), func(x, y v1.ProxyConfigurer) int {
+		return cmp.Compare(x.GetBaseConfig().Name, y.GetBaseConfig().Name)
 	})
-
-	visitors := make([]v1.VisitorConfigurer, 0, len(visitorMap))
-	for _, v := range visitorMap {
-		visitors = append(visitors, v)
-	}
-	sort.Slice(visitors, func(i, j int) bool {
-		return visitors[i].GetBaseConfig().Name < visitors[j].GetBaseConfig().Name
+	visitors := slices.SortedFunc(maps.Values(visitorMap), func(x, y v1.VisitorConfigurer) int {
+		return cmp.Compare(x.GetBaseConfig().Name, y.GetBaseConfig().Name)
 	})
-
 	return proxies, visitors
 }
