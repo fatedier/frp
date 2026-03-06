@@ -211,6 +211,7 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		muxConnRWCloser, err = libio.WithEncryption(muxConnRWCloser, []byte(sv.cfg.SecretKey))
 		if err != nil {
 			xl.Errorf("create encryption stream error: %v", err)
+			tunnelConn.Close()
 			tunnelErr = err
 			return
 		}
@@ -373,6 +374,7 @@ func (ks *KCPTunnelSession) Init(listenConn *net.UDPConn, raddr *net.UDPAddr) er
 	}
 	remote, err := netpkg.NewKCPConnFromUDP(lConn, true, raddr.String())
 	if err != nil {
+		lConn.Close()
 		return fmt.Errorf("create kcp connection from udp connection error: %v", err)
 	}
 

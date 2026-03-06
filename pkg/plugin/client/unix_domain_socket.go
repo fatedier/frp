@@ -54,10 +54,13 @@ func (uds *UnixDomainSocketPlugin) Handle(ctx context.Context, connInfo *Connect
 	localConn, err := net.DialUnix("unix", nil, uds.UnixAddr)
 	if err != nil {
 		xl.Warnf("dial to uds %s error: %v", uds.UnixAddr, err)
+		connInfo.Conn.Close()
 		return
 	}
 	if connInfo.ProxyProtocolHeader != nil {
 		if _, err := connInfo.ProxyProtocolHeader.WriteTo(localConn); err != nil {
+			localConn.Close()
+			connInfo.Conn.Close()
 			return
 		}
 	}
