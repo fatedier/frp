@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"os"
 	"time"
@@ -85,7 +86,9 @@ func newCertPool(caPath string) (*x509.CertPool, error) {
 		return nil, err
 	}
 
-	pool.AppendCertsFromPEM(caCrt)
+	if !pool.AppendCertsFromPEM(caCrt) {
+		return nil, fmt.Errorf("failed to parse CA certificate from file %q: no valid PEM certificates found", caPath)
+	}
 
 	return pool, nil
 }
