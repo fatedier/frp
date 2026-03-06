@@ -217,6 +217,7 @@ func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
 	}
 	err = msg.WriteMsg(visitorConn, newVisitorConnMsg)
 	if err != nil {
+		visitorConn.Close()
 		return nil, fmt.Errorf("frpc send newVisitorConnMsg to frps error: %v", err)
 	}
 
@@ -224,11 +225,13 @@ func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
 	_ = visitorConn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	err = msg.ReadMsgInto(visitorConn, &newVisitorConnRespMsg)
 	if err != nil {
+		visitorConn.Close()
 		return nil, fmt.Errorf("frpc read newVisitorConnRespMsg error: %v", err)
 	}
 	_ = visitorConn.SetReadDeadline(time.Time{})
 
 	if newVisitorConnRespMsg.Error != "" {
+		visitorConn.Close()
 		return nil, fmt.Errorf("start new visitor connection error: %s", newVisitorConnRespMsg.Error)
 	}
 
@@ -238,6 +241,7 @@ func (sv *SUDPVisitor) getNewVisitorConn() (net.Conn, error) {
 		remote, err = libio.WithEncryption(remote, []byte(sv.cfg.SecretKey))
 		if err != nil {
 			xl.Errorf("create encryption stream error: %v", err)
+			visitorConn.Close()
 			return nil, err
 		}
 	}
