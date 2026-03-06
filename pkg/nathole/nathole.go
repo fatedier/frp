@@ -298,11 +298,13 @@ func waitDetectMessage(
 		n, raddr, err := conn.ReadFromUDP(buf)
 		_ = conn.SetReadDeadline(time.Time{})
 		if err != nil {
+			pool.PutBuf(buf)
 			return nil, err
 		}
 		xl.Debugf("get udp message local %s, from %s", conn.LocalAddr(), raddr)
 		var m msg.NatHoleSid
 		if err := DecodeMessageInto(buf[:n], key, &m); err != nil {
+			pool.PutBuf(buf)
 			xl.Warnf("decode sid message error: %v", err)
 			continue
 		}

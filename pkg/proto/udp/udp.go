@@ -85,6 +85,7 @@ func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UDPPacket, sendCh chan<-
 		}()
 
 		buf := pool.GetBuf(bufSize)
+		defer pool.PutBuf(buf)
 		for {
 			_ = udpConn.SetReadDeadline(time.Now().Add(30 * time.Second))
 			n, _, err := udpConn.ReadFromUDP(buf)
