@@ -72,21 +72,19 @@ func (pxy *TCPMuxProxy) httpConnectListen(
 }
 
 func (pxy *TCPMuxProxy) httpConnectRun() (remoteAddr string, err error) {
-	addrs := make([]string, 0)
-	for _, domain := range pxy.cfg.CustomDomains {
-		if domain == "" {
-			continue
-		}
-
-		addrs, err = pxy.httpConnectListen(domain, pxy.cfg.RouteByHTTPUser, pxy.cfg.HTTPUser, pxy.cfg.HTTPPassword, addrs)
-		if err != nil {
-			return "", err
+	domains := make([]string, 0, len(pxy.cfg.CustomDomains)+1)
+	for _, d := range pxy.cfg.CustomDomains {
+		if d != "" {
+			domains = append(domains, d)
 		}
 	}
-
 	if pxy.cfg.SubDomain != "" {
-		addrs, err = pxy.httpConnectListen(pxy.cfg.SubDomain+"."+pxy.serverCfg.SubDomainHost,
-			pxy.cfg.RouteByHTTPUser, pxy.cfg.HTTPUser, pxy.cfg.HTTPPassword, addrs)
+		domains = append(domains, pxy.cfg.SubDomain+"."+pxy.serverCfg.SubDomainHost)
+	}
+
+	addrs := make([]string, 0)
+	for _, domain := range domains {
+		addrs, err = pxy.httpConnectListen(domain, pxy.cfg.RouteByHTTPUser, pxy.cfg.HTTPUser, pxy.cfg.HTTPPassword, addrs)
 		if err != nil {
 			return "", err
 		}
