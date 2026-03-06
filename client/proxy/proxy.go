@@ -16,6 +16,7 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"reflect"
@@ -120,6 +121,29 @@ func (pxy *BaseProxy) Close() {
 	if pxy.proxyPlugin != nil {
 		pxy.proxyPlugin.Close()
 	}
+}
+
+// wrapWorkConn applies rate limiting, encryption, and compression
+// to a work connection based on the proxy's transport configuration.
+func (pxy *BaseProxy) wrapWorkConn(conn net.Conn) (net.Conn, error) {
+	var rwc io.ReadWriteCloser = conn
+	if pxy.limiter != nil {
+		rwc = libio.WrapReadWriteCloser(limit.NewReader(conn, pxy.limiter), limit.NewWriter(conn, pxy.limiter), func() error {
+			return conn.Close()
+		})
+	}
+	if pxy.baseCfg.Transport.UseEncryption {
+		var err error
+		rwc, err = libio.WithEncryption(rwc, pxy.encryptionKey)
+		if err != nil {
+			conn.Close()
+			return nil, fmt.Errorf("create encryption stream error: %w", err)
+		}
+	}
+	if pxy.baseCfg.Transport.UseCompression {
+		rwc = libio.WithCompression(rwc)
+	}
+	return netpkg.WrapReadWriteCloserToConn(rwc, conn), nil
 }
 
 func (pxy *BaseProxy) SetInWorkConnCallback(cb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool) {

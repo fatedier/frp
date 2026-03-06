@@ -17,20 +17,16 @@
 package proxy
 
 import (
-	"io"
 	"net"
 	"reflect"
 	"strconv"
 	"time"
 
 	"github.com/fatedier/golib/errors"
-	libio "github.com/fatedier/golib/io"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/udp"
-	"github.com/fatedier/frp/pkg/util/limit"
-	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
 func init() {
@@ -94,25 +90,11 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 	// close resources related with old workConn
 	pxy.Close()
 
-	var rwc io.ReadWriteCloser = conn
 	var err error
-	if pxy.limiter != nil {
-		rwc = libio.WrapReadWriteCloser(limit.NewReader(conn, pxy.limiter), limit.NewWriter(conn, pxy.limiter), func() error {
-			return conn.Close()
-		})
+	if conn, err = pxy.wrapWorkConn(conn); err != nil {
+		xl.Errorf("wrap work conn error: %v", err)
+		return
 	}
-	if pxy.cfg.Transport.UseEncryption {
-		rwc, err = libio.WithEncryption(rwc, pxy.encryptionKey)
-		if err != nil {
-			conn.Close()
-			xl.Errorf("create encryption stream error: %v", err)
-			return
-		}
-	}
-	if pxy.cfg.Transport.UseCompression {
-		rwc = libio.WithCompression(rwc)
-	}
-	conn = netpkg.WrapReadWriteCloserToConn(rwc, conn)
 
 	pxy.mu.Lock()
 	pxy.workConn = conn
