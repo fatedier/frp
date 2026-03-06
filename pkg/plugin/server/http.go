@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"slices"
 	"strings"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
@@ -64,12 +65,7 @@ func (p *httpPlugin) Name() string {
 }
 
 func (p *httpPlugin) IsSupport(op string) bool {
-	for _, v := range p.options.Ops {
-		if v == op {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(p.options.Ops, op)
 }
 
 func (p *httpPlugin) Handle(ctx context.Context, op string, content any) (*Response, any, error) {

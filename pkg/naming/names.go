@@ -16,9 +16,8 @@ func StripUserPrefix(user, name string) string {
 	if user == "" {
 		return name
 	}
-	prefix := user + "."
-	if strings.HasPrefix(name, prefix) {
-		return strings.TrimPrefix(name, prefix)
+	if trimmed, ok := strings.CutPrefix(name, user+"."); ok {
+		return trimmed
 	}
 	return name
 }
