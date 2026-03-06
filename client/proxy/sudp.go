@@ -28,6 +28,7 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/udp"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
 func init() {
@@ -79,13 +80,13 @@ func (pxy *SUDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 	xl := pxy.xl
 	xl.Infof("incoming a new work connection for sudp proxy, %s", conn.RemoteAddr().String())
 
-	var err error
-	if conn, err = pxy.wrapWorkConn(conn); err != nil {
-		xl.Errorf("wrap work conn error: %v", err)
+	remote, _, err := pxy.wrapWorkConn(conn, pxy.encryptionKey)
+	if err != nil {
+		xl.Errorf("wrap work connection: %v", err)
 		return
 	}
 
-	workConn := conn
+	workConn := netpkg.WrapReadWriteCloserToConn(remote, conn)
 	readCh := make(chan *msg.UDPPacket, 1024)
 	sendCh := make(chan msg.Message, 1024)
 	isClose := false

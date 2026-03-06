@@ -27,6 +27,7 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/udp"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
 func init() {
@@ -90,14 +91,14 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 	// close resources related with old workConn
 	pxy.Close()
 
-	var err error
-	if conn, err = pxy.wrapWorkConn(conn); err != nil {
-		xl.Errorf("wrap work conn error: %v", err)
+	remote, _, err := pxy.wrapWorkConn(conn, pxy.encryptionKey)
+	if err != nil {
+		xl.Errorf("wrap work connection: %v", err)
 		return
 	}
 
 	pxy.mu.Lock()
-	pxy.workConn = conn
+	pxy.workConn = netpkg.WrapReadWriteCloserToConn(remote, conn)
 	pxy.readCh = make(chan *msg.UDPPacket, 1024)
 	pxy.sendCh = make(chan msg.Message, 1024)
 	pxy.closed = false
