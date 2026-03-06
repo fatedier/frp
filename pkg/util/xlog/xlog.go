@@ -63,11 +63,12 @@ func (l *Logger) AddPrefix(prefix LogPrefix) *Logger {
 	if prefix.Priority <= 0 {
 		prefix.Priority = 10
 	}
-	for _, p := range l.prefixes {
+	for i, p := range l.prefixes {
 		if p.Name == prefix.Name {
 			found = true
-			p.Value = prefix.Value
-			p.Priority = prefix.Priority
+			l.prefixes[i].Value = prefix.Value
+			l.prefixes[i].Priority = prefix.Priority
+			break
 		}
 	}
 	if !found {
