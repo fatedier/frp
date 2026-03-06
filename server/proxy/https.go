@@ -53,23 +53,18 @@ func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
 			pxy.Close()
 		}
 	}()
-	addrs := make([]string, 0)
-	for _, domain := range pxy.cfg.CustomDomains {
-		if domain == "" {
-			continue
+	domains := make([]string, 0, len(pxy.cfg.CustomDomains)+1)
+	for _, d := range pxy.cfg.CustomDomains {
+		if d != "" {
+			domains = append(domains, d)
 		}
-
-		l, err := pxy.listenForDomain(routeConfig, domain)
-		if err != nil {
-			return "", err
-		}
-		pxy.listeners = append(pxy.listeners, l)
-		addrs = append(addrs, util.CanonicalAddr(domain, pxy.serverCfg.VhostHTTPSPort))
-		xl.Infof("https proxy listen for host [%s] group [%s]", domain, pxy.cfg.LoadBalancer.Group)
+	}
+	if pxy.cfg.SubDomain != "" {
+		domains = append(domains, pxy.cfg.SubDomain+"."+pxy.serverCfg.SubDomainHost)
 	}
 
-	if pxy.cfg.SubDomain != "" {
-		domain := pxy.cfg.SubDomain + "." + pxy.serverCfg.SubDomainHost
+	addrs := make([]string, 0)
+	for _, domain := range domains {
 		l, err := pxy.listenForDomain(routeConfig, domain)
 		if err != nil {
 			return "", err
