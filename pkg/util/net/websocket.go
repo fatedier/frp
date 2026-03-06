@@ -26,6 +26,7 @@ type WebsocketListener struct {
 // ln: tcp listener for websocket connections
 func NewWebsocketListener(ln net.Listener) (wl *WebsocketListener) {
 	wl = &WebsocketListener{
+		ln:       ln,
 		acceptCh: make(chan net.Conn),
 	}
 
