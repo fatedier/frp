@@ -209,6 +209,7 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	if connInfo.ProxyProtocolHeader != nil {
 		if _, err := connInfo.ProxyProtocolHeader.WriteTo(localConn); err != nil {
 			workConn.Close()
+			localConn.Close()
 			xl.Errorf("write proxy protocol header to local conn error: %v", err)
 			return
 		}
