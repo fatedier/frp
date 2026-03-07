@@ -68,8 +68,8 @@ func ParseRangeNumbers(rangeStr string) (numbers []int64, err error) {
 	rangeStr = strings.TrimSpace(rangeStr)
 	numbers = make([]int64, 0)
 	// e.g. 1000-2000,2001,2002,3000-4000
-	numRanges := strings.Split(rangeStr, ",")
-	for _, numRangeStr := range numRanges {
+	numRanges := strings.SplitSeq(rangeStr, ",")
+	for numRangeStr := range numRanges {
 		// 1000-2000 or 2001
 		numArray := strings.Split(numRangeStr, "-")
 		// length: only 1 or 2 is correct

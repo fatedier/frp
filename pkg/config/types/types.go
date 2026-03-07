@@ -137,8 +137,8 @@ func (p PortsRangeSlice) String() string {
 func NewPortsRangeSliceFromString(str string) ([]PortsRange, error) {
 	str = strings.TrimSpace(str)
 	out := []PortsRange{}
-	numRanges := strings.Split(str, ",")
-	for _, numRangeStr := range numRanges {
+	numRanges := strings.SplitSeq(str, ",")
+	for numRangeStr := range numRanges {
 		// 1000-2000 or 2001
 		numArray := strings.Split(numRangeStr, "-")
 		// length: only 1 or 2 is correct

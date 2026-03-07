@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	RegisterProxyFactory(reflect.TypeOf(&v1.HTTPSProxyConfig{}), NewHTTPSProxy)
+	RegisterProxyFactory(reflect.TypeFor[*v1.HTTPSProxyConfig](), NewHTTPSProxy)
 }
 
 type HTTPSProxy struct {
