@@ -32,9 +32,9 @@ const (
 // Visitor
 var (
 	visitorConfTypeMap = map[VisitorType]reflect.Type{
-		VisitorTypeSTCP: reflect.TypeOf(STCPVisitorConf{}),
-		VisitorTypeXTCP: reflect.TypeOf(XTCPVisitorConf{}),
-		VisitorTypeSUDP: reflect.TypeOf(SUDPVisitorConf{}),
+		VisitorTypeSTCP: reflect.TypeFor[STCPVisitorConf](),
+		VisitorTypeXTCP: reflect.TypeFor[XTCPVisitorConf](),
+		VisitorTypeSUDP: reflect.TypeFor[SUDPVisitorConf](),
 	}
 )
 

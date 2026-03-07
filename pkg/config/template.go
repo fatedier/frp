@@ -38,7 +38,7 @@ func parseNumberRangePair(firstRangeStr, secondRangeStr string) ([]NumberPair, e
 		return nil, fmt.Errorf("first and second range numbers are not in pairs")
 	}
 	pairs := make([]NumberPair, 0, len(firstRangeNumbers))
-	for i := 0; i < len(firstRangeNumbers); i++ {
+	for i := range firstRangeNumbers {
 		pairs = append(pairs, NumberPair{
 			First:  firstRangeNumbers[i],
 			Second: secondRangeNumbers[i],

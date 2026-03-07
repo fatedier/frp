@@ -89,11 +89,11 @@ func ParseBasicAuth(auth string) (username, password string, ok bool) {
 		return
 	}
 	cs := string(c)
-	s := strings.IndexByte(cs, ':')
-	if s < 0 {
+	before, after, found := strings.Cut(cs, ":")
+	if !found {
 		return
 	}
-	return cs[:s], cs[s+1:], true
+	return before, after, true
 }
 
 func BasicAuth(username, passwd string) string {

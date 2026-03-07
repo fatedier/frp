@@ -2,6 +2,7 @@ package framework
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"time"
@@ -20,9 +21,7 @@ func (f *Framework) RunProcesses(serverTemplates []string, clientTemplates []str
 	ExpectNoError(err)
 	ExpectTrue(len(templates) > 0)
 
-	for name, port := range ports {
-		f.usedPorts[name] = port
-	}
+	maps.Copy(f.usedPorts, ports)
 
 	currentServerProcesses := make([]*process.Process, 0, len(serverTemplates))
 	for i := range serverTemplates {

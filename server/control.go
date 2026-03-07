@@ -158,10 +158,7 @@ type Control struct {
 }
 
 func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, error) {
-	poolCount := sessionCtx.LoginMsg.PoolCount
-	if poolCount > int(sessionCtx.ServerCfg.Transport.MaxPoolCount) {
-		poolCount = int(sessionCtx.ServerCfg.Transport.MaxPoolCount)
-	}
+	poolCount := min(sessionCtx.LoginMsg.PoolCount, int(sessionCtx.ServerCfg.Transport.MaxPoolCount))
 	ctl := &Control{
 		sessionCtx:   sessionCtx,
 		workConnCh:   make(chan net.Conn, poolCount+10),
