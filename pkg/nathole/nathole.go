@@ -410,7 +410,7 @@ func sendSidMessageToRandomPorts(
 	xl := xlog.FromContextSafe(ctx)
 	used := sets.New[int]()
 	getUnusedPort := func() int {
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			port := rand.IntN(65535-1024) + 1024
 			if !used.Has(port) {
 				used.Insert(port)
@@ -420,7 +420,7 @@ func sendSidMessageToRandomPorts(
 		return 0
 	}
 
-	for i := 0; i < count; i++ {
+	for range count {
 		select {
 		case <-ctx.Done():
 			return

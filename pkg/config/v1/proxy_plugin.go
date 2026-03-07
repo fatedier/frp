@@ -37,16 +37,16 @@ const (
 )
 
 var clientPluginOptionsTypeMap = map[string]reflect.Type{
-	PluginHTTP2HTTPS:       reflect.TypeOf(HTTP2HTTPSPluginOptions{}),
-	PluginHTTPProxy:        reflect.TypeOf(HTTPProxyPluginOptions{}),
-	PluginHTTPS2HTTP:       reflect.TypeOf(HTTPS2HTTPPluginOptions{}),
-	PluginHTTPS2HTTPS:      reflect.TypeOf(HTTPS2HTTPSPluginOptions{}),
-	PluginHTTP2HTTP:        reflect.TypeOf(HTTP2HTTPPluginOptions{}),
-	PluginSocks5:           reflect.TypeOf(Socks5PluginOptions{}),
-	PluginStaticFile:       reflect.TypeOf(StaticFilePluginOptions{}),
-	PluginUnixDomainSocket: reflect.TypeOf(UnixDomainSocketPluginOptions{}),
-	PluginTLS2Raw:          reflect.TypeOf(TLS2RawPluginOptions{}),
-	PluginVirtualNet:       reflect.TypeOf(VirtualNetPluginOptions{}),
+	PluginHTTP2HTTPS:       reflect.TypeFor[HTTP2HTTPSPluginOptions](),
+	PluginHTTPProxy:        reflect.TypeFor[HTTPProxyPluginOptions](),
+	PluginHTTPS2HTTP:       reflect.TypeFor[HTTPS2HTTPPluginOptions](),
+	PluginHTTPS2HTTPS:      reflect.TypeFor[HTTPS2HTTPSPluginOptions](),
+	PluginHTTP2HTTP:        reflect.TypeFor[HTTP2HTTPPluginOptions](),
+	PluginSocks5:           reflect.TypeFor[Socks5PluginOptions](),
+	PluginStaticFile:       reflect.TypeFor[StaticFilePluginOptions](),
+	PluginUnixDomainSocket: reflect.TypeFor[UnixDomainSocketPluginOptions](),
+	PluginTLS2Raw:          reflect.TypeFor[TLS2RawPluginOptions](),
+	PluginVirtualNet:       reflect.TypeFor[VirtualNetPluginOptions](),
 }
 
 type ClientPluginOptions interface {

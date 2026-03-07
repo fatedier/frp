@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/onsi/ginkgo/v2"
 
@@ -22,7 +23,8 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 	ginkgo.Describe("UnixDomainSocket", func() {
 		ginkgo.It("Expose a unix domain socket echo server", func() {
 			serverConf := consts.LegacyDefaultServerConfig
-			clientConf := consts.LegacyDefaultClientConfig
+			var clientConf strings.Builder
+			clientConf.WriteString(consts.LegacyDefaultClientConfig)
 
 			getProxyConf := func(proxyName string, portName string, extra string) string {
 				return fmt.Sprintf(`
@@ -65,10 +67,10 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 
 			// build all client config
 			for _, test := range tests {
-				clientConf += getProxyConf(test.proxyName, test.portName, test.extraConfig) + "\n"
+				clientConf.WriteString(getProxyConf(test.proxyName, test.portName, test.extraConfig) + "\n")
 			}
 			// run frps and frpc
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses([]string{serverConf}, []string{clientConf.String()})
 
 			for _, test := range tests {
 				framework.NewRequestExpect(f).Port(f.PortByName(test.portName)).Ensure()

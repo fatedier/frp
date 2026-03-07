@@ -86,11 +86,7 @@ func (c *FakeUDPConn) Read(b []byte) (n int, err error) {
 	c.lastActive = time.Now()
 	c.mu.Unlock()
 
-	if len(b) < len(content) {
-		n = len(b)
-	} else {
-		n = len(content)
-	}
+	n = min(len(b), len(content))
 	copy(b, content)
 	return n, nil
 }

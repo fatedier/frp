@@ -25,7 +25,7 @@ const (
 )
 
 var visitorPluginOptionsTypeMap = map[string]reflect.Type{
-	VisitorPluginVirtualNet: reflect.TypeOf(VirtualNetVisitorPluginOptions{}),
+	VisitorPluginVirtualNet: reflect.TypeFor[VirtualNetVisitorPluginOptions](),
 }
 
 type VisitorPluginOptions interface {

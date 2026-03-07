@@ -79,9 +79,9 @@ const (
 )
 
 var visitorConfigTypeMap = map[VisitorType]reflect.Type{
-	VisitorTypeSTCP: reflect.TypeOf(STCPVisitorConfig{}),
-	VisitorTypeXTCP: reflect.TypeOf(XTCPVisitorConfig{}),
-	VisitorTypeSUDP: reflect.TypeOf(SUDPVisitorConfig{}),
+	VisitorTypeSTCP: reflect.TypeFor[STCPVisitorConfig](),
+	VisitorTypeXTCP: reflect.TypeFor[XTCPVisitorConfig](),
+	VisitorTypeSUDP: reflect.TypeFor[SUDPVisitorConfig](),
 }
 
 type TypedVisitorConfig struct {

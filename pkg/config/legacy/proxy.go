@@ -39,14 +39,14 @@ const (
 // Proxy
 var (
 	proxyConfTypeMap = map[ProxyType]reflect.Type{
-		ProxyTypeTCP:    reflect.TypeOf(TCPProxyConf{}),
-		ProxyTypeUDP:    reflect.TypeOf(UDPProxyConf{}),
-		ProxyTypeTCPMUX: reflect.TypeOf(TCPMuxProxyConf{}),
-		ProxyTypeHTTP:   reflect.TypeOf(HTTPProxyConf{}),
-		ProxyTypeHTTPS:  reflect.TypeOf(HTTPSProxyConf{}),
-		ProxyTypeSTCP:   reflect.TypeOf(STCPProxyConf{}),
-		ProxyTypeXTCP:   reflect.TypeOf(XTCPProxyConf{}),
-		ProxyTypeSUDP:   reflect.TypeOf(SUDPProxyConf{}),
+		ProxyTypeTCP:    reflect.TypeFor[TCPProxyConf](),
+		ProxyTypeUDP:    reflect.TypeFor[UDPProxyConf](),
+		ProxyTypeTCPMUX: reflect.TypeFor[TCPMuxProxyConf](),
+		ProxyTypeHTTP:   reflect.TypeFor[HTTPProxyConf](),
+		ProxyTypeHTTPS:  reflect.TypeFor[HTTPSProxyConf](),
+		ProxyTypeSTCP:   reflect.TypeFor[STCPProxyConf](),
+		ProxyTypeXTCP:   reflect.TypeFor[XTCPProxyConf](),
+		ProxyTypeSUDP:   reflect.TypeFor[SUDPProxyConf](),
 	}
 )
 

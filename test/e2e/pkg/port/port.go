@@ -52,7 +52,7 @@ func (pa *Allocator) GetByName(portName string) int {
 	pa.mu.Lock()
 	defer pa.mu.Unlock()
 
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		port := pa.getByRange(builder.rangePortFrom, builder.rangePortTo)
 		if port == 0 {
 			return 0
