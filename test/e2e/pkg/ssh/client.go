@@ -75,11 +75,11 @@ func (c *TunnelClient) serveListener() {
 		if err != nil {
 			return
 		}
-		go c.hanldeConn(conn)
+		go c.handleConn(conn)
 	}
 }
 
-func (c *TunnelClient) hanldeConn(conn net.Conn) {
+func (c *TunnelClient) handleConn(conn net.Conn) {
 	defer conn.Close()
 	local, err := net.Dial("tcp", c.localAddr)
 	if err != nil {

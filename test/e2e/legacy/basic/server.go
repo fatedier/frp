@@ -28,7 +28,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 		tcpPortName := port.GenName("TCP", port.WithRangePorts(10000, 11000))
 		udpPortName := port.GenName("UDP", port.WithRangePorts(12000, 13000))
 		clientConf += fmt.Sprintf(`
-			[tcp-allowded-in-range]
+			[tcp-allowed-in-range]
 			type = tcp
 			local_port = {{ .%s }}
 			remote_port = {{ .%s }}

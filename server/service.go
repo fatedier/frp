@@ -193,7 +193,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		if err != nil {
 			return nil, fmt.Errorf("create vhost tcpMuxer error, %v", err)
 		}
-		log.Infof("tcpmux httpconnect multiplexer listen on %s, passthough: %v", address, cfg.TCPMuxPassthrough)
+		log.Infof("tcpmux httpconnect multiplexer listen on %s, passthrough: %v", address, cfg.TCPMuxPassthrough)
 	}
 
 	// Init all plugins

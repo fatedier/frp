@@ -33,7 +33,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 		udpPortName := port.GenName("UDP", port.WithRangePorts(12000, 13000))
 		clientConf += fmt.Sprintf(`
 			[[proxies]]
-			name = "tcp-allowded-in-range"
+			name = "tcp-allowed-in-range"
 			type = "tcp"
 			localPort = {{ .%s }}
 			remotePort = {{ .%s }}
