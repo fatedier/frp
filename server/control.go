@@ -303,6 +303,30 @@ func (ctl *Control) WaitClosed() {
 	<-ctl.doneCh
 }
 
+func (ctl *Control) loginUserInfo() plugin.UserInfo {
+	return plugin.UserInfo{
+		User:  ctl.sessionCtx.LoginMsg.User,
+		Metas: ctl.sessionCtx.LoginMsg.Metas,
+		RunID: ctl.sessionCtx.LoginMsg.RunID,
+	}
+}
+
+func (ctl *Control) closeProxy(pxy proxy.Proxy) {
+	pxy.Close()
+	ctl.sessionCtx.PxyManager.Del(pxy.GetName())
+	metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
+
+	notifyContent := &plugin.CloseProxyContent{
+		User: ctl.loginUserInfo(),
+		CloseProxy: msg.CloseProxy{
+			ProxyName: pxy.GetName(),
+		},
+	}
+	go func() {
+		_ = ctl.sessionCtx.PluginManager.CloseProxy(notifyContent)
+	}()
+}
+
 func (ctl *Control) worker() {
 	xl := ctl.xl
 
@@ -313,31 +337,16 @@ func (ctl *Control) worker() {
 	ctl.sessionCtx.Conn.Close()
 
 	ctl.mu.Lock()
-	defer ctl.mu.Unlock()
-
 	close(ctl.workConnCh)
 	for workConn := range ctl.workConnCh {
 		workConn.Close()
 	}
+	proxies := ctl.proxies
+	ctl.proxies = make(map[string]proxy.Proxy)
+	ctl.mu.Unlock()
 
-	for _, pxy := range ctl.proxies {
-		pxy.Close()
-		ctl.sessionCtx.PxyManager.Del(pxy.GetName())
-		metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
-
-		notifyContent := &plugin.CloseProxyContent{
-			User: plugin.UserInfo{
-				User:  ctl.sessionCtx.LoginMsg.User,
-				Metas: ctl.sessionCtx.LoginMsg.Metas,
-				RunID: ctl.sessionCtx.LoginMsg.RunID,
-			},
-			CloseProxy: msg.CloseProxy{
-				ProxyName: pxy.GetName(),
-			},
-		}
-		go func() {
-			_ = ctl.sessionCtx.PluginManager.CloseProxy(notifyContent)
-		}()
+	for _, pxy := range proxies {
+		ctl.closeProxy(pxy)
 	}
 
 	metrics.Server.CloseClient()
@@ -360,11 +369,7 @@ func (ctl *Control) handleNewProxy(m msg.Message) {
 	inMsg := m.(*msg.NewProxy)
 
 	content := &plugin.NewProxyContent{
-		User: plugin.UserInfo{
-			User:  ctl.sessionCtx.LoginMsg.User,
-			Metas: ctl.sessionCtx.LoginMsg.Metas,
-			RunID: ctl.sessionCtx.LoginMsg.RunID,
-		},
+		User:     ctl.loginUserInfo(),
 		NewProxy: *inMsg,
 	}
 	var remoteAddr string
@@ -399,11 +404,7 @@ func (ctl *Control) handlePing(m msg.Message) {
 	inMsg := m.(*msg.Ping)
 
 	content := &plugin.PingContent{
-		User: plugin.UserInfo{
-			User:  ctl.sessionCtx.LoginMsg.User,
-			Metas: ctl.sessionCtx.LoginMsg.Metas,
-			RunID: ctl.sessionCtx.LoginMsg.RunID,
-		},
+		User: ctl.loginUserInfo(),
 		Ping: *inMsg,
 	}
 	retContent, err := ctl.sessionCtx.PluginManager.Ping(content)
@@ -533,25 +534,9 @@ func (ctl *Control) CloseProxy(closeMsg *msg.CloseProxy) (err error) {
 	if ctl.sessionCtx.ServerCfg.MaxPortsPerClient > 0 {
 		ctl.portsUsedNum -= pxy.GetUsedPortsNum()
 	}
-	pxy.Close()
-	ctl.sessionCtx.PxyManager.Del(pxy.GetName())
 	delete(ctl.proxies, closeMsg.ProxyName)
 	ctl.mu.Unlock()
 
-	metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
-
-	notifyContent := &plugin.CloseProxyContent{
-		User: plugin.UserInfo{
-			User:  ctl.sessionCtx.LoginMsg.User,
-			Metas: ctl.sessionCtx.LoginMsg.Metas,
-			RunID: ctl.sessionCtx.LoginMsg.RunID,
-		},
-		CloseProxy: msg.CloseProxy{
-			ProxyName: pxy.GetName(),
-		},
-	}
-	go func() {
-		_ = ctl.sessionCtx.PluginManager.CloseProxy(notifyContent)
-	}()
+	ctl.closeProxy(pxy)
 	return
 }
