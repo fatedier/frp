@@ -168,11 +168,15 @@ func ListenUDP(bindAddr string, bindPort int) (l *UDPListener, err error) {
 		return l, err
 	}
 	readConn, err := net.ListenUDP("udp", udpAddr)
+	if err != nil {
+		return l, err
+	}
 
 	l = &UDPListener{
 		addr:      udpAddr,
 		acceptCh:  make(chan net.Conn),
 		writeCh:   make(chan *UDPPacket, 1000),
+		readConn:  readConn,
 		fakeConns: make(map[string]*FakeUDPConn),
 	}
 
