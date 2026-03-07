@@ -119,6 +119,18 @@ func (v *BaseVisitor) AcceptConn(conn net.Conn) error {
 	return v.internalLn.PutConn(conn)
 }
 
+func (v *BaseVisitor) acceptLoop(l net.Listener, name string, handleConn func(net.Conn)) {
+	xl := xlog.FromContextSafe(v.ctx)
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			xl.Warnf("%s listener closed", name)
+			return
+		}
+		go handleConn(conn)
+	}
+}
+
 func (v *BaseVisitor) Close() {
 	if v.l != nil {
 		v.l.Close()

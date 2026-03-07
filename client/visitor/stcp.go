@@ -42,10 +42,10 @@ func (sv *STCPVisitor) Run() (err error) {
 		if err != nil {
 			return
 		}
-		go sv.worker()
+		go sv.acceptLoop(sv.l, "stcp local", sv.handleConn)
 	}
 
-	go sv.internalConnWorker()
+	go sv.acceptLoop(sv.internalLn, "stcp internal", sv.handleConn)
 
 	if sv.plugin != nil {
 		sv.plugin.Start()
@@ -55,30 +55,6 @@ func (sv *STCPVisitor) Run() (err error) {
 
 func (sv *STCPVisitor) Close() {
 	sv.BaseVisitor.Close()
-}
-
-func (sv *STCPVisitor) worker() {
-	xl := xlog.FromContextSafe(sv.ctx)
-	for {
-		conn, err := sv.l.Accept()
-		if err != nil {
-			xl.Warnf("stcp local listener closed")
-			return
-		}
-		go sv.handleConn(conn)
-	}
-}
-
-func (sv *STCPVisitor) internalConnWorker() {
-	xl := xlog.FromContextSafe(sv.ctx)
-	for {
-		conn, err := sv.internalLn.Accept()
-		if err != nil {
-			xl.Warnf("stcp internal listener closed")
-			return
-		}
-		go sv.handleConn(conn)
-	}
 }
 
 func (sv *STCPVisitor) handleConn(userConn net.Conn) {
