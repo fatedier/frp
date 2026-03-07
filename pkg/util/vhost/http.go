@@ -266,31 +266,13 @@ func (rp *HTTPReverseProxy) connectHandler(rw http.ResponseWriter, req *http.Req
 	go libio.Join(remote, client)
 }
 
-func parseBasicAuth(auth string) (username, password string, ok bool) {
-	const prefix = "Basic "
-	// Case insensitive prefix match. See Issue 22736.
-	if len(auth) < len(prefix) || !strings.EqualFold(auth[:len(prefix)], prefix) {
-		return
-	}
-	c, err := base64.StdEncoding.DecodeString(auth[len(prefix):])
-	if err != nil {
-		return
-	}
-	cs := string(c)
-	s := strings.IndexByte(cs, ':')
-	if s < 0 {
-		return
-	}
-	return cs[:s], cs[s+1:], true
-}
-
 func (rp *HTTPReverseProxy) injectRequestInfoToCtx(req *http.Request) *http.Request {
 	user := ""
 	// If url host isn't empty, it's a proxy request. Get http user from Proxy-Authorization header.
 	if req.URL.Host != "" {
 		proxyAuth := req.Header.Get("Proxy-Authorization")
 		if proxyAuth != "" {
-			user, _, _ = parseBasicAuth(proxyAuth)
+			user, _, _ = httppkg.ParseBasicAuth(proxyAuth)
 		}
 	}
 	if user == "" {
