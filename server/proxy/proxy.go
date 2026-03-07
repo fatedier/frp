@@ -173,6 +173,36 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 	return
 }
 
+// startVisitorListener sets up a VisitorManager listener for visitor-based proxies (STCP, SUDP).
+func (pxy *BaseProxy) startVisitorListener(secretKey string, allowUsers []string, proxyType string) error {
+	// if allowUsers is empty, only allow same user from proxy
+	if len(allowUsers) == 0 {
+		allowUsers = []string{pxy.GetUserInfo().User}
+	}
+	listener, err := pxy.rc.VisitorManager.Listen(pxy.GetName(), secretKey, allowUsers)
+	if err != nil {
+		return err
+	}
+	pxy.listeners = append(pxy.listeners, listener)
+	pxy.xl.Infof("%s proxy custom listen success", proxyType)
+	pxy.startCommonTCPListenersHandler()
+	return nil
+}
+
+// buildDomains constructs a list of domains from custom domains and subdomain configuration.
+func (pxy *BaseProxy) buildDomains(customDomains []string, subDomain string) []string {
+	domains := make([]string, 0, len(customDomains)+1)
+	for _, d := range customDomains {
+		if d != "" {
+			domains = append(domains, d)
+		}
+	}
+	if subDomain != "" {
+		domains = append(domains, subDomain+"."+pxy.serverCfg.SubDomainHost)
+	}
+	return domains
+}
+
 // startCommonTCPListenersHandler start a goroutine handler for each listener.
 func (pxy *BaseProxy) startCommonTCPListenersHandler() {
 	xl := xlog.FromContextSafe(pxy.ctx)

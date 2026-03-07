@@ -65,10 +65,10 @@ func (sv *XTCPVisitor) Run() (err error) {
 		if err != nil {
 			return
 		}
-		go sv.worker()
+		go sv.acceptLoop(sv.l, "xtcp local", sv.handleConn)
 	}
 
-	go sv.internalConnWorker()
+	go sv.acceptLoop(sv.internalLn, "xtcp internal", sv.handleConn)
 	go sv.processTunnelStartEvents()
 	if sv.cfg.KeepTunnelOpen {
 		sv.retryLimiter = rate.NewLimiter(rate.Every(time.Hour/time.Duration(sv.cfg.MaxRetriesAnHour)), sv.cfg.MaxRetriesAnHour)
@@ -90,30 +90,6 @@ func (sv *XTCPVisitor) Close() {
 	}
 	if sv.session != nil {
 		sv.session.Close()
-	}
-}
-
-func (sv *XTCPVisitor) worker() {
-	xl := xlog.FromContextSafe(sv.ctx)
-	for {
-		conn, err := sv.l.Accept()
-		if err != nil {
-			xl.Warnf("xtcp local listener closed")
-			return
-		}
-		go sv.handleConn(conn)
-	}
-}
-
-func (sv *XTCPVisitor) internalConnWorker() {
-	xl := xlog.FromContextSafe(sv.ctx)
-	for {
-		conn, err := sv.internalLn.Accept()
-		if err != nil {
-			xl.Warnf("xtcp internal listener closed")
-			return
-		}
-		go sv.handleConn(conn)
 	}
 }
 
