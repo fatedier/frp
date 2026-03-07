@@ -93,8 +93,7 @@ type featureGate struct {
 
 // NewFeatureGate creates a new feature gate with the default features
 func NewFeatureGate() MutableFeatureGate {
-	known := map[Feature]FeatureSpec{}
-	maps.Copy(known, defaultFeatures)
+	known := maps.Clone(defaultFeatures)
 
 	f := &featureGate{}
 	f.known.Store(known)
@@ -108,10 +107,8 @@ func (f *featureGate) SetFromMap(m map[string]bool) error {
 	defer f.lock.Unlock()
 
 	// Copy existing state
-	known := map[Feature]FeatureSpec{}
-	maps.Copy(known, f.known.Load().(map[Feature]FeatureSpec))
-	enabled := map[Feature]bool{}
-	maps.Copy(enabled, f.enabled.Load().(map[Feature]bool))
+	known := maps.Clone(f.known.Load().(map[Feature]FeatureSpec))
+	enabled := maps.Clone(f.enabled.Load().(map[Feature]bool))
 
 	// Apply the new settings
 	for k, v := range m {
@@ -142,8 +139,7 @@ func (f *featureGate) Add(features map[Feature]FeatureSpec) error {
 	}
 
 	// Copy existing state
-	known := map[Feature]FeatureSpec{}
-	maps.Copy(known, f.known.Load().(map[Feature]FeatureSpec))
+	known := maps.Clone(f.known.Load().(map[Feature]FeatureSpec))
 
 	// Add new features
 	for name, spec := range features {

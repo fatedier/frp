@@ -5,6 +5,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	flog "github.com/fatedier/frp/pkg/util/log"
@@ -14,9 +15,7 @@ import (
 // RunProcesses run multiple processes from templates.
 // The first template should always be frps.
 func (f *Framework) RunProcesses(serverTemplates []string, clientTemplates []string) ([]*process.Process, []*process.Process) {
-	templates := make([]string, 0, len(serverTemplates)+len(clientTemplates))
-	templates = append(templates, serverTemplates...)
-	templates = append(templates, clientTemplates...)
+	templates := slices.Concat(serverTemplates, clientTemplates)
 	outs, ports, err := f.RenderTemplates(templates)
 	ExpectNoError(err)
 	ExpectTrue(len(templates) > 0)
