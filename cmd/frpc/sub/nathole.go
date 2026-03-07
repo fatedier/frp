@@ -47,7 +47,7 @@ var natholeDiscoveryCmd = &cobra.Command{
 	Use:   "discover",
 	Short: "Discover nathole information from stun server",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// ignore error here, because we can use command line pameters
+		// ignore error here, because we can use command line parameters
 		cfg, _, _, _, err := config.LoadClientConfig(cfgFile, strictConfigMode)
 		if err != nil {
 			cfg = &v1.ClientCommonConfig{}
