@@ -150,7 +150,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 			dstAddr, dstPortStr, _ = net.SplitHostPort(dst.String())
 			dstPort, _ = strconv.ParseUint(dstPortStr, 10, 16)
 		}
-		err := msg.WriteMsg(workConn, &msg.StartWorkConn{
+		err = msg.WriteMsg(workConn, &msg.StartWorkConn{
 			ProxyName: pxy.GetName(),
 			SrcAddr:   srcAddr,
 			SrcPort:   uint16(srcPort),
@@ -161,6 +161,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 		if err != nil {
 			xl.Warnf("failed to send message to work connection from pool: %v, times: %d", err, i)
 			workConn.Close()
+			workConn = nil
 		} else {
 			break
 		}
