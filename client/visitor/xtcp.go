@@ -182,21 +182,14 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		return
 	}
 
-	var muxConnRWCloser io.ReadWriteCloser = tunnelConn
-	if sv.cfg.Transport.UseEncryption {
-		muxConnRWCloser, err = libio.WithEncryption(muxConnRWCloser, []byte(sv.cfg.SecretKey))
-		if err != nil {
-			xl.Errorf("create encryption stream error: %v", err)
-			tunnelConn.Close()
-			tunnelErr = err
-			return
-		}
+	muxConnRWCloser, recycleFn, err := wrapVisitorConn(tunnelConn, sv.cfg.GetBaseConfig())
+	if err != nil {
+		xl.Errorf("%v", err)
+		tunnelConn.Close()
+		tunnelErr = err
+		return
 	}
-	if sv.cfg.Transport.UseCompression {
-		var recycleFn func()
-		muxConnRWCloser, recycleFn = libio.WithCompressionFromPool(muxConnRWCloser)
-		defer recycleFn()
-	}
+	defer recycleFn()
 
 	_, _, errs := libio.Join(userConn, muxConnRWCloser)
 	xl.Debugf("join connections closed")
