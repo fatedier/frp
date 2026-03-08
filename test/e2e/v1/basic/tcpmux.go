@@ -79,7 +79,7 @@ var _ = ginkgo.Describe("[Feature: TCPMUX httpconnect]", func() {
 			customDomains = ["normal.example.com"]
 			`, fooPort, barPort, otherPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		// user1
 		framework.NewRequestExpect(f).Explain("user1").
@@ -125,7 +125,7 @@ var _ = ginkgo.Describe("[Feature: TCPMUX httpconnect]", func() {
 			httpPassword = "test"
 		`, fooPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		// not set auth header
 		framework.NewRequestExpect(f).Explain("no auth").
@@ -209,7 +209,7 @@ var _ = ginkgo.Describe("[Feature: TCPMUX httpconnect]", func() {
 			customDomains = ["normal.example.com"]
 			`, localPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		framework.NewRequestExpect(f).
 			RequestModify(func(r *request.Request) {

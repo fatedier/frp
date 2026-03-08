@@ -61,6 +61,10 @@ func (p *Process) StdOutput() string {
 	return p.stdOutput.String()
 }
 
+func (p *Process) Output() string {
+	return p.stdOutput.String() + p.errorOutput.String()
+}
+
 func (p *Process) SetBeforeStopHandler(fn func()) {
 	p.beforeStopHandler = fn
 }

@@ -35,7 +35,7 @@ var _ = ginkgo.Describe("[Feature: Annotations]", func() {
 		"frp.e2e.test/bar" = "value2"
 		`, framework.TCPEchoServerPort, p1Port)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		framework.NewRequestExpect(f).Port(p1Port).Ensure()
 

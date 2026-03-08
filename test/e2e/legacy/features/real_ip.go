@@ -44,7 +44,7 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 		custom_domains = normal.example.com
 		`, localPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		framework.NewRequestExpect(f).Port(vhostHTTPPort).
 			RequestModify(func(r *request.Request) {
@@ -90,7 +90,7 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 			proxy_protocol_version = v2
 			`, localPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).Port(remotePort).Ensure(func(resp *request.Response) bool {
 				log.Tracef("proxy protocol get SourceAddr: %s", string(resp.Content))
@@ -136,7 +136,7 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 			proxy_protocol_version = v2
 			`, localPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).Port(vhostHTTPPort).RequestModify(func(r *request.Request) {
 				r.HTTP().HTTPHost("normal.example.com")

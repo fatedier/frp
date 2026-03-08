@@ -35,7 +35,7 @@ var _ = ginkgo.Describe("[Feature: Bandwidth Limit]", func() {
 			bandwidth_limit = 10KB
 			`, localPort, remotePort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		content := strings.Repeat("a", 50*1024) // 5KB
 		start := time.Now()
@@ -89,7 +89,7 @@ var _ = ginkgo.Describe("[Feature: Bandwidth Limit]", func() {
 			remote_port = %d
 			`, localPort, remotePort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		content := strings.Repeat("a", 50*1024) // 5KB
 		start := time.Now()

@@ -71,7 +71,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			remote_port = %d
 			`, framework.TCPEchoServerPort, remotePort2)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf, invalidTokenClientConf})
+			f.RunProcesses(serverConf, []string{clientConf, invalidTokenClientConf})
 
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 			framework.NewRequestExpect(f).Port(remotePort2).ExpectError(true).Ensure()
@@ -119,7 +119,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			remote_port = %d
 			`, framework.TCPEchoServerPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 		})
@@ -153,7 +153,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			remote_port = 0
 			`, framework.TCPEchoServerPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 		})
@@ -195,7 +195,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			remote_port = %d
 			`, framework.TCPEchoServerPort, remotePort)
 
-			_, clients := f.RunProcesses([]string{serverConf}, []string{clientConf})
+			_, clients := f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 
@@ -250,7 +250,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			remote_port = %d
 			`, framework.TCPEchoServerPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 
@@ -297,7 +297,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			remote_port = %d
 			`, framework.TCPEchoServerPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 
@@ -342,7 +342,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			remote_port = %d
 			`, framework.TCPEchoServerPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 
@@ -389,7 +389,7 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			remote_port = %d
 			`, framework.TCPEchoServerPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 

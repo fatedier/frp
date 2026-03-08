@@ -59,7 +59,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 			locations = ["/bar"]
 			`, fooPort, barPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		tests := []struct {
 			path       string
@@ -117,7 +117,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 			customDomains = ["normal.example.com"]
 			`, fooPort, barPort, otherPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		// user1
 		framework.NewRequestExpect(f).Explain("user1").Port(vhostHTTPPort).
@@ -159,7 +159,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 			httpPassword = "test"
 			`, framework.HTTPSimpleServerPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		// not set auth header
 		framework.NewRequestExpect(f).Port(vhostHTTPPort).
@@ -196,7 +196,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 			customDomains = ["*.example.com"]
 			`, framework.HTTPSimpleServerPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		// not match host
 		framework.NewRequestExpect(f).Port(vhostHTTPPort).
@@ -248,7 +248,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 			subdomain = "bar"
 			`, fooPort, barPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		// foo
 		framework.NewRequestExpect(f).Explain("foo subdomain").Port(vhostHTTPPort).
@@ -290,7 +290,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 			requestHeaders.set.x-from-where = "frp"
 			`, localPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		framework.NewRequestExpect(f).Port(vhostHTTPPort).
 			RequestModify(func(r *request.Request) {
@@ -323,7 +323,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 			responseHeaders.set.x-from-where = "frp"
 			`, localPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		framework.NewRequestExpect(f).Port(vhostHTTPPort).
 			RequestModify(func(r *request.Request) {
@@ -357,7 +357,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 			hostHeaderRewrite = "rewrite.example.com"
 			`, localPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		framework.NewRequestExpect(f).Port(vhostHTTPPort).
 			RequestModify(func(r *request.Request) {
@@ -406,7 +406,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 			customDomains = ["127.0.0.1"]
 			`, localPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		u := url.URL{Scheme: "ws", Host: "127.0.0.1:" + strconv.Itoa(vhostHTTPPort)}
 		c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -447,7 +447,7 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 			customDomains = ["normal.example.com"]
 			`, localPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		framework.NewRequestExpect(f).Port(vhostHTTPPort).
 			RequestModify(func(r *request.Request) {

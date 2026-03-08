@@ -76,7 +76,7 @@ func runClientServerTest(f *framework.Framework, configures *generalTestConfigur
 		clientConfs = append(clientConfs, client2Conf)
 	}
 
-	f.RunProcesses([]string{serverConf}, clientConfs)
+	f.RunProcesses(serverConf, clientConfs)
 
 	if configures.testDelay > 0 {
 		time.Sleep(configures.testDelay)
