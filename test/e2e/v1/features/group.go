@@ -186,6 +186,68 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 
 			framework.ExpectTrue(fooCount > 1 && barCount > 1, "fooCount: %d, barCount: %d", fooCount, barCount)
 		})
+
+		ginkgo.It("TCPMux httpconnect", func() {
+			vhostPort := f.AllocPort()
+			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			tcpmuxHTTPConnectPort = %d
+			`, vhostPort)
+			clientConf := consts.DefaultClientConfig
+
+			fooPort := f.AllocPort()
+			fooServer := streamserver.New(streamserver.TCP, streamserver.WithBindPort(fooPort), streamserver.WithRespContent([]byte("foo")))
+			f.RunServer("", fooServer)
+
+			barPort := f.AllocPort()
+			barServer := streamserver.New(streamserver.TCP, streamserver.WithBindPort(barPort), streamserver.WithRespContent([]byte("bar")))
+			f.RunServer("", barServer)
+
+			clientConf += fmt.Sprintf(`
+			[[proxies]]
+			name = "foo"
+			type = "tcpmux"
+			multiplexer = "httpconnect"
+			localPort = %d
+			customDomains = ["tcpmux-group.example.com"]
+			loadBalancer.group = "test"
+			loadBalancer.groupKey = "123"
+
+			[[proxies]]
+			name = "bar"
+			type = "tcpmux"
+			multiplexer = "httpconnect"
+			localPort = %d
+			customDomains = ["tcpmux-group.example.com"]
+			loadBalancer.group = "test"
+			loadBalancer.groupKey = "123"
+			`, fooPort, barPort)
+
+			f.RunProcesses([]string{serverConf}, []string{clientConf})
+
+			proxyURL := fmt.Sprintf("http://127.0.0.1:%d", vhostPort)
+			fooCount := 0
+			barCount := 0
+			for i := range 10 {
+				framework.NewRequestExpect(f).
+					Explain("times " + strconv.Itoa(i)).
+					RequestModify(func(r *request.Request) {
+						r.Addr("tcpmux-group.example.com").Proxy(proxyURL)
+					}).
+					Ensure(func(resp *request.Response) bool {
+						switch string(resp.Content) {
+						case "foo":
+							fooCount++
+						case "bar":
+							barCount++
+						default:
+							return false
+						}
+						return true
+					})
+			}
+
+			framework.ExpectTrue(fooCount > 1 && barCount > 1, "fooCount: %d, barCount: %d", fooCount, barCount)
+		})
 	})
 
 	ginkgo.Describe("Health Check", func() {
