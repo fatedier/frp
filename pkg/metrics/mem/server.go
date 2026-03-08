@@ -143,7 +143,6 @@ func (m *serverMetrics) OpenConnection(name string, _ string) {
 	proxyStats, ok := m.info.ProxyStatistics[name]
 	if ok {
 		proxyStats.CurConns.Inc(1)
-		m.info.ProxyStatistics[name] = proxyStats
 	}
 }
 
@@ -155,7 +154,6 @@ func (m *serverMetrics) CloseConnection(name string, _ string) {
 	proxyStats, ok := m.info.ProxyStatistics[name]
 	if ok {
 		proxyStats.CurConns.Dec(1)
-		m.info.ProxyStatistics[name] = proxyStats
 	}
 }
 
@@ -168,7 +166,6 @@ func (m *serverMetrics) AddTrafficIn(name string, _ string, trafficBytes int64) 
 	proxyStats, ok := m.info.ProxyStatistics[name]
 	if ok {
 		proxyStats.TrafficIn.Inc(trafficBytes)
-		m.info.ProxyStatistics[name] = proxyStats
 	}
 }
 
@@ -181,7 +178,6 @@ func (m *serverMetrics) AddTrafficOut(name string, _ string, trafficBytes int64)
 	proxyStats, ok := m.info.ProxyStatistics[name]
 	if ok {
 		proxyStats.TrafficOut.Inc(trafficBytes)
-		m.info.ProxyStatistics[name] = proxyStats
 	}
 }
 
@@ -240,15 +236,9 @@ func (m *serverMetrics) GetProxiesByTypeAndName(proxyType string, proxyName stri
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	for name, proxyStats := range m.info.ProxyStatistics {
-		if proxyStats.ProxyType != proxyType {
-			continue
-		}
-		if name != proxyName {
-			continue
-		}
-		res = toProxyStats(name, proxyStats)
-		break
+	proxyStats, ok := m.info.ProxyStatistics[proxyName]
+	if ok && proxyStats.ProxyType == proxyType {
+		res = toProxyStats(proxyName, proxyStats)
 	}
 	return
 }
