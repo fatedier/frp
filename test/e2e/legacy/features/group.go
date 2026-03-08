@@ -88,7 +88,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			group_key = 123
 			`, fooPort, remotePort, barPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			fooCount := 0
 			barCount := 0
@@ -144,7 +144,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			health_check_interval_s = 1
 			`, fooPort, remotePort, barPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			// check foo and bar is ok
 			results := []string{}
@@ -213,7 +213,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			health_check_url = /healthz
 			`, fooPort, barPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			// send first HTTP request
 			var contents []string

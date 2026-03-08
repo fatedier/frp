@@ -3,67 +3,70 @@ package framework
 import (
 	"fmt"
 	"maps"
+	"net"
 	"os"
 	"path/filepath"
-	"slices"
+	"strconv"
 	"time"
 
 	flog "github.com/fatedier/frp/pkg/util/log"
+	"github.com/fatedier/frp/test/e2e/framework/consts"
 	"github.com/fatedier/frp/test/e2e/pkg/process"
 )
 
-// RunProcesses run multiple processes from templates.
-// The first template should always be frps.
-func (f *Framework) RunProcesses(serverTemplates []string, clientTemplates []string) ([]*process.Process, []*process.Process) {
-	templates := slices.Concat(serverTemplates, clientTemplates)
+// RunProcesses starts one frps and zero or more frpc processes from templates.
+func (f *Framework) RunProcesses(serverTemplate string, clientTemplates []string) (*process.Process, []*process.Process) {
+	templates := append([]string{serverTemplate}, clientTemplates...)
 	outs, ports, err := f.RenderTemplates(templates)
 	ExpectNoError(err)
-	ExpectTrue(len(templates) > 0)
 
 	maps.Copy(f.usedPorts, ports)
 
-	currentServerProcesses := make([]*process.Process, 0, len(serverTemplates))
-	for i := range serverTemplates {
-		path := filepath.Join(f.TempDirectory, fmt.Sprintf("frp-e2e-server-%d", i))
-		err = os.WriteFile(path, []byte(outs[i]), 0o600)
-		ExpectNoError(err)
+	// Start frps.
+	serverPath := filepath.Join(f.TempDirectory, "frp-e2e-server-0")
+	err = os.WriteFile(serverPath, []byte(outs[0]), 0o600)
+	ExpectNoError(err)
 
-		if TestContext.Debug {
-			flog.Debugf("[%s] %s", path, outs[i])
-		}
-
-		p := process.NewWithEnvs(TestContext.FRPServerPath, []string{"-c", path}, f.osEnvs)
-		f.serverConfPaths = append(f.serverConfPaths, path)
-		f.serverProcesses = append(f.serverProcesses, p)
-		currentServerProcesses = append(currentServerProcesses, p)
-		err = p.Start()
-		ExpectNoError(err)
-		time.Sleep(500 * time.Millisecond)
+	if TestContext.Debug {
+		flog.Debugf("[%s] %s", serverPath, outs[0])
 	}
-	time.Sleep(2 * time.Second)
 
-	currentClientProcesses := make([]*process.Process, 0, len(clientTemplates))
+	serverProcess := process.NewWithEnvs(TestContext.FRPServerPath, []string{"-c", serverPath}, f.osEnvs)
+	f.serverConfPaths = append(f.serverConfPaths, serverPath)
+	f.serverProcesses = append(f.serverProcesses, serverProcess)
+	err = serverProcess.Start()
+	ExpectNoError(err)
+
+	if port, ok := ports[consts.PortServerName]; ok {
+		ExpectNoError(WaitForTCPReady(net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), 5*time.Second))
+	} else {
+		time.Sleep(2 * time.Second)
+	}
+
+	// Start frpc(s).
+	clientProcesses := make([]*process.Process, 0, len(clientTemplates))
 	for i := range clientTemplates {
-		index := i + len(serverTemplates)
 		path := filepath.Join(f.TempDirectory, fmt.Sprintf("frp-e2e-client-%d", i))
-		err = os.WriteFile(path, []byte(outs[index]), 0o600)
+		err = os.WriteFile(path, []byte(outs[1+i]), 0o600)
 		ExpectNoError(err)
 
 		if TestContext.Debug {
-			flog.Debugf("[%s] %s", path, outs[index])
+			flog.Debugf("[%s] %s", path, outs[1+i])
 		}
 
 		p := process.NewWithEnvs(TestContext.FRPClientPath, []string{"-c", path}, f.osEnvs)
 		f.clientConfPaths = append(f.clientConfPaths, path)
 		f.clientProcesses = append(f.clientProcesses, p)
-		currentClientProcesses = append(currentClientProcesses, p)
+		clientProcesses = append(clientProcesses, p)
 		err = p.Start()
 		ExpectNoError(err)
-		time.Sleep(500 * time.Millisecond)
 	}
-	time.Sleep(3 * time.Second)
+	// frpc needs time to connect and register proxies with frps.
+	if len(clientProcesses) > 0 {
+		time.Sleep(1500 * time.Millisecond)
+	}
 
-	return currentServerProcesses, currentClientProcesses
+	return serverProcess, clientProcesses
 }
 
 func (f *Framework) RunFrps(args ...string) (*process.Process, string, error) {
@@ -71,11 +74,10 @@ func (f *Framework) RunFrps(args ...string) (*process.Process, string, error) {
 	f.serverProcesses = append(f.serverProcesses, p)
 	err := p.Start()
 	if err != nil {
-		return p, p.StdOutput(), err
+		return p, p.Output(), err
 	}
-	// Give frps extra time to finish binding ports before proceeding.
-	time.Sleep(4 * time.Second)
-	return p, p.StdOutput(), nil
+	time.Sleep(2 * time.Second)
+	return p, p.Output(), nil
 }
 
 func (f *Framework) RunFrpc(args ...string) (*process.Process, string, error) {
@@ -83,10 +85,10 @@ func (f *Framework) RunFrpc(args ...string) (*process.Process, string, error) {
 	f.clientProcesses = append(f.clientProcesses, p)
 	err := p.Start()
 	if err != nil {
-		return p, p.StdOutput(), err
+		return p, p.Output(), err
 	}
-	time.Sleep(2 * time.Second)
-	return p, p.StdOutput(), nil
+	time.Sleep(1500 * time.Millisecond)
+	return p, p.Output(), nil
 }
 
 func (f *Framework) GenerateConfigFile(content string) string {
@@ -95,4 +97,26 @@ func (f *Framework) GenerateConfigFile(content string) string {
 	err := os.WriteFile(path, []byte(content), 0o600)
 	ExpectNoError(err)
 	return path
+}
+
+// WaitForTCPReady polls a TCP address until a connection succeeds or timeout.
+func WaitForTCPReady(addr string, timeout time.Duration) error {
+	if timeout <= 0 {
+		return fmt.Errorf("invalid timeout for TCP readiness on %s: timeout must be positive", addr)
+	}
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return nil
+		}
+		lastErr = err
+		time.Sleep(50 * time.Millisecond)
+	}
+	if lastErr == nil {
+		return fmt.Errorf("timeout waiting for TCP readiness on %s before any dial attempt", addr)
+	}
+	return fmt.Errorf("timeout waiting for TCP readiness on %s: %w", addr, lastErr)
 }

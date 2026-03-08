@@ -48,7 +48,7 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 		customDomains = ["normal.example.com"]
 		`, localPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).Port(vhostHTTPPort).
 				RequestModify(func(r *request.Request) {
@@ -82,7 +82,7 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 		customDomains = ["normal.example.com"]
 		`, localPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).Port(vhostHTTPPort).
 				RequestModify(func(r *request.Request) {
@@ -112,7 +112,7 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 		localAddr = "127.0.0.1:%d"
 		`, localPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			tlsConfig, err := transport.NewServerTLSConfig("", "", "")
 			framework.ExpectNoError(err)
@@ -154,7 +154,7 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 		localAddr = "127.0.0.1:%d"
 		`, localPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			localServer := httpserver.New(
 				httpserver.WithBindPort(localPort),
@@ -212,7 +212,7 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 			transport.proxyProtocolVersion = "v2"
 			`, localPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).Port(remotePort).Ensure(func(resp *request.Response) bool {
 				log.Tracef("proxy protocol get SourceAddr: %s", string(resp.Content))
@@ -262,7 +262,7 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 			transport.proxyProtocolVersion = "v2"
 			`, localPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).Protocol("udp").Port(remotePort).Ensure(func(resp *request.Response) bool {
 				log.Tracef("udp proxy protocol get SourceAddr: %s", string(resp.Content))
@@ -309,7 +309,7 @@ var _ = ginkgo.Describe("[Feature: Real IP]", func() {
 			transport.proxyProtocolVersion = "v2"
 			`, localPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).Port(vhostHTTPPort).RequestModify(func(r *request.Request) {
 				r.HTTP().HTTPHost("normal.example.com")

@@ -92,7 +92,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			loadBalancer.groupKey = "123"
 			`, fooPort, remotePort, barPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			fooCount := 0
 			barCount := 0
@@ -157,7 +157,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			loadBalancer.groupKey = "123"
 			`, fooPort, barPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			fooCount := 0
 			barCount := 0
@@ -222,7 +222,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			loadBalancer.groupKey = "123"
 			`, fooPort, barPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			proxyURL := fmt.Sprintf("http://127.0.0.1:%d", vhostPort)
 			fooCount := 0
@@ -286,7 +286,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			healthCheck.intervalSeconds = 1
 			`, fooPort, remotePort, barPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			// check foo and bar is ok
 			results := []string{}
@@ -357,7 +357,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			healthCheck.path = "/healthz"
 			`, fooPort, barPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			// send first HTTP request
 			var contents []string

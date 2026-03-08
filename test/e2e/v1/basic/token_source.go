@@ -16,8 +16,11 @@ package basic
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 
@@ -73,7 +76,7 @@ localPort = {{ .%s }}
 remotePort = {{ .%s }}
 `, tokenContent, framework.TCPEchoServerPort, portName)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).PortName(portName).Ensure()
 		})
@@ -109,7 +112,7 @@ localPort = {{ .%s }}
 remotePort = {{ .%s }}
 `, tokenFile, framework.TCPEchoServerPort, portName)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).PortName(portName).Ensure()
 		})
@@ -150,7 +153,7 @@ localPort = {{ .%s }}
 remotePort = {{ .%s }}
 `, clientTokenFile, framework.TCPEchoServerPort, portName)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).PortName(portName).Ensure()
 		})
@@ -190,7 +193,7 @@ localPort = {{ .%s }}
 remotePort = {{ .%s }}
 `, clientTokenFile, framework.TCPEchoServerPort, portName)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			// This should fail due to token mismatch - the client should not be able to connect
 			// We expect the request to fail because the proxy tunnel is not established
@@ -198,32 +201,27 @@ remotePort = {{ .%s }}
 		})
 
 		ginkgo.It("should fail with non-existent token file", func() {
-			// This test verifies that server fails to start when tokenSource points to non-existent file
-			// We'll verify this by checking that the configuration loading itself fails
-
-			// Create a config that references a non-existent file
 			tmpDir := f.TempDirectory
 			nonExistentFile := filepath.Join(tmpDir, "non_existent_token")
 
-			serverConf := consts.DefaultServerConfig
-
-			// Server config with non-existent tokenSource file
-			serverConf += fmt.Sprintf(`
+			serverPort := f.AllocPort()
+			serverConf := fmt.Sprintf(`
+bindAddr = "0.0.0.0"
+bindPort = %d
 auth.tokenSource.type = "file"
 auth.tokenSource.file.path = "%s"
-`, nonExistentFile)
+`, serverPort, nonExistentFile)
 
-			// The test expectation is that this will fail during the RunProcesses call
-			// because the server cannot load the configuration due to missing token file
-			defer func() {
-				if r := recover(); r != nil {
-					// Expected: server should fail to start due to missing file
-					ginkgo.By(fmt.Sprintf("Server correctly failed to start: %v", r))
-				}
-			}()
+			serverConfigPath := f.GenerateConfigFile(serverConf)
 
-			// This should cause a panic or error during server startup
-			f.RunProcesses([]string{serverConf}, []string{})
+			_, _, _ = f.RunFrps("-c", serverConfigPath)
+
+			// Server should have failed to start, so the port should not be listening.
+			conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(serverPort)), 1*time.Second)
+			if err == nil {
+				conn.Close()
+			}
+			framework.ExpectTrue(err != nil, "server should not be listening on port %d", serverPort)
 		})
 	})
 
