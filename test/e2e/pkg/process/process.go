@@ -3,7 +3,9 @@ package process
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os/exec"
+	"sync"
 )
 
 type Process struct {
@@ -12,9 +14,11 @@ type Process struct {
 	errorOutput *bytes.Buffer
 	stdOutput   *bytes.Buffer
 
-	done    chan struct{}
-	waitErr error
+	done     chan struct{}
+	closeOne sync.Once
+	waitErr  error
 
+	started           bool
 	beforeStopHandler func()
 	stopped           bool
 }
@@ -40,17 +44,26 @@ func NewWithEnvs(path string, params []string, envs []string) *Process {
 }
 
 func (p *Process) Start() error {
+	if p.started {
+		return errors.New("process already started")
+	}
+	p.started = true
+
 	err := p.cmd.Start()
 	if err != nil {
 		p.waitErr = err
-		close(p.done)
+		p.closeDone()
 		return err
 	}
 	go func() {
 		p.waitErr = p.cmd.Wait()
-		close(p.done)
+		p.closeDone()
 	}()
 	return nil
+}
+
+func (p *Process) closeDone() {
+	p.closeOne.Do(func() { close(p.done) })
 }
 
 // Done returns a channel that is closed when the process exits.
@@ -59,7 +72,7 @@ func (p *Process) Done() <-chan struct{} {
 }
 
 func (p *Process) Stop() error {
-	if p.stopped {
+	if p.stopped || !p.started {
 		return nil
 	}
 	defer func() {
