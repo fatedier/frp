@@ -34,7 +34,7 @@ var _ = ginkgo.Describe("[Feature: Monitor]", func() {
 		remotePort = %d
 		`, framework.TCPEchoServerPort, remotePort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		framework.NewRequestExpect(f).Port(remotePort).Ensure()
 		time.Sleep(500 * time.Millisecond)

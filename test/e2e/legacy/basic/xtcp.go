@@ -41,7 +41,7 @@ var _ = ginkgo.Describe("[Feature: XTCP]", func() {
 			fallback_timeout_ms = 200
 			`, framework.TCPEchoServerPort, bindPortName)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 		framework.NewRequestExpect(f).
 			RequestModify(func(r *request.Request) {
 				r.Timeout(time.Second)

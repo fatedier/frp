@@ -82,7 +82,7 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 					clientConf.WriteString(getProxyConf(test.proxyName, test.portName, test.extraConfig) + "\n")
 				}
 				// run frps and frpc
-				f.RunProcesses([]string{serverConf}, []string{clientConf.String()})
+				f.RunProcesses(serverConf, []string{clientConf.String()})
 
 				for _, test := range tests {
 					framework.NewRequestExpect(f).
@@ -152,7 +152,7 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 				clientConf.WriteString(getProxyConf(test.proxyName, tests[i].customDomains, test.extraConfig) + "\n")
 			}
 			// run frps and frpc
-			f.RunProcesses([]string{serverConf}, []string{clientConf.String()})
+			f.RunProcesses(serverConf, []string{clientConf.String()})
 
 			for _, test := range tests {
 				for domain := range strings.SplitSeq(test.customDomains, ",") {
@@ -235,7 +235,7 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 				clientConf.WriteString(getProxyConf(test.proxyName, tests[i].customDomains, test.extraConfig) + "\n")
 			}
 			// run frps and frpc
-			f.RunProcesses([]string{serverConf}, []string{clientConf.String()})
+			f.RunProcesses(serverConf, []string{clientConf.String()})
 
 			tlsConfig, err := transport.NewServerTLSConfig("", "", "")
 			framework.ExpectNoError(err)
@@ -419,7 +419,7 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 					}
 				}
 				// run frps and frpc
-				f.RunProcesses([]string{serverConf}, []string{clientServerConf.String(), clientVisitorConf.String(), clientUser2VisitorConf.String()})
+				f.RunProcesses(serverConf, []string{clientServerConf.String(), clientVisitorConf.String(), clientUser2VisitorConf.String()})
 
 				for _, test := range tests {
 					timeout := time.Second
@@ -497,7 +497,7 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 			}
 
 			// run frps and frpc
-			f.RunProcesses([]string{serverConf}, []string{clientConf.String()})
+			f.RunProcesses(serverConf, []string{clientConf.String()})
 
 			// Request without HTTP connect should get error
 			framework.NewRequestExpect(f).

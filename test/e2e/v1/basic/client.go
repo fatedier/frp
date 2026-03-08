@@ -51,7 +51,7 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 			framework.TCPEchoServerPort, p2Port,
 			framework.TCPEchoServerPort, p3Port)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		framework.NewRequestExpect(f).Port(p1Port).Ensure()
 		framework.NewRequestExpect(f).Port(p2Port).Ensure()
@@ -93,7 +93,7 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 		webServer.password = "admin"
 		`, dashboardPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
 			r.HTTP().HTTPPath("/healthz")
@@ -120,7 +120,7 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 		remotePort = %d
 		`, adminPort, framework.TCPEchoServerPort, testPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		framework.NewRequestExpect(f).Port(testPort).Ensure()
 

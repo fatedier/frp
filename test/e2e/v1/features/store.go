@@ -30,7 +30,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			path = "%s/store.json"
 			`, adminPort, f.TempDirectory)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 			time.Sleep(500 * time.Millisecond)
 
 			proxyConfig := map[string]any{
@@ -71,7 +71,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			path = "%s/store.json"
 			`, adminPort, f.TempDirectory)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 			time.Sleep(500 * time.Millisecond)
 
 			proxyConfig := map[string]any{
@@ -125,7 +125,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			path = "%s/store.json"
 			`, adminPort, f.TempDirectory)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 			time.Sleep(500 * time.Millisecond)
 
 			proxyConfig := map[string]any{
@@ -173,7 +173,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			path = "%s/store.json"
 			`, adminPort, f.TempDirectory)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 			time.Sleep(500 * time.Millisecond)
 
 			proxyConfig := map[string]any{
@@ -225,7 +225,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			webServer.port = %d
 			`, adminPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 			time.Sleep(500 * time.Millisecond)
 
 			framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
@@ -247,7 +247,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			path = "%s/store.json"
 			`, adminPort, f.TempDirectory)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 			time.Sleep(500 * time.Millisecond)
 
 			invalidBody, _ := json.Marshal(map[string]any{
@@ -280,7 +280,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			path = "%s/store.json"
 			`, adminPort, f.TempDirectory)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 			time.Sleep(500 * time.Millisecond)
 
 			createBody, _ := json.Marshal(map[string]any{
