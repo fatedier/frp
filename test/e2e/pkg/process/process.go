@@ -12,6 +12,9 @@ type Process struct {
 	errorOutput *bytes.Buffer
 	stdOutput   *bytes.Buffer
 
+	done    chan struct{}
+	waitErr error
+
 	beforeStopHandler func()
 	stopped           bool
 }
@@ -27,6 +30,7 @@ func NewWithEnvs(path string, params []string, envs []string) *Process {
 	p := &Process{
 		cmd:    cmd,
 		cancel: cancel,
+		done:   make(chan struct{}),
 	}
 	p.errorOutput = bytes.NewBufferString("")
 	p.stdOutput = bytes.NewBufferString("")
@@ -36,7 +40,22 @@ func NewWithEnvs(path string, params []string, envs []string) *Process {
 }
 
 func (p *Process) Start() error {
-	return p.cmd.Start()
+	err := p.cmd.Start()
+	if err != nil {
+		p.waitErr = err
+		close(p.done)
+		return err
+	}
+	go func() {
+		p.waitErr = p.cmd.Wait()
+		close(p.done)
+	}()
+	return nil
+}
+
+// Done returns a channel that is closed when the process exits.
+func (p *Process) Done() <-chan struct{} {
+	return p.done
 }
 
 func (p *Process) Stop() error {
@@ -50,7 +69,8 @@ func (p *Process) Stop() error {
 		p.beforeStopHandler()
 	}
 	p.cancel()
-	return p.cmd.Wait()
+	<-p.done
+	return p.waitErr
 }
 
 func (p *Process) ErrorOutput() string {
