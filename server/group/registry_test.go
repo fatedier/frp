@@ -95,7 +95,8 @@ func TestConcurrentGetOrCreateAndRemoveIf(t *testing.T) {
 	}
 	wg.Wait()
 
-	// After all goroutines finish, the key either exists or not — no panic or race.
-	_, ok := r.get("k")
-	require.True(t, ok || !ok) // just verifying no panic
+	// After all goroutines finish, accessing the key must not panic.
+	require.NotPanics(t, func() {
+		_, _ = r.get("k")
+	})
 }
