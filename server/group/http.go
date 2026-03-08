@@ -11,7 +11,6 @@ import (
 
 // HTTPGroupController manages HTTP groups that use round-robin
 // callback routing (fundamentally different from listener-based groups).
-
 type HTTPGroupController struct {
 	groupRegistry[*HTTPGroup]
 	vhostRouter *vhost.Routers
