@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"github.com/fatedier/frp/pkg/policy/security"
 	"github.com/fatedier/frp/pkg/util/log/events"
-	"github.com/fatedier/frp/pkg/util/system"
 	"github.com/fatedier/frp/pkg/util/version"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc/mgr"
@@ -35,6 +34,7 @@ import (
 var (
 	verifyInstallation = false
 	restricted         = false
+	serviceName = "FrpServer"
 )
 
 const fmtServiceDesc = "Frp is a fast reverse proxy that allows you to expose a local server located behind a NAT or firewall to the Internet. This service is %s."
@@ -156,15 +156,15 @@ func installService(exec string, args ...string) error {
 		TagId:            0,
 		Dependencies:     []string{"Tcpip"},
 		ServiceStartName: objName,
-		DisplayName:      system.ServiceName,
-		Description:      fmt.Sprintf(fmtServiceDesc, system.ServiceName),
+		DisplayName:      serviceName,
+		Description:      fmt.Sprintf(fmtServiceDesc, serviceName),
 		SidType:          sidType,
 		DelayedAutoStart: false,
 	}, args...)
 	if err != nil {
 		return err
 	}
-	_ = events.CreateEventSource(system.ServiceName)
+	_ = events.CreateEventSource(serviceName)
 	fmt.Println("Service successfully installed.")
 	return nil
 }
@@ -221,7 +221,7 @@ func uninstallService() error {
 	if err != nil {
 		return err
 	}
-	_ = events.DeleteEventSource(system.ServiceName)
+	_ = events.DeleteEventSource(serviceName)
 	fmt.Println("Service successfully removed.")
 	return nil
 }
