@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/fatedier/frp/pkg/config"
 	flog "github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
 	"github.com/fatedier/frp/test/e2e/pkg/process"
@@ -61,9 +62,22 @@ func (f *Framework) RunProcesses(serverTemplate string, clientTemplates []string
 		err = p.Start()
 		ExpectNoError(err)
 	}
-	// frpc needs time to connect and register proxies with frps.
-	if len(clientProcesses) > 0 {
-		time.Sleep(1500 * time.Millisecond)
+	// Wait for each client's proxies to register with frps.
+	// If any client has no proxies (e.g. visitor-only), fall back to sleep
+	// for the remaining time since visitors have no deterministic readiness signal.
+	allConfirmed := len(clientProcesses) > 0
+	start := time.Now()
+	for i, p := range clientProcesses {
+		configPath := f.clientConfPaths[len(f.clientConfPaths)-len(clientProcesses)+i]
+		if !waitForClientProxyReady(configPath, p, 5*time.Second) {
+			allConfirmed = false
+		}
+	}
+	if len(clientProcesses) > 0 && !allConfirmed {
+		remaining := 1500*time.Millisecond - time.Since(start)
+		if remaining > 0 {
+			time.Sleep(remaining)
+		}
 	}
 
 	return serverProcess, clientProcesses
@@ -103,6 +117,25 @@ func (f *Framework) GenerateConfigFile(content string) string {
 	err := os.WriteFile(path, []byte(content), 0o600)
 	ExpectNoError(err)
 	return path
+}
+
+// waitForClientProxyReady parses the client config to extract proxy names,
+// then waits for each proxy's "start proxy success" log in the process output.
+// Returns true only if proxies were expected and all registered successfully.
+func waitForClientProxyReady(configPath string, p *process.Process, timeout time.Duration) bool {
+	_, proxyCfgs, _, _, err := config.LoadClientConfig(configPath, false)
+	if err != nil || len(proxyCfgs) == 0 {
+		return false
+	}
+
+	for _, cfg := range proxyCfgs {
+		name := cfg.GetBaseConfig().Name
+		pattern := fmt.Sprintf("[%s] start proxy success", name)
+		if err := p.WaitForOutput(pattern, 1, timeout); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // WaitForTCPReady polls a TCP address until a connection succeeds or timeout.
