@@ -74,7 +74,7 @@ func TestOidcAuthProviderFallsBackWhenNoExpiry(t *testing.T) {
 	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		requestCount.Add(1)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:gosec // test-only dummy token response
+		_ = json.NewEncoder(w).Encode(map[string]any{ //nolint:gosec // test-only dummy token response
 			"access_token": "fresh-test-token",
 			"token_type":   "Bearer",
 		})
@@ -98,7 +98,7 @@ func TestOidcAuthProviderFallsBackWhenNoExpiry(t *testing.T) {
 	r.NoError(err)
 	r.Equal("fresh-test-token", loginMsg.PrivilegeKey)
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		pingMsg := &msg.Ping{}
 		err = provider.SetPing(pingMsg)
 		r.NoError(err)
@@ -116,7 +116,7 @@ func TestOidcAuthProviderCachesToken(t *testing.T) {
 	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		requestCount.Add(1)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:gosec // test-only dummy token response
+		_ = json.NewEncoder(w).Encode(map[string]any{ //nolint:gosec // test-only dummy token response
 			"access_token": "cached-test-token",
 			"token_type":   "Bearer",
 			"expires_in":   3600,
@@ -145,7 +145,7 @@ func TestOidcAuthProviderCachesToken(t *testing.T) {
 	r.Equal(int32(1), requestCount.Load())
 
 	// Subsequent calls should also reuse the cached token
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		pingMsg := &msg.Ping{}
 		err = provider.SetPing(pingMsg)
 		r.NoError(err)
