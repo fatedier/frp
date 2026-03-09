@@ -93,6 +93,8 @@ func DeleteEventSource(serviceName string) error {
 	if err != nil {
 		return nil
 	}
+	// A "SYSTEM\CurrentControlSet\Services\EventLog\Frp\Frp" is somehow created during registration.
+	// Removing the whole "SYSTEM\CurrentControlSet\Services\EventLog\Frp" key if nothing else remains.
 	if len(keyNames) == 1 && keyNames[0] == "Frp" {
 		err := registry.DeleteKey(registry.LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Services\\EventLog\\Frp")
 		if err != nil {
