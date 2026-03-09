@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"golang.org/x/sys/windows/svc"
 	"os"
+	"time"
 )
 
 var ServiceName = ""
@@ -73,8 +74,15 @@ func (f frpService) Execute(args []string, r <-chan svc.ChangeRequest, s chan<- 
 		os.Exit(0)
 	}()
 
-	// Wait until ContinueF is set.
+	// Wait until ContinueF is set in 300s.
+	var wait = 300
 	for ContinueF == nil {
+		time.Sleep(1)
+		wait--
+		if wait < 0 {
+			fmt.Println("Service startup timed out")
+			os.Exit(1)
+		}
 	}
 	if PauseF != nil && ContinueF != nil {
 		s <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue}
