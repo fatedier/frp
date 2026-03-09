@@ -124,8 +124,8 @@ func (p *Process) SetBeforeStopHandler(fn func()) {
 	p.beforeStopHandler = fn
 }
 
-// WaitForOutput polls the combined process output until all patterns are found
-// or the timeout is reached. It also returns early if the process exits.
+// WaitForOutput polls the combined process output until the pattern is found
+// count time(s) or the timeout is reached. It also returns early if the process exits.
 func (p *Process) WaitForOutput(pattern string, count int, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {

@@ -128,10 +128,16 @@ func waitForClientProxyReady(configPath string, p *process.Process, timeout time
 		return false
 	}
 
+	// Use a single deadline so the total wait across all proxies does not exceed timeout.
+	deadline := time.Now().Add(timeout)
 	for _, cfg := range proxyCfgs {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return false
+		}
 		name := cfg.GetBaseConfig().Name
 		pattern := fmt.Sprintf("[%s] start proxy success", name)
-		if err := p.WaitForOutput(pattern, 1, timeout); err != nil {
+		if err := p.WaitForOutput(pattern, 1, remaining); err != nil {
 			return false
 		}
 	}
