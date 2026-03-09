@@ -41,7 +41,7 @@ func Run(name string, f func()) {
 	} else if inService {
 		// Start as a service.
 		err := svc.Run(name, &frpService{
-			f: f,
+			funcExec: f,
 		})
 		if err != nil {
 			os.Exit(1)
@@ -53,7 +53,7 @@ func Run(name string, f func()) {
 }
 
 type frpService struct {
-	f func()
+	funcExec func()
 }
 
 func (f frpService) Execute(args []string, r <-chan svc.ChangeRequest, s chan<- svc.Status) (svcSpecificEC bool, exitCode uint32) {
@@ -70,11 +70,13 @@ func (f frpService) Execute(args []string, r <-chan svc.ChangeRequest, s chan<- 
 		os.Args = append(os.Args[:1], args[1:]...)
 	}
 	go func() {
-		f.f()
+		// funcExec is either "cmd/frps":Execute() or "cmd/frpc/sub":sub.Execute()
+		// It'll eventually set ContinueF if everything goes well
+		f.funcExec()
 		os.Exit(0)
 	}()
 
-	// Wait until ContinueF is set in 300s.
+	// Wait until ContinueF is set by f.funcExec in 300s.
 	var wait = 300
 	for ContinueF == nil {
 		time.Sleep(1)
