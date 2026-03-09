@@ -76,7 +76,10 @@ func (f *Framework) RunFrps(args ...string) (*process.Process, string, error) {
 	if err != nil {
 		return p, p.Output(), err
 	}
-	time.Sleep(2 * time.Second)
+	select {
+	case <-p.Done():
+	case <-time.After(2 * time.Second):
+	}
 	return p, p.Output(), nil
 }
 
@@ -87,7 +90,10 @@ func (f *Framework) RunFrpc(args ...string) (*process.Process, string, error) {
 	if err != nil {
 		return p, p.Output(), err
 	}
-	time.Sleep(1500 * time.Millisecond)
+	select {
+	case <-p.Done():
+	case <-time.After(1500 * time.Millisecond):
+	}
 	return p, p.Output(), nil
 }
 

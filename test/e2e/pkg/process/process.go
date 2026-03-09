@@ -3,7 +3,9 @@ package process
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os/exec"
+	"sync"
 )
 
 type Process struct {
@@ -12,6 +14,11 @@ type Process struct {
 	errorOutput *bytes.Buffer
 	stdOutput   *bytes.Buffer
 
+	done     chan struct{}
+	closeOne sync.Once
+	waitErr  error
+
+	started           bool
 	beforeStopHandler func()
 	stopped           bool
 }
@@ -27,6 +34,7 @@ func NewWithEnvs(path string, params []string, envs []string) *Process {
 	p := &Process{
 		cmd:    cmd,
 		cancel: cancel,
+		done:   make(chan struct{}),
 	}
 	p.errorOutput = bytes.NewBufferString("")
 	p.stdOutput = bytes.NewBufferString("")
@@ -36,11 +44,35 @@ func NewWithEnvs(path string, params []string, envs []string) *Process {
 }
 
 func (p *Process) Start() error {
-	return p.cmd.Start()
+	if p.started {
+		return errors.New("process already started")
+	}
+	p.started = true
+
+	err := p.cmd.Start()
+	if err != nil {
+		p.waitErr = err
+		p.closeDone()
+		return err
+	}
+	go func() {
+		p.waitErr = p.cmd.Wait()
+		p.closeDone()
+	}()
+	return nil
+}
+
+func (p *Process) closeDone() {
+	p.closeOne.Do(func() { close(p.done) })
+}
+
+// Done returns a channel that is closed when the process exits.
+func (p *Process) Done() <-chan struct{} {
+	return p.done
 }
 
 func (p *Process) Stop() error {
-	if p.stopped {
+	if p.stopped || !p.started {
 		return nil
 	}
 	defer func() {
@@ -50,7 +82,8 @@ func (p *Process) Stop() error {
 		p.beforeStopHandler()
 	}
 	p.cancel()
-	return p.cmd.Wait()
+	<-p.done
+	return p.waitErr
 }
 
 func (p *Process) ErrorOutput() string {
