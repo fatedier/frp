@@ -150,7 +150,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 			dstAddr, dstPortStr, _ = net.SplitHostPort(dst.String())
 			dstPort, _ = strconv.ParseUint(dstPortStr, 10, 16)
 		}
-		err = msg.WriteMsg(workConn, &msg.StartWorkConn{
+		err := msg.WriteMsg(workConn, &msg.StartWorkConn{
 			ProxyName: pxy.GetName(),
 			SrcAddr:   srcAddr,
 			SrcPort:   uint16(srcPort),
@@ -161,7 +161,6 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 		if err != nil {
 			xl.Warnf("failed to send message to work connection from pool: %v, times: %d", err, i)
 			workConn.Close()
-			workConn = nil
 		} else {
 			break
 		}
@@ -259,6 +258,14 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 		xl.Warnf("the user conn [%s] was rejected, err:%v", content.RemoteAddr, err)
 		return
 	}
+	defer func() {
+		_ = rc.PluginManager.CloseUserConn(&plugin.CloseUserConnContent{
+			User:       content.User,
+			ProxyName:  content.ProxyName,
+			ProxyType:  content.ProxyType,
+			RemoteAddr: content.RemoteAddr,
+		})
+	}()
 
 	// try all connections from the pool
 	workConn, err := pxy.GetWorkConnFromPool(userConn.RemoteAddr(), userConn.LocalAddr())
@@ -294,12 +301,13 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 
 	name := pxy.GetName()
 	proxyType := cfg.Type
+	userRemoteAddr := userConn.RemoteAddr().String()
 	metrics.Server.OpenConnection(name, proxyType)
 	inCount, outCount, _ := libio.Join(local, userConn)
 	metrics.Server.CloseConnection(name, proxyType)
 	metrics.Server.AddTrafficIn(name, proxyType, inCount)
 	metrics.Server.AddTrafficOut(name, proxyType, outCount)
-	xl.Debugf("join connections closed")
+	xl.Debugf("join connections closed, userConn(r[%s])", userRemoteAddr)
 }
 
 type Options struct {

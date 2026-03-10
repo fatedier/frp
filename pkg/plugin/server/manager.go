@@ -25,22 +25,24 @@ import (
 )
 
 type Manager struct {
-	loginPlugins       []Plugin
-	newProxyPlugins    []Plugin
-	closeProxyPlugins  []Plugin
-	pingPlugins        []Plugin
-	newWorkConnPlugins []Plugin
-	newUserConnPlugins []Plugin
+	loginPlugins         []Plugin
+	newProxyPlugins      []Plugin
+	closeProxyPlugins    []Plugin
+	pingPlugins          []Plugin
+	newWorkConnPlugins   []Plugin
+	newUserConnPlugins   []Plugin
+	closeUserConnPlugins []Plugin
 }
 
 func NewManager() *Manager {
 	return &Manager{
-		loginPlugins:       make([]Plugin, 0),
-		newProxyPlugins:    make([]Plugin, 0),
-		closeProxyPlugins:  make([]Plugin, 0),
-		pingPlugins:        make([]Plugin, 0),
-		newWorkConnPlugins: make([]Plugin, 0),
-		newUserConnPlugins: make([]Plugin, 0),
+		loginPlugins:         make([]Plugin, 0),
+		newProxyPlugins:      make([]Plugin, 0),
+		closeProxyPlugins:    make([]Plugin, 0),
+		pingPlugins:          make([]Plugin, 0),
+		newWorkConnPlugins:   make([]Plugin, 0),
+		newUserConnPlugins:   make([]Plugin, 0),
+		closeUserConnPlugins: make([]Plugin, 0),
 	}
 }
 
@@ -62,6 +64,9 @@ func (m *Manager) Register(p Plugin) {
 	}
 	if p.IsSupport(OpNewUserConn) {
 		m.newUserConnPlugins = append(m.newUserConnPlugins, p)
+	}
+	if p.IsSupport(OpCloseUserConn) {
+		m.closeUserConnPlugins = append(m.closeUserConnPlugins, p)
 	}
 }
 
@@ -258,4 +263,29 @@ func (m *Manager) NewUserConn(content *NewUserConnContent) (*NewUserConnContent,
 		}
 	}
 	return content, nil
+}
+
+func (m *Manager) CloseUserConn(content *CloseUserConnContent) error {
+	if len(m.closeUserConnPlugins) == 0 {
+		return nil
+	}
+
+	errs := make([]string, 0)
+	reqid, _ := util.RandID()
+	xl := xlog.New().AppendPrefix("reqid: " + reqid)
+	ctx := xlog.NewContext(context.Background(), xl)
+	ctx = NewReqidContext(ctx, reqid)
+
+	for _, p := range m.closeUserConnPlugins {
+		_, _, err := p.Handle(ctx, OpCloseUserConn, *content)
+		if err != nil {
+			xl.Warnf("send CloseUserConn request to plugin [%s] error: %v", p.Name(), err)
+			errs = append(errs, fmt.Sprintf("[%s]: %v", p.Name(), err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("send CloseUserConn request to plugin errors: %s", strings.Join(errs, "; "))
+	}
+	return nil
 }
