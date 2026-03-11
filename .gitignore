@@ -29,6 +29,5 @@ client.key
 *.swp
 
 # AI
-CLAUDE.md
-AGENTS.md
+.claude/
 .sisyphus/
