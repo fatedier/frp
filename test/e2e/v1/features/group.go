@@ -286,7 +286,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			healthCheck.intervalSeconds = 1
 			`, fooPort, remotePort, barPort, remotePort)
 
-			f.RunProcesses(serverConf, []string{clientConf})
+			_, clientProcesses := f.RunProcesses(serverConf, []string{clientConf})
 
 			// check foo and bar is ok
 			results := []string{}
@@ -299,15 +299,17 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			framework.ExpectContainElements(results, []string{"foo", "bar"})
 
 			// close bar server, check foo is ok
+			failedCount := clientProcesses[0].CountOutput("[bar] health check failed")
 			barServer.Close()
-			time.Sleep(2 * time.Second)
+			framework.ExpectNoError(clientProcesses[0].WaitForOutput("[bar] health check failed", failedCount+1, 5*time.Second))
 			for range 10 {
 				framework.NewRequestExpect(f).Port(remotePort).ExpectResp([]byte("foo")).Ensure()
 			}
 
 			// resume bar server, check foo and bar is ok
+			successCount := clientProcesses[0].CountOutput("[bar] health check success")
 			f.RunServer("", barServer)
-			time.Sleep(2 * time.Second)
+			framework.ExpectNoError(clientProcesses[0].WaitForOutput("[bar] health check success", successCount+1, 5*time.Second))
 			results = []string{}
 			for range 10 {
 				framework.NewRequestExpect(f).Port(remotePort).Ensure(validateFooBarResponse, func(resp *request.Response) bool {
@@ -357,7 +359,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			healthCheck.path = "/healthz"
 			`, fooPort, barPort)
 
-			f.RunProcesses(serverConf, []string{clientConf})
+			_, clientProcesses := f.RunProcesses(serverConf, []string{clientConf})
 
 			// send first HTTP request
 			var contents []string
@@ -387,15 +389,17 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			framework.ExpectContainElements(results, []string{"foo", "bar"})
 
 			// close bar server, check foo is ok
+			failedCount := clientProcesses[0].CountOutput("[bar] health check failed")
 			barServer.Close()
-			time.Sleep(2 * time.Second)
+			framework.ExpectNoError(clientProcesses[0].WaitForOutput("[bar] health check failed", failedCount+1, 5*time.Second))
 			results = doFooBarHTTPRequest(vhostPort, "example.com")
 			framework.ExpectContainElements(results, []string{"foo"})
 			framework.ExpectNotContainElements(results, []string{"bar"})
 
 			// resume bar server, check foo and bar is ok
+			successCount := clientProcesses[0].CountOutput("[bar] health check success")
 			f.RunServer("", barServer)
-			time.Sleep(2 * time.Second)
+			framework.ExpectNoError(clientProcesses[0].WaitForOutput("[bar] health check success", successCount+1, 5*time.Second))
 			results = doFooBarHTTPRequest(vhostPort, "example.com")
 			framework.ExpectContainElements(results, []string{"foo", "bar"})
 		})

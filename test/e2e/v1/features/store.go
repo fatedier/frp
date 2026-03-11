@@ -31,7 +31,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			`, adminPort, f.TempDirectory)
 
 			f.RunProcesses(serverConf, []string{clientConf})
-			time.Sleep(500 * time.Millisecond)
+			framework.ExpectNoError(framework.WaitForTCPReady(fmt.Sprintf("127.0.0.1:%d", adminPort), 5*time.Second))
 
 			proxyConfig := map[string]any{
 				"name": "test-tcp",
@@ -52,7 +52,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 				return resp.Code == 200
 			})
 
-			time.Sleep(time.Second)
+			framework.ExpectNoError(framework.WaitForTCPReady(fmt.Sprintf("127.0.0.1:%d", remotePort), 5*time.Second))
 
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 		})
@@ -72,7 +72,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			`, adminPort, f.TempDirectory)
 
 			f.RunProcesses(serverConf, []string{clientConf})
-			time.Sleep(500 * time.Millisecond)
+			framework.ExpectNoError(framework.WaitForTCPReady(fmt.Sprintf("127.0.0.1:%d", adminPort), 5*time.Second))
 
 			proxyConfig := map[string]any{
 				"name": "test-tcp",
@@ -93,7 +93,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 				return resp.Code == 200
 			})
 
-			time.Sleep(time.Second)
+			framework.ExpectNoError(framework.WaitForTCPReady(fmt.Sprintf("127.0.0.1:%d", remotePort1), 5*time.Second))
 			framework.NewRequestExpect(f).Port(remotePort1).Ensure()
 
 			proxyConfig["tcp"].(map[string]any)["remotePort"] = remotePort2
@@ -107,7 +107,8 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 				return resp.Code == 200
 			})
 
-			time.Sleep(time.Second)
+			framework.ExpectNoError(framework.WaitForTCPReady(fmt.Sprintf("127.0.0.1:%d", remotePort2), 5*time.Second))
+			framework.ExpectNoError(framework.WaitForTCPUnreachable(fmt.Sprintf("127.0.0.1:%d", remotePort1), 100*time.Millisecond, 5*time.Second))
 			framework.NewRequestExpect(f).Port(remotePort2).Ensure()
 			framework.NewRequestExpect(f).Port(remotePort1).ExpectError(true).Ensure()
 		})
@@ -126,7 +127,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			`, adminPort, f.TempDirectory)
 
 			f.RunProcesses(serverConf, []string{clientConf})
-			time.Sleep(500 * time.Millisecond)
+			framework.ExpectNoError(framework.WaitForTCPReady(fmt.Sprintf("127.0.0.1:%d", adminPort), 5*time.Second))
 
 			proxyConfig := map[string]any{
 				"name": "test-tcp",
@@ -147,7 +148,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 				return resp.Code == 200
 			})
 
-			time.Sleep(time.Second)
+			framework.ExpectNoError(framework.WaitForTCPReady(fmt.Sprintf("127.0.0.1:%d", remotePort), 5*time.Second))
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 
 			framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
@@ -156,7 +157,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 				return resp.Code == 200
 			})
 
-			time.Sleep(time.Second)
+			framework.ExpectNoError(framework.WaitForTCPUnreachable(fmt.Sprintf("127.0.0.1:%d", remotePort), 100*time.Millisecond, 5*time.Second))
 			framework.NewRequestExpect(f).Port(remotePort).ExpectError(true).Ensure()
 		})
 
@@ -174,7 +175,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			`, adminPort, f.TempDirectory)
 
 			f.RunProcesses(serverConf, []string{clientConf})
-			time.Sleep(500 * time.Millisecond)
+			framework.ExpectNoError(framework.WaitForTCPReady(fmt.Sprintf("127.0.0.1:%d", adminPort), 5*time.Second))
 
 			proxyConfig := map[string]any{
 				"name": "test-tcp",
@@ -194,8 +195,6 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			}).Ensure(func(resp *request.Response) bool {
 				return resp.Code == 200
 			})
-
-			time.Sleep(500 * time.Millisecond)
 
 			framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
 				r.HTTP().Port(adminPort).HTTPPath("/api/store/proxies")
@@ -226,7 +225,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			`, adminPort)
 
 			f.RunProcesses(serverConf, []string{clientConf})
-			time.Sleep(500 * time.Millisecond)
+			framework.ExpectNoError(framework.WaitForTCPReady(fmt.Sprintf("127.0.0.1:%d", adminPort), 5*time.Second))
 
 			framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
 				r.HTTP().Port(adminPort).HTTPPath("/api/store/proxies")
@@ -248,7 +247,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			`, adminPort, f.TempDirectory)
 
 			f.RunProcesses(serverConf, []string{clientConf})
-			time.Sleep(500 * time.Millisecond)
+			framework.ExpectNoError(framework.WaitForTCPReady(fmt.Sprintf("127.0.0.1:%d", adminPort), 5*time.Second))
 
 			invalidBody, _ := json.Marshal(map[string]any{
 				"name": "bad-proxy",
@@ -281,7 +280,7 @@ var _ = ginkgo.Describe("[Feature: Store]", func() {
 			`, adminPort, f.TempDirectory)
 
 			f.RunProcesses(serverConf, []string{clientConf})
-			time.Sleep(500 * time.Millisecond)
+			framework.ExpectNoError(framework.WaitForTCPReady(fmt.Sprintf("127.0.0.1:%d", adminPort), 5*time.Second))
 
 			createBody, _ := json.Marshal(map[string]any{
 				"name": "proxy-a",

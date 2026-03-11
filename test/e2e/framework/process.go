@@ -144,6 +144,23 @@ func waitForClientProxyReady(configPath string, p *process.Process, timeout time
 	return true
 }
 
+// WaitForTCPUnreachable polls a TCP address until a connection fails or timeout.
+func WaitForTCPUnreachable(addr string, interval, timeout time.Duration) error {
+	if timeout <= 0 {
+		return fmt.Errorf("invalid timeout for TCP unreachable on %s: timeout must be positive", addr)
+	}
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, interval)
+		if err != nil {
+			return nil
+		}
+		conn.Close()
+		time.Sleep(interval)
+	}
+	return fmt.Errorf("timeout waiting for TCP unreachable on %s", addr)
+}
+
 // WaitForTCPReady polls a TCP address until a connection succeeds or timeout.
 func WaitForTCPReady(addr string, timeout time.Duration) error {
 	if timeout <= 0 {
