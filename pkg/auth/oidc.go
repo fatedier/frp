@@ -75,11 +75,23 @@ func createOIDCHTTPClient(trustedCAFile string, insecureSkipVerify bool, proxyUR
 	return &http.Client{Transport: transport}, nil
 }
 
+// nonCachingTokenSource wraps a clientcredentials.Config to fetch a fresh
+// token on every call. This is used as a fallback when the OIDC provider
+// does not return expires_in, which would cause a caching TokenSource to
+// hold onto a stale token forever.
+type nonCachingTokenSource struct {
+	cfg *clientcredentials.Config
+	ctx context.Context
+}
+
+func (s *nonCachingTokenSource) Token() (*oauth2.Token, error) {
+	return s.cfg.Token(s.ctx)
+}
+
 type OidcAuthProvider struct {
 	additionalAuthScopes []v1.AuthScope
 
-	tokenGenerator *clientcredentials.Config
-	httpClient     *http.Client
+	tokenSource oauth2.TokenSource
 }
 
 func NewOidcAuthSetter(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCClientConfig) (*OidcAuthProvider, error) {
@@ -100,30 +112,44 @@ func NewOidcAuthSetter(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCClien
 		EndpointParams: eps,
 	}
 
-	// Create custom HTTP client if needed
-	var httpClient *http.Client
+	// Build the context that TokenSource will use for all future HTTP requests.
+	// context.Background() is appropriate here because the token source is
+	// long-lived and outlives any single request.
+	ctx := context.Background()
 	if cfg.TrustedCaFile != "" || cfg.InsecureSkipVerify || cfg.ProxyURL != "" {
-		var err error
-		httpClient, err = createOIDCHTTPClient(cfg.TrustedCaFile, cfg.InsecureSkipVerify, cfg.ProxyURL)
+		httpClient, err := createOIDCHTTPClient(cfg.TrustedCaFile, cfg.InsecureSkipVerify, cfg.ProxyURL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create OIDC HTTP client: %w", err)
 		}
+		ctx = context.WithValue(ctx, oauth2.HTTPClient, httpClient)
+	}
+
+	// Create a persistent TokenSource that caches the token and refreshes
+	// it before expiry. This avoids making a new HTTP request to the OIDC
+	// provider on every heartbeat/ping.
+	tokenSource := tokenGenerator.TokenSource(ctx)
+
+	// Fetch the initial token to check if the provider returns an expiry.
+	// If Expiry is the zero value (provider omitted expires_in), the cached
+	// TokenSource would treat the token as valid forever and never refresh it,
+	// even after the JWT's exp claim passes. In that case, fall back to
+	// fetching a fresh token on every request.
+	initialToken, err := tokenSource.Token()
+	if err != nil {
+		return nil, fmt.Errorf("failed to obtain initial OIDC token: %w", err)
+	}
+	if initialToken.Expiry.IsZero() {
+		tokenSource = &nonCachingTokenSource{cfg: tokenGenerator, ctx: ctx}
 	}
 
 	return &OidcAuthProvider{
 		additionalAuthScopes: additionalAuthScopes,
-		tokenGenerator:       tokenGenerator,
-		httpClient:           httpClient,
+		tokenSource:          tokenSource,
 	}, nil
 }
 
 func (auth *OidcAuthProvider) generateAccessToken() (accessToken string, err error) {
-	ctx := context.Background()
-	if auth.httpClient != nil {
-		ctx = context.WithValue(ctx, oauth2.HTTPClient, auth.httpClient)
-	}
-
-	tokenObj, err := auth.tokenGenerator.Token(ctx)
+	tokenObj, err := auth.tokenSource.Token()
 	if err != nil {
 		return "", fmt.Errorf("couldn't generate OIDC token for login: %v", err)
 	}
