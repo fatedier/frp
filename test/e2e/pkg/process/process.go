@@ -120,6 +120,11 @@ func (p *Process) Output() string {
 	return p.stdOutput.String() + p.errorOutput.String()
 }
 
+// CountOutput returns how many times pattern appears in the current accumulated output.
+func (p *Process) CountOutput(pattern string) int {
+	return strings.Count(p.Output(), pattern)
+}
+
 func (p *Process) SetBeforeStopHandler(fn func()) {
 	p.beforeStopHandler = fn
 }
