@@ -1,264 +1,7 @@
-// ========================================
-// RUNTIME STATUS TYPES (from /api/status)
-// ========================================
-
-export interface ProxyStatus {
-  name: string
-  type: string
-  status: string
-  err: string
-  local_addr: string
-  plugin: string
-  remote_addr: string
-  source?: 'store' | 'config'
-  [key: string]: any
-}
-
-export type StatusResponse = Record<string, ProxyStatus[]>
-
-// ========================================
-// STORE API TYPES
-// ========================================
-
-export interface ProxyDefinition {
-  name: string
-  type: ProxyType
-  tcp?: Record<string, any>
-  udp?: Record<string, any>
-  http?: Record<string, any>
-  https?: Record<string, any>
-  tcpmux?: Record<string, any>
-  stcp?: Record<string, any>
-  sudp?: Record<string, any>
-  xtcp?: Record<string, any>
-}
-
-export interface VisitorDefinition {
-  name: string
-  type: VisitorType
-  stcp?: Record<string, any>
-  sudp?: Record<string, any>
-  xtcp?: Record<string, any>
-}
-
-export interface ProxyListResp {
-  proxies: ProxyDefinition[]
-}
-
-export interface VisitorListResp {
-  visitors: VisitorDefinition[]
-}
-
-// ========================================
-// CONSTANTS
-// ========================================
-
-export const PROXY_TYPES = [
-  'tcp',
-  'udp',
-  'http',
-  'https',
-  'stcp',
-  'sudp',
-  'xtcp',
-  'tcpmux',
-] as const
-
-export type ProxyType = (typeof PROXY_TYPES)[number]
-
-export const VISITOR_TYPES = ['stcp', 'sudp', 'xtcp'] as const
-
-export type VisitorType = (typeof VISITOR_TYPES)[number]
-
-export const PLUGIN_TYPES = [
-  '',
-  'http2https',
-  'http_proxy',
-  'https2http',
-  'https2https',
-  'http2http',
-  'socks5',
-  'static_file',
-  'unix_domain_socket',
-  'tls2raw',
-  'virtual_net',
-] as const
-
-export type PluginType = (typeof PLUGIN_TYPES)[number]
-
-// ========================================
-// FORM DATA INTERFACES
-// ========================================
-
-export interface ProxyFormData {
-  // Base fields (ProxyBaseConfig)
-  name: string
-  type: ProxyType
-  enabled: boolean
-
-  // Backend (ProxyBackend)
-  localIP: string
-  localPort: number | undefined
-  pluginType: string
-  pluginConfig: Record<string, any>
-
-  // Transport (ProxyTransport)
-  useEncryption: boolean
-  useCompression: boolean
-  bandwidthLimit: string
-  bandwidthLimitMode: string
-  proxyProtocolVersion: string
-
-  // Load Balancer (LoadBalancerConfig)
-  loadBalancerGroup: string
-  loadBalancerGroupKey: string
-
-  // Health Check (HealthCheckConfig)
-  healthCheckType: string
-  healthCheckTimeoutSeconds: number | undefined
-  healthCheckMaxFailed: number | undefined
-  healthCheckIntervalSeconds: number | undefined
-  healthCheckPath: string
-  healthCheckHTTPHeaders: Array<{ name: string; value: string }>
-
-  // Metadata & Annotations
-  metadatas: Array<{ key: string; value: string }>
-  annotations: Array<{ key: string; value: string }>
-
-  // TCP/UDP specific
-  remotePort: number | undefined
-
-  // Domain (HTTP/HTTPS/TCPMux) - DomainConfig
-  customDomains: string
-  subdomain: string
-
-  // HTTP specific (HTTPProxyConfig)
-  locations: string
-  httpUser: string
-  httpPassword: string
-  hostHeaderRewrite: string
-  requestHeaders: Array<{ key: string; value: string }>
-  responseHeaders: Array<{ key: string; value: string }>
-  routeByHTTPUser: string
-
-  // TCPMux specific
-  multiplexer: string
-
-  // STCP/SUDP/XTCP specific
-  secretKey: string
-  allowUsers: string
-
-  // XTCP specific (NatTraversalConfig)
-  natTraversalDisableAssistedAddrs: boolean
-}
-
-export interface VisitorFormData {
-  // Base fields (VisitorBaseConfig)
-  name: string
-  type: VisitorType
-  enabled: boolean
-
-  // Transport (VisitorTransport)
-  useEncryption: boolean
-  useCompression: boolean
-
-  // Connection
-  secretKey: string
-  serverUser: string
-  serverName: string
-  bindAddr: string
-  bindPort: number | undefined
-
-  // XTCP specific (XTCPVisitorConfig)
-  protocol: string
-  keepTunnelOpen: boolean
-  maxRetriesAnHour: number | undefined
-  minRetryInterval: number | undefined
-  fallbackTo: string
-  fallbackTimeoutMs: number | undefined
-  natTraversalDisableAssistedAddrs: boolean
-}
-
-// ========================================
-// DEFAULT FORM CREATORS
-// ========================================
-
-export function createDefaultProxyForm(): ProxyFormData {
-  return {
-    name: '',
-    type: 'tcp',
-    enabled: true,
-
-    localIP: '127.0.0.1',
-    localPort: undefined,
-    pluginType: '',
-    pluginConfig: {},
-
-    useEncryption: false,
-    useCompression: false,
-    bandwidthLimit: '',
-    bandwidthLimitMode: 'client',
-    proxyProtocolVersion: '',
-
-    loadBalancerGroup: '',
-    loadBalancerGroupKey: '',
-
-    healthCheckType: '',
-    healthCheckTimeoutSeconds: undefined,
-    healthCheckMaxFailed: undefined,
-    healthCheckIntervalSeconds: undefined,
-    healthCheckPath: '',
-    healthCheckHTTPHeaders: [],
-
-    metadatas: [],
-    annotations: [],
-
-    remotePort: undefined,
-
-    customDomains: '',
-    subdomain: '',
-
-    locations: '',
-    httpUser: '',
-    httpPassword: '',
-    hostHeaderRewrite: '',
-    requestHeaders: [],
-    responseHeaders: [],
-    routeByHTTPUser: '',
-
-    multiplexer: 'httpconnect',
-
-    secretKey: '',
-    allowUsers: '',
-
-    natTraversalDisableAssistedAddrs: false,
-  }
-}
-
-export function createDefaultVisitorForm(): VisitorFormData {
-  return {
-    name: '',
-    type: 'stcp',
-    enabled: true,
-
-    useEncryption: false,
-    useCompression: false,
-
-    secretKey: '',
-    serverUser: '',
-    serverName: '',
-    bindAddr: '127.0.0.1',
-    bindPort: undefined,
-
-    protocol: 'quic',
-    keepTunnelOpen: false,
-    maxRetriesAnHour: undefined,
-    minRetryInterval: undefined,
-    fallbackTo: '',
-    fallbackTimeoutMs: undefined,
-    natTraversalDisableAssistedAddrs: false,
-  }
-}
+import type { ProxyType, VisitorType } from './constants'
+import type { ProxyFormData, VisitorFormData } from './proxy-form'
+import { createDefaultProxyForm, createDefaultVisitorForm } from './proxy-form'
+import type { ProxyDefinition, VisitorDefinition } from './proxy-store'
 
 // ========================================
 // CONVERTERS: Form -> Store API
@@ -359,11 +102,8 @@ export function formToStoreProxy(form: ProxyFormData): ProxyDefinition {
   }
 
   if (form.type === 'http' || form.type === 'https' || form.type === 'tcpmux') {
-    if (form.customDomains) {
-      block.customDomains = form.customDomains
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
+    if (form.customDomains.length > 0) {
+      block.customDomains = form.customDomains.filter(Boolean)
     }
     if (form.subdomain) {
       block.subdomain = form.subdomain
@@ -371,11 +111,8 @@ export function formToStoreProxy(form: ProxyFormData): ProxyDefinition {
   }
 
   if (form.type === 'http') {
-    if (form.locations) {
-      block.locations = form.locations
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
+    if (form.locations.length > 0) {
+      block.locations = form.locations.filter(Boolean)
     }
     if (form.httpUser) block.httpUser = form.httpUser
     if (form.httpPassword) block.httpPassword = form.httpPassword
@@ -409,11 +146,8 @@ export function formToStoreProxy(form: ProxyFormData): ProxyDefinition {
 
   if (form.type === 'stcp' || form.type === 'sudp' || form.type === 'xtcp') {
     if (form.secretKey) block.secretKey = form.secretKey
-    if (form.allowUsers) {
-      block.allowUsers = form.allowUsers
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
+    if (form.allowUsers.length > 0) {
+      block.allowUsers = form.allowUsers.filter(Boolean)
     }
   }
 
@@ -644,17 +378,17 @@ export function storeProxyToForm(config: ProxyDefinition): ProxyFormData {
 
   // Domain config
   if (Array.isArray(c.customDomains)) {
-    form.customDomains = c.customDomains.join(', ')
-  } else if (c.customDomains) {
     form.customDomains = c.customDomains
+  } else if (c.customDomains) {
+    form.customDomains = [c.customDomains]
   }
   form.subdomain = c.subdomain || ''
 
   // HTTP specific
   if (Array.isArray(c.locations)) {
-    form.locations = c.locations.join(', ')
-  } else if (c.locations) {
     form.locations = c.locations
+  } else if (c.locations) {
+    form.locations = [c.locations]
   }
   form.httpUser = c.httpUser || ''
   form.httpPassword = c.httpPassword || ''
@@ -679,9 +413,9 @@ export function storeProxyToForm(config: ProxyDefinition): ProxyFormData {
   // Secure types
   form.secretKey = c.secretKey || ''
   if (Array.isArray(c.allowUsers)) {
-    form.allowUsers = c.allowUsers.join(', ')
-  } else if (c.allowUsers) {
     form.allowUsers = c.allowUsers
+  } else if (c.allowUsers) {
+    form.allowUsers = [c.allowUsers]
   }
 
   // XTCP NAT traversal

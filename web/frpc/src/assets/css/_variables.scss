@@ -1,0 +1,61 @@
+// Typography
+$font-size-xs: 11px;
+$font-size-sm: 13px;
+$font-size-md: 14px;
+$font-size-lg: 15px;
+$font-size-xl: 18px;
+
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+
+// Colors - Text
+$color-text-primary: var(--color-text-primary);
+$color-text-secondary: var(--color-text-secondary);
+$color-text-muted: var(--color-text-muted);
+$color-text-light: var(--color-text-light);
+
+// Colors - Background
+$color-bg-primary: var(--color-bg-primary);
+$color-bg-secondary: var(--color-bg-secondary);
+$color-bg-tertiary: var(--color-bg-tertiary);
+$color-bg-muted: var(--color-bg-muted);
+$color-bg-hover: var(--color-bg-hover);
+$color-bg-active: var(--color-bg-active);
+
+// Colors - Border
+$color-border: var(--color-border);
+$color-border-light: var(--color-border-light);
+$color-border-lighter: var(--color-border-lighter);
+
+// Colors - Status
+$color-primary: var(--color-primary);
+$color-danger: var(--color-danger);
+$color-danger-dark: var(--color-danger-dark);
+$color-danger-light: var(--color-danger-light);
+
+// Colors - Button
+$color-btn-primary: var(--color-btn-primary);
+$color-btn-primary-hover: var(--color-btn-primary-hover);
+
+// Spacing
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 20px;
+
+// Border Radius
+$radius-sm: 6px;
+$radius-md: 8px;
+
+// Transitions
+$transition-fast: 0.15s ease;
+$transition-medium: 0.2s ease;
+
+// Layout
+$header-height: 50px;
+$sidebar-width: 200px;
+
+// Breakpoints
+$breakpoint-mobile: 768px;

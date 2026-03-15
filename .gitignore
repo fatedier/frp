@@ -31,3 +31,4 @@ client.key
 # AI
 .claude/
 .sisyphus/
+.superpowers/

@@ -191,6 +191,13 @@ func (vm *Manager) TransferConn(name string, conn net.Conn) error {
 	return v.AcceptConn(conn)
 }
 
+func (vm *Manager) GetVisitorCfg(name string) (v1.VisitorConfigurer, bool) {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+	cfg, ok := vm.cfgs[name]
+	return cfg, ok
+}
+
 type visitorHelperImpl struct {
 	connectServerFn func() (net.Conn, error)
 	msgTransporter  transport.MessageTransporter

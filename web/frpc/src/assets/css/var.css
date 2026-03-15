@@ -1,0 +1,117 @@
+:root {
+  /* Text colors */
+  --color-text-primary: #303133;
+  --color-text-secondary: #606266;
+  --color-text-muted: #909399;
+  --color-text-light: #c0c4cc;
+  --color-text-placeholder: #a8abb2;
+
+  /* Background colors */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f9f9f9;
+  --color-bg-tertiary: #fafafa;
+  --color-bg-surface: #ffffff;
+  --color-bg-muted: #f4f4f5;
+  --color-bg-input: #ffffff;
+  --color-bg-hover: #efefef;
+  --color-bg-active: #eaeaea;
+
+  /* Border colors */
+  --color-border: #dcdfe6;
+  --color-border-light: #e4e7ed;
+  --color-border-lighter: #ebeef5;
+  --color-border-extra-light: #f2f6fc;
+
+  /* Status colors */
+  --color-primary: #409eff;
+  --color-primary-light: #ecf5ff;
+  --color-success: #67c23a;
+  --color-warning: #e6a23c;
+  --color-danger: #f56c6c;
+  --color-danger-dark: #c45656;
+  --color-danger-light: #fef0f0;
+  --color-info: #909399;
+
+  /* Button colors */
+  --color-btn-primary: #303133;
+  --color-btn-primary-hover: #4a4d5c;
+
+  /* Element Plus mapping */
+  --el-color-primary: var(--color-primary);
+  --el-color-success: var(--color-success);
+  --el-color-warning: var(--color-warning);
+  --el-color-danger: var(--color-danger);
+  --el-color-info: var(--color-info);
+
+  --el-text-color-primary: var(--color-text-primary);
+  --el-text-color-regular: var(--color-text-secondary);
+  --el-text-color-secondary: var(--color-text-muted);
+  --el-text-color-placeholder: var(--color-text-placeholder);
+
+  --el-bg-color: var(--color-bg-primary);
+  --el-bg-color-page: var(--color-bg-secondary);
+  --el-bg-color-overlay: var(--color-bg-primary);
+
+  --el-border-color: var(--color-border);
+  --el-border-color-light: var(--color-border-light);
+  --el-border-color-lighter: var(--color-border-lighter);
+  --el-border-color-extra-light: var(--color-border-extra-light);
+
+  --el-fill-color-blank: var(--color-bg-primary);
+  --el-fill-color-light: var(--color-bg-tertiary);
+  --el-fill-color: var(--color-bg-tertiary);
+  --el-fill-color-dark: var(--color-bg-hover);
+  --el-fill-color-darker: var(--color-bg-active);
+
+  /* Input */
+  --el-input-bg-color: var(--color-bg-input);
+  --el-input-border-color: var(--color-border);
+  --el-input-hover-border-color: var(--color-border-light);
+
+  /* Dialog */
+  --el-dialog-bg-color: var(--color-bg-primary);
+  --el-overlay-color: rgba(0, 0, 0, 0.5);
+}
+
+html.dark {
+  /* Text colors */
+  --color-text-primary: #e5e7eb;
+  --color-text-secondary: #b0b0b0;
+  --color-text-muted: #888888;
+  --color-text-light: #666666;
+  --color-text-placeholder: #afafaf;
+
+  /* Background colors */
+  --color-bg-primary: #212121;
+  --color-bg-secondary: #181818;
+  --color-bg-tertiary: #303030;
+  --color-bg-surface: #303030;
+  --color-bg-muted: #303030;
+  --color-bg-input: #2f2f2f;
+  --color-bg-hover: #3a3a3a;
+  --color-bg-active: #454545;
+
+  /* Border colors */
+  --color-border: #404040;
+  --color-border-light: #353535;
+  --color-border-lighter: #2a2a2a;
+  --color-border-extra-light: #222222;
+
+  /* Status colors */
+  --color-primary: #409eff;
+  --color-danger: #f87171;
+  --color-danger-dark: #f87171;
+  --color-danger-light: #3d2027;
+  --color-info: #888888;
+
+  /* Button colors */
+  --color-btn-primary: #404040;
+  --color-btn-primary-hover: #505050;
+
+  /* Dark overrides */
+  --el-text-color-regular: var(--color-text-primary);
+  --el-overlay-color: rgba(0, 0, 0, 0.7);
+
+  background-color: #181818;
+  color-scheme: dark;
+}
