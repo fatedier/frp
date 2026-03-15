@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"runtime"
 	"sync"
@@ -162,15 +163,6 @@ func NewService(options ServiceOptions) (*Service, error) {
 		return nil, err
 	}
 
-	var webServer *httppkg.Server
-	if options.Common.WebServer.Port > 0 {
-		ws, err := httppkg.NewServer(options.Common.WebServer)
-		if err != nil {
-			return nil, err
-		}
-		webServer = ws
-	}
-
 	authRuntime, err := auth.BuildClientAuth(&options.Common.Auth)
 	if err != nil {
 		return nil, err
@@ -190,6 +182,17 @@ func NewService(options ServiceOptions) (*Service, error) {
 	proxyCfgs, visitorCfgs = config.FilterClientConfigurers(options.Common, proxyCfgs, visitorCfgs)
 	proxyCfgs = config.CompleteProxyConfigurers(proxyCfgs)
 	visitorCfgs = config.CompleteVisitorConfigurers(visitorCfgs)
+
+	// Create the web server after all fallible steps so its listener is not
+	// leaked when an earlier error causes NewService to return.
+	var webServer *httppkg.Server
+	if options.Common.WebServer.Port > 0 {
+		ws, err := httppkg.NewServer(options.Common.WebServer)
+		if err != nil {
+			return nil, err
+		}
+		webServer = ws
+	}
 
 	s := &Service{
 		ctx:              context.Background(),
@@ -229,22 +232,25 @@ func (svr *Service) Run(ctx context.Context) error {
 	}
 
 	if svr.vnetController != nil {
+		vnetController := svr.vnetController
 		if err := svr.vnetController.Init(); err != nil {
 			log.Errorf("init virtual network controller error: %v", err)
+			svr.stop()
 			return err
 		}
 		go func() {
 			log.Infof("virtual network controller start...")
-			if err := svr.vnetController.Run(); err != nil {
+			if err := vnetController.Run(); err != nil && !errors.Is(err, net.ErrClosed) {
 				log.Warnf("virtual network controller exit with error: %v", err)
 			}
 		}()
 	}
 
 	if svr.webServer != nil {
+		webServer := svr.webServer
 		go func() {
-			log.Infof("admin server listen on %s", svr.webServer.Address())
-			if err := svr.webServer.Run(); err != nil {
+			log.Infof("admin server listen on %s", webServer.Address())
+			if err := webServer.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Warnf("admin server exit with error: %v", err)
 			}
 		}()
@@ -255,6 +261,7 @@ func (svr *Service) Run(ctx context.Context) error {
 	if svr.ctl == nil {
 		cancelCause := cancelErr{}
 		_ = errors.As(context.Cause(svr.ctx), &cancelCause)
+		svr.stop()
 		return fmt.Errorf("login to the server failed: %v. With loginFailExit enabled, no additional retries will be attempted", cancelCause.Err)
 	}
 
@@ -496,6 +503,10 @@ func (svr *Service) stop() {
 	if svr.webServer != nil {
 		svr.webServer.Close()
 		svr.webServer = nil
+	}
+	if svr.vnetController != nil {
+		_ = svr.vnetController.Stop()
+		svr.vnetController = nil
 	}
 }
 

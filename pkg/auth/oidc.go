@@ -30,6 +30,7 @@ import (
 	"golang.org/x/oauth2/clientcredentials"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/msg"
 )
 
@@ -88,6 +89,40 @@ func (s *nonCachingTokenSource) Token() (*oauth2.Token, error) {
 	return s.cfg.Token(s.ctx)
 }
 
+// oidcTokenSource wraps a caching oauth2.TokenSource and, on the first
+// successful Token() call, checks whether the provider returns an expiry.
+// If not, it permanently switches to nonCachingTokenSource so that a fresh
+// token is fetched every time.  This avoids an eager network call at
+// construction time, letting the login retry loop handle transient IdP
+// outages.
+type oidcTokenSource struct {
+	mu          sync.Mutex
+	initialized bool
+	source      oauth2.TokenSource
+	fallbackCfg *clientcredentials.Config
+	fallbackCtx context.Context
+}
+
+func (s *oidcTokenSource) Token() (*oauth2.Token, error) {
+	s.mu.Lock()
+	if !s.initialized {
+		token, err := s.source.Token()
+		if err != nil {
+			s.mu.Unlock()
+			return nil, err
+		}
+		if token.Expiry.IsZero() {
+			s.source = &nonCachingTokenSource{cfg: s.fallbackCfg, ctx: s.fallbackCtx}
+		}
+		s.initialized = true
+		s.mu.Unlock()
+		return token, nil
+	}
+	source := s.source
+	s.mu.Unlock()
+	return source.Token()
+}
+
 type OidcAuthProvider struct {
 	additionalAuthScopes []v1.AuthScope
 
@@ -95,6 +130,10 @@ type OidcAuthProvider struct {
 }
 
 func NewOidcAuthSetter(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCClientConfig) (*OidcAuthProvider, error) {
+	if err := validation.ValidateOIDCClientCredentialsConfig(&cfg); err != nil {
+		return nil, err
+	}
+
 	eps := make(map[string][]string)
 	for k, v := range cfg.AdditionalEndpointParams {
 		eps[k] = []string{v}
@@ -127,24 +166,22 @@ func NewOidcAuthSetter(additionalAuthScopes []v1.AuthScope, cfg v1.AuthOIDCClien
 	// Create a persistent TokenSource that caches the token and refreshes
 	// it before expiry. This avoids making a new HTTP request to the OIDC
 	// provider on every heartbeat/ping.
-	tokenSource := tokenGenerator.TokenSource(ctx)
-
-	// Fetch the initial token to check if the provider returns an expiry.
-	// If Expiry is the zero value (provider omitted expires_in), the cached
-	// TokenSource would treat the token as valid forever and never refresh it,
-	// even after the JWT's exp claim passes. In that case, fall back to
-	// fetching a fresh token on every request.
-	initialToken, err := tokenSource.Token()
-	if err != nil {
-		return nil, fmt.Errorf("failed to obtain initial OIDC token: %w", err)
-	}
-	if initialToken.Expiry.IsZero() {
-		tokenSource = &nonCachingTokenSource{cfg: tokenGenerator, ctx: ctx}
-	}
+	//
+	// We wrap it in an oidcTokenSource so that the first Token() call
+	// (deferred to SetLogin inside the login retry loop) probes whether the
+	// provider returns expires_in.  If not, it switches to a non-caching
+	// source.  This avoids an eager network call at construction time, which
+	// would prevent loopLoginUntilSuccess from retrying on transient IdP
+	// outages.
+	cachingSource := tokenGenerator.TokenSource(ctx)
 
 	return &OidcAuthProvider{
 		additionalAuthScopes: additionalAuthScopes,
-		tokenSource:          tokenSource,
+		tokenSource: &oidcTokenSource{
+			source:      cachingSource,
+			fallbackCfg: tokenGenerator,
+			fallbackCtx: ctx,
+		},
 	}, nil
 }
 

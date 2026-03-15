@@ -88,6 +88,11 @@ func (v *ConfigValidator) validateAuthConfig(c *v1.AuthClientConfig) (Warning, e
 	if err := v.validateOIDCConfig(&c.OIDC); err != nil {
 		errs = AppendError(errs, err)
 	}
+	if c.Method == v1.AuthMethodOIDC && c.OIDC.TokenSource == nil {
+		if err := ValidateOIDCClientCredentialsConfig(&c.OIDC); err != nil {
+			errs = AppendError(errs, err)
+		}
+	}
 	return nil, errs
 }
 
