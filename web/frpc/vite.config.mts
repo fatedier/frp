@@ -27,6 +27,14 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: 'modern',
+        additionalData: `@use "@/assets/css/_index.scss" as *;`,
+      },
+    },
+  },
   build: {
     assetsDir: '',
     chunkSizeWarningLimit: 1000,

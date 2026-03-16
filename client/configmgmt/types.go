@@ -26,6 +26,9 @@ type ConfigManager interface {
 	IsStoreProxyEnabled(name string) bool
 	StoreEnabled() bool
 
+	GetProxyConfig(name string) (v1.ProxyConfigurer, bool)
+	GetVisitorConfig(name string) (v1.VisitorConfigurer, bool)
+
 	ListStoreProxies() ([]v1.ProxyConfigurer, error)
 	GetStoreProxy(name string) (v1.ProxyConfigurer, error)
 	CreateStoreProxy(cfg v1.ProxyConfigurer) (v1.ProxyConfigurer, error)

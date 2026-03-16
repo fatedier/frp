@@ -521,6 +521,17 @@ func (svr *Service) getProxyStatus(name string) (*proxy.WorkingStatus, bool) {
 	return ctl.pm.GetProxyStatus(name)
 }
 
+func (svr *Service) getVisitorCfg(name string) (v1.VisitorConfigurer, bool) {
+	svr.ctlMu.RLock()
+	ctl := svr.ctl
+	svr.ctlMu.RUnlock()
+
+	if ctl == nil {
+		return nil, false
+	}
+	return ctl.vm.GetVisitorCfg(name)
+}
+
 func (svr *Service) StatusExporter() StatusExporter {
 	return &statusExporterImpl{
 		getProxyStatusFunc: svr.getProxyStatus,

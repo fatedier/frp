@@ -162,6 +162,44 @@ func (c *Controller) buildProxyStatusResp(status *proxy.WorkingStatus) model.Pro
 	return psr
 }
 
+// GetProxyConfig handles GET /api/proxy/{name}/config
+func (c *Controller) GetProxyConfig(ctx *httppkg.Context) (any, error) {
+	name := ctx.Param("name")
+	if name == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "proxy name is required")
+	}
+
+	cfg, ok := c.manager.GetProxyConfig(name)
+	if !ok {
+		return nil, httppkg.NewError(http.StatusNotFound, fmt.Sprintf("proxy %q not found", name))
+	}
+
+	payload, err := model.ProxyDefinitionFromConfigurer(cfg)
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusInternalServerError, err.Error())
+	}
+	return payload, nil
+}
+
+// GetVisitorConfig handles GET /api/visitor/{name}/config
+func (c *Controller) GetVisitorConfig(ctx *httppkg.Context) (any, error) {
+	name := ctx.Param("name")
+	if name == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "visitor name is required")
+	}
+
+	cfg, ok := c.manager.GetVisitorConfig(name)
+	if !ok {
+		return nil, httppkg.NewError(http.StatusNotFound, fmt.Sprintf("visitor %q not found", name))
+	}
+
+	payload, err := model.VisitorDefinitionFromConfigurer(cfg)
+	if err != nil {
+		return nil, httppkg.NewError(http.StatusInternalServerError, err.Error())
+	}
+	return payload, nil
+}
+
 func (c *Controller) ListStoreProxies(ctx *httppkg.Context) (any, error) {
 	proxies, err := c.manager.ListStoreProxies()
 	if err != nil {

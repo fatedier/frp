@@ -5,7 +5,7 @@ import type {
   ProxyDefinition,
   VisitorListResp,
   VisitorDefinition,
-} from '../types/proxy'
+} from '../types'
 
 export const getStatus = () => {
   return http.get<StatusResponse>('/api/status')
@@ -21,6 +21,19 @@ export const putConfig = (content: string) => {
 
 export const reloadConfig = () => {
   return http.get<void>('/api/reload')
+}
+
+// Config lookup API (any source)
+export const getProxyConfig = (name: string) => {
+  return http.get<ProxyDefinition>(
+    `/api/proxy/${encodeURIComponent(name)}/config`,
+  )
+}
+
+export const getVisitorConfig = (name: string) => {
+  return http.get<VisitorDefinition>(
+    `/api/visitor/${encodeURIComponent(name)}/config`,
+  )
 }
 
 // Store API - Proxies

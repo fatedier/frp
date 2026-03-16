@@ -26,6 +26,8 @@ type fakeConfigManager struct {
 	getProxyStatusFn      func() []*proxy.WorkingStatus
 	isStoreProxyEnabledFn func(name string) bool
 	storeEnabledFn        func() bool
+	getProxyConfigFn      func(name string) (v1.ProxyConfigurer, bool)
+	getVisitorConfigFn    func(name string) (v1.VisitorConfigurer, bool)
 
 	listStoreProxiesFn  func() ([]v1.ProxyConfigurer, error)
 	getStoreProxyFn     func(name string) (v1.ProxyConfigurer, error)
@@ -80,6 +82,20 @@ func (m *fakeConfigManager) StoreEnabled() bool {
 		return m.storeEnabledFn()
 	}
 	return false
+}
+
+func (m *fakeConfigManager) GetProxyConfig(name string) (v1.ProxyConfigurer, bool) {
+	if m.getProxyConfigFn != nil {
+		return m.getProxyConfigFn(name)
+	}
+	return nil, false
+}
+
+func (m *fakeConfigManager) GetVisitorConfig(name string) (v1.VisitorConfigurer, bool) {
+	if m.getVisitorConfigFn != nil {
+		return m.getVisitorConfigFn(name)
+	}
+	return nil, false
 }
 
 func (m *fakeConfigManager) ListStoreProxies() ([]v1.ProxyConfigurer, error) {
@@ -528,4 +544,119 @@ func TestUpdateStoreProxyReturnsTypedPayload(t *testing.T) {
 	if payload.TCP == nil || payload.TCP.RemotePort != 7000 {
 		t.Fatalf("unexpected response payload: %#v", payload)
 	}
+}
+
+func TestGetProxyConfigFromManager(t *testing.T) {
+	controller := &Controller{
+		manager: &fakeConfigManager{
+			getProxyConfigFn: func(name string) (v1.ProxyConfigurer, bool) {
+				if name == "ssh" {
+					cfg := &v1.TCPProxyConfig{
+						ProxyBaseConfig: v1.ProxyBaseConfig{
+							Name: "ssh",
+							Type: "tcp",
+							ProxyBackend: v1.ProxyBackend{
+								LocalPort: 22,
+							},
+						},
+					}
+					return cfg, true
+				}
+				return nil, false
+			},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/proxy/ssh/config", nil)
+	req = mux.SetURLVars(req, map[string]string{"name": "ssh"})
+	ctx := httppkg.NewContext(httptest.NewRecorder(), req)
+
+	resp, err := controller.GetProxyConfig(ctx)
+	if err != nil {
+		t.Fatalf("get proxy config: %v", err)
+	}
+	payload, ok := resp.(model.ProxyDefinition)
+	if !ok {
+		t.Fatalf("unexpected response type: %T", resp)
+	}
+	if payload.Name != "ssh" || payload.Type != "tcp" || payload.TCP == nil {
+		t.Fatalf("unexpected payload: %#v", payload)
+	}
+}
+
+func TestGetProxyConfigNotFound(t *testing.T) {
+	controller := &Controller{
+		manager: &fakeConfigManager{
+			getProxyConfigFn: func(name string) (v1.ProxyConfigurer, bool) {
+				return nil, false
+			},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/proxy/missing/config", nil)
+	req = mux.SetURLVars(req, map[string]string{"name": "missing"})
+	ctx := httppkg.NewContext(httptest.NewRecorder(), req)
+
+	_, err := controller.GetProxyConfig(ctx)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	assertHTTPCode(t, err, http.StatusNotFound)
+}
+
+func TestGetVisitorConfigFromManager(t *testing.T) {
+	controller := &Controller{
+		manager: &fakeConfigManager{
+			getVisitorConfigFn: func(name string) (v1.VisitorConfigurer, bool) {
+				if name == "my-stcp" {
+					cfg := &v1.STCPVisitorConfig{
+						VisitorBaseConfig: v1.VisitorBaseConfig{
+							Name:       "my-stcp",
+							Type:       "stcp",
+							ServerName: "server1",
+							BindPort:   9000,
+						},
+					}
+					return cfg, true
+				}
+				return nil, false
+			},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/visitor/my-stcp/config", nil)
+	req = mux.SetURLVars(req, map[string]string{"name": "my-stcp"})
+	ctx := httppkg.NewContext(httptest.NewRecorder(), req)
+
+	resp, err := controller.GetVisitorConfig(ctx)
+	if err != nil {
+		t.Fatalf("get visitor config: %v", err)
+	}
+	payload, ok := resp.(model.VisitorDefinition)
+	if !ok {
+		t.Fatalf("unexpected response type: %T", resp)
+	}
+	if payload.Name != "my-stcp" || payload.Type != "stcp" || payload.STCP == nil {
+		t.Fatalf("unexpected payload: %#v", payload)
+	}
+}
+
+func TestGetVisitorConfigNotFound(t *testing.T) {
+	controller := &Controller{
+		manager: &fakeConfigManager{
+			getVisitorConfigFn: func(name string) (v1.VisitorConfigurer, bool) {
+				return nil, false
+			},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/visitor/missing/config", nil)
+	req = mux.SetURLVars(req, map[string]string{"name": "missing"})
+	ctx := httppkg.NewContext(httptest.NewRecorder(), req)
+
+	_, err := controller.GetVisitorConfig(ctx)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	assertHTTPCode(t, err, http.StatusNotFound)
 }

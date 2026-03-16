@@ -80,6 +80,48 @@ func (m *serviceConfigManager) GetProxyStatus() []*proxy.WorkingStatus {
 	return m.svr.getAllProxyStatus()
 }
 
+func (m *serviceConfigManager) GetProxyConfig(name string) (v1.ProxyConfigurer, bool) {
+	// Try running proxy manager first
+	ws, ok := m.svr.getProxyStatus(name)
+	if ok {
+		return ws.Cfg, true
+	}
+
+	// Fallback to store
+	m.svr.reloadMu.Lock()
+	storeSource := m.svr.storeSource
+	m.svr.reloadMu.Unlock()
+
+	if storeSource != nil {
+		cfg := storeSource.GetProxy(name)
+		if cfg != nil {
+			return cfg, true
+		}
+	}
+	return nil, false
+}
+
+func (m *serviceConfigManager) GetVisitorConfig(name string) (v1.VisitorConfigurer, bool) {
+	// Try running visitor manager first
+	cfg, ok := m.svr.getVisitorCfg(name)
+	if ok {
+		return cfg, true
+	}
+
+	// Fallback to store
+	m.svr.reloadMu.Lock()
+	storeSource := m.svr.storeSource
+	m.svr.reloadMu.Unlock()
+
+	if storeSource != nil {
+		vcfg := storeSource.GetVisitor(name)
+		if vcfg != nil {
+			return vcfg, true
+		}
+	}
+	return nil, false
+}
+
 func (m *serviceConfigManager) IsStoreProxyEnabled(name string) bool {
 	if name == "" {
 		return false

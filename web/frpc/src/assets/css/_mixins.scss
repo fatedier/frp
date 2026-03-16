@@ -1,0 +1,49 @@
+@use './variables' as vars;
+
+@mixin mobile {
+  @media (max-width: #{vars.$breakpoint-mobile - 1px}) {
+    @content;
+  }
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+@mixin page-scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding: vars.$spacing-xl 40px;
+
+  > * {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  @include mobile {
+    padding: vars.$spacing-xl;
+  }
+}
+
+@mixin custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d1d1d1;
+    border-radius: 3px;
+  }
+}
