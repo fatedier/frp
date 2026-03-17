@@ -226,7 +226,7 @@ func (c *Controller) DeleteProxies(ctx *httppkg.Context) (any, error) {
 	}
 	cleared, total := mem.StatsCollector.ClearOfflineProxies()
 	log.Infof("cleared [%d] offline proxies, total [%d] proxies", cleared, total)
-	return httppkg.GeneralResponse{Code: 200, Msg: "success"}, nil
+	return nil, nil
 }
 
 func (c *Controller) getProxyStatsByType(proxyType string) (proxyInfos []*model.ProxyStatsInfo) {

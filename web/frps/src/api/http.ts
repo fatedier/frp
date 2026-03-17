@@ -27,11 +27,24 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   }
 
   // Handle empty response (e.g. 204 No Content)
-  if (response.status === 204) {
+  if (
+    response.status === 204 ||
+    response.headers.get('Content-Length') === '0'
+  ) {
     return {} as T
   }
 
-  return response.json()
+  const contentType = response.headers.get('Content-Type') || ''
+  if (contentType.includes('application/json')) {
+    return response.json()
+  }
+
+  // Fallback: try to parse as JSON, return empty object if body is empty
+  const text = await response.text()
+  if (!text) {
+    return {} as T
+  }
+  return JSON.parse(text)
 }
 
 export const http = {

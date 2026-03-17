@@ -48,7 +48,7 @@ func MakeHTTPHandlerFunc(handler APIHandler) http.HandlerFunc {
 		}
 
 		if res == nil {
-			w.WriteHeader(http.StatusOK)
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
