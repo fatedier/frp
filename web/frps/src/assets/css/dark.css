@@ -1,46 +1,153 @@
+/* Dark mode styles */
 html.dark {
   --el-bg-color: #1e1e2e;
+  --el-bg-color-page: #181825;
+  --el-bg-color-overlay: #27293d;
   --el-fill-color-blank: #1e1e2e;
+  --el-border-color: #3a3d5c;
+  --el-border-color-light: #313348;
+  --el-border-color-lighter: #2a2a3e;
+  --el-text-color-primary: #e5e7eb;
+  --el-text-color-secondary: #888888;
+  --el-text-color-placeholder: #afafaf;
   background-color: #1e1e2e;
+  color-scheme: dark;
 }
 
-html.dark body {
-  background-color: #1e1e2e;
-  color: #e5e7eb;
+/* Scrollbar */
+html.dark ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-/* Dark mode scrollbar */
 html.dark ::-webkit-scrollbar-track {
   background: #27293d;
 }
 
 html.dark ::-webkit-scrollbar-thumb {
   background: #3a3d5c;
+  border-radius: 3px;
 }
 
 html.dark ::-webkit-scrollbar-thumb:hover {
   background: #4a4d6c;
 }
 
-/* Dark mode cards */
-html.dark .el-card {
-  background-color: #27293d;
-  border-color: #3a3d5c;
+/* Form */
+html.dark .el-form-item__label {
+  color: #e5e7eb;
 }
 
-/* Dark mode inputs */
+/* Input */
 html.dark .el-input__wrapper {
-  background-color: #27293d;
-  border-color: #3a3d5c;
+  background: var(--color-bg-input);
+  box-shadow: 0 0 0 1px #3a3d5c inset;
+}
+
+html.dark .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #4a4d6c inset;
+}
+
+html.dark .el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset;
 }
 
 html.dark .el-input__inner {
   color: #e5e7eb;
 }
 
-/* Dark mode table */
+html.dark .el-input__inner::placeholder {
+  color: #afafaf;
+}
+
+html.dark .el-textarea__inner {
+  background: var(--color-bg-input);
+  box-shadow: 0 0 0 1px #3a3d5c inset;
+  color: #e5e7eb;
+}
+
+html.dark .el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px #4a4d6c inset;
+}
+
+html.dark .el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset;
+}
+
+/* Select */
+html.dark .el-select__wrapper {
+  background: var(--color-bg-input);
+  box-shadow: 0 0 0 1px #3a3d5c inset;
+}
+
+html.dark .el-select__wrapper:hover {
+  box-shadow: 0 0 0 1px #4a4d6c inset;
+}
+
+html.dark .el-select__selected-item {
+  color: #e5e7eb;
+}
+
+html.dark .el-select__placeholder {
+  color: #afafaf;
+}
+
+html.dark .el-select-dropdown {
+  background: #27293d;
+  border-color: #3a3d5c;
+}
+
+html.dark .el-select-dropdown__item {
+  color: #e5e7eb;
+}
+
+html.dark .el-select-dropdown__item:hover {
+  background: #2a2a3e;
+}
+
+html.dark .el-select-dropdown__item.is-selected {
+  color: var(--el-color-primary);
+}
+
+html.dark .el-select-dropdown__item.is-disabled {
+  color: #666666;
+}
+
+/* Tag */
+html.dark .el-tag--info {
+  background: #27293d;
+  border-color: #3a3d5c;
+  color: #b0b0b0;
+}
+
+/* Button */
+html.dark .el-button--default {
+  background: #27293d;
+  border-color: #3a3d5c;
+  color: #e5e7eb;
+}
+
+html.dark .el-button--default:hover {
+  background: #2a2a3e;
+  border-color: #4a4d6c;
+  color: #e5e7eb;
+}
+
+/* Card */
+html.dark .el-card {
+  background: #1e1e2e;
+  border-color: #3a3d5c;
+  color: #b0b0b0;
+}
+
+html.dark .el-card__header {
+  border-bottom-color: #3a3d5c;
+  color: #e5e7eb;
+}
+
+/* Table */
 html.dark .el-table {
-  background-color: #27293d;
+  background-color: #1e1e2e;
   color: #e5e7eb;
 }
 
@@ -50,9 +157,56 @@ html.dark .el-table th {
 }
 
 html.dark .el-table tr {
-  background-color: #27293d;
+  background-color: #1e1e2e;
 }
 
 html.dark .el-table--striped .el-table__body tr.el-table__row--striped td {
-  background-color: #1e1e2e;
+  background-color: #181825;
+}
+
+/* Dialog */
+html.dark .el-dialog {
+  background: #1e1e2e;
+}
+
+html.dark .el-dialog__title {
+  color: #e5e7eb;
+}
+
+/* Message */
+html.dark .el-message {
+  background: #27293d;
+  border-color: #3a3d5c;
+}
+
+html.dark .el-message--success {
+  background: #1e3d2e;
+  border-color: #3d6b4f;
+}
+
+html.dark .el-message--warning {
+  background: #3d3020;
+  border-color: #6b5020;
+}
+
+html.dark .el-message--error {
+  background: #3d2027;
+  border-color: #5c2d2d;
+}
+
+/* Loading */
+html.dark .el-loading-mask {
+  background-color: rgba(30, 30, 46, 0.9);
+}
+
+/* Overlay */
+html.dark .el-overlay {
+  background-color: rgba(0, 0, 0, 0.6);
+}
+
+/* Tooltip */
+html.dark .el-tooltip__popper {
+  background: #27293d !important;
+  border-color: #3a3d5c !important;
+  color: #e5e7eb !important;
 }

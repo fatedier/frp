@@ -7,11 +7,8 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
-    ActionButton: typeof import('./src/components/ActionButton.vue')['default']
-    BaseDialog: typeof import('./src/components/BaseDialog.vue')['default']
     ConfigField: typeof import('./src/components/ConfigField.vue')['default']
     ConfigSection: typeof import('./src/components/ConfigSection.vue')['default']
-    ConfirmDialog: typeof import('./src/components/ConfirmDialog.vue')['default']
     ElDialog: typeof import('element-plus/es')['ElDialog']
     ElForm: typeof import('element-plus/es')['ElForm']
     ElFormItem: typeof import('element-plus/es')['ElFormItem']
@@ -21,10 +18,7 @@ declare module 'vue' {
     ElRadio: typeof import('element-plus/es')['ElRadio']
     ElRadioGroup: typeof import('element-plus/es')['ElRadioGroup']
     ElSwitch: typeof import('element-plus/es')['ElSwitch']
-    FilterDropdown: typeof import('./src/components/FilterDropdown.vue')['default']
     KeyValueEditor: typeof import('./src/components/KeyValueEditor.vue')['default']
-    PopoverMenu: typeof import('./src/components/PopoverMenu.vue')['default']
-    PopoverMenuItem: typeof import('./src/components/PopoverMenuItem.vue')['default']
     ProxyAuthSection: typeof import('./src/components/proxy-form/ProxyAuthSection.vue')['default']
     ProxyBackendSection: typeof import('./src/components/proxy-form/ProxyBackendSection.vue')['default']
     ProxyBaseSection: typeof import('./src/components/proxy-form/ProxyBaseSection.vue')['default']

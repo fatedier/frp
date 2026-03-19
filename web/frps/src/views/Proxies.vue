@@ -8,23 +8,13 @@
         </div>
 
         <div class="actions-section">
-          <el-button :icon="Refresh" class="action-btn" @click="fetchData"
-            >Refresh</el-button
-          >
+          <ActionButton variant="outline" size="small" @click="fetchData">
+            Refresh
+          </ActionButton>
 
-          <el-popconfirm
-            title="Clear all offline proxies?"
-            width="220"
-            confirm-button-text="Clear"
-            cancel-button-text="Cancel"
-            @confirm="clearOfflineProxies"
-          >
-            <template #reference>
-              <el-button :icon="Delete" class="action-btn" type="danger" plain
-                >Clear Offline</el-button
-              >
-            </template>
-          </el-popconfirm>
+          <ActionButton variant="outline" size="small" danger @click="showClearDialog = true">
+            Clear Offline
+          </ActionButton>
         </div>
       </div>
 
@@ -38,28 +28,35 @@
             class="main-search"
           />
 
-          <el-select
+          <PopoverMenu
             :model-value="selectedClientKey"
-            placeholder="All Clients"
-            clearable
+            :width="220"
+            placement="bottom-end"
+            selectable
             filterable
-            class="client-select"
-            @change="onClientFilterChange"
+            filter-placeholder="Search clients..."
+            :display-value="selectedClientLabel"
+            clearable
+            class="client-filter"
+            @update:model-value="onClientFilterChange($event as string)"
           >
-            <el-option label="All Clients" value="" />
-            <el-option
-              v-if="clientIDFilter && !selectedClientInList"
-              :label="`${userFilter ? userFilter + '.' : ''}${clientIDFilter} (not found)`"
-              :value="selectedClientKey"
-              style="color: var(--el-color-warning); font-style: italic"
-            />
-            <el-option
-              v-for="client in clientOptions"
-              :key="client.key"
-              :label="client.label"
-              :value="client.key"
-            />
-          </el-select>
+            <template #default="{ filterText }">
+              <PopoverMenuItem value="">All Clients</PopoverMenuItem>
+              <PopoverMenuItem
+                v-if="clientIDFilter && !selectedClientInList"
+                :value="selectedClientKey"
+              >
+                {{ userFilter ? userFilter + '.' : '' }}{{ clientIDFilter }} (not found)
+              </PopoverMenuItem>
+              <PopoverMenuItem
+                v-for="client in filteredClientOptions(filterText)"
+                :key="client.key"
+                :value="client.key"
+              >
+                {{ client.label }}
+              </PopoverMenuItem>
+            </template>
+          </PopoverMenu>
         </div>
 
         <div class="type-tabs">
@@ -88,6 +85,15 @@
         <el-empty description="No proxies found" />
       </div>
     </div>
+
+    <ConfirmDialog
+      v-model="showClearDialog"
+      title="Clear Offline"
+      message="Are you sure you want to clear all offline proxies?"
+      confirm-text="Clear"
+      danger
+      @confirm="handleClearConfirm"
+    />
   </div>
 </template>
 
@@ -95,7 +101,9 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Refresh, Delete } from '@element-plus/icons-vue'
+import { Search } from '@element-plus/icons-vue'
+import ActionButton from '@shared/components/ActionButton.vue'
+import ConfirmDialog from '@shared/components/ConfirmDialog.vue'
 import {
   BaseProxy,
   TCPProxy,
@@ -107,6 +115,8 @@ import {
   SUDPProxy,
 } from '../utils/proxy'
 import ProxyCard from '../components/ProxyCard.vue'
+import PopoverMenu from '@shared/components/PopoverMenu.vue'
+import PopoverMenuItem from '@shared/components/PopoverMenuItem.vue'
 import {
   getProxiesByType,
   clearOfflineProxies as apiClearOfflineProxies,
@@ -133,6 +143,7 @@ const proxies = ref<BaseProxy[]>([])
 const clients = ref<Client[]>([])
 const loading = ref(false)
 const searchText = ref('')
+const showClearDialog = ref(false)
 const clientIDFilter = ref((route.query.clientID as string) || '')
 const userFilter = ref((route.query.user as string) || '')
 
@@ -156,6 +167,20 @@ const selectedClientKey = computed(() => {
   // Return a synthetic key even if not found, so the select shows the filter is active
   return client?.key || `${userFilter.value}:${clientIDFilter.value}`
 })
+
+const selectedClientLabel = computed(() => {
+  if (!clientIDFilter.value) return 'All Clients'
+  const client = clientOptions.value.find(
+    (c) => c.clientID === clientIDFilter.value && c.user === userFilter.value,
+  )
+  return client?.label || `${userFilter.value ? userFilter.value + '.' : ''}${clientIDFilter.value}`
+})
+
+const filteredClientOptions = (filterText: string) => {
+  if (!filterText) return clientOptions.value
+  const search = filterText.toLowerCase()
+  return clientOptions.value.filter((c) => c.label.toLowerCase().includes(search))
+}
 
 // Check if the filtered client exists in the client list
 const selectedClientInList = computed(() => {
@@ -275,6 +300,11 @@ const fetchData = async () => {
   }
 }
 
+const handleClearConfirm = async () => {
+  showClearDialog.value = false
+  await clearOfflineProxies()
+}
+
 const clearOfflineProxies = async () => {
   try {
     await apiClearOfflineProxies()
@@ -357,12 +387,6 @@ fetchClients()
   gap: 12px;
 }
 
-.action-btn {
-  border-radius: 8px;
-  padding: 8px 16px;
-  height: 36px;
-  font-weight: 500;
-}
 
 .filter-section {
   display: flex;
@@ -382,35 +406,14 @@ fetchClients()
   flex: 1;
 }
 
-.main-search,
-.client-select {
-  height: 44px;
-}
-
 .main-search :deep(.el-input__wrapper),
-.client-select :deep(.el-input__wrapper) {
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  padding: 0 16px;
-  height: 100%;
-  border: 1px solid var(--el-border-color);
+.client-filter :deep(.el-input__wrapper) {
+  height: 32px;
+  border-radius: 8px;
 }
 
-.main-search :deep(.el-input__wrapper) {
-  font-size: 15px;
-}
-
-.client-select {
+.client-filter {
   width: 240px;
-}
-
-.client-select :deep(.el-select__wrapper) {
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  padding: 0 12px;
-  height: 44px;
-  min-height: 44px;
-  border: 1px solid var(--el-border-color);
 }
 
 .type-tabs {
@@ -462,7 +465,7 @@ fetchClients()
     flex-direction: column;
   }
 
-  .client-select {
+  .client-filter {
     width: 100%;
   }
 }

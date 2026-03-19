@@ -48,7 +48,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import ActionButton from '../components/ActionButton.vue'
+import ActionButton from '@shared/components/ActionButton.vue'
 import VisitorFormLayout from '../components/visitor-form/VisitorFormLayout.vue'
 import { getVisitorConfig, getStoreVisitor } from '../api/frpc'
 import type { VisitorDefinition, VisitorFormData } from '../types'

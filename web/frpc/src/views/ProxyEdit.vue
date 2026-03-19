@@ -31,6 +31,7 @@
       v-model="leaveDialogVisible"
       title="Unsaved Changes"
       message="You have unsaved changes. Are you sure you want to leave?"
+      :is-mobile="isMobile"
       @confirm="handleLeaveConfirm"
       @cancel="handleLeaveCancel"
     />
@@ -50,10 +51,12 @@ import {
 } from '../types'
 import { getStoreProxy } from '../api/frpc'
 import { useProxyStore } from '../stores/proxy'
-import ActionButton from '../components/ActionButton.vue'
-import ConfirmDialog from '../components/ConfirmDialog.vue'
+import ActionButton from '@shared/components/ActionButton.vue'
+import ConfirmDialog from '@shared/components/ConfirmDialog.vue'
 import ProxyFormLayout from '../components/proxy-form/ProxyFormLayout.vue'
+import { useResponsive } from '../composables/useResponsive'
 
+const { isMobile } = useResponsive()
 const route = useRoute()
 const router = useRouter()
 const proxyStore = useProxyStore()

@@ -115,8 +115,8 @@
 import { computed } from 'vue'
 import KeyValueEditor from './KeyValueEditor.vue'
 import StringListEditor from './StringListEditor.vue'
-import PopoverMenu from './PopoverMenu.vue'
-import PopoverMenuItem from './PopoverMenuItem.vue'
+import PopoverMenu from '@shared/components/PopoverMenu.vue'
+import PopoverMenuItem from '@shared/components/PopoverMenuItem.vue'
 
 const props = withDefaults(
   defineProps<{

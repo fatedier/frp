@@ -53,9 +53,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { MoreFilled, Edit, Delete, Open, TurnOff } from '@element-plus/icons-vue'
-import ActionButton from './ActionButton.vue'
-import PopoverMenu from './PopoverMenu.vue'
-import PopoverMenuItem from './PopoverMenuItem.vue'
+import ActionButton from '@shared/components/ActionButton.vue'
+import PopoverMenu from '@shared/components/PopoverMenu.vue'
+import PopoverMenuItem from '@shared/components/PopoverMenuItem.vue'
 import type { ProxyStatus } from '../types'
 
 interface Props {
