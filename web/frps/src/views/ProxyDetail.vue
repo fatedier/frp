@@ -51,98 +51,41 @@
                 <router-link
                   v-if="proxy.clientID"
                   :to="clientLink"
-                  class="client-link"
+                  class="meta-link"
                 >
                   <el-icon><Monitor /></el-icon>
-                  <span
-                    >Client:
-                    {{
-                      proxy.user
-                        ? `${proxy.user}.${proxy.clientID}`
-                        : proxy.clientID
-                    }}</span
-                  >
+                  <span>{{
+                    proxy.user
+                      ? `${proxy.user}.${proxy.clientID}`
+                      : proxy.clientID
+                  }}</span>
                 </router-link>
+                <span v-if="proxy.lastStartTime" class="meta-text">
+                  <span class="meta-sep">·</span>
+                  Last Started {{ proxy.lastStartTime }}
+                </span>
+                <span v-if="proxy.lastCloseTime" class="meta-text">
+                  <span class="meta-sep">·</span>
+                  Last Closed {{ proxy.lastCloseTime }}
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Stats Cards -->
-        <div class="stats-grid">
-          <div v-if="proxy.port" class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Port</span>
-              <div class="stat-icon port">
-                <el-icon><Connection /></el-icon>
-              </div>
-            </div>
-            <div class="stat-value">{{ proxy.port }}</div>
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+          <div v-if="proxy.port" class="stats-item">
+            <span class="stats-label">Port</span>
+            <span class="stats-value">{{ proxy.port }}</span>
           </div>
-          <div class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Connections</span>
-              <div class="stat-icon connections">
-                <el-icon><DataLine /></el-icon>
-              </div>
-            </div>
-            <div class="stat-value">{{ proxy.conns }}</div>
+          <div class="stats-item">
+            <span class="stats-label">Connections</span>
+            <span class="stats-value">{{ proxy.conns }}</span>
           </div>
-          <div class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Traffic In</span>
-              <div class="stat-icon traffic-in">
-                <el-icon><Bottom /></el-icon>
-              </div>
-            </div>
-            <div class="stat-value">
-              <span class="value-number">{{
-                formatTrafficValue(proxy.trafficIn)
-              }}</span>
-              <span class="value-unit">{{
-                formatTrafficUnit(proxy.trafficIn)
-              }}</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">Traffic Out</span>
-              <div class="stat-icon traffic-out">
-                <el-icon><Top /></el-icon>
-              </div>
-            </div>
-            <div class="stat-value">
-              <span class="value-number">{{
-                formatTrafficValue(proxy.trafficOut)
-              }}</span>
-              <span class="value-unit">{{
-                formatTrafficUnit(proxy.trafficOut)
-              }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Status Timeline -->
-        <div class="timeline-card">
-          <div class="timeline-header">
-            <el-icon><DataLine /></el-icon>
-            <h2>Status Timeline</h2>
-          </div>
-          <div class="timeline-body">
-            <div class="timeline-grid">
-              <div class="timeline-item">
-                <span class="timeline-label">Last Start Time</span>
-                <span class="timeline-value">{{
-                  proxy.lastStartTime || '-'
-                }}</span>
-              </div>
-              <div class="timeline-item">
-                <span class="timeline-label">Last Close Time</span>
-                <span class="timeline-value">{{
-                  proxy.lastCloseTime || '-'
-                }}</span>
-              </div>
-            </div>
+          <div class="stats-item">
+            <span class="stats-label">Traffic</span>
+            <span class="stats-value">↓ {{ formatTrafficValue(proxy.trafficIn) }} <small>{{ formatTrafficUnit(proxy.trafficIn) }}</small> / ↑ {{ formatTrafficValue(proxy.trafficOut) }} <small>{{ formatTrafficUnit(proxy.trafficOut) }}</small></span>
           </div>
         </div>
 
@@ -288,9 +231,6 @@ import {
   ArrowLeft,
   Monitor,
   Connection,
-  DataLine,
-  Bottom,
-  Top,
   Link,
   Lock,
   Promotion,
@@ -593,176 +533,71 @@ html.dark .status-badge.online {
 .header-meta {
   display: flex;
   align-items: center;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
-.client-link {
+.meta-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 14px;
+  gap: 4px;
   color: var(--text-secondary);
   text-decoration: none;
   transition: color 0.2s;
 }
 
-.client-link:hover {
+.meta-link:hover {
   color: var(--el-color-primary);
 }
 
-/* Stats Grid */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
+.meta-text {
+  color: var(--text-muted);
 }
 
-.stat-card {
+.meta-sep {
+  margin: 0 4px;
+}
+
+/* Stats Bar */
+.stats-bar {
+  display: flex;
   background: var(--el-bg-color);
   border: 1px solid var(--header-border);
-  border-radius: 12px;
-  padding: 20px;
-}
-
-.stat-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.stat-icon {
-  width: 36px;
-  height: 36px;
   border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
+  margin-bottom: 20px;
 }
 
-.stat-icon.port {
-  background: rgba(139, 92, 246, 0.1);
-  color: #8b5cf6;
-}
-
-.stat-icon.connections {
-  background: rgba(168, 85, 247, 0.1);
-  color: #a855f7;
-}
-
-.stat-icon.traffic-in {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-}
-
-.stat-icon.traffic-out {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
-}
-
-html.dark .stat-icon.port {
-  background: rgba(139, 92, 246, 0.15);
-}
-
-html.dark .stat-icon.connections {
-  background: rgba(168, 85, 247, 0.15);
-}
-
-html.dark .stat-icon.traffic-in {
-  background: rgba(59, 130, 246, 0.15);
-}
-
-html.dark .stat-icon.traffic-out {
-  background: rgba(34, 197, 94, 0.15);
-}
-
-.stat-value {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.value-number {
-  font-size: 28px;
-  font-weight: 500;
-  color: var(--text-primary);
-  line-height: 1;
-}
-
-.stat-value:not(:has(.value-number)) {
-  font-size: 28px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.value-unit {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-/* Timeline Card */
-.timeline-card {
-  background: var(--el-bg-color);
-  border: 1px solid var(--header-border);
-  border-radius: 12px;
-  margin-bottom: 16px;
-}
-
-.timeline-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 20px;
-  color: var(--text-secondary);
-}
-
-.timeline-header h2 {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.timeline-body {
-  padding: 20px;
-  padding-top: 0;
-}
-
-.timeline-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
-  background: var(--el-fill-color-light);
-  border-radius: 10px;
-  padding: 20px 24px;
-}
-
-.timeline-item {
+.stats-item {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+  padding: 16px 20px;
 }
 
-.timeline-label {
-  font-size: 13px;
+.stats-item + .stats-item {
+  border-left: 1px solid var(--header-border);
+}
+
+.stats-label {
+  font-size: 12px;
   color: var(--text-secondary);
-  font-weight: 500;
 }
 
-.timeline-value {
-  font-size: 15px;
-  font-weight: 500;
+.stats-value {
+  font-size: 18px;
+  font-weight: 600;
   color: var(--text-primary);
 }
+
+.stats-value small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
 
 /* Card Base */
 .traffic-card {
@@ -956,15 +791,21 @@ html.dark .config-item-icon.route {
 }
 
 /* Responsive */
-@media (max-width: 1024px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
 @media (max-width: 768px) {
   .config-grid {
     grid-template-columns: 1fr;
+  }
+
+  .stats-bar {
+    flex-wrap: wrap;
+  }
+
+  .stats-item {
+    flex: 1 1 40%;
+  }
+
+  .stats-item:nth-child(n+3) {
+    border-top: 1px solid var(--header-border);
   }
 }
 
@@ -974,12 +815,5 @@ html.dark .config-item-icon.route {
     gap: 16px;
   }
 
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .timeline-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

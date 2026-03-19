@@ -21,7 +21,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useResponsive } from '../composables/useResponsive'
 
 const props = withDefaults(
   defineProps<{
@@ -33,6 +32,7 @@ const props = withDefaults(
     closeOnPressEscape?: boolean
     appendToBody?: boolean
     top?: string
+    isMobile?: boolean
   }>(),
   {
     width: '480px',
@@ -41,6 +41,7 @@ const props = withDefaults(
     closeOnPressEscape: true,
     appendToBody: false,
     top: '15vh',
+    isMobile: false,
   },
 )
 
@@ -53,15 +54,13 @@ const visible = computed({
   set: (value) => emit('update:modelValue', value),
 })
 
-const { isMobile } = useResponsive()
-
 const dialogWidth = computed(() => {
-  if (isMobile.value) return '100%'
+  if (props.isMobile) return '100%'
   return props.width
 })
 
 const dialogTop = computed(() => {
-  if (isMobile.value) return '0'
+  if (props.isMobile) return '0'
   return props.top
 })
 </script>

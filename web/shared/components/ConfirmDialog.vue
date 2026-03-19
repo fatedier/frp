@@ -5,6 +5,7 @@
     width="400px"
     :close-on-click-modal="false"
     :append-to-body="true"
+    :is-mobile="isMobile"
   >
     <p class="confirm-message">{{ message }}</p>
     <template #footer>
@@ -27,7 +28,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import BaseDialog from './BaseDialog.vue'
-import ActionButton from './ActionButton.vue'
+import ActionButton from '@shared/components/ActionButton.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -38,12 +39,14 @@ const props = withDefaults(
     cancelText?: string
     danger?: boolean
     loading?: boolean
+    isMobile?: boolean
   }>(),
   {
     confirmText: 'Confirm',
     cancelText: 'Cancel',
     danger: false,
     loading: false,
+    isMobile: false,
   },
 )
 

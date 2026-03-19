@@ -30,6 +30,7 @@
       v-model="leaveDialogVisible"
       title="Unsaved Changes"
       message="You have unsaved changes. Are you sure you want to leave?"
+      :is-mobile="isMobile"
       @confirm="handleLeaveConfirm"
       @cancel="handleLeaveCancel"
     />
@@ -40,9 +41,10 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import ActionButton from '../components/ActionButton.vue'
-import ConfirmDialog from '../components/ConfirmDialog.vue'
+import ActionButton from '@shared/components/ActionButton.vue'
+import ConfirmDialog from '@shared/components/ConfirmDialog.vue'
 import VisitorFormLayout from '../components/visitor-form/VisitorFormLayout.vue'
+import { useResponsive } from '../composables/useResponsive'
 import type { FormInstance, FormRules } from 'element-plus'
 import {
   type VisitorFormData,
@@ -53,6 +55,7 @@ import {
 import { getStoreVisitor } from '../api/frpc'
 import { useVisitorStore } from '../stores/visitor'
 
+const { isMobile } = useResponsive()
 const route = useRoute()
 const router = useRouter()
 const visitorStore = useVisitorStore()

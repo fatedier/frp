@@ -41,6 +41,7 @@ serverPort = 7000"
       message="This operation will update your frpc configuration and reload it. Do you want to continue?"
       confirm-text="Update"
       :loading="uploading"
+      :is-mobile="isMobile"
       @confirm="doUpload"
     />
   </div>
@@ -51,9 +52,11 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Link } from '@element-plus/icons-vue'
 import { useClientStore } from '../stores/client'
-import ActionButton from '../components/ActionButton.vue'
-import ConfirmDialog from '../components/ConfirmDialog.vue'
+import ActionButton from '@shared/components/ActionButton.vue'
+import ConfirmDialog from '@shared/components/ConfirmDialog.vue'
+import { useResponsive } from '../composables/useResponsive'
 
+const { isMobile } = useResponsive()
 const clientStore = useClientStore()
 const configContent = ref('')
 

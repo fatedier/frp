@@ -32,7 +32,7 @@ path = "./frpc_store.json"</pre>
           <el-input v-model="searchText" placeholder="Search..." clearable class="search-input">
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
-          <FilterDropdown v-model="typeFilter" label="Type" :options="typeOptions" :min-width="140" />
+          <FilterDropdown v-model="typeFilter" label="Type" :options="typeOptions" :min-width="140" :is-mobile="isMobile" />
         </div>
 
         <div v-if="filteredVisitors.length > 0" class="visitor-list">
@@ -74,7 +74,7 @@ path = "./frpc_store.json"</pre>
 
     <ConfirmDialog v-model="deleteDialog.visible" title="Delete Visitor"
       :message="deleteDialog.message" confirm-text="Delete" danger
-      :loading="deleteDialog.loading" @confirm="doDelete" />
+      :loading="deleteDialog.loading" :is-mobile="isMobile" @confirm="doDelete" />
   </div>
 </template>
 
@@ -83,14 +83,16 @@ import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, MoreFilled, Edit, Delete } from '@element-plus/icons-vue'
-import ActionButton from '../components/ActionButton.vue'
-import FilterDropdown from '../components/FilterDropdown.vue'
-import PopoverMenu from '../components/PopoverMenu.vue'
-import PopoverMenuItem from '../components/PopoverMenuItem.vue'
-import ConfirmDialog from '../components/ConfirmDialog.vue'
+import ActionButton from '@shared/components/ActionButton.vue'
+import FilterDropdown from '@shared/components/FilterDropdown.vue'
+import PopoverMenu from '@shared/components/PopoverMenu.vue'
+import PopoverMenuItem from '@shared/components/PopoverMenuItem.vue'
+import ConfirmDialog from '@shared/components/ConfirmDialog.vue'
 import { useVisitorStore } from '../stores/visitor'
+import { useResponsive } from '../composables/useResponsive'
 import type { VisitorDefinition } from '../types'
 
+const { isMobile } = useResponsive()
 const router = useRouter()
 const visitorStore = useVisitorStore()
 

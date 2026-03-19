@@ -30,8 +30,8 @@
           <el-input v-model="searchText" placeholder="Search..." clearable class="search-input">
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
-          <FilterDropdown v-model="sourceFilter" label="Source" :options="sourceOptions" :min-width="140" />
-          <FilterDropdown v-model="typeFilter" label="Type" :options="typeOptions" :min-width="140" />
+          <FilterDropdown v-model="sourceFilter" label="Source" :options="sourceOptions" :min-width="140" :is-mobile="isMobile" />
+          <FilterDropdown v-model="typeFilter" label="Type" :options="typeOptions" :min-width="140" :is-mobile="isMobile" />
         </div>
       </template>
 
@@ -41,7 +41,7 @@
           <el-input v-model="storeSearch" placeholder="Search..." clearable class="search-input">
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
-          <FilterDropdown v-model="storeTypeFilter" label="Type" :options="storeTypeOptions" :min-width="140" />
+          <FilterDropdown v-model="storeTypeFilter" label="Type" :options="storeTypeOptions" :min-width="140" :is-mobile="isMobile" />
         </div>
       </template>
     </div>
@@ -100,6 +100,7 @@ path = "./frpc_store.json"</pre>
       confirm-text="Delete"
       danger
       :loading="deleteDialog.loading"
+      :is-mobile="isMobile"
       @confirm="doDelete"
     />
   </div>
@@ -110,11 +111,11 @@ import { ref, computed, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
-import ActionButton from '../components/ActionButton.vue'
+import ActionButton from '@shared/components/ActionButton.vue'
 import StatusPills from '../components/StatusPills.vue'
-import FilterDropdown from '../components/FilterDropdown.vue'
+import FilterDropdown from '@shared/components/FilterDropdown.vue'
 import ProxyCard from '../components/ProxyCard.vue'
-import ConfirmDialog from '../components/ConfirmDialog.vue'
+import ConfirmDialog from '@shared/components/ConfirmDialog.vue'
 import { useProxyStore } from '../stores/proxy'
 import { useResponsive } from '../composables/useResponsive'
 import type { ProxyStatus } from '../types'

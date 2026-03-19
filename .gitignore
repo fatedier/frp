@@ -25,6 +25,8 @@ dist/
 client.crt
 client.key
 
+node_modules/
+
 # Cache
 *.swp
 

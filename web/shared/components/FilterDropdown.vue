@@ -30,9 +30,6 @@ import { computed } from 'vue'
 import { ArrowDown } from '@element-plus/icons-vue'
 import PopoverMenu from './PopoverMenu.vue'
 import PopoverMenuItem from './PopoverMenuItem.vue'
-import { useResponsive } from '../composables/useResponsive'
-
-const { isMobile } = useResponsive()
 
 interface Props {
   modelValue: string
@@ -41,6 +38,7 @@ interface Props {
   allLabel?: string
   width?: number
   minWidth?: number
+  isMobile?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
