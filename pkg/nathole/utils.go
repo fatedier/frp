@@ -21,7 +21,7 @@ import (
 	"strconv"
 
 	"github.com/fatedier/golib/crypto"
-	"github.com/pion/stun/v2"
+	"github.com/pion/stun/v3"
 
 	"github.com/fatedier/frp/pkg/msg"
 )
