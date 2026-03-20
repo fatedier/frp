@@ -139,6 +139,7 @@ import {
   TCPMuxProxy,
   STCPProxy,
   SUDPProxy,
+  XTCPProxy,
 } from '../utils/proxy'
 import { getServerInfo } from '../api/server'
 import ProxyCard from '../components/ProxyCard.vue'
@@ -213,7 +214,16 @@ const fetchClient = async () => {
 
 const fetchProxies = async () => {
   proxiesLoading.value = true
-  const proxyTypes = ['tcp', 'udp', 'http', 'https', 'tcpmux', 'stcp', 'sudp']
+  const proxyTypes = [
+    'tcp',
+    'udp',
+    'http',
+    'https',
+    'tcpmux',
+    'stcp',
+    'sudp',
+    'xtcp',
+  ]
   const proxies: BaseProxy[] = []
   try {
     const info = await fetchServerInfo()
@@ -254,6 +264,8 @@ const fetchProxies = async () => {
           proxies.push(...json.proxies.map((p: any) => new STCPProxy(p)))
         } else if (type === 'sudp') {
           proxies.push(...json.proxies.map((p: any) => new SUDPProxy(p)))
+        } else if (type === 'xtcp') {
+          proxies.push(...json.proxies.map((p: any) => new XTCPProxy(p)))
         }
       } catch {
         // Ignore

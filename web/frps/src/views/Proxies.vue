@@ -113,6 +113,7 @@ import {
   TCPMuxProxy,
   STCPProxy,
   SUDPProxy,
+  XTCPProxy,
 } from '../utils/proxy'
 import ProxyCard from '../components/ProxyCard.vue'
 import PopoverMenu from '@shared/components/PopoverMenu.vue'
@@ -136,6 +137,7 @@ const proxyTypes = [
   { label: 'TCPMUX', value: 'tcpmux' },
   { label: 'STCP', value: 'stcp' },
   { label: 'SUDP', value: 'sudp' },
+  { label: 'XTCP', value: 'xtcp' },
 ]
 
 const activeType = ref((route.params.type as string) || 'tcp')
@@ -288,6 +290,8 @@ const fetchData = async () => {
       proxies.value = json.proxies.map((p: any) => new STCPProxy(p))
     } else if (type === 'sudp') {
       proxies.value = json.proxies.map((p: any) => new SUDPProxy(p))
+    } else if (type === 'xtcp') {
+      proxies.value = json.proxies.map((p: any) => new XTCPProxy(p))
     }
   } catch (error: any) {
     ElMessage({

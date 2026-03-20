@@ -149,6 +149,13 @@ class SUDPProxy extends BaseProxy {
   }
 }
 
+class XTCPProxy extends BaseProxy {
+  constructor(proxyStats: any) {
+    super(proxyStats)
+    this.type = 'xtcp'
+  }
+}
+
 export {
   BaseProxy,
   TCPProxy,
@@ -158,4 +165,5 @@ export {
   HTTPSProxy,
   STCPProxy,
   SUDPProxy,
+  XTCPProxy,
 }

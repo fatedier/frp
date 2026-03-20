@@ -252,6 +252,7 @@ import {
   TCPMuxProxy,
   STCPProxy,
   SUDPProxy,
+  XTCPProxy,
 } from '../utils/proxy'
 import Traffic from '../components/Traffic.vue'
 
@@ -391,6 +392,8 @@ const fetchProxy = async () => {
       proxy.value = new STCPProxy(data)
     } else if (type === 'sudp') {
       proxy.value = new SUDPProxy(data)
+    } else if (type === 'xtcp') {
+      proxy.value = new XTCPProxy(data)
     } else {
       proxy.value = new BaseProxy(data)
       proxy.value.type = type
