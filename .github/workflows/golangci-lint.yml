@@ -14,12 +14,12 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-go@v5
+    - uses: actions/checkout@v6
+    - uses: actions/setup-go@v6
       with:
         go-version: '1.25'
         cache: false
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
         node-version: '22'
     - name: Build web assets (frps)
