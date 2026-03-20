@@ -32,3 +32,8 @@
 - E2E tests using Ginkgo/Gomega framework
 - Mock servers in `/test/e2e/mock/`
 - Run: `make e2e` or `make alltest`
+
+## Agent Runbooks
+
+Operational procedures for agents are in `doc/agents/`:
+- `doc/agents/release.md` - Release process
