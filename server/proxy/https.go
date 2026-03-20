@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	RegisterProxyFactory(reflect.TypeOf(&v1.HTTPSProxyConfig{}), NewHTTPSProxy)
+	RegisterProxyFactory(reflect.TypeFor[*v1.HTTPSProxyConfig](), NewHTTPSProxy)
 }
 
 type HTTPSProxy struct {
@@ -53,23 +53,10 @@ func (pxy *HTTPSProxy) Run() (remoteAddr string, err error) {
 			pxy.Close()
 		}
 	}()
+	domains := pxy.buildDomains(pxy.cfg.CustomDomains, pxy.cfg.SubDomain)
+
 	addrs := make([]string, 0)
-	for _, domain := range pxy.cfg.CustomDomains {
-		if domain == "" {
-			continue
-		}
-
-		l, err := pxy.listenForDomain(routeConfig, domain)
-		if err != nil {
-			return "", err
-		}
-		pxy.listeners = append(pxy.listeners, l)
-		addrs = append(addrs, util.CanonicalAddr(domain, pxy.serverCfg.VhostHTTPSPort))
-		xl.Infof("https proxy listen for host [%s] group [%s]", domain, pxy.cfg.LoadBalancer.Group)
-	}
-
-	if pxy.cfg.SubDomain != "" {
-		domain := pxy.cfg.SubDomain + "." + pxy.serverCfg.SubDomainHost
+	for _, domain := range domains {
 		l, err := pxy.listenForDomain(routeConfig, domain)
 		if err != nil {
 			return "", err

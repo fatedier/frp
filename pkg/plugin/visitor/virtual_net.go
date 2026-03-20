@@ -153,10 +153,7 @@ func (p *VirtualNetPlugin) run() {
 
 				// Exponential backoff: 60s, 120s, 240s, 300s (capped)
 				baseDelay := 60 * time.Second
-				reconnectDelay = baseDelay * time.Duration(1<<uint(p.consecutiveErrors-1))
-				if reconnectDelay > 300*time.Second {
-					reconnectDelay = 300 * time.Second
-				}
+				reconnectDelay = min(baseDelay*time.Duration(1<<uint(p.consecutiveErrors-1)), 300*time.Second)
 			} else {
 				// Reset consecutive errors on successful connection
 				if p.consecutiveErrors > 0 {

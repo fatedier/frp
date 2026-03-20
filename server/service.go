@@ -28,7 +28,6 @@ import (
 	"github.com/fatedier/golib/crypto"
 	"github.com/fatedier/golib/net/mux"
 	fmux "github.com/hashicorp/yamux"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
 
@@ -48,7 +47,6 @@ import (
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/vhost"
 	"github.com/fatedier/frp/pkg/util/xlog"
-	"github.com/fatedier/frp/server/api"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/group"
 	"github.com/fatedier/frp/server/metrics"
@@ -195,7 +193,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		if err != nil {
 			return nil, fmt.Errorf("create vhost tcpMuxer error, %v", err)
 		}
-		log.Infof("tcpmux httpconnect multiplexer listen on %s, passthough: %v", address, cfg.TCPMuxPassthrough)
+		log.Infof("tcpmux httpconnect multiplexer listen on %s, passthrough: %v", address, cfg.TCPMuxPassthrough)
 	}
 
 	// Init all plugins
@@ -606,8 +604,18 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		return err
 	}
 
-	// TODO(fatedier): use SessionContext
-	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, svr.auth.EncryptionKey(), ctlConn, !internal, loginMsg, svr.cfg)
+	ctl, err := NewControl(ctx, &SessionContext{
+		RC:             svr.rc,
+		PxyManager:     svr.pxyManager,
+		PluginManager:  svr.pluginManager,
+		AuthVerifier:   authVerifier,
+		EncryptionKey:  svr.auth.EncryptionKey(),
+		Conn:           ctlConn,
+		ConnEncrypted:  !internal,
+		LoginMsg:       loginMsg,
+		ServerCfg:      svr.cfg,
+		ClientRegistry: svr.clientRegistry,
+	})
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
 		// don't return detailed errors to client
@@ -622,13 +630,12 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
 		remoteAddr = host
 	}
-	_, conflict := svr.clientRegistry.Register(loginMsg.User, loginMsg.ClientID, loginMsg.RunID, loginMsg.Hostname, remoteAddr)
+	_, conflict := svr.clientRegistry.Register(loginMsg.User, loginMsg.ClientID, loginMsg.RunID, loginMsg.Hostname, loginMsg.Version, remoteAddr)
 	if conflict {
 		svr.ctlManager.Del(loginMsg.RunID, ctl)
 		ctl.Close()
 		return fmt.Errorf("client_id [%s] for user [%s] is already online", loginMsg.ClientID, loginMsg.User)
 	}
-	ctl.clientRegistry = svr.clientRegistry
 
 	ctl.Start()
 
@@ -654,9 +661,9 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 	// server plugin hook
 	content := &plugin.NewWorkConnContent{
 		User: plugin.UserInfo{
-			User:  ctl.loginMsg.User,
-			Metas: ctl.loginMsg.Metas,
-			RunID: ctl.loginMsg.RunID,
+			User:  ctl.sessionCtx.LoginMsg.User,
+			Metas: ctl.sessionCtx.LoginMsg.Metas,
+			RunID: ctl.sessionCtx.LoginMsg.RunID,
 		},
 		NewWorkConn: *newMsg,
 	}
@@ -664,7 +671,7 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 	if err == nil {
 		newMsg = &retContent.NewWorkConn
 		// Check auth.
-		err = ctl.authVerifier.VerifyNewWorkConn(newMsg)
+		err = ctl.sessionCtx.AuthVerifier.VerifyNewWorkConn(newMsg)
 	}
 	if err != nil {
 		xl.Warnf("invalid NewWorkConn with run id [%s]", newMsg.RunID)
@@ -685,47 +692,8 @@ func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVis
 		if !exist {
 			return fmt.Errorf("no client control found for run id [%s]", newMsg.RunID)
 		}
-		visitorUser = ctl.loginMsg.User
+		visitorUser = ctl.sessionCtx.LoginMsg.User
 	}
 	return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
 		newMsg.UseEncryption, newMsg.UseCompression, visitorUser)
-}
-
-func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) {
-	helper.Router.HandleFunc("/healthz", healthz)
-	subRouter := helper.Router.NewRoute().Subrouter()
-
-	subRouter.Use(helper.AuthMiddleware)
-	subRouter.Use(httppkg.NewRequestLogger)
-
-	// metrics
-	if svr.cfg.EnablePrometheus {
-		subRouter.Handle("/metrics", promhttp.Handler())
-	}
-
-	apiController := api.NewController(svr.cfg, svr.clientRegistry, svr.pxyManager)
-
-	// apis
-	subRouter.HandleFunc("/api/serverinfo", httppkg.MakeHTTPHandlerFunc(apiController.APIServerInfo)).Methods("GET")
-	subRouter.HandleFunc("/api/proxy/{type}", httppkg.MakeHTTPHandlerFunc(apiController.APIProxyByType)).Methods("GET")
-	subRouter.HandleFunc("/api/proxy/{type}/{name}", httppkg.MakeHTTPHandlerFunc(apiController.APIProxyByTypeAndName)).Methods("GET")
-	subRouter.HandleFunc("/api/proxies/{name}", httppkg.MakeHTTPHandlerFunc(apiController.APIProxyByName)).Methods("GET")
-	subRouter.HandleFunc("/api/traffic/{name}", httppkg.MakeHTTPHandlerFunc(apiController.APIProxyTraffic)).Methods("GET")
-	subRouter.HandleFunc("/api/clients", httppkg.MakeHTTPHandlerFunc(apiController.APIClientList)).Methods("GET")
-	subRouter.HandleFunc("/api/clients/{key}", httppkg.MakeHTTPHandlerFunc(apiController.APIClientDetail)).Methods("GET")
-	subRouter.HandleFunc("/api/proxies", httppkg.MakeHTTPHandlerFunc(apiController.DeleteProxies)).Methods("DELETE")
-
-	// view
-	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")
-	subRouter.PathPrefix("/static/").Handler(
-		netpkg.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(helper.AssetsFS))),
-	).Methods("GET")
-
-	subRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
-	})
-}
-
-func healthz(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(200)
 }

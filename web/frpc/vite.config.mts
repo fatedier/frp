@@ -25,6 +25,20 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@shared': fileURLToPath(new URL('../shared', import.meta.url)),
+    },
+    dedupe: ['vue', 'element-plus', '@element-plus/icons-vue'],
+    modules: [
+      fileURLToPath(new URL('../node_modules', import.meta.url)),
+      'node_modules',
+    ],
+  },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: 'modern',
+        additionalData: `@use "@shared/css/_index.scss" as *;`,
+      },
     },
   },
   build: {

@@ -3,6 +3,8 @@ package features
 import (
 	"crypto/tls"
 	"fmt"
+	"net"
+	"strconv"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -25,7 +27,8 @@ var _ = ginkgo.Describe("[Feature: SSH Tunnel]", func() {
 		sshTunnelGateway.bindPort = %d
 		`, sshPort)
 
-		f.RunProcesses([]string{serverConf}, nil)
+		f.RunProcesses(serverConf, nil)
+		framework.ExpectNoError(framework.WaitForTCPReady(net.JoinHostPort("127.0.0.1", strconv.Itoa(sshPort)), 5*time.Second))
 
 		localPort := f.PortByName(framework.TCPEchoServerPort)
 		remotePort := f.AllocPort()
@@ -49,7 +52,8 @@ var _ = ginkgo.Describe("[Feature: SSH Tunnel]", func() {
 		sshTunnelGateway.bindPort = %d
 		`, vhostPort, sshPort)
 
-		f.RunProcesses([]string{serverConf}, nil)
+		f.RunProcesses(serverConf, nil)
+		framework.ExpectNoError(framework.WaitForTCPReady(net.JoinHostPort("127.0.0.1", strconv.Itoa(sshPort)), 5*time.Second))
 
 		localPort := f.PortByName(framework.HTTPSimpleServerPort)
 		tc := ssh.NewTunnelClient(
@@ -76,7 +80,8 @@ var _ = ginkgo.Describe("[Feature: SSH Tunnel]", func() {
 		sshTunnelGateway.bindPort = %d
 		`, vhostPort, sshPort)
 
-		f.RunProcesses([]string{serverConf}, nil)
+		f.RunProcesses(serverConf, nil)
+		framework.ExpectNoError(framework.WaitForTCPReady(net.JoinHostPort("127.0.0.1", strconv.Itoa(sshPort)), 5*time.Second))
 
 		localPort := f.AllocPort()
 		testDomain := "test.example.com"
@@ -118,7 +123,8 @@ var _ = ginkgo.Describe("[Feature: SSH Tunnel]", func() {
 		sshTunnelGateway.bindPort = %d
 		`, tcpmuxPort, sshPort)
 
-		f.RunProcesses([]string{serverConf}, nil)
+		f.RunProcesses(serverConf, nil)
+		framework.ExpectNoError(framework.WaitForTCPReady(net.JoinHostPort("127.0.0.1", strconv.Itoa(sshPort)), 5*time.Second))
 
 		localPort := f.AllocPort()
 		testDomain := "test.example.com"
@@ -173,7 +179,8 @@ var _ = ginkgo.Describe("[Feature: SSH Tunnel]", func() {
 		bindPort = %d
 		`, bindPort)
 
-		f.RunProcesses([]string{serverConf}, []string{visitorConf})
+		f.RunProcesses(serverConf, []string{visitorConf})
+		framework.ExpectNoError(framework.WaitForTCPReady(net.JoinHostPort("127.0.0.1", strconv.Itoa(sshPort)), 5*time.Second))
 
 		localPort := f.PortByName(framework.TCPEchoServerPort)
 		tc := ssh.NewTunnelClient(

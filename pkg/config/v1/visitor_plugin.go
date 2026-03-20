@@ -15,11 +15,9 @@
 package v1
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"reflect"
+
+	"github.com/fatedier/frp/pkg/util/jsonx"
 )
 
 const (
@@ -27,11 +25,12 @@ const (
 )
 
 var visitorPluginOptionsTypeMap = map[string]reflect.Type{
-	VisitorPluginVirtualNet: reflect.TypeOf(VirtualNetVisitorPluginOptions{}),
+	VisitorPluginVirtualNet: reflect.TypeFor[VirtualNetVisitorPluginOptions](),
 }
 
 type VisitorPluginOptions interface {
 	Complete()
+	Clone() VisitorPluginOptions
 }
 
 type TypedVisitorPluginOptions struct {
@@ -39,43 +38,25 @@ type TypedVisitorPluginOptions struct {
 	VisitorPluginOptions
 }
 
-func (c *TypedVisitorPluginOptions) UnmarshalJSON(b []byte) error {
-	if len(b) == 4 && string(b) == "null" {
-		return nil
+func (c TypedVisitorPluginOptions) Clone() TypedVisitorPluginOptions {
+	out := c
+	if c.VisitorPluginOptions != nil {
+		out.VisitorPluginOptions = c.VisitorPluginOptions.Clone()
 	}
+	return out
+}
 
-	typeStruct := struct {
-		Type string `json:"type"`
-	}{}
-	if err := json.Unmarshal(b, &typeStruct); err != nil {
+func (c *TypedVisitorPluginOptions) UnmarshalJSON(b []byte) error {
+	decoded, err := DecodeVisitorPluginOptionsJSON(b, DecodeOptions{})
+	if err != nil {
 		return err
 	}
-
-	c.Type = typeStruct.Type
-	if c.Type == "" {
-		return errors.New("visitor plugin type is empty")
-	}
-
-	v, ok := visitorPluginOptionsTypeMap[typeStruct.Type]
-	if !ok {
-		return fmt.Errorf("unknown visitor plugin type: %s", typeStruct.Type)
-	}
-	options := reflect.New(v).Interface().(VisitorPluginOptions)
-
-	decoder := json.NewDecoder(bytes.NewBuffer(b))
-	if DisallowUnknownFields {
-		decoder.DisallowUnknownFields()
-	}
-
-	if err := decoder.Decode(options); err != nil {
-		return fmt.Errorf("unmarshal VisitorPluginOptions error: %v", err)
-	}
-	c.VisitorPluginOptions = options
+	*c = decoded
 	return nil
 }
 
 func (c *TypedVisitorPluginOptions) MarshalJSON() ([]byte, error) {
-	return json.Marshal(c.VisitorPluginOptions)
+	return jsonx.Marshal(c.VisitorPluginOptions)
 }
 
 type VirtualNetVisitorPluginOptions struct {
@@ -84,3 +65,11 @@ type VirtualNetVisitorPluginOptions struct {
 }
 
 func (o *VirtualNetVisitorPluginOptions) Complete() {}
+
+func (o *VirtualNetVisitorPluginOptions) Clone() VisitorPluginOptions {
+	if o == nil {
+		return nil
+	}
+	out := *o
+	return &out
+}

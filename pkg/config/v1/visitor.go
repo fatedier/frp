@@ -15,14 +15,9 @@
 package v1
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"reflect"
 
-	"github.com/samber/lo"
-
+	"github.com/fatedier/frp/pkg/util/jsonx"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
@@ -52,31 +47,27 @@ type VisitorBaseConfig struct {
 	Plugin TypedVisitorPluginOptions `json:"plugin,omitempty"`
 }
 
+func (c VisitorBaseConfig) Clone() VisitorBaseConfig {
+	out := c
+	out.Enabled = util.ClonePtr(c.Enabled)
+	out.Plugin = c.Plugin.Clone()
+	return out
+}
+
 func (c *VisitorBaseConfig) GetBaseConfig() *VisitorBaseConfig {
 	return c
 }
 
-func (c *VisitorBaseConfig) Complete(g *ClientCommonConfig) {
+func (c *VisitorBaseConfig) Complete() {
 	if c.BindAddr == "" {
 		c.BindAddr = "127.0.0.1"
-	}
-
-	namePrefix := ""
-	if g.User != "" {
-		namePrefix = g.User + "."
-	}
-	c.Name = namePrefix + c.Name
-
-	if c.ServerUser != "" {
-		c.ServerName = c.ServerUser + "." + c.ServerName
-	} else {
-		c.ServerName = namePrefix + c.ServerName
 	}
 }
 
 type VisitorConfigurer interface {
-	Complete(*ClientCommonConfig)
+	Complete()
 	GetBaseConfig() *VisitorBaseConfig
+	Clone() VisitorConfigurer
 }
 
 type VisitorType string
@@ -88,9 +79,9 @@ const (
 )
 
 var visitorConfigTypeMap = map[VisitorType]reflect.Type{
-	VisitorTypeSTCP: reflect.TypeOf(STCPVisitorConfig{}),
-	VisitorTypeXTCP: reflect.TypeOf(XTCPVisitorConfig{}),
-	VisitorTypeSUDP: reflect.TypeOf(SUDPVisitorConfig{}),
+	VisitorTypeSTCP: reflect.TypeFor[STCPVisitorConfig](),
+	VisitorTypeXTCP: reflect.TypeFor[XTCPVisitorConfig](),
+	VisitorTypeSUDP: reflect.TypeFor[SUDPVisitorConfig](),
 }
 
 type TypedVisitorConfig struct {
@@ -99,35 +90,18 @@ type TypedVisitorConfig struct {
 }
 
 func (c *TypedVisitorConfig) UnmarshalJSON(b []byte) error {
-	if len(b) == 4 && string(b) == "null" {
-		return errors.New("type is required")
-	}
-
-	typeStruct := struct {
-		Type string `json:"type"`
-	}{}
-	if err := json.Unmarshal(b, &typeStruct); err != nil {
+	configurer, err := DecodeVisitorConfigurerJSON(b, DecodeOptions{})
+	if err != nil {
 		return err
 	}
 
-	c.Type = typeStruct.Type
-	configurer := NewVisitorConfigurerByType(VisitorType(typeStruct.Type))
-	if configurer == nil {
-		return fmt.Errorf("unknown visitor type: %s", typeStruct.Type)
-	}
-	decoder := json.NewDecoder(bytes.NewBuffer(b))
-	if DisallowUnknownFields {
-		decoder.DisallowUnknownFields()
-	}
-	if err := decoder.Decode(configurer); err != nil {
-		return fmt.Errorf("unmarshal VisitorConfig error: %v", err)
-	}
+	c.Type = configurer.GetBaseConfig().Type
 	c.VisitorConfigurer = configurer
 	return nil
 }
 
 func (c *TypedVisitorConfig) MarshalJSON() ([]byte, error) {
-	return json.Marshal(c.VisitorConfigurer)
+	return jsonx.Marshal(c.VisitorConfigurer)
 }
 
 func NewVisitorConfigurerByType(t VisitorType) VisitorConfigurer {
@@ -146,10 +120,22 @@ type STCPVisitorConfig struct {
 	VisitorBaseConfig
 }
 
+func (c *STCPVisitorConfig) Clone() VisitorConfigurer {
+	out := *c
+	out.VisitorBaseConfig = c.VisitorBaseConfig.Clone()
+	return &out
+}
+
 var _ VisitorConfigurer = &SUDPVisitorConfig{}
 
 type SUDPVisitorConfig struct {
 	VisitorBaseConfig
+}
+
+func (c *SUDPVisitorConfig) Clone() VisitorConfigurer {
+	out := *c
+	out.VisitorBaseConfig = c.VisitorBaseConfig.Clone()
+	return &out
 }
 
 var _ VisitorConfigurer = &XTCPVisitorConfig{}
@@ -168,15 +154,18 @@ type XTCPVisitorConfig struct {
 	NatTraversal *NatTraversalConfig `json:"natTraversal,omitempty"`
 }
 
-func (c *XTCPVisitorConfig) Complete(g *ClientCommonConfig) {
-	c.VisitorBaseConfig.Complete(g)
+func (c *XTCPVisitorConfig) Complete() {
+	c.VisitorBaseConfig.Complete()
 
 	c.Protocol = util.EmptyOr(c.Protocol, "quic")
 	c.MaxRetriesAnHour = util.EmptyOr(c.MaxRetriesAnHour, 8)
 	c.MinRetryInterval = util.EmptyOr(c.MinRetryInterval, 90)
 	c.FallbackTimeoutMs = util.EmptyOr(c.FallbackTimeoutMs, 1000)
+}
 
-	if c.FallbackTo != "" {
-		c.FallbackTo = lo.Ternary(g.User == "", "", g.User+".") + c.FallbackTo
-	}
+func (c *XTCPVisitorConfig) Clone() VisitorConfigurer {
+	out := *c
+	out.VisitorBaseConfig = c.VisitorBaseConfig.Clone()
+	out.NatTraversal = c.NatTraversal.Clone()
+	return &out
 }

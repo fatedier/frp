@@ -62,11 +62,13 @@ func (p *TLS2RawPlugin) Handle(ctx context.Context, connInfo *ConnectionInfo) {
 
 	if err := tlsConn.Handshake(); err != nil {
 		xl.Warnf("tls handshake error: %v", err)
+		tlsConn.Close()
 		return
 	}
 	rawConn, err := net.Dial("tcp", p.opts.LocalAddr)
 	if err != nil {
 		xl.Warnf("dial to local addr error: %v", err)
+		tlsConn.Close()
 		return
 	}
 

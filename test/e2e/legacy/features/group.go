@@ -48,12 +48,10 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 					return true
 				})
 		}
-		for i := 0; i < 10; i++ {
-			wait.Add(1)
-			go func() {
-				defer wait.Done()
+		for range 10 {
+			wait.Go(func() {
 				expectFn()
-			}()
+			})
 		}
 
 		wait.Wait()
@@ -90,11 +88,11 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			group_key = 123
 			`, fooPort, remotePort, barPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			fooCount := 0
 			barCount := 0
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				framework.NewRequestExpect(f).Explain("times " + strconv.Itoa(i)).Port(remotePort).Ensure(func(resp *request.Response) bool {
 					switch string(resp.Content) {
 					case "foo":
@@ -146,11 +144,11 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			health_check_interval_s = 1
 			`, fooPort, remotePort, barPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			// check foo and bar is ok
 			results := []string{}
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				framework.NewRequestExpect(f).Port(remotePort).Ensure(validateFooBarResponse, func(resp *request.Response) bool {
 					results = append(results, string(resp.Content))
 					return true
@@ -161,7 +159,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			// close bar server, check foo is ok
 			barServer.Close()
 			time.Sleep(2 * time.Second)
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				framework.NewRequestExpect(f).Port(remotePort).ExpectResp([]byte("foo")).Ensure()
 			}
 
@@ -169,7 +167,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			f.RunServer("", barServer)
 			time.Sleep(2 * time.Second)
 			results = []string{}
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				framework.NewRequestExpect(f).Port(remotePort).Ensure(validateFooBarResponse, func(resp *request.Response) bool {
 					results = append(results, string(resp.Content))
 					return true
@@ -215,7 +213,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			health_check_url = /healthz
 			`, fooPort, barPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			// send first HTTP request
 			var contents []string

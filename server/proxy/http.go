@@ -31,7 +31,7 @@ import (
 )
 
 func init() {
-	RegisterProxyFactory(reflect.TypeOf(&v1.HTTPProxyConfig{}), NewHTTPProxy)
+	RegisterProxyFactory(reflect.TypeFor[*v1.HTTPProxyConfig](), NewHTTPProxy)
 }
 
 type HTTPProxy struct {
@@ -75,16 +75,13 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 		}
 	}()
 
-	addrs := make([]string, 0)
-	for _, domain := range pxy.cfg.CustomDomains {
-		if domain == "" {
-			continue
-		}
+	domains := pxy.buildDomains(pxy.cfg.CustomDomains, pxy.cfg.SubDomain)
 
+	addrs := make([]string, 0)
+	for _, domain := range domains {
 		routeConfig.Domain = domain
 		for _, location := range locations {
 			routeConfig.Location = location
-
 			tmpRouteConfig := routeConfig
 
 			// handle group
@@ -93,12 +90,10 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 				if err != nil {
 					return
 				}
-
 				pxy.closeFuncs = append(pxy.closeFuncs, func() {
 					pxy.rc.HTTPGroupCtl.UnRegister(pxy.name, pxy.cfg.LoadBalancer.Group, tmpRouteConfig)
 				})
 			} else {
-				// no group
 				err = pxy.rc.HTTPReverseProxy.Register(routeConfig)
 				if err != nil {
 					return
@@ -108,39 +103,6 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 				})
 			}
 			addrs = append(addrs, util.CanonicalAddr(routeConfig.Domain, pxy.serverCfg.VhostHTTPPort))
-			xl.Infof("http proxy listen for host [%s] location [%s] group [%s], routeByHTTPUser [%s]",
-				routeConfig.Domain, routeConfig.Location, pxy.cfg.LoadBalancer.Group, pxy.cfg.RouteByHTTPUser)
-		}
-	}
-
-	if pxy.cfg.SubDomain != "" {
-		routeConfig.Domain = pxy.cfg.SubDomain + "." + pxy.serverCfg.SubDomainHost
-		for _, location := range locations {
-			routeConfig.Location = location
-
-			tmpRouteConfig := routeConfig
-
-			// handle group
-			if pxy.cfg.LoadBalancer.Group != "" {
-				err = pxy.rc.HTTPGroupCtl.Register(pxy.name, pxy.cfg.LoadBalancer.Group, pxy.cfg.LoadBalancer.GroupKey, routeConfig)
-				if err != nil {
-					return
-				}
-
-				pxy.closeFuncs = append(pxy.closeFuncs, func() {
-					pxy.rc.HTTPGroupCtl.UnRegister(pxy.name, pxy.cfg.LoadBalancer.Group, tmpRouteConfig)
-				})
-			} else {
-				err = pxy.rc.HTTPReverseProxy.Register(routeConfig)
-				if err != nil {
-					return
-				}
-				pxy.closeFuncs = append(pxy.closeFuncs, func() {
-					pxy.rc.HTTPReverseProxy.UnRegister(tmpRouteConfig)
-				})
-			}
-			addrs = append(addrs, util.CanonicalAddr(tmpRouteConfig.Domain, pxy.serverCfg.VhostHTTPPort))
-
 			xl.Infof("http proxy listen for host [%s] location [%s] group [%s], routeByHTTPUser [%s]",
 				routeConfig.Domain, routeConfig.Location, pxy.cfg.LoadBalancer.Group, pxy.cfg.RouteByHTTPUser)
 		}
@@ -168,6 +130,7 @@ func (pxy *HTTPProxy) GetRealConn(remoteAddr string) (workConn net.Conn, err err
 		rwc, err = libio.WithEncryption(rwc, pxy.encryptionKey)
 		if err != nil {
 			xl.Errorf("create encryption stream error: %v", err)
+			tmpConn.Close()
 			return
 		}
 	}

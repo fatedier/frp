@@ -31,6 +31,7 @@ import (
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/naming"
 	"github.com/fatedier/frp/pkg/nathole"
 	"github.com/fatedier/frp/pkg/transport"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
@@ -64,10 +65,10 @@ func (sv *XTCPVisitor) Run() (err error) {
 		if err != nil {
 			return
 		}
-		go sv.worker()
+		go sv.acceptLoop(sv.l, "xtcp local", sv.handleConn)
 	}
 
-	go sv.internalConnWorker()
+	go sv.acceptLoop(sv.internalLn, "xtcp internal", sv.handleConn)
 	go sv.processTunnelStartEvents()
 	if sv.cfg.KeepTunnelOpen {
 		sv.retryLimiter = rate.NewLimiter(rate.Every(time.Hour/time.Duration(sv.cfg.MaxRetriesAnHour)), sv.cfg.MaxRetriesAnHour)
@@ -89,30 +90,6 @@ func (sv *XTCPVisitor) Close() {
 	}
 	if sv.session != nil {
 		sv.session.Close()
-	}
-}
-
-func (sv *XTCPVisitor) worker() {
-	xl := xlog.FromContextSafe(sv.ctx)
-	for {
-		conn, err := sv.l.Accept()
-		if err != nil {
-			xl.Warnf("xtcp local listener closed")
-			return
-		}
-		go sv.handleConn(conn)
-	}
-}
-
-func (sv *XTCPVisitor) internalConnWorker() {
-	xl := xlog.FromContextSafe(sv.ctx)
-	for {
-		conn, err := sv.internalLn.Accept()
-		if err != nil {
-			xl.Warnf("xtcp internal listener closed")
-			return
-		}
-		go sv.handleConn(conn)
 	}
 }
 
@@ -205,20 +182,14 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		return
 	}
 
-	var muxConnRWCloser io.ReadWriteCloser = tunnelConn
-	if sv.cfg.Transport.UseEncryption {
-		muxConnRWCloser, err = libio.WithEncryption(muxConnRWCloser, []byte(sv.cfg.SecretKey))
-		if err != nil {
-			xl.Errorf("create encryption stream error: %v", err)
-			tunnelErr = err
-			return
-		}
+	muxConnRWCloser, recycleFn, err := wrapVisitorConn(tunnelConn, sv.cfg.GetBaseConfig())
+	if err != nil {
+		xl.Errorf("%v", err)
+		tunnelConn.Close()
+		tunnelErr = err
+		return
 	}
-	if sv.cfg.Transport.UseCompression {
-		var recycleFn func()
-		muxConnRWCloser, recycleFn = libio.WithCompressionFromPool(muxConnRWCloser)
-		defer recycleFn()
-	}
+	defer recycleFn()
 
 	_, _, errs := libio.Join(userConn, muxConnRWCloser)
 	xl.Debugf("join connections closed")
@@ -280,8 +251,9 @@ func (sv *XTCPVisitor) getTunnelConn(ctx context.Context) (net.Conn, error) {
 // 4. Create a tunnel session using an underlying UDP connection.
 func (sv *XTCPVisitor) makeNatHole() {
 	xl := xlog.FromContextSafe(sv.ctx)
+	targetProxyName := naming.BuildTargetServerProxyName(sv.clientCfg.User, sv.cfg.ServerUser, sv.cfg.ServerName)
 	xl.Tracef("makeNatHole start")
-	if err := nathole.PreCheck(sv.ctx, sv.helper.MsgTransporter(), sv.cfg.ServerName, 5*time.Second); err != nil {
+	if err := nathole.PreCheck(sv.ctx, sv.helper.MsgTransporter(), targetProxyName, 5*time.Second); err != nil {
 		xl.Warnf("nathole precheck error: %v", err)
 		return
 	}
@@ -310,7 +282,7 @@ func (sv *XTCPVisitor) makeNatHole() {
 	transactionID := nathole.NewTransactionID()
 	natHoleVisitorMsg := &msg.NatHoleVisitor{
 		TransactionID: transactionID,
-		ProxyName:     sv.cfg.ServerName,
+		ProxyName:     targetProxyName,
 		Protocol:      sv.cfg.Protocol,
 		SignKey:       util.GetAuthKey(sv.cfg.SecretKey, now),
 		Timestamp:     now,
@@ -371,6 +343,7 @@ func (ks *KCPTunnelSession) Init(listenConn *net.UDPConn, raddr *net.UDPAddr) er
 	}
 	remote, err := netpkg.NewKCPConnFromUDP(lConn, true, raddr.String())
 	if err != nil {
+		lConn.Close()
 		return fmt.Errorf("create kcp connection from udp connection error: %v", err)
 	}
 

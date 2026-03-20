@@ -5,7 +5,7 @@ COPY web/frpc/ ./
 RUN npm install
 RUN npm run build
 
-FROM golang:1.24 AS building
+FROM golang:1.25 AS building
 
 COPY . /building
 COPY --from=web-builder /web/frpc/dist /building/web/frpc/dist

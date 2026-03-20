@@ -1,48 +1,51 @@
-/* Dark Mode Theme */
+/* Dark mode styles */
 html.dark {
-  --el-bg-color: #1e1e2e;
-  --el-bg-color-page: #1a1a2e;
-  --el-bg-color-overlay: #27293d;
-  --el-fill-color-blank: #1e1e2e;
-  background-color: #1a1a2e;
+  --el-bg-color: #212121;
+  --el-bg-color-page: #181818;
+  --el-bg-color-overlay: #303030;
+  --el-fill-color-blank: #212121;
+  --el-border-color: #404040;
+  --el-border-color-light: #353535;
+  --el-border-color-lighter: #2a2a2a;
+  --el-text-color-primary: #e5e7eb;
+  --el-text-color-secondary: #888888;
+  --el-text-color-placeholder: #afafaf;
+  background-color: #212121;
+  color-scheme: dark;
 }
 
-html.dark body {
-  background-color: #1a1a2e;
-  color: #e5e7eb;
+/* Scrollbar */
+html.dark ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-/* Dark mode scrollbar */
 html.dark ::-webkit-scrollbar-track {
-  background: #27293d;
+  background: #303030;
 }
 
 html.dark ::-webkit-scrollbar-thumb {
-  background: #3a3d5c;
+  background: #404040;
+  border-radius: 3px;
 }
 
 html.dark ::-webkit-scrollbar-thumb:hover {
-  background: #4a4d6c;
+  background: #505050;
 }
 
-/* Dark mode cards */
-html.dark .el-card {
-  background-color: #27293d;
-  border-color: #3a3d5c;
+/* Form */
+html.dark .el-form-item__label {
+  color: #e5e7eb;
 }
 
-html.dark .el-card__header {
-  border-bottom-color: #3a3d5c;
-}
-
-/* Dark mode inputs */
+/* Input */
 html.dark .el-input__wrapper {
-  background-color: #27293d;
-  box-shadow: 0 0 0 1px #3a3d5c inset;
+  background: var(--color-bg-input);
+  box-shadow: 0 0 0 1px #404040 inset;
 }
 
 html.dark .el-input__wrapper:hover {
-  box-shadow: 0 0 0 1px #4a4d6c inset;
+  box-shadow: 0 0 0 1px #505050 inset;
 }
 
 html.dark .el-input__wrapper.is-focus {
@@ -54,71 +57,44 @@ html.dark .el-input__inner {
 }
 
 html.dark .el-input__inner::placeholder {
-  color: #6b7280;
+  color: #afafaf;
 }
 
-/* Dark mode textarea */
 html.dark .el-textarea__inner {
-  background-color: #1e1e2d;
-  border-color: #3a3d5c;
+  background: var(--color-bg-input);
+  box-shadow: 0 0 0 1px #404040 inset;
   color: #e5e7eb;
 }
 
-html.dark .el-textarea__inner::placeholder {
-  color: #6b7280;
+html.dark .el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px #505050 inset;
 }
 
-/* Dark mode table */
-html.dark .el-table {
-  background-color: #27293d;
+html.dark .el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset;
+}
+
+/* Select */
+html.dark .el-select__wrapper {
+  background: var(--color-bg-input);
+  box-shadow: 0 0 0 1px #404040 inset;
+}
+
+html.dark .el-select__wrapper:hover {
+  box-shadow: 0 0 0 1px #505050 inset;
+}
+
+html.dark .el-select__selected-item {
   color: #e5e7eb;
 }
 
-html.dark .el-table th.el-table__cell {
-  background-color: #1e1e2e;
-  color: #e5e7eb;
-}
-
-html.dark .el-table tr {
-  background-color: #27293d;
-}
-
-html.dark .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
-  background-color: #1e1e2e;
-}
-
-html.dark .el-table__row:hover > td.el-table__cell {
-  background-color: #2a2a3c !important;
-}
-
-/* Dark mode tags */
-html.dark .el-tag--info {
-  background-color: #3a3d5c;
-  border-color: #3a3d5c;
-  color: #e5e7eb;
-}
-
-/* Dark mode buttons */
-html.dark .el-button--default {
-  background-color: #27293d;
-  border-color: #3a3d5c;
-  color: #e5e7eb;
-}
-
-html.dark .el-button--default:hover {
-  background-color: #2a2a3c;
-  border-color: #4a4d6c;
-  color: #fff;
-}
-
-/* Dark mode select */
-html.dark .el-select .el-input__wrapper {
-  background-color: #27293d;
+html.dark .el-select__placeholder {
+  color: #afafaf;
 }
 
 html.dark .el-select-dropdown {
-  background-color: #27293d;
-  border-color: #3a3d5c;
+  background: #303030;
+  border-color: #404040;
 }
 
 html.dark .el-select-dropdown__item {
@@ -126,55 +102,92 @@ html.dark .el-select-dropdown__item {
 }
 
 html.dark .el-select-dropdown__item:hover {
-  background-color: #2a2a3c;
+  background: #3a3a3a;
 }
 
-/* Dark mode dialog */
+html.dark .el-select-dropdown__item.is-selected {
+  color: var(--el-color-primary);
+}
+
+html.dark .el-select-dropdown__item.is-disabled {
+  color: #666666;
+}
+
+/* Tag */
+html.dark .el-tag--info {
+  background: #303030;
+  border-color: #404040;
+  color: #b0b0b0;
+}
+
+/* Button */
+html.dark .el-button--default {
+  background: #303030;
+  border-color: #404040;
+  color: #e5e7eb;
+}
+
+html.dark .el-button--default:hover {
+  background: #3a3a3a;
+  border-color: #505050;
+  color: #e5e7eb;
+}
+
+/* Card */
+html.dark .el-card {
+  background: #212121;
+  border-color: #353535;
+  color: #b0b0b0;
+}
+
+html.dark .el-card__header {
+  border-bottom-color: #353535;
+  color: #e5e7eb;
+}
+
+/* Dialog */
 html.dark .el-dialog {
-  background-color: #27293d;
-}
-
-html.dark .el-dialog__header {
-  border-bottom-color: #3a3d5c;
+  background: #212121;
 }
 
 html.dark .el-dialog__title {
   color: #e5e7eb;
 }
 
-html.dark .el-dialog__body {
-  color: #e5e7eb;
+/* Message */
+html.dark .el-message {
+  background: #303030;
+  border-color: #404040;
 }
 
-/* Dark mode message box */
-html.dark .el-message-box {
-  background-color: #27293d;
-  border-color: #3a3d5c;
+html.dark .el-message--success {
+  background: #1e3d2e;
+  border-color: #3d6b4f;
 }
 
-html.dark .el-message-box__title {
-  color: #e5e7eb;
+html.dark .el-message--warning {
+  background: #3d3020;
+  border-color: #6b5020;
 }
 
-html.dark .el-message-box__message {
-  color: #e5e7eb;
+html.dark .el-message--error {
+  background: #3d2027;
+  border-color: #5c2d2d;
 }
 
-/* Dark mode empty */
-html.dark .el-empty__description {
-  color: #9ca3af;
-}
-
-/* Dark mode loading */
+/* Loading */
 html.dark .el-loading-mask {
-  background-color: rgba(30, 30, 46, 0.9);
+  background-color: rgba(33, 33, 33, 0.9);
 }
 
-html.dark .el-loading-text {
-  color: #e5e7eb;
+/* Overlay */
+html.dark .el-overlay {
+  background-color: rgba(0, 0, 0, 0.6);
 }
 
-/* Dark mode tooltip */
-html.dark .el-tooltip__trigger {
-  color: #e5e7eb;
+/* Tooltip */
+html.dark .el-tooltip__popper {
+  background: #303030 !important;
+  border-color: #404040 !important;
+  color: #e5e7eb !important;
 }

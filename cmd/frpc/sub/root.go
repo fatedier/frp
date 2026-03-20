@@ -30,6 +30,7 @@ import (
 
 	"github.com/fatedier/frp/client"
 	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/config/source"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/policy/featuregate"
@@ -120,22 +121,64 @@ func handleTermSignal(svr *client.Service) {
 }
 
 func runClient(cfgFilePath string, unsafeFeatures *security.UnsafeFeatures) error {
-	cfg, proxyCfgs, visitorCfgs, isLegacyFormat, err := config.LoadClientConfig(cfgFilePath, strictConfigMode)
+	// Load configuration
+	result, err := config.LoadClientConfigResult(cfgFilePath, strictConfigMode)
 	if err != nil {
 		return err
 	}
-	if isLegacyFormat {
+	if result.IsLegacyFormat {
 		fmt.Printf("WARNING: ini format is deprecated and the support will be removed in the future, " +
 			"please use yaml/json/toml format instead!\n")
 	}
 
-	if len(cfg.FeatureGates) > 0 {
-		if err := featuregate.SetFromMap(cfg.FeatureGates); err != nil {
+	if len(result.Common.FeatureGates) > 0 {
+		if err := featuregate.SetFromMap(result.Common.FeatureGates); err != nil {
 			return err
 		}
 	}
 
-	warning, err := validation.ValidateAllClientConfig(cfg, proxyCfgs, visitorCfgs, unsafeFeatures)
+	return runClientWithAggregator(result, unsafeFeatures, cfgFilePath)
+}
+
+// runClientWithAggregator runs the client using the internal source aggregator.
+func runClientWithAggregator(result *config.ClientConfigLoadResult, unsafeFeatures *security.UnsafeFeatures, cfgFilePath string) error {
+	configSource := source.NewConfigSource()
+	if err := configSource.ReplaceAll(result.Proxies, result.Visitors); err != nil {
+		return fmt.Errorf("failed to set config source: %w", err)
+	}
+
+	var storeSource *source.StoreSource
+
+	if result.Common.Store.IsEnabled() {
+		storePath := result.Common.Store.Path
+		if storePath != "" && cfgFilePath != "" && !filepath.IsAbs(storePath) {
+			storePath = filepath.Join(filepath.Dir(cfgFilePath), storePath)
+		}
+
+		s, err := source.NewStoreSource(source.StoreSourceConfig{
+			Path: storePath,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create store source: %w", err)
+		}
+		storeSource = s
+	}
+
+	aggregator := source.NewAggregator(configSource)
+	if storeSource != nil {
+		aggregator.SetStoreSource(storeSource)
+	}
+
+	proxyCfgs, visitorCfgs, err := aggregator.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config from sources: %w", err)
+	}
+
+	proxyCfgs, visitorCfgs = config.FilterClientConfigurers(result.Common, proxyCfgs, visitorCfgs)
+	proxyCfgs = config.CompleteProxyConfigurers(proxyCfgs)
+	visitorCfgs = config.CompleteVisitorConfigurers(visitorCfgs)
+
+	warning, err := validation.ValidateAllClientConfig(result.Common, proxyCfgs, visitorCfgs, unsafeFeatures)
 	if warning != nil {
 		fmt.Printf("WARNING: %v\n", warning)
 	}
@@ -143,35 +186,32 @@ func runClient(cfgFilePath string, unsafeFeatures *security.UnsafeFeatures) erro
 		return err
 	}
 
-	return startService(cfg, proxyCfgs, visitorCfgs, unsafeFeatures, cfgFilePath)
+	return startServiceWithAggregator(result.Common, aggregator, unsafeFeatures, cfgFilePath)
 }
 
-func startService(
+func startServiceWithAggregator(
 	cfg *v1.ClientCommonConfig,
-	proxyCfgs []v1.ProxyConfigurer,
-	visitorCfgs []v1.VisitorConfigurer,
+	aggregator *source.Aggregator,
 	unsafeFeatures *security.UnsafeFeatures,
 	cfgFile string,
 ) error {
 	log.InitLogger(cfg.Log.To, cfg.Log.Level, int(cfg.Log.MaxDays), cfg.Log.DisablePrintColor)
 
 	if cfgFile != "" {
-		log.Infof("start frpc service for config file [%s]", cfgFile)
+		log.Infof("start frpc service for config file [%s] with aggregated configuration", cfgFile)
 		defer log.Infof("frpc service for config file [%s] stopped", cfgFile)
 	}
 	svr, err := client.NewService(client.ServiceOptions{
-		Common:         cfg,
-		ProxyCfgs:      proxyCfgs,
-		VisitorCfgs:    visitorCfgs,
-		UnsafeFeatures: unsafeFeatures,
-		ConfigFilePath: cfgFile,
+		Common:                 cfg,
+		ConfigSourceAggregator: aggregator,
+		UnsafeFeatures:         unsafeFeatures,
+		ConfigFilePath:         cfgFile,
 	})
 	if err != nil {
 		return err
 	}
 
 	shouldGracefulClose := cfg.Transport.Protocol == "kcp" || cfg.Transport.Protocol == "quic"
-	// Capture the exit signal if we use kcp or quic.
 	if shouldGracefulClose {
 		go handleTermSignal(svr)
 	}

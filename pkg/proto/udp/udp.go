@@ -15,7 +15,6 @@
 package udp
 
 import (
-	"encoding/base64"
 	"net"
 	"sync"
 	"time"
@@ -28,16 +27,17 @@ import (
 )
 
 func NewUDPPacket(buf []byte, laddr, raddr *net.UDPAddr) *msg.UDPPacket {
+	content := make([]byte, len(buf))
+	copy(content, buf)
 	return &msg.UDPPacket{
-		Content:    base64.StdEncoding.EncodeToString(buf),
+		Content:    content,
 		LocalAddr:  laddr,
 		RemoteAddr: raddr,
 	}
 }
 
 func GetContent(m *msg.UDPPacket) (buf []byte, err error) {
-	buf, err = base64.StdEncoding.DecodeString(m.Content)
-	return
+	return m.Content, nil
 }
 
 func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UDPPacket, sendCh chan<- *msg.UDPPacket, bufSize int) {
@@ -60,7 +60,7 @@ func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UDPPacket, sendCh 
 		if err != nil {
 			return
 		}
-		// buf[:n] will be encoded to string, so the bytes can be reused
+		// NewUDPPacket copies buf[:n], so the read buffer can be reused
 		udpMsg := NewUDPPacket(buf[:n], nil, remoteAddr)
 
 		select {
@@ -85,6 +85,7 @@ func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UDPPacket, sendCh chan<-
 		}()
 
 		buf := pool.GetBuf(bufSize)
+		defer pool.PutBuf(buf)
 		for {
 			_ = udpConn.SetReadDeadline(time.Now().Add(30 * time.Second))
 			n, _, err := udpConn.ReadFromUDP(buf)

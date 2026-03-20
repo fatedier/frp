@@ -35,7 +35,7 @@ var _ = ginkgo.Describe("[Feature: Config]", func() {
 			`, "`", "`", framework.TCPEchoServerPort, portName)
 
 			f.SetEnvs([]string{"FRP_TOKEN=123"})
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			framework.NewRequestExpect(f).PortName(portName).Ensure()
 		})
@@ -69,7 +69,7 @@ var _ = ginkgo.Describe("[Feature: Config]", func() {
 				escapeTemplate("{{- end }}"),
 			)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			client := f.APIClientForFrpc(adminPort)
 			checkProxyFn := func(name string, localPort, remotePort int) {
@@ -149,7 +149,7 @@ proxies:
   remotePort: %d
 `, port.GenName("Server"), framework.TCPEchoServerPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 		})
 
@@ -161,7 +161,7 @@ proxies:
 "proxies": [{"name": "tcp", "type": "tcp", "localPort": {{ .%s }}, "remotePort": %d}]}`,
 				port.GenName("Server"), framework.TCPEchoServerPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 		})
 	})

@@ -22,6 +22,7 @@ import (
 	stdlog "log"
 	"net/http"
 	"net/http/httputil"
+	"time"
 
 	"github.com/fatedier/golib/pool"
 
@@ -77,7 +78,7 @@ func NewHTTP2HTTPSPlugin(_ PluginContext, options v1.ClientPluginOptions) (Plugi
 
 	p.s = &http.Server{
 		Handler:           rp,
-		ReadHeaderTimeout: 0,
+		ReadHeaderTimeout: 60 * time.Second,
 	}
 
 	go func() {

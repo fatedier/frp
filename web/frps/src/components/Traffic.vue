@@ -86,7 +86,7 @@ const processData = (trafficIn: number[], trafficOut: number[]) => {
 
   // Calculate dates (last 7 days ending today)
   const dates: string[] = []
-  let d = new Date()
+  const d = new Date()
   d.setDate(d.getDate() - 6)
 
   for (let i = 0; i < 7; i++) {

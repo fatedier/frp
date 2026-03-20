@@ -15,6 +15,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -188,6 +189,31 @@ unixPath = "/tmp/uds.sock"
 	require.Error(err)
 }
 
+func TestLoadClientConfigStrictMode_UnknownPluginField(t *testing.T) {
+	require := require.New(t)
+
+	content := `
+serverPort = 7000
+
+[[proxies]]
+name = "test"
+type = "tcp"
+localPort = 6000
+[proxies.plugin]
+type = "http2https"
+localAddr = "127.0.0.1:8080"
+unknownInPlugin = "value"
+`
+
+	clientCfg := v1.ClientConfig{}
+
+	err := LoadConfigure([]byte(content), &clientCfg, false)
+	require.NoError(err)
+
+	err = LoadConfigure([]byte(content), &clientCfg, true)
+	require.ErrorContains(err, "unknownInPlugin")
+}
+
 // TestYAMLMergeInStrictMode tests that YAML merge functionality works
 // even in strict mode by properly handling dot-prefixed fields
 func TestYAMLMergeInStrictMode(t *testing.T) {
@@ -273,6 +299,169 @@ proxies:
 	require.Equal("stcp", clientCfg.Proxies[0].ProxyConfigurer.GetBaseConfig().Type)
 }
 
+func TestFilterClientConfigurers_PreserveRawNamesAndNoMutation(t *testing.T) {
+	require := require.New(t)
+
+	enabled := true
+	proxyCfg := &v1.TCPProxyConfig{}
+	proxyCfg.Name = "proxy-raw"
+	proxyCfg.Type = "tcp"
+	proxyCfg.LocalPort = 10080
+	proxyCfg.Enabled = &enabled
+
+	visitorCfg := &v1.XTCPVisitorConfig{}
+	visitorCfg.Name = "visitor-raw"
+	visitorCfg.Type = "xtcp"
+	visitorCfg.ServerName = "server-raw"
+	visitorCfg.FallbackTo = "fallback-raw"
+	visitorCfg.SecretKey = "secret"
+	visitorCfg.BindPort = 10081
+	visitorCfg.Enabled = &enabled
+
+	common := &v1.ClientCommonConfig{
+		User: "alice",
+	}
+
+	proxies, visitors := FilterClientConfigurers(common, []v1.ProxyConfigurer{proxyCfg}, []v1.VisitorConfigurer{visitorCfg})
+	require.Len(proxies, 1)
+	require.Len(visitors, 1)
+
+	p := proxies[0].GetBaseConfig()
+	require.Equal("proxy-raw", p.Name)
+	require.Empty(p.LocalIP)
+
+	v := visitors[0].GetBaseConfig()
+	require.Equal("visitor-raw", v.Name)
+	require.Equal("server-raw", v.ServerName)
+	require.Empty(v.BindAddr)
+
+	xtcp := visitors[0].(*v1.XTCPVisitorConfig)
+	require.Equal("fallback-raw", xtcp.FallbackTo)
+	require.Empty(xtcp.Protocol)
+}
+
+func TestCompleteProxyConfigurers_PreserveRawNames(t *testing.T) {
+	require := require.New(t)
+
+	enabled := true
+	proxyCfg := &v1.TCPProxyConfig{}
+	proxyCfg.Name = "proxy-raw"
+	proxyCfg.Type = "tcp"
+	proxyCfg.LocalPort = 10080
+	proxyCfg.Enabled = &enabled
+
+	proxies := CompleteProxyConfigurers([]v1.ProxyConfigurer{proxyCfg})
+	require.Len(proxies, 1)
+
+	p := proxies[0].GetBaseConfig()
+	require.Equal("proxy-raw", p.Name)
+	require.Equal("127.0.0.1", p.LocalIP)
+}
+
+func TestCompleteVisitorConfigurers_PreserveRawNames(t *testing.T) {
+	require := require.New(t)
+
+	enabled := true
+	visitorCfg := &v1.XTCPVisitorConfig{}
+	visitorCfg.Name = "visitor-raw"
+	visitorCfg.Type = "xtcp"
+	visitorCfg.ServerName = "server-raw"
+	visitorCfg.FallbackTo = "fallback-raw"
+	visitorCfg.SecretKey = "secret"
+	visitorCfg.BindPort = 10081
+	visitorCfg.Enabled = &enabled
+
+	visitors := CompleteVisitorConfigurers([]v1.VisitorConfigurer{visitorCfg})
+	require.Len(visitors, 1)
+
+	v := visitors[0].GetBaseConfig()
+	require.Equal("visitor-raw", v.Name)
+	require.Equal("server-raw", v.ServerName)
+	require.Equal("127.0.0.1", v.BindAddr)
+
+	xtcp := visitors[0].(*v1.XTCPVisitorConfig)
+	require.Equal("fallback-raw", xtcp.FallbackTo)
+	require.Equal("quic", xtcp.Protocol)
+}
+
+func TestCompleteProxyConfigurers_Idempotent(t *testing.T) {
+	require := require.New(t)
+
+	proxyCfg := &v1.TCPProxyConfig{}
+	proxyCfg.Name = "proxy"
+	proxyCfg.Type = "tcp"
+	proxyCfg.LocalPort = 10080
+
+	proxies := CompleteProxyConfigurers([]v1.ProxyConfigurer{proxyCfg})
+	firstProxyJSON, err := json.Marshal(proxies[0])
+	require.NoError(err)
+
+	proxies = CompleteProxyConfigurers(proxies)
+	secondProxyJSON, err := json.Marshal(proxies[0])
+	require.NoError(err)
+
+	require.Equal(string(firstProxyJSON), string(secondProxyJSON))
+}
+
+func TestCompleteVisitorConfigurers_Idempotent(t *testing.T) {
+	require := require.New(t)
+
+	visitorCfg := &v1.XTCPVisitorConfig{}
+	visitorCfg.Name = "visitor"
+	visitorCfg.Type = "xtcp"
+	visitorCfg.ServerName = "server"
+	visitorCfg.SecretKey = "secret"
+	visitorCfg.BindPort = 10081
+
+	visitors := CompleteVisitorConfigurers([]v1.VisitorConfigurer{visitorCfg})
+	firstVisitorJSON, err := json.Marshal(visitors[0])
+	require.NoError(err)
+
+	visitors = CompleteVisitorConfigurers(visitors)
+	secondVisitorJSON, err := json.Marshal(visitors[0])
+	require.NoError(err)
+
+	require.Equal(string(firstVisitorJSON), string(secondVisitorJSON))
+}
+
+func TestFilterClientConfigurers_FilterByStartAndEnabled(t *testing.T) {
+	require := require.New(t)
+
+	enabled := true
+	disabled := false
+
+	proxyKeep := &v1.TCPProxyConfig{}
+	proxyKeep.Name = "keep"
+	proxyKeep.Type = "tcp"
+	proxyKeep.LocalPort = 10080
+	proxyKeep.Enabled = &enabled
+
+	proxyDropByStart := &v1.TCPProxyConfig{}
+	proxyDropByStart.Name = "drop-by-start"
+	proxyDropByStart.Type = "tcp"
+	proxyDropByStart.LocalPort = 10081
+	proxyDropByStart.Enabled = &enabled
+
+	proxyDropByEnabled := &v1.TCPProxyConfig{}
+	proxyDropByEnabled.Name = "drop-by-enabled"
+	proxyDropByEnabled.Type = "tcp"
+	proxyDropByEnabled.LocalPort = 10082
+	proxyDropByEnabled.Enabled = &disabled
+
+	common := &v1.ClientCommonConfig{
+		Start: []string{"keep"},
+	}
+
+	proxies, visitors := FilterClientConfigurers(common, []v1.ProxyConfigurer{
+		proxyKeep,
+		proxyDropByStart,
+		proxyDropByEnabled,
+	}, nil)
+	require.Len(visitors, 0)
+	require.Len(proxies, 1)
+	require.Equal("keep", proxies[0].GetBaseConfig().Name)
+}
+
 // TestYAMLEdgeCases tests edge cases for YAML parsing, including non-map types
 func TestYAMLEdgeCases(t *testing.T) {
 	require := require.New(t)
@@ -305,4 +494,112 @@ serverPort: 7000
 	require.NoError(err)
 	require.Equal("127.0.0.1", clientCfg.ServerAddr)
 	require.Equal(7000, clientCfg.ServerPort)
+}
+
+func TestTOMLSyntaxErrorWithPosition(t *testing.T) {
+	require := require.New(t)
+
+	// TOML with syntax error (unclosed table array header)
+	content := `serverAddr = "127.0.0.1"
+serverPort = 7000
+
+[[proxies]
+name = "test"
+`
+
+	clientCfg := v1.ClientConfig{}
+	err := LoadConfigure([]byte(content), &clientCfg, false, "toml")
+	require.Error(err)
+	require.Contains(err.Error(), "toml")
+	require.Contains(err.Error(), "line")
+	require.Contains(err.Error(), "column")
+}
+
+func TestTOMLTypeMismatchErrorWithFieldInfo(t *testing.T) {
+	require := require.New(t)
+
+	// TOML with wrong type: proxies should be a table array, not a string
+	content := `serverAddr = "127.0.0.1"
+serverPort = 7000
+proxies = "this should be a table array"
+`
+
+	clientCfg := v1.ClientConfig{}
+	err := LoadConfigure([]byte(content), &clientCfg, false, "toml")
+	require.Error(err)
+	// The error should contain field info
+	errMsg := err.Error()
+	require.Contains(errMsg, "proxies")
+	require.NotContains(errMsg, "line")
+}
+
+func TestFindFieldLineInContent(t *testing.T) {
+	content := []byte(`serverAddr = "127.0.0.1"
+serverPort = 7000
+
+[[proxies]]
+name = "test"
+type = "tcp"
+remotePort = 6000
+`)
+
+	tests := []struct {
+		fieldPath string
+		wantLine  int
+	}{
+		{"serverAddr", 1},
+		{"serverPort", 2},
+		{"name", 5},
+		{"type", 6},
+		{"remotePort", 7},
+		{"nonexistent", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.fieldPath, func(t *testing.T) {
+			got := findFieldLineInContent(content, tt.fieldPath)
+			require.Equal(t, tt.wantLine, got)
+		})
+	}
+}
+
+func TestFormatDetection(t *testing.T) {
+	tests := []struct {
+		path   string
+		format string
+	}{
+		{"config.toml", "toml"},
+		{"config.TOML", "toml"},
+		{"config.yaml", "yaml"},
+		{"config.yml", "yaml"},
+		{"config.json", "json"},
+		{"config.ini", ""},
+		{"config", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			require.Equal(t, tt.format, detectFormatFromPath(tt.path))
+		})
+	}
+}
+
+func TestValidTOMLStillWorks(t *testing.T) {
+	require := require.New(t)
+
+	// Valid TOML with format hint should work fine
+	content := `serverAddr = "127.0.0.1"
+serverPort = 7000
+
+[[proxies]]
+name = "test"
+type = "tcp"
+remotePort = 6000
+`
+	clientCfg := v1.ClientConfig{}
+	err := LoadConfigure([]byte(content), &clientCfg, false, "toml")
+	require.NoError(err)
+	require.Equal("127.0.0.1", clientCfg.ServerAddr)
+	require.Equal(7000, clientCfg.ServerPort)
+	require.Len(clientCfg.Proxies, 1)
 }

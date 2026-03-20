@@ -131,6 +131,9 @@ func (c *Controller) handlePacket(buf []byte) {
 }
 
 func (c *Controller) Stop() error {
+	if c.tun == nil {
+		return nil
+	}
 	return c.tun.Close()
 }
 

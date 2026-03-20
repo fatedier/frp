@@ -33,7 +33,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 		udpPortName := port.GenName("UDP", port.WithRangePorts(12000, 13000))
 		clientConf += fmt.Sprintf(`
 			[[proxies]]
-			name = "tcp-allowded-in-range"
+			name = "tcp-allowed-in-range"
 			type = "tcp"
 			localPort = {{ .%s }}
 			remotePort = {{ .%s }}
@@ -67,7 +67,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 			remotePort = 11003
 			`, framework.UDPEchoServerPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		// TCP
 		// Allowed in range
@@ -108,7 +108,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 		localPort = {{ .%s }}
 		`, adminPort, framework.TCPEchoServerPort, framework.UDPEchoServerPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		client := f.APIClientForFrpc(adminPort)
 
@@ -150,7 +150,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 		customDomains = ["example.com"]
 		`, framework.HTTPSimpleServerPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
 			r.HTTP().HTTPHost("example.com")
@@ -178,7 +178,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 		customDomains = ["example.com"]
 		`, framework.HTTPSimpleServerPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
 			r.HTTP().HTTPPath("/healthz")

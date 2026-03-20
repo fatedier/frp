@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"runtime"
 	"sync"
@@ -29,6 +30,8 @@ import (
 
 	"github.com/fatedier/frp/client/proxy"
 	"github.com/fatedier/frp/pkg/auth"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/config/source"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/policy/security"
@@ -61,9 +64,11 @@ func (e cancelErr) Error() string {
 
 // ServiceOptions contains options for creating a new client service.
 type ServiceOptions struct {
-	Common      *v1.ClientCommonConfig
-	ProxyCfgs   []v1.ProxyConfigurer
-	VisitorCfgs []v1.VisitorConfigurer
+	Common *v1.ClientCommonConfig
+
+	// ConfigSourceAggregator manages internal config and optional store sources.
+	// It is required for creating a Service.
+	ConfigSourceAggregator *source.Aggregator
 
 	UnsafeFeatures *security.UnsafeFeatures
 
@@ -119,11 +124,23 @@ type Service struct {
 
 	vnetController *vnet.Controller
 
-	cfgMu       sync.RWMutex
-	common      *v1.ClientCommonConfig
-	proxyCfgs   []v1.ProxyConfigurer
-	visitorCfgs []v1.VisitorConfigurer
-	clientSpec  *msg.ClientSpec
+	cfgMu sync.RWMutex
+	// reloadMu serializes reload transactions to keep reloadCommon and applied
+	// config in sync across concurrent API operations.
+	reloadMu sync.Mutex
+	common   *v1.ClientCommonConfig
+	// reloadCommon is used for filtering/defaulting during config-source reloads.
+	// It can be updated by /api/reload without mutating startup-only common behavior.
+	reloadCommon *v1.ClientCommonConfig
+	proxyCfgs    []v1.ProxyConfigurer
+	visitorCfgs  []v1.VisitorConfigurer
+	clientSpec   *msg.ClientSpec
+
+	// aggregator manages multiple configuration sources.
+	// When set, the service watches for config changes and reloads automatically.
+	aggregator   *source.Aggregator
+	configSource *source.ConfigSource
+	storeSource  *source.StoreSource
 
 	unsafeFeatures *security.UnsafeFeatures
 
@@ -146,6 +163,28 @@ func NewService(options ServiceOptions) (*Service, error) {
 		return nil, err
 	}
 
+	authRuntime, err := auth.BuildClientAuth(&options.Common.Auth)
+	if err != nil {
+		return nil, err
+	}
+
+	if options.ConfigSourceAggregator == nil {
+		return nil, fmt.Errorf("config source aggregator is required")
+	}
+
+	configSource := options.ConfigSourceAggregator.ConfigSource()
+	storeSource := options.ConfigSourceAggregator.StoreSource()
+
+	proxyCfgs, visitorCfgs, loadErr := options.ConfigSourceAggregator.Load()
+	if loadErr != nil {
+		return nil, fmt.Errorf("failed to load config from aggregator: %w", loadErr)
+	}
+	proxyCfgs, visitorCfgs = config.FilterClientConfigurers(options.Common, proxyCfgs, visitorCfgs)
+	proxyCfgs = config.CompleteProxyConfigurers(proxyCfgs)
+	visitorCfgs = config.CompleteVisitorConfigurers(visitorCfgs)
+
+	// Create the web server after all fallible steps so its listener is not
+	// leaked when an earlier error causes NewService to return.
 	var webServer *httppkg.Server
 	if options.Common.WebServer.Port > 0 {
 		ws, err := httppkg.NewServer(options.Common.WebServer)
@@ -155,24 +194,24 @@ func NewService(options ServiceOptions) (*Service, error) {
 		webServer = ws
 	}
 
-	authRuntime, err := auth.BuildClientAuth(&options.Common.Auth)
-	if err != nil {
-		return nil, err
-	}
-
 	s := &Service{
 		ctx:              context.Background(),
 		auth:             authRuntime,
 		webServer:        webServer,
 		common:           options.Common,
+		reloadCommon:     options.Common,
 		configFilePath:   options.ConfigFilePath,
 		unsafeFeatures:   options.UnsafeFeatures,
-		proxyCfgs:        options.ProxyCfgs,
-		visitorCfgs:      options.VisitorCfgs,
+		proxyCfgs:        proxyCfgs,
+		visitorCfgs:      visitorCfgs,
 		clientSpec:       options.ClientSpec,
+		aggregator:       options.ConfigSourceAggregator,
+		configSource:     configSource,
+		storeSource:      storeSource,
 		connectorCreator: options.ConnectorCreator,
 		handleWorkConnCb: options.HandleWorkConnCb,
 	}
+
 	if webServer != nil {
 		webServer.RouteRegister(s.registerRouteHandlers)
 	}
@@ -193,22 +232,25 @@ func (svr *Service) Run(ctx context.Context) error {
 	}
 
 	if svr.vnetController != nil {
+		vnetController := svr.vnetController
 		if err := svr.vnetController.Init(); err != nil {
 			log.Errorf("init virtual network controller error: %v", err)
+			svr.stop()
 			return err
 		}
 		go func() {
 			log.Infof("virtual network controller start...")
-			if err := svr.vnetController.Run(); err != nil {
+			if err := vnetController.Run(); err != nil && !errors.Is(err, net.ErrClosed) {
 				log.Warnf("virtual network controller exit with error: %v", err)
 			}
 		}()
 	}
 
 	if svr.webServer != nil {
+		webServer := svr.webServer
 		go func() {
-			log.Infof("admin server listen on %s", svr.webServer.Address())
-			if err := svr.webServer.Run(); err != nil {
+			log.Infof("admin server listen on %s", webServer.Address())
+			if err := webServer.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Warnf("admin server exit with error: %v", err)
 			}
 		}()
@@ -219,6 +261,7 @@ func (svr *Service) Run(ctx context.Context) error {
 	if svr.ctl == nil {
 		cancelCause := cancelErr{}
 		_ = errors.As(context.Cause(svr.ctx), &cancelCause)
+		svr.stop()
 		return fmt.Errorf("login to the server failed: %v. With loginFailExit enabled, no additional retries will be attempted", cancelCause.Err)
 	}
 
@@ -403,6 +446,35 @@ func (svr *Service) UpdateAllConfigurer(proxyCfgs []v1.ProxyConfigurer, visitorC
 	return nil
 }
 
+func (svr *Service) UpdateConfigSource(
+	common *v1.ClientCommonConfig,
+	proxyCfgs []v1.ProxyConfigurer,
+	visitorCfgs []v1.VisitorConfigurer,
+) error {
+	svr.reloadMu.Lock()
+	defer svr.reloadMu.Unlock()
+
+	cfgSource := svr.configSource
+	if cfgSource == nil {
+		return fmt.Errorf("config source is not available")
+	}
+
+	if err := cfgSource.ReplaceAll(proxyCfgs, visitorCfgs); err != nil {
+		return err
+	}
+
+	// Non-atomic update semantics: source has been updated at this point.
+	// Even if reload fails below, keep this common config for subsequent reloads.
+	svr.cfgMu.Lock()
+	svr.reloadCommon = common
+	svr.cfgMu.Unlock()
+
+	if err := svr.reloadConfigFromSourcesLocked(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (svr *Service) Close() {
 	svr.GracefulClose(time.Duration(0))
 }
@@ -413,6 +485,15 @@ func (svr *Service) GracefulClose(d time.Duration) {
 }
 
 func (svr *Service) stop() {
+	// Coordinate shutdown with reload/update paths that read source pointers.
+	svr.reloadMu.Lock()
+	if svr.aggregator != nil {
+		svr.aggregator = nil
+	}
+	svr.configSource = nil
+	svr.storeSource = nil
+	svr.reloadMu.Unlock()
+
 	svr.ctlMu.Lock()
 	defer svr.ctlMu.Unlock()
 	if svr.ctl != nil {
@@ -422,6 +503,10 @@ func (svr *Service) stop() {
 	if svr.webServer != nil {
 		svr.webServer.Close()
 		svr.webServer = nil
+	}
+	if svr.vnetController != nil {
+		_ = svr.vnetController.Stop()
+		svr.vnetController = nil
 	}
 }
 
@@ -434,6 +519,17 @@ func (svr *Service) getProxyStatus(name string) (*proxy.WorkingStatus, bool) {
 		return nil, false
 	}
 	return ctl.pm.GetProxyStatus(name)
+}
+
+func (svr *Service) getVisitorCfg(name string) (v1.VisitorConfigurer, bool) {
+	svr.ctlMu.RLock()
+	ctl := svr.ctl
+	svr.ctlMu.RUnlock()
+
+	if ctl == nil {
+		return nil, false
+	}
+	return ctl.vm.GetVisitorCfg(name)
 }
 
 func (svr *Service) StatusExporter() StatusExporter {
@@ -452,4 +548,36 @@ type statusExporterImpl struct {
 
 func (s *statusExporterImpl) GetProxyStatus(name string) (*proxy.WorkingStatus, bool) {
 	return s.getProxyStatusFunc(name)
+}
+
+func (svr *Service) reloadConfigFromSources() error {
+	svr.reloadMu.Lock()
+	defer svr.reloadMu.Unlock()
+	return svr.reloadConfigFromSourcesLocked()
+}
+
+func (svr *Service) reloadConfigFromSourcesLocked() error {
+	aggregator := svr.aggregator
+	if aggregator == nil {
+		return errors.New("config aggregator is not initialized")
+	}
+
+	svr.cfgMu.RLock()
+	reloadCommon := svr.reloadCommon
+	svr.cfgMu.RUnlock()
+
+	proxies, visitors, err := aggregator.Load()
+	if err != nil {
+		return fmt.Errorf("reload config from sources failed: %w", err)
+	}
+
+	proxies, visitors = config.FilterClientConfigurers(reloadCommon, proxies, visitors)
+	proxies = config.CompleteProxyConfigurers(proxies)
+	visitors = config.CompleteVisitorConfigurers(visitors)
+
+	// Atomically replace the entire configuration
+	if err := svr.UpdateAllConfigurer(proxies, visitors); err != nil {
+		return err
+	}
+	return nil
 }

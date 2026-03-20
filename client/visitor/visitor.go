@@ -16,13 +16,21 @@ package visitor
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net"
 	"sync"
+	"time"
+
+	libio "github.com/fatedier/golib/io"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/naming"
 	plugin "github.com/fatedier/frp/pkg/plugin/visitor"
 	"github.com/fatedier/frp/pkg/transport"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
+	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/pkg/vnet"
 )
@@ -119,6 +127,18 @@ func (v *BaseVisitor) AcceptConn(conn net.Conn) error {
 	return v.internalLn.PutConn(conn)
 }
 
+func (v *BaseVisitor) acceptLoop(l net.Listener, name string, handleConn func(net.Conn)) {
+	xl := xlog.FromContextSafe(v.ctx)
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			xl.Warnf("%s listener closed", name)
+			return
+		}
+		go handleConn(conn)
+	}
+}
+
 func (v *BaseVisitor) Close() {
 	if v.l != nil {
 		v.l.Close()
@@ -129,4 +149,58 @@ func (v *BaseVisitor) Close() {
 	if v.plugin != nil {
 		v.plugin.Close()
 	}
+}
+
+func (v *BaseVisitor) dialRawVisitorConn(cfg *v1.VisitorBaseConfig) (net.Conn, error) {
+	visitorConn, err := v.helper.ConnectServer()
+	if err != nil {
+		return nil, fmt.Errorf("connect to server error: %v", err)
+	}
+
+	now := time.Now().Unix()
+	targetProxyName := naming.BuildTargetServerProxyName(v.clientCfg.User, cfg.ServerUser, cfg.ServerName)
+	newVisitorConnMsg := &msg.NewVisitorConn{
+		RunID:          v.helper.RunID(),
+		ProxyName:      targetProxyName,
+		SignKey:        util.GetAuthKey(cfg.SecretKey, now),
+		Timestamp:      now,
+		UseEncryption:  cfg.Transport.UseEncryption,
+		UseCompression: cfg.Transport.UseCompression,
+	}
+	err = msg.WriteMsg(visitorConn, newVisitorConnMsg)
+	if err != nil {
+		visitorConn.Close()
+		return nil, fmt.Errorf("send newVisitorConnMsg to server error: %v", err)
+	}
+
+	var newVisitorConnRespMsg msg.NewVisitorConnResp
+	_ = visitorConn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	err = msg.ReadMsgInto(visitorConn, &newVisitorConnRespMsg)
+	if err != nil {
+		visitorConn.Close()
+		return nil, fmt.Errorf("read newVisitorConnRespMsg error: %v", err)
+	}
+	_ = visitorConn.SetReadDeadline(time.Time{})
+
+	if newVisitorConnRespMsg.Error != "" {
+		visitorConn.Close()
+		return nil, fmt.Errorf("start new visitor connection error: %s", newVisitorConnRespMsg.Error)
+	}
+	return visitorConn, nil
+}
+
+func wrapVisitorConn(conn io.ReadWriteCloser, cfg *v1.VisitorBaseConfig) (io.ReadWriteCloser, func(), error) {
+	rwc := conn
+	if cfg.Transport.UseEncryption {
+		var err error
+		rwc, err = libio.WithEncryption(rwc, []byte(cfg.SecretKey))
+		if err != nil {
+			return nil, func() {}, fmt.Errorf("create encryption stream error: %v", err)
+		}
+	}
+	recycleFn := func() {}
+	if cfg.Transport.UseCompression {
+		rwc, recycleFn = libio.WithCompressionFromPool(rwc)
+	}
+	return rwc, recycleFn, nil
 }

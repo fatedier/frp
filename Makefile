@@ -1,6 +1,7 @@
 export PATH := $(PATH):`go env GOPATH`/bin
 export GO111MODULE=on
 LDFLAGS := -s -w
+NOWEB_TAG = $(shell [ ! -d web/frps/dist ] || [ ! -d web/frpc/dist ] && echo ',noweb')
 
 .PHONY: web frps-web frpc-web frps frpc
 
@@ -28,23 +29,23 @@ fmt-more:
 gci:
 	gci write -s standard -s default -s "prefix(github.com/fatedier/frp/)" ./
 
-vet: web
-	go vet ./...
+vet:
+	go vet -tags "$(NOWEB_TAG)" ./...
 
 frps:
-	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -tags frps -o bin/frps ./cmd/frps
+	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -tags "frps$(NOWEB_TAG)" -o bin/frps ./cmd/frps
 
 frpc:
-	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -tags frpc -o bin/frpc ./cmd/frpc
+	env CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -tags "frpc$(NOWEB_TAG)" -o bin/frpc ./cmd/frpc
 
 test: gotest
 
-gotest: web
-	go test -v --cover ./assets/...
-	go test -v --cover ./cmd/...
-	go test -v --cover ./client/...
-	go test -v --cover ./server/...
-	go test -v --cover ./pkg/...
+gotest:
+	go test -tags "$(NOWEB_TAG)" -v --cover ./assets/...
+	go test -tags "$(NOWEB_TAG)" -v --cover ./cmd/...
+	go test -tags "$(NOWEB_TAG)" -v --cover ./client/...
+	go test -tags "$(NOWEB_TAG)" -v --cover ./server/...
+	go test -tags "$(NOWEB_TAG)" -v --cover ./pkg/...
 
 e2e:
 	./hack/run-e2e.sh

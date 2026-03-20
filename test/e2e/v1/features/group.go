@@ -50,12 +50,10 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 					return true
 				})
 		}
-		for i := 0; i < 10; i++ {
-			wait.Add(1)
-			go func() {
-				defer wait.Done()
+		for range 10 {
+			wait.Go(func() {
 				expectFn()
-			}()
+			})
 		}
 
 		wait.Wait()
@@ -94,11 +92,11 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			loadBalancer.groupKey = "123"
 			`, fooPort, remotePort, barPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			fooCount := 0
 			barCount := 0
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				framework.NewRequestExpect(f).Explain("times " + strconv.Itoa(i)).Port(remotePort).Ensure(func(resp *request.Response) bool {
 					switch string(resp.Content) {
 					case "foo":
@@ -159,11 +157,11 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			loadBalancer.groupKey = "123"
 			`, fooPort, barPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf})
 
 			fooCount := 0
 			barCount := 0
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				framework.NewRequestExpect(f).
 					Explain("times " + strconv.Itoa(i)).
 					Port(vhostHTTPSPort).
@@ -172,6 +170,68 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 							ServerName:         "example.com",
 							InsecureSkipVerify: true,
 						})
+					}).
+					Ensure(func(resp *request.Response) bool {
+						switch string(resp.Content) {
+						case "foo":
+							fooCount++
+						case "bar":
+							barCount++
+						default:
+							return false
+						}
+						return true
+					})
+			}
+
+			framework.ExpectTrue(fooCount > 1 && barCount > 1, "fooCount: %d, barCount: %d", fooCount, barCount)
+		})
+
+		ginkgo.It("TCPMux httpconnect", func() {
+			vhostPort := f.AllocPort()
+			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			tcpmuxHTTPConnectPort = %d
+			`, vhostPort)
+			clientConf := consts.DefaultClientConfig
+
+			fooPort := f.AllocPort()
+			fooServer := streamserver.New(streamserver.TCP, streamserver.WithBindPort(fooPort), streamserver.WithRespContent([]byte("foo")))
+			f.RunServer("", fooServer)
+
+			barPort := f.AllocPort()
+			barServer := streamserver.New(streamserver.TCP, streamserver.WithBindPort(barPort), streamserver.WithRespContent([]byte("bar")))
+			f.RunServer("", barServer)
+
+			clientConf += fmt.Sprintf(`
+			[[proxies]]
+			name = "foo"
+			type = "tcpmux"
+			multiplexer = "httpconnect"
+			localPort = %d
+			customDomains = ["tcpmux-group.example.com"]
+			loadBalancer.group = "test"
+			loadBalancer.groupKey = "123"
+
+			[[proxies]]
+			name = "bar"
+			type = "tcpmux"
+			multiplexer = "httpconnect"
+			localPort = %d
+			customDomains = ["tcpmux-group.example.com"]
+			loadBalancer.group = "test"
+			loadBalancer.groupKey = "123"
+			`, fooPort, barPort)
+
+			f.RunProcesses(serverConf, []string{clientConf})
+
+			proxyURL := fmt.Sprintf("http://127.0.0.1:%d", vhostPort)
+			fooCount := 0
+			barCount := 0
+			for i := range 10 {
+				framework.NewRequestExpect(f).
+					Explain("times " + strconv.Itoa(i)).
+					RequestModify(func(r *request.Request) {
+						r.Addr("tcpmux-group.example.com").Proxy(proxyURL)
 					}).
 					Ensure(func(resp *request.Response) bool {
 						switch string(resp.Content) {
@@ -226,11 +286,11 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			healthCheck.intervalSeconds = 1
 			`, fooPort, remotePort, barPort, remotePort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			_, clientProcesses := f.RunProcesses(serverConf, []string{clientConf})
 
 			// check foo and bar is ok
 			results := []string{}
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				framework.NewRequestExpect(f).Port(remotePort).Ensure(validateFooBarResponse, func(resp *request.Response) bool {
 					results = append(results, string(resp.Content))
 					return true
@@ -239,17 +299,19 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			framework.ExpectContainElements(results, []string{"foo", "bar"})
 
 			// close bar server, check foo is ok
+			failedCount := clientProcesses[0].CountOutput("[bar] health check failed")
 			barServer.Close()
-			time.Sleep(2 * time.Second)
-			for i := 0; i < 10; i++ {
+			framework.ExpectNoError(clientProcesses[0].WaitForOutput("[bar] health check failed", failedCount+1, 5*time.Second))
+			for range 10 {
 				framework.NewRequestExpect(f).Port(remotePort).ExpectResp([]byte("foo")).Ensure()
 			}
 
 			// resume bar server, check foo and bar is ok
+			successCount := clientProcesses[0].CountOutput("[bar] health check success")
 			f.RunServer("", barServer)
-			time.Sleep(2 * time.Second)
+			framework.ExpectNoError(clientProcesses[0].WaitForOutput("[bar] health check success", successCount+1, 5*time.Second))
 			results = []string{}
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				framework.NewRequestExpect(f).Port(remotePort).Ensure(validateFooBarResponse, func(resp *request.Response) bool {
 					results = append(results, string(resp.Content))
 					return true
@@ -297,7 +359,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			healthCheck.path = "/healthz"
 			`, fooPort, barPort)
 
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			_, clientProcesses := f.RunProcesses(serverConf, []string{clientConf})
 
 			// send first HTTP request
 			var contents []string
@@ -327,15 +389,17 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			framework.ExpectContainElements(results, []string{"foo", "bar"})
 
 			// close bar server, check foo is ok
+			failedCount := clientProcesses[0].CountOutput("[bar] health check failed")
 			barServer.Close()
-			time.Sleep(2 * time.Second)
+			framework.ExpectNoError(clientProcesses[0].WaitForOutput("[bar] health check failed", failedCount+1, 5*time.Second))
 			results = doFooBarHTTPRequest(vhostPort, "example.com")
 			framework.ExpectContainElements(results, []string{"foo"})
 			framework.ExpectNotContainElements(results, []string{"bar"})
 
 			// resume bar server, check foo and bar is ok
+			successCount := clientProcesses[0].CountOutput("[bar] health check success")
 			f.RunServer("", barServer)
-			time.Sleep(2 * time.Second)
+			framework.ExpectNoError(clientProcesses[0].WaitForOutput("[bar] health check success", successCount+1, 5*time.Second))
 			results = doFooBarHTTPRequest(vhostPort, "example.com")
 			framework.ExpectContainElements(results, []string{"foo", "bar"})
 		})

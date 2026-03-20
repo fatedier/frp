@@ -1,35 +1,49 @@
 <template>
-  <div class="proxy-card" :class="{ 'has-error': proxy.err }">
+  <div class="proxy-card" :class="{ 'has-error': proxy.err }" @click="$emit('click', proxy)">
     <div class="card-main">
       <div class="card-left">
         <div class="card-header">
           <span class="proxy-name">{{ proxy.name }}</span>
           <span class="type-tag">{{ proxy.type.toUpperCase() }}</span>
+          <span class="status-pill" :class="statusClass">
+            <span class="status-dot"></span>
+            {{ proxy.status }}
+          </span>
         </div>
-
-        <div class="card-meta">
-          <span v-if="proxy.local_addr" class="meta-item">
-            <span class="meta-label">Local:</span>
-            <span class="meta-value code">{{ proxy.local_addr }}</span>
-          </span>
-          <span v-if="proxy.plugin" class="meta-item">
-            <span class="meta-label">Plugin:</span>
-            <span class="meta-value code">{{ proxy.plugin }}</span>
-          </span>
-          <span v-if="proxy.remote_addr" class="meta-item">
-            <span class="meta-label">Remote:</span>
-            <span class="meta-value code">{{ proxy.remote_addr }}</span>
-          </span>
+        <div class="card-address">
+          <template v-if="proxy.remote_addr && localDisplay">
+            {{ proxy.remote_addr }} → {{ localDisplay }}
+          </template>
+          <template v-else-if="proxy.remote_addr">{{ proxy.remote_addr }}</template>
+          <template v-else-if="localDisplay">{{ localDisplay }}</template>
         </div>
       </div>
-
       <div class="card-right">
-        <div v-if="proxy.err" class="error-info">
-          <el-icon class="error-icon"><Warning /></el-icon>
-          <span class="error-text">{{ proxy.err }}</span>
-        </div>
-        <div class="status-badge" :class="statusClass">
-          {{ proxy.status }}
+        <span v-if="showSource" class="source-label">{{ displaySource }}</span>
+        <div v-if="showActions" @click.stop>
+          <PopoverMenu :width="120" placement="bottom-end">
+            <template #trigger>
+              <ActionButton variant="outline" size="small">
+                <el-icon><MoreFilled /></el-icon>
+              </ActionButton>
+            </template>
+            <PopoverMenuItem v-if="proxy.status === 'disabled'" @click="$emit('toggle', proxy, true)">
+              <el-icon><Open /></el-icon>
+              Enable
+            </PopoverMenuItem>
+            <PopoverMenuItem v-else @click="$emit('toggle', proxy, false)">
+              <el-icon><TurnOff /></el-icon>
+              Disable
+            </PopoverMenuItem>
+            <PopoverMenuItem @click="$emit('edit', proxy)">
+              <el-icon><Edit /></el-icon>
+              Edit
+            </PopoverMenuItem>
+            <PopoverMenuItem danger @click="$emit('delete', proxy)">
+              <el-icon><Delete /></el-icon>
+              Delete
+            </PopoverMenuItem>
+          </PopoverMenu>
         </div>
       </div>
     </div>
@@ -38,14 +52,40 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Warning } from '@element-plus/icons-vue'
-import type { ProxyStatus } from '../types/proxy'
+import { MoreFilled, Edit, Delete, Open, TurnOff } from '@element-plus/icons-vue'
+import ActionButton from '@shared/components/ActionButton.vue'
+import PopoverMenu from '@shared/components/PopoverMenu.vue'
+import PopoverMenuItem from '@shared/components/PopoverMenuItem.vue'
+import type { ProxyStatus } from '../types'
 
 interface Props {
   proxy: ProxyStatus
+  showSource?: boolean
+  showActions?: boolean
+  deleting?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  showSource: false,
+  showActions: false,
+  deleting: false,
+})
+
+defineEmits<{
+  click: [proxy: ProxyStatus]
+  edit: [proxy: ProxyStatus]
+  delete: [proxy: ProxyStatus]
+  toggle: [proxy: ProxyStatus, enabled: boolean]
+}>()
+
+const displaySource = computed(() => {
+  return props.proxy.source === 'store' ? 'store' : 'config'
+})
+
+const localDisplay = computed(() => {
+  if (props.proxy.plugin) return `plugin:${props.proxy.plugin}`
+  return props.proxy.local_addr || ''
+})
 
 const statusClass = computed(() => {
   switch (props.proxy.status) {
@@ -53,50 +93,43 @@ const statusClass = computed(() => {
       return 'running'
     case 'error':
       return 'error'
+    case 'disabled':
+      return 'disabled'
     default:
       return 'waiting'
   }
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .proxy-card {
-  display: block;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 12px;
-  transition: all 0.2s ease-in-out;
-  overflow: hidden;
-}
+  background: $color-bg-primary;
+  border: 1px solid $color-border-lighter;
+  border-radius: $radius-md;
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: all $transition-medium;
 
-.proxy-card:hover {
-  border-color: var(--el-border-color-light);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-}
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border-color: $color-border;
+  }
 
-.proxy-card.has-error {
-  border-color: var(--el-color-danger-light-5);
-}
-
-html.dark .proxy-card.has-error {
-  border-color: var(--el-color-danger-dark-2);
+  &.has-error {
+    border-color: rgba(245, 108, 108, 0.3);
+  }
 }
 
 .card-main {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
-  gap: 24px;
-  min-height: 80px;
+  gap: $spacing-lg;
 }
 
-/* Left Section */
 .card-left {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 12px;
+  @include flex-column;
+  gap: $spacing-sm;
   flex: 1;
   min-width: 0;
 }
@@ -104,133 +137,68 @@ html.dark .proxy-card.has-error {
 .card-header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: $spacing-sm;
 }
 
 .proxy-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-  line-height: 1.4;
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
 }
 
 .type-tag {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 6px;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  padding: 2px 8px;
   border-radius: 4px;
-  background: var(--el-fill-color);
-  color: var(--el-text-color-secondary);
+  background: $color-bg-muted;
+  color: $color-text-secondary;
 }
 
-.card-meta {
+.card-address {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: $font-size-sm;
+  color: $color-text-muted;
   display: flex;
   align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
+  gap: $spacing-sm;
 }
 
-.meta-item {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  line-height: 1;
-}
 
-.meta-label {
-  color: var(--el-text-color-placeholder);
-  font-size: 13px;
-  font-weight: 500;
-}
 
-.meta-value {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--el-text-color-regular);
-}
-
-.meta-value.code {
-  font-family:
-    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace;
-  background: var(--el-fill-color-light);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-/* Right Section */
 .card-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: $spacing-md;
   flex-shrink: 0;
 }
 
-.error-info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 200px;
+.source-label {
+  font-size: $font-size-xs;
+  color: $color-text-light;
 }
 
-.error-icon {
-  color: var(--el-color-danger);
-  font-size: 16px;
-  flex-shrink: 0;
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
-.error-text {
-  font-size: 12px;
-  color: var(--el-color-danger);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
-.status-badge {
-  display: inline-flex;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-  text-transform: capitalize;
-}
 
-.status-badge.running {
-  background: var(--el-color-success-light-9);
-  color: var(--el-color-success);
-}
-
-.status-badge.error {
-  background: var(--el-color-danger-light-9);
-  color: var(--el-color-danger);
-}
-
-.status-badge.waiting {
-  background: var(--el-color-warning-light-9);
-  color: var(--el-color-warning);
-}
-
-/* Mobile Responsive */
-@media (max-width: 768px) {
+@include mobile {
   .card-main {
     flex-direction: column;
     align-items: stretch;
-    gap: 16px;
-    padding: 16px;
+    gap: $spacing-sm;
   }
-
   .card-right {
-    flex-direction: row;
-    align-items: center;
     justify-content: space-between;
-    border-top: 1px solid var(--el-border-color-lighter);
-    padding-top: 16px;
   }
-
-  .error-info {
-    max-width: none;
-    flex: 1;
+  .card-address {
+    word-break: break-all;
   }
 }
 </style>

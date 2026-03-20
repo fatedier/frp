@@ -152,7 +152,9 @@ func (c *Controller) GenSid() string {
 
 func (c *Controller) HandleVisitor(m *msg.NatHoleVisitor, transporter transport.MessageTransporter, visitorUser string) {
 	if m.PreCheck {
+		c.mu.RLock()
 		cfg, ok := c.clientCfgs[m.ProxyName]
+		c.mu.RUnlock()
 		if !ok {
 			_ = transporter.Send(c.GenNatHoleResponse(m.TransactionID, nil, fmt.Sprintf("xtcp server for [%s] doesn't exist", m.ProxyName)))
 			return
@@ -375,7 +377,7 @@ func getRangePorts(addrs []string, difference, maxNumber int) []msg.PortsRange {
 	if !isLast {
 		return nil
 	}
-	var ports []msg.PortsRange
+	ports := make([]msg.PortsRange, 0, 1)
 	_, portStr, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil

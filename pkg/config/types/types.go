@@ -70,23 +70,17 @@ func (q *BandwidthQuantity) UnmarshalString(s string) error {
 		f    float64
 		err  error
 	)
-	switch {
-	case strings.HasSuffix(s, "MB"):
+	if fstr, ok := strings.CutSuffix(s, "MB"); ok {
 		base = MB
-		fstr := strings.TrimSuffix(s, "MB")
 		f, err = strconv.ParseFloat(fstr, 64)
-		if err != nil {
-			return err
-		}
-	case strings.HasSuffix(s, "KB"):
+	} else if fstr, ok := strings.CutSuffix(s, "KB"); ok {
 		base = KB
-		fstr := strings.TrimSuffix(s, "KB")
 		f, err = strconv.ParseFloat(fstr, 64)
-		if err != nil {
-			return err
-		}
-	default:
+	} else {
 		return errors.New("unit not support")
+	}
+	if err != nil {
+		return err
 	}
 
 	q.s = s
@@ -143,8 +137,8 @@ func (p PortsRangeSlice) String() string {
 func NewPortsRangeSliceFromString(str string) ([]PortsRange, error) {
 	str = strings.TrimSpace(str)
 	out := []PortsRange{}
-	numRanges := strings.Split(str, ",")
-	for _, numRangeStr := range numRanges {
+	numRanges := strings.SplitSeq(str, ",")
+	for numRangeStr := range numRanges {
 		// 1000-2000 or 2001
 		numArray := strings.Split(numRangeStr, "-")
 		// length: only 1 or 2 is correct

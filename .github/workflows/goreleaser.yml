@@ -15,15 +15,15 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Build web assets (frps)
-        run: make install build
+        run: make build
         working-directory: web/frps
       - name: Build web assets (frpc)
-        run: make install build
+        run: make build
         working-directory: web/frpc
       - name: Make All
         run: |

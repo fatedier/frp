@@ -17,7 +17,6 @@
 package proxy
 
 import (
-	"io"
 	"net"
 	"reflect"
 	"strconv"
@@ -25,17 +24,15 @@ import (
 	"time"
 
 	"github.com/fatedier/golib/errors"
-	libio "github.com/fatedier/golib/io"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/udp"
-	"github.com/fatedier/frp/pkg/util/limit"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
 func init() {
-	RegisterProxyFactory(reflect.TypeOf(&v1.SUDPProxyConfig{}), NewSUDPProxy)
+	RegisterProxyFactory(reflect.TypeFor[*v1.SUDPProxyConfig](), NewSUDPProxy)
 }
 
 type SUDPProxy struct {
@@ -83,27 +80,13 @@ func (pxy *SUDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 	xl := pxy.xl
 	xl.Infof("incoming a new work connection for sudp proxy, %s", conn.RemoteAddr().String())
 
-	var rwc io.ReadWriteCloser = conn
-	var err error
-	if pxy.limiter != nil {
-		rwc = libio.WrapReadWriteCloser(limit.NewReader(conn, pxy.limiter), limit.NewWriter(conn, pxy.limiter), func() error {
-			return conn.Close()
-		})
+	remote, _, err := pxy.wrapWorkConn(conn, pxy.encryptionKey)
+	if err != nil {
+		xl.Errorf("wrap work connection: %v", err)
+		return
 	}
-	if pxy.cfg.Transport.UseEncryption {
-		rwc, err = libio.WithEncryption(rwc, pxy.encryptionKey)
-		if err != nil {
-			conn.Close()
-			xl.Errorf("create encryption stream error: %v", err)
-			return
-		}
-	}
-	if pxy.cfg.Transport.UseCompression {
-		rwc = libio.WithCompression(rwc)
-	}
-	conn = netpkg.WrapReadWriteCloserToConn(rwc, conn)
 
-	workConn := conn
+	workConn := netpkg.WrapReadWriteCloserToConn(remote, conn)
 	readCh := make(chan *msg.UDPPacket, 1024)
 	sendCh := make(chan msg.Message, 1024)
 	isClose := false

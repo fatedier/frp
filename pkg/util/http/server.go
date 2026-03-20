@@ -100,7 +100,11 @@ func (s *Server) Run() error {
 }
 
 func (s *Server) Close() error {
-	return s.hs.Close()
+	err := s.hs.Close()
+	if s.ln != nil {
+		_ = s.ln.Close()
+	}
+	return err
 }
 
 type RouterRegisterHelper struct {

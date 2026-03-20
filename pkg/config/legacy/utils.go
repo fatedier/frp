@@ -22,8 +22,8 @@ func GetMapWithoutPrefix(set map[string]string, prefix string) map[string]string
 	m := make(map[string]string)
 
 	for key, value := range set {
-		if strings.HasPrefix(key, prefix) {
-			m[strings.TrimPrefix(key, prefix)] = value
+		if trimmed, ok := strings.CutPrefix(key, prefix); ok {
+			m[trimmed] = value
 		}
 	}
 

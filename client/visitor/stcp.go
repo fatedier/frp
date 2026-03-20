@@ -15,17 +15,12 @@
 package visitor
 
 import (
-	"fmt"
-	"io"
 	"net"
 	"strconv"
-	"time"
 
 	libio "github.com/fatedier/golib/io"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
-	"github.com/fatedier/frp/pkg/msg"
-	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
@@ -41,10 +36,10 @@ func (sv *STCPVisitor) Run() (err error) {
 		if err != nil {
 			return
 		}
-		go sv.worker()
+		go sv.acceptLoop(sv.l, "stcp local", sv.handleConn)
 	}
 
-	go sv.internalConnWorker()
+	go sv.acceptLoop(sv.internalLn, "stcp internal", sv.handleConn)
 
 	if sv.plugin != nil {
 		sv.plugin.Start()
@@ -56,35 +51,10 @@ func (sv *STCPVisitor) Close() {
 	sv.BaseVisitor.Close()
 }
 
-func (sv *STCPVisitor) worker() {
-	xl := xlog.FromContextSafe(sv.ctx)
-	for {
-		conn, err := sv.l.Accept()
-		if err != nil {
-			xl.Warnf("stcp local listener closed")
-			return
-		}
-		go sv.handleConn(conn)
-	}
-}
-
-func (sv *STCPVisitor) internalConnWorker() {
-	xl := xlog.FromContextSafe(sv.ctx)
-	for {
-		conn, err := sv.internalLn.Accept()
-		if err != nil {
-			xl.Warnf("stcp internal listener closed")
-			return
-		}
-		go sv.handleConn(conn)
-	}
-}
-
 func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	xl := xlog.FromContextSafe(sv.ctx)
 	var tunnelErr error
 	defer func() {
-		// If there was an error and connection supports CloseWithError, use it
 		if tunnelErr != nil {
 			if eConn, ok := userConn.(interface{ CloseWithError(error) error }); ok {
 				_ = eConn.CloseWithError(tunnelErr)
@@ -95,61 +65,21 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 	}()
 
 	xl.Debugf("get a new stcp user connection")
-	visitorConn, err := sv.helper.ConnectServer()
+	visitorConn, err := sv.dialRawVisitorConn(sv.cfg.GetBaseConfig())
 	if err != nil {
+		xl.Warnf("dialRawVisitorConn error: %v", err)
 		tunnelErr = err
 		return
 	}
 	defer visitorConn.Close()
 
-	now := time.Now().Unix()
-	newVisitorConnMsg := &msg.NewVisitorConn{
-		RunID:          sv.helper.RunID(),
-		ProxyName:      sv.cfg.ServerName,
-		SignKey:        util.GetAuthKey(sv.cfg.SecretKey, now),
-		Timestamp:      now,
-		UseEncryption:  sv.cfg.Transport.UseEncryption,
-		UseCompression: sv.cfg.Transport.UseCompression,
-	}
-	err = msg.WriteMsg(visitorConn, newVisitorConnMsg)
+	remote, recycleFn, err := wrapVisitorConn(visitorConn, sv.cfg.GetBaseConfig())
 	if err != nil {
-		xl.Warnf("send newVisitorConnMsg to server error: %v", err)
+		xl.Warnf("wrapVisitorConn error: %v", err)
 		tunnelErr = err
 		return
 	}
-
-	var newVisitorConnRespMsg msg.NewVisitorConnResp
-	_ = visitorConn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	err = msg.ReadMsgInto(visitorConn, &newVisitorConnRespMsg)
-	if err != nil {
-		xl.Warnf("get newVisitorConnRespMsg error: %v", err)
-		tunnelErr = err
-		return
-	}
-	_ = visitorConn.SetReadDeadline(time.Time{})
-
-	if newVisitorConnRespMsg.Error != "" {
-		xl.Warnf("start new visitor connection error: %s", newVisitorConnRespMsg.Error)
-		tunnelErr = fmt.Errorf("%s", newVisitorConnRespMsg.Error)
-		return
-	}
-
-	var remote io.ReadWriteCloser
-	remote = visitorConn
-	if sv.cfg.Transport.UseEncryption {
-		remote, err = libio.WithEncryption(remote, []byte(sv.cfg.SecretKey))
-		if err != nil {
-			xl.Errorf("create encryption stream error: %v", err)
-			tunnelErr = err
-			return
-		}
-	}
-
-	if sv.cfg.Transport.UseCompression {
-		var recycleFn func()
-		remote, recycleFn = libio.WithCompressionFromPool(remote)
-		defer recycleFn()
-	}
+	defer recycleFn()
 
 	libio.Join(userConn, remote)
 }

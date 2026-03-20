@@ -16,6 +16,7 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"reflect"
@@ -122,6 +123,33 @@ func (pxy *BaseProxy) Close() {
 	}
 }
 
+// wrapWorkConn applies rate limiting, encryption, and compression
+// to a work connection based on the proxy's transport configuration.
+// The returned recycle function should be called when the stream is no longer in use
+// to return compression resources to the pool. It is safe to not call recycle,
+// in which case resources will be garbage collected normally.
+func (pxy *BaseProxy) wrapWorkConn(conn net.Conn, encKey []byte) (io.ReadWriteCloser, func(), error) {
+	var rwc io.ReadWriteCloser = conn
+	if pxy.limiter != nil {
+		rwc = libio.WrapReadWriteCloser(limit.NewReader(conn, pxy.limiter), limit.NewWriter(conn, pxy.limiter), func() error {
+			return conn.Close()
+		})
+	}
+	if pxy.baseCfg.Transport.UseEncryption {
+		var err error
+		rwc, err = libio.WithEncryption(rwc, encKey)
+		if err != nil {
+			conn.Close()
+			return nil, nil, fmt.Errorf("create encryption stream error: %w", err)
+		}
+	}
+	var recycleFn func()
+	if pxy.baseCfg.Transport.UseCompression {
+		rwc, recycleFn = libio.WithCompressionFromPool(rwc)
+	}
+	return rwc, recycleFn, nil
+}
+
 func (pxy *BaseProxy) SetInWorkConnCallback(cb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool) {
 	pxy.inWorkConnCallback = cb
 }
@@ -139,30 +167,14 @@ func (pxy *BaseProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWorkConn, encKey []byte) {
 	xl := pxy.xl
 	baseCfg := pxy.baseCfg
-	var (
-		remote io.ReadWriteCloser
-		err    error
-	)
-	remote = workConn
-	if pxy.limiter != nil {
-		remote = libio.WrapReadWriteCloser(limit.NewReader(workConn, pxy.limiter), limit.NewWriter(workConn, pxy.limiter), func() error {
-			return workConn.Close()
-		})
-	}
 
 	xl.Tracef("handle tcp work connection, useEncryption: %t, useCompression: %t",
 		baseCfg.Transport.UseEncryption, baseCfg.Transport.UseCompression)
-	if baseCfg.Transport.UseEncryption {
-		remote, err = libio.WithEncryption(remote, encKey)
-		if err != nil {
-			workConn.Close()
-			xl.Errorf("create encryption stream error: %v", err)
-			return
-		}
-	}
-	var compressionResourceRecycleFn func()
-	if baseCfg.Transport.UseCompression {
-		remote, compressionResourceRecycleFn = libio.WithCompressionFromPool(remote)
+
+	remote, recycleFn, err := pxy.wrapWorkConn(workConn, encKey)
+	if err != nil {
+		xl.Errorf("wrap work connection: %v", err)
+		return
 	}
 
 	// check if we need to send proxy protocol info
@@ -178,7 +190,6 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	}
 
 	if baseCfg.Transport.ProxyProtocolVersion != "" && m.SrcAddr != "" && m.SrcPort != 0 {
-		// Use the common proxy protocol builder function
 		header := netpkg.BuildProxyProtocolHeaderStruct(connInfo.SrcAddr, connInfo.DstAddr, baseCfg.Transport.ProxyProtocolVersion)
 		connInfo.ProxyProtocolHeader = header
 	}
@@ -187,10 +198,16 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 
 	if pxy.proxyPlugin != nil {
 		// if plugin is set, let plugin handle connection first
+		// Don't recycle compression resources here because plugins may
+		// retain the connection after Handle returns.
 		xl.Debugf("handle by plugin: %s", pxy.proxyPlugin.Name())
 		pxy.proxyPlugin.Handle(pxy.ctx, &connInfo)
 		xl.Debugf("handle by plugin finished")
 		return
+	}
+
+	if recycleFn != nil {
+		defer recycleFn()
 	}
 
 	localConn, err := libnet.Dial(
@@ -209,6 +226,7 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	if connInfo.ProxyProtocolHeader != nil {
 		if _, err := connInfo.ProxyProtocolHeader.WriteTo(localConn); err != nil {
 			workConn.Close()
+			localConn.Close()
 			xl.Errorf("write proxy protocol header to local conn error: %v", err)
 			return
 		}
@@ -218,8 +236,5 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	xl.Debugf("join connections closed")
 	if len(errs) > 0 {
 		xl.Tracef("join connections errors: %v", errs)
-	}
-	if compressionResourceRecycleFn != nil {
-		compressionResourceRecycleFn()
 	}
 }

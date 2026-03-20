@@ -18,6 +18,7 @@ linters:
   - lll
   - makezero
   - misspell
+  - modernize
   - prealloc
   - predeclared
   - revive
@@ -33,13 +34,7 @@ linters:
       disabled-checks:
       - exitAfterDefer
     gosec:
-      excludes:
-      - G401
-      - G402
-      - G404
-      - G501
-      - G115
-      - G204
+      excludes: ["G115", "G117", "G204", "G401", "G402", "G404", "G501", "G703", "G704", "G705"]
       severity: low
       confidence: low
     govet:
@@ -53,6 +48,9 @@ linters:
       ignore-rules:
       - cancelled
       - marshalled
+    modernize:
+      disable:
+      - omitzero
     unparam:
       check-exported: false
   exclusions:
@@ -78,6 +76,9 @@ linters:
       - revive
       text: "avoid meaningless package names"
     - linters:
+      - revive
+      text: "Go standard library package names"
+    - linters:
       - unparam
       text: is always false
     paths:
@@ -89,6 +90,7 @@ linters:
     - third_party$
     - builtin$
     - examples$
+    - node_modules
 formatters:
   enable:
   - gci
@@ -111,6 +113,7 @@ formatters:
     - third_party$
     - builtin$
     - examples$
+    - node_modules
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

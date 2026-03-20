@@ -19,6 +19,7 @@ import (
 	"net"
 
 	"github.com/fatedier/frp/client"
+	"github.com/fatedier/frp/pkg/config/source"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
@@ -43,10 +44,13 @@ func NewClient(options ClientOptions) (*Client, error) {
 	}
 
 	ln := netpkg.NewInternalListener()
+	configSource := source.NewConfigSource()
+	aggregator := source.NewAggregator(configSource)
 
 	serviceOptions := client.ServiceOptions{
-		Common:     options.Common,
-		ClientSpec: options.Spec,
+		Common:                 options.Common,
+		ConfigSourceAggregator: aggregator,
+		ClientSpec:             options.Spec,
 		ConnectorCreator: func(context.Context, *v1.ClientCommonConfig) client.Connector {
 			return &pipeConnector{
 				peerListener: ln,

@@ -41,24 +41,24 @@ var _ = ginkgo.Describe("[Feature: Chaos]", func() {
 
 		// 2. stop frps, expect request failed
 		_ = ps.Stop()
-		time.Sleep(200 * time.Millisecond)
 		framework.NewRequestExpect(f).Port(remotePort).ExpectError(true).Ensure()
 
 		// 3. restart frps, expect request success
+		successCount := pc.CountOutput("[tcp] start proxy success")
 		_, _, err = f.RunFrps("-c", serverConfigPath)
 		framework.ExpectNoError(err)
-		time.Sleep(2 * time.Second)
+		framework.ExpectNoError(pc.WaitForOutput("[tcp] start proxy success", successCount+1, 5*time.Second))
 		framework.NewRequestExpect(f).Port(remotePort).Ensure()
 
 		// 4. stop frpc, expect request failed
 		_ = pc.Stop()
-		time.Sleep(200 * time.Millisecond)
+		framework.ExpectNoError(framework.WaitForTCPUnreachable(fmt.Sprintf("127.0.0.1:%d", remotePort), 100*time.Millisecond, 5*time.Second))
 		framework.NewRequestExpect(f).Port(remotePort).ExpectError(true).Ensure()
 
 		// 5. restart frpc, expect request success
-		_, _, err = f.RunFrpc("-c", clientConfigPath)
+		newPc, _, err := f.RunFrpc("-c", clientConfigPath)
 		framework.ExpectNoError(err)
-		time.Sleep(time.Second)
+		framework.ExpectNoError(newPc.WaitForOutput("[tcp] start proxy success", 1, 5*time.Second))
 		framework.NewRequestExpect(f).Port(remotePort).Ensure()
 	})
 })

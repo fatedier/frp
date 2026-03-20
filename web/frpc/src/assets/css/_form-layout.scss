@@ -1,0 +1,33 @@
+@use '@shared/css/mixins' as *;
+
+/* Shared form layout styles for proxy/visitor form sections */
+.field-row {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+
+.field-row.two-col {
+  grid-template-columns: 1fr 1fr;
+}
+
+.field-row.three-col {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.field-grow {
+  min-width: 0;
+}
+
+.switch-field :deep(.el-form-item__content) {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+@include mobile {
+  .field-row.two-col,
+  .field-row.three-col {
+    grid-template-columns: 1fr;
+  }
+}

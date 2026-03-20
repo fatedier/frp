@@ -151,7 +151,7 @@ func getBehaviorScoresByMode(mode int, defaultScore int) []*BehaviorScore {
 func getBehaviorScoresByMode2(mode int, senderScore, receiverScore int) []*BehaviorScore {
 	behaviors := getBehaviorByMode(mode)
 	scores := make([]*BehaviorScore, 0, len(behaviors))
-	for i := 0; i < len(behaviors); i++ {
+	for i := range behaviors {
 		score := receiverScore
 		if behaviors[i].A.Role == DetectRoleSender {
 			score = senderScore

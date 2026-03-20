@@ -17,6 +17,7 @@ package config
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,6 +34,7 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/util/jsonx"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
@@ -108,7 +110,21 @@ func LoadConfigureFromFile(path string, c any, strict bool) error {
 	if err != nil {
 		return err
 	}
-	return LoadConfigure(content, c, strict)
+	return LoadConfigure(content, c, strict, detectFormatFromPath(path))
+}
+
+// detectFormatFromPath returns a format hint based on the file extension.
+func detectFormatFromPath(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".toml":
+		return "toml"
+	case ".yaml", ".yml":
+		return "yaml"
+	case ".json":
+		return "json"
+	default:
+		return ""
+	}
 }
 
 // parseYAMLWithDotFieldsHandling parses YAML with dot-prefixed fields handling
@@ -129,46 +145,134 @@ func parseYAMLWithDotFieldsHandling(content []byte, target any) error {
 	}
 
 	// Convert to JSON and decode with strict validation
-	jsonBytes, err := json.Marshal(temp)
+	jsonBytes, err := jsonx.Marshal(temp)
 	if err != nil {
 		return err
 	}
-	decoder := json.NewDecoder(bytes.NewReader(jsonBytes))
-	decoder.DisallowUnknownFields()
-	return decoder.Decode(target)
+	return decodeJSONContent(jsonBytes, target, true)
+}
+
+func decodeJSONContent(content []byte, target any, strict bool) error {
+	if clientCfg, ok := target.(*v1.ClientConfig); ok {
+		decoded, err := v1.DecodeClientConfigJSON(content, v1.DecodeOptions{
+			DisallowUnknownFields: strict,
+		})
+		if err != nil {
+			return err
+		}
+		*clientCfg = decoded
+		return nil
+	}
+
+	return jsonx.UnmarshalWithOptions(content, target, jsonx.DecodeOptions{
+		RejectUnknownMembers: strict,
+	})
 }
 
 // LoadConfigure loads configuration from bytes and unmarshal into c.
 // Now it supports json, yaml and toml format.
-func LoadConfigure(b []byte, c any, strict bool) error {
-	v1.DisallowUnknownFieldsMu.Lock()
-	defer v1.DisallowUnknownFieldsMu.Unlock()
-	v1.DisallowUnknownFields = strict
+// An optional format hint (e.g. "toml", "yaml", "json") can be provided
+// to enable better error messages with line number information.
+func LoadConfigure(b []byte, c any, strict bool, formats ...string) error {
+	format := ""
+	if len(formats) > 0 {
+		format = formats[0]
+	}
+
+	originalBytes := b
+	parsedFromTOML := false
 
 	var tomlObj any
-	// Try to unmarshal as TOML first; swallow errors from that (assume it's not valid TOML).
-	if err := toml.Unmarshal(b, &tomlObj); err == nil {
-		b, err = json.Marshal(&tomlObj)
+	tomlErr := toml.Unmarshal(b, &tomlObj)
+	if tomlErr == nil {
+		parsedFromTOML = true
+		var err error
+		b, err = jsonx.Marshal(&tomlObj)
 		if err != nil {
 			return err
 		}
+	} else if format == "toml" {
+		// File is known to be TOML but has syntax errors.
+		return formatTOMLError(tomlErr)
 	}
+
 	// If the buffer smells like JSON (first non-whitespace character is '{'), unmarshal as JSON directly.
 	if yaml.IsJSONBuffer(b) {
-		decoder := json.NewDecoder(bytes.NewBuffer(b))
-		if strict {
-			decoder.DisallowUnknownFields()
+		if err := decodeJSONContent(b, c, strict); err != nil {
+			return enhanceDecodeError(err, originalBytes, !parsedFromTOML)
 		}
-		return decoder.Decode(c)
+		return nil
 	}
 
 	// Handle YAML content
 	if strict {
 		// In strict mode, always use our custom handler to support YAML merge
-		return parseYAMLWithDotFieldsHandling(b, c)
+		if err := parseYAMLWithDotFieldsHandling(b, c); err != nil {
+			return enhanceDecodeError(err, originalBytes, !parsedFromTOML)
+		}
+		return nil
 	}
 	// Non-strict mode, parse normally
 	return yaml.Unmarshal(b, c)
+}
+
+// formatTOMLError extracts line/column information from TOML decode errors.
+func formatTOMLError(err error) error {
+	var decErr *toml.DecodeError
+	if errors.As(err, &decErr) {
+		row, col := decErr.Position()
+		return fmt.Errorf("toml: line %d, column %d: %s", row, col, decErr.Error())
+	}
+	var strictErr *toml.StrictMissingError
+	if errors.As(err, &strictErr) {
+		return strictErr
+	}
+	return err
+}
+
+// enhanceDecodeError tries to add field path and line number information to JSON/YAML decode errors.
+func enhanceDecodeError(err error, originalContent []byte, includeLine bool) error {
+	var typeErr *json.UnmarshalTypeError
+	if errors.As(err, &typeErr) && typeErr.Field != "" {
+		if includeLine {
+			line := findFieldLineInContent(originalContent, typeErr.Field)
+			if line > 0 {
+				return fmt.Errorf("line %d: field \"%s\": cannot unmarshal %s into %s", line, typeErr.Field, typeErr.Value, typeErr.Type)
+			}
+		}
+		return fmt.Errorf("field \"%s\": cannot unmarshal %s into %s", typeErr.Field, typeErr.Value, typeErr.Type)
+	}
+	return err
+}
+
+// findFieldLineInContent searches the original config content for a field name
+// and returns the 1-indexed line number where it appears, or 0 if not found.
+func findFieldLineInContent(content []byte, fieldPath string) int {
+	if fieldPath == "" {
+		return 0
+	}
+
+	// Use the last component of the field path (e.g. "proxies" from "proxies" or
+	// "protocol" from "transport.protocol").
+	parts := strings.Split(fieldPath, ".")
+	searchKey := parts[len(parts)-1]
+
+	lines := bytes.Split(content, []byte("\n"))
+	for i, line := range lines {
+		trimmed := bytes.TrimSpace(line)
+		// Match TOML key assignments like: key = ...
+		if bytes.HasPrefix(trimmed, []byte(searchKey)) {
+			rest := bytes.TrimSpace(trimmed[len(searchKey):])
+			if len(rest) > 0 && rest[0] == '=' {
+				return i + 1
+			}
+		}
+		// Match TOML table array headers like: [[proxies]]
+		if bytes.Contains(trimmed, []byte("[["+searchKey+"]]")) {
+			return i + 1
+		}
+	}
+	return 0
 }
 
 func NewProxyConfigurerFromMsg(m *msg.NewProxy, serverCfg *v1.ServerConfig) (v1.ProxyConfigurer, error) {
@@ -180,7 +284,7 @@ func NewProxyConfigurerFromMsg(m *msg.NewProxy, serverCfg *v1.ServerConfig) (v1.
 	}
 
 	configurer.UnmarshalFromMsg(m)
-	configurer.Complete("")
+	configurer.Complete()
 
 	if err := validation.ValidateProxyConfigurerForServer(configurer, serverCfg); err != nil {
 		return nil, err
@@ -219,60 +323,132 @@ func LoadServerConfig(path string, strict bool) (*v1.ServerConfig, bool, error) 
 	return svrCfg, isLegacyFormat, nil
 }
 
+// ClientConfigLoadResult contains the result of loading a client configuration file.
+type ClientConfigLoadResult struct {
+	// Common contains the common client configuration.
+	Common *v1.ClientCommonConfig
+
+	// Proxies contains proxy configurations from inline [[proxies]] and includeConfigFiles.
+	// These are NOT completed (user prefix not added).
+	Proxies []v1.ProxyConfigurer
+
+	// Visitors contains visitor configurations from inline [[visitors]] and includeConfigFiles.
+	// These are NOT completed.
+	Visitors []v1.VisitorConfigurer
+
+	// IsLegacyFormat indicates whether the config file is in legacy INI format.
+	IsLegacyFormat bool
+}
+
+// LoadClientConfigResult loads and parses a client configuration file.
+// It returns the raw configuration without completing proxies/visitors.
+// The caller should call Complete on the configs manually for legacy behavior.
+func LoadClientConfigResult(path string, strict bool) (*ClientConfigLoadResult, error) {
+	result := &ClientConfigLoadResult{
+		Proxies:  make([]v1.ProxyConfigurer, 0),
+		Visitors: make([]v1.VisitorConfigurer, 0),
+	}
+
+	if DetectLegacyINIFormatFromFile(path) {
+		legacyCommon, legacyProxyCfgs, legacyVisitorCfgs, err := legacy.ParseClientConfig(path)
+		if err != nil {
+			return nil, err
+		}
+		result.Common = legacy.Convert_ClientCommonConf_To_v1(&legacyCommon)
+		for _, c := range legacyProxyCfgs {
+			result.Proxies = append(result.Proxies, legacy.Convert_ProxyConf_To_v1(c))
+		}
+		for _, c := range legacyVisitorCfgs {
+			result.Visitors = append(result.Visitors, legacy.Convert_VisitorConf_To_v1(c))
+		}
+		result.IsLegacyFormat = true
+	} else {
+		allCfg := v1.ClientConfig{}
+		if err := LoadConfigureFromFile(path, &allCfg, strict); err != nil {
+			return nil, err
+		}
+		result.Common = &allCfg.ClientCommonConfig
+		for _, c := range allCfg.Proxies {
+			result.Proxies = append(result.Proxies, c.ProxyConfigurer)
+		}
+		for _, c := range allCfg.Visitors {
+			result.Visitors = append(result.Visitors, c.VisitorConfigurer)
+		}
+	}
+
+	// Load additional config from includes.
+	// legacy ini format already handle this in ParseClientConfig.
+	if len(result.Common.IncludeConfigFiles) > 0 && !result.IsLegacyFormat {
+		extProxyCfgs, extVisitorCfgs, err := LoadAdditionalClientConfigs(result.Common.IncludeConfigFiles, result.IsLegacyFormat, strict)
+		if err != nil {
+			return nil, err
+		}
+		result.Proxies = append(result.Proxies, extProxyCfgs...)
+		result.Visitors = append(result.Visitors, extVisitorCfgs...)
+	}
+
+	// Complete the common config
+	if result.Common != nil {
+		if err := result.Common.Complete(); err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
+}
+
 func LoadClientConfig(path string, strict bool) (
 	*v1.ClientCommonConfig,
 	[]v1.ProxyConfigurer,
 	[]v1.VisitorConfigurer,
 	bool, error,
 ) {
-	var (
-		cliCfg         *v1.ClientCommonConfig
-		proxyCfgs      = make([]v1.ProxyConfigurer, 0)
-		visitorCfgs    = make([]v1.VisitorConfigurer, 0)
-		isLegacyFormat bool
-	)
-
-	if DetectLegacyINIFormatFromFile(path) {
-		legacyCommon, legacyProxyCfgs, legacyVisitorCfgs, err := legacy.ParseClientConfig(path)
-		if err != nil {
-			return nil, nil, nil, true, err
-		}
-		cliCfg = legacy.Convert_ClientCommonConf_To_v1(&legacyCommon)
-		for _, c := range legacyProxyCfgs {
-			proxyCfgs = append(proxyCfgs, legacy.Convert_ProxyConf_To_v1(c))
-		}
-		for _, c := range legacyVisitorCfgs {
-			visitorCfgs = append(visitorCfgs, legacy.Convert_VisitorConf_To_v1(c))
-		}
-		isLegacyFormat = true
-	} else {
-		allCfg := v1.ClientConfig{}
-		if err := LoadConfigureFromFile(path, &allCfg, strict); err != nil {
-			return nil, nil, nil, false, err
-		}
-		cliCfg = &allCfg.ClientCommonConfig
-		for _, c := range allCfg.Proxies {
-			proxyCfgs = append(proxyCfgs, c.ProxyConfigurer)
-		}
-		for _, c := range allCfg.Visitors {
-			visitorCfgs = append(visitorCfgs, c.VisitorConfigurer)
-		}
+	result, err := LoadClientConfigResult(path, strict)
+	if err != nil {
+		return nil, nil, nil, result != nil && result.IsLegacyFormat, err
 	}
 
-	// Load additional config from includes.
-	// legacy ini format already handle this in ParseClientConfig.
-	if len(cliCfg.IncludeConfigFiles) > 0 && !isLegacyFormat {
-		extProxyCfgs, extVisitorCfgs, err := LoadAdditionalClientConfigs(cliCfg.IncludeConfigFiles, isLegacyFormat, strict)
-		if err != nil {
-			return nil, nil, nil, isLegacyFormat, err
-		}
-		proxyCfgs = append(proxyCfgs, extProxyCfgs...)
-		visitorCfgs = append(visitorCfgs, extVisitorCfgs...)
+	proxyCfgs := result.Proxies
+	visitorCfgs := result.Visitors
+
+	proxyCfgs, visitorCfgs = FilterClientConfigurers(result.Common, proxyCfgs, visitorCfgs)
+	proxyCfgs = CompleteProxyConfigurers(proxyCfgs)
+	visitorCfgs = CompleteVisitorConfigurers(visitorCfgs)
+	return result.Common, proxyCfgs, visitorCfgs, result.IsLegacyFormat, nil
+}
+
+func CompleteProxyConfigurers(proxies []v1.ProxyConfigurer) []v1.ProxyConfigurer {
+	proxyCfgs := proxies
+	for _, c := range proxyCfgs {
+		c.Complete()
+	}
+	return proxyCfgs
+}
+
+func CompleteVisitorConfigurers(visitors []v1.VisitorConfigurer) []v1.VisitorConfigurer {
+	visitorCfgs := visitors
+	for _, c := range visitorCfgs {
+		c.Complete()
+	}
+	return visitorCfgs
+}
+
+func FilterClientConfigurers(
+	common *v1.ClientCommonConfig,
+	proxies []v1.ProxyConfigurer,
+	visitors []v1.VisitorConfigurer,
+) ([]v1.ProxyConfigurer, []v1.VisitorConfigurer) {
+	if common == nil {
+		common = &v1.ClientCommonConfig{}
 	}
 
-	// Filter by start
-	if len(cliCfg.Start) > 0 {
-		startSet := sets.New(cliCfg.Start...)
+	proxyCfgs := proxies
+	visitorCfgs := visitors
+
+	// Filter by start across merged configurers from all sources.
+	// For example, store entries are also filtered by this set.
+	if len(common.Start) > 0 {
+		startSet := sets.New(common.Start...)
 		proxyCfgs = lo.Filter(proxyCfgs, func(c v1.ProxyConfigurer, _ int) bool {
 			return startSet.Has(c.GetBaseConfig().Name)
 		})
@@ -291,19 +467,7 @@ func LoadClientConfig(path string, strict bool) (
 		enabled := c.GetBaseConfig().Enabled
 		return enabled == nil || *enabled
 	})
-
-	if cliCfg != nil {
-		if err := cliCfg.Complete(); err != nil {
-			return nil, nil, nil, isLegacyFormat, err
-		}
-	}
-	for _, c := range proxyCfgs {
-		c.Complete(cliCfg.User)
-	}
-	for _, c := range visitorCfgs {
-		c.Complete(cliCfg)
-	}
-	return cliCfg, proxyCfgs, visitorCfgs, isLegacyFormat, nil
+	return proxyCfgs, visitorCfgs
 }
 
 func LoadAdditionalClientConfigs(paths []string, isLegacyFormat bool, strict bool) ([]v1.ProxyConfigurer, []v1.VisitorConfigurer, error) {

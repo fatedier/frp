@@ -17,24 +17,21 @@
 package proxy
 
 import (
-	"io"
 	"net"
 	"reflect"
 	"strconv"
 	"time"
 
 	"github.com/fatedier/golib/errors"
-	libio "github.com/fatedier/golib/io"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/udp"
-	"github.com/fatedier/frp/pkg/util/limit"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
 func init() {
-	RegisterProxyFactory(reflect.TypeOf(&v1.UDPProxyConfig{}), NewUDPProxy)
+	RegisterProxyFactory(reflect.TypeFor[*v1.UDPProxyConfig](), NewUDPProxy)
 }
 
 type UDPProxy struct {
@@ -94,28 +91,14 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 	// close resources related with old workConn
 	pxy.Close()
 
-	var rwc io.ReadWriteCloser = conn
-	var err error
-	if pxy.limiter != nil {
-		rwc = libio.WrapReadWriteCloser(limit.NewReader(conn, pxy.limiter), limit.NewWriter(conn, pxy.limiter), func() error {
-			return conn.Close()
-		})
+	remote, _, err := pxy.wrapWorkConn(conn, pxy.encryptionKey)
+	if err != nil {
+		xl.Errorf("wrap work connection: %v", err)
+		return
 	}
-	if pxy.cfg.Transport.UseEncryption {
-		rwc, err = libio.WithEncryption(rwc, pxy.encryptionKey)
-		if err != nil {
-			conn.Close()
-			xl.Errorf("create encryption stream error: %v", err)
-			return
-		}
-	}
-	if pxy.cfg.Transport.UseCompression {
-		rwc = libio.WithCompression(rwc)
-	}
-	conn = netpkg.WrapReadWriteCloserToConn(rwc, conn)
 
 	pxy.mu.Lock()
-	pxy.workConn = conn
+	pxy.workConn = netpkg.WrapReadWriteCloserToConn(remote, conn)
 	pxy.readCh = make(chan *msg.UDPPacket, 1024)
 	pxy.sendCh = make(chan msg.Message, 1024)
 	pxy.closed = false
@@ -129,7 +112,7 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 				return
 			}
 			if errRet := errors.PanicToError(func() {
-				xl.Tracef("get udp package from workConn: %s", udpMsg.Content)
+				xl.Tracef("get udp package from workConn, len: %d", len(udpMsg.Content))
 				readCh <- &udpMsg
 			}); errRet != nil {
 				xl.Infof("reader goroutine for udp work connection closed: %v", errRet)
@@ -145,7 +128,7 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 		for rawMsg := range sendCh {
 			switch m := rawMsg.(type) {
 			case *msg.UDPPacket:
-				xl.Tracef("send udp package to workConn: %s", m.Content)
+				xl.Tracef("send udp package to workConn, len: %d", len(m.Content))
 			case *msg.Ping:
 				xl.Tracef("send ping message to udp workConn")
 			}

@@ -15,21 +15,9 @@
 package v1
 
 import (
-	"sync"
+	"maps"
 
 	"github.com/fatedier/frp/pkg/util/util"
-)
-
-// TODO(fatedier): Due to the current implementation issue of the go json library, the UnmarshalJSON method
-// of a custom struct cannot access the DisallowUnknownFields parameter of the parent decoder.
-// Here, a global variable is temporarily used to control whether unknown fields are allowed.
-// Once the v2 version is implemented by the community, we can switch to a standardized approach.
-//
-// https://github.com/golang/go/issues/41144
-// https://github.com/golang/go/discussions/63397
-var (
-	DisallowUnknownFields   = false
-	DisallowUnknownFieldsMu sync.Mutex
 )
 
 type AuthScope string
@@ -104,6 +92,14 @@ type NatTraversalConfig struct {
 	DisableAssistedAddrs bool `json:"disableAssistedAddrs,omitempty"`
 }
 
+func (c *NatTraversalConfig) Clone() *NatTraversalConfig {
+	if c == nil {
+		return nil
+	}
+	out := *c
+	return &out
+}
+
 type LogConfig struct {
 	// This is destination where frp should write the logs.
 	// If "console" is used, logs will be printed to stdout, otherwise,
@@ -136,6 +132,12 @@ type HTTPPluginOptions struct {
 
 type HeaderOperations struct {
 	Set map[string]string `json:"set,omitempty"`
+}
+
+func (o HeaderOperations) Clone() HeaderOperations {
+	return HeaderOperations{
+		Set: maps.Clone(o.Set),
+	}
 }
 
 type HTTPHeader struct {

@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/onsi/ginkgo/v2"
 
@@ -22,7 +23,8 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 	ginkgo.Describe("UnixDomainSocket", func() {
 		ginkgo.It("Expose a unix domain socket echo server", func() {
 			serverConf := consts.LegacyDefaultServerConfig
-			clientConf := consts.LegacyDefaultClientConfig
+			var clientConf strings.Builder
+			clientConf.WriteString(consts.LegacyDefaultClientConfig)
 
 			getProxyConf := func(proxyName string, portName string, extra string) string {
 				return fmt.Sprintf(`
@@ -65,10 +67,10 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 
 			// build all client config
 			for _, test := range tests {
-				clientConf += getProxyConf(test.proxyName, test.portName, test.extraConfig) + "\n"
+				clientConf.WriteString(getProxyConf(test.proxyName, test.portName, test.extraConfig) + "\n")
 			}
 			// run frps and frpc
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf.String()})
 
 			for _, test := range tests {
 				framework.NewRequestExpect(f).Port(f.PortByName(test.portName)).Ensure()
@@ -90,7 +92,7 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 		plugin_http_passwd = 123
 		`, remotePort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		// http proxy, no auth info
 		framework.NewRequestExpect(f).PortName(framework.HTTPSimpleServerPort).RequestModify(func(r *request.Request) {
@@ -122,7 +124,7 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 		plugin_passwd = 123
 		`, remotePort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		// http proxy, no auth info
 		framework.NewRequestExpect(f).PortName(framework.TCPEchoServerPort).RequestModify(func(r *request.Request) {
@@ -166,7 +168,7 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 		plugin_http_passwd = 123
 		`, remotePort, f.TempDirectory, f.TempDirectory, f.TempDirectory)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		// from tcp proxy
 		framework.NewRequestExpect(f).Request(
@@ -200,7 +202,7 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 		plugin_local_addr = 127.0.0.1:%d
 		`, localPort)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		tlsConfig, err := transport.NewServerTLSConfig("", "", "")
 		framework.ExpectNoError(err)
@@ -244,7 +246,7 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 		plugin_key_path = %s
 		`, localPort, crtPath, keyPath)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		localServer := httpserver.New(
 			httpserver.WithBindPort(localPort),
@@ -288,7 +290,7 @@ var _ = ginkgo.Describe("[Feature: Client-Plugins]", func() {
 		plugin_key_path = %s
 		`, localPort, crtPath, keyPath)
 
-		f.RunProcesses([]string{serverConf}, []string{clientConf})
+		f.RunProcesses(serverConf, []string{clientConf})
 
 		tlsConfig, err := transport.NewServerTLSConfig("", "", "")
 		framework.ExpectNoError(err)

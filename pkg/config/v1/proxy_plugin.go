@@ -15,14 +15,11 @@
 package v1
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"reflect"
 
 	"github.com/samber/lo"
 
+	"github.com/fatedier/frp/pkg/util/jsonx"
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
@@ -40,20 +37,21 @@ const (
 )
 
 var clientPluginOptionsTypeMap = map[string]reflect.Type{
-	PluginHTTP2HTTPS:       reflect.TypeOf(HTTP2HTTPSPluginOptions{}),
-	PluginHTTPProxy:        reflect.TypeOf(HTTPProxyPluginOptions{}),
-	PluginHTTPS2HTTP:       reflect.TypeOf(HTTPS2HTTPPluginOptions{}),
-	PluginHTTPS2HTTPS:      reflect.TypeOf(HTTPS2HTTPSPluginOptions{}),
-	PluginHTTP2HTTP:        reflect.TypeOf(HTTP2HTTPPluginOptions{}),
-	PluginSocks5:           reflect.TypeOf(Socks5PluginOptions{}),
-	PluginStaticFile:       reflect.TypeOf(StaticFilePluginOptions{}),
-	PluginUnixDomainSocket: reflect.TypeOf(UnixDomainSocketPluginOptions{}),
-	PluginTLS2Raw:          reflect.TypeOf(TLS2RawPluginOptions{}),
-	PluginVirtualNet:       reflect.TypeOf(VirtualNetPluginOptions{}),
+	PluginHTTP2HTTPS:       reflect.TypeFor[HTTP2HTTPSPluginOptions](),
+	PluginHTTPProxy:        reflect.TypeFor[HTTPProxyPluginOptions](),
+	PluginHTTPS2HTTP:       reflect.TypeFor[HTTPS2HTTPPluginOptions](),
+	PluginHTTPS2HTTPS:      reflect.TypeFor[HTTPS2HTTPSPluginOptions](),
+	PluginHTTP2HTTP:        reflect.TypeFor[HTTP2HTTPPluginOptions](),
+	PluginSocks5:           reflect.TypeFor[Socks5PluginOptions](),
+	PluginStaticFile:       reflect.TypeFor[StaticFilePluginOptions](),
+	PluginUnixDomainSocket: reflect.TypeFor[UnixDomainSocketPluginOptions](),
+	PluginTLS2Raw:          reflect.TypeFor[TLS2RawPluginOptions](),
+	PluginVirtualNet:       reflect.TypeFor[VirtualNetPluginOptions](),
 }
 
 type ClientPluginOptions interface {
 	Complete()
+	Clone() ClientPluginOptions
 }
 
 type TypedClientPluginOptions struct {
@@ -61,43 +59,25 @@ type TypedClientPluginOptions struct {
 	ClientPluginOptions
 }
 
-func (c *TypedClientPluginOptions) UnmarshalJSON(b []byte) error {
-	if len(b) == 4 && string(b) == "null" {
-		return nil
+func (c TypedClientPluginOptions) Clone() TypedClientPluginOptions {
+	out := c
+	if c.ClientPluginOptions != nil {
+		out.ClientPluginOptions = c.ClientPluginOptions.Clone()
 	}
+	return out
+}
 
-	typeStruct := struct {
-		Type string `json:"type"`
-	}{}
-	if err := json.Unmarshal(b, &typeStruct); err != nil {
+func (c *TypedClientPluginOptions) UnmarshalJSON(b []byte) error {
+	decoded, err := DecodeClientPluginOptionsJSON(b, DecodeOptions{})
+	if err != nil {
 		return err
 	}
-
-	c.Type = typeStruct.Type
-	if c.Type == "" {
-		return errors.New("plugin type is empty")
-	}
-
-	v, ok := clientPluginOptionsTypeMap[typeStruct.Type]
-	if !ok {
-		return fmt.Errorf("unknown plugin type: %s", typeStruct.Type)
-	}
-	options := reflect.New(v).Interface().(ClientPluginOptions)
-
-	decoder := json.NewDecoder(bytes.NewBuffer(b))
-	if DisallowUnknownFields {
-		decoder.DisallowUnknownFields()
-	}
-
-	if err := decoder.Decode(options); err != nil {
-		return fmt.Errorf("unmarshal ClientPluginOptions error: %v", err)
-	}
-	c.ClientPluginOptions = options
+	*c = decoded
 	return nil
 }
 
 func (c *TypedClientPluginOptions) MarshalJSON() ([]byte, error) {
-	return json.Marshal(c.ClientPluginOptions)
+	return jsonx.Marshal(c.ClientPluginOptions)
 }
 
 type HTTP2HTTPSPluginOptions struct {
@@ -109,6 +89,15 @@ type HTTP2HTTPSPluginOptions struct {
 
 func (o *HTTP2HTTPSPluginOptions) Complete() {}
 
+func (o *HTTP2HTTPSPluginOptions) Clone() ClientPluginOptions {
+	if o == nil {
+		return nil
+	}
+	out := *o
+	out.RequestHeaders = o.RequestHeaders.Clone()
+	return &out
+}
+
 type HTTPProxyPluginOptions struct {
 	Type         string `json:"type,omitempty"`
 	HTTPUser     string `json:"httpUser,omitempty"`
@@ -116,6 +105,14 @@ type HTTPProxyPluginOptions struct {
 }
 
 func (o *HTTPProxyPluginOptions) Complete() {}
+
+func (o *HTTPProxyPluginOptions) Clone() ClientPluginOptions {
+	if o == nil {
+		return nil
+	}
+	out := *o
+	return &out
+}
 
 type HTTPS2HTTPPluginOptions struct {
 	Type              string           `json:"type,omitempty"`
@@ -129,6 +126,16 @@ type HTTPS2HTTPPluginOptions struct {
 
 func (o *HTTPS2HTTPPluginOptions) Complete() {
 	o.EnableHTTP2 = util.EmptyOr(o.EnableHTTP2, lo.ToPtr(true))
+}
+
+func (o *HTTPS2HTTPPluginOptions) Clone() ClientPluginOptions {
+	if o == nil {
+		return nil
+	}
+	out := *o
+	out.RequestHeaders = o.RequestHeaders.Clone()
+	out.EnableHTTP2 = util.ClonePtr(o.EnableHTTP2)
+	return &out
 }
 
 type HTTPS2HTTPSPluginOptions struct {
@@ -145,6 +152,16 @@ func (o *HTTPS2HTTPSPluginOptions) Complete() {
 	o.EnableHTTP2 = util.EmptyOr(o.EnableHTTP2, lo.ToPtr(true))
 }
 
+func (o *HTTPS2HTTPSPluginOptions) Clone() ClientPluginOptions {
+	if o == nil {
+		return nil
+	}
+	out := *o
+	out.RequestHeaders = o.RequestHeaders.Clone()
+	out.EnableHTTP2 = util.ClonePtr(o.EnableHTTP2)
+	return &out
+}
+
 type HTTP2HTTPPluginOptions struct {
 	Type              string           `json:"type,omitempty"`
 	LocalAddr         string           `json:"localAddr,omitempty"`
@@ -154,6 +171,15 @@ type HTTP2HTTPPluginOptions struct {
 
 func (o *HTTP2HTTPPluginOptions) Complete() {}
 
+func (o *HTTP2HTTPPluginOptions) Clone() ClientPluginOptions {
+	if o == nil {
+		return nil
+	}
+	out := *o
+	out.RequestHeaders = o.RequestHeaders.Clone()
+	return &out
+}
+
 type Socks5PluginOptions struct {
 	Type     string `json:"type,omitempty"`
 	Username string `json:"username,omitempty"`
@@ -161,6 +187,14 @@ type Socks5PluginOptions struct {
 }
 
 func (o *Socks5PluginOptions) Complete() {}
+
+func (o *Socks5PluginOptions) Clone() ClientPluginOptions {
+	if o == nil {
+		return nil
+	}
+	out := *o
+	return &out
+}
 
 type StaticFilePluginOptions struct {
 	Type         string `json:"type,omitempty"`
@@ -172,12 +206,28 @@ type StaticFilePluginOptions struct {
 
 func (o *StaticFilePluginOptions) Complete() {}
 
+func (o *StaticFilePluginOptions) Clone() ClientPluginOptions {
+	if o == nil {
+		return nil
+	}
+	out := *o
+	return &out
+}
+
 type UnixDomainSocketPluginOptions struct {
 	Type     string `json:"type,omitempty"`
 	UnixPath string `json:"unixPath,omitempty"`
 }
 
 func (o *UnixDomainSocketPluginOptions) Complete() {}
+
+func (o *UnixDomainSocketPluginOptions) Clone() ClientPluginOptions {
+	if o == nil {
+		return nil
+	}
+	out := *o
+	return &out
+}
 
 type TLS2RawPluginOptions struct {
 	Type      string `json:"type,omitempty"`
@@ -188,8 +238,24 @@ type TLS2RawPluginOptions struct {
 
 func (o *TLS2RawPluginOptions) Complete() {}
 
+func (o *TLS2RawPluginOptions) Clone() ClientPluginOptions {
+	if o == nil {
+		return nil
+	}
+	out := *o
+	return &out
+}
+
 type VirtualNetPluginOptions struct {
 	Type string `json:"type,omitempty"`
 }
 
 func (o *VirtualNetPluginOptions) Complete() {}
+
+func (o *VirtualNetPluginOptions) Clone() ClientPluginOptions {
+	if o == nil {
+		return nil
+	}
+	out := *o
+	return &out
+}

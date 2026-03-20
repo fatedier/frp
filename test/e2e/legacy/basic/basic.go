@@ -26,7 +26,8 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 			proxyType := t
 			ginkgo.It(fmt.Sprintf("Expose a %s echo server", strings.ToUpper(proxyType)), func() {
 				serverConf := consts.LegacyDefaultServerConfig
-				clientConf := consts.LegacyDefaultClientConfig
+				var clientConf strings.Builder
+				clientConf.WriteString(consts.LegacyDefaultClientConfig)
 
 				localPortName := ""
 				protocol := "tcp"
@@ -78,10 +79,10 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 
 				// build all client config
 				for _, test := range tests {
-					clientConf += getProxyConf(test.proxyName, test.portName, test.extraConfig) + "\n"
+					clientConf.WriteString(getProxyConf(test.proxyName, test.portName, test.extraConfig) + "\n")
 				}
 				// run frps and frpc
-				f.RunProcesses([]string{serverConf}, []string{clientConf})
+				f.RunProcesses(serverConf, []string{clientConf.String()})
 
 				for _, test := range tests {
 					framework.NewRequestExpect(f).
@@ -102,7 +103,8 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 			vhost_http_port = %d
 			`, vhostHTTPPort)
 
-			clientConf := consts.LegacyDefaultClientConfig
+			var clientConf strings.Builder
+			clientConf.WriteString(consts.LegacyDefaultClientConfig)
 
 			getProxyConf := func(proxyName string, customDomains string, extra string) string {
 				return fmt.Sprintf(`
@@ -147,13 +149,13 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 				if tests[i].customDomains == "" {
 					tests[i].customDomains = test.proxyName + ".example.com"
 				}
-				clientConf += getProxyConf(test.proxyName, tests[i].customDomains, test.extraConfig) + "\n"
+				clientConf.WriteString(getProxyConf(test.proxyName, tests[i].customDomains, test.extraConfig) + "\n")
 			}
 			// run frps and frpc
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf.String()})
 
 			for _, test := range tests {
-				for _, domain := range strings.Split(test.customDomains, ",") {
+				for domain := range strings.SplitSeq(test.customDomains, ",") {
 					domain = strings.TrimSpace(domain)
 					framework.NewRequestExpect(f).
 						Explain(test.proxyName + "-" + domain).
@@ -185,7 +187,8 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 			`, vhostHTTPSPort)
 
 			localPort := f.AllocPort()
-			clientConf := consts.LegacyDefaultClientConfig
+			var clientConf strings.Builder
+			clientConf.WriteString(consts.LegacyDefaultClientConfig)
 			getProxyConf := func(proxyName string, customDomains string, extra string) string {
 				return fmt.Sprintf(`
 				[%s]
@@ -229,10 +232,10 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 				if tests[i].customDomains == "" {
 					tests[i].customDomains = test.proxyName + ".example.com"
 				}
-				clientConf += getProxyConf(test.proxyName, tests[i].customDomains, test.extraConfig) + "\n"
+				clientConf.WriteString(getProxyConf(test.proxyName, tests[i].customDomains, test.extraConfig) + "\n")
 			}
 			// run frps and frpc
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf.String()})
 
 			tlsConfig, err := transport.NewServerTLSConfig("", "", "")
 			framework.ExpectNoError(err)
@@ -244,7 +247,7 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 			f.RunServer("", localServer)
 
 			for _, test := range tests {
-				for _, domain := range strings.Split(test.customDomains, ",") {
+				for domain := range strings.SplitSeq(test.customDomains, ",") {
 					domain = strings.TrimSpace(domain)
 					framework.NewRequestExpect(f).
 						Explain(test.proxyName + "-" + domain).
@@ -282,9 +285,12 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 			proxyType := t
 			ginkgo.It(fmt.Sprintf("Expose echo server with %s", strings.ToUpper(proxyType)), func() {
 				serverConf := consts.LegacyDefaultServerConfig
-				clientServerConf := consts.LegacyDefaultClientConfig + "\nuser = user1"
-				clientVisitorConf := consts.LegacyDefaultClientConfig + "\nuser = user1"
-				clientUser2VisitorConf := consts.LegacyDefaultClientConfig + "\nuser = user2"
+				var clientServerConf strings.Builder
+				clientServerConf.WriteString(consts.LegacyDefaultClientConfig + "\nuser = user1")
+				var clientVisitorConf strings.Builder
+				clientVisitorConf.WriteString(consts.LegacyDefaultClientConfig + "\nuser = user1")
+				var clientUser2VisitorConf strings.Builder
+				clientUser2VisitorConf.WriteString(consts.LegacyDefaultClientConfig + "\nuser = user2")
 
 				localPortName := ""
 				protocol := "tcp"
@@ -400,20 +406,20 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 
 				// build all client config
 				for _, test := range tests {
-					clientServerConf += getProxyServerConf(test.proxyName, test.commonExtraConfig+"\n"+test.proxyExtraConfig) + "\n"
+					clientServerConf.WriteString(getProxyServerConf(test.proxyName, test.commonExtraConfig+"\n"+test.proxyExtraConfig) + "\n")
 				}
 				for _, test := range tests {
 					config := getProxyVisitorConf(
 						test.proxyName, test.bindPortName, test.visitorSK, test.commonExtraConfig+"\n"+test.visitorExtraConfig,
 					) + "\n"
 					if test.deployUser2Client {
-						clientUser2VisitorConf += config
+						clientUser2VisitorConf.WriteString(config)
 					} else {
-						clientVisitorConf += config
+						clientVisitorConf.WriteString(config)
 					}
 				}
 				// run frps and frpc
-				f.RunProcesses([]string{serverConf}, []string{clientServerConf, clientVisitorConf, clientUser2VisitorConf})
+				f.RunProcesses(serverConf, []string{clientServerConf.String(), clientVisitorConf.String(), clientUser2VisitorConf.String()})
 
 				for _, test := range tests {
 					timeout := time.Second
@@ -440,7 +446,8 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 	ginkgo.Describe("TCPMUX", func() {
 		ginkgo.It("Type tcpmux", func() {
 			serverConf := consts.LegacyDefaultServerConfig
-			clientConf := consts.LegacyDefaultClientConfig
+			var clientConf strings.Builder
+			clientConf.WriteString(consts.LegacyDefaultClientConfig)
 
 			tcpmuxHTTPConnectPortName := port.GenName("TCPMUX")
 			serverConf += fmt.Sprintf(`
@@ -483,14 +490,14 @@ var _ = ginkgo.Describe("[Feature: Basic]", func() {
 
 			// build all client config
 			for _, test := range tests {
-				clientConf += getProxyConf(test.proxyName, test.extraConfig) + "\n"
+				clientConf.WriteString(getProxyConf(test.proxyName, test.extraConfig) + "\n")
 
 				localServer := streamserver.New(streamserver.TCP, streamserver.WithBindPort(f.AllocPort()), streamserver.WithRespContent([]byte(test.proxyName)))
 				f.RunServer(port.GenName(test.proxyName), localServer)
 			}
 
 			// run frps and frpc
-			f.RunProcesses([]string{serverConf}, []string{clientConf})
+			f.RunProcesses(serverConf, []string{clientConf.String()})
 
 			// Request without HTTP connect should get error
 			framework.NewRequestExpect(f).

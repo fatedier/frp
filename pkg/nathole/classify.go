@@ -70,12 +70,8 @@ func ClassifyNATFeature(addresses []string, localIPs []string) (*NatFeature, err
 			continue
 		}
 
-		if portNum > portMax {
-			portMax = portNum
-		}
-		if portNum < portMin {
-			portMin = portNum
-		}
+		portMax = max(portMax, portNum)
+		portMin = min(portMin, portNum)
 		if baseIP != ip {
 			ipChanged = true
 		}

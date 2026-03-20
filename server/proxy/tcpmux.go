@@ -26,7 +26,7 @@ import (
 )
 
 func init() {
-	RegisterProxyFactory(reflect.TypeOf(&v1.TCPMuxProxyConfig{}), NewTCPMuxProxy)
+	RegisterProxyFactory(reflect.TypeFor[*v1.TCPMuxProxyConfig](), NewTCPMuxProxy)
 }
 
 type TCPMuxProxy struct {
@@ -72,21 +72,11 @@ func (pxy *TCPMuxProxy) httpConnectListen(
 }
 
 func (pxy *TCPMuxProxy) httpConnectRun() (remoteAddr string, err error) {
+	domains := pxy.buildDomains(pxy.cfg.CustomDomains, pxy.cfg.SubDomain)
+
 	addrs := make([]string, 0)
-	for _, domain := range pxy.cfg.CustomDomains {
-		if domain == "" {
-			continue
-		}
-
+	for _, domain := range domains {
 		addrs, err = pxy.httpConnectListen(domain, pxy.cfg.RouteByHTTPUser, pxy.cfg.HTTPUser, pxy.cfg.HTTPPassword, addrs)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	if pxy.cfg.SubDomain != "" {
-		addrs, err = pxy.httpConnectListen(pxy.cfg.SubDomain+"."+pxy.serverCfg.SubDomainHost,
-			pxy.cfg.RouteByHTTPUser, pxy.cfg.HTTPUser, pxy.cfg.HTTPPassword, addrs)
 		if err != nil {
 			return "", err
 		}
