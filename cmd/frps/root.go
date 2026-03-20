@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/fatedier/frp/pkg/util/system"
 	"os"
 	"strings"
 
@@ -110,6 +111,9 @@ func Execute() {
 
 func runServer(cfg *v1.ServerConfig) (err error) {
 	log.InitLogger(cfg.Log.To, cfg.Log.Level, int(cfg.Log.MaxDays), cfg.Log.DisablePrintColor)
+	defer func() {
+		_ = log.DestroyEventWriter()
+	}()
 
 	if cfgFile != "" {
 		log.Infof("frps uses config file: %s", cfgFile)
@@ -120,6 +124,10 @@ func runServer(cfg *v1.ServerConfig) (err error) {
 	svr, err := server.NewService(cfg)
 	if err != nil {
 		return err
+	}
+	// Setup only system.ContinueF, an empty function, to make svc continue
+	system.ContinueF = func() error {
+		return nil
 	}
 	log.Infof("frps started successfully")
 	svr.Run(context.Background())

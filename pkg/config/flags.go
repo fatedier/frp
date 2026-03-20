@@ -159,7 +159,7 @@ func RegisterClientCommonConfigFlags(cmd *cobra.Command, c *v1.ClientCommonConfi
 		cmd.PersistentFlags().StringVarP(&c.Transport.Protocol, "protocol", "p", "tcp",
 			fmt.Sprintf("optional values are %v", validation.SupportedTransportProtocols))
 		cmd.PersistentFlags().StringVarP(&c.Log.Level, "log_level", "", "info", "log level")
-		cmd.PersistentFlags().StringVarP(&c.Log.To, "log_file", "", "console", "console or file path")
+		cmd.PersistentFlags().StringVarP(&c.Log.To, "log_file", "", "console", "console, eventlog (Windows only) or file path")
 		cmd.PersistentFlags().Int64VarP(&c.Log.MaxDays, "log_max_days", "", 3, "log file reversed days")
 		cmd.PersistentFlags().BoolVarP(&c.Log.DisablePrintColor, "disable_log_color", "", false, "disable log color in console")
 		cmd.PersistentFlags().StringVarP(&c.Transport.TLS.ServerName, "tls_server_name", "", "", "specify the custom server name of tls certificate")
