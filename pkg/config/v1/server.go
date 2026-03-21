@@ -31,6 +31,12 @@ type ServerConfig struct {
 	// BindPort specifies the port that the server listens on. By default, this
 	// value is 7000.
 	BindPort int `json:"bindPort,omitempty"`
+	// BindProxyProtocol enables PROXY protocol (v1 and v2) parsing on the
+	// bind port listener. When true, the real client IP is extracted from
+	// the PROXY protocol header before protocol multiplexing. This is
+	// useful when frps is behind a load balancer that sends PROXY protocol.
+	// By default, this is false.
+	BindProxyProtocol bool `json:"bindProxyProtocol,omitempty"`
 	// KCPBindPort specifies the KCP port that the server listens on. If this
 	// value is 0, the server will not listen for KCP connections.
 	KCPBindPort int `json:"kcpBindPort,omitempty"`

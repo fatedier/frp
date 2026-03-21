@@ -235,6 +235,10 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create server listener error, %v", err)
 	}
+	if cfg.BindProxyProtocol {
+		log.Infof("bindPort proxy protocol enabled")
+		ln = &pp.Listener{Listener: ln}
+	}
 
 	svr.muxer = mux.NewMux(ln)
 	svr.muxer.SetKeepAlive(time.Duration(cfg.Transport.TCPKeepAlive) * time.Second)
