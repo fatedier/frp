@@ -305,7 +305,7 @@ func decodeJWKS(cfg v1.AuthOIDCServerConfig, jwks *jose.JSONWebKeySet) (*oidc.ID
 }
 
 func decodePemCert(cfg v1.AuthOIDCServerConfig) (*oidc.IDTokenVerifier, error) {
-	pemData, err := os.ReadFile(cfg.IssuerSpec.CertificatesFile)
+	pemData, err := os.ReadFile(cfg.IssuerSpec.PemFile)
 	if err != nil {
 		return nil, err
 	}
@@ -324,11 +324,11 @@ func decodePemCert(cfg v1.AuthOIDCServerConfig) (*oidc.IDTokenVerifier, error) {
 			}
 			keys = append(keys, cert.PublicKey.(crypto.PublicKey))
 		case "PUBLIC KEY":
-			cert, err := x509.ParseCertificate(block.Bytes)
+			key, err := x509.ParsePKIXPublicKey(block.Bytes)
 			if err != nil {
 				return nil, err
 			}
-			keys = append(keys, cert)
+			keys = append(keys, key)
 		default:
 			continue
 		}
@@ -354,7 +354,7 @@ func NewTokenVerifier(cfg v1.AuthOIDCServerConfig) TokenVerifier {
 		case cfg.IssuerSpec.JWKS != nil:
 		case cfg.IssuerSpec.JWKSFile != "":
 			verifier, err = decodeJWKS(cfg, cfg.IssuerSpec.JWKS)
-		case cfg.IssuerSpec.CertificatesFile != "":
+		case cfg.IssuerSpec.PemFile != "":
 			verifier, err = decodePemCert(cfg)
 		default:
 			panic(err)
