@@ -15,6 +15,7 @@
 package v1
 
 import (
+	"github.com/go-jose/go-jose/v4"
 	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/config/types"
@@ -138,6 +139,13 @@ func (c *AuthServerConfig) Complete() error {
 	return nil
 }
 
+// {"issuer":"https://kubernetes.default.svc.cluster.local","jwks_uri":"https://192.168.1.196:6443/openid/v1/jwks","response_types_supported":["id_token"],"subject_types_supported":["public"],"id_token_signing_alg_values_supported":["RS256"]}
+type AuthOIDCIssuer struct {
+	JWKS             *jose.JSONWebKeySet `json:"jwks,omitempty"`
+	JWKSFile         string              `json:"jwksFile,omitempty"`
+	CertificatesFile string              `json:"pemCertificatesFile,omitempty"`
+}
+
 type AuthOIDCServerConfig struct {
 	// Issuer specifies the issuer to verify OIDC tokens with. This issuer
 	// will be used to load public keys to verify signature and will be compared
@@ -152,6 +160,9 @@ type AuthOIDCServerConfig struct {
 	// SkipIssuerCheck specifies whether to skip checking if the OIDC token's
 	// issuer claim matches the issuer specified in OidcIssuer.
 	SkipIssuerCheck bool `json:"skipIssuerCheck,omitempty"`
+	// SkipIssuerCheck specifies whether to skip checking if the OIDC token's
+	// issuer claim matches the issuer specified in OidcIssuer.
+	IssuerSpec AuthOIDCIssuer `json:"issuerSpec,omitempty"`
 }
 
 type ServerTransportConfig struct {

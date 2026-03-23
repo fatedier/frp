@@ -16,8 +16,12 @@ package auth
 
 import (
 	"context"
+	"crypto"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -26,6 +30,7 @@ import (
 	"sync"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/go-jose/go-jose/v4"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 
@@ -273,10 +278,92 @@ type OidcAuthConsumer struct {
 	subjectsFromLogin map[string]struct{}
 }
 
+func decodeJWKS(cfg v1.AuthOIDCServerConfig, jwks *jose.JSONWebKeySet) (*oidc.IDTokenVerifier, error) {
+	if jwks == nil {
+		jwks = new(jose.JSONWebKeySet)
+		jwksData, err := os.ReadFile(cfg.IssuerSpec.JWKSFile)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(jwksData, jwks)
+		if err != nil {
+			return nil, err
+		}
+	}
+	keys := []crypto.PublicKey{}
+	for _, k := range jwks.Keys {
+		keys = append(keys, k.Key.(crypto.PublicKey))
+	}
+	verifierConf := &oidc.Config{
+		ClientID:          cfg.Audience,
+		SkipClientIDCheck: cfg.Audience == "",
+		SkipExpiryCheck:   cfg.SkipExpiryCheck,
+		SkipIssuerCheck:   cfg.SkipIssuerCheck,
+	}
+	keySet := &oidc.StaticKeySet{PublicKeys: keys}
+	return oidc.NewVerifier(cfg.Issuer, keySet, verifierConf), nil
+}
+
+func decodePemCert(cfg v1.AuthOIDCServerConfig) (*oidc.IDTokenVerifier, error) {
+	pemData, err := os.ReadFile(cfg.IssuerSpec.CertificatesFile)
+	if err != nil {
+		return nil, err
+	}
+	keys := []crypto.PublicKey{}
+	for len(pemData) > 0 {
+		var block *pem.Block
+		block, pemData = pem.Decode(pemData)
+		if block == nil {
+			break
+		}
+		switch block.Type {
+		case "CERTIFICATE":
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			keys = append(keys, cert.PublicKey.(crypto.PublicKey))
+		case "PUBLIC KEY":
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			keys = append(keys, cert)
+		default:
+			continue
+		}
+	}
+	if len(keys) == 0 {
+		return nil, errors.New("data does not contain any valid keys")
+	}
+	verifierConf := &oidc.Config{
+		ClientID:          cfg.Audience,
+		SkipClientIDCheck: cfg.Audience == "",
+		SkipExpiryCheck:   cfg.SkipExpiryCheck,
+		SkipIssuerCheck:   cfg.SkipIssuerCheck,
+	}
+	keySet := &oidc.StaticKeySet{PublicKeys: keys}
+	return oidc.NewVerifier(cfg.Issuer, keySet, verifierConf), nil
+}
+
 func NewTokenVerifier(cfg v1.AuthOIDCServerConfig) TokenVerifier {
+	var verifier TokenVerifier
 	provider, err := oidc.NewProvider(context.Background(), cfg.Issuer)
 	if err != nil {
-		panic(err)
+		switch {
+		case cfg.IssuerSpec.JWKS != nil:
+		case cfg.IssuerSpec.JWKSFile != "":
+			verifier, err = decodeJWKS(cfg, cfg.IssuerSpec.JWKS)
+		case cfg.IssuerSpec.CertificatesFile != "":
+			verifier, err = decodePemCert(cfg)
+		default:
+			panic(err)
+		}
+		if err != nil {
+			panic(err)
+
+		}
+		return verifier
 	}
 	verifierConf := oidc.Config{
 		ClientID:          cfg.Audience,

@@ -25,6 +25,10 @@ func (m *mockTokenVerifier) Verify(ctx context.Context, subject string) (*oidc.I
 	}, nil
 }
 
+func TestPingWithStaticKeysSucceeeded(t *testing.T) {
+	panic("TODO")
+}
+
 func TestPingWithEmptySubjectFromLoginFails(t *testing.T) {
 	r := require.New(t)
 	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, &mockTokenVerifier{})
