@@ -372,6 +372,7 @@ func sendSidMessage(
 		err = uConn.SetTTL(ttl)
 		if err != nil {
 			xl.Tracef("set ttl error %v", err)
+			return err
 		} else {
 			defer func() {
 				_ = uConn.SetTTL(original)
