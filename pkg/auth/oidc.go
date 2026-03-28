@@ -19,9 +19,6 @@ import (
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
-	"encoding/pem"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -30,7 +27,6 @@ import (
 	"sync"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/go-jose/go-jose/v4"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 
@@ -79,6 +75,17 @@ func createOIDCHTTPClient(trustedCAFile string, insecureSkipVerify bool, proxyUR
 	}
 
 	return &http.Client{Transport: transport}, nil
+}
+
+func VerifierFromPublicKeys(cfg v1.AuthOIDCServerConfig, keys []crypto.PublicKey) (*oidc.IDTokenVerifier, error) {
+	verifierConf := &oidc.Config{
+		ClientID:          cfg.Audience,
+		SkipClientIDCheck: cfg.Audience == "",
+		SkipExpiryCheck:   cfg.SkipExpiryCheck,
+		SkipIssuerCheck:   cfg.SkipIssuerCheck,
+	}
+	keySet := &oidc.StaticKeySet{PublicKeys: keys}
+	return oidc.NewVerifier(cfg.Issuer, keySet, verifierConf), nil
 }
 
 // nonCachingTokenSource wraps a clientcredentials.Config to fetch a fresh
@@ -278,90 +285,39 @@ type OidcAuthConsumer struct {
 	subjectsFromLogin map[string]struct{}
 }
 
-func decodeJWKS(cfg v1.AuthOIDCServerConfig, jwks *jose.JSONWebKeySet) (*oidc.IDTokenVerifier, error) {
-	if jwks == nil {
-		jwks = new(jose.JSONWebKeySet)
-		jwksData, err := os.ReadFile(cfg.IssuerSpec.JWKSFile)
+func NewTokenVerifierFromStatic(cfg v1.AuthOIDCServerConfig) (TokenVerifier, error) {
+	if cfg.IssuerSpec.PemFile != "" {
+		pemBytes, err := os.ReadFile(cfg.IssuerSpec.PemFile)
+		if err == nil {
+			key, err := DecodePemCert(pemBytes)
+			if err != nil {
+				return nil, err
+			}
+			return VerifierFromPublicKeys(cfg, key)
+		}
+	}
+	if cfg.IssuerSpec.JWKSFile != "" {
+		jwksBytes, err := os.ReadFile(cfg.IssuerSpec.JWKSFile)
 		if err != nil {
 			return nil, err
-		}
-		err = json.Unmarshal(jwksData, jwks)
-		if err != nil {
-			return nil, err
-		}
-	}
-	keys := []crypto.PublicKey{}
-	for _, k := range jwks.Keys {
-		keys = append(keys, k.Key.(crypto.PublicKey))
-	}
-	verifierConf := &oidc.Config{
-		ClientID:          cfg.Audience,
-		SkipClientIDCheck: cfg.Audience == "",
-		SkipExpiryCheck:   cfg.SkipExpiryCheck,
-		SkipIssuerCheck:   cfg.SkipIssuerCheck,
-	}
-	keySet := &oidc.StaticKeySet{PublicKeys: keys}
-	return oidc.NewVerifier(cfg.Issuer, keySet, verifierConf), nil
-}
 
-func decodePemCert(cfg v1.AuthOIDCServerConfig) (*oidc.IDTokenVerifier, error) {
-	pemData, err := os.ReadFile(cfg.IssuerSpec.PemFile)
-	if err != nil {
-		return nil, err
-	}
-	keys := []crypto.PublicKey{}
-	for len(pemData) > 0 {
-		var block *pem.Block
-		block, pemData = pem.Decode(pemData)
-		if block == nil {
-			break
 		}
-		switch block.Type {
-		case "CERTIFICATE":
-			cert, err := x509.ParseCertificate(block.Bytes)
-			if err != nil {
-				return nil, err
-			}
-			keys = append(keys, cert.PublicKey.(crypto.PublicKey))
-		case "PUBLIC KEY":
-			key, err := x509.ParsePKIXPublicKey(block.Bytes)
-			if err != nil {
-				return nil, err
-			}
-			keys = append(keys, key)
-		default:
-			continue
+		jwks, err := DecodeJWKSFile(jwksBytes)
+		if err != nil {
+			return nil, err
+
 		}
+		return VerifierFromPublicKeys(cfg, DecodeJWKS(jwks))
 	}
-	if len(keys) == 0 {
-		return nil, errors.New("data does not contain any valid keys")
-	}
-	verifierConf := &oidc.Config{
-		ClientID:          cfg.Audience,
-		SkipClientIDCheck: cfg.Audience == "",
-		SkipExpiryCheck:   cfg.SkipExpiryCheck,
-		SkipIssuerCheck:   cfg.SkipIssuerCheck,
-	}
-	keySet := &oidc.StaticKeySet{PublicKeys: keys}
-	return oidc.NewVerifier(cfg.Issuer, keySet, verifierConf), nil
+	return VerifierFromPublicKeys(cfg, DecodeJWKS(cfg.IssuerSpec.JWKS))
 }
 
 func NewTokenVerifier(cfg v1.AuthOIDCServerConfig) TokenVerifier {
-	var verifier TokenVerifier
 	provider, err := oidc.NewProvider(context.Background(), cfg.Issuer)
 	if err != nil {
-		switch {
-		case cfg.IssuerSpec.JWKS != nil:
-		case cfg.IssuerSpec.JWKSFile != "":
-			verifier, err = decodeJWKS(cfg, cfg.IssuerSpec.JWKS)
-		case cfg.IssuerSpec.PemFile != "":
-			verifier, err = decodePemCert(cfg)
-		default:
-			panic(err)
-		}
+		verifier, err := NewTokenVerifierFromStatic(cfg)
 		if err != nil {
 			panic(err)
-
 		}
 		return verifier
 	}
