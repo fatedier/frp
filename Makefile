@@ -73,3 +73,6 @@ clean:
 	rm -f ./bin/frpc
 	rm -f ./bin/frps
 	rm -rf ./lastversion
+
+lint:
+	golangci-lint run

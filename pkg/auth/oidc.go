@@ -300,12 +300,10 @@ func NewTokenVerifierFromStatic(cfg v1.AuthOIDCServerConfig) (TokenVerifier, err
 		jwksBytes, err := os.ReadFile(cfg.IssuerSpec.JWKSFile)
 		if err != nil {
 			return nil, err
-
 		}
 		jwks, err := DecodeJWKSFile(jwksBytes)
 		if err != nil {
 			return nil, err
-
 		}
 		return VerifierFromPublicKeys(cfg, DecodeJWKS(jwks))
 	}

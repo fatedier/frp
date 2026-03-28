@@ -12,13 +12,13 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/stretchr/testify/require"
 
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
-	"github.com/go-jose/go-jose/v4"
-	"github.com/go-jose/go-jose/v4/jwt"
 )
 
 type mockTokenVerifier struct{}
@@ -306,6 +306,7 @@ func TestPingAfterStaticLoginSucceeds(t *testing.T) {
 	r.NoError((err))
 	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, verifier)
 	token, err := builder.Serialize()
+	r.NoError(err)
 
 	err = consumer.VerifyLogin(&msg.Login{
 		PrivilegeKey: token,
@@ -342,6 +343,7 @@ func TestExpiredTokenStaticLoginFailed(t *testing.T) {
 	r.NoError((err))
 	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, verifier)
 	token, err := builder.Serialize()
+	r.NoError(err)
 
 	err = consumer.VerifyLogin(&msg.Login{
 		PrivilegeKey: token,
@@ -373,6 +375,7 @@ func TestBadAudienceStaticLoginFailed(t *testing.T) {
 	r.NoError((err))
 	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, verifier)
 	token, err := builder.Serialize()
+	r.NoError(err)
 
 	err = consumer.VerifyLogin(&msg.Login{
 		PrivilegeKey: token,
@@ -404,6 +407,7 @@ func TestBadIssuerStaticLoginFailed(t *testing.T) {
 	r.NoError((err))
 	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, verifier)
 	token, err := builder.Serialize()
+	r.NoError(err)
 
 	err = consumer.VerifyLogin(&msg.Login{
 		PrivilegeKey: token,
@@ -434,6 +438,7 @@ func TestPingAfterStaticLoginCrossJKWSPemSucceeds(t *testing.T) {
 	r.NoError((err))
 	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, verifier)
 	token, err := builder.Serialize()
+	r.NoError(err)
 
 	err = consumer.VerifyLogin(&msg.Login{
 		PrivilegeKey: token,
@@ -469,6 +474,7 @@ func TestBadPublicKeyStaticLoginFailed(t *testing.T) {
 	r.NoError((err))
 	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, verifier)
 	token, err := builder.Serialize()
+	r.NoError(err)
 
 	err = consumer.VerifyLogin(&msg.Login{
 		PrivilegeKey: token,

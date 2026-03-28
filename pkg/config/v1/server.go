@@ -139,7 +139,6 @@ func (c *AuthServerConfig) Complete() error {
 	return nil
 }
 
-// {"issuer":"https://kubernetes.default.svc.cluster.local","jwks_uri":"https://192.168.1.196:6443/openid/v1/jwks","response_types_supported":["id_token"],"subject_types_supported":["public"],"id_token_signing_alg_values_supported":["RS256"]}
 type AuthOIDCIssuer struct {
 	JWKS     *jose.JSONWebKeySet `json:"jwks,omitempty"`
 	JWKSFile string              `json:"jwksFile,omitempty"`
