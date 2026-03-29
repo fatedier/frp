@@ -150,7 +150,9 @@ We sincerely appreciate your support for frp.
 
 ## Architecture
 
-![architecture](/doc/pic/architecture.png)
+<p align="center">
+  <img src="/doc/pic/architecture.jpg" alt="architecture" width="760">
+</p>
 
 ## Example Usage
 
