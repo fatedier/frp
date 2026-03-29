@@ -119,6 +119,7 @@ func (c *defaultConnectorImpl) Open() error {
 	fmuxCfg.MaxStreamWindowSize = 6 * 1024 * 1024
 	session, err := fmux.Client(conn, fmuxCfg)
 	if err != nil {
+		conn.Close()
 		return err
 	}
 	c.muxSession = session
