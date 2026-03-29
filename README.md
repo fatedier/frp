@@ -13,6 +13,16 @@ frp is an open source project with its ongoing development made possible entirel
 
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
+<p align="center">
+  <a href="https://github.com/beclab/Olares" target="_blank">
+    <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_olares.jpeg">
+	<br>
+	<b>The sovereign cloud that puts you in control</b>
+	<br>
+	<sub>An open source, self-hosted alternative to public clouds, built for data ownership and privacy</sub>
+  </a>
+</p>
+
 <div align="center">
 
 ## Recall.ai - API for meeting recordings
@@ -38,16 +48,6 @@ an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and 
     <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_jetbrains.jpg">
 	<br>
 	<b>The complete IDE crafted for professional Go developers</b>
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/beclab/Olares" target="_blank">
-    <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_olares.jpeg">
-	<br>
-	<b>The sovereign cloud that puts you in control</b>
-	<br>
-	<sub>An open source, self-hosted alternative to public clouds, built for data ownership and privacy</sub>
   </a>
 </p>
 <!--gold sponsors end-->
@@ -81,6 +81,7 @@ frp also offers a P2P connect mode.
     * [Split Configures Into Different Files](#split-configures-into-different-files)
     * [Server Dashboard](#server-dashboard)
     * [Client Admin UI](#client-admin-ui)
+        * [Dynamic Proxy Management (Store)](#dynamic-proxy-management-store)
     * [Monitor](#monitor)
         * [Prometheus](#prometheus)
     * [Authenticating the Client](#authenticating-the-client)
@@ -593,7 +594,7 @@ Then visit `https://[serverAddr]:7500` to see the dashboard in secure HTTPS conn
 
 ### Client Admin UI
 
-The Client Admin UI helps you check and manage frpc's configuration.
+The Client Admin UI helps you check and manage frpc's configuration and proxies.
 
 Configure an address for admin UI to enable this feature:
 
@@ -605,6 +606,19 @@ webServer.password = "admin"
 ```
 
 Then visit `http://127.0.0.1:7400` to see admin UI, with username and password both being `admin`.
+
+#### Dynamic Proxy Management (Store)
+
+You can dynamically create, update, and delete proxies and visitors at runtime through the Web UI or API, without restarting frpc.
+
+To enable this feature, configure `store.path` to specify a file for persisting the configurations:
+
+```toml
+[store]
+path = "./db.json"
+```
+
+Proxies and visitors managed through the Store are saved to disk and automatically restored on frpc restart. They work alongside proxies defined in the configuration file — Store entries take precedence when names conflict.
 
 ### Monitor
 
