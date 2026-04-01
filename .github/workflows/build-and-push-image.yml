@@ -31,11 +31,13 @@ jobs:
 
       # get image tag name
       - name: Get Image Tag Name
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
-          if [ x${{ github.event.inputs.tag }} == x"" ]; then
+          if [ x"$INPUT_TAG" == x"" ]; then
             echo "TAG_NAME=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
           else
-            echo "TAG_NAME=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
+            echo "TAG_NAME=$INPUT_TAG" >> $GITHUB_ENV
           fi
       - name: Login to DockerHub
         uses: docker/login-action@v4
