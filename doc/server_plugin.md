@@ -57,11 +57,12 @@ The response can look like any of the following:
 }
 ```
 
-* Allow operation and modify content
+* Allow operation and modify content:
 
 ```
 {
-    "unchange": "false",
+    "reject": false,
+    "unchange": false,
     "content": {
         ... // Replaced content
     }
@@ -70,7 +71,7 @@ The response can look like any of the following:
 
 ### Operation
 
-Currently `Login`, `NewProxy`, `CloseProxy`, `Ping`, `NewWorkConn` and `NewUserConn` operations are supported.
+Currently `Login`, `NewProxy`, `CloseProxy`, `Ping`, `NewWorkConn`, `NewUserConn` and `NewVisitorConn` operations are supported.
 
 #### Login
 
@@ -214,6 +215,23 @@ New user connection received from proxy (support `tcp`, `stcp`, `https` and `tcp
 }
 ```
 
+#### NewVisitorConn
+
+New visitor connection received for visitor-based proxies (`stcp`, `sudp`).
+
+```
+{ "content": { 
+    "user": { "user": <string>
+     "metas": map<string>string 
+     "run_id": <string>
+    },
+     "proxy_name": <string>,
+      "proxy_type": <string>,
+       "remote_addr": <string>
+        } 
+    }
+```
+
 ### Server Plugin Configuration
 
 ```toml
@@ -233,10 +251,10 @@ path = "/handler"
 ops = ["NewProxy"]
 ```
 
-- addr: the address where the external RPC service listens. Defaults to http. For https, specify the schema: `addr = "https://127.0.0.1:9001"`.
-- path: http request url path for the POST request.
-- ops: operations plugin needs to handle (e.g. "Login", "NewProxy", ...).
-- tlsVerify: When the schema is https, we verify by default. Set this value to false if you want to skip verification.
+* addr: the address where the external RPC service listens. Defaults to http. For https, specify the schema: `addr = "https://127.0.0.1:9001"`.
+* path: http request url path for the POST request.
+* ops: operations plugin needs to handle (e.g. "Login", "NewProxy", ...).
+* tlsVerify: When the schema is https, we verify by default. Set this value to false if you want to skip verification.
 
 ### Metadata
 
