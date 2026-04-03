@@ -684,6 +684,7 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 }
 
 func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVisitorConn) error {
+	xl := netpkg.NewLogFromConn(visitorConn)
 	visitorUser := ""
 	// TODO(deprecation): Compatible with old versions, can be without runID, user is empty. In later versions, it will be mandatory to include runID.
 	// If runID is required, it is not compatible with versions prior to v0.50.0.
@@ -694,6 +695,24 @@ func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVis
 		}
 		visitorUser = ctl.sessionCtx.LoginMsg.User
 	}
-	return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
+
+	// SERVER PLUGIN HOOK - NEW VISITOR CONNECTION
+	content := &plugin.NewVisitorConnContent{
+		User: plugin.UserInfo{
+			User:  visitorUser,
+			RunID: newMsg.RunID,
+		},
+		ProxyName:  newMsg.ProxyName,
+		ProxyType:  "stcp", // Default type, could be determined from proxy config
+		RemoteAddr: visitorConn.RemoteAddr().String(),
+	}
+
+	retContent, err := svr.pluginManager.NewVisitorConn(content)
+	if err != nil {
+		xl.Warnf("visitor connection [%s] rejected by plugin: %v", newMsg.ProxyName, err)
+		return err
+	}
+
+	return svr.rc.VisitorManager.NewConn(retContent.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
 		newMsg.UseEncryption, newMsg.UseCompression, visitorUser)
 }

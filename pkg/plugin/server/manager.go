@@ -25,22 +25,24 @@ import (
 )
 
 type Manager struct {
-	loginPlugins       []Plugin
-	newProxyPlugins    []Plugin
-	closeProxyPlugins  []Plugin
-	pingPlugins        []Plugin
-	newWorkConnPlugins []Plugin
-	newUserConnPlugins []Plugin
+	loginPlugins          []Plugin
+	newProxyPlugins       []Plugin
+	closeProxyPlugins     []Plugin
+	pingPlugins           []Plugin
+	newWorkConnPlugins    []Plugin
+	newUserConnPlugins    []Plugin
+	newVisitorConnPlugins []Plugin
 }
 
 func NewManager() *Manager {
 	return &Manager{
-		loginPlugins:       make([]Plugin, 0),
-		newProxyPlugins:    make([]Plugin, 0),
-		closeProxyPlugins:  make([]Plugin, 0),
-		pingPlugins:        make([]Plugin, 0),
-		newWorkConnPlugins: make([]Plugin, 0),
-		newUserConnPlugins: make([]Plugin, 0),
+		loginPlugins:          make([]Plugin, 0),
+		newProxyPlugins:       make([]Plugin, 0),
+		closeProxyPlugins:     make([]Plugin, 0),
+		pingPlugins:           make([]Plugin, 0),
+		newWorkConnPlugins:    make([]Plugin, 0),
+		newUserConnPlugins:    make([]Plugin, 0),
+		newVisitorConnPlugins: make([]Plugin, 0),
 	}
 }
 
@@ -62,6 +64,9 @@ func (m *Manager) Register(p Plugin) {
 	}
 	if p.IsSupport(OpNewUserConn) {
 		m.newUserConnPlugins = append(m.newUserConnPlugins, p)
+	}
+	if p.IsSupport(OpNewVisitorConn) {
+		m.newVisitorConnPlugins = append(m.newVisitorConnPlugins, p)
 	}
 }
 
@@ -255,6 +260,40 @@ func (m *Manager) NewUserConn(content *NewUserConnContent) (*NewUserConnContent,
 		}
 		if !res.Unchange {
 			content = retContent.(*NewUserConnContent)
+		}
+	}
+	return content, nil
+}
+
+func (m *Manager) NewVisitorConn(content *NewVisitorConnContent) (*NewVisitorConnContent, error) {
+	if len(m.newVisitorConnPlugins) == 0 {
+		return content, nil
+	}
+
+	var (
+		res = &Response{
+			Reject:   false,
+			Unchange: true,
+		}
+		retContent any
+		err        error
+	)
+	reqid, _ := util.RandID()
+	xl := xlog.New().AppendPrefix("reqid: " + reqid)
+	ctx := xlog.NewContext(context.Background(), xl)
+	ctx = NewReqidContext(ctx, reqid)
+
+	for _, p := range m.newVisitorConnPlugins {
+		res, retContent, err = p.Handle(ctx, OpNewVisitorConn, *content)
+		if err != nil {
+			xl.Infof("send NewVisitorConn request to plugin [%s] error: %v", p.Name(), err)
+			return nil, errors.New("send NewVisitorConn request to plugin error")
+		}
+		if res.Reject {
+			return nil, fmt.Errorf("%s", res.RejectReason)
+		}
+		if !res.Unchange {
+			content = retContent.(*NewVisitorConnContent)
 		}
 	}
 	return content, nil
