@@ -365,6 +365,103 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 		})
 	})
 
+	ginkgo.Describe("NewVisitorConn", func() {
+		newFunc := func() *plugin.Request {
+			var r plugin.Request
+			r.Content = &plugin.NewVisitorConnContent{}
+			return &r
+		}
+
+		ginkgo.It("Accept visitor connection", func() {
+			localPort := f.AllocPort()
+
+			var recordedProxyName string
+			handler := func(req *plugin.Request) *plugin.Response {
+				var ret plugin.Response
+				content := req.Content.(*plugin.NewVisitorConnContent)
+				recordedProxyName = content.ProxyName
+				ret.Unchange = true
+				return &ret
+			}
+			pluginServer := pluginpkg.NewHTTPPluginServer(localPort, newFunc, handler, nil)
+
+			f.RunServer("", pluginServer)
+
+			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+        [[httpPlugins]]
+        name = "test"
+        addr = "127.0.0.1:%d"
+        path = "/handler"
+        ops = ["NewVisitorConn"]
+        `, localPort)
+
+			clientConf := consts.DefaultClientConfig
+			clientConf += `
+        [[proxies]]
+        name = "stcp"
+        type = "stcp"
+        secretKey = "abcdefg"
+        localIP = "127.0.0.1"
+        localPort = 22
+        `
+
+			f.RunProcesses(serverConf, []string{clientConf})
+
+			framework.ExpectEqual(recordedProxyName, "stcp")
+		})
+
+		ginkgo.It("Reject visitor connection", func() {
+			localPort := f.AllocPort()
+
+			handler := func(req *plugin.Request) *plugin.Response {
+				var ret plugin.Response
+				ret.Reject = true
+				ret.RejectReason = "visitor rejected by plugin"
+				return &ret
+			}
+			pluginServer := pluginpkg.NewHTTPPluginServer(localPort, newFunc, handler, nil)
+
+			f.RunServer("", pluginServer)
+
+			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+        [[httpPlugins]]
+        name = "test"
+        addr = "127.0.0.1:%d"
+        path = "/handler"
+        ops = ["NewVisitorConn"]
+        `, localPort)
+
+			clientConf := consts.DefaultClientConfig
+			clientConf += `
+        [[proxies]]
+        name = "stcp"
+        type = "stcp"
+        secretKey = "abcdefg"
+        localIP = "127.0.0.1"
+        localPort = 22
+        `
+
+			visitorConf := consts.DefaultClientConfig
+			visitorConf += `
+        [[visitors]]
+        name = "stcp_visitor"
+        type = "stcp"
+        serverName = "stcp"
+        secretKey = "abcdefg"
+        bindAddr = "127.0.0.1"
+        bindPort = 9000
+        `
+
+			f.RunProcesses(serverConf, []string{clientConf, visitorConf})
+
+			// Give the visitor connection time to attempt
+			time.Sleep(500 * time.Millisecond)
+
+			// Connection should fail due to plugin rejection
+			framework.NewRequestExpect(f).Port(9000).ExpectError(true).Ensure()
+		})
+	})
+
 	ginkgo.Describe("HTTPS Protocol", func() {
 		newFunc := func() *plugin.Request {
 			var r plugin.Request
