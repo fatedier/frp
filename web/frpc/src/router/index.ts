@@ -1,8 +1,12 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ClientConfigure from '../views/ClientConfigure.vue'
+import ProxyDetail from '../views/ProxyDetail.vue'
 import ProxyEdit from '../views/ProxyEdit.vue'
+import ProxyList from '../views/ProxyList.vue'
+import VisitorDetail from '../views/VisitorDetail.vue'
 import VisitorEdit from '../views/VisitorEdit.vue'
+import VisitorList from '../views/VisitorList.vue'
 import { useProxyStore } from '../stores/proxy'
 
 const router = createRouter({
@@ -15,12 +19,12 @@ const router = createRouter({
     {
       path: '/proxies',
       name: 'ProxyList',
-      component: () => import('../views/ProxyList.vue'),
+      component: ProxyList,
     },
     {
       path: '/proxies/detail/:name',
       name: 'ProxyDetail',
-      component: () => import('../views/ProxyDetail.vue'),
+      component: ProxyDetail,
     },
     {
       path: '/proxies/create',
@@ -37,12 +41,12 @@ const router = createRouter({
     {
       path: '/visitors',
       name: 'VisitorList',
-      component: () => import('../views/VisitorList.vue'),
+      component: VisitorList,
     },
     {
       path: '/visitors/detail/:name',
       name: 'VisitorDetail',
-      component: () => import('../views/VisitorDetail.vue'),
+      component: VisitorDetail,
     },
     {
       path: '/visitors/create',
