@@ -4,6 +4,7 @@ import ClientConfigure from '../views/ClientConfigure.vue'
 import ProxyDetail from '../views/ProxyDetail.vue'
 import ProxyEdit from '../views/ProxyEdit.vue'
 import ProxyList from '../views/ProxyList.vue'
+import Transport from '../views/Transport.vue'
 import VisitorDetail from '../views/VisitorDetail.vue'
 import VisitorEdit from '../views/VisitorEdit.vue'
 import VisitorList from '../views/VisitorList.vue'
@@ -59,6 +60,11 @@ const router = createRouter({
       name: 'VisitorEdit',
       component: VisitorEdit,
       meta: { requiresStore: true },
+    },
+    {
+      path: '/transport',
+      name: 'Transport',
+      component: Transport,
     },
     {
       path: '/config',

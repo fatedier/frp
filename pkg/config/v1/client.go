@@ -92,7 +92,7 @@ func (c *ClientCommonConfig) Complete() error {
 		return err
 	}
 	c.Log.Complete()
-	c.Transport.Complete()
+	c.Transport.Complete(c.ServerPort)
 	c.WebServer.Complete()
 
 	c.UDPPacketSize = util.EmptyOr(c.UDPPacketSize, 1500)
@@ -139,9 +139,11 @@ type ClientTransportConfig struct {
 	HeartbeatTimeout int64 `json:"heartbeatTimeout,omitempty"`
 	// TLS specifies TLS settings for the connection to the server.
 	TLS TLSClientConfig `json:"tls,omitempty"`
+	// Auto specifies client-side automatic transport selection options.
+	Auto ClientAutoTransportConfig `json:"auto,omitempty"`
 }
 
-func (c *ClientTransportConfig) Complete() {
+func (c *ClientTransportConfig) Complete(serverPort int) {
 	c.Protocol = util.EmptyOr(c.Protocol, "tcp")
 	c.DialServerTimeout = util.EmptyOr(c.DialServerTimeout, 10)
 	c.DialServerKeepAlive = util.EmptyOr(c.DialServerKeepAlive, 7200)
@@ -159,6 +161,7 @@ func (c *ClientTransportConfig) Complete() {
 	}
 	c.QUIC.Complete()
 	c.TLS.Complete()
+	c.Auto.Complete(c.Protocol, serverPort)
 }
 
 type TLSClientConfig struct {

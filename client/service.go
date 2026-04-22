@@ -144,6 +144,8 @@ type Service struct {
 
 	unsafeFeatures *security.UnsafeFeatures
 
+	autoTransport *autoTransportManager
+
 	// The configuration file used to initialize this client, or an empty
 	// string if no configuration file was used.
 	configFilePath string
@@ -218,7 +220,22 @@ func NewService(options ServiceOptions) (*Service, error) {
 	if options.Common.VirtualNet.Address != "" {
 		s.vnetController = vnet.NewController(options.Common.VirtualNet)
 	}
+	if options.Common.Transport.Protocol == v1.TransportProtocolAuto && lo.FromPtr(options.Common.Transport.Auto.Enabled) {
+		s.autoTransport = newAutoTransportManager(
+			options.Common,
+			authRuntime,
+			options.ConnectorCreator,
+			autoTransportStatePath(options.ConfigFilePath),
+		)
+	}
 	return s, nil
+}
+
+func autoTransportStatePath(configFilePath string) string {
+	if configFilePath == "" {
+		return ""
+	}
+	return configFilePath + ".auto_transport_state"
 }
 
 func (svr *Service) Run(ctx context.Context) error {
@@ -257,7 +274,7 @@ func (svr *Service) Run(ctx context.Context) error {
 	}
 
 	// first login to frps
-	svr.loopLoginUntilSuccess(10*time.Second, lo.FromPtr(svr.common.LoginFailExit))
+	svr.loopLoginUntilSuccess(10*time.Second, lo.FromPtr(svr.common.LoginFailExit), autoTransportReasonStartup)
 	if svr.ctl == nil {
 		cancelCause := cancelErr{}
 		_ = errors.As(context.Cause(svr.ctx), &cancelCause)
@@ -282,7 +299,7 @@ func (svr *Service) keepControllerWorking() {
 	wait.BackoffUntil(func() (bool, error) {
 		// loopLoginUntilSuccess is another layer of loop that will continuously attempt to
 		// login to the server until successful.
-		svr.loopLoginUntilSuccess(20*time.Second, false)
+		svr.loopLoginUntilSuccess(20*time.Second, false, autoTransportReasonControlClosed)
 		if svr.ctl != nil {
 			<-svr.ctl.Done()
 			return false, errors.New("control is closed and try another loop")
@@ -306,11 +323,26 @@ func (svr *Service) keepControllerWorking() {
 // login creates a connection to frps and registers it self as a client
 // conn: control connection
 // session: if it's not nil, using tcp mux
-func (svr *Service) login() (conn net.Conn, connector Connector, err error) {
+func (svr *Service) login(reason string) (
+	conn net.Conn,
+	connector Connector,
+	connectCfg *v1.ClientCommonConfig,
+	autoSelection *autoTransportSelection,
+	err error,
+) {
 	xl := xlog.FromContextSafe(svr.ctx)
-	connector = svr.connectorCreator(svr.ctx, svr.common)
+	connectCfg = svr.common
+	if svr.autoTransport != nil {
+		autoSelection, err = svr.autoTransport.selectTransport(svr.ctx, reason)
+		if err != nil {
+			return nil, nil, nil, autoSelection, err
+		}
+		connectCfg = autoSelection.Cfg
+	}
+
+	connector = svr.connectorCreator(svr.ctx, connectCfg)
 	if err = connector.Open(); err != nil {
-		return nil, nil, err
+		return nil, nil, connectCfg, autoSelection, err
 	}
 
 	defer func() {
@@ -330,13 +362,13 @@ func (svr *Service) login() (conn net.Conn, connector Connector, err error) {
 		Arch:      runtime.GOARCH,
 		Os:        runtime.GOOS,
 		Hostname:  hostname,
-		PoolCount: svr.common.Transport.PoolCount,
-		User:      svr.common.User,
-		ClientID:  svr.common.ClientID,
+		PoolCount: connectCfg.Transport.PoolCount,
+		User:      connectCfg.User,
+		ClientID:  connectCfg.ClientID,
 		Version:   version.Full(),
 		Timestamp: time.Now().Unix(),
 		RunID:     svr.runID,
-		Metas:     svr.common.Metadatas,
+		Metas:     connectCfg.Metadatas,
 	}
 	if svr.clientSpec != nil {
 		loginMsg.ClientSpec = *svr.clientSpec
@@ -345,6 +377,19 @@ func (svr *Service) login() (conn net.Conn, connector Connector, err error) {
 	// Add auth
 	if err = svr.auth.Setter.SetLogin(loginMsg); err != nil {
 		return
+	}
+
+	if autoSelection != nil && autoSelection.SendSelect {
+		if err = msg.WriteMsg(conn, &msg.SelectTransport{
+			Protocol:          autoSelection.Candidate.Protocol,
+			Addr:              autoSelection.Candidate.Addr,
+			Port:              autoSelection.Candidate.Port,
+			Reason:            autoSelection.Reason,
+			Scores:            autoSelection.Scores,
+			ClientAutoVersion: msg.AutoTransportVersion,
+		}); err != nil {
+			return
+		}
 	}
 
 	if err = msg.WriteMsg(conn, loginMsg); err != nil {
@@ -371,19 +416,28 @@ func (svr *Service) login() (conn net.Conn, connector Connector, err error) {
 	return
 }
 
-func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginExit bool) {
+func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginExit bool, reason string) {
 	xl := xlog.FromContextSafe(svr.ctx)
+	loginReason := reason
 
 	loginFunc := func() (bool, error) {
 		xl.Infof("try to connect to server...")
-		conn, connector, err := svr.login()
+		conn, connector, connectCfg, autoSelection, err := svr.login(loginReason)
 		if err != nil {
 			xl.Warnf("connect to server error: %v", err)
+			if svr.autoTransport != nil && autoSelection != nil {
+				svr.autoTransport.reportLoginFailure(autoSelection.Candidate.Protocol)
+			}
+			loginReason = autoTransportReasonLoginFailure
 			if firstLoginExit {
 				svr.cancel(cancelErr{Err: err})
 			}
 			return false, err
 		}
+		if svr.autoTransport != nil && autoSelection != nil {
+			svr.autoTransport.reportLoginSuccess(autoSelection.Candidate.Protocol)
+		}
+		loginReason = reason
 
 		svr.cfgMu.RLock()
 		proxyCfgs := svr.proxyCfgs
@@ -393,13 +447,14 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		connEncrypted := svr.clientSpec == nil || svr.clientSpec.Type != "ssh-tunnel"
 
 		sessionCtx := &SessionContext{
-			Common:         svr.common,
+			Common:         connectCfg,
 			RunID:          svr.runID,
 			Conn:           conn,
 			ConnEncrypted:  connEncrypted,
 			Auth:           svr.auth,
 			Connector:      connector,
 			VnetController: svr.vnetController,
+			AutoTransport:  svr.autoTransport,
 		}
 		ctl, err := NewControl(svr.ctx, sessionCtx)
 		if err != nil {
@@ -536,6 +591,20 @@ func (svr *Service) StatusExporter() StatusExporter {
 	return &statusExporterImpl{
 		getProxyStatusFunc: svr.getProxyStatus,
 	}
+}
+
+func (svr *Service) TransportStatus(_ *httppkg.Context) (any, error) {
+	if svr.autoTransport != nil {
+		return svr.autoTransport.status(), nil
+	}
+	return AutoTransportStatus{
+		AutoEnabled:      false,
+		State:            "STATIC",
+		CurrentProtocol:  svr.common.Transport.Protocol,
+		CurrentAddr:      svr.common.ServerAddr,
+		CurrentPort:      svr.common.ServerPort,
+		LastGoodProtocol: svr.common.Transport.Protocol,
+	}, nil
 }
 
 type StatusExporter interface {

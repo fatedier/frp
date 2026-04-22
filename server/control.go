@@ -117,6 +117,8 @@ type SessionContext struct {
 	ServerCfg *v1.ServerConfig
 	// client registry
 	ClientRegistry *registry.ClientRegistry
+	// selected transport protocol for auto mode, empty for static clients.
+	Transport string
 }
 
 type Control struct {
@@ -350,6 +352,7 @@ func (ctl *Control) worker() {
 	}
 
 	metrics.Server.CloseClient()
+	metrics.Server.AutoTransportClientOffline(ctl.sessionCtx.Transport)
 	ctl.sessionCtx.ClientRegistry.MarkOfflineByRunID(ctl.runID)
 	xl.Infof("client exit success")
 	close(ctl.doneCh)

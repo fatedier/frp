@@ -35,6 +35,25 @@ func TestClientConfigComplete(t *testing.T) {
 	require.NotEmpty(c.NatHoleSTUNServer)
 }
 
+func TestClientConfigComplete_AutoTransportDefaults(t *testing.T) {
+	require := require.New(t)
+	c := &ClientConfig{}
+	c.ServerPort = 17000
+	c.Transport.Protocol = TransportProtocolAuto
+	err := c.Complete()
+	require.NoError(err)
+
+	require.True(lo.FromPtr(c.Transport.Auto.Enabled))
+	require.Equal(DefaultAutoTransportCandidates, c.Transport.Auto.Candidates)
+	require.True(lo.FromPtr(c.Transport.Auto.AllowUDP))
+	require.Equal("balanced", c.Transport.Auto.Strategy)
+	require.Equal(1200, c.Transport.Auto.ProbeTimeoutMs)
+	require.Equal(2, c.Transport.Auto.ProbeCount)
+	require.True(lo.FromPtr(c.Transport.Auto.PersistLastGood))
+	require.Equal(17000, c.Transport.Auto.BootstrapPort)
+	require.Equal(TransportProtocolTCP, c.Transport.Auto.BootstrapProtocol)
+}
+
 func TestAuthClientConfig_Complete(t *testing.T) {
 	require := require.New(t)
 	cfg := &AuthClientConfig{}

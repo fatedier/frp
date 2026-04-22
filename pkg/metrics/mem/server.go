@@ -51,6 +51,13 @@ func newServerMetrics() *serverMetrics {
 			ClientCounts:    metric.NewCounter(),
 			ProxyTypeCounts: make(map[string]metric.Counter),
 
+			AutoNegotiationSuccess:         metric.NewCounter(),
+			AutoNegotiationFailure:         metric.NewCounter(),
+			AutoTransportSelections:        make(map[string]metric.Counter),
+			AutoTransportClientCounts:      make(map[string]metric.Counter),
+			AutoTransportSwitchCounts:      make(map[string]metric.Counter),
+			AutoTransportIllegalSelections: make(map[string]metric.Counter),
+
 			ProxyStatistics: make(map[string]*ProxyStatistics),
 		},
 	}
@@ -181,22 +188,104 @@ func (m *serverMetrics) AddTrafficOut(name string, _ string, trafficBytes int64)
 	}
 }
 
+func (m *serverMetrics) AutoNegotiation(success bool) {
+	if success {
+		m.info.AutoNegotiationSuccess.Inc(1)
+		return
+	}
+	m.info.AutoNegotiationFailure.Inc(1)
+}
+
+func (m *serverMetrics) AutoTransportSelected(protocol string) {
+	if protocol == "" {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	incCounterMap(m.info.AutoTransportSelections, protocol, 1)
+}
+
+func (m *serverMetrics) AutoTransportClientOnline(protocol string) {
+	if protocol == "" {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	incCounterMap(m.info.AutoTransportClientCounts, protocol, 1)
+}
+
+func (m *serverMetrics) AutoTransportClientOffline(protocol string) {
+	if protocol == "" {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	incCounterMap(m.info.AutoTransportClientCounts, protocol, -1)
+}
+
+func (m *serverMetrics) AutoTransportSwitch(oldProtocol string, newProtocol string) {
+	if oldProtocol == "" || newProtocol == "" || oldProtocol == newProtocol {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	incCounterMap(m.info.AutoTransportSwitchCounts, oldProtocol+"->"+newProtocol, 1)
+}
+
+func (m *serverMetrics) AutoTransportRejected(protocol string) {
+	if protocol == "" {
+		protocol = "unknown"
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	incCounterMap(m.info.AutoTransportIllegalSelections, protocol, 1)
+}
+
+func incCounterMap(counters map[string]metric.Counter, key string, delta int32) {
+	counter, ok := counters[key]
+	if !ok {
+		counter = metric.NewCounter()
+		counters[key] = counter
+	}
+	if delta >= 0 {
+		counter.Inc(delta)
+		return
+	}
+	counter.Dec(-delta)
+}
+
 // Get stats data api.
 
 func (m *serverMetrics) GetServer() *ServerStats {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	s := &ServerStats{
-		TotalTrafficIn:  m.info.TotalTrafficIn.TodayCount(),
-		TotalTrafficOut: m.info.TotalTrafficOut.TodayCount(),
-		CurConns:        int64(m.info.CurConns.Count()),
-		ClientCounts:    int64(m.info.ClientCounts.Count()),
-		ProxyTypeCounts: make(map[string]int64),
+		TotalTrafficIn:                 m.info.TotalTrafficIn.TodayCount(),
+		TotalTrafficOut:                m.info.TotalTrafficOut.TodayCount(),
+		CurConns:                       int64(m.info.CurConns.Count()),
+		ClientCounts:                   int64(m.info.ClientCounts.Count()),
+		ProxyTypeCounts:                make(map[string]int64),
+		AutoNegotiationSuccess:         int64(m.info.AutoNegotiationSuccess.Count()),
+		AutoNegotiationFailure:         int64(m.info.AutoNegotiationFailure.Count()),
+		AutoTransportSelections:        make(map[string]int64),
+		AutoTransportClientCounts:      make(map[string]int64),
+		AutoTransportSwitchCounts:      make(map[string]int64),
+		AutoTransportIllegalSelections: make(map[string]int64),
 	}
 	for k, v := range m.info.ProxyTypeCounts {
 		s.ProxyTypeCounts[k] = int64(v.Count())
 	}
+	copyCounterMap(s.AutoTransportSelections, m.info.AutoTransportSelections)
+	copyCounterMap(s.AutoTransportClientCounts, m.info.AutoTransportClientCounts)
+	copyCounterMap(s.AutoTransportSwitchCounts, m.info.AutoTransportSwitchCounts)
+	copyCounterMap(s.AutoTransportIllegalSelections, m.info.AutoTransportIllegalSelections)
 	return s
+}
+
+func copyCounterMap(dst map[string]int64, src map[string]metric.Counter) {
+	for k, v := range src {
+		dst[k] = int64(v.Count())
+	}
 }
 
 func toProxyStats(name string, proxyStats *ProxyStatistics) *ProxyStats {

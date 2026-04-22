@@ -445,7 +445,52 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 	}
 	_ = conn.SetReadDeadline(time.Time{})
 
+	selectedTransport := ""
+	selectedPort := 0
+	selectedReason := ""
+	var selectedScores map[string]int64
+	if m, ok := rawMsg.(*msg.SelectTransport); ok {
+		if err := validateClientAutoVersion(m.ClientAutoVersion); err != nil {
+			xl.Warnf("select transport version error: %v", err)
+			svr.logRejectedTransport(m.Protocol, m.Port, err)
+			metrics.Server.AutoTransportRejected(m.Protocol)
+			_ = msg.WriteMsg(conn, &msg.LoginResp{
+				Version: version.Full(),
+				Error:   util.GenerateResponseErrorString("select transport error", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
+			})
+			conn.Close()
+			return
+		}
+		if err := svr.validateSelectedTransport(m.Protocol, m.Addr, m.Port); err != nil {
+			xl.Warnf("select transport error: %v", err)
+			svr.logRejectedTransport(m.Protocol, m.Port, err)
+			metrics.Server.AutoTransportRejected(m.Protocol)
+			_ = msg.WriteMsg(conn, &msg.LoginResp{
+				Version: version.Full(),
+				Error:   util.GenerateResponseErrorString("select transport error", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
+			})
+			conn.Close()
+			return
+		}
+		selectedTransport = m.Protocol
+		selectedPort = m.Port
+		selectedReason = m.Reason
+		selectedScores = m.Scores
+
+		_ = conn.SetReadDeadline(time.Now().Add(connReadTimeout))
+		if rawMsg, err = msg.ReadMsg(conn); err != nil {
+			log.Tracef("failed to read message after SelectTransport: %v", err)
+			conn.Close()
+			return
+		}
+		_ = conn.SetReadDeadline(time.Time{})
+	}
+
 	switch m := rawMsg.(type) {
+	case *msg.ClientHelloAuto:
+		svr.handleClientHelloAuto(conn, m)
+	case *msg.ProbeTransport:
+		svr.handleProbeTransport(conn, m)
 	case *msg.Login:
 		// server plugin hook
 		content := &plugin.LoginContent{
@@ -455,7 +500,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 		retContent, err := svr.pluginManager.Login(content)
 		if err == nil {
 			m = &retContent.Login
-			err = svr.RegisterControl(conn, m, internal)
+			err = svr.RegisterControl(conn, m, internal, selectedTransport, selectedPort, selectedReason, selectedScores)
 		}
 
 		// If login failed, send error message there.
@@ -577,7 +622,15 @@ func (svr *Service) HandleQUICListener(l *quic.Listener) {
 	}
 }
 
-func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, internal bool) error {
+func (svr *Service) RegisterControl(
+	ctlConn net.Conn,
+	loginMsg *msg.Login,
+	internal bool,
+	selectedTransport string,
+	selectedPort int,
+	selectedReason string,
+	selectedScores map[string]int64,
+) error {
 	// If client's RunID is empty, it's a new client, we just create a new controller.
 	// Otherwise, we check if there is one controller has the same run id. If so, we release previous controller and start new one.
 	var err error
@@ -615,6 +668,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		LoginMsg:       loginMsg,
 		ServerCfg:      svr.cfg,
 		ClientRegistry: svr.clientRegistry,
+		Transport:      selectedTransport,
 	})
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
@@ -622,7 +676,9 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		return fmt.Errorf("unexpected error when creating new controller")
 	}
 
+	oldTransport := ""
 	if oldCtl := svr.ctlManager.Add(loginMsg.RunID, ctl); oldCtl != nil {
+		oldTransport = oldCtl.sessionCtx.Transport
 		oldCtl.WaitClosed()
 	}
 
@@ -641,6 +697,11 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 
 	// for statistics
 	metrics.Server.NewClient()
+	metrics.Server.AutoTransportSelected(selectedTransport)
+	metrics.Server.AutoTransportClientOnline(selectedTransport)
+	metrics.Server.AutoTransportSwitch(oldTransport, selectedTransport)
+	svr.logSelectedTransport(loginMsg.RunID, selectedTransport, selectedPort, selectedReason, selectedScores)
+	svr.logTransportSwitch(loginMsg.RunID, oldTransport, selectedTransport, selectedReason, selectedScores)
 
 	go func() {
 		// block until control closed

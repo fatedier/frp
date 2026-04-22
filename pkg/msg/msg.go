@@ -20,6 +20,8 @@ import (
 )
 
 const (
+	AutoTransportVersion uint32 = 1
+
 	TypeLogin              = 'o'
 	TypeLoginResp          = '1'
 	TypeNewProxy           = 'p'
@@ -38,6 +40,11 @@ const (
 	TypeNatHoleResp        = 'm'
 	TypeNatHoleSid         = '5'
 	TypeNatHoleReport      = '6'
+	TypeClientHelloAuto    = 'a'
+	TypeServerHelloAuto    = 'b'
+	TypeSelectTransport    = 'd'
+	TypeProbeTransport     = 'e'
+	TypeProbeTransportResp = 'f'
 )
 
 var msgTypeMap = map[byte]any{
@@ -59,6 +66,11 @@ var msgTypeMap = map[byte]any{
 	TypeNatHoleResp:        NatHoleResp{},
 	TypeNatHoleSid:         NatHoleSid{},
 	TypeNatHoleReport:      NatHoleReport{},
+	TypeClientHelloAuto:    ClientHelloAuto{},
+	TypeServerHelloAuto:    ServerHelloAuto{},
+	TypeSelectTransport:    SelectTransport{},
+	TypeProbeTransport:     ProbeTransport{},
+	TypeProbeTransportResp: ProbeTransportResp{},
 }
 
 var TypeNameNatHoleResp = reflect.TypeFor[NatHoleResp]().Name()
@@ -96,6 +108,62 @@ type LoginResp struct {
 	Version string `json:"version,omitempty"`
 	RunID   string `json:"run_id,omitempty"`
 	Error   string `json:"error,omitempty"`
+}
+
+type ClientHelloAuto struct {
+	ProtocolMode       string   `json:"protocol_mode,omitempty"`
+	ClientCandidates   []string `json:"client_candidates,omitempty"`
+	AllowUDP           bool     `json:"allow_udp,omitempty"`
+	HasProxyURL        bool     `json:"has_proxy_url,omitempty"`
+	TLSRequired        bool     `json:"tls_required,omitempty"`
+	Strategy           string   `json:"strategy,omitempty"`
+	LastGoodProtocol   string   `json:"last_good_protocol,omitempty"`
+	BlacklistProtocols []string `json:"blacklist_protocols,omitempty"`
+	ClientAutoVersion  uint32   `json:"client_auto_version,omitempty"`
+	PrivilegeKey       string   `json:"privilege_key,omitempty"`
+	Timestamp          int64    `json:"timestamp,omitempty"`
+}
+
+type ServerHelloAuto struct {
+	ProtocolMode       string              `json:"protocol_mode,omitempty"`
+	AutoEnabled        bool                `json:"auto_enabled,omitempty"`
+	AllowDynamicSwitch bool                `json:"allow_dynamic_switch,omitempty"`
+	PreferOrder        []string            `json:"prefer_order,omitempty"`
+	Transports         []TransportEndpoint `json:"transports,omitempty"`
+	ServerAutoVersion  uint32              `json:"server_auto_version,omitempty"`
+	Error              string              `json:"error,omitempty"`
+}
+
+type TransportEndpoint struct {
+	Protocol string `json:"protocol,omitempty"`
+	Addr     string `json:"addr,omitempty"`
+	Port     int    `json:"port,omitempty"`
+	Enabled  bool   `json:"enabled,omitempty"`
+}
+
+type SelectTransport struct {
+	Protocol          string           `json:"protocol,omitempty"`
+	Addr              string           `json:"addr,omitempty"`
+	Port              int              `json:"port,omitempty"`
+	Reason            string           `json:"reason,omitempty"`
+	Scores            map[string]int64 `json:"scores,omitempty"`
+	ClientAutoVersion uint32           `json:"client_auto_version,omitempty"`
+}
+
+type ProbeTransport struct {
+	Protocol          string `json:"protocol,omitempty"`
+	Addr              string `json:"addr,omitempty"`
+	Port              int    `json:"port,omitempty"`
+	ClientAutoVersion uint32 `json:"client_auto_version,omitempty"`
+	PrivilegeKey      string `json:"privilege_key,omitempty"`
+	Timestamp         int64  `json:"timestamp,omitempty"`
+}
+
+type ProbeTransportResp struct {
+	Protocol          string `json:"protocol,omitempty"`
+	Port              int    `json:"port,omitempty"`
+	ServerAutoVersion uint32 `json:"server_auto_version,omitempty"`
+	Error             string `json:"error,omitempty"`
 }
 
 // When frpc login success, send this message to frps for running a new proxy.

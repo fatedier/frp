@@ -13,6 +13,12 @@ type ServerMetrics interface {
 	CloseConnection(name string, proxyType string)
 	AddTrafficIn(name string, proxyType string, trafficBytes int64)
 	AddTrafficOut(name string, proxyType string, trafficBytes int64)
+	AutoNegotiation(success bool)
+	AutoTransportSelected(protocol string)
+	AutoTransportClientOnline(protocol string)
+	AutoTransportClientOffline(protocol string)
+	AutoTransportSwitch(oldProtocol string, newProtocol string)
+	AutoTransportRejected(protocol string)
 }
 
 var Server ServerMetrics = noopServerMetrics{}
@@ -35,3 +41,9 @@ func (noopServerMetrics) OpenConnection(string, string)           {}
 func (noopServerMetrics) CloseConnection(string, string)          {}
 func (noopServerMetrics) AddTrafficIn(string, string, int64)      {}
 func (noopServerMetrics) AddTrafficOut(string, string, int64)     {}
+func (noopServerMetrics) AutoNegotiation(bool)                    {}
+func (noopServerMetrics) AutoTransportSelected(string)            {}
+func (noopServerMetrics) AutoTransportClientOnline(string)        {}
+func (noopServerMetrics) AutoTransportClientOffline(string)       {}
+func (noopServerMetrics) AutoTransportSwitch(string, string)      {}
+func (noopServerMetrics) AutoTransportRejected(string)            {}

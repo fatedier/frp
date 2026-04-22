@@ -99,6 +99,76 @@
       </el-col>
     </el-row>
 
+    <el-card v-if="data.autoTransportEnabled" class="config-card" shadow="hover">
+      <template #header>
+        <div class="card-header">
+          <span class="card-title">Auto Transport</span>
+          <el-tag size="small" type="success">{{ data.transportProtocol }}</el-tag>
+        </div>
+      </template>
+      <div class="auto-grid">
+        <div class="config-item">
+          <span class="config-label">Advertised</span>
+          <div class="tag-list">
+            <el-tag
+              v-for="protocol in data.autoTransportProtocols"
+              :key="protocol"
+              size="small"
+              type="info"
+            >
+              {{ protocol }}
+            </el-tag>
+          </div>
+        </div>
+        <div class="config-item">
+          <span class="config-label">Negotiations</span>
+          <span class="config-value">
+            {{ data.autoNegotiationSuccess }} / {{ data.autoNegotiationFailure }}
+          </span>
+        </div>
+        <div class="config-item">
+          <span class="config-label">Illegal Selections</span>
+          <span class="config-value">{{ illegalSelectionTotal }}</span>
+        </div>
+        <div class="config-item">
+          <span class="config-label">Switches</span>
+          <span class="config-value">{{ switchTotal }}</span>
+        </div>
+      </div>
+      <div class="auto-metrics">
+        <div class="metric-block">
+          <div class="metric-title">Selections</div>
+          <div v-if="selectionRows.length > 0" class="metric-list">
+            <div v-for="row in selectionRows" :key="row.key" class="metric-row">
+              <span>{{ row.key }}</span>
+              <strong>{{ row.value }}</strong>
+            </div>
+          </div>
+          <div v-else class="no-data compact">No selections</div>
+        </div>
+        <div class="metric-block">
+          <div class="metric-title">Online Clients</div>
+          <div v-if="onlineRows.length > 0" class="metric-list">
+            <div v-for="row in onlineRows" :key="row.key" class="metric-row">
+              <span>{{ row.key }}</span>
+              <strong>{{ row.value }}</strong>
+            </div>
+          </div>
+          <div v-else class="no-data compact">No online auto clients</div>
+        </div>
+        <div class="metric-block">
+          <div class="metric-title">Switch Paths</div>
+          <div v-if="switchRows.length > 0" class="metric-list">
+            <div v-for="row in switchRows" :key="row.key" class="metric-row">
+              <span>{{ row.key }}</span>
+              <strong>{{ row.value }}</strong>
+            </div>
+          </div>
+          <div v-else class="no-data compact">No switches</div>
+        </div>
+      </div>
+    </el-card>
+
     <el-card class="config-card" shadow="hover">
       <template #header>
         <div class="card-header">
@@ -182,6 +252,15 @@ const data = ref({
   allowPortsStr: '',
   tlsForce: false,
   heartbeatTimeout: 0,
+  transportProtocol: '',
+  autoTransportEnabled: false,
+  autoTransportProtocols: [] as string[],
+  autoNegotiationSuccess: 0,
+  autoNegotiationFailure: 0,
+  autoTransportSelections: {} as Record<string, number>,
+  autoTransportClientCounts: {} as Record<string, number>,
+  autoTransportSwitchCounts: {} as Record<string, number>,
+  autoTransportIllegalSelections: {} as Record<string, number>,
   clientCounts: 0,
   curConns: 0,
   proxyCounts: 0,
@@ -192,6 +271,31 @@ const data = ref({
 
 const hasActiveProxies = computed(() => {
   return Object.values(data.value.proxyTypeCounts).some((c) => c > 0)
+})
+
+const sortedRows = (record: Record<string, number>) => {
+  return Object.entries(record || {})
+    .filter(([, value]) => value > 0)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => ({ key, value }))
+}
+
+const selectionRows = computed(() => sortedRows(data.value.autoTransportSelections))
+const onlineRows = computed(() => sortedRows(data.value.autoTransportClientCounts))
+const switchRows = computed(() => sortedRows(data.value.autoTransportSwitchCounts))
+
+const illegalSelectionTotal = computed(() => {
+  return Object.values(data.value.autoTransportIllegalSelections).reduce(
+    (sum, value) => sum + value,
+    0,
+  )
+})
+
+const switchTotal = computed(() => {
+  return Object.values(data.value.autoTransportSwitchCounts).reduce(
+    (sum, value) => sum + value,
+    0,
+  )
 })
 
 const formatTrafficTotal = () => {
@@ -218,6 +322,16 @@ const fetchData = async () => {
     data.value.allowPortsStr = json.allowPortsStr
     data.value.tlsForce = json.tlsForce
     data.value.heartbeatTimeout = json.heartbeatTimeout
+    data.value.transportProtocol = json.transportProtocol
+    data.value.autoTransportEnabled = json.autoTransportEnabled
+    data.value.autoTransportProtocols = json.autoTransportProtocols || []
+    data.value.autoNegotiationSuccess = json.autoNegotiationSuccess || 0
+    data.value.autoNegotiationFailure = json.autoNegotiationFailure || 0
+    data.value.autoTransportSelections = json.autoTransportSelections || {}
+    data.value.autoTransportClientCounts = json.autoTransportClientCounts || {}
+    data.value.autoTransportSwitchCounts = json.autoTransportSwitchCounts || {}
+    data.value.autoTransportIllegalSelections =
+      json.autoTransportIllegalSelections || {}
     data.value.clientCounts = json.clientCounts
     data.value.curConns = json.curConns
     data.value.totalTrafficIn = json.totalTrafficIn
@@ -412,6 +526,72 @@ html.dark .proxy-type-count {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 16px;
+}
+
+.auto-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.auto-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.metric-block {
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+html.dark .metric-block {
+  border-color: #3a3d5c;
+}
+
+.metric-title {
+  font-size: 12px;
+  color: #909399;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.metric-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metric-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  color: #303133;
+}
+
+html.dark .metric-row {
+  color: #e5e7eb;
+}
+
+.metric-row span {
+  overflow-wrap: anywhere;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.compact {
+  min-height: auto;
+  height: auto;
+  justify-content: flex-start;
+  font-size: 13px;
 }
 
 .config-item {

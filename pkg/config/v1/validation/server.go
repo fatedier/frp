@@ -60,6 +60,32 @@ func (v *ConfigValidator) ValidateServerConfig(c *v1.ServerConfig) (Warning, err
 	if err := validateWebServerConfig(&c.WebServer); err != nil {
 		errs = AppendError(errs, err)
 	}
+	if !slices.Contains(SupportedTransportProtocols, c.Transport.Protocol) {
+		errs = AppendError(errs, fmt.Errorf("invalid transport.protocol, optional values are %v", SupportedTransportProtocols))
+	}
+	if c.Transport.Protocol == v1.TransportProtocolAuto && !lo.FromPtr(c.Transport.Auto.Enabled) {
+		errs = AppendError(errs, fmt.Errorf("transport.auto.enabled must be true when transport.protocol is auto"))
+	}
+	if c.Transport.Protocol == v1.TransportProtocolAuto && lo.FromPtr(c.Transport.Auto.Enabled) {
+		if c.BindPort == 0 {
+			errs = AppendError(errs, fmt.Errorf("bindPort must be configured when transport.protocol is auto"))
+		}
+		if c.KCPBindPort > 0 && c.KCPBindPort != c.BindPort {
+			errs = AppendError(errs, fmt.Errorf("kcpBindPort must equal bindPort when transport.protocol is auto"))
+		}
+		if c.QUICBindPort > 0 && c.QUICBindPort == c.BindPort {
+			errs = AppendError(errs, fmt.Errorf("quicBindPort must be different from bindPort when transport.protocol is auto"))
+		}
+		if c.QUICBindPort > 0 && c.KCPBindPort > 0 && c.QUICBindPort == c.KCPBindPort {
+			errs = AppendError(errs, fmt.Errorf("quicBindPort must be different from kcpBindPort when transport.protocol is auto"))
+		}
+		if err := validateProtocolList("transport.auto.advertiseProtocols", c.Transport.Auto.AdvertiseProtocols); err != nil {
+			errs = AppendError(errs, err)
+		}
+		if err := validateProtocolList("transport.auto.preferOrder", c.Transport.Auto.PreferOrder); err != nil {
+			errs = AppendError(errs, err)
+		}
+	}
 
 	errs = AppendError(errs, ValidatePort(c.BindPort, "bindPort"))
 	errs = AppendError(errs, ValidatePort(c.KCPBindPort, "kcpBindPort"))

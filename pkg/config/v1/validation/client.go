@@ -146,6 +146,29 @@ func validateTransportConfig(c *v1.ClientTransportConfig) (Warning, error) {
 	if !slices.Contains(SupportedTransportProtocols, c.Protocol) {
 		errs = AppendError(errs, fmt.Errorf("invalid transport.protocol, optional values are %v", SupportedTransportProtocols))
 	}
+	if c.Protocol == v1.TransportProtocolAuto && !lo.FromPtr(c.Auto.Enabled) {
+		errs = AppendError(errs, fmt.Errorf("transport.auto.enabled must be true when transport.protocol is auto"))
+	}
+	if c.Protocol == v1.TransportProtocolAuto && lo.FromPtr(c.Auto.Enabled) {
+		if err := validateProtocolList("transport.auto.candidates", c.Auto.Candidates); err != nil {
+			errs = AppendError(errs, err)
+		}
+		if !slices.Contains(v1.SupportedAutoTransportStrategies, c.Auto.Strategy) {
+			errs = AppendError(errs, fmt.Errorf("invalid transport.auto.strategy, optional values are %v", v1.SupportedAutoTransportStrategies))
+		}
+		if c.Auto.ProbeTimeoutMs <= 0 {
+			errs = AppendError(errs, fmt.Errorf("transport.auto.probeTimeoutMs must be greater than 0"))
+		}
+		if c.Auto.ProbeCount <= 0 {
+			errs = AppendError(errs, fmt.Errorf("transport.auto.probeCount must be greater than 0"))
+		}
+		if !slices.Contains([]string{v1.TransportProtocolTCP}, c.Auto.BootstrapProtocol) {
+			errs = AppendError(errs, fmt.Errorf("transport.auto.bootstrapProtocol only supports tcp"))
+		}
+		if c.Auto.BootstrapPort <= 0 {
+			errs = AppendError(errs, fmt.Errorf("transport.auto.bootstrapPort must be greater than 0"))
+		}
+	}
 	return warnings, errs
 }
 
