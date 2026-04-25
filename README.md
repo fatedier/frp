@@ -21,6 +21,13 @@ protocol = "auto"
 
 The selection is client-driven. `frps` only advertises available transport endpoints and validates the final choice.
 
+If `serverAddr` is a domain name, Auto Transport Mode resolves both IPv4 and IPv6 addresses, probes each address for each candidate protocol, and chooses the fastest available route.
+
+Minimal Auto Transport configuration examples are provided:
+
+- [conf/frps_auto.toml](./conf/frps_auto.toml)
+- [conf/frpc_auto.toml](./conf/frpc_auto.toml)
+
 For other frp features, usage, and documentation, please refer to the original project:
 
 - GitHub: <https://github.com/fatedier/frp>
