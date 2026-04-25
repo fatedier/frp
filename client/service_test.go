@@ -398,6 +398,9 @@ func TestAutoTransportSelectTransportCompletesBootstrapProbeAndSelection(t *test
 			},
 		}
 	})
+	manager.resolveIPAddrs = func(context.Context, string) ([]net.IPAddr, error) {
+		return nil, errors.New("dns disabled in test")
+	}
 
 	selection, err := manager.selectTransport(context.Background(), autoTransportReasonStartup)
 	if err != nil {
@@ -422,6 +425,58 @@ func TestAutoTransportSelectTransportCompletesBootstrapProbeAndSelection(t *test
 	}
 	if status.LastSuccessRates["tcp@server.example.com:7000"] != 1 {
 		t.Fatalf("expected tcp success rate to be exposed, got %v", status.LastSuccessRates)
+	}
+}
+
+func TestAutoTransportExpandsDomainCandidatesToIPv4AndIPv6(t *testing.T) {
+	common := &v1.ClientCommonConfig{}
+	common.ServerAddr = "frp.example.com"
+	common.ServerPort = 7000
+	common.Transport.Protocol = v1.TransportProtocolAuto
+	common.Transport.TLS.Enable = lo.ToPtr(true)
+	if err := common.Complete(); err != nil {
+		t.Fatalf("complete common config: %v", err)
+	}
+	common.Transport.ProxyURL = ""
+
+	manager := newAutoTransportManager(common, nil, nil)
+	manager.resolveIPAddrs = func(_ context.Context, host string) ([]net.IPAddr, error) {
+		if host != "frp.example.com" {
+			t.Fatalf("expected resolver host frp.example.com, got %q", host)
+		}
+		return []net.IPAddr{
+			{IP: net.ParseIP("192.0.2.10")},
+			{IP: net.ParseIP("2001:db8::10")},
+		}, nil
+	}
+
+	base := manager.buildCandidates(&msg.ServerHelloAuto{
+		PreferOrder: []string{v1.TransportProtocolQUIC},
+		Transports: []msg.TransportEndpoint{
+			{Protocol: v1.TransportProtocolQUIC, Addr: "0.0.0.0", Port: 7002, Enabled: true},
+		},
+	})
+	expanded := manager.expandCandidatesByResolvedAddr(context.Background(), base)
+	if len(expanded) != 2 {
+		t.Fatalf("expected ipv4 and ipv6 candidates, got %+v", expanded)
+	}
+	if expanded[0].Addr != "192.0.2.10" || expanded[1].Addr != "2001:db8::10" {
+		t.Fatalf("expected resolved addresses to be used for dialing, got %+v", expanded)
+	}
+	for _, candidate := range expanded {
+		if candidate.advertisedAddr() != "0.0.0.0" {
+			t.Fatalf("expected advertised wildcard address to be preserved, got %+v", candidate)
+		}
+		if candidate.ServerName != "frp.example.com" {
+			t.Fatalf("expected server name to be original domain, got %+v", candidate)
+		}
+		cfg := manager.configForCandidate(candidate)
+		if cfg.ServerAddr != candidate.Addr {
+			t.Fatalf("expected config to dial resolved address, got %q", cfg.ServerAddr)
+		}
+		if cfg.Transport.TLS.ServerName != "frp.example.com" {
+			t.Fatalf("expected TLS server name to keep original domain, got %q", cfg.Transport.TLS.ServerName)
+		}
 	}
 }
 

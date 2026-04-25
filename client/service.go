@@ -382,7 +382,7 @@ func (svr *Service) login(reason string) (
 	if autoSelection != nil && autoSelection.SendSelect {
 		if err = msg.WriteMsg(conn, &msg.SelectTransport{
 			Protocol:          autoSelection.Candidate.Protocol,
-			Addr:              autoSelection.Candidate.Addr,
+			Addr:              autoSelection.Candidate.advertisedAddr(),
 			Port:              autoSelection.Candidate.Port,
 			Reason:            autoSelection.Reason,
 			Scores:            autoSelection.Scores,

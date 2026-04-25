@@ -108,6 +108,7 @@ transport.protocol = "tcp"
 # The client bootstraps over TCP serverPort/bootstrapPort, receives server transport
 # endpoints, probes candidates, and then reconnects using the selected protocol.
 # If transport.proxyURL is configured, auto mode only keeps the tcp candidate.
+# If serverAddr is a domain, auto mode resolves and probes both IPv4 and IPv6 addresses.
 # The following dotted keys are top-level TOML keys. Do not put them under a [transport] table.
 # transport.protocol = "auto"
 # transport.auto.enabled = true

@@ -3,6 +3,7 @@ serverPort = 7000
 
 transport.protocol = "auto"
 transport.auto.enabled = true
+# If serverAddr is a domain, auto mode resolves and probes both IPv4 and IPv6 addresses.
 transport.auto.candidates = ["quic", "tcp", "wss", "websocket", "kcp"]
 transport.auto.bootstrapProtocol = "tcp"
 transport.auto.bootstrapPort = 7000

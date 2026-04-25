@@ -233,6 +233,10 @@ The client filters before probing:
 - blacklisted protocols are skipped until cooldown expires
 - wildcard server advertised addresses such as `0.0.0.0`, `::`, and empty
   address are resolved to the configured `serverAddr`
+- when the usable endpoint address is a domain name, frpc resolves its A and
+  AAAA records and probes every resolved IPv4 and IPv6 address for each
+  candidate protocol. The selected control connection dials the fastest
+  resolved address while preserving the original domain as the TLS server name.
 
 If all candidates are removed only because of a local blacklist, the blacklist
 is cleared once and candidates are rebuilt.

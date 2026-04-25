@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
@@ -56,11 +57,13 @@ const (
 const autoTransportHysteresisRatio = 1.2
 
 type autoTransportCandidate struct {
-	Protocol string
-	Addr     string
-	Port     int
-	Priority int
-	Source   string
+	Protocol       string
+	Addr           string
+	Port           int
+	Priority       int
+	Source         string
+	AdvertisedAddr string
+	ServerName     string
 }
 
 type autoTransportSelection struct {
@@ -85,6 +88,7 @@ type autoTransportManager struct {
 	common           *v1.ClientCommonConfig
 	auth             *auth.ClientAuth
 	connectorCreator func(context.Context, *v1.ClientCommonConfig) Connector
+	resolveIPAddrs   func(context.Context, string) ([]net.IPAddr, error)
 	statePath        string
 
 	mu               sync.Mutex
@@ -161,6 +165,7 @@ func newAutoTransportManager(
 		common:           common,
 		auth:             authRuntime,
 		connectorCreator: connectorCreator,
+		resolveIPAddrs:   net.DefaultResolver.LookupIPAddr,
 		lastScores:       make(map[string]int64),
 		lastScoreDetails: make(map[string]AutoTransportScoreDetail),
 		lastSuccessRates: make(map[string]float64),
@@ -206,7 +211,7 @@ func (m *autoTransportManager) selectTransport(ctx context.Context, reason strin
 		return m.staticFallbackSelection(), nil
 	}
 
-	candidates := m.buildCandidates(serverHello)
+	candidates := m.expandCandidatesByResolvedAddr(ctx, m.buildCandidates(serverHello))
 	if len(candidates) == 0 {
 		m.lastError = "no common transport candidates"
 		return nil, fmt.Errorf("auto transport: no common transport candidates")
@@ -575,11 +580,12 @@ func (m *autoTransportManager) buildCandidates(serverHello *msg.ServerHelloAuto)
 			serverRank = len(serverHello.PreferOrder)
 		}
 		candidates = append(candidates, autoTransportCandidate{
-			Protocol: ep.Protocol,
-			Addr:     m.usableEndpointAddr(ep.Addr),
-			Port:     ep.Port,
-			Priority: serverRank*100 + localRank,
-			Source:   "server",
+			Protocol:       ep.Protocol,
+			Addr:           m.usableEndpointAddr(ep.Addr),
+			Port:           ep.Port,
+			Priority:       serverRank*100 + localRank,
+			Source:         "server",
+			AdvertisedAddr: ep.Addr,
 		})
 	}
 
@@ -597,6 +603,85 @@ func (m *autoTransportManager) buildCandidates(serverHello *msg.ServerHelloAuto)
 		return slices.Index(clientCandidates, a.Protocol) - slices.Index(clientCandidates, b.Protocol)
 	})
 	return candidates
+}
+
+func (m *autoTransportManager) expandCandidatesByResolvedAddr(
+	ctx context.Context,
+	candidates []autoTransportCandidate,
+) []autoTransportCandidate {
+	if len(candidates) == 0 || m.common.Transport.ProxyURL != "" {
+		return candidates
+	}
+
+	out := make([]autoTransportCandidate, 0, len(candidates))
+	seen := make(map[string]struct{})
+	for _, candidate := range candidates {
+		expanded := m.resolveCandidateAddrs(ctx, candidate)
+		for _, c := range expanded {
+			key := autoTransportCandidateKey(c)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+func (m *autoTransportManager) resolveCandidateAddrs(
+	ctx context.Context,
+	candidate autoTransportCandidate,
+) []autoTransportCandidate {
+	host := normalizeAutoTransportHost(candidate.Addr)
+	if host == "" || net.ParseIP(host) != nil {
+		return []autoTransportCandidate{candidate}
+	}
+
+	timeout := time.Duration(m.common.Transport.Auto.ProbeTimeoutMs) * time.Millisecond
+	if timeout <= 0 {
+		timeout = 1200 * time.Millisecond
+	}
+	resolveCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	addrs, err := m.resolveIPAddrs(resolveCtx, host)
+	if err != nil || len(addrs) == 0 {
+		if err != nil {
+			log.Warnf("auto transport: resolve %s failed, keep hostname candidate: %v", host, err)
+		}
+		return []autoTransportCandidate{candidate}
+	}
+
+	hasV4, hasV6 := false, false
+	out := make([]autoTransportCandidate, 0, len(addrs))
+	seen := make(map[string]struct{}, len(addrs))
+	for _, addr := range addrs {
+		if addr.IP == nil {
+			continue
+		}
+		ip := addr.IP.String()
+		if _, ok := seen[ip]; ok {
+			continue
+		}
+		seen[ip] = struct{}{}
+		if addr.IP.To4() != nil {
+			hasV4 = true
+		} else {
+			hasV6 = true
+		}
+		c := candidate
+		c.Addr = ip
+		c.ServerName = host
+		c.Source = "dns"
+		out = append(out, c)
+	}
+	if len(out) == 0 {
+		return []autoTransportCandidate{candidate}
+	}
+	log.Infof("auto transport: resolved %s for protocol [%s] to %d address(es), ipv4 [%v], ipv6 [%v]",
+		host, candidate.Protocol, len(out), hasV4, hasV6)
+	return out
 }
 
 func (m *autoTransportManager) fixedModeCandidatesLocked(
@@ -767,7 +852,7 @@ func (m *autoTransportManager) probeOnce(ctx context.Context, candidate autoTran
 
 	probe := &msg.ProbeTransport{
 		Protocol:          candidate.Protocol,
-		Addr:              candidate.Addr,
+		Addr:              candidate.advertisedAddr(),
 		Port:              candidate.Port,
 		ClientAutoVersion: msg.AutoTransportVersion,
 	}
@@ -855,6 +940,13 @@ func sameAutoTransportCandidate(a, b autoTransportCandidate) bool {
 	return a.Protocol == b.Protocol && a.Addr == b.Addr && a.Port == b.Port
 }
 
+func (c autoTransportCandidate) advertisedAddr() string {
+	if c.AdvertisedAddr != "" {
+		return c.AdvertisedAddr
+	}
+	return c.Addr
+}
+
 func isForcedAutoTransportReason(reason string) bool {
 	switch reason {
 	case autoTransportReasonControlClosed, autoTransportReasonLoginFailure:
@@ -923,6 +1015,20 @@ func autoTransportCandidateKey(candidate autoTransportCandidate) string {
 	return fmt.Sprintf("%s@%s:%d", candidate.Protocol, candidate.Addr, candidate.Port)
 }
 
+func normalizeAutoTransportHost(addr string) string {
+	if addr == "" {
+		return ""
+	}
+	host := addr
+	if h, _, err := net.SplitHostPort(addr); err == nil {
+		host = h
+	}
+	if len(host) >= 2 && host[0] == '[' && host[len(host)-1] == ']' {
+		host = host[1 : len(host)-1]
+	}
+	return host
+}
+
 func (m *autoTransportManager) allowUDP() bool {
 	return lo.FromPtr(m.common.Transport.Auto.AllowUDP)
 }
@@ -984,6 +1090,9 @@ func (m *autoTransportManager) configForCandidate(candidate autoTransportCandida
 	cfg.ServerAddr = candidate.Addr
 	cfg.ServerPort = candidate.Port
 	cfg.Transport.Protocol = candidate.Protocol
+	if candidate.ServerName != "" && cfg.Transport.TLS.ServerName == "" {
+		cfg.Transport.TLS.ServerName = candidate.ServerName
+	}
 	return cfg
 }
 
