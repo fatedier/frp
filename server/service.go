@@ -367,16 +367,25 @@ func (svr *Service) Run(ctx context.Context) {
 		}()
 	}
 
-	go svr.HandleListener(svr.sshTunnelListener, true)
+	go svr.HandleListener(svr.sshTunnelListener, true, autoTransportEntry{})
 
 	if svr.kcpListener != nil {
-		go svr.HandleListener(svr.kcpListener, false)
+		go svr.HandleListener(svr.kcpListener, false, autoTransportEntry{
+			Protocols: []string{v1.TransportProtocolKCP},
+			Port:      svr.cfg.KCPBindPort,
+		})
 	}
 	if svr.quicListener != nil {
 		go svr.HandleQUICListener(svr.quicListener)
 	}
-	go svr.HandleListener(svr.websocketListener, false)
-	go svr.HandleListener(svr.tlsListener, false)
+	go svr.HandleListener(svr.websocketListener, false, autoTransportEntry{
+		Protocols: []string{v1.TransportProtocolWebsocket},
+		Port:      svr.cfg.BindPort,
+	})
+	go svr.HandleListener(svr.tlsListener, false, autoTransportEntry{
+		Protocols: []string{v1.TransportProtocolTCP, v1.TransportProtocolWSS},
+		Port:      svr.cfg.BindPort,
+	})
 
 	if svr.rc.NatHoleController != nil {
 		go svr.rc.NatHoleController.CleanWorker(svr.ctx)
@@ -386,7 +395,10 @@ func (svr *Service) Run(ctx context.Context) {
 		go svr.sshTunnelGateway.Run()
 	}
 
-	svr.HandleListener(svr.listener, false)
+	svr.HandleListener(svr.listener, false, autoTransportEntry{
+		Protocols: []string{v1.TransportProtocolTCP},
+		Port:      svr.cfg.BindPort,
+	})
 
 	<-svr.ctx.Done()
 	// service context may not be canceled by svr.Close(), we should call it here to release resources
@@ -429,7 +441,7 @@ func (svr *Service) Close() error {
 	return nil
 }
 
-func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, internal bool) {
+func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, internal bool, entry autoTransportEntry) {
 	xl := xlog.FromContextSafe(ctx)
 
 	var (
@@ -461,7 +473,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 			conn.Close()
 			return
 		}
-		if err := svr.validateSelectedTransport(m.Protocol, m.Addr, m.Port); err != nil {
+		if err := svr.validateSelectedTransportForEntry(m.Protocol, m.Addr, m.Port, entry); err != nil {
 			xl.Warnf("select transport error: %v", err)
 			svr.logRejectedTransport(m.Protocol, m.Port, err)
 			metrics.Server.AutoTransportRejected(m.Protocol)
@@ -490,7 +502,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 	case *msg.ClientHelloAuto:
 		svr.handleClientHelloAuto(conn, m)
 	case *msg.ProbeTransport:
-		svr.handleProbeTransport(conn, m)
+		svr.handleProbeTransport(conn, m, entry)
 	case *msg.Login:
 		// server plugin hook
 		content := &plugin.LoginContent{
@@ -540,7 +552,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 // HandleListener accepts connections from client and call handleConnection to handle them.
 // If internal is true, it means that this listener is used for internal communication like ssh tunnel gateway.
 // TODO(fatedier): Pass some parameters of listener/connection through context to avoid passing too many parameters.
-func (svr *Service) HandleListener(l net.Listener, internal bool) {
+func (svr *Service) HandleListener(l net.Listener, internal bool, entry autoTransportEntry) {
 	// Listen for incoming connections from client.
 	for {
 		c, err := l.Accept()
@@ -590,10 +602,10 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 						session.Close()
 						return
 					}
-					go svr.handleConnection(ctx, stream, internal)
+					go svr.handleConnection(ctx, stream, internal, entry)
 				}
 			} else {
-				svr.handleConnection(ctx, frpConn, internal)
+				svr.handleConnection(ctx, frpConn, internal, entry)
 			}
 		}(ctx, c)
 	}
@@ -616,7 +628,10 @@ func (svr *Service) HandleQUICListener(l *quic.Listener) {
 					_ = frpConn.CloseWithError(0, "")
 					return
 				}
-				go svr.handleConnection(ctx, netpkg.QuicStreamToNetConn(stream, frpConn), false)
+				go svr.handleConnection(ctx, netpkg.QuicStreamToNetConn(stream, frpConn), false, autoTransportEntry{
+					Protocols: []string{v1.TransportProtocolQUIC},
+					Port:      svr.cfg.QUICBindPort,
+				})
 			}
 		}(context.Background(), c)
 	}

@@ -15,6 +15,7 @@
 package server
 
 import (
+	"context"
 	"net"
 	"strings"
 	"testing"
@@ -23,6 +24,7 @@ import (
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
+	splugin "github.com/fatedier/frp/pkg/plugin/server"
 )
 
 func newAutoTransportServiceForTest(t *testing.T, cfg *v1.ServerConfig) *Service {
@@ -159,6 +161,38 @@ func TestValidateSelectedTransportRequiresAdvertisedEndpoint(t *testing.T) {
 	}
 }
 
+func TestValidateSelectedTransportRequiresMatchingConnectionEntry(t *testing.T) {
+	cfg := &v1.ServerConfig{
+		BindPort:     7000,
+		KCPBindPort:  7000,
+		QUICBindPort: 7002,
+	}
+	cfg.Transport.Protocol = v1.TransportProtocolAuto
+	svr := newAutoTransportServiceForTest(t, cfg)
+
+	tcpEntry := autoTransportEntry{
+		Protocols: []string{v1.TransportProtocolTCP},
+		Port:      7000,
+	}
+	if err := svr.validateSelectedTransportForEntry(v1.TransportProtocolTCP, "server.example.com", 7000, tcpEntry); err != nil {
+		t.Fatalf("expected tcp on tcp entry to be valid: %v", err)
+	}
+	if err := svr.validateSelectedTransportForEntry(v1.TransportProtocolQUIC, "server.example.com", 7002, tcpEntry); err == nil {
+		t.Fatal("expected quic selected on tcp entry to be rejected")
+	}
+
+	tlsEntry := autoTransportEntry{
+		Protocols: []string{v1.TransportProtocolTCP, v1.TransportProtocolWSS},
+		Port:      7000,
+	}
+	if err := svr.validateSelectedTransportForEntry(v1.TransportProtocolWSS, "server.example.com", 7000, tlsEntry); err != nil {
+		t.Fatalf("expected wss on tls entry to be valid: %v", err)
+	}
+	if err := svr.validateSelectedTransportForEntry(v1.TransportProtocolWebsocket, "server.example.com", 7000, tlsEntry); err == nil {
+		t.Fatal("expected websocket selected on tls entry to be rejected")
+	}
+}
+
 func TestValidateSelectedTransportRequiresAdvertisedAddrWhenSpecific(t *testing.T) {
 	cfg := &v1.ServerConfig{
 		BindAddr:     "127.0.0.1",
@@ -174,6 +208,47 @@ func TestValidateSelectedTransportRequiresAdvertisedAddrWhenSpecific(t *testing.
 	}
 	if err := svr.validateSelectedTransport(v1.TransportProtocolTCP, "192.0.2.1", 7000); err == nil {
 		t.Fatal("expected tcp@192.0.2.1:7000 to be rejected")
+	}
+}
+
+type rejectingLoginPlugin struct{}
+
+func (rejectingLoginPlugin) Name() string { return "rejecting-login" }
+
+func (rejectingLoginPlugin) IsSupport(op string) bool { return op == splugin.OpLogin }
+
+func (rejectingLoginPlugin) Handle(
+	_ context.Context,
+	_ string,
+	content any,
+) (*splugin.Response, any, error) {
+	return &splugin.Response{
+		Reject:       true,
+		RejectReason: "blocked by plugin",
+	}, content, nil
+}
+
+func TestClientHelloAutoRunsLoginPlugin(t *testing.T) {
+	cfg := &v1.ServerConfig{
+		BindPort:     7000,
+		KCPBindPort:  7000,
+		QUICBindPort: 7002,
+	}
+	cfg.Auth.Token = "secret"
+	cfg.Transport.Protocol = v1.TransportProtocolAuto
+	svr := newAutoTransportServiceForTest(t, cfg)
+	svr.pluginManager = splugin.NewManager()
+	svr.pluginManager.Register(rejectingLoginPlugin{})
+
+	resp := readServerHelloFromHandler(t, svr, validAutoClientHello(t, "secret"))
+	if resp.Error == "" {
+		t.Fatal("expected plugin rejection")
+	}
+	if !strings.Contains(resp.Error, "blocked by plugin") {
+		t.Fatalf("unexpected plugin error: %s", resp.Error)
+	}
+	if resp.AutoEnabled {
+		t.Fatal("expected auto transport to be disabled in failed plugin response")
 	}
 }
 

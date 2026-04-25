@@ -108,12 +108,13 @@ transport.protocol = "tcp"
 # The client bootstraps over TCP serverPort/bootstrapPort, receives server transport
 # endpoints, probes candidates, and then reconnects using the selected protocol.
 # If transport.proxyURL is configured, auto mode only keeps the tcp candidate.
+# The following dotted keys are top-level TOML keys. Do not put them under a [transport] table.
 # transport.protocol = "auto"
-  # transport.auto.enabled = true
-  # transport.auto.candidates = ["quic", "tcp", "wss", "websocket", "kcp"]
-  # transport.auto.allowUDP = true
-  # strategy supports balanced, latency, stability.
-  # transport.auto.strategy = "balanced"
+# transport.auto.enabled = true
+# transport.auto.candidates = ["quic", "tcp", "wss", "websocket", "kcp"]
+# transport.auto.allowUDP = true
+# strategy supports balanced, latency, stability.
+# transport.auto.strategy = "balanced"
 # transport.auto.probeTimeoutMs = 1200
 # transport.auto.probeCount = 2
 # transport.auto.stickyDurationSec = 1800

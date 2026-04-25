@@ -17,6 +17,8 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -582,6 +584,207 @@ func TestFormatDetection(t *testing.T) {
 			require.Equal(t, tt.format, detectFormatFromPath(tt.path))
 		})
 	}
+}
+
+func TestExplicitModernFormatDoesNotUseLegacyINIDetection(t *testing.T) {
+	require := require.New(t)
+
+	dir := t.TempDir()
+	clientPath := filepath.Join(dir, "frpc.toml")
+	clientContent := `serverAddr = "127.0.0.1"
+serverPort = 7000
+
+[common]
+server_addr = "legacy.example.com"
+server_port = 1234
+
+[transport]
+protocol = "auto"
+`
+	require.NoError(os.WriteFile(clientPath, []byte(clientContent), 0o600))
+
+	clientResult, err := LoadClientConfigResult(clientPath, false)
+	require.NoError(err)
+	require.False(clientResult.IsLegacyFormat)
+	require.Equal("127.0.0.1", clientResult.Common.ServerAddr)
+	require.Equal(7000, clientResult.Common.ServerPort)
+	require.Equal(v1.TransportProtocolAuto, clientResult.Common.Transport.Protocol)
+
+	serverPath := filepath.Join(dir, "frps.toml")
+	serverContent := `bindPort = 7000
+
+[common]
+bind_port = 1234
+
+[transport]
+protocol = "auto"
+`
+	require.NoError(os.WriteFile(serverPath, []byte(serverContent), 0o600))
+
+	serverCfg, isLegacy, err := LoadServerConfig(serverPath, false)
+	require.NoError(err)
+	require.False(isLegacy)
+	require.Equal(7000, serverCfg.BindPort)
+	require.Equal(v1.TransportProtocolAuto, serverCfg.Transport.Protocol)
+}
+
+func TestAutoTransportFieldsLoadFromModernFormats(t *testing.T) {
+	require := require.New(t)
+
+	tomlDottedServer := `bindPort = 7000
+kcpBindPort = 7000
+quicBindPort = 7002
+transport.protocol = "auto"
+transport.auto.enabled = true
+transport.auto.allowDynamicSwitch = true
+transport.auto.advertiseProtocols = ["tcp", "quic"]
+transport.auto.preferOrder = ["quic", "tcp"]
+transport.auto.switchCooldownSec = 123
+`
+	serverCfg := v1.ServerConfig{}
+	require.NoError(LoadConfigure([]byte(tomlDottedServer), &serverCfg, true, "toml"))
+	require.Equal(v1.TransportProtocolAuto, serverCfg.Transport.Protocol)
+	require.Equal([]string{v1.TransportProtocolTCP, v1.TransportProtocolQUIC}, serverCfg.Transport.Auto.AdvertiseProtocols)
+	require.Equal([]string{v1.TransportProtocolQUIC, v1.TransportProtocolTCP}, serverCfg.Transport.Auto.PreferOrder)
+	require.Equal(123, serverCfg.Transport.Auto.SwitchCooldownSec)
+
+	tomlTableServer := `bindPort = 7000
+kcpBindPort = 7000
+quicBindPort = 7002
+
+[transport]
+protocol = "auto"
+
+[transport.auto]
+enabled = true
+allowDynamicSwitch = true
+advertiseProtocols = ["tcp", "quic"]
+preferOrder = ["quic", "tcp"]
+switchCooldownSec = 123
+`
+	serverCfg = v1.ServerConfig{}
+	require.NoError(LoadConfigure([]byte(tomlTableServer), &serverCfg, true, "toml"))
+	require.Equal([]string{v1.TransportProtocolTCP, v1.TransportProtocolQUIC}, serverCfg.Transport.Auto.AdvertiseProtocols)
+	require.Equal(123, serverCfg.Transport.Auto.SwitchCooldownSec)
+
+	yamlServer := `bindPort: 7000
+kcpBindPort: 7000
+quicBindPort: 7002
+transport:
+  protocol: auto
+  auto:
+    enabled: true
+    allowDynamicSwitch: true
+    advertiseProtocols: [tcp, quic]
+    preferOrder: [quic, tcp]
+    switchCooldownSec: 123
+`
+	serverCfg = v1.ServerConfig{}
+	require.NoError(LoadConfigure([]byte(yamlServer), &serverCfg, true, "yaml"))
+	require.Equal([]string{v1.TransportProtocolTCP, v1.TransportProtocolQUIC}, serverCfg.Transport.Auto.AdvertiseProtocols)
+	require.Equal(123, serverCfg.Transport.Auto.SwitchCooldownSec)
+
+	clientTOML := `serverAddr = "127.0.0.1"
+serverPort = 7000
+transport.protocol = "auto"
+transport.auto.enabled = true
+transport.auto.candidates = ["tcp", "quic"]
+transport.auto.allowUDP = false
+transport.auto.strategy = "latency"
+transport.auto.probeTimeoutMs = 321
+transport.auto.probeCount = 3
+transport.auto.stickyDurationSec = 456
+transport.auto.cooldownSec = 78
+transport.auto.failureThreshold = 4
+transport.auto.degradeThreshold = 6
+transport.auto.recheckIntervalSec = 90
+transport.auto.persistLastGood = false
+transport.auto.bootstrapProtocol = "tcp"
+transport.auto.bootstrapPort = 7000
+`
+	clientCfg := v1.ClientConfig{}
+	require.NoError(LoadConfigure([]byte(clientTOML), &clientCfg, true, "toml"))
+	require.Equal(v1.TransportProtocolAuto, clientCfg.Transport.Protocol)
+	require.Equal([]string{v1.TransportProtocolTCP, v1.TransportProtocolQUIC}, clientCfg.Transport.Auto.Candidates)
+	require.False(*clientCfg.Transport.Auto.AllowUDP)
+	require.Equal(v1.AutoTransportStrategyLatency, clientCfg.Transport.Auto.Strategy)
+	require.Equal(321, clientCfg.Transport.Auto.ProbeTimeoutMs)
+	require.Equal(3, clientCfg.Transport.Auto.ProbeCount)
+	require.Equal(456, clientCfg.Transport.Auto.StickyDurationSec)
+	require.Equal(78, clientCfg.Transport.Auto.CooldownSec)
+	require.Equal(4, clientCfg.Transport.Auto.FailureThreshold)
+	require.Equal(6, clientCfg.Transport.Auto.DegradeThreshold)
+	require.Equal(90, clientCfg.Transport.Auto.RecheckIntervalSec)
+	require.False(*clientCfg.Transport.Auto.PersistLastGood)
+	require.Equal(v1.TransportProtocolTCP, clientCfg.Transport.Auto.BootstrapProtocol)
+	require.Equal(7000, clientCfg.Transport.Auto.BootstrapPort)
+}
+
+func TestLegacyINIAutoTransportFieldsLoad(t *testing.T) {
+	require := require.New(t)
+
+	dir := t.TempDir()
+	serverPath := filepath.Join(dir, "frps.ini")
+	serverContent := `[common]
+bind_port = 7000
+kcp_bind_port = 7000
+quic_bind_port = 7002
+protocol = auto
+auto_enabled = true
+auto_allow_dynamic_switch = true
+auto_advertise_protocols = tcp,quic
+auto_prefer_order = quic,tcp
+auto_switch_cooldown_sec = 123
+`
+	require.NoError(os.WriteFile(serverPath, []byte(serverContent), 0o600))
+
+	serverCfg, isLegacy, err := LoadServerConfig(serverPath, false)
+	require.NoError(err)
+	require.True(isLegacy)
+	require.Equal(v1.TransportProtocolAuto, serverCfg.Transport.Protocol)
+	require.Equal([]string{v1.TransportProtocolTCP, v1.TransportProtocolQUIC}, serverCfg.Transport.Auto.AdvertiseProtocols)
+	require.Equal([]string{v1.TransportProtocolQUIC, v1.TransportProtocolTCP}, serverCfg.Transport.Auto.PreferOrder)
+	require.Equal(123, serverCfg.Transport.Auto.SwitchCooldownSec)
+
+	clientPath := filepath.Join(dir, "frpc.ini")
+	clientContent := `[common]
+server_addr = 127.0.0.1
+server_port = 7000
+protocol = auto
+auto_enabled = true
+auto_candidates = tcp,quic
+auto_allow_udp = true
+auto_strategy = latency
+auto_probe_timeout_ms = 321
+auto_probe_count = 3
+auto_sticky_duration_sec = 456
+auto_cooldown_sec = 78
+auto_failure_threshold = 4
+auto_degrade_threshold = 6
+auto_recheck_interval_sec = 90
+auto_persist_last_good = true
+auto_bootstrap_protocol = tcp
+auto_bootstrap_port = 7000
+`
+	require.NoError(os.WriteFile(clientPath, []byte(clientContent), 0o600))
+
+	clientResult, err := LoadClientConfigResult(clientPath, false)
+	require.NoError(err)
+	require.True(clientResult.IsLegacyFormat)
+	require.Equal(v1.TransportProtocolAuto, clientResult.Common.Transport.Protocol)
+	require.Equal([]string{v1.TransportProtocolTCP, v1.TransportProtocolQUIC}, clientResult.Common.Transport.Auto.Candidates)
+	require.True(*clientResult.Common.Transport.Auto.AllowUDP)
+	require.Equal(v1.AutoTransportStrategyLatency, clientResult.Common.Transport.Auto.Strategy)
+	require.Equal(321, clientResult.Common.Transport.Auto.ProbeTimeoutMs)
+	require.Equal(3, clientResult.Common.Transport.Auto.ProbeCount)
+	require.Equal(456, clientResult.Common.Transport.Auto.StickyDurationSec)
+	require.Equal(78, clientResult.Common.Transport.Auto.CooldownSec)
+	require.Equal(4, clientResult.Common.Transport.Auto.FailureThreshold)
+	require.Equal(6, clientResult.Common.Transport.Auto.DegradeThreshold)
+	require.Equal(90, clientResult.Common.Transport.Auto.RecheckIntervalSec)
+	require.True(*clientResult.Common.Transport.Auto.PersistLastGood)
+	require.Equal(v1.TransportProtocolTCP, clientResult.Common.Transport.Auto.BootstrapProtocol)
+	require.Equal(7000, clientResult.Common.Transport.Auto.BootstrapPort)
 }
 
 func TestValidTOMLStillWorks(t *testing.T) {

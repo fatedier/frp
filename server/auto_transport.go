@@ -24,9 +24,15 @@ import (
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
+	splugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/server/metrics"
 )
+
+type autoTransportEntry struct {
+	Protocols []string
+	Port      int
+}
 
 func (svr *Service) autoTransportEnabled() bool {
 	return svr.cfg.Transport.Protocol == v1.TransportProtocolAuto && lo.FromPtr(svr.cfg.Transport.Auto.Enabled)
@@ -60,11 +66,23 @@ func (svr *Service) autoTransportEndpoints() []msg.TransportEndpoint {
 	return endpoints
 }
 
-func (svr *Service) verifyAutoAuth(privilegeKey string, timestamp int64) error {
-	return svr.auth.Verifier.VerifyLogin(&msg.Login{
+func (svr *Service) verifyAutoLogin(conn net.Conn, privilegeKey string, timestamp int64) error {
+	login := &msg.Login{
 		PrivilegeKey: privilegeKey,
 		Timestamp:    timestamp,
-	})
+	}
+	if svr.pluginManager != nil {
+		content := &splugin.LoginContent{
+			Login:         *login,
+			ClientAddress: conn.RemoteAddr().String(),
+		}
+		retContent, err := svr.pluginManager.Login(content)
+		if err != nil {
+			return err
+		}
+		login = &retContent.Login
+	}
+	return svr.auth.Verifier.VerifyLogin(login)
 }
 
 func (svr *Service) handleClientHelloAuto(conn net.Conn, m *msg.ClientHelloAuto) {
@@ -79,7 +97,7 @@ func (svr *Service) handleClientHelloAuto(conn net.Conn, m *msg.ClientHelloAuto)
 	if err := validateClientAutoVersion(m.ClientAutoVersion); err != nil {
 		resp.Error = err.Error()
 		resp.AutoEnabled = false
-	} else if err := svr.verifyAutoAuth(m.PrivilegeKey, m.Timestamp); err != nil {
+	} else if err := svr.verifyAutoLogin(conn, m.PrivilegeKey, m.Timestamp); err != nil {
 		resp.Error = fmt.Sprintf("auto transport auth failed: %v", err)
 		resp.AutoEnabled = false
 	}
@@ -88,7 +106,7 @@ func (svr *Service) handleClientHelloAuto(conn net.Conn, m *msg.ClientHelloAuto)
 	_ = conn.Close()
 }
 
-func (svr *Service) handleProbeTransport(conn net.Conn, m *msg.ProbeTransport) {
+func (svr *Service) handleProbeTransport(conn net.Conn, m *msg.ProbeTransport, entry autoTransportEntry) {
 	resp := &msg.ProbeTransportResp{
 		Protocol:          m.Protocol,
 		Port:              m.Port,
@@ -96,9 +114,9 @@ func (svr *Service) handleProbeTransport(conn net.Conn, m *msg.ProbeTransport) {
 	}
 	if err := validateClientAutoVersion(m.ClientAutoVersion); err != nil {
 		resp.Error = err.Error()
-	} else if err := svr.verifyAutoAuth(m.PrivilegeKey, m.Timestamp); err != nil {
+	} else if err := svr.verifyAutoLogin(conn, m.PrivilegeKey, m.Timestamp); err != nil {
 		resp.Error = fmt.Sprintf("auto transport probe auth failed: %v", err)
-	} else if err := svr.validateSelectedTransport(m.Protocol, m.Addr, m.Port); err != nil {
+	} else if err := svr.validateSelectedTransportForEntry(m.Protocol, m.Addr, m.Port, entry); err != nil {
 		resp.Error = err.Error()
 	}
 	_ = msg.WriteMsg(conn, resp)
@@ -122,6 +140,20 @@ func (svr *Service) validateSelectedTransport(protocol string, addr string, port
 		}
 	}
 	return fmt.Errorf("transport %s@%s:%d was not advertised by server", protocol, addr, port)
+}
+
+func (svr *Service) validateSelectedTransportForEntry(protocol string, addr string, port int, entry autoTransportEntry) error {
+	if err := svr.validateSelectedTransport(protocol, addr, port); err != nil {
+		return err
+	}
+	if len(entry.Protocols) == 0 {
+		return nil
+	}
+	if !slices.Contains(entry.Protocols, protocol) || (entry.Port > 0 && entry.Port != port) {
+		return fmt.Errorf("transport %s@%s:%d does not match connection entry %v@%d",
+			protocol, addr, port, entry.Protocols, entry.Port)
+	}
+	return nil
 }
 
 func advertisedAddrMatches(advertised string, selected string) bool {

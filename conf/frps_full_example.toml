@@ -18,6 +18,7 @@ kcpBindPort = 7000
 # Auto mode is only active when both frps and frpc set transport.protocol = "auto".
 # In this mode, this implementation requires kcpBindPort to equal bindPort,
 # and quicBindPort to be different from both bindPort and kcpBindPort.
+# The following dotted keys are top-level TOML keys. Do not put them under a [transport] table.
 # transport.protocol = "auto"
 # transport.auto.enabled = true
 # transport.auto.allowDynamicSwitch = true

@@ -52,6 +52,26 @@ func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConf
 	out.Transport.TCPMux = lo.ToPtr(conf.TCPMux)
 	out.Transport.TCPMuxKeepaliveInterval = conf.TCPMuxKeepaliveInterval
 	out.Transport.Protocol = conf.Protocol
+	if conf.AutoEnabled {
+		out.Transport.Auto.Enabled = lo.ToPtr(true)
+	}
+	out.Transport.Auto.Candidates = conf.AutoCandidates
+	if conf.AutoAllowUDP {
+		out.Transport.Auto.AllowUDP = lo.ToPtr(true)
+	}
+	out.Transport.Auto.Strategy = conf.AutoStrategy
+	out.Transport.Auto.ProbeTimeoutMs = conf.AutoProbeTimeoutMs
+	out.Transport.Auto.ProbeCount = conf.AutoProbeCount
+	out.Transport.Auto.StickyDurationSec = conf.AutoStickyDurationSec
+	out.Transport.Auto.CooldownSec = conf.AutoCooldownSec
+	out.Transport.Auto.FailureThreshold = conf.AutoFailureThreshold
+	out.Transport.Auto.DegradeThreshold = conf.AutoDegradeThreshold
+	out.Transport.Auto.RecheckIntervalSec = conf.AutoRecheckIntervalSec
+	if conf.AutoPersistLastGood {
+		out.Transport.Auto.PersistLastGood = lo.ToPtr(true)
+	}
+	out.Transport.Auto.BootstrapProtocol = conf.AutoBootstrapProtocol
+	out.Transport.Auto.BootstrapPort = conf.AutoBootstrapPort
 	out.Transport.HeartbeatInterval = conf.HeartbeatInterval
 	out.Transport.HeartbeatTimeout = conf.HeartbeatTimeout
 	out.Transport.QUIC.KeepalivePeriod = conf.QUICKeepalivePeriod
@@ -104,6 +124,16 @@ func Convert_ServerCommonConf_To_v1(conf *ServerCommonConf) *v1.ServerConfig {
 	out.BindPort = conf.BindPort
 	out.KCPBindPort = conf.KCPBindPort
 	out.QUICBindPort = conf.QUICBindPort
+	out.Transport.Protocol = conf.Protocol
+	if conf.AutoEnabled {
+		out.Transport.Auto.Enabled = lo.ToPtr(true)
+	}
+	if conf.AutoAllowDynamicSwitch {
+		out.Transport.Auto.AllowDynamicSwitch = lo.ToPtr(true)
+	}
+	out.Transport.Auto.AdvertiseProtocols = conf.AutoAdvertiseProtocols
+	out.Transport.Auto.PreferOrder = conf.AutoPreferOrder
+	out.Transport.Auto.SwitchCooldownSec = conf.AutoSwitchCooldownSec
 	out.Transport.QUIC.KeepalivePeriod = conf.QUICKeepalivePeriod
 	out.Transport.QUIC.MaxIdleTimeout = conf.QUICMaxIdleTimeout
 	out.Transport.QUIC.MaxIncomingStreams = conf.QUICMaxIncomingStreams

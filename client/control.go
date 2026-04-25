@@ -294,7 +294,6 @@ func (ctl *Control) heartbeatWorker() {
 			if time.Since(ctl.lastPong.Load().(time.Time)) > time.Duration(ctl.sessionCtx.Common.Transport.HeartbeatTimeout)*time.Second {
 				xl.Warnf("heartbeat timeout")
 				ctl.reportHeartbeatTimeout()
-				ctl.closeSession()
 				return
 			}
 		}, time.Second, ctl.doneCh)
@@ -334,8 +333,13 @@ func (ctl *Control) reportHeartbeatRTT(rtt time.Duration) bool {
 
 func (ctl *Control) reportHeartbeatTimeout() {
 	if ctl.sessionCtx.AutoTransport != nil {
-		ctl.sessionCtx.AutoTransport.reportHeartbeatTimeout()
+		if ctl.sessionCtx.AutoTransport.reportHeartbeatTimeout() {
+			ctl.xl.Warnf("auto transport requests reconnect due to consecutive heartbeat timeouts")
+			ctl.closeSession()
+		}
+		return
 	}
+	ctl.closeSession()
 }
 
 func (ctl *Control) reportWorkConnSuccess() {
