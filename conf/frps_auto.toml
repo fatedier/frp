@@ -1,0 +1,10 @@
+bindAddr = "0.0.0.0"
+bindPort = 7000
+kcpBindPort = 7000
+quicBindPort = 7002
+
+transport.protocol = "auto"
+transport.auto.enabled = true
+transport.auto.allowDynamicSwitch = true
+transport.auto.advertiseProtocols = ["tcp", "kcp", "quic", "websocket", "wss"]
+transport.auto.preferOrder = ["quic", "tcp", "wss", "websocket", "kcp"]

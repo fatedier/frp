@@ -1,0 +1,15 @@
+serverAddr = "127.0.0.1"
+serverPort = 7000
+
+transport.protocol = "auto"
+transport.auto.enabled = true
+transport.auto.candidates = ["quic", "tcp", "wss", "websocket", "kcp"]
+transport.auto.bootstrapProtocol = "tcp"
+transport.auto.bootstrapPort = 7000
+
+[[proxies]]
+name = "test-tcp"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 22
+remotePort = 6000
