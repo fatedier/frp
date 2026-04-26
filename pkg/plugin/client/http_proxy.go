@@ -107,13 +107,7 @@ func (hp *HTTPProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if req.Method == http.MethodConnect {
-		// deprecated
-		// Connect request is handled in Handle function.
-		hp.ConnectHandler(rw, req)
-	} else {
-		hp.HTTPHandler(rw, req)
-	}
+	hp.HTTPHandler(rw, req)
 }
 
 func (hp *HTTPProxy) HTTPHandler(rw http.ResponseWriter, req *http.Request) {
@@ -133,33 +127,6 @@ func (hp *HTTPProxy) HTTPHandler(rw http.ResponseWriter, req *http.Request) {
 	if err != nil && err != io.EOF {
 		return
 	}
-}
-
-// deprecated
-// Hijack needs to SetReadDeadline on the Conn of the request, but if we use stream compression here,
-// we may always get i/o timeout error.
-func (hp *HTTPProxy) ConnectHandler(rw http.ResponseWriter, req *http.Request) {
-	hj, ok := rw.(http.Hijacker)
-	if !ok {
-		rw.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	client, _, err := hj.Hijack()
-	if err != nil {
-		rw.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	remote, err := net.Dial("tcp", req.URL.Host)
-	if err != nil {
-		http.Error(rw, "Failed", http.StatusBadRequest)
-		client.Close()
-		return
-	}
-	_, _ = client.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
-
-	go libio.Join(remote, client)
 }
 
 func (hp *HTTPProxy) Auth(req *http.Request) bool {
