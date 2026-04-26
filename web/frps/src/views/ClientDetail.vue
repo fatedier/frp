@@ -27,6 +27,9 @@
                   <el-tag v-if="client.version" size="small" type="success"
                     >v{{ client.version }}</el-tag
                   >
+                  <el-tag v-if="client.wireProtocolLabel" size="small" type="info">
+                    {{ client.wireProtocolLabel }}
+                  </el-tag>
                 </div>
                 <div class="client-meta">
                   <span v-if="client.ip" class="meta-item">{{
@@ -57,6 +60,10 @@
             <div class="info-item">
               <span class="info-label">Run ID</span>
               <span class="info-value">{{ client.runID }}</span>
+            </div>
+            <div v-if="client.wireProtocol" class="info-item">
+              <span class="info-label">Protocol</span>
+              <span class="info-value">{{ client.wireProtocol }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">First Connected</span>

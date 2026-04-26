@@ -29,6 +29,7 @@ type ClientInfo struct {
 	Hostname         string
 	IP               string
 	Version          string
+	WireProtocol     string
 	FirstConnectedAt time.Time
 	LastConnectedAt  time.Time
 	DisconnectedAt   time.Time
@@ -51,7 +52,7 @@ func NewClientRegistry() *ClientRegistry {
 }
 
 // Register stores/updates metadata for a client and returns the registry key plus whether it conflicts with an online client.
-func (cr *ClientRegistry) Register(user, rawClientID, runID, hostname, version, remoteAddr string) (key string, conflict bool) {
+func (cr *ClientRegistry) Register(user, rawClientID, runID, hostname, version, remoteAddr, wireProtocol string) (key string, conflict bool) {
 	if runID == "" {
 		return "", false
 	}
@@ -88,6 +89,7 @@ func (cr *ClientRegistry) Register(user, rawClientID, runID, hostname, version, 
 	info.Hostname = hostname
 	info.IP = remoteAddr
 	info.Version = version
+	info.WireProtocol = wireProtocol
 	if info.FirstConnectedAt.IsZero() {
 		info.FirstConnectedAt = now
 	}

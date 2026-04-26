@@ -133,7 +133,7 @@ type CloseNotifyConn struct {
 	net.Conn
 
 	// 1 means closed
-	closeFlag int32
+	closeFlag atomic.Int32
 
 	closeFn func(error)
 }
@@ -147,7 +147,7 @@ func WrapCloseNotifyConn(c net.Conn, closeFn func(error)) *CloseNotifyConn {
 }
 
 func (cc *CloseNotifyConn) Close() (err error) {
-	pflag := atomic.SwapInt32(&cc.closeFlag, 1)
+	pflag := cc.closeFlag.Swap(1)
 	if pflag == 0 {
 		err = cc.Conn.Close()
 		if cc.closeFn != nil {
@@ -159,7 +159,7 @@ func (cc *CloseNotifyConn) Close() (err error) {
 
 // CloseWithError closes the connection and passes the error to the close callback.
 func (cc *CloseNotifyConn) CloseWithError(err error) error {
-	pflag := atomic.SwapInt32(&cc.closeFlag, 1)
+	pflag := cc.closeFlag.Swap(1)
 	if pflag == 0 {
 		closeErr := cc.Conn.Close()
 		if cc.closeFn != nil {
@@ -173,7 +173,7 @@ func (cc *CloseNotifyConn) CloseWithError(err error) error {
 type StatsConn struct {
 	net.Conn
 
-	closed     int64 // 1 means closed
+	closed     atomic.Int64 // 1 means closed
 	totalRead  int64
 	totalWrite int64
 	statsFunc  func(totalRead, totalWrite int64)
@@ -199,7 +199,7 @@ func (statsConn *StatsConn) Write(p []byte) (n int, err error) {
 }
 
 func (statsConn *StatsConn) Close() (err error) {
-	old := atomic.SwapInt64(&statsConn.closed, 1)
+	old := statsConn.closed.Swap(1)
 	if old != 1 {
 		err = statsConn.Conn.Close()
 		if statsConn.statsFunc != nil {
