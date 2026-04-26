@@ -45,6 +45,8 @@ type HTTPProxy struct {
 	s *http.Server
 }
 
+const httpProxyReadHeaderTimeout = 60 * time.Second
+
 func NewHTTPProxyPlugin(_ PluginContext, options v1.ClientPluginOptions) (Plugin, error) {
 	opts := options.(*v1.HTTPProxyPluginOptions)
 	listener := NewProxyListener()
@@ -56,7 +58,7 @@ func NewHTTPProxyPlugin(_ PluginContext, options v1.ClientPluginOptions) (Plugin
 
 	hp.s = &http.Server{
 		Handler:           hp,
-		ReadHeaderTimeout: 60 * time.Second,
+		ReadHeaderTimeout: httpProxyReadHeaderTimeout,
 	}
 
 	go func() {
@@ -73,16 +75,19 @@ func (hp *HTTPProxy) Handle(_ context.Context, connInfo *ConnectionInfo) {
 	wrapConn := netpkg.WrapReadWriteCloserToConn(connInfo.Conn, connInfo.UnderlyingConn)
 
 	sc, rd := libnet.NewSharedConn(wrapConn)
-	firstBytes := make([]byte, 7)
-	_, err := rd.Read(firstBytes)
+	firstBytes := make([]byte, len(http.MethodConnect))
+	_ = wrapConn.SetReadDeadline(time.Now().Add(httpProxyReadHeaderTimeout))
+	_, err := io.ReadFull(rd, firstBytes)
 	if err != nil {
+		_ = wrapConn.SetReadDeadline(time.Time{})
 		wrapConn.Close()
 		return
 	}
 
-	if strings.ToUpper(string(firstBytes)) == "CONNECT" {
+	if strings.EqualFold(string(firstBytes), http.MethodConnect) {
 		bufRd := bufio.NewReader(sc)
 		request, err := http.ReadRequest(bufRd)
+		_ = wrapConn.SetReadDeadline(time.Time{})
 		if err != nil {
 			wrapConn.Close()
 			return
@@ -91,6 +96,7 @@ func (hp *HTTPProxy) Handle(_ context.Context, connInfo *ConnectionInfo) {
 		return
 	}
 
+	_ = wrapConn.SetReadDeadline(time.Time{})
 	_ = hp.l.PutConn(sc)
 }
 
