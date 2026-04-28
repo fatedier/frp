@@ -142,6 +142,8 @@ type Service struct {
 
 	unsafeFeatures *security.UnsafeFeatures
 
+	autoTransport *autoTransportManager
+
 	// The configuration file used to initialize this client, or an empty
 	// string if no configuration file was used.
 	configFilePath string
@@ -216,7 +218,22 @@ func NewService(options ServiceOptions) (*Service, error) {
 	if options.Common.VirtualNet.Address != "" {
 		s.vnetController = vnet.NewController(options.Common.VirtualNet)
 	}
+	if options.Common.Transport.Protocol == v1.TransportProtocolAuto && lo.FromPtr(options.Common.Transport.Auto.Enabled) {
+		s.autoTransport = newAutoTransportManager(
+			options.Common,
+			authRuntime,
+			options.ConnectorCreator,
+			autoTransportStatePath(options.ConfigFilePath),
+		)
+	}
 	return s, nil
+}
+
+func autoTransportStatePath(configFilePath string) string {
+	if configFilePath == "" {
+		return ""
+	}
+	return configFilePath + ".auto_transport_state"
 }
 
 func (svr *Service) Run(ctx context.Context) error {
@@ -255,7 +272,7 @@ func (svr *Service) Run(ctx context.Context) error {
 	}
 
 	// first login to frps
-	svr.loopLoginUntilSuccess(10*time.Second, lo.FromPtr(svr.common.LoginFailExit))
+	svr.loopLoginUntilSuccess(10*time.Second, lo.FromPtr(svr.common.LoginFailExit), autoTransportReasonStartup)
 	if svr.ctl == nil {
 		cancelCause := cancelErr{}
 		_ = errors.As(context.Cause(svr.ctx), &cancelCause)
@@ -280,7 +297,7 @@ func (svr *Service) keepControllerWorking() {
 	wait.BackoffUntil(func() (bool, error) {
 		// loopLoginUntilSuccess is another layer of loop that will continuously attempt to
 		// login to the server until successful.
-		svr.loopLoginUntilSuccess(20*time.Second, false)
+		svr.loopLoginUntilSuccess(20*time.Second, false, autoTransportReasonControlClosed)
 		if svr.ctl != nil {
 			<-svr.ctl.Done()
 			return false, errors.New("control is closed and try another loop")
@@ -301,8 +318,9 @@ func (svr *Service) keepControllerWorking() {
 	), true, svr.ctx.Done())
 }
 
-func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginExit bool) {
+func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginExit bool, reason string) {
 	xl := xlog.FromContextSafe(svr.ctx)
+	loginReason := reason
 
 	loginFunc := func() (bool, error) {
 		xl.Infof("try to connect to server...")
@@ -313,15 +331,26 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 			clientSpec:       svr.clientSpec,
 			vnetController:   svr.vnetController,
 			connectorCreator: svr.connectorCreator,
+			autoTransport:    svr.autoTransport,
+			autoReason:       loginReason,
 		}
 		sessionCtx, err := dialer.Dial(svr.runID)
+		autoSelection := dialer.autoSelection
 		if err != nil {
 			xl.Warnf("connect to server error: %v", err)
+			if svr.autoTransport != nil && autoSelection != nil {
+				svr.autoTransport.reportLoginFailure(autoSelection.Candidate.Protocol)
+			}
+			loginReason = autoTransportReasonLoginFailure
 			if firstLoginExit {
 				svr.cancel(cancelErr{Err: err})
 			}
 			return false, err
 		}
+		if svr.autoTransport != nil && autoSelection != nil {
+			svr.autoTransport.reportLoginSuccess(autoSelection.Candidate.Protocol)
+		}
+		loginReason = reason
 
 		svr.runID = sessionCtx.RunID
 		xl.AddPrefix(xlog.LogPrefix{Name: "runID", Value: svr.runID})
@@ -468,6 +497,20 @@ func (svr *Service) StatusExporter() StatusExporter {
 	return &statusExporterImpl{
 		getProxyStatusFunc: svr.getProxyStatus,
 	}
+}
+
+func (svr *Service) TransportStatus(_ *httppkg.Context) (any, error) {
+	if svr.autoTransport != nil {
+		return svr.autoTransport.status(), nil
+	}
+	return AutoTransportStatus{
+		AutoEnabled:      false,
+		State:            "STATIC",
+		CurrentProtocol:  svr.common.Transport.Protocol,
+		CurrentAddr:      svr.common.ServerAddr,
+		CurrentPort:      svr.common.ServerPort,
+		LastGoodProtocol: svr.common.Transport.Protocol,
+	}, nil
 }
 
 type StatusExporter interface {

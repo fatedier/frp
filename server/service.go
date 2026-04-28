@@ -24,9 +24,11 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/fatedier/golib/crypto"
+	libnet "github.com/fatedier/golib/net"
 	"github.com/fatedier/golib/net/mux"
 	fmux "github.com/hashicorp/yamux"
 	quic "github.com/quic-go/quic-go"
@@ -369,16 +371,22 @@ func (svr *Service) Run(ctx context.Context) {
 		}()
 	}
 
-	go svr.HandleListener(svr.sshTunnelListener, true)
+	go svr.HandleListener(svr.sshTunnelListener, true, autoTransportEntry{})
 
 	if svr.kcpListener != nil {
-		go svr.HandleListener(svr.kcpListener, false)
+		go svr.HandleListener(svr.kcpListener, false, autoTransportEntry{
+			Protocols: []string{v1.TransportProtocolKCP},
+			Port:      svr.cfg.KCPBindPort,
+		})
 	}
 	if svr.quicListener != nil {
 		go svr.HandleQUICListener(svr.quicListener)
 	}
-	go svr.HandleListener(svr.websocketListener, false)
-	go svr.HandleListener(svr.tlsListener, false)
+	go svr.HandleListener(svr.websocketListener, false, autoTransportEntry{
+		Protocols: []string{v1.TransportProtocolWebsocket},
+		Port:      svr.cfg.BindPort,
+	})
+	go svr.HandleTLSListener(svr.tlsListener)
 
 	if svr.rc.NatHoleController != nil {
 		go svr.rc.NatHoleController.CleanWorker(svr.ctx)
@@ -388,7 +396,10 @@ func (svr *Service) Run(ctx context.Context) {
 		go svr.sshTunnelGateway.Run()
 	}
 
-	svr.HandleListener(svr.listener, false)
+	svr.HandleListener(svr.listener, false, autoTransportEntry{
+		Protocols: []string{v1.TransportProtocolTCP},
+		Port:      svr.cfg.BindPort,
+	})
 
 	<-svr.ctx.Done()
 	// service context may not be canceled by svr.Close(), we should call it here to release resources
@@ -431,7 +442,7 @@ func (svr *Service) Close() error {
 	return nil
 }
 
-func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, internal bool) {
+func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, internal bool, entry autoTransportEntry) {
 	xl := xlog.FromContextSafe(ctx)
 
 	acceptedConn, err := svr.acceptConnection(ctx, conn)
@@ -442,7 +453,48 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 	}
 	conn = acceptedConn.conn
 
+	if m, ok := acceptedConn.firstMsg.(*msg.SelectTransport); ok {
+		if err := validateClientAutoVersion(m.ClientAutoVersion); err != nil {
+			xl.Warnf("select transport version error: %v", err)
+			svr.logRejectedTransport(m.Protocol, m.Port, err)
+			metrics.Server.AutoTransportRejected(m.Protocol)
+			_ = acceptedConn.conn.WriteMsg(&msg.LoginResp{
+				Version: version.Full(),
+				Error:   util.GenerateResponseErrorString("select transport error", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
+			})
+			conn.Close()
+			return
+		}
+		if err := svr.validateSelectedTransportForEntry(m.Protocol, m.Addr, m.Port, entry); err != nil {
+			xl.Warnf("select transport error: %v", err)
+			svr.logRejectedTransport(m.Protocol, m.Port, err)
+			metrics.Server.AutoTransportRejected(m.Protocol)
+			_ = acceptedConn.conn.WriteMsg(&msg.LoginResp{
+				Version: version.Full(),
+				Error:   util.GenerateResponseErrorString("select transport error", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
+			})
+			conn.Close()
+			return
+		}
+		acceptedConn.selectedTransport = m.Protocol
+		acceptedConn.selectedPort = m.Port
+		acceptedConn.selectedReason = m.Reason
+		acceptedConn.selectedScores = m.Scores
+
+		_ = conn.SetReadDeadline(time.Now().Add(connReadTimeout))
+		if acceptedConn.firstMsg, err = acceptedConn.conn.ReadMsg(); err != nil {
+			log.Tracef("failed to read message after SelectTransport: %v", err)
+			conn.Close()
+			return
+		}
+		_ = conn.SetReadDeadline(time.Time{})
+	}
+
 	switch m := acceptedConn.firstMsg.(type) {
+	case *msg.ClientHelloAuto:
+		svr.handleClientHelloAuto(conn, m)
+	case *msg.ProbeTransport:
+		svr.handleProbeTransport(conn, m, entry)
 	case *msg.Login:
 		// server plugin hook
 		content := &plugin.LoginContent{
@@ -462,7 +514,16 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 				}
 			}
 			if err == nil {
-				ctl, err = svr.RegisterControl(controlConn, m, internal, acceptedConn.wireProtocol)
+				ctl, err = svr.RegisterControl(
+					controlConn,
+					m,
+					internal,
+					acceptedConn.wireProtocol,
+					acceptedConn.selectedTransport,
+					acceptedConn.selectedPort,
+					acceptedConn.selectedReason,
+					acceptedConn.selectedScores,
+				)
 			}
 		}
 
@@ -521,9 +582,13 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 }
 
 type acceptedConnection struct {
-	conn         *msg.Conn
-	wireProtocol string
-	firstMsg     msg.Message
+	conn              *msg.Conn
+	wireProtocol      string
+	firstMsg          msg.Message
+	selectedTransport string
+	selectedPort      int
+	selectedReason    string
+	selectedScores    map[string]int64
 }
 
 func (svr *Service) acceptConnection(ctx context.Context, conn net.Conn) (*acceptedConnection, error) {
@@ -604,7 +669,7 @@ func (ac *acceptedConnection) handleClientHello(wireConn *wire.Conn, frame *wire
 // HandleListener accepts connections from client and call handleConnection to handle them.
 // If internal is true, it means that this listener is used for internal communication like ssh tunnel gateway.
 // TODO(fatedier): Pass some parameters of listener/connection through context to avoid passing too many parameters.
-func (svr *Service) HandleListener(l net.Listener, internal bool) {
+func (svr *Service) HandleListener(l net.Listener, internal bool, entry autoTransportEntry) {
 	// Listen for incoming connections from client.
 	for {
 		c, err := l.Accept()
@@ -632,35 +697,157 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 			log.Tracef("check TLS connection success, isTLS: %v custom: %v internal: %v", isTLS, custom, internal)
 		}
 
-		// Start a new goroutine to handle connection.
-		go func(ctx context.Context, frpConn net.Conn) {
-			if lo.FromPtr(svr.cfg.Transport.TCPMux) && !internal {
-				fmuxCfg := fmux.DefaultConfig()
-				fmuxCfg.KeepAliveInterval = time.Duration(svr.cfg.Transport.TCPMuxKeepaliveInterval) * time.Second
-				// Use trace level for yamux logs
-				fmuxCfg.LogOutput = xlog.NewTraceWriter(xlog.FromContextSafe(ctx))
-				fmuxCfg.MaxStreamWindowSize = 6 * 1024 * 1024
-				session, err := fmux.Server(frpConn, fmuxCfg)
-				if err != nil {
-					log.Warnf("failed to create mux connection: %v", err)
-					frpConn.Close()
-					return
-				}
-
-				for {
-					stream, err := session.AcceptStream()
-					if err != nil {
-						log.Debugf("accept new mux stream error: %v", err)
-						session.Close()
-						return
-					}
-					go svr.handleConnection(ctx, stream, internal)
-				}
-			} else {
-				svr.handleConnection(ctx, frpConn, internal)
-			}
-		}(ctx, c)
+		go svr.serveFrpConn(ctx, c, internal, entry)
 	}
+}
+
+func (svr *Service) HandleTLSListener(l net.Listener) {
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			log.Warnf("tls listener for incoming connections from client closed")
+			return
+		}
+
+		xl := xlog.New()
+		ctx := context.Background()
+		c = netpkg.NewContextConn(xlog.NewContext(ctx, xl), c)
+
+		log.Tracef("start check TLS connection...")
+		originConn := c
+		c, isTLS, custom, err := netpkg.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, true, connReadTimeout)
+		if err != nil {
+			log.Warnf("checkAndEnableTLSServerConnWithTimeout error: %v", err)
+			originConn.Close()
+			continue
+		}
+		log.Tracef("check TLS connection success, isTLS: %v custom: %v internal: false", isTLS, custom)
+
+		go svr.serveTLSFrpConn(ctx, c)
+	}
+}
+
+func (svr *Service) serveTLSFrpConn(ctx context.Context, c net.Conn) {
+	c, isWebsocket := peekAutoTransportWebsocket(c)
+	if isWebsocket {
+		svr.serveWebsocketConn(ctx, c, autoTransportEntry{
+			Protocols: []string{v1.TransportProtocolWSS},
+			Port:      svr.cfg.BindPort,
+		})
+		return
+	}
+
+	svr.serveFrpConn(ctx, c, false, autoTransportEntry{
+		Protocols: []string{v1.TransportProtocolTCP},
+		Port:      svr.cfg.BindPort,
+	})
+}
+
+func (svr *Service) serveWebsocketConn(ctx context.Context, c net.Conn, entry autoTransportEntry) {
+	ln := netpkg.NewWebsocketListener(newSingleConnListener(c))
+	defer ln.Close()
+
+	acceptCh := make(chan net.Conn, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			errCh <- err
+			return
+		}
+		acceptCh <- conn
+	}()
+
+	select {
+	case wsConn := <-acceptCh:
+		svr.serveFrpConn(ctx, wsConn, false, entry)
+	case err := <-errCh:
+		log.Warnf("accept websocket connection error: %v", err)
+		c.Close()
+	case <-time.After(connReadTimeout):
+		log.Warnf("accept websocket connection timeout")
+		c.Close()
+	}
+}
+
+func (svr *Service) serveFrpConn(ctx context.Context, frpConn net.Conn, internal bool, entry autoTransportEntry) {
+	if lo.FromPtr(svr.cfg.Transport.TCPMux) && !internal {
+		fmuxCfg := fmux.DefaultConfig()
+		fmuxCfg.KeepAliveInterval = time.Duration(svr.cfg.Transport.TCPMuxKeepaliveInterval) * time.Second
+		// Use trace level for yamux logs
+		fmuxCfg.LogOutput = xlog.NewTraceWriter(xlog.FromContextSafe(ctx))
+		fmuxCfg.MaxStreamWindowSize = 6 * 1024 * 1024
+		session, err := fmux.Server(frpConn, fmuxCfg)
+		if err != nil {
+			log.Warnf("failed to create mux connection: %v", err)
+			frpConn.Close()
+			return
+		}
+
+		for {
+			stream, err := session.AcceptStream()
+			if err != nil {
+				log.Debugf("accept new mux stream error: %v", err)
+				session.Close()
+				return
+			}
+			go svr.handleConnection(ctx, stream, internal, entry)
+		}
+	}
+
+	svr.handleConnection(ctx, frpConn, internal, entry)
+}
+
+func peekAutoTransportWebsocket(c net.Conn) (net.Conn, bool) {
+	prefix := []byte("GET " + netpkg.FrpWebsocketPath)
+	sc, r := libnet.NewSharedConnSize(c, len(prefix))
+	buf := make([]byte, len(prefix))
+	_ = c.SetReadDeadline(time.Now().Add(connReadTimeout))
+	n, err := io.ReadFull(r, buf)
+	_ = c.SetReadDeadline(time.Time{})
+	return sc, err == nil && n == len(prefix) && bytes.Equal(buf, prefix)
+}
+
+type singleConnListener struct {
+	conn    net.Conn
+	once    sync.Once
+	closeCh chan struct{}
+}
+
+func newSingleConnListener(conn net.Conn) *singleConnListener {
+	return &singleConnListener{
+		conn:    conn,
+		closeCh: make(chan struct{}),
+	}
+}
+
+func (l *singleConnListener) Accept() (net.Conn, error) {
+	var (
+		conn net.Conn
+		used bool
+	)
+	l.once.Do(func() {
+		conn = l.conn
+		used = true
+	})
+	if used {
+		return conn, nil
+	}
+	<-l.closeCh
+	return nil, net.ErrClosed
+}
+
+func (l *singleConnListener) Close() error {
+	select {
+	case <-l.closeCh:
+	default:
+		close(l.closeCh)
+	}
+	return nil
+}
+
+func (l *singleConnListener) Addr() net.Addr {
+	return l.conn.LocalAddr()
 }
 
 func (svr *Service) HandleQUICListener(l *quic.Listener) {
@@ -680,7 +867,10 @@ func (svr *Service) HandleQUICListener(l *quic.Listener) {
 					_ = frpConn.CloseWithError(0, "")
 					return
 				}
-				go svr.handleConnection(ctx, netpkg.QuicStreamToNetConn(stream, frpConn), false)
+				go svr.handleConnection(ctx, netpkg.QuicStreamToNetConn(stream, frpConn), false, autoTransportEntry{
+					Protocols: []string{v1.TransportProtocolQUIC},
+					Port:      svr.cfg.QUICBindPort,
+				})
 			}
 		}(context.Background(), c)
 	}
@@ -691,6 +881,10 @@ func (svr *Service) RegisterControl(
 	loginMsg *msg.Login,
 	internal bool,
 	wireProtocol string,
+	selectedTransport string,
+	selectedPort int,
+	selectedReason string,
+	selectedScores map[string]int64,
 ) (*Control, error) {
 	// If client's RunID is empty, it's a new client, we just create a new controller.
 	// Otherwise, we check if there is one controller has the same run id. If so, we release previous controller and start new one.
@@ -728,6 +922,7 @@ func (svr *Service) RegisterControl(
 		LoginMsg:       loginMsg,
 		ServerCfg:      svr.cfg,
 		ClientRegistry: svr.clientRegistry,
+		Transport:      selectedTransport,
 	})
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
@@ -735,7 +930,9 @@ func (svr *Service) RegisterControl(
 		return nil, fmt.Errorf("unexpected error when creating new controller")
 	}
 
+	oldTransport := ""
 	if oldCtl := svr.ctlManager.Add(loginMsg.RunID, ctl); oldCtl != nil {
+		oldTransport = oldCtl.sessionCtx.Transport
 		oldCtl.WaitClosed()
 	}
 
@@ -748,6 +945,13 @@ func (svr *Service) RegisterControl(
 		svr.ctlManager.Del(loginMsg.RunID, ctl)
 		return nil, fmt.Errorf("client_id [%s] for user [%s] is already online", loginMsg.ClientID, loginMsg.User)
 	}
+
+	// for statistics
+	metrics.Server.AutoTransportSelected(selectedTransport)
+	metrics.Server.AutoTransportClientOnline(selectedTransport)
+	metrics.Server.AutoTransportSwitch(oldTransport, selectedTransport)
+	svr.logSelectedTransport(loginMsg.RunID, selectedTransport, selectedPort, selectedReason, selectedScores)
+	svr.logTransportSwitch(loginMsg.RunID, oldTransport, selectedTransport, selectedReason, selectedScores)
 
 	return ctl, nil
 }

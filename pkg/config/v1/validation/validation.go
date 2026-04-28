@@ -16,6 +16,8 @@ package validation
 
 import (
 	"errors"
+	"fmt"
+	"slices"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	splugin "github.com/fatedier/frp/pkg/plugin/server"
@@ -28,6 +30,7 @@ var (
 		"quic",
 		"websocket",
 		"wss",
+		"auto",
 	}
 	SupportedWireProtocols = []string{
 		"v1",
@@ -69,4 +72,14 @@ func AppendError(err error, errs ...error) error {
 		return err
 	}
 	return errors.Join(append([]error{err}, errs...)...)
+}
+
+func validateProtocolList(name string, protocols []string) error {
+	var errs error
+	for _, protocol := range protocols {
+		if protocol == v1.TransportProtocolAuto || !slices.Contains(SupportedTransportProtocols, protocol) {
+			errs = AppendError(errs, fmt.Errorf("%s contains unsupported protocol %q", name, protocol))
+		}
+	}
+	return errs
 }

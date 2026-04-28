@@ -119,9 +119,24 @@ type ClientCommonConf struct {
 	Start []string `ini:"start" json:"start"`
 	// Start map[string]struct{} `json:"start"`
 	// Protocol specifies the protocol to use when interacting with the server.
-	// Valid values are "tcp", "kcp", "quic", "websocket" and "wss". By default, this value
+	// Valid values are "tcp", "kcp", "quic", "websocket", "wss" and "auto". By default, this value
 	// is "tcp".
 	Protocol string `ini:"protocol" json:"protocol"`
+	// Auto transport options.
+	AutoEnabled            *bool    `ini:"auto_enabled" json:"auto_enabled"`
+	AutoCandidates         []string `ini:"auto_candidates" json:"auto_candidates"`
+	AutoAllowUDP           *bool    `ini:"auto_allow_udp" json:"auto_allow_udp"`
+	AutoStrategy           string   `ini:"auto_strategy" json:"auto_strategy"`
+	AutoProbeTimeoutMs     int      `ini:"auto_probe_timeout_ms" json:"auto_probe_timeout_ms"`
+	AutoProbeCount         int      `ini:"auto_probe_count" json:"auto_probe_count"`
+	AutoStickyDurationSec  int      `ini:"auto_sticky_duration_sec" json:"auto_sticky_duration_sec"`
+	AutoCooldownSec        int      `ini:"auto_cooldown_sec" json:"auto_cooldown_sec"`
+	AutoFailureThreshold   int      `ini:"auto_failure_threshold" json:"auto_failure_threshold"`
+	AutoDegradeThreshold   int      `ini:"auto_degrade_threshold" json:"auto_degrade_threshold"`
+	AutoRecheckIntervalSec int      `ini:"auto_recheck_interval_sec" json:"auto_recheck_interval_sec"`
+	AutoPersistLastGood    *bool    `ini:"auto_persist_last_good" json:"auto_persist_last_good"`
+	AutoBootstrapProtocol  string   `ini:"auto_bootstrap_protocol" json:"auto_bootstrap_protocol"`
+	AutoBootstrapPort      int      `ini:"auto_bootstrap_port" json:"auto_bootstrap_port"`
 	// QUIC protocol options
 	QUICKeepalivePeriod    int `ini:"quic_keepalive_period" json:"quic_keepalive_period"`
 	QUICMaxIdleTimeout     int `ini:"quic_max_idle_timeout" json:"quic_max_idle_timeout"`
@@ -380,7 +395,7 @@ func (cfg *ClientCommonConf) Validate() error {
 		}
 	}
 
-	if !slices.Contains([]string{"tcp", "kcp", "quic", "websocket", "wss"}, cfg.Protocol) {
+	if !slices.Contains([]string{"tcp", "kcp", "quic", "websocket", "wss", "auto"}, cfg.Protocol) {
 		return fmt.Errorf("invalid protocol")
 	}
 

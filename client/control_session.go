@@ -44,10 +44,24 @@ type controlSessionDialer struct {
 	vnetController *vnet.Controller
 
 	connectorCreator func(context.Context, *v1.ClientCommonConfig) Connector
+	autoTransport    *autoTransportManager
+	autoReason       string
+	autoSelection    *autoTransportSelection
 }
 
 func (d *controlSessionDialer) Dial(previousRunID string) (*SessionContext, error) {
-	connector := d.connectorCreator(d.ctx, d.common)
+	common := d.common
+	d.autoSelection = nil
+	if d.autoTransport != nil {
+		selection, err := d.autoTransport.selectTransport(d.ctx, d.autoReason)
+		if err != nil {
+			return nil, err
+		}
+		d.autoSelection = selection
+		common = selection.Cfg
+	}
+
+	connector := d.connectorCreator(d.ctx, common)
 	if err := connector.Open(); err != nil {
 		return nil, err
 	}
@@ -69,12 +83,12 @@ func (d *controlSessionDialer) Dial(previousRunID string) (*SessionContext, erro
 		}
 	}()
 
-	loginMsg, err := d.buildLoginMsg(previousRunID)
+	loginMsg, err := d.buildLoginMsg(common, previousRunID)
 	if err != nil {
 		return nil, err
 	}
 
-	loginRespMsg, err := d.exchangeLogin(conn, loginMsg)
+	loginRespMsg, err := d.exchangeLogin(conn, common, loginMsg, d.autoSelection)
 	if err != nil {
 		return nil, err
 	}
@@ -92,28 +106,29 @@ func (d *controlSessionDialer) Dial(previousRunID string) (*SessionContext, erro
 
 	success = true
 	return &SessionContext{
-		Common:         d.common,
+		Common:         common,
 		RunID:          loginRespMsg.RunID,
-		Conn:           msg.NewConn(conn, msg.NewReadWriter(controlRW, d.common.Transport.WireProtocol)),
+		Conn:           msg.NewConn(conn, msg.NewReadWriter(controlRW, common.Transport.WireProtocol)),
 		Auth:           d.auth,
-		Connector:      newMessageConnector(connector, d.common.Transport.WireProtocol),
+		Connector:      newMessageConnector(connector, common.Transport.WireProtocol),
 		VnetController: d.vnetController,
+		AutoTransport:  d.autoTransport,
 	}, nil
 }
 
-func (d *controlSessionDialer) buildLoginMsg(previousRunID string) (*msg.Login, error) {
+func (d *controlSessionDialer) buildLoginMsg(common *v1.ClientCommonConfig, previousRunID string) (*msg.Login, error) {
 	hostname, _ := os.Hostname()
 	loginMsg := &msg.Login{
 		Arch:      runtime.GOARCH,
 		Os:        runtime.GOOS,
 		Hostname:  hostname,
-		PoolCount: d.common.Transport.PoolCount,
-		User:      d.common.User,
-		ClientID:  d.common.ClientID,
+		PoolCount: common.Transport.PoolCount,
+		User:      common.User,
+		ClientID:  common.ClientID,
 		Version:   version.Full(),
 		Timestamp: time.Now().Unix(),
 		RunID:     previousRunID,
-		Metas:     d.common.Metadatas,
+		Metas:     common.Metadatas,
 	}
 	if d.clientSpec != nil {
 		loginMsg.ClientSpec = *d.clientSpec
@@ -125,11 +140,16 @@ func (d *controlSessionDialer) buildLoginMsg(previousRunID string) (*msg.Login, 
 	return loginMsg, nil
 }
 
-func (d *controlSessionDialer) exchangeLogin(conn net.Conn, loginMsg *msg.Login) (*msg.LoginResp, error) {
+func (d *controlSessionDialer) exchangeLogin(
+	conn net.Conn,
+	common *v1.ClientCommonConfig,
+	loginMsg *msg.Login,
+	autoSelection *autoTransportSelection,
+) (*msg.LoginResp, error) {
 	rw := msg.NewV1ReadWriter(conn)
 	var wireConn *wire.Conn
 
-	if d.common.Transport.WireProtocol == wire.ProtocolV2 {
+	if common.Transport.WireProtocol == wire.ProtocolV2 {
 		if err := wire.WriteMagic(conn); err != nil {
 			return nil, err
 		}
@@ -137,11 +157,23 @@ func (d *controlSessionDialer) exchangeLogin(conn net.Conn, loginMsg *msg.Login)
 		wireConn = wire.NewConn(conn)
 		rw = msg.NewV2ReadWriterWithConn(wireConn)
 		hello := wire.DefaultClientHello(wire.BootstrapInfo{
-			Transport: d.common.Transport.Protocol,
-			TLS:       lo.FromPtr(d.common.Transport.TLS.Enable) || d.common.Transport.Protocol == "wss" || d.common.Transport.Protocol == "quic",
-			TCPMux:    lo.FromPtr(d.common.Transport.TCPMux),
+			Transport: common.Transport.Protocol,
+			TLS:       lo.FromPtr(common.Transport.TLS.Enable) || common.Transport.Protocol == "wss" || common.Transport.Protocol == "quic",
+			TCPMux:    lo.FromPtr(common.Transport.TCPMux),
 		})
 		if err := wireConn.WriteJSONFrame(wire.FrameTypeClientHello, hello); err != nil {
+			return nil, err
+		}
+	}
+	if autoSelection != nil && autoSelection.SendSelect {
+		if err := rw.WriteMsg(&msg.SelectTransport{
+			Protocol:          autoSelection.Candidate.Protocol,
+			Addr:              autoSelection.Candidate.advertisedAddr(),
+			Port:              autoSelection.Candidate.Port,
+			Reason:            autoSelection.Reason,
+			Scores:            autoSelection.Scores,
+			ClientAutoVersion: msg.AutoTransportVersion,
+		}); err != nil {
 			return nil, err
 		}
 	}

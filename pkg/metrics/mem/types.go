@@ -25,11 +25,17 @@ const (
 )
 
 type ServerStats struct {
-	TotalTrafficIn  int64
-	TotalTrafficOut int64
-	CurConns        int64
-	ClientCounts    int64
-	ProxyTypeCounts map[string]int64
+	TotalTrafficIn                 int64
+	TotalTrafficOut                int64
+	CurConns                       int64
+	ClientCounts                   int64
+	ProxyTypeCounts                map[string]int64
+	AutoNegotiationSuccess         int64
+	AutoNegotiationFailure         int64
+	AutoTransportSelections        map[string]int64
+	AutoTransportClientCounts      map[string]int64
+	AutoTransportSwitchCounts      map[string]int64
+	AutoTransportIllegalSelections map[string]int64
 }
 
 type ProxyStats struct {
@@ -72,6 +78,13 @@ type ServerStatistics struct {
 
 	// counter for proxy types
 	ProxyTypeCounts map[string]metric.Counter
+
+	AutoNegotiationSuccess         metric.Counter
+	AutoNegotiationFailure         metric.Counter
+	AutoTransportSelections        map[string]metric.Counter
+	AutoTransportClientCounts      map[string]metric.Counter
+	AutoTransportSwitchCounts      map[string]metric.Counter
+	AutoTransportIllegalSelections map[string]metric.Counter
 
 	// statistics for different proxies
 	// key is proxy name

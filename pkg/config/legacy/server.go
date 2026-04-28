@@ -50,6 +50,14 @@ type ServerCommonConf struct {
 	// Set this value to 0 will disable this feature.
 	// By default, the value is 0.
 	QUICBindPort int `ini:"quic_bind_port" json:"quic_bind_port"`
+	// Protocol specifies the server transport protocol mode.
+	Protocol string `ini:"protocol" json:"protocol"`
+	// Auto transport options.
+	AutoEnabled            *bool    `ini:"auto_enabled" json:"auto_enabled"`
+	AutoAllowDynamicSwitch *bool    `ini:"auto_allow_dynamic_switch" json:"auto_allow_dynamic_switch"`
+	AutoAdvertiseProtocols []string `ini:"auto_advertise_protocols" json:"auto_advertise_protocols"`
+	AutoPreferOrder        []string `ini:"auto_prefer_order" json:"auto_prefer_order"`
+	AutoSwitchCooldownSec  int      `ini:"auto_switch_cooldown_sec" json:"auto_switch_cooldown_sec"`
 	// QUIC protocol options
 	QUICKeepalivePeriod    int `ini:"quic_keepalive_period" json:"quic_keepalive_period"`
 	QUICMaxIdleTimeout     int `ini:"quic_max_idle_timeout" json:"quic_max_idle_timeout"`

@@ -32,6 +32,20 @@ func TestServerConfigComplete(t *testing.T) {
 	require.Equal(true, lo.FromPtr(c.DetailedErrorsToClient))
 }
 
+func TestServerConfigComplete_AutoTransportDefaults(t *testing.T) {
+	require := require.New(t)
+	c := &ServerConfig{}
+	c.Transport.Protocol = TransportProtocolAuto
+	err := c.Complete()
+	require.NoError(err)
+
+	require.True(lo.FromPtr(c.Transport.Auto.Enabled))
+	require.True(lo.FromPtr(c.Transport.Auto.AllowDynamicSwitch))
+	require.Equal(DefaultAutoTransportCandidates, c.Transport.Auto.AdvertiseProtocols)
+	require.Equal(DefaultAutoTransportCandidates, c.Transport.Auto.PreferOrder)
+	require.Equal(300, c.Transport.Auto.SwitchCooldownSec)
+}
+
 func TestAuthServerConfig_Complete(t *testing.T) {
 	require := require.New(t)
 	cfg := &AuthServerConfig{}
