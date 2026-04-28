@@ -169,6 +169,9 @@ func validateTransportConfig(c *v1.ClientTransportConfig) (Warning, error) {
 			errs = AppendError(errs, fmt.Errorf("transport.auto.bootstrapPort must be greater than 0"))
 		}
 	}
+	if !slices.Contains(SupportedWireProtocols, c.WireProtocol) {
+		errs = AppendError(errs, fmt.Errorf("invalid transport.wireProtocol, optional values are %v", SupportedWireProtocols))
+	}
 	return warnings, errs
 }
 

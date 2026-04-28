@@ -21,7 +21,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"runtime"
 	"sync"
 	"time"
 
@@ -38,7 +37,6 @@ import (
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
-	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/wait"
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/pkg/vnet"
@@ -320,109 +318,24 @@ func (svr *Service) keepControllerWorking() {
 	), true, svr.ctx.Done())
 }
 
-// login creates a connection to frps and registers it self as a client
-// conn: control connection
-// session: if it's not nil, using tcp mux
-func (svr *Service) login(reason string) (
-	conn net.Conn,
-	connector Connector,
-	connectCfg *v1.ClientCommonConfig,
-	autoSelection *autoTransportSelection,
-	err error,
-) {
-	xl := xlog.FromContextSafe(svr.ctx)
-	connectCfg = svr.common
-	if svr.autoTransport != nil {
-		autoSelection, err = svr.autoTransport.selectTransport(svr.ctx, reason)
-		if err != nil {
-			return nil, nil, nil, autoSelection, err
-		}
-		connectCfg = autoSelection.Cfg
-	}
-
-	connector = svr.connectorCreator(svr.ctx, connectCfg)
-	if err = connector.Open(); err != nil {
-		return nil, nil, connectCfg, autoSelection, err
-	}
-
-	defer func() {
-		if err != nil {
-			connector.Close()
-		}
-	}()
-
-	conn, err = connector.Connect()
-	if err != nil {
-		return
-	}
-
-	hostname, _ := os.Hostname()
-
-	loginMsg := &msg.Login{
-		Arch:      runtime.GOARCH,
-		Os:        runtime.GOOS,
-		Hostname:  hostname,
-		PoolCount: connectCfg.Transport.PoolCount,
-		User:      connectCfg.User,
-		ClientID:  connectCfg.ClientID,
-		Version:   version.Full(),
-		Timestamp: time.Now().Unix(),
-		RunID:     svr.runID,
-		Metas:     connectCfg.Metadatas,
-	}
-	if svr.clientSpec != nil {
-		loginMsg.ClientSpec = *svr.clientSpec
-	}
-
-	// Add auth
-	if err = svr.auth.Setter.SetLogin(loginMsg); err != nil {
-		return
-	}
-
-	if autoSelection != nil && autoSelection.SendSelect {
-		if err = msg.WriteMsg(conn, &msg.SelectTransport{
-			Protocol:          autoSelection.Candidate.Protocol,
-			Addr:              autoSelection.Candidate.advertisedAddr(),
-			Port:              autoSelection.Candidate.Port,
-			Reason:            autoSelection.Reason,
-			Scores:            autoSelection.Scores,
-			ClientAutoVersion: msg.AutoTransportVersion,
-		}); err != nil {
-			return
-		}
-	}
-
-	if err = msg.WriteMsg(conn, loginMsg); err != nil {
-		return
-	}
-
-	var loginRespMsg msg.LoginResp
-	_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	if err = msg.ReadMsgInto(conn, &loginRespMsg); err != nil {
-		return
-	}
-	_ = conn.SetReadDeadline(time.Time{})
-
-	if loginRespMsg.Error != "" {
-		err = fmt.Errorf("%s", loginRespMsg.Error)
-		xl.Errorf("%s", loginRespMsg.Error)
-		return
-	}
-
-	svr.runID = loginRespMsg.RunID
-	xl.AddPrefix(xlog.LogPrefix{Name: "runID", Value: svr.runID})
-
-	xl.Infof("login to server success, get run id [%s]", loginRespMsg.RunID)
-	return
-}
-
 func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginExit bool, reason string) {
 	xl := xlog.FromContextSafe(svr.ctx)
 	loginReason := reason
 
 	loginFunc := func() (bool, error) {
 		xl.Infof("try to connect to server...")
-		conn, connector, connectCfg, autoSelection, err := svr.login(loginReason)
+		dialer := &controlSessionDialer{
+			ctx:              svr.ctx,
+			common:           svr.common,
+			auth:             svr.auth,
+			clientSpec:       svr.clientSpec,
+			vnetController:   svr.vnetController,
+			connectorCreator: svr.connectorCreator,
+			autoTransport:    svr.autoTransport,
+			autoReason:       loginReason,
+		}
+		sessionCtx, err := dialer.Dial(svr.runID)
+		autoSelection := dialer.autoSelection
 		if err != nil {
 			xl.Warnf("connect to server error: %v", err)
 			if svr.autoTransport != nil && autoSelection != nil {
@@ -439,26 +352,19 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		}
 		loginReason = reason
 
+		svr.runID = sessionCtx.RunID
+		xl.AddPrefix(xlog.LogPrefix{Name: "runID", Value: svr.runID})
+		xl.Infof("login to server success, get run id [%s]", svr.runID)
+
 		svr.cfgMu.RLock()
 		proxyCfgs := svr.proxyCfgs
 		visitorCfgs := svr.visitorCfgs
 		svr.cfgMu.RUnlock()
 
-		connEncrypted := svr.clientSpec == nil || svr.clientSpec.Type != "ssh-tunnel"
-
-		sessionCtx := &SessionContext{
-			Common:         connectCfg,
-			RunID:          svr.runID,
-			Conn:           conn,
-			ConnEncrypted:  connEncrypted,
-			Auth:           svr.auth,
-			Connector:      connector,
-			VnetController: svr.vnetController,
-			AutoTransport:  svr.autoTransport,
-		}
 		ctl, err := NewControl(svr.ctx, sessionCtx)
 		if err != nil {
-			conn.Close()
+			sessionCtx.Conn.Close()
+			sessionCtx.Connector.Close()
 			xl.Errorf("new control error: %v", err)
 			return false, err
 		}

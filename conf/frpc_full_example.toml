@@ -127,6 +127,10 @@ transport.protocol = "tcp"
 # transport.auto.bootstrapProtocol = "tcp"
 # transport.auto.bootstrapPort = 7000
 
+# FRP wire protocol used inside the selected transport.
+# supports v1 and v2, default is v1. v2 requires frps support and must be enabled explicitly.
+# transport.wireProtocol = "v1"
+
 # set client binding ip when connect server, default is empty.
 # only when protocol = tcp or websocket, the value will be used.
 transport.connectServerLocalIP = "0.0.0.0"

@@ -53,6 +53,8 @@ type Server struct {
 	tokenRequestCount atomic.Int64
 }
 
+const maxTokenRequestBodySize = 1 << 20
+
 type Option func(*Server)
 
 func WithBindPort(port int) Option {
@@ -178,6 +180,7 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxTokenRequestBodySize)
 	if err := r.ParseForm(); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
@@ -187,7 +190,7 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.FormValue("grant_type") != "client_credentials" {
+	if r.Form.Get("grant_type") != "client_credentials" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -199,8 +202,8 @@ func (s *Server) handleToken(w http.ResponseWriter, r *http.Request) {
 	// Accept credentials from Basic Auth or form body.
 	clientID, clientSecret, ok := r.BasicAuth()
 	if !ok {
-		clientID = r.FormValue("client_id")
-		clientSecret = r.FormValue("client_secret")
+		clientID = r.Form.Get("client_id")
+		clientSecret = r.Form.Get("client_secret")
 	}
 	if clientID != s.clientID || clientSecret != s.clientSecret {
 		w.Header().Set("Content-Type", "application/json")

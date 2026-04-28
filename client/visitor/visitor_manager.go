@@ -25,6 +25,7 @@ import (
 	"github.com/samber/lo"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/pkg/vnet"
@@ -49,7 +50,7 @@ func NewManager(
 	ctx context.Context,
 	runID string,
 	clientCfg *v1.ClientCommonConfig,
-	connectServer func() (net.Conn, error),
+	connectServer func() (*msg.Conn, error),
 	msgTransporter transport.MessageTransporter,
 	vnetController *vnet.Controller,
 ) *Manager {
@@ -199,14 +200,14 @@ func (vm *Manager) GetVisitorCfg(name string) (v1.VisitorConfigurer, bool) {
 }
 
 type visitorHelperImpl struct {
-	connectServerFn func() (net.Conn, error)
+	connectServerFn func() (*msg.Conn, error)
 	msgTransporter  transport.MessageTransporter
 	vnetController  *vnet.Controller
 	transferConnFn  func(name string, conn net.Conn) error
 	runID           string
 }
 
-func (v *visitorHelperImpl) ConnectServer() (net.Conn, error) {
+func (v *visitorHelperImpl) ConnectServer() (*msg.Conn, error) {
 	return v.connectServerFn()
 }
 
