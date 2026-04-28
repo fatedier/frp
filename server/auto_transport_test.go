@@ -16,6 +16,7 @@ package server
 
 import (
 	"context"
+	"io"
 	"net"
 	"strings"
 	"testing"
@@ -209,6 +210,32 @@ func TestValidateSelectedTransportRequiresAdvertisedAddrWhenSpecific(t *testing.
 	if err := svr.validateSelectedTransport(v1.TransportProtocolTCP, "192.0.2.1", 7000); err == nil {
 		t.Fatal("expected tcp@192.0.2.1:7000 to be rejected")
 	}
+}
+
+func TestPeekAutoTransportWebsocketReplaysPrefix(t *testing.T) {
+	serverConn, clientConn := net.Pipe()
+	payload := []byte("GET " + "/~!frp" + " HTTP/1.1\r\n\r\n")
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer clientConn.Close()
+		_, _ = clientConn.Write(payload)
+	}()
+
+	conn, isWebsocket := peekAutoTransportWebsocket(serverConn)
+	defer conn.Close()
+	if !isWebsocket {
+		t.Fatal("expected websocket prefix to be detected")
+	}
+
+	got := make([]byte, len(payload))
+	if _, err := io.ReadFull(conn, got); err != nil {
+		t.Fatalf("read replayed payload: %v", err)
+	}
+	if string(got) != string(payload) {
+		t.Fatalf("expected replayed payload %q, got %q", payload, got)
+	}
+	<-done
 }
 
 type rejectingLoginPlugin struct{}

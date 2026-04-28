@@ -1,10 +1,31 @@
 bindAddr = "0.0.0.0"
+
+# Bootstrap, TCP, websocket, and wss all use bindPort.
 bindPort = 7000
+
+# Auto mode fixed UDP model:
+# - KCP uses UDP/7000 and must match bindPort.
+# - QUIC uses UDP/7002 and must be different from bindPort/kcpBindPort.
 kcpBindPort = 7000
 quicBindPort = 7002
+
+# Optional but recommended. frpc must use the same token.
+# auth.token = "change-me"
 
 transport.protocol = "auto"
 transport.auto.enabled = true
 transport.auto.allowDynamicSwitch = true
+
+# Optional TLS certificate for tcp/wss/quic transport.
+# If certFile/keyFile are empty, frps generates a random self-signed certificate
+# at startup. That works for testing because frpc does not verify it unless
+# transport.tls.trustedCaFile is configured.
+# transport.tls.certFile = "server.crt"
+# transport.tls.keyFile = "server.key"
+# transport.tls.trustedCaFile = "ca.crt"
+
+# frps advertises the actual endpoints to frpc during bootstrap.
+# frpc does not configure the QUIC port directly; it learns quicBindPort here.
 transport.auto.advertiseProtocols = ["tcp", "kcp", "quic", "websocket", "wss"]
 transport.auto.preferOrder = ["quic", "tcp", "wss", "websocket", "kcp"]
+transport.auto.switchCooldownSec = 300

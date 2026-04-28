@@ -19,13 +19,16 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/fatedier/golib/crypto"
+	libnet "github.com/fatedier/golib/net"
 	"github.com/fatedier/golib/net/mux"
 	fmux "github.com/hashicorp/yamux"
 	quic "github.com/quic-go/quic-go"
@@ -382,10 +385,7 @@ func (svr *Service) Run(ctx context.Context) {
 		Protocols: []string{v1.TransportProtocolWebsocket},
 		Port:      svr.cfg.BindPort,
 	})
-	go svr.HandleListener(svr.tlsListener, false, autoTransportEntry{
-		Protocols: []string{v1.TransportProtocolTCP, v1.TransportProtocolWSS},
-		Port:      svr.cfg.BindPort,
-	})
+	go svr.HandleTLSListener(svr.tlsListener)
 
 	if svr.rc.NatHoleController != nil {
 		go svr.rc.NatHoleController.CleanWorker(svr.ctx)
@@ -580,35 +580,157 @@ func (svr *Service) HandleListener(l net.Listener, internal bool, entry autoTran
 			log.Tracef("check TLS connection success, isTLS: %v custom: %v internal: %v", isTLS, custom, internal)
 		}
 
-		// Start a new goroutine to handle connection.
-		go func(ctx context.Context, frpConn net.Conn) {
-			if lo.FromPtr(svr.cfg.Transport.TCPMux) && !internal {
-				fmuxCfg := fmux.DefaultConfig()
-				fmuxCfg.KeepAliveInterval = time.Duration(svr.cfg.Transport.TCPMuxKeepaliveInterval) * time.Second
-				// Use trace level for yamux logs
-				fmuxCfg.LogOutput = xlog.NewTraceWriter(xlog.FromContextSafe(ctx))
-				fmuxCfg.MaxStreamWindowSize = 6 * 1024 * 1024
-				session, err := fmux.Server(frpConn, fmuxCfg)
-				if err != nil {
-					log.Warnf("failed to create mux connection: %v", err)
-					frpConn.Close()
-					return
-				}
-
-				for {
-					stream, err := session.AcceptStream()
-					if err != nil {
-						log.Debugf("accept new mux stream error: %v", err)
-						session.Close()
-						return
-					}
-					go svr.handleConnection(ctx, stream, internal, entry)
-				}
-			} else {
-				svr.handleConnection(ctx, frpConn, internal, entry)
-			}
-		}(ctx, c)
+		go svr.serveFrpConn(ctx, c, internal, entry)
 	}
+}
+
+func (svr *Service) HandleTLSListener(l net.Listener) {
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			log.Warnf("tls listener for incoming connections from client closed")
+			return
+		}
+
+		xl := xlog.New()
+		ctx := context.Background()
+		c = netpkg.NewContextConn(xlog.NewContext(ctx, xl), c)
+
+		log.Tracef("start check TLS connection...")
+		originConn := c
+		c, isTLS, custom, err := netpkg.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, true, connReadTimeout)
+		if err != nil {
+			log.Warnf("checkAndEnableTLSServerConnWithTimeout error: %v", err)
+			originConn.Close()
+			continue
+		}
+		log.Tracef("check TLS connection success, isTLS: %v custom: %v internal: false", isTLS, custom)
+
+		go svr.serveTLSFrpConn(ctx, c)
+	}
+}
+
+func (svr *Service) serveTLSFrpConn(ctx context.Context, c net.Conn) {
+	c, isWebsocket := peekAutoTransportWebsocket(c)
+	if isWebsocket {
+		svr.serveWebsocketConn(ctx, c, autoTransportEntry{
+			Protocols: []string{v1.TransportProtocolWSS},
+			Port:      svr.cfg.BindPort,
+		})
+		return
+	}
+
+	svr.serveFrpConn(ctx, c, false, autoTransportEntry{
+		Protocols: []string{v1.TransportProtocolTCP},
+		Port:      svr.cfg.BindPort,
+	})
+}
+
+func (svr *Service) serveWebsocketConn(ctx context.Context, c net.Conn, entry autoTransportEntry) {
+	ln := netpkg.NewWebsocketListener(newSingleConnListener(c))
+	defer ln.Close()
+
+	acceptCh := make(chan net.Conn, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			errCh <- err
+			return
+		}
+		acceptCh <- conn
+	}()
+
+	select {
+	case wsConn := <-acceptCh:
+		svr.serveFrpConn(ctx, wsConn, false, entry)
+	case err := <-errCh:
+		log.Warnf("accept websocket connection error: %v", err)
+		c.Close()
+	case <-time.After(connReadTimeout):
+		log.Warnf("accept websocket connection timeout")
+		c.Close()
+	}
+}
+
+func (svr *Service) serveFrpConn(ctx context.Context, frpConn net.Conn, internal bool, entry autoTransportEntry) {
+	if lo.FromPtr(svr.cfg.Transport.TCPMux) && !internal {
+		fmuxCfg := fmux.DefaultConfig()
+		fmuxCfg.KeepAliveInterval = time.Duration(svr.cfg.Transport.TCPMuxKeepaliveInterval) * time.Second
+		// Use trace level for yamux logs
+		fmuxCfg.LogOutput = xlog.NewTraceWriter(xlog.FromContextSafe(ctx))
+		fmuxCfg.MaxStreamWindowSize = 6 * 1024 * 1024
+		session, err := fmux.Server(frpConn, fmuxCfg)
+		if err != nil {
+			log.Warnf("failed to create mux connection: %v", err)
+			frpConn.Close()
+			return
+		}
+
+		for {
+			stream, err := session.AcceptStream()
+			if err != nil {
+				log.Debugf("accept new mux stream error: %v", err)
+				session.Close()
+				return
+			}
+			go svr.handleConnection(ctx, stream, internal, entry)
+		}
+	}
+
+	svr.handleConnection(ctx, frpConn, internal, entry)
+}
+
+func peekAutoTransportWebsocket(c net.Conn) (net.Conn, bool) {
+	prefix := []byte("GET " + netpkg.FrpWebsocketPath)
+	sc, r := libnet.NewSharedConnSize(c, len(prefix))
+	buf := make([]byte, len(prefix))
+	_ = c.SetReadDeadline(time.Now().Add(connReadTimeout))
+	n, err := io.ReadFull(r, buf)
+	_ = c.SetReadDeadline(time.Time{})
+	return sc, err == nil && n == len(prefix) && bytes.Equal(buf, prefix)
+}
+
+type singleConnListener struct {
+	conn    net.Conn
+	once    sync.Once
+	closeCh chan struct{}
+}
+
+func newSingleConnListener(conn net.Conn) *singleConnListener {
+	return &singleConnListener{
+		conn:    conn,
+		closeCh: make(chan struct{}),
+	}
+}
+
+func (l *singleConnListener) Accept() (net.Conn, error) {
+	var (
+		conn net.Conn
+		used bool
+	)
+	l.once.Do(func() {
+		conn = l.conn
+		used = true
+	})
+	if used {
+		return conn, nil
+	}
+	<-l.closeCh
+	return nil, net.ErrClosed
+}
+
+func (l *singleConnListener) Close() error {
+	select {
+	case <-l.closeCh:
+	default:
+		close(l.closeCh)
+	}
+	return nil
+}
+
+func (l *singleConnListener) Addr() net.Addr {
+	return l.conn.LocalAddr()
 }
 
 func (svr *Service) HandleQUICListener(l *quic.Listener) {
