@@ -233,12 +233,9 @@ func (m *serverMetrics) AutoTransportSwitch(oldProtocol string, newProtocol stri
 }
 
 func (m *serverMetrics) AutoTransportRejected(protocol string) {
-	if protocol == "" {
-		protocol = "unknown"
-	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	incCounterMap(m.info.AutoTransportIllegalSelections, protocol, 1)
+	incCounterMap(m.info.AutoTransportIllegalSelections, server.SanitizeAutoTransportProtocol(protocol), 1)
 }
 
 func incCounterMap(counters map[string]metric.Counter, key string, delta int32) {

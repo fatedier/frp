@@ -123,9 +123,9 @@ type ClientCommonConf struct {
 	// is "tcp".
 	Protocol string `ini:"protocol" json:"protocol"`
 	// Auto transport options.
-	AutoEnabled            bool     `ini:"auto_enabled" json:"auto_enabled"`
+	AutoEnabled            *bool    `ini:"auto_enabled" json:"auto_enabled"`
 	AutoCandidates         []string `ini:"auto_candidates" json:"auto_candidates"`
-	AutoAllowUDP           bool     `ini:"auto_allow_udp" json:"auto_allow_udp"`
+	AutoAllowUDP           *bool    `ini:"auto_allow_udp" json:"auto_allow_udp"`
 	AutoStrategy           string   `ini:"auto_strategy" json:"auto_strategy"`
 	AutoProbeTimeoutMs     int      `ini:"auto_probe_timeout_ms" json:"auto_probe_timeout_ms"`
 	AutoProbeCount         int      `ini:"auto_probe_count" json:"auto_probe_count"`
@@ -134,7 +134,7 @@ type ClientCommonConf struct {
 	AutoFailureThreshold   int      `ini:"auto_failure_threshold" json:"auto_failure_threshold"`
 	AutoDegradeThreshold   int      `ini:"auto_degrade_threshold" json:"auto_degrade_threshold"`
 	AutoRecheckIntervalSec int      `ini:"auto_recheck_interval_sec" json:"auto_recheck_interval_sec"`
-	AutoPersistLastGood    bool     `ini:"auto_persist_last_good" json:"auto_persist_last_good"`
+	AutoPersistLastGood    *bool    `ini:"auto_persist_last_good" json:"auto_persist_last_good"`
 	AutoBootstrapProtocol  string   `ini:"auto_bootstrap_protocol" json:"auto_bootstrap_protocol"`
 	AutoBootstrapPort      int      `ini:"auto_bootstrap_port" json:"auto_bootstrap_port"`
 	// QUIC protocol options

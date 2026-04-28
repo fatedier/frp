@@ -2,6 +2,8 @@ package metrics
 
 import (
 	"sync"
+
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
 
 type ServerMetrics interface {
@@ -24,6 +26,19 @@ type ServerMetrics interface {
 var Server ServerMetrics = noopServerMetrics{}
 
 var registerMetrics sync.Once
+
+func SanitizeAutoTransportProtocol(protocol string) string {
+	switch protocol {
+	case v1.TransportProtocolTCP,
+		v1.TransportProtocolKCP,
+		v1.TransportProtocolQUIC,
+		v1.TransportProtocolWebsocket,
+		v1.TransportProtocolWSS:
+		return protocol
+	default:
+		return "unknown"
+	}
+}
 
 func Register(m ServerMetrics) {
 	registerMetrics.Do(func() {

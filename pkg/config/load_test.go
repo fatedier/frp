@@ -787,6 +787,47 @@ auto_bootstrap_port = 7000
 	require.Equal(7000, clientResult.Common.Transport.Auto.BootstrapPort)
 }
 
+func TestLegacyINIAutoTransportExplicitFalseFieldsLoad(t *testing.T) {
+	require := require.New(t)
+
+	dir := t.TempDir()
+	serverPath := filepath.Join(dir, "frps.ini")
+	serverContent := `[common]
+bind_port = 7000
+kcp_bind_port = 7000
+quic_bind_port = 7002
+protocol = auto
+auto_enabled = true
+auto_allow_dynamic_switch = false
+`
+	require.NoError(os.WriteFile(serverPath, []byte(serverContent), 0o600))
+
+	serverCfg, isLegacy, err := LoadServerConfig(serverPath, false)
+	require.NoError(err)
+	require.True(isLegacy)
+	require.NotNil(serverCfg.Transport.Auto.AllowDynamicSwitch)
+	require.False(*serverCfg.Transport.Auto.AllowDynamicSwitch)
+
+	clientPath := filepath.Join(dir, "frpc.ini")
+	clientContent := `[common]
+server_addr = 127.0.0.1
+server_port = 7000
+protocol = auto
+auto_enabled = true
+auto_allow_udp = false
+auto_persist_last_good = false
+`
+	require.NoError(os.WriteFile(clientPath, []byte(clientContent), 0o600))
+
+	clientResult, err := LoadClientConfigResult(clientPath, false)
+	require.NoError(err)
+	require.True(clientResult.IsLegacyFormat)
+	require.NotNil(clientResult.Common.Transport.Auto.AllowUDP)
+	require.False(*clientResult.Common.Transport.Auto.AllowUDP)
+	require.NotNil(clientResult.Common.Transport.Auto.PersistLastGood)
+	require.False(*clientResult.Common.Transport.Auto.PersistLastGood)
+}
+
 func TestValidTOMLStillWorks(t *testing.T) {
 	require := require.New(t)
 

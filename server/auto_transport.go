@@ -66,11 +66,7 @@ func (svr *Service) autoTransportEndpoints() []msg.TransportEndpoint {
 	return endpoints
 }
 
-func (svr *Service) verifyAutoLogin(conn net.Conn, privilegeKey string, timestamp int64) error {
-	login := &msg.Login{
-		PrivilegeKey: privilegeKey,
-		Timestamp:    timestamp,
-	}
+func (svr *Service) verifyAutoLogin(conn net.Conn, login *msg.Login) error {
 	if svr.pluginManager != nil {
 		content := &splugin.LoginContent{
 			Login:         *login,
@@ -85,6 +81,31 @@ func (svr *Service) verifyAutoLogin(conn net.Conn, privilegeKey string, timestam
 	return svr.auth.Verifier.VerifyLogin(login)
 }
 
+func autoLoginFromClientHello(m *msg.ClientHelloAuto) *msg.Login {
+	return autoLoginWithFallback(m.Login, m.PrivilegeKey, m.Timestamp)
+}
+
+func autoLoginFromProbe(m *msg.ProbeTransport) *msg.Login {
+	return autoLoginWithFallback(m.Login, m.PrivilegeKey, m.Timestamp)
+}
+
+func autoLoginWithFallback(login *msg.Login, privilegeKey string, timestamp int64) *msg.Login {
+	if login == nil {
+		return &msg.Login{
+			PrivilegeKey: privilegeKey,
+			Timestamp:    timestamp,
+		}
+	}
+	out := *login
+	if out.PrivilegeKey == "" {
+		out.PrivilegeKey = privilegeKey
+	}
+	if out.Timestamp == 0 {
+		out.Timestamp = timestamp
+	}
+	return &out
+}
+
 func (svr *Service) handleClientHelloAuto(conn net.Conn, m *msg.ClientHelloAuto) {
 	resp := &msg.ServerHelloAuto{
 		ProtocolMode:       svr.cfg.Transport.Protocol,
@@ -97,7 +118,7 @@ func (svr *Service) handleClientHelloAuto(conn net.Conn, m *msg.ClientHelloAuto)
 	if err := validateClientAutoVersion(m.ClientAutoVersion); err != nil {
 		resp.Error = err.Error()
 		resp.AutoEnabled = false
-	} else if err := svr.verifyAutoLogin(conn, m.PrivilegeKey, m.Timestamp); err != nil {
+	} else if err := svr.verifyAutoLogin(conn, autoLoginFromClientHello(m)); err != nil {
 		resp.Error = fmt.Sprintf("auto transport auth failed: %v", err)
 		resp.AutoEnabled = false
 	}
@@ -114,7 +135,7 @@ func (svr *Service) handleProbeTransport(conn net.Conn, m *msg.ProbeTransport, e
 	}
 	if err := validateClientAutoVersion(m.ClientAutoVersion); err != nil {
 		resp.Error = err.Error()
-	} else if err := svr.verifyAutoLogin(conn, m.PrivilegeKey, m.Timestamp); err != nil {
+	} else if err := svr.verifyAutoLogin(conn, autoLoginFromProbe(m)); err != nil {
 		resp.Error = fmt.Sprintf("auto transport probe auth failed: %v", err)
 	} else if err := svr.validateSelectedTransportForEntry(m.Protocol, m.Addr, m.Port, entry); err != nil {
 		resp.Error = err.Error()

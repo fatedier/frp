@@ -52,12 +52,12 @@ func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConf
 	out.Transport.TCPMux = lo.ToPtr(conf.TCPMux)
 	out.Transport.TCPMuxKeepaliveInterval = conf.TCPMuxKeepaliveInterval
 	out.Transport.Protocol = conf.Protocol
-	if conf.AutoEnabled {
-		out.Transport.Auto.Enabled = lo.ToPtr(true)
+	if conf.AutoEnabled != nil {
+		out.Transport.Auto.Enabled = lo.ToPtr(*conf.AutoEnabled)
 	}
 	out.Transport.Auto.Candidates = conf.AutoCandidates
-	if conf.AutoAllowUDP {
-		out.Transport.Auto.AllowUDP = lo.ToPtr(true)
+	if conf.AutoAllowUDP != nil {
+		out.Transport.Auto.AllowUDP = lo.ToPtr(*conf.AutoAllowUDP)
 	}
 	out.Transport.Auto.Strategy = conf.AutoStrategy
 	out.Transport.Auto.ProbeTimeoutMs = conf.AutoProbeTimeoutMs
@@ -67,8 +67,8 @@ func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConf
 	out.Transport.Auto.FailureThreshold = conf.AutoFailureThreshold
 	out.Transport.Auto.DegradeThreshold = conf.AutoDegradeThreshold
 	out.Transport.Auto.RecheckIntervalSec = conf.AutoRecheckIntervalSec
-	if conf.AutoPersistLastGood {
-		out.Transport.Auto.PersistLastGood = lo.ToPtr(true)
+	if conf.AutoPersistLastGood != nil {
+		out.Transport.Auto.PersistLastGood = lo.ToPtr(*conf.AutoPersistLastGood)
 	}
 	out.Transport.Auto.BootstrapProtocol = conf.AutoBootstrapProtocol
 	out.Transport.Auto.BootstrapPort = conf.AutoBootstrapPort
@@ -125,11 +125,11 @@ func Convert_ServerCommonConf_To_v1(conf *ServerCommonConf) *v1.ServerConfig {
 	out.KCPBindPort = conf.KCPBindPort
 	out.QUICBindPort = conf.QUICBindPort
 	out.Transport.Protocol = conf.Protocol
-	if conf.AutoEnabled {
-		out.Transport.Auto.Enabled = lo.ToPtr(true)
+	if conf.AutoEnabled != nil {
+		out.Transport.Auto.Enabled = lo.ToPtr(*conf.AutoEnabled)
 	}
-	if conf.AutoAllowDynamicSwitch {
-		out.Transport.Auto.AllowDynamicSwitch = lo.ToPtr(true)
+	if conf.AutoAllowDynamicSwitch != nil {
+		out.Transport.Auto.AllowDynamicSwitch = lo.ToPtr(*conf.AutoAllowDynamicSwitch)
 	}
 	out.Transport.Auto.AdvertiseProtocols = conf.AutoAdvertiseProtocols
 	out.Transport.Auto.PreferOrder = conf.AutoPreferOrder

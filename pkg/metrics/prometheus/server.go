@@ -98,10 +98,7 @@ func (m *serverMetrics) AutoTransportSwitch(oldProtocol string, newProtocol stri
 }
 
 func (m *serverMetrics) AutoTransportRejected(protocol string) {
-	if protocol == "" {
-		protocol = "unknown"
-	}
-	m.autoRejects.WithLabelValues(protocol).Inc()
+	m.autoRejects.WithLabelValues(metrics.SanitizeAutoTransportProtocol(protocol)).Inc()
 }
 
 func newServerMetrics() *serverMetrics {

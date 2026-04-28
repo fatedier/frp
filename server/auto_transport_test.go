@@ -90,6 +90,34 @@ func readServerHelloFromHandler(t *testing.T, svr *Service, hello *msg.ClientHel
 	return resp
 }
 
+func readProbeRespFromHandler(
+	t *testing.T,
+	svr *Service,
+	probe *msg.ProbeTransport,
+	entry autoTransportEntry,
+) msg.ProbeTransportResp {
+	t.Helper()
+
+	serverConn, clientConn := net.Pipe()
+	defer clientConn.Close()
+	if err := clientConn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatalf("set read deadline: %v", err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		svr.handleProbeTransport(serverConn, probe, entry)
+	}()
+
+	var resp msg.ProbeTransportResp
+	if err := msg.ReadMsgInto(clientConn, &resp); err != nil {
+		t.Fatalf("read probe response: %v", err)
+	}
+	<-done
+	return resp
+}
+
 func hasEndpoint(endpoints []msg.TransportEndpoint, protocol string, port int) bool {
 	for _, ep := range endpoints {
 		if ep.Enabled && ep.Protocol == protocol && ep.Port == port {
@@ -276,6 +304,91 @@ func TestClientHelloAutoRunsLoginPlugin(t *testing.T) {
 	}
 	if resp.AutoEnabled {
 		t.Fatal("expected auto transport to be disabled in failed plugin response")
+	}
+}
+
+type requiringLoginIdentityPlugin struct{}
+
+func (requiringLoginIdentityPlugin) Name() string { return "requiring-login-identity" }
+
+func (requiringLoginIdentityPlugin) IsSupport(op string) bool { return op == splugin.OpLogin }
+
+func (requiringLoginIdentityPlugin) Handle(
+	_ context.Context,
+	_ string,
+	content any,
+) (*splugin.Response, any, error) {
+	loginContent := content.(splugin.LoginContent)
+	login := loginContent.Login
+	if login.User != "alice" || login.ClientID != "client-1" || login.Metas["role"] != "edge" {
+		return &splugin.Response{
+			Reject:       true,
+			RejectReason: "missing auto login identity",
+		}, content, nil
+	}
+	return &splugin.Response{Unchange: true}, content, nil
+}
+
+func TestClientHelloAutoPassesLoginIdentityToPlugin(t *testing.T) {
+	cfg := &v1.ServerConfig{
+		BindPort:     7000,
+		KCPBindPort:  7000,
+		QUICBindPort: 7002,
+	}
+	cfg.Auth.Token = "secret"
+	cfg.Transport.Protocol = v1.TransportProtocolAuto
+	svr := newAutoTransportServiceForTest(t, cfg)
+	svr.pluginManager = splugin.NewManager()
+	svr.pluginManager.Register(requiringLoginIdentityPlugin{})
+
+	hello := validAutoClientHello(t, "secret")
+	hello.Login = &msg.Login{
+		PrivilegeKey: hello.PrivilegeKey,
+		Timestamp:    hello.Timestamp,
+		User:         "alice",
+		ClientID:     "client-1",
+		Metas:        map[string]string{"role": "edge"},
+	}
+	resp := readServerHelloFromHandler(t, svr, hello)
+	if resp.Error != "" {
+		t.Fatalf("unexpected plugin rejection: %s", resp.Error)
+	}
+}
+
+func TestProbeTransportPassesLoginIdentityToPlugin(t *testing.T) {
+	cfg := &v1.ServerConfig{
+		BindPort:     7000,
+		KCPBindPort:  7000,
+		QUICBindPort: 7002,
+	}
+	cfg.Auth.Token = "secret"
+	cfg.Transport.Protocol = v1.TransportProtocolAuto
+	svr := newAutoTransportServiceForTest(t, cfg)
+	svr.pluginManager = splugin.NewManager()
+	svr.pluginManager.Register(requiringLoginIdentityPlugin{})
+
+	hello := validAutoClientHello(t, "secret")
+	probe := &msg.ProbeTransport{
+		Protocol:          v1.TransportProtocolTCP,
+		Addr:              "server.example.com",
+		Port:              7000,
+		ClientAutoVersion: msg.AutoTransportVersion,
+		PrivilegeKey:      hello.PrivilegeKey,
+		Timestamp:         hello.Timestamp,
+		Login: &msg.Login{
+			PrivilegeKey: hello.PrivilegeKey,
+			Timestamp:    hello.Timestamp,
+			User:         "alice",
+			ClientID:     "client-1",
+			Metas:        map[string]string{"role": "edge"},
+		},
+	}
+	resp := readProbeRespFromHandler(t, svr, probe, autoTransportEntry{
+		Protocols: []string{v1.TransportProtocolTCP},
+		Port:      7000,
+	})
+	if resp.Error != "" {
+		t.Fatalf("unexpected plugin rejection: %s", resp.Error)
 	}
 }
 

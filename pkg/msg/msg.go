@@ -122,6 +122,7 @@ type ClientHelloAuto struct {
 	ClientAutoVersion  uint32   `json:"client_auto_version,omitempty"`
 	PrivilegeKey       string   `json:"privilege_key,omitempty"`
 	Timestamp          int64    `json:"timestamp,omitempty"`
+	Login              *Login   `json:"login,omitempty"`
 }
 
 type ServerHelloAuto struct {
@@ -157,6 +158,7 @@ type ProbeTransport struct {
 	ClientAutoVersion uint32 `json:"client_auto_version,omitempty"`
 	PrivilegeKey      string `json:"privilege_key,omitempty"`
 	Timestamp         int64  `json:"timestamp,omitempty"`
+	Login             *Login `json:"login,omitempty"`
 }
 
 type ProbeTransportResp struct {

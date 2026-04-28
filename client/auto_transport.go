@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
 	"sync"
@@ -33,6 +34,7 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/log"
+	"github.com/fatedier/frp/pkg/util/version"
 )
 
 const (
@@ -504,27 +506,40 @@ func (m *autoTransportManager) bootstrap(ctx context.Context) (*msg.ServerHelloA
 }
 
 func (m *autoTransportManager) setAutoAuth(hello *msg.ClientHelloAuto) error {
-	login := &msg.Login{
-		Timestamp: time.Now().Unix(),
-	}
+	login := m.newAutoLogin()
 	if err := m.auth.Setter.SetLogin(login); err != nil {
 		return err
 	}
 	hello.Timestamp = login.Timestamp
 	hello.PrivilegeKey = login.PrivilegeKey
+	hello.Login = login
 	return nil
 }
 
 func (m *autoTransportManager) setProbeAuth(probe *msg.ProbeTransport) error {
-	login := &msg.Login{
-		Timestamp: time.Now().Unix(),
-	}
+	login := m.newAutoLogin()
 	if err := m.auth.Setter.SetLogin(login); err != nil {
 		return err
 	}
 	probe.Timestamp = login.Timestamp
 	probe.PrivilegeKey = login.PrivilegeKey
+	probe.Login = login
 	return nil
+}
+
+func (m *autoTransportManager) newAutoLogin() *msg.Login {
+	hostname, _ := os.Hostname()
+	return &msg.Login{
+		Arch:      runtime.GOARCH,
+		Os:        runtime.GOOS,
+		Hostname:  hostname,
+		PoolCount: m.common.Transport.PoolCount,
+		User:      m.common.User,
+		ClientID:  m.common.ClientID,
+		Version:   version.Full(),
+		Timestamp: time.Now().Unix(),
+		Metas:     copyStringMap(m.common.Metadatas),
+	}
 }
 
 func (m *autoTransportManager) clientCandidates() []string {

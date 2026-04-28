@@ -53,8 +53,8 @@ type ServerCommonConf struct {
 	// Protocol specifies the server transport protocol mode.
 	Protocol string `ini:"protocol" json:"protocol"`
 	// Auto transport options.
-	AutoEnabled            bool     `ini:"auto_enabled" json:"auto_enabled"`
-	AutoAllowDynamicSwitch bool     `ini:"auto_allow_dynamic_switch" json:"auto_allow_dynamic_switch"`
+	AutoEnabled            *bool    `ini:"auto_enabled" json:"auto_enabled"`
+	AutoAllowDynamicSwitch *bool    `ini:"auto_allow_dynamic_switch" json:"auto_allow_dynamic_switch"`
 	AutoAdvertiseProtocols []string `ini:"auto_advertise_protocols" json:"auto_advertise_protocols"`
 	AutoPreferOrder        []string `ini:"auto_prefer_order" json:"auto_prefer_order"`
 	AutoSwitchCooldownSec  int      `ini:"auto_switch_cooldown_sec" json:"auto_switch_cooldown_sec"`

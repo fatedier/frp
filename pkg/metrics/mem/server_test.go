@@ -15,6 +15,7 @@ func TestAutoTransportMetrics(t *testing.T) {
 	m.AutoTransportSwitch("quic", "tcp")
 	m.AutoTransportSwitch("tcp", "tcp")
 	m.AutoTransportRejected("kcp")
+	m.AutoTransportRejected("invalid-client-input")
 
 	stats := m.GetServer()
 	if stats.AutoNegotiationSuccess != 1 {
@@ -40,5 +41,11 @@ func TestAutoTransportMetrics(t *testing.T) {
 	}
 	if stats.AutoTransportIllegalSelections["kcp"] != 1 {
 		t.Fatalf("expected one kcp reject, got %d", stats.AutoTransportIllegalSelections["kcp"])
+	}
+	if stats.AutoTransportIllegalSelections["unknown"] != 1 {
+		t.Fatalf("expected one unknown reject, got %d", stats.AutoTransportIllegalSelections["unknown"])
+	}
+	if _, ok := stats.AutoTransportIllegalSelections["invalid-client-input"]; ok {
+		t.Fatal("expected invalid rejected protocol not to be stored as a raw key")
 	}
 }
