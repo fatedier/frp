@@ -43,6 +43,7 @@ func createOIDCHTTPClient(trustedCAFile string, insecureSkipVerify bool, proxyUR
 	if trustedCAFile != "" || insecureSkipVerify {
 		tlsConfig := &tls.Config{
 			InsecureSkipVerify: insecureSkipVerify,
+			MinVersion:         tls.VersionTLS12,
 		}
 
 		if trustedCAFile != "" && !insecureSkipVerify {
@@ -282,7 +283,7 @@ func NewTokenVerifier(cfg v1.AuthOIDCServerConfig) TokenVerifier {
 		ClientID:          cfg.Audience,
 		SkipClientIDCheck: cfg.Audience == "",
 		SkipExpiryCheck:   cfg.SkipExpiryCheck,
-		SkipIssuerCheck:   cfg.SkipIssuerCheck,
+		SkipIssuerCheck:   false,
 	}
 	return provider.Verifier(&verifierConf)
 }
