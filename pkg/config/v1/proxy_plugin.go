@@ -15,6 +15,7 @@
 package v1
 
 import (
+	"maps"
 	"reflect"
 
 	"github.com/samber/lo"
@@ -34,6 +35,7 @@ const (
 	PluginUnixDomainSocket = "unix_domain_socket"
 	PluginTLS2Raw          = "tls2raw"
 	PluginVirtualNet       = "virtual_net"
+	PluginMCPStdio         = "mcp_stdio"
 )
 
 var clientPluginOptionsTypeMap = map[string]reflect.Type{
@@ -47,6 +49,7 @@ var clientPluginOptionsTypeMap = map[string]reflect.Type{
 	PluginUnixDomainSocket: reflect.TypeFor[UnixDomainSocketPluginOptions](),
 	PluginTLS2Raw:          reflect.TypeFor[TLS2RawPluginOptions](),
 	PluginVirtualNet:       reflect.TypeFor[VirtualNetPluginOptions](),
+	PluginMCPStdio:         reflect.TypeFor[MCPStdioPluginOptions](),
 }
 
 type ClientPluginOptions interface {
@@ -243,6 +246,30 @@ func (o *TLS2RawPluginOptions) Clone() ClientPluginOptions {
 		return nil
 	}
 	out := *o
+	return &out
+}
+
+type MCPStdioPluginOptions struct {
+	Type               string            `json:"type,omitempty"`
+	Command            []string          `json:"command,omitempty"`
+	Env                map[string]string `json:"env,omitempty"`
+	IdleTimeoutSeconds int               `json:"idleTimeoutSeconds,omitempty"`
+}
+
+func (o *MCPStdioPluginOptions) Complete() {}
+
+func (o *MCPStdioPluginOptions) Clone() ClientPluginOptions {
+	if o == nil {
+		return nil
+	}
+	out := *o
+	if o.Command != nil {
+		out.Command = append([]string{}, o.Command...)
+	}
+	if o.Env != nil {
+		out.Env = make(map[string]string, len(o.Env))
+		maps.Copy(out.Env, o.Env)
+	}
 	return &out
 }
 

@@ -1258,7 +1258,7 @@ remotePort = {{ $v.Second }}
 
 frpc only forwards requests to local TCP or UDP ports by default.
 
-Plugins are used for providing rich features. There are built-in plugins such as `unix_domain_socket`, `http_proxy`, `socks5`, `static_file`, `http2https`, `https2http`, `https2https` and you can see [example usage](#example-usage).
+Plugins are used for providing rich features. There are built-in plugins such as `unix_domain_socket`, `http_proxy`, `socks5`, `static_file`, `http2https`, `https2http`, `https2https`, `mcp_stdio` and you can see [example usage](#example-usage).
 
 Using plugin **http_proxy**:
 

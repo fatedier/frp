@@ -34,6 +34,8 @@ func ValidateClientPluginOptions(c v1.ClientPluginOptions) error {
 		return validateUnixDomainSocketPluginOptions(v)
 	case *v1.TLS2RawPluginOptions:
 		return validateTLS2RawPluginOptions(v)
+	case *v1.MCPStdioPluginOptions:
+		return validateMCPStdioPluginOptions(v)
 	}
 	return nil
 }
@@ -76,6 +78,16 @@ func validateUnixDomainSocketPluginOptions(c *v1.UnixDomainSocketPluginOptions) 
 func validateTLS2RawPluginOptions(c *v1.TLS2RawPluginOptions) error {
 	if c.LocalAddr == "" {
 		return errors.New("localAddr is required")
+	}
+	return nil
+}
+
+func validateMCPStdioPluginOptions(c *v1.MCPStdioPluginOptions) error {
+	if len(c.Command) == 0 {
+		return errors.New("command is required")
+	}
+	if c.IdleTimeoutSeconds < 0 {
+		return errors.New("idleTimeoutSeconds must be >= 0")
 	}
 	return nil
 }
