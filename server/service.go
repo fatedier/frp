@@ -29,6 +29,7 @@ import (
 	"github.com/fatedier/golib/crypto"
 	"github.com/fatedier/golib/net/mux"
 	fmux "github.com/hashicorp/yamux"
+	pp "github.com/pires/go-proxyproto"
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
 
@@ -236,6 +237,10 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create server listener error, %v", err)
 	}
+	if cfg.BindProxyProtocol {
+		log.Infof("bindPort proxy protocol enabled")
+		ln = &pp.Listener{Listener: ln}
+	}
 
 	svr.muxer = mux.NewMux(ln)
 	svr.muxer.SetKeepAlive(time.Duration(cfg.Transport.TCPKeepAlive) * time.Second)
@@ -310,6 +315,10 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 				return nil, fmt.Errorf("create vhost http listener error, %v", err)
 			}
 		}
+		if cfg.VhostHTTPProxyProtocol {
+			log.Infof("http vhost proxy protocol enabled")
+			l = &pp.Listener{Listener: l}
+		}
 		go func() {
 			_ = server.Serve(l)
 		}()
@@ -328,6 +337,11 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 				return nil, fmt.Errorf("create server listener error, %v", err)
 			}
 			log.Infof("https service listen on %s", address)
+		}
+
+		if cfg.VhostHTTPSProxyProtocol {
+			log.Infof("https vhost proxy protocol enabled")
+			l = &pp.Listener{Listener: l}
 		}
 
 		svr.rc.VhostHTTPSMuxer, err = vhost.NewHTTPSMuxer(l, vhostReadWriteTimeout)

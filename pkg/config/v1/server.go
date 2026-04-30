@@ -31,6 +31,12 @@ type ServerConfig struct {
 	// BindPort specifies the port that the server listens on. By default, this
 	// value is 7000.
 	BindPort int `json:"bindPort,omitempty"`
+	// BindProxyProtocol enables PROXY protocol (v1 and v2) parsing on the
+	// bind port listener. When true, the real client IP is extracted from
+	// the PROXY protocol header before protocol multiplexing. This is
+	// useful when frps is behind a load balancer that sends PROXY protocol.
+	// By default, this is false.
+	BindProxyProtocol bool `json:"bindProxyProtocol,omitempty"`
 	// KCPBindPort specifies the KCP port that the server listens on. If this
 	// value is 0, the server will not listen for KCP connections.
 	KCPBindPort int `json:"kcpBindPort,omitempty"`
@@ -51,6 +57,14 @@ type ServerConfig struct {
 	// Vhost requests. If this value is 0, the server will not listen for HTTPS
 	// requests.
 	VhostHTTPSPort int `json:"vhostHTTPSPort,omitempty"`
+	// VhostHTTPSProxyProtocol enables PROXY protocol (v1 and v2) parsing
+	// on the HTTPS vhost listener. When true, the real client IP is
+	// extracted from the PROXY protocol header and used as the source
+	// address for proxied connections. By default, this is false.
+	VhostHTTPSProxyProtocol bool `json:"vhostHTTPSProxyProtocol,omitempty"`
+	// VhostHTTPProxyProtocol is the same as VhostHTTPSProxyProtocol but
+	// for the HTTP vhost listener.
+	VhostHTTPProxyProtocol bool `json:"vhostHTTPProxyProtocol,omitempty"`
 	// TCPMuxHTTPConnectPort specifies the port that the server listens for TCP
 	// HTTP CONNECT requests. If the value is 0, the server will not multiplex TCP
 	// requests on one single port. If it's not - it will listen on this value for
