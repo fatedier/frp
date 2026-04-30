@@ -17,7 +17,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"net"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
@@ -32,9 +31,7 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/transport"
-	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
-	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/wait"
 	"github.com/fatedier/frp/pkg/util/xlog"
 	"github.com/fatedier/frp/server/controller"
@@ -108,9 +105,7 @@ type SessionContext struct {
 	// key used for connection encryption
 	EncryptionKey []byte
 	// control connection
-	Conn net.Conn
-	// indicates whether the connection is encrypted
-	ConnEncrypted bool
+	Conn *msg.Conn
 	// login message
 	LoginMsg *msg.Login
 	// server configuration
@@ -131,7 +126,7 @@ type Control struct {
 	msgDispatcher *msg.Dispatcher
 
 	// work connections
-	workConnCh chan net.Conn
+	workConnCh chan *proxy.WorkConn
 
 	// proxies in one client
 	proxies map[string]proxy.Proxy
@@ -161,7 +156,7 @@ func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, erro
 	poolCount := min(sessionCtx.LoginMsg.PoolCount, int(sessionCtx.ServerCfg.Transport.MaxPoolCount))
 	ctl := &Control{
 		sessionCtx:   sessionCtx,
-		workConnCh:   make(chan net.Conn, poolCount+10),
+		workConnCh:   make(chan *proxy.WorkConn, poolCount+10),
 		proxies:      make(map[string]proxy.Proxy),
 		poolCount:    poolCount,
 		portsUsedNum: 0,
@@ -172,29 +167,14 @@ func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, erro
 	}
 	ctl.lastPing.Store(time.Now())
 
-	if sessionCtx.ConnEncrypted {
-		cryptoRW, err := netpkg.NewCryptoReadWriter(sessionCtx.Conn, sessionCtx.EncryptionKey)
-		if err != nil {
-			return nil, err
-		}
-		ctl.msgDispatcher = msg.NewDispatcher(cryptoRW)
-	} else {
-		ctl.msgDispatcher = msg.NewDispatcher(sessionCtx.Conn)
-	}
+	ctl.msgDispatcher = msg.NewDispatcher(sessionCtx.Conn)
 	ctl.registerMsgHandlers()
 	ctl.msgTransporter = transport.NewMessageTransporter(ctl.msgDispatcher)
 	return ctl, nil
 }
 
-// Start send a login success message to client and start working.
+// Start starts the control session workers after login succeeds.
 func (ctl *Control) Start() {
-	loginRespMsg := &msg.LoginResp{
-		Version: version.Full(),
-		RunID:   ctl.runID,
-		Error:   "",
-	}
-	_ = msg.WriteMsg(ctl.sessionCtx.Conn, loginRespMsg)
-
 	go func() {
 		for i := 0; i < ctl.poolCount; i++ {
 			// ignore error here, that means that this control is closed
@@ -216,7 +196,7 @@ func (ctl *Control) Replaced(newCtl *Control) {
 	ctl.sessionCtx.Conn.Close()
 }
 
-func (ctl *Control) RegisterWorkConn(conn net.Conn) error {
+func (ctl *Control) RegisterWorkConn(conn *proxy.WorkConn) error {
 	xl := ctl.xl
 	defer func() {
 		if err := recover(); err != nil {
@@ -239,7 +219,7 @@ func (ctl *Control) RegisterWorkConn(conn net.Conn) error {
 // If no workConn available in the pool, send message to frpc to get one or more
 // and wait until it is available.
 // return an error if wait timeout
-func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
+func (ctl *Control) GetWorkConn() (workConn *proxy.WorkConn, err error) {
 	xl := ctl.xl
 	defer func() {
 		if err := recover(); err != nil {

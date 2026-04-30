@@ -15,9 +15,89 @@
 package msg
 
 import (
+	"context"
 	"io"
+	"net"
 	"reflect"
+
+	"github.com/fatedier/frp/pkg/proto/wire"
 )
+
+type ReadWriter interface {
+	ReadMsg() (Message, error)
+	ReadMsgInto(Message) error
+	WriteMsg(Message) error
+}
+
+type Conn struct {
+	net.Conn
+	rw ReadWriter
+}
+
+func NewConn(conn net.Conn, rw ReadWriter) *Conn {
+	return &Conn{
+		Conn: conn,
+		rw:   rw,
+	}
+}
+
+func (c *Conn) ReadMsg() (Message, error) {
+	return c.rw.ReadMsg()
+}
+
+func (c *Conn) ReadMsgInto(m Message) error {
+	return c.rw.ReadMsgInto(m)
+}
+
+func (c *Conn) WriteMsg(m Message) error {
+	return c.rw.WriteMsg(m)
+}
+
+func (c *Conn) Context() context.Context {
+	if getter, ok := c.Conn.(interface{ Context() context.Context }); ok {
+		return getter.Context()
+	}
+	return context.Background()
+}
+
+func (c *Conn) WithContext(ctx context.Context) {
+	if setter, ok := c.Conn.(interface{ WithContext(context.Context) }); ok {
+		setter.WithContext(ctx)
+	}
+}
+
+type V1ReadWriter struct {
+	rw io.ReadWriter
+}
+
+func NewV1ReadWriter(rw io.ReadWriter) ReadWriter {
+	return &V1ReadWriter{rw: rw}
+}
+
+// NewReadWriter wraps rw with the message codec for the selected wire protocol.
+// An empty protocol keeps the historical v1 behavior for tests and older call sites.
+func NewReadWriter(rw io.ReadWriter, wireProtocol string) ReadWriter {
+	switch wireProtocol {
+	case wire.ProtocolV2:
+		return NewV2ReadWriter(rw)
+	case "", wire.ProtocolV1:
+		return NewV1ReadWriter(rw)
+	default:
+		return NewV1ReadWriter(rw)
+	}
+}
+
+func (rw *V1ReadWriter) ReadMsg() (Message, error) {
+	return ReadMsg(rw.rw)
+}
+
+func (rw *V1ReadWriter) ReadMsgInto(m Message) error {
+	return ReadMsgInto(rw.rw, m)
+}
+
+func (rw *V1ReadWriter) WriteMsg(m Message) error {
+	return WriteMsg(rw.rw, m)
+}
 
 func AsyncHandler(f func(Message)) func(Message) {
 	return func(m Message) {
@@ -27,7 +107,7 @@ func AsyncHandler(f func(Message)) func(Message) {
 
 // Dispatcher is used to send messages to net.Conn or register handlers for messages read from net.Conn.
 type Dispatcher struct {
-	rw io.ReadWriter
+	rw ReadWriter
 
 	sendCh         chan Message
 	doneCh         chan struct{}
@@ -35,7 +115,7 @@ type Dispatcher struct {
 	defaultHandler func(Message)
 }
 
-func NewDispatcher(rw io.ReadWriter) *Dispatcher {
+func NewDispatcher(rw ReadWriter) *Dispatcher {
 	return &Dispatcher{
 		rw:          rw,
 		sendCh:      make(chan Message, 100),
@@ -56,14 +136,14 @@ func (d *Dispatcher) sendLoop() {
 		case <-d.doneCh:
 			return
 		case m := <-d.sendCh:
-			_ = WriteMsg(d.rw, m)
+			_ = d.rw.WriteMsg(m)
 		}
 	}
 }
 
 func (d *Dispatcher) readLoop() {
 	for {
-		m, err := ReadMsg(d.rw)
+		m, err := d.rw.ReadMsg()
 		if err != nil {
 			close(d.doneCh)
 			return

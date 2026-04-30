@@ -4,6 +4,7 @@ export interface ClientInfoData {
   clientID: string
   runID: string
   version?: string
+  wireProtocol?: string
   hostname: string
   clientIP?: string
   metas?: Record<string, string>

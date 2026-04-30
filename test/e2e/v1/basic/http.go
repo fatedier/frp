@@ -144,6 +144,79 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 			Ensure()
 	})
 
+	ginkgo.It("HTTP proxy mode uses proxy auth consistently", func() {
+		vhostHTTPPort := f.AllocPort()
+		serverConf := getDefaultServerConf(vhostHTTPPort)
+
+		backendPort := f.AllocPort()
+		f.RunServer("", newHTTPServer(backendPort, "PRIVATE"))
+
+		clientConf := consts.DefaultClientConfig
+		clientConf += fmt.Sprintf(`
+			[[proxies]]
+			name = "protected"
+			type = "http"
+			localPort = %d
+			customDomains = ["normal.example.com"]
+			routeByHTTPUser = "alice"
+			httpUser = "alice"
+			httpPassword = "secret"
+			`, backendPort)
+
+		f.RunProcesses(serverConf, []string{clientConf})
+
+		proxyURLWithAuth := func(username, password string) string {
+			if username == "" {
+				return fmt.Sprintf("http://127.0.0.1:%d", vhostHTTPPort)
+			}
+			return fmt.Sprintf("http://%s:%s@127.0.0.1:%d", username, password, vhostHTTPPort)
+		}
+
+		framework.NewRequestExpect(f).Explain("direct no auth").Port(vhostHTTPPort).
+			RequestModify(func(r *request.Request) {
+				r.HTTP().HTTPHost("normal.example.com")
+			}).
+			Ensure(framework.ExpectResponseCode(http.StatusNotFound))
+
+		framework.NewRequestExpect(f).Explain("direct correct auth").Port(vhostHTTPPort).
+			RequestModify(func(r *request.Request) {
+				r.HTTP().HTTPHost("normal.example.com").HTTPAuth("alice", "secret")
+			}).
+			ExpectResp([]byte("PRIVATE")).
+			Ensure()
+
+		framework.NewRequestExpect(f).Explain("direct wrong auth").Port(vhostHTTPPort).
+			RequestModify(func(r *request.Request) {
+				r.HTTP().HTTPHost("normal.example.com").HTTPAuth("alice", "wrong")
+			}).
+			Ensure(framework.ExpectResponseCode(http.StatusUnauthorized))
+
+		framework.NewRequestExpect(f).Explain("proxy correct proxy auth").
+			RequestModify(func(r *request.Request) {
+				r.HTTP().Addr("normal.example.com").Proxy(proxyURLWithAuth("alice", "secret"))
+			}).
+			ExpectResp([]byte("PRIVATE")).
+			Ensure()
+
+		framework.NewRequestExpect(f).Explain("proxy wrong proxy auth").
+			RequestModify(func(r *request.Request) {
+				r.HTTP().Addr("normal.example.com").Proxy(proxyURLWithAuth("alice", "wrong"))
+			}).
+			Ensure(framework.ExpectResponseCode(http.StatusProxyAuthRequired))
+
+		framework.NewRequestExpect(f).Explain("proxy request ignores authorization header").
+			RequestModify(func(r *request.Request) {
+				r.HTTP().Addr("normal.example.com").Proxy(proxyURLWithAuth("", "")).HTTPAuth("alice", "secret")
+			}).
+			Ensure(framework.ExpectResponseCode(http.StatusProxyAuthRequired))
+
+		framework.NewRequestExpect(f).Explain("proxy wrong proxy auth with correct authorization").
+			RequestModify(func(r *request.Request) {
+				r.HTTP().Addr("normal.example.com").Proxy(proxyURLWithAuth("alice", "wrong")).HTTPAuth("alice", "secret")
+			}).
+			Ensure(framework.ExpectResponseCode(http.StatusProxyAuthRequired))
+	})
+
 	ginkgo.It("HTTP Basic Auth", func() {
 		vhostHTTPPort := f.AllocPort()
 		serverConf := getDefaultServerConf(vhostHTTPPort)

@@ -20,6 +20,8 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 	ginkgo.It("Ports Whitelist", func() {
 		serverConf := consts.LegacyDefaultServerConfig
 		clientConf := consts.LegacyDefaultClientConfig
+		tcpPortNotAllowed := f.AllocPortExcludingRanges([2]int{10000, 11000}, [2]int{11002, 11002}, [2]int{12000, 13000})
+		udpPortNotAllowed := f.AllocPortExcludingRanges([2]int{10000, 11000}, [2]int{11002, 11002}, [2]int{12000, 13000})
 
 		serverConf += `
 			allow_ports = 10000-11000,11002,12000-13000
@@ -37,8 +39,8 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 			[tcp-port-not-allowed]
 			type = tcp
 			local_port = {{ .%s }}
-			remote_port = 11001
-			`, framework.TCPEchoServerPort)
+			remote_port = %d
+			`, framework.TCPEchoServerPort, tcpPortNotAllowed)
 		clientConf += fmt.Sprintf(`
 			[tcp-port-unavailable]
 			type = tcp
@@ -55,8 +57,8 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 			[udp-port-not-allowed]
 			type = udp
 			local_port = {{ .%s }}
-			remote_port = 11003
-			`, framework.UDPEchoServerPort)
+			remote_port = %d
+			`, framework.UDPEchoServerPort, udpPortNotAllowed)
 
 		f.RunProcesses(serverConf, []string{clientConf})
 
@@ -65,7 +67,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 		framework.NewRequestExpect(f).PortName(tcpPortName).Ensure()
 
 		// Not Allowed
-		framework.NewRequestExpect(f).Port(11001).ExpectError(true).Ensure()
+		framework.NewRequestExpect(f).Port(tcpPortNotAllowed).ExpectError(true).Ensure()
 
 		// Unavailable, already bind by frps
 		framework.NewRequestExpect(f).PortName(consts.PortServerName).ExpectError(true).Ensure()
@@ -76,7 +78,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 
 		// Not Allowed
 		framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
-			r.UDP().Port(11003)
+			r.UDP().Port(udpPortNotAllowed)
 		}).ExpectError(true).Ensure()
 	})
 

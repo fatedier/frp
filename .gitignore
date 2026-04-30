@@ -18,6 +18,7 @@ release/
 test/bin/
 vendor/
 lastversion/
+.cache/
 dist/
 .idea/
 .vscode/
