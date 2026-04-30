@@ -52,6 +52,9 @@ func DecodePemCert(pemBytes []byte) ([]crypto.PublicKey, error) {
 
 func DecodeJWKS(jwks *jose.JSONWebKeySet) []crypto.PublicKey {
 	keys := make([]crypto.PublicKey, 0, 1)
+	if jwks == nil {
+		return keys
+	}
 	for _, k := range jwks.Keys {
 		keys = append(keys, k.Key.(crypto.PublicKey))
 	}
