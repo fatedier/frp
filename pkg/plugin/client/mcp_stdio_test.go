@@ -33,21 +33,25 @@ import (
 
 func TestMCPStdioClassifyJSONRPC(t *testing.T) {
 	cases := []struct {
-		name                      string
-		body                      string
-		hasID, isInit, isInitNote bool
+		name               string
+		body               string
+		hasID              bool
+		reqID              string
+		isInit, isInitNote bool
 	}{
-		{"request", `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`, true, false, false},
-		{"initialize", `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`, true, true, false},
-		{"initialized note", `{"jsonrpc":"2.0","method":"notifications/initialized"}`, false, false, true},
-		{"plain notification", `{"jsonrpc":"2.0","method":"notifications/cancelled"}`, false, false, false},
-		{"explicit null id", `{"jsonrpc":"2.0","id":null,"method":"x"}`, false, false, false},
-		{"malformed JSON", `not json`, true, false, false},
+		{"request", `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`, true, "1", false, false},
+		{"initialize", `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`, true, "1", true, false},
+		{"initialized note", `{"jsonrpc":"2.0","method":"notifications/initialized"}`, false, "", false, true},
+		{"plain notification", `{"jsonrpc":"2.0","method":"notifications/cancelled"}`, false, "", false, false},
+		{"explicit null id", `{"jsonrpc":"2.0","id":null,"method":"x"}`, false, "", false, false},
+		{"string id", `{"jsonrpc":"2.0","id":"abc","method":"ping"}`, true, `"abc"`, false, false},
+		{"malformed JSON", `not json`, true, "", false, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			gotID, gotInit, gotInitNote := classifyJSONRPC([]byte(tc.body))
+			gotID, gotReqID, gotInit, gotInitNote := classifyJSONRPC([]byte(tc.body))
 			require.Equal(t, tc.hasID, gotID, "hasID")
+			require.Equal(t, tc.reqID, gotReqID, "reqID")
 			require.Equal(t, tc.isInit, gotInit, "isInit")
 			require.Equal(t, tc.isInitNote, gotInitNote, "isInitNote")
 		})
@@ -56,13 +60,17 @@ func TestMCPStdioClassifyJSONRPC(t *testing.T) {
 
 // fakeMCPScript is a tiny stdio program loaded via `/bin/sh script`. It
 // counts every input line and echoes only those that look like JSON-RPC
-// requests (have an "id" field), prefixing the response with the call
-// count so a test can detect when a new instance has been spawned.
+// requests (have an "id" field), echoing the original id back so that
+// readResponse can match it. The call count is embedded in the result so
+// tests can detect when a new child instance has been spawned.
 const fakeMCPScript = `n=0
 while IFS= read -r line; do
   n=$((n+1))
   case "$line" in
-    *'"id"'*) printf '%s\n' "{\"jsonrpc\":\"2.0\",\"result\":\"call=${n}\",\"id\":1,\"echo\":${line}}" ;;
+    *'"id"'*)
+      id=$(printf '%s' "$line" | grep -o '"id":[^,}]*' | sed 's/"id"://')
+      printf '%s\n' "{\"jsonrpc\":\"2.0\",\"result\":\"call=${n}\",\"id\":${id}}"
+      ;;
   esac
 done
 `

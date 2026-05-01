@@ -39,6 +39,9 @@ const (
 	mcpStdioReapInterval = 30 * time.Second
 	// mcpStdioReadTimeout is the per-request deadline for a child response.
 	mcpStdioReadTimeout = 30 * time.Second
+	// mcpStdioMaxBodySize caps inbound HTTP request bodies to guard against
+	// memory exhaustion; JSON-RPC frames are small in practice.
+	mcpStdioMaxBodySize = 1 << 20 // 1 MiB
 )
 
 func init() {
@@ -117,6 +120,7 @@ func (p *MCPStdioPlugin) handle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, mcpStdioMaxBodySize)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "read body: "+err.Error(), http.StatusBadRequest)
@@ -126,6 +130,11 @@ func (p *MCPStdioPlugin) handle(w http.ResponseWriter, r *http.Request) {
 	if len(body) == 0 {
 		http.Error(w, "empty body", http.StatusBadRequest)
 		return
+	}
+	// Compact to a single line so multi-line pretty-printed JSON does not
+	// split into multiple stdio frames when forwarded to the child.
+	if compact := bytes.NewBuffer(make([]byte, 0, len(body))); json.Compact(compact, body) == nil {
+		body = compact.Bytes()
 	}
 
 	resp, err := p.dispatch(r.Context(), body)
@@ -182,6 +191,63 @@ func (p *MCPStdioPlugin) worker() {
 		cachedInitNote []byte
 	)
 
+	type readResult struct {
+		line []byte
+		err  error
+	}
+
+	// readLine reads one line from out with a timeout. The spawned goroutine
+	// never leaks: when the child is killed the closed pipe causes ReadBytes to
+	// return an error and the goroutine exits, sending to the buffered channel.
+	readLine := func(out *bufio.Reader) ([]byte, error) {
+		ch := make(chan readResult, 1)
+		go func() {
+			line, err := out.ReadBytes('\n')
+			ch <- readResult{line, err}
+		}()
+		select {
+		case r := <-ch:
+			return r.line, r.err
+		case <-time.After(mcpStdioReadTimeout):
+			return nil, errors.New("child response timeout")
+		case <-p.closeCh:
+			return nil, errors.New("plugin closing")
+		}
+	}
+
+	// readResponse reads lines until it finds one whose JSON-RPC id matches
+	// reqID, discarding any server notifications/progress received in between.
+	// A single deadline is shared across iterations so chatty servers cannot
+	// extend the timeout by sending many notifications.
+	readResponse := func(out *bufio.Reader, reqID string) ([]byte, error) {
+		deadline := time.After(mcpStdioReadTimeout)
+		for {
+			ch := make(chan readResult, 1)
+			go func() {
+				line, err := out.ReadBytes('\n')
+				ch <- readResult{line, err}
+			}()
+			select {
+			case r := <-ch:
+				if r.err != nil {
+					return nil, r.err
+				}
+				line := bytes.TrimRight(r.line, "\r\n")
+				var head struct {
+					ID json.RawMessage `json:"id"`
+				}
+				if err := json.Unmarshal(line, &head); err != nil || string(head.ID) == reqID {
+					return line, nil
+				}
+				// server notification/progress; discard and read next line
+			case <-deadline:
+				return nil, errors.New("child response timeout")
+			case <-p.closeCh:
+				return nil, errors.New("plugin closing")
+			}
+		}
+	}
+
 	killChild := func() {
 		if child == nil {
 			return
@@ -234,7 +300,7 @@ func (p *MCPStdioPlugin) worker() {
 				killChild()
 				return fmt.Errorf("replay initialize: %w", err)
 			}
-			if _, err := childOut.ReadBytes('\n'); err != nil {
+			if _, err := readLine(childOut); err != nil {
 				killChild()
 				return fmt.Errorf("replay initialize read: %w", err)
 			}
@@ -272,7 +338,7 @@ func (p *MCPStdioPlugin) worker() {
 			}
 
 		case req := <-p.reqCh:
-			hasID, isInit, isInitNote := classifyJSONRPC(req.body)
+			hasID, reqID, isInit, isInitNote := classifyJSONRPC(req.body)
 
 			if err := ensureChild(); err != nil {
 				req.replyCh <- dispatchResp{err: fmt.Errorf("spawn child: %w", err)}
@@ -298,47 +364,24 @@ func (p *MCPStdioPlugin) worker() {
 				continue
 			}
 
-			// Read the child's response in a goroutine so we can enforce a
-			// timeout and still react to plugin shutdown. The channel is
-			// buffered so the goroutine never leaks: if we time out and kill
-			// the child, the closed pipe causes ReadBytes to return an error
-			// and the goroutine exits normally.
-			type readResult struct {
-				line []byte
-				err  error
-			}
-			readCh := make(chan readResult, 1)
-			go func() {
-				line, err := childOut.ReadBytes('\n')
-				readCh <- readResult{line, err}
-			}()
-
-			select {
-			case r := <-readCh:
-				if r.err != nil {
-					killChild()
-					req.replyCh <- dispatchResp{err: fmt.Errorf("read stdout: %w", r.err)}
-				} else {
-					lastUsedAt = time.Now()
-					req.replyCh <- dispatchResp{data: bytes.TrimRight(r.line, "\r\n")}
-				}
-			case <-time.After(mcpStdioReadTimeout):
+			line, err := readResponse(childOut, reqID)
+			if err != nil {
 				killChild()
-				req.replyCh <- dispatchResp{err: errors.New("child response timeout")}
-			case <-p.closeCh:
-				killChild()
-				req.replyCh <- dispatchResp{err: errors.New("plugin closing")}
-				return
+				req.replyCh <- dispatchResp{err: fmt.Errorf("read stdout: %w", err)}
+				continue
 			}
+			lastUsedAt = time.Now()
+			req.replyCh <- dispatchResp{data: line}
 		}
 	}
 }
 
 // classifyJSONRPC inspects a JSON-RPC frame's "method" and "id" fields.
 // hasID is true when the frame has a non-null id (and therefore expects a
-// response); isInit/isInitNote flag the MCP handshake messages so they can
-// be cached for replay.
-func classifyJSONRPC(body []byte) (hasID, isInit, isInitNote bool) {
+// response); reqID is its raw string value used to match the child's response;
+// isInit/isInitNote flag the MCP handshake messages so they can be cached for
+// replay.
+func classifyJSONRPC(body []byte) (hasID bool, reqID string, isInit, isInitNote bool) {
 	var head struct {
 		Method string          `json:"method"`
 		ID     json.RawMessage `json:"id"`
@@ -346,9 +389,12 @@ func classifyJSONRPC(body []byte) (hasID, isInit, isInitNote bool) {
 	if err := json.Unmarshal(body, &head); err != nil {
 		// Be conservative: assume the peer expects a response so we surface
 		// any framing error back to the client instead of hanging.
-		return true, false, false
+		return true, "", false, false
 	}
 	hasID = len(head.ID) > 0 && string(head.ID) != "null"
+	if hasID {
+		reqID = string(head.ID)
+	}
 	isInit = head.Method == "initialize"
 	isInitNote = head.Method == "notifications/initialized"
 	return
