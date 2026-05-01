@@ -18,13 +18,13 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -84,32 +84,29 @@ func TestMCPStdioDispatchAndReplay(t *testing.T) {
 	defer plugin.Close()
 
 	p := plugin.(*MCPStdioPlugin)
+	ctx := context.Background()
 
-	// Initialize handshake.
-	resp, err := p.dispatch([]byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`))
+	// Initialize handshake (call=1 in child).
+	resp, err := p.dispatch(ctx, []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`))
 	require.NoError(t, err)
 	require.Contains(t, string(resp), `"call=1"`)
-	require.NotNil(t, p.cachedInitReq)
 
-	// Notification: no response.
-	resp, err = p.dispatch([]byte(`{"jsonrpc":"2.0","method":"notifications/initialized"}`))
+	// Notification: no response, but the plugin must cache it for replay (call=2 in child).
+	resp, err = p.dispatch(ctx, []byte(`{"jsonrpc":"2.0","method":"notifications/initialized"}`))
 	require.NoError(t, err)
 	require.Nil(t, resp)
-	require.NotNil(t, p.cachedInitNote)
 
-	// Regular request goes to the same child (call=3 because init was 1, note was 2).
-	resp, err = p.dispatch([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
+	// Regular request goes to the same child (call=3 because init=1, note=2).
+	resp, err = p.dispatch(ctx, []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
 	require.NoError(t, err)
 	require.Contains(t, string(resp), `"call=3"`)
 
-	// Simulate idle reap.
-	p.mu.Lock()
-	p.killChildLocked()
-	p.mu.Unlock()
+	// Simulate an idle reap; the next request must respawn and replay
+	// initialize + initialized-note before processing, so this request will
+	// be call=3 in the new child (init=1, note=2, request=3).
+	p.killChildNow()
 
-	// Next request must respawn and replay initialize+initialized note before
-	// processing, so this request will be call=3 in the new child (init=1, note=2).
-	resp, err = p.dispatch([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
+	resp, err = p.dispatch(ctx, []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
 	require.NoError(t, err)
 	require.Contains(t, string(resp), `"call=3"`)
 }
@@ -158,7 +155,4 @@ func TestMCPStdioHTTPHandler(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	require.True(t, bytes.Contains(w.Body.Bytes(), []byte(`"call=`)))
 	require.Equal(t, "application/json", w.Header().Get("Content-Type"))
-
-	// Give reapLoop goroutine a moment if any (idle=0 means it never started).
-	time.Sleep(10 * time.Millisecond)
 }

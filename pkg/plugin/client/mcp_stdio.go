@@ -27,7 +27,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"sync"
 	"time"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
@@ -35,9 +34,12 @@ import (
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
-// mcpStdioReapInterval is how often the idle reaper checks the child process.
-// It is a constant rather than a config option to keep the plugin surface small.
-const mcpStdioReapInterval = 30 * time.Second
+const (
+	// mcpStdioReapInterval is how often the worker checks for an idle child.
+	mcpStdioReapInterval = 30 * time.Second
+	// mcpStdioReadTimeout is the per-request deadline for a child response.
+	mcpStdioReadTimeout = 30 * time.Second
+)
 
 func init() {
 	Register(v1.PluginMCPStdio, NewMCPStdioPlugin)
@@ -53,6 +55,9 @@ func init() {
 // the plugin caches the most recent "initialize" request and the
 // "notifications/initialized" notification, replaying them whenever a new
 // child is started.
+//
+// A single worker goroutine owns the child process and all its I/O, so no
+// mutexes are needed. HTTP handlers communicate with the worker via channels.
 type MCPStdioPlugin struct {
 	opts    *v1.MCPStdioPluginOptions
 	idleTTL time.Duration
@@ -60,16 +65,20 @@ type MCPStdioPlugin struct {
 	l *Listener
 	s *http.Server
 
-	reaperCancel context.CancelFunc
-	reaperDone   chan struct{}
+	reqCh      chan dispatchReq
+	closeCh    chan struct{}
+	workerDone chan struct{}
+	killCh     chan chan struct{} // signals worker to kill the child and ack
+}
 
-	mu             sync.Mutex
-	child          *exec.Cmd
-	childIn        io.WriteCloser
-	childOut       *bufio.Reader
-	lastUsedAt     time.Time
-	cachedInitReq  []byte
-	cachedInitNote []byte
+type dispatchReq struct {
+	body    []byte
+	replyCh chan dispatchResp
+}
+
+type dispatchResp struct {
+	data []byte
+	err  error
 }
 
 // NewMCPStdioPlugin constructs the plugin from validated options.
@@ -79,17 +88,16 @@ func NewMCPStdioPlugin(_ PluginContext, options v1.ClientPluginOptions) (Plugin,
 		return nil, errors.New("mcp_stdio: command is required")
 	}
 
-	idle := time.Duration(opts.IdleTimeoutSeconds) * time.Second
-
 	listener := NewProxyListener()
-	reaperCtx, reaperCancel := context.WithCancel(context.Background())
 
 	p := &MCPStdioPlugin{
-		opts:         opts,
-		idleTTL:      idle,
-		l:            listener,
-		reaperCancel: reaperCancel,
-		reaperDone:   make(chan struct{}),
+		opts:       opts,
+		idleTTL:    time.Duration(opts.IdleTimeoutSeconds) * time.Second,
+		l:          listener,
+		reqCh:      make(chan dispatchReq),
+		closeCh:    make(chan struct{}),
+		workerDone: make(chan struct{}),
+		killCh:     make(chan chan struct{}),
 	}
 
 	mux := http.NewServeMux()
@@ -100,11 +108,7 @@ func NewMCPStdioPlugin(_ PluginContext, options v1.ClientPluginOptions) (Plugin,
 	}
 
 	go func() { _ = p.s.Serve(listener) }()
-	if idle > 0 {
-		go p.reapLoop(reaperCtx)
-	} else {
-		close(p.reaperDone)
-	}
+	go p.worker()
 	return p, nil
 }
 
@@ -124,7 +128,7 @@ func (p *MCPStdioPlugin) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := p.dispatch(body)
+	resp, err := p.dispatch(r.Context(), body)
 	if err != nil {
 		log.Warnf("mcp_stdio: dispatch error: %v", err)
 		http.Error(w, "upstream error: "+err.Error(), http.StatusBadGateway)
@@ -141,43 +145,193 @@ func (p *MCPStdioPlugin) handle(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(resp)
 }
 
-// dispatch forwards a single JSON-RPC frame to the child and returns the
-// response line. A nil response means the frame was a notification (no id)
-// and no response is expected.
-func (p *MCPStdioPlugin) dispatch(body []byte) ([]byte, error) {
-	hasID, isInit, isInitNote := classifyJSONRPC(body)
+// dispatch sends a JSON-RPC frame to the worker and waits for the response.
+// It returns nil data for notifications (no id field), respecting ctx for
+// cancellation throughout.
+func (p *MCPStdioPlugin) dispatch(ctx context.Context, body []byte) ([]byte, error) {
+	replyCh := make(chan dispatchResp, 1)
+	select {
+	case p.reqCh <- dispatchReq{body: body, replyCh: replyCh}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-p.closeCh:
+		return nil, errors.New("plugin closing")
+	}
+	select {
+	case resp := <-replyCh:
+		return resp.data, resp.err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-p.closeCh:
+		return nil, errors.New("plugin closing")
+	}
+}
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
+// worker is the single goroutine that owns the child process and all its I/O.
+// It also handles idle reaping. Because all child state lives here, no mutexes
+// are needed.
+func (p *MCPStdioPlugin) worker() {
+	defer close(p.workerDone)
 
-	if err := p.ensureChildLocked(); err != nil {
-		return nil, fmt.Errorf("spawn child: %w", err)
+	var (
+		child          *exec.Cmd
+		childIn        io.WriteCloser
+		childOut       *bufio.Reader
+		lastUsedAt     time.Time
+		cachedInitReq  []byte
+		cachedInitNote []byte
+	)
+
+	killChild := func() {
+		if child == nil {
+			return
+		}
+		if childIn != nil {
+			_ = childIn.Close()
+		}
+		if child.Process != nil {
+			_ = child.Process.Kill()
+		}
+		_ = child.Wait()
+		child = nil
+		childIn = nil
+		childOut = nil
 	}
 
-	if isInit {
-		p.cachedInitReq = append(p.cachedInitReq[:0], body...)
-	}
-	if isInitNote {
-		p.cachedInitNote = append(p.cachedInitNote[:0], body...)
+	ensureChild := func() error {
+		if child != nil {
+			return nil
+		}
+		cmd := exec.Command(p.opts.Command[0], p.opts.Command[1:]...)
+		cmd.Env = os.Environ()
+		for k, v := range p.opts.Env {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			return err
+		}
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			return err
+		}
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			return err
+		}
+		if err := cmd.Start(); err != nil {
+			return err
+		}
+		go pipeStderrToLog(stderr, p.opts.Command[0])
+
+		child = cmd
+		childIn = stdin
+		childOut = bufio.NewReader(stdout)
+		lastUsedAt = time.Now()
+
+		if cachedInitReq != nil {
+			if _, err := fmt.Fprintf(childIn, "%s\n", cachedInitReq); err != nil {
+				killChild()
+				return fmt.Errorf("replay initialize: %w", err)
+			}
+			if _, err := childOut.ReadBytes('\n'); err != nil {
+				killChild()
+				return fmt.Errorf("replay initialize read: %w", err)
+			}
+		}
+		if cachedInitNote != nil {
+			if _, err := fmt.Fprintf(childIn, "%s\n", cachedInitNote); err != nil {
+				killChild()
+				return fmt.Errorf("replay initialized notification: %w", err)
+			}
+		}
+		return nil
 	}
 
-	if _, err := fmt.Fprintf(p.childIn, "%s\n", body); err != nil {
-		p.killChildLocked()
-		return nil, fmt.Errorf("write stdin: %w", err)
-	}
-	p.lastUsedAt = time.Now()
-
-	if !hasID {
-		return nil, nil
+	var reaperCh <-chan time.Time
+	if p.idleTTL > 0 {
+		t := time.NewTicker(mcpStdioReapInterval)
+		defer t.Stop()
+		reaperCh = t.C
 	}
 
-	line, err := p.childOut.ReadBytes('\n')
-	if err != nil {
-		p.killChildLocked()
-		return nil, fmt.Errorf("read stdout: %w", err)
+	for {
+		select {
+		case <-p.closeCh:
+			killChild()
+			return
+
+		case ack := <-p.killCh:
+			killChild()
+			close(ack)
+
+		case <-reaperCh:
+			if child != nil && time.Since(lastUsedAt) > p.idleTTL {
+				log.Infof("mcp_stdio: reaping idle child %s", p.opts.Command[0])
+				killChild()
+			}
+
+		case req := <-p.reqCh:
+			hasID, isInit, isInitNote := classifyJSONRPC(req.body)
+
+			if err := ensureChild(); err != nil {
+				req.replyCh <- dispatchResp{err: fmt.Errorf("spawn child: %w", err)}
+				continue
+			}
+
+			if isInit {
+				cachedInitReq = append(cachedInitReq[:0], req.body...)
+			}
+			if isInitNote {
+				cachedInitNote = append(cachedInitNote[:0], req.body...)
+			}
+
+			if _, err := fmt.Fprintf(childIn, "%s\n", req.body); err != nil {
+				killChild()
+				req.replyCh <- dispatchResp{err: fmt.Errorf("write stdin: %w", err)}
+				continue
+			}
+			lastUsedAt = time.Now()
+
+			if !hasID {
+				req.replyCh <- dispatchResp{}
+				continue
+			}
+
+			// Read the child's response in a goroutine so we can enforce a
+			// timeout and still react to plugin shutdown. The channel is
+			// buffered so the goroutine never leaks: if we time out and kill
+			// the child, the closed pipe causes ReadBytes to return an error
+			// and the goroutine exits normally.
+			type readResult struct {
+				line []byte
+				err  error
+			}
+			readCh := make(chan readResult, 1)
+			go func() {
+				line, err := childOut.ReadBytes('\n')
+				readCh <- readResult{line, err}
+			}()
+
+			select {
+			case r := <-readCh:
+				if r.err != nil {
+					killChild()
+					req.replyCh <- dispatchResp{err: fmt.Errorf("read stdout: %w", r.err)}
+				} else {
+					lastUsedAt = time.Now()
+					req.replyCh <- dispatchResp{data: bytes.TrimRight(r.line, "\r\n")}
+				}
+			case <-time.After(mcpStdioReadTimeout):
+				killChild()
+				req.replyCh <- dispatchResp{err: errors.New("child response timeout")}
+			case <-p.closeCh:
+				killChild()
+				req.replyCh <- dispatchResp{err: errors.New("plugin closing")}
+				return
+			}
+		}
 	}
-	p.lastUsedAt = time.Now()
-	return bytes.TrimRight(line, "\r\n"), nil
 }
 
 // classifyJSONRPC inspects a JSON-RPC frame's "method" and "id" fields.
@@ -200,94 +354,6 @@ func classifyJSONRPC(body []byte) (hasID, isInit, isInitNote bool) {
 	return
 }
 
-// ensureChildLocked starts the child if not running, replaying the cached
-// MCP handshake so a new process appears initialized to subsequent callers.
-// mu must be held.
-func (p *MCPStdioPlugin) ensureChildLocked() error {
-	if p.child != nil {
-		return nil
-	}
-	cmd := exec.Command(p.opts.Command[0], p.opts.Command[1:]...)
-	cmd.Env = os.Environ()
-	for k, v := range p.opts.Env {
-		cmd.Env = append(cmd.Env, k+"="+v)
-	}
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return err
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	go pipeStderrToLog(stderr, p.opts.Command[0])
-
-	p.child = cmd
-	p.childIn = stdin
-	p.childOut = bufio.NewReader(stdout)
-	p.lastUsedAt = time.Now()
-
-	if p.cachedInitReq != nil {
-		if _, err := fmt.Fprintf(p.childIn, "%s\n", p.cachedInitReq); err != nil {
-			p.killChildLocked()
-			return fmt.Errorf("replay initialize: %w", err)
-		}
-		if _, err := p.childOut.ReadBytes('\n'); err != nil {
-			p.killChildLocked()
-			return fmt.Errorf("replay initialize read: %w", err)
-		}
-	}
-	if p.cachedInitNote != nil {
-		if _, err := fmt.Fprintf(p.childIn, "%s\n", p.cachedInitNote); err != nil {
-			p.killChildLocked()
-			return fmt.Errorf("replay initialized notification: %w", err)
-		}
-	}
-	return nil
-}
-
-func (p *MCPStdioPlugin) killChildLocked() {
-	if p.child == nil {
-		return
-	}
-	if p.childIn != nil {
-		_ = p.childIn.Close()
-	}
-	if proc := p.child.Process; proc != nil {
-		_ = proc.Kill()
-	}
-	_ = p.child.Wait()
-	p.child = nil
-	p.childIn = nil
-	p.childOut = nil
-}
-
-func (p *MCPStdioPlugin) reapLoop(ctx context.Context) {
-	defer close(p.reaperDone)
-	t := time.NewTicker(mcpStdioReapInterval)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			p.mu.Lock()
-			if p.child != nil && time.Since(p.lastUsedAt) > p.idleTTL {
-				log.Infof("mcp_stdio: reaping idle child %s", p.opts.Command[0])
-				p.killChildLocked()
-			}
-			p.mu.Unlock()
-		}
-	}
-}
-
 func pipeStderrToLog(r io.Reader, name string) {
 	br := bufio.NewReader(r)
 	for {
@@ -301,6 +367,18 @@ func pipeStderrToLog(r io.Reader, name string) {
 	}
 }
 
+// killChildNow asks the worker to kill the current child process and waits for
+// it to complete. Useful in tests to simulate an idle reap without waiting for
+// the TTL.
+func (p *MCPStdioPlugin) killChildNow() {
+	ack := make(chan struct{})
+	select {
+	case p.killCh <- ack:
+		<-ack
+	case <-p.closeCh:
+	}
+}
+
 func (p *MCPStdioPlugin) Handle(_ context.Context, connInfo *ConnectionInfo) {
 	wrapConn := netpkg.WrapReadWriteCloserToConn(connInfo.Conn, connInfo.UnderlyingConn)
 	_ = p.l.PutConn(wrapConn)
@@ -311,12 +389,9 @@ func (p *MCPStdioPlugin) Name() string {
 }
 
 func (p *MCPStdioPlugin) Close() error {
-	p.reaperCancel()
-	<-p.reaperDone
 	_ = p.s.Close()
 	_ = p.l.Close()
-	p.mu.Lock()
-	p.killChildLocked()
-	p.mu.Unlock()
+	close(p.closeCh)
+	<-p.workerDone
 	return nil
 }
