@@ -482,3 +482,32 @@ func TestBadPublicKeyStaticLoginFailed(t *testing.T) {
 	r.Error((err))
 	r.Contains(err.Error(), "failed to verify signature: no public keys able to verify jwt")
 }
+
+func TestEmptyKeysSetLoginFailed(t *testing.T) {
+	// Test Setup include Load JWKS + Generate Token
+	_, builder := setupStaticOidc(t)
+	builder = builder.Claims(jwt.Claims{
+		Issuer:    "https://kubernetes.default.svc.cluster.local",
+		Subject:   "system:serviceaccount:default:default",
+		Audience:  jwt.Audience{"https://kubernetes.default.svc.cluster.local", "k3s"},
+		NotBefore: jwt.NewNumericDate(time.Now()),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Expiry:    jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+	})
+
+	r := require.New(t)
+	verifier, err := auth.VerifierFromPublicKeys(
+		v1.AuthOIDCServerConfig{Issuer: "https://kubernetes.default.svc.cluster.local", Audience: "k3s"},
+		auth.DecodeJWKS(nil),
+	)
+	r.NoError((err))
+	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, verifier)
+	token, err := builder.Serialize()
+	r.NoError(err)
+
+	err = consumer.VerifyLogin(&msg.Login{
+		PrivilegeKey: token,
+	})
+	r.Error(err)
+	r.Contains(err.Error(), "invalid OIDC token in login: failed to verify signature: no public keys able to verify jwt")
+}
