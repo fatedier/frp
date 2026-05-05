@@ -28,7 +28,7 @@ func TestFrameRoundTrip(t *testing.T) {
 	var buf bytes.Buffer
 	conn := NewConn(&buf)
 
-	in := DefaultClientHello(BootstrapInfo{
+	in := mustClientHello(t, BootstrapInfo{
 		Transport: "tcp",
 		TLS:       true,
 		TCPMux:    true,
@@ -112,9 +112,122 @@ func TestCheckMagicV1PreservesReadBytes(t *testing.T) {
 }
 
 func TestValidateClientHello(t *testing.T) {
-	require.NoError(t, ValidateClientHello(DefaultClientHello(BootstrapInfo{})))
+	hello := mustClientHello(t, BootstrapInfo{})
+	require.NoError(t, ValidateClientHello(hello))
+	require.Len(t, hello.Capabilities.Crypto.ClientRandom, CryptoRandomSize)
+	require.ElementsMatch(t, []string{
+		AEADAlgorithmAES256GCM,
+		AEADAlgorithmXChaCha20Poly1305,
+	}, hello.Capabilities.Crypto.Algorithms)
 
-	hello := DefaultClientHello(BootstrapInfo{})
 	hello.Capabilities.Message.Codecs = []string{"unknown"}
 	require.ErrorContains(t, ValidateClientHello(hello), "unsupported message codec")
+}
+
+func TestValidateClientHelloRejectsInvalidCrypto(t *testing.T) {
+	hello := mustClientHello(t, BootstrapInfo{})
+	hello.Capabilities.Crypto.ClientRandom = hello.Capabilities.Crypto.ClientRandom[:CryptoRandomSize-1]
+	require.ErrorContains(t, ValidateClientHello(hello), "invalid crypto client random length")
+
+	hello = mustClientHello(t, BootstrapInfo{})
+	hello.Capabilities.Crypto.Algorithms = []string{"unknown"}
+	require.ErrorContains(t, ValidateClientHello(hello), "no supported crypto algorithm")
+}
+
+func TestPreferredAEADAlgorithms(t *testing.T) {
+	require.ElementsMatch(t, []string{
+		AEADAlgorithmAES256GCM,
+		AEADAlgorithmXChaCha20Poly1305,
+	}, PreferredAEADAlgorithms())
+}
+
+func TestNewServerHelloSelectsFirstSupportedAEADAlgorithm(t *testing.T) {
+	hello := mustClientHello(t, BootstrapInfo{})
+	hello.Capabilities.Crypto.Algorithms = []string{"future-aead", AEADAlgorithmXChaCha20Poly1305, AEADAlgorithmAES256GCM}
+
+	serverHello, err := NewServerHello(hello)
+	require.NoError(t, err)
+	require.Equal(t, MessageCodecJSON, serverHello.Selected.Message.Codec)
+	require.Equal(t, AEADAlgorithmXChaCha20Poly1305, serverHello.Selected.Crypto.Algorithm)
+	require.Len(t, serverHello.Selected.Crypto.ServerRandom, CryptoRandomSize)
+}
+
+func TestNewClientCryptoContextValidatesServerHello(t *testing.T) {
+	hello := mustClientHello(t, BootstrapInfo{})
+	serverHello, err := NewServerHello(hello)
+	require.NoError(t, err)
+	clientHelloPayload, serverHelloPayload := mustCryptoTranscriptPayloads(t, hello, serverHello)
+
+	ctx, err := NewClientCryptoContext(clientHelloPayload, serverHelloPayload)
+	require.NoError(t, err)
+	require.Equal(t, serverHello.Selected.Crypto.Algorithm, ctx.Algorithm)
+	require.Len(t, ctx.TranscriptHash, 32)
+
+	tampered := serverHello
+	tampered.Selected.Crypto.ServerRandom = append([]byte(nil), serverHello.Selected.Crypto.ServerRandom...)
+	tampered.Selected.Crypto.ServerRandom[0] ^= 0xff
+	_, tamperedServerHelloPayload := mustCryptoTranscriptPayloads(t, hello, tampered)
+	tamperedCtx, err := NewClientCryptoContext(clientHelloPayload, tamperedServerHelloPayload)
+	require.NoError(t, err)
+	require.NotEqual(t, ctx.TranscriptHash, tamperedCtx.TranscriptHash)
+}
+
+func TestNewCryptoContextBindsFullClientHelloPayload(t *testing.T) {
+	hello := mustClientHello(t, BootstrapInfo{
+		Transport: "tcp",
+		TLS:       true,
+		TCPMux:    true,
+	})
+	serverHello, err := NewServerHello(hello)
+	require.NoError(t, err)
+	clientHelloPayload, serverHelloPayload := mustCryptoTranscriptPayloads(t, hello, serverHello)
+
+	ctx := NewCryptoContext(serverHello.Selected.Crypto.Algorithm, clientHelloPayload, serverHelloPayload)
+
+	tamperedHello := hello
+	tamperedHello.Bootstrap.TLS = false
+	tamperedClientHelloPayload, _ := mustCryptoTranscriptPayloads(t, tamperedHello, serverHello)
+	tamperedCtx := NewCryptoContext(serverHello.Selected.Crypto.Algorithm, tamperedClientHelloPayload, serverHelloPayload)
+	require.NotEqual(t, ctx.TranscriptHash, tamperedCtx.TranscriptHash)
+}
+
+func TestNewClientCryptoContextRejectsUnknownServerSelection(t *testing.T) {
+	hello := mustClientHello(t, BootstrapInfo{})
+	serverHello, err := NewServerHello(hello)
+	require.NoError(t, err)
+
+	serverHello.Selected.Crypto.Algorithm = "unknown"
+	clientHelloPayload, serverHelloPayload := mustCryptoTranscriptPayloads(t, hello, serverHello)
+	_, err = NewClientCryptoContext(clientHelloPayload, serverHelloPayload)
+	require.ErrorContains(t, err, "unknown selected crypto algorithm")
+}
+
+func TestNewClientCryptoContextRejectsUnadvertisedServerSelection(t *testing.T) {
+	hello := mustClientHello(t, BootstrapInfo{})
+	hello.Capabilities.Crypto.Algorithms = []string{AEADAlgorithmAES256GCM}
+	serverHello, err := NewServerHello(hello)
+	require.NoError(t, err)
+
+	serverHello.Selected.Crypto.Algorithm = AEADAlgorithmXChaCha20Poly1305
+	clientHelloPayload, serverHelloPayload := mustCryptoTranscriptPayloads(t, hello, serverHello)
+	_, err = NewClientCryptoContext(clientHelloPayload, serverHelloPayload)
+	require.ErrorContains(t, err, "selected crypto algorithm was not advertised by client")
+}
+
+func mustClientHello(t *testing.T, bootstrap BootstrapInfo) ClientHello {
+	t.Helper()
+
+	hello, err := NewClientHello(bootstrap)
+	require.NoError(t, err)
+	return hello
+}
+
+func mustCryptoTranscriptPayloads(t *testing.T, hello ClientHello, serverHello ServerHello) ([]byte, []byte) {
+	t.Helper()
+
+	clientHelloFrame, err := NewJSONFrame(FrameTypeClientHello, hello)
+	require.NoError(t, err)
+	serverHelloFrame, err := NewJSONFrame(FrameTypeServerHello, serverHello)
+	require.NoError(t, err)
+	return clientHelloFrame.Payload, serverHelloFrame.Payload
 }
