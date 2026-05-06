@@ -15,6 +15,7 @@
 package v1
 
 import (
+	"github.com/go-jose/go-jose/v4"
 	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/config/types"
@@ -138,6 +139,12 @@ func (c *AuthServerConfig) Complete() error {
 	return nil
 }
 
+type AuthOIDCIssuer struct {
+	JWKS     *jose.JSONWebKeySet `json:"jwks,omitempty"`
+	JWKSFile string              `json:"jwksFile,omitempty"`
+	PemFile  string              `json:"pemFile,omitempty"`
+}
+
 type AuthOIDCServerConfig struct {
 	// Issuer specifies the issuer to verify OIDC tokens with. This issuer
 	// will be used to load public keys to verify signature and will be compared
@@ -152,6 +159,9 @@ type AuthOIDCServerConfig struct {
 	// SkipIssuerCheck specifies whether to skip checking if the OIDC token's
 	// issuer claim matches the issuer specified in OidcIssuer.
 	SkipIssuerCheck bool `json:"skipIssuerCheck,omitempty"`
+	// SkipIssuerCheck specifies whether to skip checking if the OIDC token's
+	// issuer claim matches the issuer specified in OidcIssuer.
+	IssuerSpec AuthOIDCIssuer `json:"issuerSpec,omitempty"`
 }
 
 type ServerTransportConfig struct {
