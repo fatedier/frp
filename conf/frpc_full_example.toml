@@ -382,6 +382,22 @@ crtPath = "./server.crt"
 keyPath = "./server.key"
 
 [[proxies]]
+name = "plugin_mcp_stdio"
+type = "http"
+customDomains = ["mcp.yourdomain.com"]
+locations = ["/example"]
+[proxies.plugin]
+type = "mcp_stdio"
+# Spawn a stdio MCP server and bridge it to Streamable HTTP. Each inbound
+# HTTP POST body is forwarded as one JSON-RPC line on the child's stdin and
+# the next line read from stdout is returned as the response.
+command = ["npx", "-y", "@modelcontextprotocol/server-everything"]
+env = { LOG_LEVEL = "info" }
+# Kill the child after this many idle seconds. 0 (default) = never.
+# The MCP `initialize` handshake is replayed automatically after a respawn.
+idleTimeoutSeconds = 300
+
+[[proxies]]
 name = "secret_tcp"
 # If the type is secret tcp, remotePort is useless
 # Who want to connect local port should deploy another frpc with stcp proxy and role is visitor
