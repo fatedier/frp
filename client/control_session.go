@@ -88,17 +88,18 @@ func (d *controlSessionDialer) Dial(previousRunID string) (*SessionContext, erro
 		return nil, err
 	}
 
-	loginRespMsg, err := d.exchangeLogin(conn, common, loginMsg, d.autoSelection)
+	loginResult, err := d.exchangeLogin(conn, common, loginMsg, d.autoSelection)
 	if err != nil {
 		return nil, err
 	}
+	loginRespMsg := loginResult.resp
 	if loginRespMsg.Error != "" {
 		return nil, errors.New(loginRespMsg.Error)
 	}
 
 	var controlRW io.ReadWriter = conn
 	if d.clientSpec == nil || d.clientSpec.Type != "ssh-tunnel" {
-		controlRW, err = netpkg.NewCryptoReadWriter(conn, d.auth.EncryptionKey())
+		controlRW, err = d.newControlReadWriter(conn, loginResult.crypto)
 		if err != nil {
 			return nil, fmt.Errorf("create control crypto read writer: %w", err)
 		}
@@ -140,14 +141,21 @@ func (d *controlSessionDialer) buildLoginMsg(common *v1.ClientCommonConfig, prev
 	return loginMsg, nil
 }
 
+type loginExchangeResult struct {
+	resp   *msg.LoginResp
+	crypto *wire.CryptoContext
+}
+
 func (d *controlSessionDialer) exchangeLogin(
 	conn net.Conn,
 	common *v1.ClientCommonConfig,
 	loginMsg *msg.Login,
 	autoSelection *autoTransportSelection,
-) (*msg.LoginResp, error) {
+) (*loginExchangeResult, error) {
 	rw := msg.NewV1ReadWriter(conn)
 	var wireConn *wire.Conn
+	var clientHello wire.ClientHello
+	var clientHelloPayload []byte
 
 	if common.Transport.WireProtocol == wire.ProtocolV2 {
 		if err := wire.WriteMagic(conn); err != nil {
@@ -156,14 +164,23 @@ func (d *controlSessionDialer) exchangeLogin(
 
 		wireConn = wire.NewConn(conn)
 		rw = msg.NewV2ReadWriterWithConn(wireConn)
-		hello := wire.DefaultClientHello(wire.BootstrapInfo{
+		var err error
+		clientHello, err = wire.NewClientHello(wire.BootstrapInfo{
 			Transport: common.Transport.Protocol,
 			TLS:       lo.FromPtr(common.Transport.TLS.Enable) || common.Transport.Protocol == "wss" || common.Transport.Protocol == "quic",
 			TCPMux:    lo.FromPtr(common.Transport.TCPMux),
 		})
-		if err := wireConn.WriteJSONFrame(wire.FrameTypeClientHello, hello); err != nil {
+		if err != nil {
 			return nil, err
 		}
+		clientHelloFrame, err := wire.NewJSONFrame(wire.FrameTypeClientHello, clientHello)
+		if err != nil {
+			return nil, err
+		}
+		if err := wireConn.WriteFrame(clientHelloFrame); err != nil {
+			return nil, err
+		}
+		clientHelloPayload = clientHelloFrame.Payload
 	}
 	if autoSelection != nil && autoSelection.SendSelect {
 		if err := rw.WriteMsg(&msg.SelectTransport{
@@ -186,13 +203,25 @@ func (d *controlSessionDialer) exchangeLogin(
 		_ = conn.SetReadDeadline(time.Time{})
 	}()
 
+	var cryptoContext *wire.CryptoContext
 	if wireConn != nil {
+		serverHelloFrame, err := wireConn.ReadFrame()
+		if err != nil {
+			return nil, err
+		}
+		if serverHelloFrame.Type != wire.FrameTypeServerHello {
+			return nil, fmt.Errorf("unexpected frame type %d, want %d", serverHelloFrame.Type, wire.FrameTypeServerHello)
+		}
 		var serverHello wire.ServerHello
-		if err := wireConn.ReadJSONFrame(wire.FrameTypeServerHello, &serverHello); err != nil {
+		if err := wireConn.UnmarshalFrame(serverHelloFrame, &serverHello); err != nil {
 			return nil, err
 		}
 		if serverHello.Error != "" {
 			return nil, errors.New(serverHello.Error)
+		}
+		cryptoContext, err = wire.NewClientCryptoContext(clientHelloPayload, serverHelloFrame.Payload)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -200,5 +229,24 @@ func (d *controlSessionDialer) exchangeLogin(
 	if err := rw.ReadMsgInto(&loginRespMsg); err != nil {
 		return nil, err
 	}
-	return &loginRespMsg, nil
+	return &loginExchangeResult{
+		resp:   &loginRespMsg,
+		crypto: cryptoContext,
+	}, nil
+}
+
+func (d *controlSessionDialer) newControlReadWriter(conn net.Conn, cryptoContext *wire.CryptoContext) (io.ReadWriter, error) {
+	if d.common.Transport.WireProtocol == wire.ProtocolV2 {
+		if cryptoContext == nil {
+			return nil, errors.New("missing v2 crypto negotiation")
+		}
+		return netpkg.NewAEADCryptoReadWriter(
+			conn,
+			d.auth.EncryptionKey(),
+			netpkg.AEADCryptoRoleClient,
+			cryptoContext.Algorithm,
+			cryptoContext.TranscriptHash,
+		)
+	}
+	return netpkg.NewCryptoReadWriter(conn, d.auth.EncryptionKey())
 }

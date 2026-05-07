@@ -120,15 +120,23 @@ func (c *Conn) UnmarshalFrame(f *Frame, out any) error {
 	return json.Unmarshal(f.Payload, out)
 }
 
-func (c *Conn) WriteJSONFrame(frameType uint16, in any) error {
+func NewJSONFrame(frameType uint16, in any) (*Frame, error) {
 	payload, err := json.Marshal(in)
+	if err != nil {
+		return nil, err
+	}
+	return &Frame{
+		Type:    frameType,
+		Payload: payload,
+	}, nil
+}
+
+func (c *Conn) WriteJSONFrame(frameType uint16, in any) error {
+	f, err := NewJSONFrame(frameType, in)
 	if err != nil {
 		return err
 	}
-	return c.WriteFrame(&Frame{
-		Type:    frameType,
-		Payload: payload,
-	})
+	return c.WriteFrame(f)
 }
 
 func WriteMagic(w io.Writer) error {
@@ -170,10 +178,16 @@ type ClientHello struct {
 
 type ClientCapabilities struct {
 	Message MessageCapabilities `json:"message,omitempty"`
+	Crypto  CryptoCapabilities  `json:"crypto,omitempty"`
 }
 
 type MessageCapabilities struct {
 	Codecs []string `json:"codecs,omitempty"`
+}
+
+type CryptoCapabilities struct {
+	Algorithms   []string `json:"algorithms,omitempty"`
+	ClientRandom []byte   `json:"clientRandom,omitempty"`
 }
 
 type ServerHello struct {
@@ -183,18 +197,28 @@ type ServerHello struct {
 
 type ServerSelection struct {
 	Message MessageSelection `json:"message,omitempty"`
+	Crypto  CryptoSelection  `json:"crypto,omitempty"`
 }
 
 type MessageSelection struct {
 	Codec string `json:"codec,omitempty"`
 }
 
-func DefaultClientHello(bootstrap BootstrapInfo) ClientHello {
+type CryptoSelection struct {
+	Algorithm    string `json:"algorithm,omitempty"`
+	ServerRandom []byte `json:"serverRandom,omitempty"`
+}
+
+func clientHelloWithCryptoRandom(bootstrap BootstrapInfo, clientRandom []byte) ClientHello {
 	return ClientHello{
 		Bootstrap: bootstrap,
 		Capabilities: ClientCapabilities{
 			Message: MessageCapabilities{
 				Codecs: []string{MessageCodecJSON},
+			},
+			Crypto: CryptoCapabilities{
+				Algorithms:   PreferredAEADAlgorithms(),
+				ClientRandom: clientRandom,
 			},
 		},
 	}
@@ -218,5 +242,5 @@ func ValidateClientHello(h ClientHello) error {
 	if !Supports(h.Capabilities.Message.Codecs, MessageCodecJSON) {
 		return fmt.Errorf("unsupported message codec")
 	}
-	return nil
+	return ValidateCryptoCapabilities(h.Capabilities.Crypto)
 }

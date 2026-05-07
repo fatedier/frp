@@ -16,14 +16,16 @@ package net
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"io"
 	"net"
 	"sync/atomic"
 	"time"
 
-	"github.com/fatedier/golib/crypto"
+	libcrypto "github.com/fatedier/golib/crypto"
 	quic "github.com/quic-go/quic-go"
+	"golang.org/x/crypto/hkdf"
 
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
@@ -241,8 +243,8 @@ func (conn *wrapQuicStream) Close() error {
 }
 
 func NewCryptoReadWriter(rw io.ReadWriter, key []byte) (io.ReadWriter, error) {
-	encReader := crypto.NewReader(rw, key)
-	encWriter, err := crypto.NewWriter(rw, key)
+	encReader := libcrypto.NewReader(rw, key)
+	encWriter, err := libcrypto.NewWriter(rw, key)
 	if err != nil {
 		return nil, err
 	}
@@ -253,4 +255,91 @@ func NewCryptoReadWriter(rw io.ReadWriter, key []byte) (io.ReadWriter, error) {
 		Reader: encReader,
 		Writer: encWriter,
 	}, nil
+}
+
+type AEADCryptoRole int
+
+const (
+	AEADCryptoRoleClient AEADCryptoRole = iota + 1
+	AEADCryptoRoleServer
+)
+
+const (
+	aeadControlHKDFInfoPrefix   = "frp wire v2 control aead"
+	aeadDirectionClientToServer = "client-to-server"
+	aeadDirectionServerToClient = "server-to-client"
+)
+
+// NewAEADCryptoReadWriter wraps rw with framed AEAD encryption for the v2
+// control channel. Frames and their order are authenticated, but end-of-stream
+// is not: a clean EOF at a frame boundary is returned as normal EOF by the
+// underlying AEAD stream. Protocols that need truncation detection for finite
+// objects must add their own authenticated final message.
+func NewAEADCryptoReadWriter(
+	rw io.ReadWriter,
+	key []byte,
+	role AEADCryptoRole,
+	algorithm string,
+	transcriptHash []byte,
+) (io.ReadWriter, error) {
+	clientToServerKey, serverToClientKey, err := deriveAEADControlKeys(key, algorithm, transcriptHash)
+	if err != nil {
+		return nil, err
+	}
+
+	var readKey, writeKey []byte
+	switch role {
+	case AEADCryptoRoleClient:
+		readKey = serverToClientKey
+		writeKey = clientToServerKey
+	case AEADCryptoRoleServer:
+		readKey = clientToServerKey
+		writeKey = serverToClientKey
+	default:
+		return nil, errors.New("invalid aead crypto role")
+	}
+
+	encReader, err := libcrypto.NewAEADStreamReader(rw, libcrypto.AEADStreamOptions{
+		Algorithm: libcrypto.AEADAlgorithm(algorithm),
+		Key:       readKey,
+	})
+	if err != nil {
+		return nil, err
+	}
+	encWriter, err := libcrypto.NewAEADStreamWriter(rw, libcrypto.AEADStreamOptions{
+		Algorithm: libcrypto.AEADAlgorithm(algorithm),
+		Key:       writeKey,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return struct {
+		io.Reader
+		io.Writer
+	}{
+		Reader: encReader,
+		Writer: encWriter,
+	}, nil
+}
+
+func deriveAEADControlKeys(key []byte, algorithm string, transcriptHash []byte) (clientToServerKey, serverToClientKey []byte, err error) {
+	clientToServerKey, err = deriveAEADControlKey(key, algorithm, transcriptHash, aeadDirectionClientToServer)
+	if err != nil {
+		return nil, nil, err
+	}
+	serverToClientKey, err = deriveAEADControlKey(key, algorithm, transcriptHash, aeadDirectionServerToClient)
+	if err != nil {
+		return nil, nil, err
+	}
+	return clientToServerKey, serverToClientKey, nil
+}
+
+func deriveAEADControlKey(key []byte, algorithm string, transcriptHash []byte, direction string) ([]byte, error) {
+	info := []byte(aeadControlHKDFInfoPrefix + " " + algorithm + " " + direction)
+	reader := hkdf.New(sha256.New, key, transcriptHash, info)
+	out := make([]byte, libcrypto.AEADKeySize)
+	if _, err := io.ReadFull(reader, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
