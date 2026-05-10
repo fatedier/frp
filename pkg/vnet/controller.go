@@ -286,7 +286,6 @@ func (r *clientRouter) addRoute(name string, routes []net.IPNet, conn io.ReadWri
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.routes[name] = &routeElement{
-		name:   name,
 		routes: routes,
 		conn:   conn,
 	}
@@ -383,7 +382,6 @@ func (r *serverRouter) cleanupConnIPs(conn io.Writer) {
 }
 
 type routeElement struct {
-	name   string
 	routes []net.IPNet
 	conn   io.ReadWriteCloser
 }

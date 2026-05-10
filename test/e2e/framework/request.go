@@ -124,7 +124,3 @@ func (e *RequestExpect) Ensure(fns ...EnsureFunc) {
 		}
 	}
 }
-
-func (e *RequestExpect) Do() (*request.Response, error) {
-	return e.req.Do()
-}

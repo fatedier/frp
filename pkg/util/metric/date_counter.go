@@ -17,6 +17,8 @@ package metric
 import (
 	"sync"
 	"time"
+
+	"k8s.io/utils/clock"
 )
 
 type DateCounter interface {
@@ -38,27 +40,33 @@ func NewDateCounter(reserveDays int64) DateCounter {
 type StandardDateCounter struct {
 	reserveDays int64
 	counts      []int64
+	clock       clock.PassiveClock
 
 	lastUpdateDate time.Time
 	mu             sync.Mutex
 }
 
 func newStandardDateCounter(reserveDays int64) *StandardDateCounter {
-	now := time.Now()
-	now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	s := &StandardDateCounter{
+	return newStandardDateCounterWithClock(reserveDays, clock.RealClock{})
+}
+
+func newStandardDateCounterWithClock(reserveDays int64, clk clock.PassiveClock) *StandardDateCounter {
+	if clk == nil {
+		clk = clock.RealClock{}
+	}
+	return &StandardDateCounter{
 		reserveDays:    reserveDays,
 		counts:         make([]int64, reserveDays),
-		lastUpdateDate: now,
+		clock:          clk,
+		lastUpdateDate: startOfDay(clk.Now()),
 	}
-	return s
 }
 
 func (c *StandardDateCounter) TodayCount() int64 {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.rotate(time.Now())
+	c.rotate(c.clock.Now())
 	return c.counts[0]
 }
 
@@ -70,65 +78,61 @@ func (c *StandardDateCounter) GetLastDaysCount(lastdays int64) []int64 {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.rotate(time.Now())
-	for i := 0; i < int(lastdays); i++ {
-		counts[i] = c.counts[i]
-	}
+	c.rotate(c.clock.Now())
+	copy(counts, c.counts)
 	return counts
 }
 
 func (c *StandardDateCounter) Inc(count int64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.rotate(time.Now())
+	c.rotate(c.clock.Now())
 	c.counts[0] += count
 }
 
 func (c *StandardDateCounter) Dec(count int64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.rotate(time.Now())
+	c.rotate(c.clock.Now())
 	c.counts[0] -= count
 }
 
 func (c *StandardDateCounter) Snapshot() DateCounter {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	tmp := newStandardDateCounter(c.reserveDays)
-	for i := 0; i < int(c.reserveDays); i++ {
-		tmp.counts[i] = c.counts[i]
-	}
+	tmp := newStandardDateCounterWithClock(c.reserveDays, c.clock)
+	copy(tmp.counts, c.counts)
 	return tmp
 }
 
 func (c *StandardDateCounter) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for i := 0; i < int(c.reserveDays); i++ {
-		c.counts[i] = 0
-	}
+	clear(c.counts)
 }
 
 // rotate
 // Must hold the lock before calling this function.
 func (c *StandardDateCounter) rotate(now time.Time) {
-	now = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	now = startOfDay(now)
 	days := int(now.Sub(c.lastUpdateDate).Hours() / 24)
-
-	defer func() {
-		c.lastUpdateDate = now
-	}()
+	reserveDays := int(c.reserveDays)
 
 	if days <= 0 {
 		return
-	} else if days >= int(c.reserveDays) {
+	} else if days >= reserveDays {
 		c.counts = make([]int64, c.reserveDays)
+		c.lastUpdateDate = now
 		return
 	}
 	newCounts := make([]int64, c.reserveDays)
 
-	for i := days; i < int(c.reserveDays); i++ {
-		newCounts[i] = c.counts[i-days]
-	}
+	copy(newCounts[days:], c.counts[:reserveDays-days])
 	c.counts = newCounts
+	c.lastUpdateDate = now
+}
+
+// startOfDay returns midnight in t's location.
+func startOfDay(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 }

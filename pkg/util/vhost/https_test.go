@@ -16,23 +16,53 @@ func TestGetHTTPSHostname(t *testing.T) {
 	require.NoError(err)
 	defer l.Close()
 
-	var conn net.Conn
+	connCh := make(chan net.Conn, 1)
+	acceptErrCh := make(chan error, 1)
 	go func() {
-		conn, _ = l.Accept()
-		require.NotNil(conn)
+		conn, err := l.Accept()
+		if err != nil {
+			acceptErrCh <- err
+			return
+		}
+		connCh <- conn
 	}()
 
+	clientErrCh := make(chan error, 1)
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		tls.Dial("tcp", l.Addr().String(), &tls.Config{
+		conn, err := tls.Dial("tcp", l.Addr().String(), &tls.Config{
 			InsecureSkipVerify: true,
 			ServerName:         "example.com",
 		})
+		if conn != nil {
+			_ = conn.Close()
+		}
+		clientErrCh <- err
 	}()
 
-	time.Sleep(200 * time.Millisecond)
-	_, infos, err := GetHTTPSHostname(conn)
+	var conn net.Conn
+	select {
+	case conn = <-connCh:
+	case err := <-acceptErrCh:
+		require.NoError(err)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for accepted connection")
+	}
+	require.NotNil(conn)
+
+	serverConn, infos, err := GetHTTPSHostname(conn)
+	if serverConn != nil {
+		_ = serverConn.Close()
+	} else {
+		_ = conn.Close()
+	}
 	require.NoError(err)
 	require.Equal("example.com", infos["Host"])
 	require.Equal("https", infos["Scheme"])
+
+	select {
+	case <-clientErrCh:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for TLS client")
+	}
 }

@@ -16,6 +16,9 @@ package registry
 
 import (
 	"testing"
+	"time"
+
+	clocktesting "k8s.io/utils/clock/testing"
 
 	"github.com/fatedier/frp/pkg/proto/wire"
 )
@@ -33,5 +36,39 @@ func TestClientRegistryRegisterStoresWireProtocol(t *testing.T) {
 	}
 	if info.WireProtocol != wire.ProtocolV2 {
 		t.Fatalf("wire protocol mismatch, want %q got %q", wire.ProtocolV2, info.WireProtocol)
+	}
+}
+
+func TestClientRegistryUsesClockForTimestamps(t *testing.T) {
+	start := time.Date(2026, time.May, 8, 12, 30, 0, 0, time.UTC)
+	clk := clocktesting.NewFakeClock(start)
+	registry := newClientRegistryWithClock(clk)
+
+	key, conflict := registry.Register("user", "client-id", "run-id", "host", "1.0.0", "127.0.0.1", wire.ProtocolV2)
+	if conflict {
+		t.Fatal("unexpected client conflict")
+	}
+
+	info, ok := registry.GetByKey(key)
+	if !ok {
+		t.Fatalf("client %q not found", key)
+	}
+	if !info.FirstConnectedAt.Equal(start) {
+		t.Fatalf("first connected time mismatch, want %s got %s", start, info.FirstConnectedAt)
+	}
+	if !info.LastConnectedAt.Equal(start) {
+		t.Fatalf("last connected time mismatch, want %s got %s", start, info.LastConnectedAt)
+	}
+
+	disconnectedAt := start.Add(time.Minute)
+	clk.SetTime(disconnectedAt)
+	registry.MarkOfflineByRunID("run-id")
+
+	info, ok = registry.GetByKey(key)
+	if !ok {
+		t.Fatalf("client %q not found after disconnect", key)
+	}
+	if !info.DisconnectedAt.Equal(disconnectedAt) {
+		t.Fatalf("disconnected time mismatch, want %s got %s", disconnectedAt, info.DisconnectedAt)
 	}
 }

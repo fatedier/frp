@@ -21,7 +21,6 @@ import (
 	"github.com/samber/lo"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
-	"github.com/fatedier/frp/pkg/policy/security"
 )
 
 func (v *ConfigValidator) ValidateServerConfig(c *v1.ServerConfig) (Warning, error) {
@@ -36,22 +35,7 @@ func (v *ConfigValidator) ValidateServerConfig(c *v1.ServerConfig) (Warning, err
 		errs = AppendError(errs, fmt.Errorf("invalid auth additional scopes, optional values are %v", SupportedAuthAdditionalScopes))
 	}
 
-	// Validate token/tokenSource mutual exclusivity
-	if c.Auth.Token != "" && c.Auth.TokenSource != nil {
-		errs = AppendError(errs, fmt.Errorf("cannot specify both auth.token and auth.tokenSource"))
-	}
-
-	// Validate tokenSource if specified
-	if c.Auth.TokenSource != nil {
-		if c.Auth.TokenSource.Type == "exec" {
-			if err := v.ValidateUnsafeFeature(security.TokenSourceExec); err != nil {
-				errs = AppendError(errs, err)
-			}
-		}
-		if err := c.Auth.TokenSource.Validate(); err != nil {
-			errs = AppendError(errs, fmt.Errorf("invalid auth.tokenSource: %v", err))
-		}
-	}
+	errs = AppendError(errs, v.validateAuthTokenSource(c.Auth.Token, c.Auth.TokenSource))
 
 	if err := validateLogConfig(&c.Log); err != nil {
 		errs = AppendError(errs, err)

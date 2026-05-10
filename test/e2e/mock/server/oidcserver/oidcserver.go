@@ -61,21 +61,6 @@ func WithBindPort(port int) Option {
 	return func(s *Server) { s.bindPort = port }
 }
 
-func WithClientCredentials(id, secret string) Option {
-	return func(s *Server) {
-		s.clientID = id
-		s.clientSecret = secret
-	}
-}
-
-func WithAudience(aud string) Option {
-	return func(s *Server) { s.audience = aud }
-}
-
-func WithSubject(sub string) Option {
-	return func(s *Server) { s.subject = sub }
-}
-
 func WithExpiresIn(seconds int) Option {
 	return func(s *Server) { s.expiresIn = seconds }
 }

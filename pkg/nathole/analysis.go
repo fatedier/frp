@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/samber/lo"
+	"k8s.io/utils/clock"
 )
 
 var (
@@ -144,19 +145,19 @@ func getBehaviorByModeAndIndex(mode int, index int) (RecommandBehavior, Recomman
 	return behaviors[index].A, behaviors[index].B
 }
 
-func getBehaviorScoresByMode(mode int, defaultScore int) []*BehaviorScore {
+func getBehaviorScoresByMode(mode int, defaultScore int) []*behaviorScore {
 	return getBehaviorScoresByMode2(mode, defaultScore, defaultScore)
 }
 
-func getBehaviorScoresByMode2(mode int, senderScore, receiverScore int) []*BehaviorScore {
+func getBehaviorScoresByMode2(mode int, senderScore, receiverScore int) []*behaviorScore {
 	behaviors := getBehaviorByMode(mode)
-	scores := make([]*BehaviorScore, 0, len(behaviors))
+	scores := make([]*behaviorScore, 0, len(behaviors))
 	for i := range behaviors {
 		score := receiverScore
 		if behaviors[i].A.Role == DetectRoleSender {
 			score = senderScore
 		}
-		scores = append(scores, &BehaviorScore{Mode: mode, Index: i, Score: score})
+		scores = append(scores, &behaviorScore{Mode: mode, Index: i, Score: score})
 	}
 	return scores
 }
@@ -170,14 +171,18 @@ type RecommandBehavior struct {
 	ListenRandomPorts int
 }
 
-type MakeHoleRecords struct {
+type makeHoleRecords struct {
 	mu             sync.Mutex
-	scores         []*BehaviorScore
-	LastUpdateTime time.Time
+	scores         []*behaviorScore
+	clock          clock.PassiveClock
+	lastUpdateTime time.Time
 }
 
-func NewMakeHoleRecords(c, v *NatFeature) *MakeHoleRecords {
-	scores := []*BehaviorScore{}
+func newMakeHoleRecordsWithClock(c, v *NatFeature, clk clock.PassiveClock) *makeHoleRecords {
+	if clk == nil {
+		clk = clock.RealClock{}
+	}
+	scores := []*behaviorScore{}
 	easyCount, hardCount, portsChangedRegularCount := ClassifyFeatureCount([]*NatFeature{c, v})
 	appendMode0 := func() {
 		switch {
@@ -212,13 +217,17 @@ func NewMakeHoleRecords(c, v *NatFeature) *MakeHoleRecords {
 		scores = append(scores, getBehaviorScoresByMode(DetectMode1, 1)...)
 		scores = append(scores, getBehaviorScoresByMode(DetectMode3, 1)...)
 	}
-	return &MakeHoleRecords{scores: scores, LastUpdateTime: time.Now()}
+	return &makeHoleRecords{
+		scores:         scores,
+		clock:          clk,
+		lastUpdateTime: clk.Now(),
+	}
 }
 
-func (mhr *MakeHoleRecords) ReportSuccess(mode int, index int) {
+func (mhr *makeHoleRecords) reportSuccess(mode int, index int) {
 	mhr.mu.Lock()
 	defer mhr.mu.Unlock()
-	mhr.LastUpdateTime = time.Now()
+	mhr.lastUpdateTime = mhr.clock.Now()
 	for i := range mhr.scores {
 		score := mhr.scores[i]
 		if score.Mode != mode || score.Index != index {
@@ -231,22 +240,22 @@ func (mhr *MakeHoleRecords) ReportSuccess(mode int, index int) {
 	}
 }
 
-func (mhr *MakeHoleRecords) Recommand() (mode, index int) {
+func (mhr *makeHoleRecords) recommand() (mode, index int) {
 	mhr.mu.Lock()
 	defer mhr.mu.Unlock()
 
 	if len(mhr.scores) == 0 {
 		return 0, 0
 	}
-	maxScore := slices.MaxFunc(mhr.scores, func(a, b *BehaviorScore) int {
+	maxScore := slices.MaxFunc(mhr.scores, func(a, b *behaviorScore) int {
 		return cmp.Compare(a.Score, b.Score)
 	})
 	maxScore.Score--
-	mhr.LastUpdateTime = time.Now()
+	mhr.lastUpdateTime = mhr.clock.Now()
 	return maxScore.Mode, maxScore.Index
 }
 
-type BehaviorScore struct {
+type behaviorScore struct {
 	Mode  int
 	Index int
 	// between -10 and 10
@@ -255,16 +264,25 @@ type BehaviorScore struct {
 
 type Analyzer struct {
 	// key is client ip + visitor ip
-	records             map[string]*MakeHoleRecords
+	records             map[string]*makeHoleRecords
 	dataReserveDuration time.Duration
+	clock               clock.PassiveClock
 
 	mu sync.Mutex
 }
 
 func NewAnalyzer(dataReserveDuration time.Duration) *Analyzer {
+	return newAnalyzerWithClock(dataReserveDuration, clock.RealClock{})
+}
+
+func newAnalyzerWithClock(dataReserveDuration time.Duration, clk clock.PassiveClock) *Analyzer {
+	if clk == nil {
+		clk = clock.RealClock{}
+	}
 	return &Analyzer{
-		records:             make(map[string]*MakeHoleRecords),
+		records:             make(map[string]*makeHoleRecords),
 		dataReserveDuration: dataReserveDuration,
+		clock:               clk,
 	}
 }
 
@@ -272,12 +290,12 @@ func (a *Analyzer) GetRecommandBehaviors(key string, c, v *NatFeature) (mode, in
 	a.mu.Lock()
 	records, ok := a.records[key]
 	if !ok {
-		records = NewMakeHoleRecords(c, v)
+		records = newMakeHoleRecordsWithClock(c, v, a.clock)
 		a.records[key] = records
 	}
 	a.mu.Unlock()
 
-	mode, index = records.Recommand()
+	mode, index = records.recommand()
 	cBehavior, vBehavior := getBehaviorByModeAndIndex(mode, index)
 
 	switch mode {
@@ -307,11 +325,11 @@ func (a *Analyzer) ReportSuccess(key string, mode, index int) {
 	if !ok {
 		return
 	}
-	records.ReportSuccess(mode, index)
+	records.reportSuccess(mode, index)
 }
 
 func (a *Analyzer) Clean() (int, int) {
-	now := time.Now()
+	now := a.clock.Now()
 	total := 0
 	count := 0
 
@@ -321,7 +339,7 @@ func (a *Analyzer) Clean() (int, int) {
 	total = len(a.records)
 	// clean up records that have not been used for a period of time.
 	for key, records := range a.records {
-		if now.Sub(records.LastUpdateTime) > a.dataReserveDuration {
+		if now.Sub(records.lastUpdateTime) > a.dataReserveDuration {
 			delete(a.records, key)
 			count++
 		}
