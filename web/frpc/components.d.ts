@@ -35,6 +35,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     StatusPills: typeof import('./src/components/StatusPills.vue')['default']
     StringListEditor: typeof import('./src/components/StringListEditor.vue')['default']
+    TomlEditor: typeof import('./src/components/TomlEditor.vue')['default']
     VisitorBaseSection: typeof import('./src/components/visitor-form/VisitorBaseSection.vue')['default']
     VisitorConnectionSection: typeof import('./src/components/visitor-form/VisitorConnectionSection.vue')['default']
     VisitorFormLayout: typeof import('./src/components/visitor-form/VisitorFormLayout.vue')['default']

@@ -23,16 +23,13 @@
     </div>
 
     <div class="editor-wrapper">
-      <el-input
-        type="textarea"
-        :autosize="false"
+      <TomlEditor
         v-model="configContent"
         placeholder="# frpc configuration file content...
 
 serverAddr = &quot;127.0.0.1&quot;
 serverPort = 7000"
-        class="code-editor"
-      ></el-input>
+      />
     </div>
 
     <ConfirmDialog
@@ -54,6 +51,7 @@ import { Link } from '@element-plus/icons-vue'
 import { useClientStore } from '../stores/client'
 import ActionButton from '@shared/components/ActionButton.vue'
 import ConfirmDialog from '@shared/components/ConfirmDialog.vue'
+import TomlEditor from '../components/TomlEditor.vue'
 import { useResponsive } from '../composables/useResponsive'
 
 const { isMobile } = useResponsive()
@@ -155,28 +153,6 @@ fetchData()
 
   &:hover {
     color: $color-text-primary;
-  }
-}
-
-.code-editor {
-  height: 100%;
-
-  :deep(.el-textarea__inner) {
-    height: 100% !important;
-    overflow-y: auto;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: $font-size-sm;
-    line-height: 1.6;
-    padding: $spacing-lg;
-    border-radius: $radius-md;
-    background: $color-bg-tertiary;
-    border: 1px solid $color-border-light;
-    resize: none;
-
-    &:focus {
-      border-color: $color-text-light;
-      box-shadow: none;
-    }
   }
 }
 
