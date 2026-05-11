@@ -17,6 +17,8 @@ package v1
 import (
 	"maps"
 
+	"github.com/samber/lo"
+
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
@@ -45,6 +47,97 @@ func (c *QUICOptions) Complete() {
 	c.KeepalivePeriod = util.EmptyOr(c.KeepalivePeriod, 10)
 	c.MaxIdleTimeout = util.EmptyOr(c.MaxIdleTimeout, 30)
 	c.MaxIncomingStreams = util.EmptyOr(c.MaxIncomingStreams, 100000)
+}
+
+const (
+	TransportProtocolTCP       = "tcp"
+	TransportProtocolKCP       = "kcp"
+	TransportProtocolQUIC      = "quic"
+	TransportProtocolWebsocket = "websocket"
+	TransportProtocolWSS       = "wss"
+	TransportProtocolAuto      = "auto"
+
+	AutoTransportStrategyBalanced  = "balanced"
+	AutoTransportStrategyLatency   = "latency"
+	AutoTransportStrategyStability = "stability"
+)
+
+var DefaultAutoTransportCandidates = []string{
+	TransportProtocolQUIC,
+	TransportProtocolTCP,
+	TransportProtocolWSS,
+	TransportProtocolWebsocket,
+	TransportProtocolKCP,
+}
+
+var SupportedAutoTransportStrategies = []string{
+	AutoTransportStrategyBalanced,
+	AutoTransportStrategyLatency,
+	AutoTransportStrategyStability,
+}
+
+type ClientAutoTransportConfig struct {
+	Enabled            *bool    `json:"enabled,omitempty"`
+	Candidates         []string `json:"candidates,omitempty"`
+	AllowUDP           *bool    `json:"allowUDP,omitempty"`
+	Strategy           string   `json:"strategy,omitempty"`
+	ProbeTimeoutMs     int      `json:"probeTimeoutMs,omitempty"`
+	ProbeCount         int      `json:"probeCount,omitempty"`
+	StickyDurationSec  int      `json:"stickyDurationSec,omitempty"`
+	CooldownSec        int      `json:"cooldownSec,omitempty"`
+	FailureThreshold   int      `json:"failureThreshold,omitempty"`
+	DegradeThreshold   int      `json:"degradeThreshold,omitempty"`
+	RecheckIntervalSec int      `json:"recheckIntervalSec,omitempty"`
+	PersistLastGood    *bool    `json:"persistLastGood,omitempty"`
+	BootstrapProtocol  string   `json:"bootstrapProtocol,omitempty"`
+	BootstrapPort      int      `json:"bootstrapPort,omitempty"`
+}
+
+func (c *ClientAutoTransportConfig) Complete(protocol string, serverPort int) {
+	if protocol == TransportProtocolAuto && c.Enabled == nil {
+		c.Enabled = util.EmptyOr(c.Enabled, lo.ToPtr(true))
+	}
+	if len(c.Candidates) == 0 {
+		c.Candidates = append([]string(nil), DefaultAutoTransportCandidates...)
+	}
+	c.AllowUDP = util.EmptyOr(c.AllowUDP, lo.ToPtr(true))
+	c.Strategy = util.EmptyOr(c.Strategy, AutoTransportStrategyBalanced)
+	c.ProbeTimeoutMs = util.EmptyOr(c.ProbeTimeoutMs, 1200)
+	c.ProbeCount = util.EmptyOr(c.ProbeCount, 2)
+	c.StickyDurationSec = util.EmptyOr(c.StickyDurationSec, 1800)
+	c.CooldownSec = util.EmptyOr(c.CooldownSec, 300)
+	c.FailureThreshold = util.EmptyOr(c.FailureThreshold, 3)
+	c.DegradeThreshold = util.EmptyOr(c.DegradeThreshold, 5)
+	c.RecheckIntervalSec = util.EmptyOr(c.RecheckIntervalSec, 300)
+	c.PersistLastGood = util.EmptyOr(c.PersistLastGood, lo.ToPtr(true))
+	c.BootstrapProtocol = util.EmptyOr(c.BootstrapProtocol, TransportProtocolTCP)
+	c.BootstrapPort = util.EmptyOr(c.BootstrapPort, serverPort)
+}
+
+type ServerAutoTransportConfig struct {
+	Enabled            *bool    `json:"enabled,omitempty"`
+	AllowDynamicSwitch *bool    `json:"allowDynamicSwitch,omitempty"`
+	AdvertiseProtocols []string `json:"advertiseProtocols,omitempty"`
+	PreferOrder        []string `json:"preferOrder,omitempty"`
+	SwitchCooldownSec  int      `json:"switchCooldownSec,omitempty"`
+}
+
+func (c *ServerAutoTransportConfig) Complete(protocol string) {
+	if protocol == TransportProtocolAuto {
+		if c.Enabled == nil {
+			c.Enabled = util.EmptyOr(c.Enabled, lo.ToPtr(true))
+		}
+		if c.AllowDynamicSwitch == nil {
+			c.AllowDynamicSwitch = util.EmptyOr(c.AllowDynamicSwitch, lo.ToPtr(true))
+		}
+	}
+	if len(c.AdvertiseProtocols) == 0 {
+		c.AdvertiseProtocols = append([]string(nil), DefaultAutoTransportCandidates...)
+	}
+	if len(c.PreferOrder) == 0 {
+		c.PreferOrder = append([]string(nil), DefaultAutoTransportCandidates...)
+	}
+	c.SwitchCooldownSec = util.EmptyOr(c.SwitchCooldownSec, 300)
 }
 
 type WebServerConfig struct {

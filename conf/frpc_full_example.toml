@@ -100,8 +100,32 @@ transport.poolCount = 5
 # transport.tcpMuxKeepaliveInterval = 30
 
 # Communication protocol used to connect to server
-# supports tcp, kcp, quic, websocket and wss now, default is tcp
+# supports tcp, kcp, quic, websocket, wss and auto now, default is tcp
 transport.protocol = "tcp"
+
+# Enable client-side automatic transport selection.
+# Auto mode is only active when both frpc and frps set transport.protocol = "auto".
+# The client bootstraps over TCP serverPort/bootstrapPort, receives server transport
+# endpoints, probes candidates, and then reconnects using the selected protocol.
+# If transport.proxyURL is configured, auto mode only keeps the tcp candidate.
+# If serverAddr is a domain, auto mode resolves and probes both IPv4 and IPv6 addresses.
+# The following dotted keys are top-level TOML keys. Do not put them under a [transport] table.
+# transport.protocol = "auto"
+# transport.auto.enabled = true
+# transport.auto.candidates = ["quic", "tcp", "wss", "websocket", "kcp"]
+# transport.auto.allowUDP = true
+# strategy supports balanced, latency, stability.
+# transport.auto.strategy = "balanced"
+# transport.auto.probeTimeoutMs = 1200
+# transport.auto.probeCount = 2
+# transport.auto.stickyDurationSec = 1800
+# transport.auto.cooldownSec = 300
+# transport.auto.failureThreshold = 3
+# transport.auto.degradeThreshold = 5
+# transport.auto.recheckIntervalSec = 300
+# transport.auto.persistLastGood = true
+# transport.auto.bootstrapProtocol = "tcp"
+# transport.auto.bootstrapPort = 7000
 
 # FRP wire protocol used inside the selected transport.
 # supports v1 and v2, default is v1. v2 requires frps support and must be enabled explicitly.

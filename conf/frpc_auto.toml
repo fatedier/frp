@@ -1,0 +1,40 @@
+serverAddr = "127.0.0.1"
+
+# Bootstrap always connects to frps TCP bindPort first.
+# If serverAddr is a domain, auto mode resolves and probes both IPv4 and IPv6.
+serverPort = 7000
+
+# Optional but recommended. Must match frps auth.token.
+# auth.token = "change-me"
+
+transport.protocol = "auto"
+transport.auto.enabled = true
+
+# Optional TLS verification for wss/quic/tcp+tls.
+# If trustedCaFile is empty, frpc accepts the frps self-signed certificate.
+# For production, configure a CA file and set serverName to the certificate name.
+# transport.tls.trustedCaFile = "ca.crt"
+# transport.tls.serverName = "frps.example.com"
+
+# Candidate protocols to probe after frps advertises its endpoints.
+# QUIC port is not configured on frpc; frps advertises quicBindPort, for example 7002.
+transport.auto.candidates = ["quic", "tcp", "wss", "websocket", "kcp"]
+transport.auto.allowUDP = true
+transport.auto.strategy = "balanced"
+transport.auto.probeTimeoutMs = 1200
+transport.auto.probeCount = 2
+transport.auto.stickyDurationSec = 1800
+transport.auto.cooldownSec = 300
+transport.auto.failureThreshold = 3
+transport.auto.degradeThreshold = 5
+transport.auto.recheckIntervalSec = 300
+transport.auto.persistLastGood = true
+transport.auto.bootstrapProtocol = "tcp"
+transport.auto.bootstrapPort = 7000
+
+[[proxies]]
+name = "test-tcp"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 22
+remotePort = 6000

@@ -60,28 +60,62 @@ func NewController(
 func (c *Controller) APIServerInfo(ctx *httppkg.Context) (any, error) {
 	serverStats := mem.StatsCollector.GetServer()
 	svrResp := model.ServerInfoResp{
-		Version:               version.Full(),
-		BindPort:              c.serverCfg.BindPort,
-		VhostHTTPPort:         c.serverCfg.VhostHTTPPort,
-		VhostHTTPSPort:        c.serverCfg.VhostHTTPSPort,
-		TCPMuxHTTPConnectPort: c.serverCfg.TCPMuxHTTPConnectPort,
-		KCPBindPort:           c.serverCfg.KCPBindPort,
-		QUICBindPort:          c.serverCfg.QUICBindPort,
-		SubdomainHost:         c.serverCfg.SubDomainHost,
-		MaxPoolCount:          c.serverCfg.Transport.MaxPoolCount,
-		MaxPortsPerClient:     c.serverCfg.MaxPortsPerClient,
-		HeartBeatTimeout:      c.serverCfg.Transport.HeartbeatTimeout,
-		AllowPortsStr:         types.PortsRangeSlice(c.serverCfg.AllowPorts).String(),
-		TLSForce:              c.serverCfg.Transport.TLS.Force,
+		Version:                version.Full(),
+		BindPort:               c.serverCfg.BindPort,
+		VhostHTTPPort:          c.serverCfg.VhostHTTPPort,
+		VhostHTTPSPort:         c.serverCfg.VhostHTTPSPort,
+		TCPMuxHTTPConnectPort:  c.serverCfg.TCPMuxHTTPConnectPort,
+		KCPBindPort:            c.serverCfg.KCPBindPort,
+		QUICBindPort:           c.serverCfg.QUICBindPort,
+		SubdomainHost:          c.serverCfg.SubDomainHost,
+		MaxPoolCount:           c.serverCfg.Transport.MaxPoolCount,
+		MaxPortsPerClient:      c.serverCfg.MaxPortsPerClient,
+		HeartBeatTimeout:       c.serverCfg.Transport.HeartbeatTimeout,
+		AllowPortsStr:          types.PortsRangeSlice(c.serverCfg.AllowPorts).String(),
+		TLSForce:               c.serverCfg.Transport.TLS.Force,
+		TransportProtocol:      c.serverCfg.Transport.Protocol,
+		AutoTransportEnabled:   c.serverCfg.Transport.Protocol == v1.TransportProtocolAuto && c.serverCfg.Transport.Auto.Enabled != nil && *c.serverCfg.Transport.Auto.Enabled,
+		AutoTransportProtocols: enabledAutoTransportProtocols(c.serverCfg),
 
-		TotalTrafficIn:  serverStats.TotalTrafficIn,
-		TotalTrafficOut: serverStats.TotalTrafficOut,
-		CurConns:        serverStats.CurConns,
-		ClientCounts:    serverStats.ClientCounts,
-		ProxyTypeCounts: serverStats.ProxyTypeCounts,
+		TotalTrafficIn:                 serverStats.TotalTrafficIn,
+		TotalTrafficOut:                serverStats.TotalTrafficOut,
+		CurConns:                       serverStats.CurConns,
+		ClientCounts:                   serverStats.ClientCounts,
+		ProxyTypeCounts:                serverStats.ProxyTypeCounts,
+		AutoNegotiationSuccess:         serverStats.AutoNegotiationSuccess,
+		AutoNegotiationFailure:         serverStats.AutoNegotiationFailure,
+		AutoTransportSelections:        serverStats.AutoTransportSelections,
+		AutoTransportClientCounts:      serverStats.AutoTransportClientCounts,
+		AutoTransportSwitchCounts:      serverStats.AutoTransportSwitchCounts,
+		AutoTransportIllegalSelections: serverStats.AutoTransportIllegalSelections,
 	}
 
 	return svrResp, nil
+}
+
+func enabledAutoTransportProtocols(cfg *v1.ServerConfig) []string {
+	if cfg.Transport.Protocol != v1.TransportProtocolAuto || cfg.Transport.Auto.Enabled == nil || !*cfg.Transport.Auto.Enabled {
+		return nil
+	}
+
+	protocols := make([]string, 0, len(cfg.Transport.Auto.AdvertiseProtocols))
+	for _, protocol := range cfg.Transport.Auto.AdvertiseProtocols {
+		switch protocol {
+		case v1.TransportProtocolTCP, v1.TransportProtocolWebsocket, v1.TransportProtocolWSS:
+			if cfg.BindPort > 0 {
+				protocols = append(protocols, protocol)
+			}
+		case v1.TransportProtocolKCP:
+			if cfg.KCPBindPort > 0 {
+				protocols = append(protocols, protocol)
+			}
+		case v1.TransportProtocolQUIC:
+			if cfg.QUICBindPort > 0 {
+				protocols = append(protocols, protocol)
+			}
+		}
+	}
+	return protocols
 }
 
 // /api/clients

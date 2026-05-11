@@ -626,7 +626,7 @@ Enable dashboard first, then configure `enablePrometheus = true` in `frps.toml`.
 
 ### Authenticating the Client
 
-There are 2 authentication methods to authenticate frpc with frps. 
+There are 2 authentication methods to authenticate frpc with frps.
 
 You can decide which one to use by configuring `auth.method` in `frpc.toml` and `frps.toml`, the default one is token.
 

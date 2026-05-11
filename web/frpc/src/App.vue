@@ -68,6 +68,14 @@
           >
             Config
           </router-link>
+          <router-link
+            to="/transport"
+            class="sidebar-link"
+            :class="{ active: route.path === '/transport' }"
+            @click="closeSidebar"
+          >
+            Transport
+          </router-link>
         </nav>
       </aside>
 

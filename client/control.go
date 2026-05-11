@@ -47,6 +47,8 @@ type SessionContext struct {
 	Connector MessageConnector
 	// Virtual net controller
 	VnetController *vnet.Controller
+	// AutoTransport observes runtime quality signals for protocol switching.
+	AutoTransport *autoTransportManager
 }
 
 type Control struct {
@@ -67,6 +69,8 @@ type Control struct {
 
 	// of time.Time, last time got the Pong message
 	lastPong atomic.Value
+	// of time.Time, last time sent the Ping message
+	lastPingSent atomic.Value
 
 	// The role of msgTransporter is similar to HTTP2.
 	// It allows multiple messages to be sent simultaneously on the same control connection.
@@ -87,6 +91,7 @@ func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, erro
 		doneCh:     make(chan struct{}),
 	}
 	ctl.lastPong.Store(time.Now())
+	ctl.lastPingSent.Store(time.Time{})
 
 	ctl.msgDispatcher = msg.NewDispatcher(sessionCtx.Conn)
 	ctl.registerMsgHandlers()
@@ -117,6 +122,7 @@ func (ctl *Control) handleReqWorkConn(_ msg.Message) {
 	workConn, err := ctl.connectServer()
 	if err != nil {
 		xl.Warnf("start new connection to server error: %v", err)
+		ctl.reportWorkConnFailure("work_conn_connect_error")
 		return
 	}
 
@@ -126,11 +132,13 @@ func (ctl *Control) handleReqWorkConn(_ msg.Message) {
 	if err = ctl.sessionCtx.Auth.Setter.SetNewWorkConn(m); err != nil {
 		xl.Warnf("error during NewWorkConn authentication: %v", err)
 		workConn.Close()
+		ctl.reportWorkConnFailure("work_conn_auth_error")
 		return
 	}
 	if err = workConn.WriteMsg(m); err != nil {
 		xl.Warnf("work connection write to server error: %v", err)
 		workConn.Close()
+		ctl.reportWorkConnFailure("work_conn_write_error")
 		return
 	}
 
@@ -138,17 +146,20 @@ func (ctl *Control) handleReqWorkConn(_ msg.Message) {
 	if err = workConn.ReadMsgInto(&startMsg); err != nil {
 		xl.Tracef("work connection closed before response StartWorkConn message: %v", err)
 		workConn.Close()
+		ctl.reportWorkConnFailure("work_conn_start_error")
 		return
 	}
 	if startMsg.Error != "" {
 		xl.Errorf("StartWorkConn contains error: %s", startMsg.Error)
 		workConn.Close()
+		ctl.reportWorkConnFailure("work_conn_rejected")
 		return
 	}
 
 	startMsg.ProxyName = naming.StripUserPrefix(ctl.sessionCtx.Common.User, startMsg.ProxyName)
 
 	// dispatch this work connection to related proxy
+	ctl.reportWorkConnSuccess()
 	ctl.pm.HandleWorkConn(startMsg.ProxyName, workConn, &startMsg)
 }
 
@@ -187,6 +198,12 @@ func (ctl *Control) handlePong(m msg.Message) {
 		return
 	}
 	ctl.lastPong.Store(time.Now())
+	if sentAt, ok := ctl.lastPingSent.Load().(time.Time); ok && !sentAt.IsZero() {
+		if ctl.reportHeartbeatRTT(time.Since(sentAt)) {
+			ctl.closeSession()
+			return
+		}
+	}
 	xl.Debugf("receive heartbeat from server")
 }
 
@@ -240,7 +257,11 @@ func (ctl *Control) heartbeatWorker() {
 				xl.Warnf("error during ping authentication: %v, skip sending ping message", err)
 				return false, err
 			}
-			_ = ctl.msgDispatcher.Send(pingMsg)
+			ctl.lastPingSent.Store(time.Now())
+			if err := ctl.msgDispatcher.Send(pingMsg); err != nil {
+				xl.Warnf("send heartbeat to server error: %v", err)
+				return false, err
+			}
 			return false, nil
 		}
 
@@ -261,7 +282,7 @@ func (ctl *Control) heartbeatWorker() {
 		go wait.Until(func() {
 			if time.Since(ctl.lastPong.Load().(time.Time)) > time.Duration(ctl.sessionCtx.Common.Transport.HeartbeatTimeout)*time.Second {
 				xl.Warnf("heartbeat timeout")
-				ctl.closeSession()
+				ctl.reportHeartbeatTimeout()
 				return
 			}
 		}, time.Second, ctl.doneCh)
@@ -286,4 +307,39 @@ func (ctl *Control) UpdateAllConfigurer(proxyCfgs []v1.ProxyConfigurer, visitorC
 	ctl.vm.UpdateAll(visitorCfgs)
 	ctl.pm.UpdateAll(proxyCfgs)
 	return nil
+}
+
+func (ctl *Control) reportHeartbeatRTT(rtt time.Duration) bool {
+	if ctl.sessionCtx.AutoTransport == nil {
+		return false
+	}
+	if ctl.sessionCtx.AutoTransport.reportHeartbeatRTT(rtt) {
+		ctl.xl.Warnf("auto transport requests reconnect due to heartbeat RTT degradation")
+		return true
+	}
+	return false
+}
+
+func (ctl *Control) reportHeartbeatTimeout() {
+	if ctl.sessionCtx.AutoTransport != nil {
+		if ctl.sessionCtx.AutoTransport.reportHeartbeatTimeout() {
+			ctl.xl.Warnf("auto transport requests reconnect due to consecutive heartbeat timeouts")
+			ctl.closeSession()
+		}
+		return
+	}
+	ctl.closeSession()
+}
+
+func (ctl *Control) reportWorkConnSuccess() {
+	if ctl.sessionCtx.AutoTransport != nil {
+		ctl.sessionCtx.AutoTransport.reportWorkConnSuccess()
+	}
+}
+
+func (ctl *Control) reportWorkConnFailure(reason string) {
+	if ctl.sessionCtx.AutoTransport != nil && ctl.sessionCtx.AutoTransport.reportWorkConnFailure(reason) {
+		ctl.xl.Warnf("auto transport requests reconnect due to consecutive work connection failures")
+		ctl.closeSession()
+	}
 }

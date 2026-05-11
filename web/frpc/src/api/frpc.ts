@@ -5,6 +5,7 @@ import type {
   ProxyDefinition,
   VisitorListResp,
   VisitorDefinition,
+  TransportStatus,
 } from '../types'
 
 export const getStatus = () => {
@@ -21,6 +22,10 @@ export const putConfig = (content: string) => {
 
 export const reloadConfig = () => {
   return http.get<void>('/api/reload')
+}
+
+export const getTransportStatus = () => {
+  return http.get<TransportStatus>('/api/transport')
 }
 
 // Config lookup API (any source)
