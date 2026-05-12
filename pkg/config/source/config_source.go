@@ -14,11 +14,7 @@
 
 package source
 
-import (
-	"fmt"
-
-	v1 "github.com/fatedier/frp/pkg/config/v1"
-)
+import v1 "github.com/fatedier/frp/pkg/config/v1"
 
 // ConfigSource implements Source for in-memory configuration.
 // All operations are thread-safe.
@@ -39,23 +35,17 @@ func (s *ConfigSource) ReplaceAll(proxies []v1.ProxyConfigurer, visitors []v1.Vi
 
 	nextProxies := make(map[string]v1.ProxyConfigurer, len(proxies))
 	for _, p := range proxies {
-		if p == nil {
-			return fmt.Errorf("proxy cannot be nil")
-		}
-		name := p.GetBaseConfig().Name
-		if name == "" {
-			return fmt.Errorf("proxy name cannot be empty")
+		name, err := validateProxyName(p)
+		if err != nil {
+			return err
 		}
 		nextProxies[name] = p
 	}
 	nextVisitors := make(map[string]v1.VisitorConfigurer, len(visitors))
 	for _, v := range visitors {
-		if v == nil {
-			return fmt.Errorf("visitor cannot be nil")
-		}
-		name := v.GetBaseConfig().Name
-		if name == "" {
-			return fmt.Errorf("visitor name cannot be empty")
+		name, err := validateVisitorName(v)
+		if err != nil {
+			return err
 		}
 		nextVisitors[name] = v
 	}

@@ -31,13 +31,6 @@ func New(options ...Option) *Server {
 	return s
 }
 
-func WithBindAddr(addr string) Option {
-	return func(s *Server) *Server {
-		s.bindAddr = addr
-		return s
-	}
-}
-
 func WithBindPort(port int) Option {
 	return func(s *Server) *Server {
 		s.bindPort = port

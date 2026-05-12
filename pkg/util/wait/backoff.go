@@ -18,6 +18,8 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"k8s.io/utils/clock"
+
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
@@ -48,6 +50,7 @@ type FastBackoffOptions struct {
 
 type fastBackoffImpl struct {
 	options FastBackoffOptions
+	clock   clock.PassiveClock
 
 	lastCalledTime      time.Time
 	consecutiveErrCount int
@@ -57,18 +60,26 @@ type fastBackoffImpl struct {
 }
 
 func NewFastBackoffManager(options FastBackoffOptions) BackoffManager {
+	return newFastBackoffManagerWithClock(options, clock.RealClock{})
+}
+
+func newFastBackoffManagerWithClock(options FastBackoffOptions, clk clock.PassiveClock) BackoffManager {
+	if clk == nil {
+		clk = clock.RealClock{}
+	}
 	return &fastBackoffImpl{
 		options:                 options,
+		clock:                   clk,
 		countsInFastRetryWindow: 1,
 	}
 }
 
 func (f *fastBackoffImpl) Backoff(previousDuration time.Duration, previousConditionError bool) time.Duration {
 	if f.lastCalledTime.IsZero() {
-		f.lastCalledTime = time.Now()
+		f.lastCalledTime = f.clock.Now()
 		return f.options.Duration
 	}
-	now := time.Now()
+	now := f.clock.Now()
 	f.lastCalledTime = now
 
 	if previousConditionError {

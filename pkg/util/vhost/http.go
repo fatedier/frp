@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strings"
 	"time"
 
 	libio "github.com/fatedier/golib/io"
@@ -160,7 +159,7 @@ func (rp *HTTPReverseProxy) UnRegister(routeCfg RouteConfig) {
 }
 
 func (rp *HTTPReverseProxy) GetRouteConfig(domain, location, routeByHTTPUser string) *RouteConfig {
-	vr, ok := rp.getVhost(domain, location, routeByHTTPUser)
+	vr, ok := rp.vhostRouter.getByRoute(domain, location, routeByHTTPUser)
 	if ok {
 		log.Debugf("get new http request host [%s] path [%s] httpuser [%s]", domain, location, routeByHTTPUser)
 		return vr.payload.(*RouteConfig)
@@ -171,7 +170,7 @@ func (rp *HTTPReverseProxy) GetRouteConfig(domain, location, routeByHTTPUser str
 // CreateConnection create a new connection by route config
 func (rp *HTTPReverseProxy) CreateConnection(reqRouteInfo *RequestRouteInfo, byEndpoint bool) (net.Conn, error) {
 	host, _ := httppkg.CanonicalHost(reqRouteInfo.Host)
-	vr, ok := rp.getVhost(host, reqRouteInfo.URL, reqRouteInfo.HTTPUser)
+	vr, ok := rp.vhostRouter.getByRoute(host, reqRouteInfo.URL, reqRouteInfo.HTTPUser)
 	if ok {
 		if byEndpoint {
 			fn := vr.payload.(*RouteConfig).CreateConnByEndpointFn
@@ -206,50 +205,6 @@ func checkRouteAuthByRequest(req *http.Request, rc *RouteConfig) bool {
 
 	user, passwd, ok := req.BasicAuth()
 	return ok && user == rc.Username && passwd == rc.Password
-}
-
-// getVhost tries to get vhost router by route policy.
-func (rp *HTTPReverseProxy) getVhost(domain, location, routeByHTTPUser string) (*Router, bool) {
-	findRouter := func(inDomain, inLocation, inRouteByHTTPUser string) (*Router, bool) {
-		vr, ok := rp.vhostRouter.Get(inDomain, inLocation, inRouteByHTTPUser)
-		if ok {
-			return vr, ok
-		}
-		// Try to check if there is one proxy that doesn't specify routerByHTTPUser, it means match all.
-		vr, ok = rp.vhostRouter.Get(inDomain, inLocation, "")
-		if ok {
-			return vr, ok
-		}
-		return nil, false
-	}
-
-	// First we check the full hostname
-	// if not exist, then check the wildcard_domain such as *.example.com
-	vr, ok := findRouter(domain, location, routeByHTTPUser)
-	if ok {
-		return vr, ok
-	}
-
-	// e.g. domain = test.example.com, try to match wildcard domains.
-	// *.example.com
-	// *.com
-	domainSplit := strings.Split(domain, ".")
-	for len(domainSplit) >= 3 {
-		domainSplit[0] = "*"
-		domain = strings.Join(domainSplit, ".")
-		vr, ok = findRouter(domain, location, routeByHTTPUser)
-		if ok {
-			return vr, true
-		}
-		domainSplit = domainSplit[1:]
-	}
-
-	// Finally, try to check if there is one proxy that domain is "*" means match all domains.
-	vr, ok = findRouter("*", location, routeByHTTPUser)
-	if ok {
-		return vr, true
-	}
-	return nil, false
 }
 
 func (rp *HTTPReverseProxy) connectHandler(rw http.ResponseWriter, req *http.Request) {

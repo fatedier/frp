@@ -75,11 +75,3 @@ func (m *MockServers) GetTemplateParams() map[string]any {
 	ret[HTTPSimpleServerPort] = m.httpSimpleServer.BindPort()
 	return ret
 }
-
-func (m *MockServers) GetParam(key string) any {
-	params := m.GetTemplateParams()
-	if v, ok := params[key]; ok {
-		return v
-	}
-	return nil
-}

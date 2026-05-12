@@ -44,6 +44,67 @@ func NewManager() *Manager {
 	}
 }
 
+func newPluginRequestContext() (context.Context, *xlog.Logger) {
+	reqid, _ := util.RandID()
+	xl := xlog.New().AppendPrefix("reqid: " + reqid)
+	ctx := xlog.NewContext(context.Background(), xl)
+	return NewReqidContext(ctx, reqid), xl
+}
+
+type pluginErrorLogMode bool
+
+const (
+	// Warn is the zero value because it is the default for mutable plugin operations.
+	pluginErrorLogWarn pluginErrorLogMode = false
+	pluginErrorLogInfo pluginErrorLogMode = true
+)
+
+func logPluginError(xl *xlog.Logger, p Plugin, op string, err error, mode pluginErrorLogMode) {
+	if mode == pluginErrorLogInfo {
+		xl.Infof("send %s request to plugin [%s] error: %v", op, p.Name(), err)
+		return
+	}
+	xl.Warnf("send %s request to plugin [%s] error: %v", op, p.Name(), err)
+}
+
+func handleMutableContent[T any](
+	plugins []Plugin,
+	op string,
+	content *T,
+	logMode pluginErrorLogMode,
+) (*T, error) {
+	if len(plugins) == 0 {
+		return content, nil
+	}
+
+	var (
+		res = &Response{
+			Reject:   false,
+			Unchange: true,
+		}
+		retContent any
+		err        error
+	)
+	ctx, xl := newPluginRequestContext()
+
+	for _, p := range plugins {
+		res, retContent, err = p.Handle(ctx, op, *content)
+		if err != nil {
+			logPluginError(xl, p, op, err, logMode)
+			return nil, errors.New("send " + op + " request to plugin error")
+		}
+		if res.Reject {
+			return nil, fmt.Errorf("%s", res.RejectReason)
+		}
+		if !res.Unchange {
+			// Preserve the existing Plugin contract: changed content must be *T.
+			// Buggy Plugin implementations still panic here, by design.
+			content = retContent.(*T)
+		}
+	}
+	return content, nil
+}
+
 func (m *Manager) Register(p Plugin) {
 	if p.IsSupport(OpLogin) {
 		m.loginPlugins = append(m.loginPlugins, p)
@@ -66,71 +127,11 @@ func (m *Manager) Register(p Plugin) {
 }
 
 func (m *Manager) Login(content *LoginContent) (*LoginContent, error) {
-	if len(m.loginPlugins) == 0 {
-		return content, nil
-	}
-
-	var (
-		res = &Response{
-			Reject:   false,
-			Unchange: true,
-		}
-		retContent any
-		err        error
-	)
-	reqid, _ := util.RandID()
-	xl := xlog.New().AppendPrefix("reqid: " + reqid)
-	ctx := xlog.NewContext(context.Background(), xl)
-	ctx = NewReqidContext(ctx, reqid)
-
-	for _, p := range m.loginPlugins {
-		res, retContent, err = p.Handle(ctx, OpLogin, *content)
-		if err != nil {
-			xl.Warnf("send Login request to plugin [%s] error: %v", p.Name(), err)
-			return nil, errors.New("send Login request to plugin error")
-		}
-		if res.Reject {
-			return nil, fmt.Errorf("%s", res.RejectReason)
-		}
-		if !res.Unchange {
-			content = retContent.(*LoginContent)
-		}
-	}
-	return content, nil
+	return handleMutableContent(m.loginPlugins, OpLogin, content, pluginErrorLogWarn)
 }
 
 func (m *Manager) NewProxy(content *NewProxyContent) (*NewProxyContent, error) {
-	if len(m.newProxyPlugins) == 0 {
-		return content, nil
-	}
-
-	var (
-		res = &Response{
-			Reject:   false,
-			Unchange: true,
-		}
-		retContent any
-		err        error
-	)
-	reqid, _ := util.RandID()
-	xl := xlog.New().AppendPrefix("reqid: " + reqid)
-	ctx := xlog.NewContext(context.Background(), xl)
-	ctx = NewReqidContext(ctx, reqid)
-
-	for _, p := range m.newProxyPlugins {
-		res, retContent, err = p.Handle(ctx, OpNewProxy, *content)
-		if err != nil {
-			xl.Warnf("send NewProxy request to plugin [%s] error: %v", p.Name(), err)
-			return nil, errors.New("send NewProxy request to plugin error")
-		}
-		if res.Reject {
-			return nil, fmt.Errorf("%s", res.RejectReason)
-		}
-		if !res.Unchange {
-			content = retContent.(*NewProxyContent)
-		}
-	}
-	return content, nil
+	return handleMutableContent(m.newProxyPlugins, OpNewProxy, content, pluginErrorLogWarn)
 }
 
 func (m *Manager) CloseProxy(content *CloseProxyContent) error {
@@ -139,10 +140,7 @@ func (m *Manager) CloseProxy(content *CloseProxyContent) error {
 	}
 
 	errs := make([]string, 0)
-	reqid, _ := util.RandID()
-	xl := xlog.New().AppendPrefix("reqid: " + reqid)
-	ctx := xlog.NewContext(context.Background(), xl)
-	ctx = NewReqidContext(ctx, reqid)
+	ctx, xl := newPluginRequestContext()
 
 	for _, p := range m.closeProxyPlugins {
 		_, _, err := p.Handle(ctx, OpCloseProxy, *content)
@@ -159,103 +157,14 @@ func (m *Manager) CloseProxy(content *CloseProxyContent) error {
 }
 
 func (m *Manager) Ping(content *PingContent) (*PingContent, error) {
-	if len(m.pingPlugins) == 0 {
-		return content, nil
-	}
-
-	var (
-		res = &Response{
-			Reject:   false,
-			Unchange: true,
-		}
-		retContent any
-		err        error
-	)
-	reqid, _ := util.RandID()
-	xl := xlog.New().AppendPrefix("reqid: " + reqid)
-	ctx := xlog.NewContext(context.Background(), xl)
-	ctx = NewReqidContext(ctx, reqid)
-
-	for _, p := range m.pingPlugins {
-		res, retContent, err = p.Handle(ctx, OpPing, *content)
-		if err != nil {
-			xl.Warnf("send Ping request to plugin [%s] error: %v", p.Name(), err)
-			return nil, errors.New("send Ping request to plugin error")
-		}
-		if res.Reject {
-			return nil, fmt.Errorf("%s", res.RejectReason)
-		}
-		if !res.Unchange {
-			content = retContent.(*PingContent)
-		}
-	}
-	return content, nil
+	return handleMutableContent(m.pingPlugins, OpPing, content, pluginErrorLogWarn)
 }
 
 func (m *Manager) NewWorkConn(content *NewWorkConnContent) (*NewWorkConnContent, error) {
-	if len(m.newWorkConnPlugins) == 0 {
-		return content, nil
-	}
-
-	var (
-		res = &Response{
-			Reject:   false,
-			Unchange: true,
-		}
-		retContent any
-		err        error
-	)
-	reqid, _ := util.RandID()
-	xl := xlog.New().AppendPrefix("reqid: " + reqid)
-	ctx := xlog.NewContext(context.Background(), xl)
-	ctx = NewReqidContext(ctx, reqid)
-
-	for _, p := range m.newWorkConnPlugins {
-		res, retContent, err = p.Handle(ctx, OpNewWorkConn, *content)
-		if err != nil {
-			xl.Warnf("send NewWorkConn request to plugin [%s] error: %v", p.Name(), err)
-			return nil, errors.New("send NewWorkConn request to plugin error")
-		}
-		if res.Reject {
-			return nil, fmt.Errorf("%s", res.RejectReason)
-		}
-		if !res.Unchange {
-			content = retContent.(*NewWorkConnContent)
-		}
-	}
-	return content, nil
+	return handleMutableContent(m.newWorkConnPlugins, OpNewWorkConn, content, pluginErrorLogWarn)
 }
 
 func (m *Manager) NewUserConn(content *NewUserConnContent) (*NewUserConnContent, error) {
-	if len(m.newUserConnPlugins) == 0 {
-		return content, nil
-	}
-
-	var (
-		res = &Response{
-			Reject:   false,
-			Unchange: true,
-		}
-		retContent any
-		err        error
-	)
-	reqid, _ := util.RandID()
-	xl := xlog.New().AppendPrefix("reqid: " + reqid)
-	ctx := xlog.NewContext(context.Background(), xl)
-	ctx = NewReqidContext(ctx, reqid)
-
-	for _, p := range m.newUserConnPlugins {
-		res, retContent, err = p.Handle(ctx, OpNewUserConn, *content)
-		if err != nil {
-			xl.Infof("send NewUserConn request to plugin [%s] error: %v", p.Name(), err)
-			return nil, errors.New("send NewUserConn request to plugin error")
-		}
-		if res.Reject {
-			return nil, fmt.Errorf("%s", res.RejectReason)
-		}
-		if !res.Unchange {
-			content = retContent.(*NewUserConnContent)
-		}
-	}
-	return content, nil
+	// Preserve the pre-refactor log level for NewUserConn plugin errors.
+	return handleMutableContent(m.newUserConnPlugins, OpNewUserConn, content, pluginErrorLogInfo)
 }

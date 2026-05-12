@@ -23,11 +23,6 @@ func ExpectNotEqual(actual any, extra any, explain ...any) {
 	gomega.ExpectWithOffset(1, actual).NotTo(gomega.Equal(extra), explain...)
 }
 
-// ExpectError expects an error happens, otherwise an exception raises
-func ExpectError(err error, explain ...any) {
-	gomega.ExpectWithOffset(1, err).To(gomega.HaveOccurred(), explain...)
-}
-
 func ExpectErrorWithOffset(offset int, err error, explain ...any) {
 	gomega.ExpectWithOffset(1+offset, err).To(gomega.HaveOccurred(), explain...)
 }
@@ -47,27 +42,12 @@ func ExpectContainSubstring(actual, substr string, explain ...any) {
 	gomega.ExpectWithOffset(1, actual).To(gomega.ContainSubstring(substr), explain...)
 }
 
-// ExpectConsistOf expects actual contains precisely the extra elements.  The ordering of the elements does not matter.
-func ExpectConsistOf(actual any, extra any, explain ...any) {
-	gomega.ExpectWithOffset(1, actual).To(gomega.ConsistOf(extra), explain...)
-}
-
 func ExpectContainElements(actual any, extra any, explain ...any) {
 	gomega.ExpectWithOffset(1, actual).To(gomega.ContainElements(extra), explain...)
 }
 
 func ExpectNotContainElements(actual any, extra any, explain ...any) {
 	gomega.ExpectWithOffset(1, actual).NotTo(gomega.ContainElements(extra), explain...)
-}
-
-// ExpectHaveKey expects the actual map has the key in the keyset
-func ExpectHaveKey(actual any, key any, explain ...any) {
-	gomega.ExpectWithOffset(1, actual).To(gomega.HaveKey(key), explain...)
-}
-
-// ExpectEmpty expects actual is empty
-func ExpectEmpty(actual any, explain ...any) {
-	gomega.ExpectWithOffset(1, actual).To(gomega.BeEmpty(), explain...)
 }
 
 func ExpectTrue(actual any, explain ...any) {
