@@ -132,6 +132,8 @@ type ClientTransportConfig struct {
 	TCPMuxKeepaliveInterval int64 `json:"tcpMuxKeepaliveInterval,omitempty"`
 	// QUIC protocol options.
 	QUIC QUICOptions `json:"quic,omitempty"`
+	// Websocket protocol options.
+	WebSocket WebSocketOptions `json:"websocket,omitempty"`
 	// HeartBeatInterval specifies at what interval heartbeats are sent to the
 	// server, in seconds. It is not recommended to change this value. By
 	// default, this value is 30. Set negative value to disable it.
@@ -162,6 +164,7 @@ func (c *ClientTransportConfig) Complete() {
 		c.HeartbeatTimeout = util.EmptyOr(c.HeartbeatTimeout, 90)
 	}
 	c.QUIC.Complete()
+	c.WebSocket.Complete()
 	c.TLS.Complete()
 }
 
