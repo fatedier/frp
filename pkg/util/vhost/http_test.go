@@ -154,6 +154,13 @@ func TestStripPrefix(t *testing.T) {
 			requestPath:  "/api/users",
 			expectedPath: "/api/users",
 		},
+		{
+			name:         "don't strip partial prefix match",
+			location:     "/api",
+			stripPrefix:  true,
+			requestPath:  "/apiv2/users",
+			expectedPath: "/apiv2/users",
+		},
 	}
 
 	for _, tt := range tests {
@@ -178,7 +185,7 @@ func TestStripPrefix(t *testing.T) {
 					}
 
 					// Apply the strip prefix logic
-					if rc.StripPrefix && rc.Location != "" && strings.HasPrefix(req.URL.Path, rc.Location) {
+					if rc.StripPrefix && rc.Location != "" && hasPathPrefix(req.URL.Path, rc.Location) {
 						req.URL.Path = strings.TrimPrefix(req.URL.Path, rc.Location)
 						if req.URL.Path == "" {
 							req.URL.Path = "/"
