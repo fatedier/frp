@@ -1168,6 +1168,24 @@ locations = ["/news", "/about"]
 
 HTTP requests with URL prefix `/news` or `/about` will be forwarded to **web02** and other requests to **web01**.
 
+#### Strip Prefix
+
+Set `stripPrefix = true` on a proxy to remove the matched location prefix from the request path before forwarding it to the backend. This is useful when the backend does not expect the routing prefix to be part of the path.
+
+```toml
+# frpc.toml
+
+[[proxies]]
+name = "api"
+type = "http"
+localPort = 8080
+customDomains = ["web.example.com"]
+locations = ["/api"]
+stripPrefix = true
+```
+
+With this configuration, a request to `web.example.com/api/users` is forwarded to the backend as `/users`.
+
 ### TCP Port Multiplexing
 
 frp supports receiving TCP sockets directed to different proxies on a single port on frps, similar to `vhostHTTPPort` and `vhostHTTPSPort`.
