@@ -56,7 +56,7 @@ func (c *WebSocketOptions) Complete() {
 	if c.Path[0] != '/' {
 		c.Path = "/" + c.Path
 	}
-	if c.Path[len(c.Path)-1] == '/' {
+	if len(c.Path) > 1 && c.Path[len(c.Path)-1] == '/' {
 		c.Path = c.Path[:len(c.Path)-1]
 	}
 }
