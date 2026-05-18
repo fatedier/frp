@@ -91,8 +91,8 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 				// Strip prefix if enabled and location matches at a path-segment boundary
 				if rc.StripPrefix && rc.Location != "" && hasPathPrefix(req.URL.Path, rc.Location) {
 					req.URL.Path = strings.TrimPrefix(req.URL.Path, rc.Location)
-					if req.URL.Path == "" {
-						req.URL.Path = "/"
+					if !strings.HasPrefix(req.URL.Path, "/") {
+						req.URL.Path = "/" + req.URL.Path
 					}
 				}
 
