@@ -1311,6 +1311,47 @@ frpc tcp --proxy_name "test-tcp" --local_ip 127.0.0.1 --local_port 8080 --remote
 
 Please refer to this [document](/doc/ssh_tunnel_gateway.md) for more information.
 
+### Using in docker compose
+#### frps
+* Start up the **frps** server side first.
+```yaml
+name: frps
+
+services:
+  frps:
+    image: fatedier/frps:latest        # check the version dockerfiles folder if the entry point is `frps -c /etc/frp/frps.toml`
+    ports: 
+      - 7000:7000        # the main connection port for client
+      - 7500:7500        # the web ui
+      - 9000:9000        # .... any application port you forwarding to
+    volumes:
+      - ./frps.toml:/etc/frp/frps.toml
+    networks:
+      - frp
+networks:
+  frp:
+    driver: bridge
+```
+
+
+#### frpc
+* Configure you frpc.toml for the proxy content.
+```yaml
+name: frpc
+
+services:
+  frps:
+    image: fatedier/frpc:latest       # check the version dockerfiles folder if the entry point is `frpc -c /etc/frp/frpc.toml`
+    restart: always
+    volumes:
+      - ./frpc.toml:/etc/frp/frpc.toml
+    networks:
+      - frp
+  frp:
+    driver: bridge
+```
+
+
 ### Virtual Network (VirtualNet)
 
 *Alpha feature added in v0.62.0*
