@@ -83,6 +83,8 @@ alltest: vet gotest e2e
 clean:
 	rm -f ./bin/frpc
 	rm -f ./bin/frps
+	rm -rf ./web/frpc/dist
+	rm -rf ./web/frps/dist
 	rm -rf ./lastversion
 	rm -rf ./.cache
 	rm -rf ./.compat
