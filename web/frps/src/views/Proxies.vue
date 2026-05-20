@@ -77,8 +77,9 @@
       <div v-if="filteredProxies.length > 0" class="proxies-list">
         <ProxyCard
           v-for="proxy in filteredProxies"
-          :key="proxy.name"
+          :key="`${proxy.type}:${proxy.name}`"
           :proxy="proxy"
+          :show-type="activeType === 'all'"
         />
       </div>
       <div v-else-if="!loading" class="empty-state">
@@ -129,6 +130,7 @@ const route = useRoute()
 const router = useRouter()
 
 const proxyTypes = [
+  { label: 'All', value: 'all' },
   { label: 'TCP', value: 'tcp' },
   { label: 'UDP', value: 'udp' },
   { label: 'HTTP', value: 'http' },
@@ -200,14 +202,47 @@ const filteredProxies = computed(() => {
     )
   }
 
-  // Filter by search text
+  // Filter by search text across multiple fields
   if (searchText.value) {
     const search = searchText.value.toLowerCase()
-    result = result.filter((p) => p.name.toLowerCase().includes(search))
+    result = result.filter((p) => {
+      const fields: unknown[] = [
+        p.name,
+        p.type,
+        p.clientID,
+        p.user,
+        p.addr,
+        p.port,
+        p.customDomains,
+        p.subdomain,
+      ]
+      return fields.some((v) => matchesSearch(v, search))
+    })
   }
 
   return result
 })
+
+// Normalize a field of unknown shape (string / number / array / null) to a
+// lowercase string for case-insensitive substring matching. Arrays are joined
+// so e.g. customDomains: ["A.com","B.com"] is searchable as one blob.
+const matchesSearch = (value: unknown, needle: string): boolean => {
+  if (value === null || value === undefined) return false
+  let str: string
+  if (Array.isArray(value)) {
+    str = value
+      .filter((v) => v !== null && v !== undefined)
+      .map((v) => String(v))
+      .join(' ')
+  } else if (typeof value === 'number') {
+    if (value === 0) return false
+    str = String(value)
+  } else {
+    str = String(value)
+  }
+  if (!str) return false
+  return str.toLowerCase().includes(needle)
+}
 
 const onClientFilterChange = (key: string) => {
   if (key) {
@@ -249,45 +284,88 @@ const fetchServerInfo = async () => {
   return serverInfo
 }
 
+const convertProxies = async (
+  type: string,
+  json: any,
+): Promise<BaseProxy[]> => {
+  if (type === 'tcp') {
+    return json.proxies.map((p: any) => new TCPProxy(p))
+  }
+  if (type === 'udp') {
+    return json.proxies.map((p: any) => new UDPProxy(p))
+  }
+  if (type === 'http') {
+    const info = await fetchServerInfo()
+    if (info && info.vhostHTTPPort) {
+      return json.proxies.map(
+        (p: any) => new HTTPProxy(p, info.vhostHTTPPort, info.subdomainHost),
+      )
+    }
+    return []
+  }
+  if (type === 'https') {
+    const info = await fetchServerInfo()
+    if (info && info.vhostHTTPSPort) {
+      return json.proxies.map(
+        (p: any) => new HTTPSProxy(p, info.vhostHTTPSPort, info.subdomainHost),
+      )
+    }
+    return []
+  }
+  if (type === 'tcpmux') {
+    const info = await fetchServerInfo()
+    if (info && info.tcpmuxHTTPConnectPort) {
+      return json.proxies.map(
+        (p: any) =>
+          new TCPMuxProxy(p, info.tcpmuxHTTPConnectPort, info.subdomainHost),
+      )
+    }
+    return []
+  }
+  if (type === 'stcp') {
+    return json.proxies.map((p: any) => new STCPProxy(p))
+  }
+  if (type === 'sudp') {
+    return json.proxies.map((p: any) => new SUDPProxy(p))
+  }
+  // Fallback for types without a dedicated class (e.g. xtcp). Matches the
+  // pattern in ProxyDetail.vue so the type tag and meta render correctly.
+  return json.proxies.map((p: any) => {
+    const bp = new BaseProxy(p)
+    bp.type = type
+    return bp
+  })
+}
+
+const allProxyTypes = [
+  'tcp',
+  'udp',
+  'http',
+  'https',
+  'tcpmux',
+  'stcp',
+  'xtcp',
+  'sudp',
+]
+
 const fetchData = async () => {
   loading.value = true
   proxies.value = []
 
   try {
     const type = activeType.value
-    const json = await getProxiesByType(type)
 
-    if (type === 'tcp') {
-      proxies.value = json.proxies.map((p: any) => new TCPProxy(p))
-    } else if (type === 'udp') {
-      proxies.value = json.proxies.map((p: any) => new UDPProxy(p))
-    } else if (type === 'http') {
-      const info = await fetchServerInfo()
-      if (info && info.vhostHTTPPort) {
-        proxies.value = json.proxies.map(
-          (p: any) => new HTTPProxy(p, info.vhostHTTPPort, info.subdomainHost),
-        )
-      }
-    } else if (type === 'https') {
-      const info = await fetchServerInfo()
-      if (info && info.vhostHTTPSPort) {
-        proxies.value = json.proxies.map(
-          (p: any) =>
-            new HTTPSProxy(p, info.vhostHTTPSPort, info.subdomainHost),
-        )
-      }
-    } else if (type === 'tcpmux') {
-      const info = await fetchServerInfo()
-      if (info && info.tcpmuxHTTPConnectPort) {
-        proxies.value = json.proxies.map(
-          (p: any) =>
-            new TCPMuxProxy(p, info.tcpmuxHTTPConnectPort, info.subdomainHost),
-        )
-      }
-    } else if (type === 'stcp') {
-      proxies.value = json.proxies.map((p: any) => new STCPProxy(p))
-    } else if (type === 'sudp') {
-      proxies.value = json.proxies.map((p: any) => new SUDPProxy(p))
+    if (type === 'all') {
+      const results = await Promise.all(
+        allProxyTypes.map(async (t) => {
+          const json = await getProxiesByType(t)
+          return convertProxies(t, json)
+        }),
+      )
+      proxies.value = results.flat()
+    } else {
+      const json = await getProxiesByType(type)
+      proxies.value = await convertProxies(type, json)
     }
   } catch (error: any) {
     ElMessage({
