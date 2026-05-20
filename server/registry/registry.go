@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"k8s.io/utils/clock"
 )
 
 // ClientInfo captures metadata about a connected frpc instance.
@@ -42,12 +44,21 @@ type ClientRegistry struct {
 	mu       sync.RWMutex
 	clients  map[string]*ClientInfo
 	runIndex map[string]string
+	clock    clock.PassiveClock
 }
 
 func NewClientRegistry() *ClientRegistry {
+	return newClientRegistryWithClock(clock.RealClock{})
+}
+
+func newClientRegistryWithClock(clk clock.PassiveClock) *ClientRegistry {
+	if clk == nil {
+		clk = clock.RealClock{}
+	}
 	return &ClientRegistry{
 		clients:  make(map[string]*ClientInfo),
 		runIndex: make(map[string]string),
+		clock:    clk,
 	}
 }
 
@@ -64,7 +75,7 @@ func (cr *ClientRegistry) Register(user, rawClientID, runID, hostname, version, 
 	key = cr.composeClientKey(user, effectiveID)
 	enforceUnique := rawClientID != ""
 
-	now := time.Now()
+	now := cr.clock.Now()
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
 
@@ -116,7 +127,7 @@ func (cr *ClientRegistry) MarkOfflineByRunID(runID string) {
 		} else {
 			info.RunID = ""
 			info.Online = false
-			now := time.Now()
+			now := cr.clock.Now()
 			info.DisconnectedAt = now
 		}
 	}

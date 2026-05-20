@@ -140,6 +140,8 @@ func Forwarder(dstAddr *net.UDPAddr, readCh <-chan *msg.UDPPacket, sendCh chan<-
 			_, err = udpConn.Write(buf)
 			if err != nil {
 				udpConn.Close()
+			} else {
+				_ = udpConn.SetReadDeadline(time.Now().Add(30 * time.Second))
 			}
 
 			if !ok {

@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/utils/clock"
+
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/metric"
 	server "github.com/fatedier/frp/server/metrics"
@@ -37,12 +39,21 @@ func init() {
 }
 
 type serverMetrics struct {
-	info *ServerStatistics
-	mu   sync.Mutex
+	info  *ServerStatistics
+	clock clock.WithTicker
+	mu    sync.Mutex
 }
 
 func newServerMetrics() *serverMetrics {
+	return newServerMetricsWithClock(clock.RealClock{})
+}
+
+func newServerMetricsWithClock(clk clock.WithTicker) *serverMetrics {
+	if clk == nil {
+		clk = clock.RealClock{}
+	}
 	return &serverMetrics{
+		clock: clk,
 		info: &ServerStatistics{
 			TotalTrafficIn:  metric.NewDateCounter(ReserveDays),
 			TotalTrafficOut: metric.NewDateCounter(ReserveDays),
@@ -57,14 +68,23 @@ func newServerMetrics() *serverMetrics {
 }
 
 func (m *serverMetrics) run() {
-	go func() {
-		for {
-			time.Sleep(12 * time.Hour)
-			start := time.Now()
+	go m.runUntil(nil)
+}
+
+func (m *serverMetrics) runUntil(stopCh <-chan struct{}) {
+	ticker := m.clock.NewTicker(12 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C():
+			start := m.clock.Now()
 			count, total := m.clearUselessInfo(time.Duration(7*24) * time.Hour)
-			log.Debugf("clear useless proxy statistics data count %d/%d, cost %v", count, total, time.Since(start))
+			log.Debugf("clear useless proxy statistics data count %d/%d, cost %v", count, total, m.clock.Since(start))
+		case <-stopCh:
+			return
 		}
-	}()
+	}
 }
 
 func (m *serverMetrics) clearUselessInfo(continuousOfflineDuration time.Duration) (int, int) {
@@ -77,7 +97,7 @@ func (m *serverMetrics) clearUselessInfo(continuousOfflineDuration time.Duration
 	for name, data := range m.info.ProxyStatistics {
 		if !data.LastCloseTime.IsZero() &&
 			data.LastStartTime.Before(data.LastCloseTime) &&
-			time.Since(data.LastCloseTime) > continuousOfflineDuration {
+			m.clock.Since(data.LastCloseTime) > continuousOfflineDuration {
 			delete(m.info.ProxyStatistics, name)
 			count++
 			log.Tracef("clear proxy [%s]'s statistics data, lastCloseTime: [%s]", name, data.LastCloseTime.String())
@@ -121,7 +141,7 @@ func (m *serverMetrics) NewProxy(name string, proxyType string, user string, cli
 	}
 	proxyStats.User = user
 	proxyStats.ClientID = clientID
-	proxyStats.LastStartTime = time.Now()
+	proxyStats.LastStartTime = m.clock.Now()
 }
 
 func (m *serverMetrics) CloseProxy(name string, proxyType string) {
@@ -131,7 +151,7 @@ func (m *serverMetrics) CloseProxy(name string, proxyType string) {
 		counter.Dec(1)
 	}
 	if proxyStats, ok := m.info.ProxyStatistics[name]; ok {
-		proxyStats.LastCloseTime = time.Now()
+		proxyStats.LastCloseTime = m.clock.Now()
 	}
 }
 

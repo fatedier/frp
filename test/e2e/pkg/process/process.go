@@ -40,13 +40,8 @@ type Process struct {
 	closeOne sync.Once
 	waitErr  error
 
-	started           bool
-	beforeStopHandler func()
-	stopped           bool
-}
-
-func New(path string, params []string) *Process {
-	return NewWithEnvs(path, params, nil)
+	started bool
+	stopped bool
 }
 
 func NewWithEnvs(path string, params []string, envs []string) *Process {
@@ -100,9 +95,6 @@ func (p *Process) Stop() error {
 	defer func() {
 		p.stopped = true
 	}()
-	if p.beforeStopHandler != nil {
-		p.beforeStopHandler()
-	}
 	p.cancel()
 	<-p.done
 	return p.waitErr
@@ -123,10 +115,6 @@ func (p *Process) Output() string {
 // CountOutput returns how many times pattern appears in the current accumulated output.
 func (p *Process) CountOutput(pattern string) int {
 	return strings.Count(p.Output(), pattern)
-}
-
-func (p *Process) SetBeforeStopHandler(fn func()) {
-	p.beforeStopHandler = fn
 }
 
 // WaitForOutput polls the combined process output until the pattern is found

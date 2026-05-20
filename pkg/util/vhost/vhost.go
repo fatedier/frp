@@ -148,41 +148,9 @@ func (v *Muxer) Listen(ctx context.Context, cfg *RouteConfig) (l *Listener, err 
 }
 
 func (v *Muxer) getListener(name, path, httpUser string) (*Listener, bool) {
-	findRouter := func(inName, inPath, inHTTPUser string) (*Listener, bool) {
-		vr, ok := v.registryRouter.Get(inName, inPath, inHTTPUser)
-		if ok {
-			return vr.payload.(*Listener), true
-		}
-		// Try to check if there is one proxy that doesn't specify routerByHTTPUser, it means match all.
-		vr, ok = v.registryRouter.Get(inName, inPath, "")
-		if ok {
-			return vr.payload.(*Listener), true
-		}
-		return nil, false
-	}
-
-	// first we check the full hostname
-	// if not exist, then check the wildcard_domain such as *.example.com
-	l, ok := findRouter(name, path, httpUser)
+	vr, ok := v.registryRouter.getByRoute(name, path, httpUser)
 	if ok {
-		return l, true
-	}
-
-	domainSplit := strings.Split(name, ".")
-	for len(domainSplit) >= 3 {
-		domainSplit[0] = "*"
-		name = strings.Join(domainSplit, ".")
-
-		l, ok = findRouter(name, path, httpUser)
-		if ok {
-			return l, true
-		}
-		domainSplit = domainSplit[1:]
-	}
-	// Finally, try to check if there is one proxy that domain is "*" means match all domains.
-	l, ok = findRouter("*", path, httpUser)
-	if ok {
-		return l, true
+		return vr.payload.(*Listener), true
 	}
 	return nil, false
 }
