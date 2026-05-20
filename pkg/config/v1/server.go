@@ -175,6 +175,8 @@ type ServerTransportConfig struct {
 	HeartbeatTimeout int64 `json:"heartbeatTimeout,omitempty"`
 	// QUIC options.
 	QUIC QUICOptions `json:"quic,omitempty"`
+	// Websocket options
+	WebSocket WebSocketOptions `json:"websocket,omitempty"`
 	// TLS specifies TLS settings for the connection from the client.
 	TLS TLSServerConfig `json:"tls,omitempty"`
 }
@@ -191,6 +193,7 @@ func (c *ServerTransportConfig) Complete() {
 		c.HeartbeatTimeout = util.EmptyOr(c.HeartbeatTimeout, 90)
 	}
 	c.QUIC.Complete()
+	c.WebSocket.Complete()
 	if c.TLS.TrustedCaFile != "" {
 		c.TLS.Force = true
 	}

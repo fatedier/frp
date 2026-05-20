@@ -35,3 +35,7 @@ node_modules/
 .claude/
 .sisyphus/
 .superpowers/
+
+#Macos
+.DS_Store
+

@@ -47,6 +47,20 @@ func (c *QUICOptions) Complete() {
 	c.MaxIncomingStreams = util.EmptyOr(c.MaxIncomingStreams, 100000)
 }
 
+type WebSocketOptions struct {
+	Path string `json:"path,omitempty"`
+}
+
+func (c *WebSocketOptions) Complete() {
+	c.Path = util.EmptyOr(c.Path, "/~!frp")
+	if c.Path[0] != '/' {
+		c.Path = "/" + c.Path
+	}
+	if len(c.Path) > 1 && c.Path[len(c.Path)-1] == '/' {
+		c.Path = c.Path[:len(c.Path)-1]
+	}
+}
+
 type WebServerConfig struct {
 	// This is the network address to bind on for serving the web interface and API.
 	// By default, this value is "127.0.0.1".
