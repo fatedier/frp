@@ -235,7 +235,7 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 	}()
 
 	// Read from user connections and send wrapped udp message to sendCh (forwarded by workConn).
-	// Client will transfor udp message to local udp service and waiting for response for a while.
+	// Client will transform udp message to local udp service and waiting for response for a while.
 	// Response will be wrapped to be forwarded by work connection to server.
 	// Close readCh and sendCh at the end.
 	go func() {

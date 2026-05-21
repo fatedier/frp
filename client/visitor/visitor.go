@@ -50,7 +50,7 @@ type Helper interface {
 	RunID() string
 }
 
-// Visitor is used for forward traffics from local port tot remote service.
+// Visitor is used for forward traffics from local port to remote service.
 type Visitor interface {
 	Run() error
 	AcceptConn(conn net.Conn) error
