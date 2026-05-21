@@ -22,11 +22,10 @@ type Request struct {
 	protocol string
 
 	// for all protocol
-	addr     string
-	port     int
-	body     []byte
-	timeout  time.Duration
-	resolver *net.Resolver
+	addr    string
+	port    int
+	body    []byte
+	timeout time.Duration
 
 	// for http or https
 	method    string
@@ -134,11 +133,6 @@ func (r *Request) Body(content []byte) *Request {
 	return r
 }
 
-func (r *Request) Resolver(resolver *net.Resolver) *Request {
-	r.resolver = resolver
-	return r
-}
-
 func (r *Request) Do() (*Response, error) {
 	var (
 		conn net.Conn
@@ -169,7 +163,7 @@ func (r *Request) Do() (*Response, error) {
 			return nil, err
 		}
 	} else {
-		dialer := &net.Dialer{Resolver: r.resolver}
+		dialer := &net.Dialer{}
 		switch r.protocol {
 		case "tcp":
 			conn, err = dialer.Dial("tcp", addr)
@@ -225,7 +219,6 @@ func (r *Request) sendHTTPRequest(method, urlstr string, host string, headers ma
 			Timeout:   time.Second,
 			KeepAlive: 30 * time.Second,
 			DualStack: true,
-			Resolver:  r.resolver,
 		}).DialContext,
 		MaxIdleConns:          100,
 		IdleConnTimeout:       90 * time.Second,

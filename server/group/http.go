@@ -57,7 +57,7 @@ type HTTPGroup struct {
 	// CreateConnFuncs indexed by proxy name
 	createFuncs map[string]vhost.CreateConnFunc
 	pxyNames    []string
-	index       uint64
+	index       atomic.Uint64
 	ctl         *HTTPGroupController
 	mu          sync.RWMutex
 }
@@ -136,7 +136,7 @@ func (g *HTTPGroup) UnRegister(proxyName string) {
 
 func (g *HTTPGroup) createConn(remoteAddr string) (net.Conn, error) {
 	var f vhost.CreateConnFunc
-	newIndex := atomic.AddUint64(&g.index, 1)
+	newIndex := g.index.Add(1)
 
 	g.mu.RLock()
 	group := g.group
@@ -158,7 +158,7 @@ func (g *HTTPGroup) createConn(remoteAddr string) (net.Conn, error) {
 }
 
 func (g *HTTPGroup) chooseEndpoint() (string, error) {
-	newIndex := atomic.AddUint64(&g.index, 1)
+	newIndex := g.index.Add(1)
 	name := ""
 
 	g.mu.RLock()

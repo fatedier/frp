@@ -17,8 +17,11 @@ package http
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/proto/wire"
+	"github.com/fatedier/frp/server/registry"
 )
 
 func TestGetConfFromConfigurerKeepsPluginFields(t *testing.T) {
@@ -67,5 +70,26 @@ func TestGetConfFromConfigurerKeepsPluginFields(t *testing.T) {
 	}
 	if got := plugin["httpPassword"]; got != "password" {
 		t.Fatalf("plugin httpPassword mismatch, want %q got %#v", "password", got)
+	}
+}
+
+func TestBuildClientInfoRespIncludesWireProtocol(t *testing.T) {
+	info := registry.ClientInfo{
+		Key:              "user.client",
+		User:             "user",
+		RawClientID:      "client",
+		RunID:            "run-id",
+		Version:          "1.0.0",
+		WireProtocol:     wire.ProtocolV2,
+		Hostname:         "host",
+		IP:               "127.0.0.1",
+		FirstConnectedAt: time.Unix(1, 0),
+		LastConnectedAt:  time.Unix(2, 0),
+		Online:           true,
+	}
+
+	resp := buildClientInfoResp(info)
+	if resp.WireProtocol != wire.ProtocolV2 {
+		t.Fatalf("wire protocol mismatch, want %q got %q", wire.ProtocolV2, resp.WireProtocol)
 	}
 }

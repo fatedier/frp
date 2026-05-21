@@ -33,7 +33,51 @@ git commit -m "bump version to vX.Y.Z"
 git push origin dev
 ```
 
-## 3. Merge dev → master
+## 3. Pre-release Validation
+
+Run the standard e2e suite locally:
+
+```bash
+make e2e
+```
+
+For releases that touch compatibility-sensitive areas such as login, control
+connections, work connections, visitors, transport, or wire protocol handling,
+also run the manual compatibility e2e suite:
+
+```bash
+make e2e-compatibility
+make e2e-compatibility-floor
+```
+
+`make e2e-compatibility` builds the current `frps` and `frpc`, resolves the
+recent stable release baselines from GitHub, downloads or reuses their binaries,
+and tests current binaries against those historical releases. The default number
+of recent baselines is controlled by `FRP_COMPAT_BASELINE_COUNT` in the
+`Makefile`.
+
+Downloaded release binaries are cached under:
+
+```text
+.cache/e2e-compat/<version>/<os>_<arch>/
+```
+
+For a release validation run that must be exactly reproducible, pass an explicit
+baseline matrix instead of using the floating recent-release list:
+
+```bash
+FRP_COMPAT_BASELINE_VERSIONS="0.X.0 0.Y.0" make e2e-compatibility
+```
+
+Use `make e2e-compatibility-smoke` for a quick single-baseline check while
+iterating locally. If GitHub release metadata requests are rate-limited, set
+`GITHUB_TOKEN` or use `FRP_COMPAT_BASELINE_VERSIONS`.
+
+The compatibility floor is a support-policy decision, not a value that should
+change every release. Update `FRP_COMPAT_FLOOR_VERSION` only when the declared
+compatibility window changes.
+
+## 4. Merge dev → master
 
 Create a PR from `dev` to `master`:
 
@@ -43,7 +87,7 @@ gh pr create --base master --head dev --title "bump version"
 
 Wait for CI to pass, then merge using **merge commit** (not squash).
 
-## 4. Tag the Release
+## 5. Tag the Release
 
 ```bash
 git checkout master
@@ -52,7 +96,7 @@ git tag -a vX.Y.Z -m "bump version"
 git push origin vX.Y.Z
 ```
 
-## 5. Trigger GoReleaser
+## 6. Trigger GoReleaser
 
 Manually trigger the `goreleaser` workflow in GitHub Actions:
 

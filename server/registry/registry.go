@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"k8s.io/utils/clock"
 )
 
 // ClientInfo captures metadata about a connected frpc instance.
@@ -29,6 +31,7 @@ type ClientInfo struct {
 	Hostname         string
 	IP               string
 	Version          string
+	WireProtocol     string
 	FirstConnectedAt time.Time
 	LastConnectedAt  time.Time
 	DisconnectedAt   time.Time
@@ -41,17 +44,26 @@ type ClientRegistry struct {
 	mu       sync.RWMutex
 	clients  map[string]*ClientInfo
 	runIndex map[string]string
+	clock    clock.PassiveClock
 }
 
 func NewClientRegistry() *ClientRegistry {
+	return newClientRegistryWithClock(clock.RealClock{})
+}
+
+func newClientRegistryWithClock(clk clock.PassiveClock) *ClientRegistry {
+	if clk == nil {
+		clk = clock.RealClock{}
+	}
 	return &ClientRegistry{
 		clients:  make(map[string]*ClientInfo),
 		runIndex: make(map[string]string),
+		clock:    clk,
 	}
 }
 
 // Register stores/updates metadata for a client and returns the registry key plus whether it conflicts with an online client.
-func (cr *ClientRegistry) Register(user, rawClientID, runID, hostname, version, remoteAddr string) (key string, conflict bool) {
+func (cr *ClientRegistry) Register(user, rawClientID, runID, hostname, version, remoteAddr, wireProtocol string) (key string, conflict bool) {
 	if runID == "" {
 		return "", false
 	}
@@ -63,7 +75,7 @@ func (cr *ClientRegistry) Register(user, rawClientID, runID, hostname, version, 
 	key = cr.composeClientKey(user, effectiveID)
 	enforceUnique := rawClientID != ""
 
-	now := time.Now()
+	now := cr.clock.Now()
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
 
@@ -88,6 +100,7 @@ func (cr *ClientRegistry) Register(user, rawClientID, runID, hostname, version, 
 	info.Hostname = hostname
 	info.IP = remoteAddr
 	info.Version = version
+	info.WireProtocol = wireProtocol
 	if info.FirstConnectedAt.IsZero() {
 		info.FirstConnectedAt = now
 	}
@@ -114,7 +127,7 @@ func (cr *ClientRegistry) MarkOfflineByRunID(runID string) {
 		} else {
 			info.RunID = ""
 			info.Online = false
-			now := time.Now()
+			now := cr.clock.Now()
 			info.DisconnectedAt = now
 		}
 	}

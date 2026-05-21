@@ -326,46 +326,54 @@ func (c *Controller) analysis(session *Session) (*msg.NatHoleResp, *msg.NatHoleR
 	}
 
 	protocol := vm.Protocol
-	vResp := &msg.NatHoleResp{
-		TransactionID:  vm.TransactionID,
-		Sid:            session.sid,
-		Protocol:       protocol,
-		CandidateAddrs: slices.Compact(cm.MappedAddrs),
-		AssistedAddrs:  slices.Compact(cm.AssistedAddrs),
-		DetectBehavior: msg.NatHoleDetectBehavior{
-			Mode:              mode,
-			Role:              vBehavior.Role,
-			TTL:               vBehavior.TTL,
-			SendDelayMs:       vBehavior.SendDelayMs,
-			ReadTimeoutMs:     timeoutMs - vBehavior.SendDelayMs,
-			SendRandomPorts:   vBehavior.PortsRandomNumber,
-			ListenRandomPorts: vBehavior.ListenRandomPorts,
-			CandidatePorts:    getRangePorts(cm.MappedAddrs, cNatFeature.PortsDifference, vBehavior.PortsRangeNumber),
-		},
-	}
-	cResp := &msg.NatHoleResp{
-		TransactionID:  cm.TransactionID,
-		Sid:            session.sid,
-		Protocol:       protocol,
-		CandidateAddrs: slices.Compact(vm.MappedAddrs),
-		AssistedAddrs:  slices.Compact(vm.AssistedAddrs),
-		DetectBehavior: msg.NatHoleDetectBehavior{
-			Mode:              mode,
-			Role:              cBehavior.Role,
-			TTL:               cBehavior.TTL,
-			SendDelayMs:       cBehavior.SendDelayMs,
-			ReadTimeoutMs:     timeoutMs - cBehavior.SendDelayMs,
-			SendRandomPorts:   cBehavior.PortsRandomNumber,
-			ListenRandomPorts: cBehavior.ListenRandomPorts,
-			CandidatePorts:    getRangePorts(vm.MappedAddrs, vNatFeature.PortsDifference, cBehavior.PortsRangeNumber),
-		},
-	}
+	vResp := newNatHoleResponse(
+		vm.TransactionID, session.sid, protocol, mode,
+		cm.MappedAddrs, cm.AssistedAddrs, vBehavior,
+		timeoutMs-vBehavior.SendDelayMs, cNatFeature.PortsDifference,
+	)
+	cResp := newNatHoleResponse(
+		cm.TransactionID, session.sid, protocol, mode,
+		vm.MappedAddrs, vm.AssistedAddrs, cBehavior,
+		timeoutMs-cBehavior.SendDelayMs, vNatFeature.PortsDifference,
+	)
 
 	log.Debugf("sid [%s] visitor nat: %+v, candidateAddrs: %v; client nat: %+v, candidateAddrs: %v, protocol: %s",
 		session.sid, *vNatFeature, vm.MappedAddrs, *cNatFeature, cm.MappedAddrs, protocol)
 	log.Debugf("sid [%s] visitor detect behavior: %+v", session.sid, vResp.DetectBehavior)
 	log.Debugf("sid [%s] client detect behavior: %+v", session.sid, cResp.DetectBehavior)
 	return vResp, cResp, nil
+}
+
+func newNatHoleResponse(
+	transactionID string,
+	sid string,
+	protocol string,
+	mode int,
+	candidateAddrs []string,
+	assistedAddrs []string,
+	behavior RecommandBehavior,
+	readTimeoutMs int,
+	portsDifference int,
+) *msg.NatHoleResp {
+	compactCandidateAddrs := slices.Compact(candidateAddrs)
+	compactAssistedAddrs := slices.Compact(assistedAddrs)
+	return &msg.NatHoleResp{
+		TransactionID:  transactionID,
+		Sid:            sid,
+		Protocol:       protocol,
+		CandidateAddrs: compactCandidateAddrs,
+		AssistedAddrs:  compactAssistedAddrs,
+		DetectBehavior: msg.NatHoleDetectBehavior{
+			Mode:              mode,
+			Role:              behavior.Role,
+			TTL:               behavior.TTL,
+			SendDelayMs:       behavior.SendDelayMs,
+			ReadTimeoutMs:     readTimeoutMs,
+			SendRandomPorts:   behavior.PortsRandomNumber,
+			ListenRandomPorts: behavior.ListenRandomPorts,
+			CandidatePorts:    getRangePorts(candidateAddrs, portsDifference, behavior.PortsRangeNumber),
+		},
+	}
 }
 
 func getRangePorts(addrs []string, difference, maxNumber int) []msg.PortsRange {

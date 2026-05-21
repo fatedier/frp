@@ -39,11 +39,14 @@ type HTTPConnectTCPMuxer struct {
 func NewHTTPConnectTCPMuxer(listener net.Listener, passthrough bool, timeout time.Duration) (*HTTPConnectTCPMuxer, error) {
 	ret := &HTTPConnectTCPMuxer{passthrough: passthrough}
 	mux, err := vhost.NewMuxer(listener, ret.getHostFromHTTPConnect, timeout)
+	if err != nil {
+		return nil, err
+	}
 	mux.SetCheckAuthFunc(ret.auth).
 		SetSuccessHookFunc(ret.sendConnectResponse).
 		SetFailHookFunc(vhostFailed)
 	ret.Muxer = mux
-	return ret, err
+	return ret, nil
 }
 
 func (muxer *HTTPConnectTCPMuxer) readHTTPConnectRequest(rd io.Reader) (host, httpUser, httpPwd string, err error) {

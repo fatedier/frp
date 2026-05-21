@@ -43,6 +43,11 @@ var (
 	ErrNotFound      = errors.New("not found")
 )
 
+const (
+	storeKindProxy   = "proxy"
+	storeKindVisitor = "visitor"
+)
+
 func NewStoreSource(cfg StoreSourceConfig) (*StoreSource, error) {
 	if cfg.Path == "" {
 		return nil, fmt.Errorf("path is required")
@@ -172,79 +177,111 @@ func (s *StoreSource) saveToFileUnlocked() error {
 	return nil
 }
 
-func (s *StoreSource) AddProxy(proxy v1.ProxyConfigurer) error {
-	if proxy == nil {
-		return fmt.Errorf("proxy cannot be nil")
+func (s *StoreSource) persistOrRollbackUnlocked(rollback func()) error {
+	if err := s.saveToFileUnlocked(); err != nil {
+		rollback()
+		return fmt.Errorf("failed to persist: %w", err)
+	}
+	return nil
+}
+
+// Store map selectors return the target map for generic helpers.
+func proxyStoreEntries(s *StoreSource) map[string]v1.ProxyConfigurer {
+	return s.proxies
+}
+
+func visitorStoreEntries(s *StoreSource) map[string]v1.VisitorConfigurer {
+	return s.visitors
+}
+
+// Store entry helpers share mutation, persistence, and rollback for proxy and visitor maps.
+// T is intentionally limited by callers to v1.ProxyConfigurer or v1.VisitorConfigurer.
+func addStoreEntry[T any](
+	s *StoreSource,
+	entriesFn func(*StoreSource) map[string]T,
+	kind string,
+	name string,
+	value T,
+) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	entries := entriesFn(s)
+	if _, exists := entries[name]; exists {
+		return fmt.Errorf("%w: %s %q", ErrAlreadyExists, kind, name)
 	}
 
-	name := proxy.GetBaseConfig().Name
+	entries[name] = value
+	return s.persistOrRollbackUnlocked(func() {
+		delete(entries, name)
+	})
+}
+
+func updateStoreEntry[T any](
+	s *StoreSource,
+	entriesFn func(*StoreSource) map[string]T,
+	kind string,
+	name string,
+	value T,
+) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	entries := entriesFn(s)
+	old, exists := entries[name]
+	if !exists {
+		return fmt.Errorf("%w: %s %q", ErrNotFound, kind, name)
+	}
+
+	entries[name] = value
+	return s.persistOrRollbackUnlocked(func() {
+		entries[name] = old
+	})
+}
+
+func removeStoreEntry[T any](
+	s *StoreSource,
+	entriesFn func(*StoreSource) map[string]T,
+	kind string,
+	name string,
+) error {
 	if name == "" {
-		return fmt.Errorf("proxy name cannot be empty")
+		return fmt.Errorf("%s name cannot be empty", kind)
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, exists := s.proxies[name]; exists {
-		return fmt.Errorf("%w: proxy %q", ErrAlreadyExists, name)
+	entries := entriesFn(s)
+	old, exists := entries[name]
+	if !exists {
+		return fmt.Errorf("%w: %s %q", ErrNotFound, kind, name)
 	}
 
-	s.proxies[name] = proxy
+	delete(entries, name)
+	return s.persistOrRollbackUnlocked(func() {
+		entries[name] = old
+	})
+}
 
-	if err := s.saveToFileUnlocked(); err != nil {
-		delete(s.proxies, name)
-		return fmt.Errorf("failed to persist: %w", err)
+func (s *StoreSource) AddProxy(proxy v1.ProxyConfigurer) error {
+	name, err := validateProxyName(proxy)
+	if err != nil {
+		return err
 	}
-	return nil
+	return addStoreEntry(s, proxyStoreEntries, storeKindProxy, name, proxy)
 }
 
 func (s *StoreSource) UpdateProxy(proxy v1.ProxyConfigurer) error {
-	if proxy == nil {
-		return fmt.Errorf("proxy cannot be nil")
+	name, err := validateProxyName(proxy)
+	if err != nil {
+		return err
 	}
-
-	name := proxy.GetBaseConfig().Name
-	if name == "" {
-		return fmt.Errorf("proxy name cannot be empty")
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	oldProxy, exists := s.proxies[name]
-	if !exists {
-		return fmt.Errorf("%w: proxy %q", ErrNotFound, name)
-	}
-
-	s.proxies[name] = proxy
-
-	if err := s.saveToFileUnlocked(); err != nil {
-		s.proxies[name] = oldProxy
-		return fmt.Errorf("failed to persist: %w", err)
-	}
-	return nil
+	return updateStoreEntry(s, proxyStoreEntries, storeKindProxy, name, proxy)
 }
 
 func (s *StoreSource) RemoveProxy(name string) error {
-	if name == "" {
-		return fmt.Errorf("proxy name cannot be empty")
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	oldProxy, exists := s.proxies[name]
-	if !exists {
-		return fmt.Errorf("%w: proxy %q", ErrNotFound, name)
-	}
-
-	delete(s.proxies, name)
-
-	if err := s.saveToFileUnlocked(); err != nil {
-		s.proxies[name] = oldProxy
-		return fmt.Errorf("failed to persist: %w", err)
-	}
-	return nil
+	return removeStoreEntry(s, proxyStoreEntries, storeKindProxy, name)
 }
 
 func (s *StoreSource) GetProxy(name string) v1.ProxyConfigurer {
@@ -259,78 +296,23 @@ func (s *StoreSource) GetProxy(name string) v1.ProxyConfigurer {
 }
 
 func (s *StoreSource) AddVisitor(visitor v1.VisitorConfigurer) error {
-	if visitor == nil {
-		return fmt.Errorf("visitor cannot be nil")
+	name, err := validateVisitorName(visitor)
+	if err != nil {
+		return err
 	}
-
-	name := visitor.GetBaseConfig().Name
-	if name == "" {
-		return fmt.Errorf("visitor name cannot be empty")
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, exists := s.visitors[name]; exists {
-		return fmt.Errorf("%w: visitor %q", ErrAlreadyExists, name)
-	}
-
-	s.visitors[name] = visitor
-
-	if err := s.saveToFileUnlocked(); err != nil {
-		delete(s.visitors, name)
-		return fmt.Errorf("failed to persist: %w", err)
-	}
-	return nil
+	return addStoreEntry(s, visitorStoreEntries, storeKindVisitor, name, visitor)
 }
 
 func (s *StoreSource) UpdateVisitor(visitor v1.VisitorConfigurer) error {
-	if visitor == nil {
-		return fmt.Errorf("visitor cannot be nil")
+	name, err := validateVisitorName(visitor)
+	if err != nil {
+		return err
 	}
-
-	name := visitor.GetBaseConfig().Name
-	if name == "" {
-		return fmt.Errorf("visitor name cannot be empty")
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	oldVisitor, exists := s.visitors[name]
-	if !exists {
-		return fmt.Errorf("%w: visitor %q", ErrNotFound, name)
-	}
-
-	s.visitors[name] = visitor
-
-	if err := s.saveToFileUnlocked(); err != nil {
-		s.visitors[name] = oldVisitor
-		return fmt.Errorf("failed to persist: %w", err)
-	}
-	return nil
+	return updateStoreEntry(s, visitorStoreEntries, storeKindVisitor, name, visitor)
 }
 
 func (s *StoreSource) RemoveVisitor(name string) error {
-	if name == "" {
-		return fmt.Errorf("visitor name cannot be empty")
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	oldVisitor, exists := s.visitors[name]
-	if !exists {
-		return fmt.Errorf("%w: visitor %q", ErrNotFound, name)
-	}
-
-	delete(s.visitors, name)
-
-	if err := s.saveToFileUnlocked(); err != nil {
-		s.visitors[name] = oldVisitor
-		return fmt.Errorf("failed to persist: %w", err)
-	}
-	return nil
+	return removeStoreEntry(s, visitorStoreEntries, storeKindVisitor, name)
 }
 
 func (s *StoreSource) GetVisitor(name string) v1.VisitorConfigurer {
