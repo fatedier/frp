@@ -137,6 +137,7 @@ const proxyTypes = [
   { label: 'HTTPS', value: 'https' },
   { label: 'TCPMUX', value: 'tcpmux' },
   { label: 'STCP', value: 'stcp' },
+  { label: 'XTCP', value: 'xtcp' },
   { label: 'SUDP', value: 'sudp' },
 ]
 
