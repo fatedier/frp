@@ -92,7 +92,7 @@ class HTTPProxy extends BaseProxy {
   constructor(proxyStats: any, port: number, subdomainHost: string) {
     super(proxyStats)
     this.type = 'http'
-    this.port = port
+    this.port = proxyStats.conf?.localPort || port
     if (proxyStats.conf) {
       this.customDomains = proxyStats.conf.customDomains || this.customDomains
       this.hostHeaderRewrite = proxyStats.conf.hostHeaderRewrite
@@ -108,7 +108,7 @@ class HTTPSProxy extends BaseProxy {
   constructor(proxyStats: any, port: number, subdomainHost: string) {
     super(proxyStats)
     this.type = 'https'
-    this.port = port
+    this.port = proxyStats.conf?.localPort || port
     if (proxyStats.conf != null) {
       this.customDomains = proxyStats.conf.customDomains || this.customDomains
       if (proxyStats.conf.subdomain) {
