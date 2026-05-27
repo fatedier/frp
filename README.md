@@ -497,7 +497,7 @@ Read the full example configuration files to find out even more features not des
 
 Examples use TOML format, but you can still use YAML or JSON.
 
-These configuration files is for reference only. Please do not use this configuration directly to run the program as it may have various issues.
+These configuration files are for reference only. Please do not use this configuration directly to run the program as it may have various issues.
 
 [Full configuration file for frps (Server)](./conf/frps_full_example.toml)
 
@@ -723,7 +723,7 @@ transport.tls.trustedCaFile = "ca.crt"
 
 You will need **a root CA cert** and **at least one SSL/TLS certificate**. It **can** be self-signed or regular (such as Let's Encrypt or another SSL/TLS certificate provider).
 
-If you using `frp` via IP address and not hostname, make sure to set the appropriate IP address in the Subject Alternative Name (SAN) area when generating SSL/TLS Certificates.
+If you are using `frp` via IP address and not hostname, make sure to set the appropriate IP address in the Subject Alternative Name (SAN) area when generating SSL/TLS Certificates.
 
 Given an example:
 
@@ -778,7 +778,7 @@ openssl x509 -req -days 365 -sha256 \
 	-out server.crt
 ```
 
-* build frpc certificates：
+* build frpc certificates:
 ```
 openssl genrsa -out client.key 2048
 openssl req -new -sha256 -key client.key \
@@ -841,7 +841,7 @@ allowPorts = [
 
 What you need to pay attention to is that if you want to configure `vhostHTTPSPort` and `bindPort` to the same port, you need to first set `transport.tls.disableCustomTLSFirstByte` to false.
 
-We would like to try to allow multiple proxies bind a same remote port with different protocols in the future.
+We would like to try to allow multiple proxies to bind the same remote port with different protocols in the future.
 
 ### Bandwidth Limit
 
@@ -858,7 +858,7 @@ remotePort = 6000
 transport.bandwidthLimit = "1MB"
 ```
 
-Set `transport.bandwidthLimit` in each proxy's configure to enable this feature. Supported units are `MB` and `KB`.
+Set `transport.bandwidthLimit` in each proxy's configuration to enable this feature. Supported units are `MB` and `KB`.
 
 Set `transport.bandwidthLimitMode` to `client` or `server` to limit bandwidth on the client or server side. Default is `client`.
 
