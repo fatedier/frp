@@ -131,7 +131,7 @@ Create new proxy
         "sk": <string>,
 
         // tcpmux only
-        "multiplexer": <string>
+        "multiplexer": <string>,
 
         "metas": map<string>string
     }
