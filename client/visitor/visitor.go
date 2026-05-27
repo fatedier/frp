@@ -108,6 +108,12 @@ func NewVisitor(
 			cfg:          cfg,
 			checkCloseCh: make(chan struct{}),
 		}
+	case *v1.XUDPVisitorConfig:
+		visitor = &XUDPVisitor{
+			BaseVisitor:   &baseVisitor,
+			cfg:           cfg,
+			startTunnelCh: make(chan struct{}),
+		}
 	}
 	return visitor, nil
 }

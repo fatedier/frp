@@ -33,6 +33,8 @@ func ValidateVisitorConfigurer(c v1.VisitorConfigurer) error {
 	case *v1.SUDPVisitorConfig:
 	case *v1.XTCPVisitorConfig:
 		return validateXTCPVisitorConfig(v)
+	case *v1.XUDPVisitorConfig:
+		return validateXUDPVisitorConfig(v)
 	default:
 		return errors.New("unknown visitor config type")
 	}
@@ -57,6 +59,13 @@ func validateVisitorBaseConfig(c *v1.VisitorBaseConfig) error {
 func validateXTCPVisitorConfig(c *v1.XTCPVisitorConfig) error {
 	if !slices.Contains([]string{"kcp", "quic"}, c.Protocol) {
 		return fmt.Errorf("protocol should be kcp or quic")
+	}
+	return nil
+}
+
+func validateXUDPVisitorConfig(c *v1.XUDPVisitorConfig) error {
+	if c.Protocol != "quic" {
+		return fmt.Errorf("protocol should be quic, got %q", c.Protocol)
 	}
 	return nil
 }

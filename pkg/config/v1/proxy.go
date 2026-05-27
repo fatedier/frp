@@ -236,6 +236,7 @@ const (
 	ProxyTypeSTCP   ProxyType = "stcp"
 	ProxyTypeXTCP   ProxyType = "xtcp"
 	ProxyTypeSUDP   ProxyType = "sudp"
+	ProxyTypeXUDP   ProxyType = "xudp"
 )
 
 var proxyConfigTypeMap = map[ProxyType]reflect.Type{
@@ -247,6 +248,7 @@ var proxyConfigTypeMap = map[ProxyType]reflect.Type{
 	ProxyTypeSTCP:   reflect.TypeFor[STCPProxyConfig](),
 	ProxyTypeXTCP:   reflect.TypeFor[XTCPProxyConfig](),
 	ProxyTypeSUDP:   reflect.TypeFor[SUDPProxyConfig](),
+	ProxyTypeXUDP:   reflect.TypeFor[XUDPProxyConfig](),
 }
 
 func NewProxyConfigurerByType(proxyType ProxyType) ProxyConfigurer {
@@ -530,5 +532,47 @@ func (c *SUDPProxyConfig) Clone() ProxyConfigurer {
 	out := *c
 	out.ProxyBaseConfig = c.ProxyBaseConfig.Clone()
 	out.AllowUsers = slices.Clone(c.AllowUsers)
+	return &out
+}
+
+var _ ProxyConfigurer = &XUDPProxyConfig{}
+
+// XUDPProxyConfig is the configuration for xudp proxies.
+// xudp uses realm rendezvous signaling with multi-STUN prediction
+// to establish a decoupled UDP/QUIC tunnel that survives control channel drops.
+type XUDPProxyConfig struct {
+	ProxyBaseConfig
+
+	Secretkey  string   `json:"secretKey,omitempty"`
+	AllowUsers []string `json:"allowUsers,omitempty"`
+
+	// STUNServers specifies additional STUN servers for multi-STUN prediction.
+	// These are queried concurrently to observe port mapping rules.
+	STUNServers []string `json:"stunServers,omitempty"`
+
+	// NatTraversal configuration for NAT traversal
+	NatTraversal *NatTraversalConfig `json:"natTraversal,omitempty"`
+}
+
+func (c *XUDPProxyConfig) MarshalToMsg(m *msg.NewProxy) {
+	c.ProxyBaseConfig.MarshalToMsg(m)
+
+	m.Sk = c.Secretkey
+	m.AllowUsers = c.AllowUsers
+}
+
+func (c *XUDPProxyConfig) UnmarshalFromMsg(m *msg.NewProxy) {
+	c.ProxyBaseConfig.UnmarshalFromMsg(m)
+
+	c.Secretkey = m.Sk
+	c.AllowUsers = m.AllowUsers
+}
+
+func (c *XUDPProxyConfig) Clone() ProxyConfigurer {
+	out := *c
+	out.ProxyBaseConfig = c.ProxyBaseConfig.Clone()
+	out.AllowUsers = slices.Clone(c.AllowUsers)
+	out.STUNServers = slices.Clone(c.STUNServers)
+	out.NatTraversal = c.NatTraversal.Clone()
 	return &out
 }

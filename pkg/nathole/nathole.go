@@ -73,6 +73,10 @@ type PrepareOptions struct {
 	// DisableAssistedAddrs disables the use of local network interfaces
 	// for assisted connections during NAT traversal
 	DisableAssistedAddrs bool
+	// LocalAddr specifies a local UDP address to bind for STUN discovery.
+	// If empty, a random port is used. Set this to reuse the same port
+	// from a prior multi-STUN discovery so port predictions remain valid.
+	LocalAddr string
 }
 
 type PrepareResult struct {
@@ -117,7 +121,7 @@ func PreCheck(
 // Prepare is used to do some preparation work before penetration.
 func Prepare(stunServers []string, opts PrepareOptions) (*PrepareResult, error) {
 	// discover for Nat type
-	addrs, localAddr, err := Discover(stunServers, "")
+	addrs, localAddr, err := Discover(stunServers, opts.LocalAddr)
 	if err != nil {
 		return nil, fmt.Errorf("discover error: %v", err)
 	}

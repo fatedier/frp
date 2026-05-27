@@ -16,6 +16,7 @@ package v1
 
 import (
 	"reflect"
+	"slices"
 
 	"github.com/fatedier/frp/pkg/util/jsonx"
 	"github.com/fatedier/frp/pkg/util/util"
@@ -76,12 +77,14 @@ const (
 	VisitorTypeSTCP VisitorType = "stcp"
 	VisitorTypeXTCP VisitorType = "xtcp"
 	VisitorTypeSUDP VisitorType = "sudp"
+	VisitorTypeXUDP VisitorType = "xudp"
 )
 
 var visitorConfigTypeMap = map[VisitorType]reflect.Type{
 	VisitorTypeSTCP: reflect.TypeFor[STCPVisitorConfig](),
 	VisitorTypeXTCP: reflect.TypeFor[XTCPVisitorConfig](),
 	VisitorTypeSUDP: reflect.TypeFor[SUDPVisitorConfig](),
+	VisitorTypeXUDP: reflect.TypeFor[XUDPVisitorConfig](),
 }
 
 type TypedVisitorConfig struct {
@@ -166,6 +169,47 @@ func (c *XTCPVisitorConfig) Complete() {
 func (c *XTCPVisitorConfig) Clone() VisitorConfigurer {
 	out := *c
 	out.VisitorBaseConfig = c.VisitorBaseConfig.Clone()
+	out.NatTraversal = c.NatTraversal.Clone()
+	return &out
+}
+
+var _ VisitorConfigurer = &XUDPVisitorConfig{}
+
+// XUDPVisitorConfig is the configuration for xudp visitors.
+// xudp uses realm rendezvous with multi-STUN prediction and establishes
+// a decoupled QUIC tunnel that survives control channel drops.
+// STUN servers are queried serially from the same local port.
+type XUDPVisitorConfig struct {
+	VisitorBaseConfig
+
+	Protocol          string `json:"protocol,omitempty"`
+	KeepTunnelOpen    bool   `json:"keepTunnelOpen,omitempty"`
+	MaxRetriesAnHour  int    `json:"maxRetriesAnHour,omitempty"`
+	MinRetryInterval  int    `json:"minRetryInterval,omitempty"`
+	FallbackTo        string `json:"fallbackTo,omitempty"`
+	FallbackTimeoutMs int    `json:"fallbackTimeoutMs,omitempty"`
+
+	// STUNServers specifies additional STUN servers for multi-STUN prediction.
+	// These are queried concurrently to observe port mapping rules.
+	STUNServers []string `json:"stunServers,omitempty"`
+
+	// NatTraversal configuration for NAT traversal
+	NatTraversal *NatTraversalConfig `json:"natTraversal,omitempty"`
+}
+
+func (c *XUDPVisitorConfig) Complete() {
+	c.VisitorBaseConfig.Complete()
+
+	c.Protocol = util.EmptyOr(c.Protocol, "quic")
+	c.MaxRetriesAnHour = util.EmptyOr(c.MaxRetriesAnHour, 8)
+	c.MinRetryInterval = util.EmptyOr(c.MinRetryInterval, 90)
+	c.FallbackTimeoutMs = util.EmptyOr(c.FallbackTimeoutMs, 1000)
+}
+
+func (c *XUDPVisitorConfig) Clone() VisitorConfigurer {
+	out := *c
+	out.VisitorBaseConfig = c.VisitorBaseConfig.Clone()
+	out.STUNServers = slices.Clone(c.STUNServers)
 	out.NatTraversal = c.NatTraversal.Clone()
 	return &out
 }
