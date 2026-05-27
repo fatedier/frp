@@ -497,7 +497,7 @@ Read the full example configuration files to find out even more features not des
 
 Examples use TOML format, but you can still use YAML or JSON.
 
-These configuration files is for reference only. Please do not use this configuration directly to run the program as it may have various issues.
+These configuration files are for reference only. Please do not use this configuration directly to run the program as it may have various issues.
 
 [Full configuration file for frps (Server)](./conf/frps_full_example.toml)
 
@@ -723,7 +723,7 @@ transport.tls.trustedCaFile = "ca.crt"
 
 You will need **a root CA cert** and **at least one SSL/TLS certificate**. It **can** be self-signed or regular (such as Let's Encrypt or another SSL/TLS certificate provider).
 
-If you using `frp` via IP address and not hostname, make sure to set the appropriate IP address in the Subject Alternative Name (SAN) area when generating SSL/TLS Certificates.
+If you are using `frp` via IP address and not hostname, make sure to set the appropriate IP address in the Subject Alternative Name (SAN) area when generating SSL/TLS Certificates.
 
 Given an example:
 
@@ -858,7 +858,7 @@ remotePort = 6000
 transport.bandwidthLimit = "1MB"
 ```
 
-Set `transport.bandwidthLimit` in each proxy's configure to enable this feature. Supported units are `MB` and `KB`.
+Set `transport.bandwidthLimit` in each proxy's configuration to enable this feature. Supported units are `MB` and `KB`.
 
 Set `transport.bandwidthLimitMode` to `client` or `server` to limit bandwidth on the client or server side. Default is `client`.
 
@@ -1099,7 +1099,7 @@ You can enable Proxy Protocol support in nginx to expose user's real IP in HTTP 
 
 Anyone who can guess your tunnel URL can access your local web server unless you protect it with a password.
 
-This enforces HTTP Basic Auth on all requests with the username and password specified in frpc's configure file.
+This enforces HTTP Basic Auth on all requests with the username and password specified in frpc's configuration file.
 
 It can only be enabled when proxy type is http.
 
@@ -1119,7 +1119,7 @@ Visit `http://test.example.com` in the browser and now you are prompted to enter
 
 ### Custom Subdomain Names
 
-It is convenient to use `subdomain` configure for http and https types when many people share one frps server.
+It is convenient to use `subdomain` configuration for http and https types when many people share one frps server.
 
 ```toml
 # frps.toml
@@ -1358,7 +1358,7 @@ Interested in getting involved? We would like to help you!
 * Sorry for my poor English. Improvements for this document are welcome, even some typo fixes.
 * If you have great ideas, send an email to fatedier@gmail.com.
 
-**Note: We prefer you to give your advise in [issues](https://github.com/fatedier/frp/issues), so others with a same question can search it quickly and we don't need to answer them repeatedly.**
+**Note: We prefer you to give your advice in [issues](https://github.com/fatedier/frp/issues), so others with a same question can search it quickly and we don't need to answer them repeatedly.**
 
 ## Donation
 
