@@ -777,6 +777,7 @@ func (svr *Service) RegisterControl(
 		LoginMsg:       loginMsg,
 		ServerCfg:      svr.cfg,
 		ClientRegistry: svr.clientRegistry,
+		WireProtocol:   wireProtocol,
 	})
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
