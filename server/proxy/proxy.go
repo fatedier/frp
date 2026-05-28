@@ -92,6 +92,7 @@ type BaseProxy struct {
 	userInfo      plugin.UserInfo
 	loginMsg      *msg.Login
 	configurer    v1.ProxyConfigurer
+	wireProtocol  string
 
 	mu  sync.RWMutex
 	xl  *xlog.Logger
@@ -331,6 +332,7 @@ type Options struct {
 	Configurer         v1.ProxyConfigurer
 	ServerCfg          *v1.ServerConfig
 	EncryptionKey      []byte
+	WireProtocol       string
 }
 
 func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
@@ -357,6 +359,7 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 		userInfo:      options.UserInfo,
 		loginMsg:      options.LoginMsg,
 		configurer:    configurer,
+		wireProtocol:  options.WireProtocol,
 	}
 
 	factory := proxyFactoryRegistry[reflect.TypeOf(configurer)]
