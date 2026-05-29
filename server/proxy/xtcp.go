@@ -16,6 +16,7 @@ package proxy
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"sync"
 
@@ -73,10 +74,7 @@ func (pxy *XTCPProxy) Run() (remoteAddr string, err error) {
 				if errRet != nil {
 					continue
 				}
-				m := &msg.NatHoleSid{
-					Sid: sid,
-				}
-				errRet = msg.WriteMsg(workConn, m)
+				errRet = writeNatHoleSid(workConn, pxy.wireProtocol, sid)
 				if errRet != nil {
 					xl.Warnf("write nat hole sid package error, %v", errRet)
 				}
@@ -85,6 +83,13 @@ func (pxy *XTCPProxy) Run() (remoteAddr string, err error) {
 		}
 	}()
 	return
+}
+
+func writeNatHoleSid(workConn net.Conn, wireProtocol string, sid string) error {
+	workMsgConn := msg.NewConn(workConn, msg.NewReadWriter(workConn, wireProtocol))
+	return workMsgConn.WriteMsg(&msg.NatHoleSid{
+		Sid: sid,
+	})
 }
 
 func (pxy *XTCPProxy) Close() {
