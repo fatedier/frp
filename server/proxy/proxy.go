@@ -16,6 +16,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -31,6 +32,7 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
+	"github.com/fatedier/frp/pkg/proto/wire"
 	"github.com/fatedier/frp/pkg/util/limit"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -316,11 +318,145 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	name := pxy.GetName()
 	proxyType := cfg.Type
 	metrics.Server.OpenConnection(name, proxyType)
-	inCount, outCount, _ := libio.Join(local, userConn)
+	inCount, outCount, _ := pxy.joinUserConnection(local, userConn, proxyType, xl)
 	metrics.Server.CloseConnection(name, proxyType)
 	metrics.Server.AddTrafficIn(name, proxyType, inCount)
 	metrics.Server.AddTrafficOut(name, proxyType, outCount)
 	xl.Debugf("join connections closed")
+}
+
+func (pxy *BaseProxy) joinUserConnection(local io.ReadWriteCloser, userConn net.Conn, proxyType string, xl *xlog.Logger) (int64, int64, []error) {
+	visitorWireProtocol := wireProtocolFromConn(userConn)
+	if proxyType == string(v1.ProxyTypeSUDP) && isMixedWireProtocol(pxy.wireProtocol, visitorWireProtocol) {
+		xl.Infof("bridge mixed SUDP payload codecs, proxy wireProtocol [%s], visitor wireProtocol [%s]",
+			normalizeWireProtocol(pxy.wireProtocol), normalizeWireProtocol(visitorWireProtocol))
+		return joinSUDPMessageBridge(local, userConn, pxy.wireProtocol, visitorWireProtocol, xl)
+	}
+	return libio.Join(local, userConn)
+}
+
+type wireProtocolGetter interface {
+	WireProtocol() string
+}
+
+func wireProtocolFromConn(conn net.Conn) string {
+	if getter, ok := conn.(wireProtocolGetter); ok {
+		return getter.WireProtocol()
+	}
+	return ""
+}
+
+func isMixedWireProtocol(left, right string) bool {
+	return normalizeWireProtocol(left) != normalizeWireProtocol(right)
+}
+
+func normalizeWireProtocol(wireProtocol string) string {
+	if wireProtocol == wire.ProtocolV2 {
+		return wire.ProtocolV2
+	}
+	return wire.ProtocolV1
+}
+
+func joinSUDPMessageBridge(
+	proxyConn io.ReadWriteCloser,
+	visitorConn io.ReadWriteCloser,
+	proxyWireProtocol string,
+	visitorWireProtocol string,
+	xl *xlog.Logger,
+) (inCount int64, outCount int64, errs []error) {
+	// The mixed bridge decodes and re-encodes messages, so raw framed byte counts
+	// are not available. Count UDP payload bytes and ignore heartbeat traffic.
+	proxyRW := msg.NewReadWriter(proxyConn, proxyWireProtocol)
+	visitorRW := msg.NewReadWriter(visitorConn, visitorWireProtocol)
+
+	var (
+		once       sync.Once
+		wait       sync.WaitGroup
+		recordErrs = make([]error, 2)
+	)
+	closeBoth := func() {
+		_ = proxyConn.Close()
+		_ = visitorConn.Close()
+	}
+
+	wait.Add(2)
+	go func() {
+		defer wait.Done()
+		defer once.Do(closeBoth)
+		recordErrs[0] = bridgeSUDPProxyToVisitor(proxyRW, visitorRW, &outCount, xl)
+	}()
+	go func() {
+		defer wait.Done()
+		defer once.Do(closeBoth)
+		recordErrs[1] = bridgeSUDPVisitorToProxy(visitorRW, proxyRW, &inCount, xl)
+	}()
+	wait.Wait()
+
+	for _, err := range recordErrs {
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return
+}
+
+func bridgeSUDPProxyToVisitor(from msg.ReadWriter, to msg.ReadWriter, count *int64, xl *xlog.Logger) error {
+	for {
+		rawMsg, err := from.ReadMsg()
+		if err != nil {
+			return normalizeSUDPBridgeError(err)
+		}
+
+		switch m := rawMsg.(type) {
+		case *msg.UDPPacket:
+			if err := to.WriteMsg(m); err != nil {
+				return normalizeSUDPBridgeError(err)
+			}
+			*count += int64(len(m.Content))
+		case *msg.Ping:
+			traceSUDPBridge(xl, "bridge SUDP ping from proxy to visitor")
+			if err := to.WriteMsg(m); err != nil {
+				return normalizeSUDPBridgeError(err)
+			}
+		default:
+			return fmt.Errorf("unexpected SUDP proxy message %T", rawMsg)
+		}
+	}
+}
+
+func bridgeSUDPVisitorToProxy(from msg.ReadWriter, to msg.ReadWriter, count *int64, xl *xlog.Logger) error {
+	for {
+		rawMsg, err := from.ReadMsg()
+		if err != nil {
+			return normalizeSUDPBridgeError(err)
+		}
+
+		switch m := rawMsg.(type) {
+		case *msg.UDPPacket:
+			if err := to.WriteMsg(m); err != nil {
+				return normalizeSUDPBridgeError(err)
+			}
+			*count += int64(len(m.Content))
+		case *msg.Ping:
+			traceSUDPBridge(xl, "drop SUDP ping from visitor to proxy")
+			continue
+		default:
+			return fmt.Errorf("unexpected SUDP visitor message %T", rawMsg)
+		}
+	}
+}
+
+func normalizeSUDPBridgeError(err error) error {
+	if err == nil || errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
+		return nil
+	}
+	return err
+}
+
+func traceSUDPBridge(xl *xlog.Logger, format string, args ...any) {
+	if xl != nil {
+		xl.Tracef(format, args...)
+	}
 }
 
 type Options struct {

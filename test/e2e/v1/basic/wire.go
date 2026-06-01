@@ -98,6 +98,73 @@ var _ = ginkgo.Describe("[Feature: WireProtocol]", func() {
 		framework.NewRequestExpect(f).PortName(bindPortName).Ensure()
 	})
 
+	for _, tc := range []struct {
+		name               string
+		proxyWireConfig    string
+		visitorWireConfig  string
+		extraProxyConfig   string
+		extraVisitorConfig string
+	}{
+		{
+			name: "default sudp visitor",
+		},
+		{
+			name:              "v2 sudp visitor",
+			proxyWireConfig:   `transport.wireProtocol = "v2"`,
+			visitorWireConfig: `transport.wireProtocol = "v2"`,
+		},
+		{
+			name:              "mixed sudp proxy v1 visitor v2",
+			proxyWireConfig:   `transport.wireProtocol = "v1"`,
+			visitorWireConfig: `transport.wireProtocol = "v2"`,
+			extraProxyConfig: `
+			transport.useEncryption = true
+			transport.useCompression = true
+			`,
+			extraVisitorConfig: `
+			transport.useEncryption = true
+			transport.useCompression = true
+			`,
+		},
+		{
+			name:              "mixed sudp proxy v2 visitor v1",
+			proxyWireConfig:   `transport.wireProtocol = "v2"`,
+			visitorWireConfig: `transport.wireProtocol = "v1"`,
+		},
+	} {
+		ginkgo.It(tc.name, func() {
+			serverConf := consts.DefaultServerConfig
+			bindPortName := port.GenName("WireSUDP")
+			clientServerConf := consts.DefaultClientConfig + fmt.Sprintf(`
+			user = "user1"
+			%s
+
+			[[proxies]]
+			name = "sudp"
+			type = "sudp"
+			secretKey = "abc"
+			localPort = {{ .%s }}
+			%s
+			`, tc.proxyWireConfig, framework.UDPEchoServerPort, tc.extraProxyConfig)
+			clientVisitorConf := consts.DefaultClientConfig + fmt.Sprintf(`
+			user = "user1"
+			%s
+
+			[[visitors]]
+			name = "sudp-visitor"
+			type = "sudp"
+			serverName = "sudp"
+			secretKey = "abc"
+			bindPort = {{ .%s }}
+			%s
+			`, tc.visitorWireConfig, bindPortName, tc.extraVisitorConfig)
+
+			f.RunProcesses(serverConf, []string{clientServerConf, clientVisitorConf})
+
+			framework.NewRequestExpect(f).Protocol("udp").PortName(bindPortName).Ensure()
+		})
+	}
+
 	ginkgo.It("reports client wire protocol", func() {
 		webPort := f.AllocPort()
 		serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
