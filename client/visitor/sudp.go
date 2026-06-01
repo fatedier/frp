@@ -113,15 +113,16 @@ func (sv *SUDPVisitor) dispatcher() {
 func (sv *SUDPVisitor) worker(workConn net.Conn, firstPacket *msg.UDPPacket) {
 	xl := xlog.FromContextSafe(sv.ctx)
 	xl.Debugf("starting sudp proxy worker")
+	payloadConn := msg.NewConn(workConn, msg.NewReadWriter(workConn, sv.clientCfg.Transport.WireProtocol))
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 	closeCh := make(chan struct{})
 
 	// udp service -> frpc -> frps -> frpc visitor -> user
-	workConnReaderFn := func(conn net.Conn) {
+	workConnReaderFn := func(payloadConn *msg.Conn) {
 		defer func() {
-			conn.Close()
+			payloadConn.Close()
 			close(closeCh)
 			wg.Done()
 		}()
@@ -133,13 +134,13 @@ func (sv *SUDPVisitor) worker(workConn net.Conn, firstPacket *msg.UDPPacket) {
 			)
 
 			// frpc will send heartbeat in workConn to frpc visitor for keeping alive
-			_ = conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-			if rawMsg, errRet = msg.ReadMsg(conn); errRet != nil {
+			_ = payloadConn.SetReadDeadline(time.Now().Add(60 * time.Second))
+			if rawMsg, errRet = payloadConn.ReadMsg(); errRet != nil {
 				xl.Warnf("read from workconn for user udp conn error: %v", errRet)
 				return
 			}
 
-			_ = conn.SetReadDeadline(time.Time{})
+			_ = payloadConn.SetReadDeadline(time.Time{})
 			switch m := rawMsg.(type) {
 			case *msg.Ping:
 				xl.Debugf("frpc visitor get ping message from frpc")
@@ -157,15 +158,15 @@ func (sv *SUDPVisitor) worker(workConn net.Conn, firstPacket *msg.UDPPacket) {
 	}
 
 	// udp service <- frpc <- frps <- frpc visitor <- user
-	workConnSenderFn := func(conn net.Conn) {
+	workConnSenderFn := func(payloadConn *msg.Conn) {
 		defer func() {
-			conn.Close()
+			payloadConn.Close()
 			wg.Done()
 		}()
 
 		var errRet error
 		if firstPacket != nil {
-			if errRet = msg.WriteMsg(conn, firstPacket); errRet != nil {
+			if errRet = payloadConn.WriteMsg(firstPacket); errRet != nil {
 				xl.Warnf("sender goroutine for udp work connection closed: %v", errRet)
 				return
 			}
@@ -180,7 +181,7 @@ func (sv *SUDPVisitor) worker(workConn net.Conn, firstPacket *msg.UDPPacket) {
 					return
 				}
 
-				if errRet = msg.WriteMsg(conn, udpMsg); errRet != nil {
+				if errRet = payloadConn.WriteMsg(udpMsg); errRet != nil {
 					xl.Warnf("sender goroutine for udp work connection closed: %v", errRet)
 					return
 				}
@@ -191,8 +192,8 @@ func (sv *SUDPVisitor) worker(workConn net.Conn, firstPacket *msg.UDPPacket) {
 		}
 	}
 
-	go workConnReaderFn(workConn)
-	go workConnSenderFn(workConn)
+	go workConnReaderFn(payloadConn)
+	go workConnSenderFn(payloadConn)
 
 	wg.Wait()
 	xl.Infof("sudp worker is closed")
