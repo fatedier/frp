@@ -112,6 +112,8 @@ type SessionContext struct {
 	ServerCfg *v1.ServerConfig
 	// client registry
 	ClientRegistry *registry.ClientRegistry
+	// negotiated wire protocol for this client session
+	WireProtocol string
 }
 
 type Control struct {
@@ -452,6 +454,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		Configurer:         pxyConf,
 		ServerCfg:          ctl.sessionCtx.ServerCfg,
 		EncryptionKey:      ctl.sessionCtx.EncryptionKey,
+		WireProtocol:       ctl.sessionCtx.WireProtocol,
 	})
 	if err != nil {
 		return remoteAddr, err
