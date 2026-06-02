@@ -318,13 +318,31 @@ func matchV2ClientQuery(item model.ClientInfoResp, q string) bool {
 }
 
 func matchV2ProxyQuery(item model.V2ProxyResp, q string) bool {
-	return containsV2Query(q,
+	values := []string{
 		item.Name,
 		item.Type,
 		item.User,
 		item.ClientID,
 		item.Status.State,
-	)
+	}
+
+	switch spec := item.Spec.(type) {
+	case *model.TCPOutConf:
+		values = append(values, strconv.Itoa(spec.RemotePort))
+	case *model.UDPOutConf:
+		values = append(values, strconv.Itoa(spec.RemotePort))
+	case *model.HTTPOutConf:
+		values = append(values, spec.CustomDomains...)
+		values = append(values, spec.SubDomain)
+	case *model.HTTPSOutConf:
+		values = append(values, spec.CustomDomains...)
+		values = append(values, spec.SubDomain)
+	case *model.TCPMuxOutConf:
+		values = append(values, spec.CustomDomains...)
+		values = append(values, spec.SubDomain)
+	}
+
+	return containsV2Query(q, values...)
 }
 
 func containsV2Query(q string, values ...string) bool {
