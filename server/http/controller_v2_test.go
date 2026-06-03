@@ -193,6 +193,86 @@ func TestAPIV2ProxyListDetailAndUsers(t *testing.T) {
 	}
 }
 
+func TestMatchV2ProxyQueryMatchesSpecFields(t *testing.T) {
+	tests := []struct {
+		name string
+		item model.V2ProxyResp
+		q    string
+		want bool
+	}{
+		{
+			name: "tcp remote port",
+			item: model.V2ProxyResp{Name: "tcp-proxy", Type: "tcp", Spec: &model.TCPOutConf{
+				RemotePort: 6000,
+			}},
+			q:    "6000",
+			want: true,
+		},
+		{
+			name: "udp remote port",
+			item: model.V2ProxyResp{Name: "udp-proxy", Type: "udp", Spec: &model.UDPOutConf{
+				RemotePort: 7000,
+			}},
+			q:    "7000",
+			want: true,
+		},
+		{
+			name: "remote port does not match colon form",
+			item: model.V2ProxyResp{Name: "tcp-proxy", Type: "tcp", Spec: &model.TCPOutConf{
+				RemotePort: 6000,
+			}},
+			q:    ":6000",
+			want: false,
+		},
+		{
+			name: "http custom domain",
+			item: model.V2ProxyResp{Name: "http-proxy", Type: "http", Spec: &model.HTTPOutConf{
+				DomainConfig: v1.DomainConfig{CustomDomains: []string{"app.example.com"}},
+			}},
+			q:    "app.example.com",
+			want: true,
+		},
+		{
+			name: "https subdomain",
+			item: model.V2ProxyResp{Name: "https-proxy", Type: "https", Spec: &model.HTTPSOutConf{
+				DomainConfig: v1.DomainConfig{SubDomain: "portal"},
+			}},
+			q:    "portal",
+			want: true,
+		},
+		{
+			name: "subdomain does not match expanded host",
+			item: model.V2ProxyResp{Name: "https-proxy", Type: "https", Spec: &model.HTTPSOutConf{
+				DomainConfig: v1.DomainConfig{SubDomain: "portal"},
+			}},
+			q:    "portal.example.com",
+			want: false,
+		},
+		{
+			name: "tcpmux custom domain",
+			item: model.V2ProxyResp{Name: "tcpmux-proxy", Type: "tcpmux", Spec: &model.TCPMuxOutConf{
+				DomainConfig: v1.DomainConfig{CustomDomains: []string{"mux.example.com"}},
+			}},
+			q:    "mux.example.com",
+			want: true,
+		},
+		{
+			name: "nil spec does not match spec fields",
+			item: model.V2ProxyResp{Name: "offline-proxy", Type: "tcp", Spec: nil},
+			q:    "6000",
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := matchV2ProxyQuery(tt.item, tt.q); got != tt.want {
+				t.Fatalf("matchV2ProxyQuery() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestLegacyAPIResponsesRemainBare(t *testing.T) {
 	controller := newV2TestController(t)
 	router := newV2TestRouter(controller)
