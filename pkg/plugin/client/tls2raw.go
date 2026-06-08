@@ -72,6 +72,14 @@ func (p *TLS2RawPlugin) Handle(ctx context.Context, connInfo *ConnectionInfo) {
 		return
 	}
 
+	if connInfo.ProxyProtocolHeader != nil {
+		if _, err := connInfo.ProxyProtocolHeader.WriteTo(rawConn); err != nil {
+			xl.Warnf("tls2raw write proxy protocol header to local conn error: %v", err)
+			_ = rawConn.Close()
+			return
+		}
+	}
+
 	libio.Join(tlsConn, rawConn)
 }
 
