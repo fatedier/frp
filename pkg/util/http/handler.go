@@ -26,6 +26,12 @@ type GeneralResponse struct {
 	Msg  string
 }
 
+type V2Response struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+	Data any    `json:"data"`
+}
+
 // APIHandler is a handler function that returns a response object or an error.
 type APIHandler func(ctx *Context) (any, error)
 
@@ -62,5 +68,29 @@ func MakeHTTPHandlerFunc(handler APIHandler) http.HandlerFunc {
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(v)
 		}
+	}
+}
+
+// MakeHTTPHandlerFuncV2 wraps a handler response in the dashboard API v2 envelope.
+func MakeHTTPHandlerFuncV2(handler APIHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := NewContext(w, r)
+		res, err := handler(ctx)
+		if err != nil {
+			log.Warnf("http response [%s]: error: %v", r.URL.Path, err)
+			code := http.StatusInternalServerError
+			if e, ok := err.(*Error); ok {
+				code = e.Code
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(code)
+			_ = json.NewEncoder(w).Encode(V2Response{Code: code, Msg: err.Error(), Data: nil})
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(V2Response{Code: http.StatusOK, Msg: "success", Data: res})
 	}
 }

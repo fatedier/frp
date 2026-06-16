@@ -13,3 +13,13 @@ export interface ClientInfoData {
   disconnectedAt?: number
   online: boolean
 }
+
+export interface ClientListV2Params {
+  page?: number
+  pageSize?: number
+  status?: 'all' | 'online' | 'offline'
+  q?: string
+  user?: string
+  clientID?: string
+  runID?: string
+}

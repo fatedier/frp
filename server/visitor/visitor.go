@@ -65,6 +65,7 @@ func (vm *Manager) Listen(name string, sk string, allowUsers []string) (*netpkg.
 
 func (vm *Manager) NewConn(name string, conn net.Conn, timestamp int64, signKey string,
 	useEncryption bool, useCompression bool, visitorUser string,
+	wireProtocol string,
 ) (err error) {
 	vm.mu.RLock()
 	defer vm.mu.RUnlock()
@@ -90,12 +91,25 @@ func (vm *Manager) NewConn(name string, conn net.Conn, timestamp int64, signKey 
 		if useCompression {
 			rwc = libio.WithCompression(rwc)
 		}
-		err = l.l.PutConn(netpkg.WrapReadWriteCloserToConn(rwc, conn))
+		visitorConn := netpkg.WrapReadWriteCloserToConn(rwc, conn)
+		err = l.l.PutConn(&wireProtocolConn{
+			Conn:         visitorConn,
+			wireProtocol: wireProtocol,
+		})
 	} else {
 		err = fmt.Errorf("custom listener for [%s] doesn't exist", name)
 		return
 	}
 	return
+}
+
+type wireProtocolConn struct {
+	net.Conn
+	wireProtocol string
+}
+
+func (c *wireProtocolConn) WireProtocol() string {
+	return c.wireProtocol
 }
 
 func (vm *Manager) CloseListener(name string) {

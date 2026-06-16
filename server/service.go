@@ -508,7 +508,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 			conn.Close()
 		}
 	case *msg.NewVisitorConn:
-		if err = svr.RegisterVisitorConn(conn, m); err != nil {
+		if err = svr.RegisterVisitorConn(conn, m, acceptedConn.wireProtocol); err != nil {
 			xl.Warnf("register visitor conn error: %v", err)
 			_ = acceptedConn.conn.WriteMsg(&msg.NewVisitorConnResp{
 				ProxyName: m.ProxyName,
@@ -777,6 +777,7 @@ func (svr *Service) RegisterControl(
 		LoginMsg:       loginMsg,
 		ServerCfg:      svr.cfg,
 		ClientRegistry: svr.clientRegistry,
+		WireProtocol:   wireProtocol,
 	})
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
@@ -832,7 +833,7 @@ func (svr *Service) RegisterWorkConn(workConn *msg.Conn, newMsg *msg.NewWorkConn
 	return ctl.RegisterWorkConn(proxy.NewWorkConn(workConn))
 }
 
-func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVisitorConn) error {
+func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVisitorConn, wireProtocol string) error {
 	visitorUser := ""
 	// TODO(deprecation): Compatible with old versions, can be without runID, user is empty. In later versions, it will be mandatory to include runID.
 	// If runID is required, it is not compatible with versions prior to v0.50.0.
@@ -844,5 +845,5 @@ func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVis
 		visitorUser = ctl.sessionCtx.LoginMsg.User
 	}
 	return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
-		newMsg.UseEncryption, newMsg.UseCompression, visitorUser)
+		newMsg.UseEncryption, newMsg.UseCompression, visitorUser, wireProtocol)
 }
