@@ -23,14 +23,15 @@ import (
 )
 
 type compatTestContext struct {
-	CurrentFRPSPath   string
-	CurrentFRPCPath   string
-	BaselineFRPSPath  string
-	BaselineFRPCPath  string
-	BaselineVersion   string
-	LogLevel          string
-	Debug             bool
-	RunCurrentCurrent bool
+	CurrentFRPSPath      string
+	CurrentFRPCPath      string
+	BaselineFRPSPath     string
+	BaselineFRPCPath     string
+	BaselineVersion      string
+	BaselineConfigFormat string
+	LogLevel             string
+	Debug                bool
+	RunCurrentCurrent    bool
 }
 
 var compatCtx compatTestContext
@@ -41,6 +42,7 @@ func registerFlags(flags *flag.FlagSet) {
 	flags.StringVar(&compatCtx.BaselineFRPSPath, "baseline-frps-path", "", "The baseline frps binary to use.")
 	flags.StringVar(&compatCtx.BaselineFRPCPath, "baseline-frpc-path", "", "The baseline frpc binary to use.")
 	flags.StringVar(&compatCtx.BaselineVersion, "baseline-version", "custom", "The baseline version label for reporting.")
+	flags.StringVar(&compatCtx.BaselineConfigFormat, "baseline-config-format", "toml", "Baseline binary config format: toml (modern) or ini (legacy).")
 	flags.StringVar(&compatCtx.LogLevel, "log-level", "debug", "Log level.")
 	flags.BoolVar(&compatCtx.Debug, "debug", false, "Enable debug mode to print detailed info.")
 	flags.BoolVar(&compatCtx.RunCurrentCurrent, "run-current-current", true, "Run current frps/current frpc sanity checks.")
@@ -133,7 +135,7 @@ webServer.port = %d
 `, webPort)
 
 		portName := port.GenName("CompatBaselineFRPC")
-		clientConf := tcpClientConfig("tcp", portName, "")
+		clientConf := baselineClientConfig("tcp", portName, "")
 
 		f.RunProcessesWithBinaries(
 			compatCtx.CurrentFRPSPath,
@@ -206,6 +208,33 @@ type = "tcp"
 localPort = {{ .%s }}
 remotePort = {{ .%s }}
 `, consts.PortServerName, extra, proxyName, framework.TCPEchoServerPort, remotePortName)
+}
+
+// tcpClientConfigLegacy renders an INI ([common]) config for baseline frpc binaries
+// that predate the modern TOML/YAML config format (frp <= 0.5x, e.g. 0.38).
+func tcpClientConfigLegacy(proxyName string, remotePortName string, extra string) string {
+	return fmt.Sprintf(`
+[common]
+server_addr = 127.0.0.1
+server_port = {{ .%s }}
+login_fail_exit = true
+log_level = trace
+%s
+
+[%s]
+type = tcp
+local_ip = 127.0.0.1
+local_port = {{ .%s }}
+remote_port = {{ .%s }}
+`, consts.PortServerName, extra, proxyName, framework.TCPEchoServerPort, remotePortName)
+}
+
+// baselineClientConfig picks the config dialect that the baseline frpc binary understands.
+func baselineClientConfig(proxyName string, remotePortName string, extra string) string {
+	if compatCtx.BaselineConfigFormat == "ini" {
+		return tcpClientConfigLegacy(proxyName, remotePortName, extra)
+	}
+	return tcpClientConfig(proxyName, remotePortName, extra)
 }
 
 func expectProcessExit(p *process.Process, timeout time.Duration) {
