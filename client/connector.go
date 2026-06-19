@@ -18,6 +18,8 @@ import (
 	"context"
 	"crypto/tls"
 	"net"
+	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,6 +29,7 @@ import (
 	fmux "github.com/hashicorp/yamux"
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
+	"golang.org/x/net/http/httpproxy"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
@@ -205,7 +208,12 @@ func (c *defaultConnectorImpl) realConnect() (net.Conn, error) {
 		}
 	}
 
-	proxyType, addr, auth, err := libnet.ParseProxyURL(c.cfg.Transport.ProxyURL)
+	serverAddr := net.JoinHostPort(c.cfg.ServerAddr, strconv.Itoa(c.cfg.ServerPort))
+	noProxy := os.Getenv("NO_PROXY")
+	if noProxy == "" {
+		noProxy = os.Getenv("no_proxy")
+	}
+	proxyType, addr, auth, err := libnet.ParseProxyURL(proxyURLForServer(c.cfg.Transport.ProxyURL, serverAddr, noProxy))
 	if err != nil {
 		xl.Errorf("fail to parse proxy url")
 		return nil, err
@@ -244,10 +252,37 @@ func (c *defaultConnectorImpl) realConnect() (net.Conn, error) {
 	)
 	conn, err := libnet.DialContext(
 		c.ctx,
-		net.JoinHostPort(c.cfg.ServerAddr, strconv.Itoa(c.cfg.ServerPort)),
+		serverAddr,
 		dialOptions...,
 	)
 	return conn, err
+}
+
+// proxyURLForServer decides which proxy (if any) frpc should use to reach the
+// server. rawProxyURL is the configured proxy (which may itself default to the
+// http_proxy environment variable). It returns "" when the server should be
+// reached directly because serverAddr is excluded by the no_proxy rules, which
+// also implicitly exempt localhost and loopback addresses. This mirrors how
+// other tools that honor http_proxy behave; previously frpc honored http_proxy
+// but ignored no_proxy.
+func proxyURLForServer(rawProxyURL, serverAddr, noProxy string) string {
+	if rawProxyURL == "" {
+		return ""
+	}
+	// Only the no_proxy matching (including the built-in localhost/loopback
+	// exemptions) is evaluated here; the placeholder proxy values just let
+	// ProxyFunc report whether serverAddr is excluded. The proxy actually used
+	// for dialing is rawProxyURL.
+	cfg := httpproxy.Config{
+		HTTPProxy:  "http://proxy.invalid",
+		HTTPSProxy: "http://proxy.invalid",
+		NoProxy:    noProxy,
+	}
+	used, err := cfg.ProxyFunc()(&url.URL{Scheme: "http", Host: serverAddr})
+	if err == nil && used == nil {
+		return ""
+	}
+	return rawProxyURL
 }
 
 func (c *defaultConnectorImpl) Close() error {
