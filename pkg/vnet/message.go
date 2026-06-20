@@ -18,11 +18,16 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+
+	"github.com/fatedier/golib/pool"
 )
 
 // Maximum message size
 const (
 	maxMessageSize = 1024 * 1024 // 1MB
+
+	// headerSize is the size of the length prefix in front of every message.
+	headerSize = 4
 )
 
 // Format: [length(4 bytes)][data(length bytes)]
@@ -30,11 +35,11 @@ const (
 // ReadMessage reads a framed message from the reader
 func ReadMessage(r io.Reader) ([]byte, error) {
 	// Read length (4 bytes)
-	var length uint32
-	err := binary.Read(r, binary.LittleEndian, &length)
-	if err != nil {
+	var header [headerSize]byte
+	if _, err := io.ReadFull(r, header[:]); err != nil {
 		return nil, fmt.Errorf("read message length error: %w", err)
 	}
+	length := binary.LittleEndian.Uint32(header[:])
 
 	// Check length to prevent DoS
 	if length == 0 {
@@ -46,7 +51,7 @@ func ReadMessage(r io.Reader) ([]byte, error) {
 
 	// Read message data
 	data := make([]byte, length)
-	_, err = io.ReadFull(r, data)
+	_, err := io.ReadFull(r, data)
 	if err != nil {
 		return nil, fmt.Errorf("read message data error: %w", err)
 	}
@@ -65,16 +70,14 @@ func WriteMessage(w io.Writer, data []byte) error {
 		return fmt.Errorf("message too large: %d > %d", length, maxMessageSize)
 	}
 
-	// Write length
-	err := binary.Write(w, binary.LittleEndian, length)
-	if err != nil {
-		return fmt.Errorf("write message length error: %w", err)
-	}
+	buf := pool.GetBuf(headerSize + len(data))
+	defer pool.PutBuf(buf)
 
-	// Write message data
-	_, err = w.Write(data)
-	if err != nil {
-		return fmt.Errorf("write message data error: %w", err)
+	binary.LittleEndian.PutUint32(buf[:headerSize], length)
+	copy(buf[headerSize:headerSize+len(data)], data)
+
+	if _, err := w.Write(buf[:headerSize+len(data)]); err != nil {
+		return fmt.Errorf("write message error: %w", err)
 	}
 
 	return nil
