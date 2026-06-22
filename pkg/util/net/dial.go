@@ -45,6 +45,11 @@ func DialHookWebsocket(protocol string, host string) libnet.AfterHookFunc {
 		if err != nil {
 			return nil, nil, err
 		}
+		// The tunnel payload is a raw byte stream (yamux), not UTF-8 text.
+		// Send it as binary frames; otherwise RFC 6455-compliant intermediaries
+		// (e.g. API gateways/reverse proxies) UTF-8-validate the default text
+		// frames and close the connection on invalid bytes.
+		conn.PayloadType = websocket.BinaryFrame
 		return ctx, conn, nil
 	}
 }
