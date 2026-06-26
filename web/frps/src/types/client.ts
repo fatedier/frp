@@ -12,6 +12,13 @@ export interface ClientInfoData {
   lastConnectedAt: number
   disconnectedAt?: number
   online: boolean
+  status?: ClientStatus
+}
+
+export interface ClientStatus {
+  phase: 'online' | 'offline'
+  curConns: number
+  proxyCount: number
 }
 
 export interface ClientListV2Params {

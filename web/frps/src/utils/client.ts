@@ -1,5 +1,5 @@
 import { formatDistanceToNow } from './format'
-import type { ClientInfoData } from '../types/client'
+import type { ClientInfoData, ClientStatus } from '../types/client'
 
 export class Client {
   key: string
@@ -15,6 +15,7 @@ export class Client {
   lastConnectedAt: Date
   disconnectedAt?: Date
   online: boolean
+  status: ClientStatus
 
   constructor(data: ClientInfoData) {
     this.key = data.key
@@ -37,6 +38,11 @@ export class Client {
       this.disconnectedAt = new Date(data.disconnectedAt * 1000)
     }
     this.online = data.online
+    this.status = data.status || {
+      phase: this.online ? 'online' : 'offline',
+      curConns: 0,
+      proxyCount: 0,
+    }
   }
 
   get displayName(): string {
