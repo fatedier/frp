@@ -24,3 +24,7 @@ export const getClientsV2 = (params: ClientListV2Params = {}) => {
 export const getClient = (key: string) => {
   return http.get<ClientInfoData>(`../api/clients/${key}`)
 }
+
+export const getClientV2 = (key: string) => {
+  return http.getV2<ClientInfoData>(`../api/v2/clients/${key}`)
+}

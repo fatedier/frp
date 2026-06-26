@@ -27,6 +27,7 @@ import (
 	"github.com/fatedier/frp/pkg/metrics/mem"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/server/http/model"
+	"github.com/fatedier/frp/server/registry"
 )
 
 const (
@@ -137,7 +138,26 @@ func (c *Controller) APIV2ClientList(ctx *httppkg.Context) (any, error) {
 
 // /api/v2/clients/{key}
 func (c *Controller) APIV2ClientDetail(ctx *httppkg.Context) (any, error) {
-	return c.APIClientDetail(ctx)
+	key := ctx.Param("key")
+	if key == "" {
+		return nil, fmt.Errorf("missing client key")
+	}
+
+	if c.clientRegistry == nil {
+		return nil, fmt.Errorf("client registry unavailable")
+	}
+
+	info, ok := c.clientRegistry.GetByKey(key)
+	if !ok {
+		return nil, httppkg.NewError(http.StatusNotFound, fmt.Sprintf("client %s not found", key))
+	}
+
+	resp := buildClientInfoResp(info)
+	status := c.buildV2ClientStatus(info)
+	return model.V2ClientDetailResp{
+		ClientInfoResp: resp,
+		Status:         status,
+	}, nil
 }
 
 // /api/v2/proxies
@@ -364,6 +384,24 @@ func (c *Controller) listV2ProxyStats(proxyType string) []*mem.ProxyStats {
 		items = append(items, mem.StatsCollector.GetProxiesByType(t)...)
 	}
 	return items
+}
+
+func (c *Controller) buildV2ClientStatus(info registry.ClientInfo) model.V2ClientStatusResp {
+	status := model.V2ClientStatusResp{State: "offline"}
+	if info.Online {
+		status.State = "online"
+	}
+
+	user := info.User
+	clientID := info.ClientID()
+	for _, ps := range c.listV2ProxyStats("") {
+		if ps.User != user || ps.ClientID != clientID {
+			continue
+		}
+		status.CurConns += ps.CurConns
+		status.ProxyCount++
+	}
+	return status
 }
 
 func (c *Controller) buildV2ProxyResp(ps *mem.ProxyStats) model.V2ProxyResp {

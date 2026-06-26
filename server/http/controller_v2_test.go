@@ -146,9 +146,12 @@ func TestAPIV2ClientDetailEnvelope(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("status mismatch, want %d got %d", http.StatusOK, resp.Code)
 	}
-	detailResp := decodeResponse[v2EnvelopeForTest[model.ClientInfoResp]](t, resp)
+	detailResp := decodeResponse[v2EnvelopeForTest[model.V2ClientDetailResp]](t, resp)
 	if detailResp.Data.User != "alice" || detailResp.Data.ClientID != "client-a" {
 		t.Fatalf("client detail mismatch: %#v", detailResp.Data)
+	}
+	if detailResp.Data.Status.State != "online" || detailResp.Data.Status.CurConns != 5 || detailResp.Data.Status.ProxyCount != 2 {
+		t.Fatalf("client detail status mismatch: %#v", detailResp.Data.Status)
 	}
 }
 
@@ -186,8 +189,13 @@ func TestAPIV2ProxyListDetailAndUsers(t *testing.T) {
 	if userResp.Data.Total != 3 {
 		t.Fatalf("user total mismatch: %#v", userResp.Data)
 	}
+	expectedProxyCounts := map[string]int{
+		"":      1,
+		"alice": 2,
+		"bob":   1,
+	}
 	for _, item := range userResp.Data.Items {
-		if item.ClientCount != 1 || item.ProxyCount != 1 {
+		if item.ClientCount != 1 || item.ProxyCount != expectedProxyCounts[item.User] {
 			t.Fatalf("user counts mismatch: %#v", item)
 		}
 	}
@@ -322,6 +330,14 @@ func newV2TestController(t *testing.T) *Controller {
 				ClientID:        "client-a",
 				TodayTrafficIn:  30,
 				TodayTrafficOut: 40,
+				CurConns:        2,
+			},
+			"http-alice": {
+				Name:     "http-alice",
+				Type:     "http",
+				User:     "alice",
+				ClientID: "client-a",
+				CurConns: 3,
 			},
 			"udp-bob": {
 				Name:     "udp-bob",
