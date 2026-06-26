@@ -20,6 +20,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -152,6 +153,42 @@ func TestAPIV2ClientDetailEnvelope(t *testing.T) {
 	}
 	if detailResp.Data.Status.State != "online" || detailResp.Data.Status.CurConns != 5 || detailResp.Data.Status.ProxyCount != 2 {
 		t.Fatalf("client detail status mismatch: %#v", detailResp.Data.Status)
+	}
+}
+
+func TestAPIV2ClientDetailEncodedKey(t *testing.T) {
+	oldStatsCollector := mem.StatsCollector
+	mem.StatsCollector = &fakeStatsCollector{
+		proxies: map[string]*mem.ProxyStats{
+			"tcp-url": {
+				Name:     "tcp-url",
+				Type:     "tcp",
+				User:     "url",
+				ClientID: "client/a?b#c",
+				CurConns: 7,
+			},
+		},
+	}
+	t.Cleanup(func() {
+		mem.StatsCollector = oldStatsCollector
+	})
+
+	clientRegistry := registry.NewClientRegistry()
+	clientRegistry.Register("url", "client/a?b#c", "run-url", "url-host", "1.0.0", "127.0.0.4", "v2")
+	controller := NewController(&v1.ServerConfig{}, clientRegistry, serverproxy.NewManager())
+	router := newV2TestRouter(controller)
+
+	encodedKey := url.PathEscape("url.client/a?b#c")
+	resp := performRequest(router, "/api/v2/clients/"+encodedKey)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("encoded client key status mismatch, want %d got %d, body: %s", http.StatusOK, resp.Code, resp.Body.String())
+	}
+	encodedResp := decodeResponse[v2EnvelopeForTest[model.V2ClientDetailResp]](t, resp)
+	if encodedResp.Data.User != "url" || encodedResp.Data.ClientID != "client/a?b#c" {
+		t.Fatalf("encoded client detail mismatch: %#v", encodedResp.Data)
+	}
+	if encodedResp.Data.Status.CurConns != 7 || encodedResp.Data.Status.ProxyCount != 1 {
+		t.Fatalf("encoded client detail status mismatch: %#v", encodedResp.Data.Status)
 	}
 }
 
@@ -364,7 +401,9 @@ func newV2TestRouter(controller *Controller) *mux.Router {
 	router := mux.NewRouter()
 	router.HandleFunc("/api/v2/users", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2UserList)).Methods(http.MethodGet)
 	router.HandleFunc("/api/v2/clients", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ClientList)).Methods(http.MethodGet)
-	router.HandleFunc("/api/v2/clients/{key}", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ClientDetail)).Methods(http.MethodGet)
+	encodedPathRouter := router.NewRoute().Subrouter()
+	encodedPathRouter.UseEncodedPath()
+	encodedPathRouter.HandleFunc("/api/v2/clients/{key}", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ClientDetail)).Methods(http.MethodGet)
 	router.HandleFunc("/api/v2/proxies", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ProxyList)).Methods(http.MethodGet)
 	router.HandleFunc("/api/v2/proxies/{name}", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ProxyDetail)).Methods(http.MethodGet)
 	router.HandleFunc("/api/clients", httppkg.MakeHTTPHandlerFunc(controller.APIClientList)).Methods(http.MethodGet)

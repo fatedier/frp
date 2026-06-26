@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -142,6 +143,11 @@ func (c *Controller) APIV2ClientDetail(ctx *httppkg.Context) (any, error) {
 	if key == "" {
 		return nil, fmt.Errorf("missing client key")
 	}
+	decodedKey, err := url.PathUnescape(key)
+	if err != nil {
+		return nil, fmt.Errorf("invalid client key %q: %w", key, err)
+	}
+	key = decodedKey
 
 	if c.clientRegistry == nil {
 		return nil, fmt.Errorf("client registry unavailable")

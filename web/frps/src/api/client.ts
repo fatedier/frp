@@ -26,5 +26,5 @@ export const getClient = (key: string) => {
 }
 
 export const getClientV2 = (key: string) => {
-  return http.getV2<ClientInfoData>(`../api/v2/clients/${key}`)
+  return http.getV2<ClientInfoData>(`../api/v2/clients/${encodeURIComponent(key)}`)
 }
