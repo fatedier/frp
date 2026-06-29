@@ -32,7 +32,7 @@ export const getProxiesV2 = async (params: ProxyListV2Params = {}) => {
   }
 }
 
-const toLegacyProxyStats = (proxy: ProxyV2Info): ProxyStatsInfo => ({
+export const toLegacyProxyStats = (proxy: ProxyV2Info): ProxyStatsInfo => ({
   name: proxy.name,
   type: proxy.type,
   conf: proxy.spec,
@@ -43,11 +43,18 @@ const toLegacyProxyStats = (proxy: ProxyV2Info): ProxyStatsInfo => ({
   curConns: proxy.status.curConns,
   lastStartTime: proxy.status.lastStartTime,
   lastCloseTime: proxy.status.lastCloseTime,
-  status: proxy.status.phase,
+  status: proxy.status.state || proxy.status.phase || '',
 })
 
 export const getProxy = (type: string, name: string) => {
   return http.get<ProxyStatsInfo>(`../api/proxy/${type}/${name}`)
+}
+
+export const getProxyByNameV2 = async (name: string) => {
+  const proxy = await http.getV2<ProxyV2Info>(
+    `../api/v2/proxies/${encodeURIComponent(name)}`,
+  )
+  return toLegacyProxyStats(proxy)
 }
 
 export const getProxyByName = (name: string) => {

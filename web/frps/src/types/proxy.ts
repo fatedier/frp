@@ -36,7 +36,8 @@ export interface ProxyV2Info {
 }
 
 export interface ProxyV2Status {
-  phase: string
+  state?: string
+  phase?: string
   todayTrafficIn: number
   todayTrafficOut: number
   curConns: number

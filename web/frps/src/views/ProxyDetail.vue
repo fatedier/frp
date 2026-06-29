@@ -241,7 +241,7 @@ import {
   Tickets,
   Location,
 } from '@element-plus/icons-vue'
-import { getProxyByName } from '../api/proxy'
+import { getProxyByNameV2 } from '../api/proxy'
 import { getServerInfo } from '../api/server'
 import {
   BaseProxy,
@@ -365,9 +365,9 @@ const fetchProxy = async () => {
   }
 
   try {
-    const data = await getProxyByName(name)
+    const data = await getProxyByNameV2(name)
     const info = await fetchServerInfo()
-    const type = data.conf?.type || ''
+    const type = data.type || data.conf?.type || ''
 
     if (type === 'tcp') {
       proxy.value = new TCPProxy(data)
