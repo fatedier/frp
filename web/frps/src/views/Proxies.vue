@@ -120,7 +120,7 @@ const proxyTypes = [
   { label: 'SUDP', value: 'sudp' },
 ]
 
-const activeType = ref((route.params.type as string) || 'tcp')
+const activeType = ref((route.params.type as string) || 'all')
 const proxies = ref<BaseProxy[]>([])
 const loading = ref(false)
 const searchText = ref('')
