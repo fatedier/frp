@@ -104,6 +104,12 @@ type ClientTransportConfig struct {
 	// Valid values are "tcp", "kcp", "quic", "websocket" and "wss". By default, this value
 	// is "tcp".
 	Protocol string `json:"protocol,omitempty"`
+	// WebsocketPath specifies the HTTP path used for the websocket handshake when
+	// Protocol is "websocket" or "wss". It must start with "/". This is useful when
+	// frps is placed behind a reverse proxy (e.g. nginx) that routes a specific path
+	// to frps. If this value is "", the default path "/~!frp" is used. The reverse
+	// proxy is responsible for forwarding this path to frps' default "/~!frp" path.
+	WebsocketPath string `json:"websocketPath,omitempty"`
 	// WireProtocol specifies the frpc/frps internal wire protocol version.
 	// Valid values are "v1" and "v2". By default, this value is "v1".
 	WireProtocol string `json:"wireProtocol,omitempty"`

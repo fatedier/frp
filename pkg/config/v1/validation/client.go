@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/samber/lo"
 
@@ -133,6 +134,9 @@ func validateTransportConfig(c *v1.ClientTransportConfig) (Warning, error) {
 	}
 	if !slices.Contains(SupportedWireProtocols, c.WireProtocol) {
 		errs = AppendError(errs, fmt.Errorf("invalid transport.wireProtocol, optional values are %v", SupportedWireProtocols))
+	}
+	if c.WebsocketPath != "" && !strings.HasPrefix(c.WebsocketPath, "/") {
+		errs = AppendError(errs, fmt.Errorf("invalid transport.websocketPath, it must start with \"/\""))
 	}
 	return warnings, errs
 }

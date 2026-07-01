@@ -103,6 +103,12 @@ transport.poolCount = 5
 # supports tcp, kcp, quic, websocket and wss now, default is tcp
 transport.protocol = "tcp"
 
+# HTTP path used for the websocket handshake, only works when protocol is websocket or wss.
+# Must start with "/", default is "/~!frp". Useful when frps is behind a reverse proxy
+# (e.g. nginx) that routes a specific path to frps; the reverse proxy is responsible for
+# forwarding this path to frps' default "/~!frp" path.
+# transport.websocketPath = "/frp"
+
 # FRP wire protocol used inside the selected transport.
 # supports v1 and v2, default is v1. v2 requires frps support and must be enabled explicitly.
 # transport.wireProtocol = "v1"

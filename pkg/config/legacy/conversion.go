@@ -52,6 +52,7 @@ func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConf
 	out.Transport.TCPMux = lo.ToPtr(conf.TCPMux)
 	out.Transport.TCPMuxKeepaliveInterval = conf.TCPMuxKeepaliveInterval
 	out.Transport.Protocol = conf.Protocol
+	out.Transport.WebsocketPath = conf.WebsocketPath
 	out.Transport.HeartbeatInterval = conf.HeartbeatInterval
 	out.Transport.HeartbeatTimeout = conf.HeartbeatTimeout
 	out.Transport.QUIC.KeepalivePeriod = conf.QUICKeepalivePeriod

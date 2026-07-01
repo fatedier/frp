@@ -122,6 +122,11 @@ type ClientCommonConf struct {
 	// Valid values are "tcp", "kcp", "quic", "websocket" and "wss". By default, this value
 	// is "tcp".
 	Protocol string `ini:"protocol" json:"protocol"`
+	// WebsocketPath specifies the HTTP path used for the websocket handshake when
+	// protocol is "websocket" or "wss". It must start with "/". Useful when frps is
+	// placed behind a reverse proxy that routes a specific path to frps. If this value
+	// is "", the default path "/~!frp" is used.
+	WebsocketPath string `ini:"websocket_path" json:"websocket_path"`
 	// QUIC protocol options
 	QUICKeepalivePeriod    int `ini:"quic_keepalive_period" json:"quic_keepalive_period"`
 	QUICMaxIdleTimeout     int `ini:"quic_max_idle_timeout" json:"quic_max_idle_timeout"`
@@ -382,6 +387,10 @@ func (cfg *ClientCommonConf) Validate() error {
 
 	if !slices.Contains([]string{"tcp", "kcp", "quic", "websocket", "wss"}, cfg.Protocol) {
 		return fmt.Errorf("invalid protocol")
+	}
+
+	if cfg.WebsocketPath != "" && !strings.HasPrefix(cfg.WebsocketPath, "/") {
+		return fmt.Errorf("invalid websocket_path, it must start with \"/\"")
 	}
 
 	for _, f := range cfg.IncludeConfigFiles {
