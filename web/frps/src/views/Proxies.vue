@@ -27,36 +27,6 @@
             clearable
             class="main-search"
           />
-
-          <PopoverMenu
-            :model-value="selectedClientKey"
-            :width="220"
-            placement="bottom-end"
-            selectable
-            filterable
-            filter-placeholder="Search clients..."
-            :display-value="selectedClientLabel"
-            clearable
-            class="client-filter"
-            @update:model-value="onClientFilterChange($event as string)"
-          >
-            <template #default="{ filterText }">
-              <PopoverMenuItem value="">All Clients</PopoverMenuItem>
-              <PopoverMenuItem
-                v-if="clientIDFilter && !selectedClientInList"
-                :value="selectedClientKey"
-              >
-                {{ userFilter ? userFilter + '.' : '' }}{{ clientIDFilter }} (not found)
-              </PopoverMenuItem>
-              <PopoverMenuItem
-                v-for="client in filteredClientOptions(filterText)"
-                :key="client.key"
-                :value="client.key"
-              >
-                {{ client.label }}
-              </PopoverMenuItem>
-            </template>
-          </PopoverMenu>
         </div>
 
         <div class="type-tabs">
@@ -111,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElPagination } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
@@ -128,15 +98,11 @@ import {
   SUDPProxy,
 } from '../utils/proxy'
 import ProxyCard from '../components/ProxyCard.vue'
-import PopoverMenu from '@shared/components/PopoverMenu.vue'
-import PopoverMenuItem from '@shared/components/PopoverMenuItem.vue'
 import {
   getProxiesV2,
   clearOfflineProxies as apiClearOfflineProxies,
 } from '../api/proxy'
 import { getServerInfo } from '../api/server'
-import { getClientsV2 } from '../api/client'
-import { Client } from '../utils/client'
 import type { ProxyStatsInfo } from '../types/proxy'
 
 const route = useRoute()
@@ -154,103 +120,16 @@ const proxyTypes = [
   { label: 'SUDP', value: 'sudp' },
 ]
 
-const activeType = ref((route.params.type as string) || 'tcp')
+const activeType = ref((route.params.type as string) || 'all')
 const proxies = ref<BaseProxy[]>([])
-const clients = ref<Client[]>([])
 const loading = ref(false)
 const searchText = ref('')
 const showClearDialog = ref(false)
-const clientIDFilter = ref((route.query.clientID as string) || '')
-const userFilter = ref((route.query.user as string) || '')
 const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
-const maxV2PageSize = 100
 let requestSeq = 0
 let searchDebounceTimer: number | null = null
-
-const clientOptions = computed(() => {
-  return clients.value
-    .map((c) => ({
-      key: c.key,
-      clientID: c.clientID,
-      user: c.user,
-      label: c.user ? `${c.user}.${c.clientID}` : c.clientID,
-    }))
-    .sort((a, b) => a.label.localeCompare(b.label))
-})
-
-// Compute selected client key for el-select v-model
-const selectedClientKey = computed(() => {
-  if (!clientIDFilter.value) return ''
-  const client = clientOptions.value.find(
-    (c) => c.clientID === clientIDFilter.value && c.user === userFilter.value,
-  )
-  // Return a synthetic key even if not found, so the select shows the filter is active
-  return client?.key || `${userFilter.value}:${clientIDFilter.value}`
-})
-
-const selectedClientLabel = computed(() => {
-  if (!clientIDFilter.value) return 'All Clients'
-  const client = clientOptions.value.find(
-    (c) => c.clientID === clientIDFilter.value && c.user === userFilter.value,
-  )
-  return client?.label || `${userFilter.value ? userFilter.value + '.' : ''}${clientIDFilter.value}`
-})
-
-const filteredClientOptions = (filterText: string) => {
-  if (!filterText) return clientOptions.value
-  const search = filterText.toLowerCase()
-  return clientOptions.value.filter((c) => c.label.toLowerCase().includes(search))
-}
-
-// Check if the filtered client exists in the client list
-const selectedClientInList = computed(() => {
-  if (!clientIDFilter.value) return true
-  return clientOptions.value.some(
-    (c) => c.clientID === clientIDFilter.value && c.user === userFilter.value,
-  )
-})
-
-const onClientFilterChange = (key: string) => {
-  if (key) {
-    const client = clientOptions.value.find((c) => c.key === key)
-    if (client) {
-      router.replace({
-        query: { ...route.query, clientID: client.clientID, user: client.user },
-      })
-    }
-  } else {
-    const query = { ...route.query }
-    delete query.clientID
-    delete query.user
-    router.replace({ query })
-  }
-}
-
-const fetchClients = async () => {
-  try {
-    const allClients: Client[] = []
-    let nextPage = 1
-    let totalClients = 0
-
-    do {
-      const data = await getClientsV2({
-        page: nextPage,
-        pageSize: maxV2PageSize,
-      })
-      allClients.push(...data.items.map((item) => new Client(item)))
-      totalClients = data.total
-      nextPage += 1
-    } while (allClients.length < totalClients)
-
-    clients.value = allClients
-  } catch (err) {
-    // Client dropdown is a non-critical side load; log for diagnostics
-    // but don't surface a toast (would compete with the main fetch error).
-    console.warn('Failed to fetch clients for filter:', err)
-  }
-}
 
 // Server info cache - cache the Promise itself so concurrent first calls
 // from Promise.all (convertProxies) don't kick off multiple HTTP requests.
@@ -337,8 +216,6 @@ const fetchData = async (silent = false) => {
       pageSize: pageSize.value,
       type: activeType.value === 'all' ? undefined : activeType.value,
       q: q || undefined,
-      clientID: clientIDFilter.value || undefined,
-      user: clientIDFilter.value ? userFilter.value : undefined,
     })
     if (seq !== requestSeq) return
 
@@ -419,6 +296,18 @@ const clearOfflineProxies = async () => {
   }
 }
 
+const sanitizeClientQuery = () => {
+  const hasClientQuery =
+    Object.prototype.hasOwnProperty.call(route.query, 'clientID') ||
+    Object.prototype.hasOwnProperty.call(route.query, 'user')
+  if (!hasClientQuery) return
+
+  const query = { ...route.query }
+  delete query.clientID
+  delete query.user
+  router.replace({ query })
+}
+
 // Watch for type changes
 watch(activeType, (newType) => {
   clearSearchDebounce()
@@ -437,23 +326,15 @@ watch(searchText, () => {
   }, 300)
 })
 
-// Watch for route query changes (client filter)
-watch(
-  () => [route.query.clientID, route.query.user],
-  ([newClientID, newUser]) => {
-    clientIDFilter.value = (newClientID as string) || ''
-    userFilter.value = (newUser as string) || ''
-    resetPageAndFetch()
-  },
-)
+watch(() => route.query, sanitizeClientQuery)
 
 onUnmounted(() => {
   clearSearchDebounce()
 })
 
 // Initial fetch
+sanitizeClientQuery()
 fetchData()
-fetchClients()
 </script>
 
 <style scoped>
@@ -520,14 +401,9 @@ fetchClients()
   flex: 1;
 }
 
-.main-search :deep(.el-input__wrapper),
-.client-filter :deep(.el-input__wrapper) {
+.main-search :deep(.el-input__wrapper) {
   height: 32px;
   border-radius: 8px;
-}
-
-.client-filter {
-  width: 240px;
 }
 
 .type-tabs {
@@ -582,10 +458,6 @@ fetchClients()
 @media (max-width: 768px) {
   .search-row {
     flex-direction: column;
-  }
-
-  .client-filter {
-    width: 100%;
   }
 
   .pagination-section {

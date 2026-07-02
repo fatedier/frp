@@ -27,6 +27,17 @@ type V2UserResp struct {
 	ProxyCount  int    `json:"proxyCount"`
 }
 
+type V2ClientDetailResp struct {
+	ClientInfoResp
+	Status V2ClientStatusResp `json:"status"`
+}
+
+type V2ClientStatusResp struct {
+	State      string `json:"phase"`
+	CurConns   int64  `json:"curConns"`
+	ProxyCount int64  `json:"proxyCount"`
+}
+
 type V2ProxyResp struct {
 	Name     string            `json:"name"`
 	Type     string            `json:"type"`
