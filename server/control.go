@@ -149,9 +149,26 @@ type Control struct {
 
 	mu sync.RWMutex
 
+	// started is true once Start has launched the worker goroutine.
+	// replaced is true once this control has been superseded by a newer login.
+	// doneClosed guards doneCh against a double close.
+	started    bool
+	replaced   bool
+	doneClosed bool
+
 	xl     *xlog.Logger
 	ctx    context.Context
 	doneCh chan struct{}
+}
+
+// closeDone closes doneCh exactly once, unblocking WaitClosed.
+func (ctl *Control) closeDone() {
+	ctl.mu.Lock()
+	defer ctl.mu.Unlock()
+	if !ctl.doneClosed {
+		ctl.doneClosed = true
+		close(ctl.doneCh)
+	}
 }
 
 func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, error) {
@@ -177,6 +194,17 @@ func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, erro
 
 // Start starts the control session workers after login succeeds.
 func (ctl *Control) Start() {
+	ctl.mu.Lock()
+	if ctl.replaced {
+		// This control was already replaced by a newer login before it started.
+		// worker would never observe a live connection, and Replaced has already
+		// closed doneCh, so there is nothing to run.
+		ctl.mu.Unlock()
+		return
+	}
+	ctl.started = true
+	ctl.mu.Unlock()
+
 	go func() {
 		for i := 0; i < ctl.poolCount; i++ {
 			// ignore error here, that means that this control is closed
@@ -196,6 +224,21 @@ func (ctl *Control) Replaced(newCtl *Control) {
 	xl.Infof("replaced by client [%s]", newCtl.runID)
 	ctl.runID = ""
 	ctl.sessionCtx.Conn.Close()
+
+	// If this control was never started, its worker will never run and would
+	// never close doneCh. That happens when its own login handler is still
+	// blocked in RegisterControl waiting on a previous control (e.g. after a
+	// control connection died silently with tcpMux, so the old reader never
+	// unblocks). Close doneCh here so WaitClosed returns and the replacement
+	// chain can unwind, instead of leaking a goroutine plus the whole Control
+	// graph permanently. See #5391.
+	ctl.mu.Lock()
+	ctl.replaced = true
+	notStarted := !ctl.started
+	ctl.mu.Unlock()
+	if notStarted {
+		ctl.closeDone()
+	}
 }
 
 func (ctl *Control) RegisterWorkConn(conn *proxy.WorkConn) error {
@@ -334,7 +377,7 @@ func (ctl *Control) worker() {
 	metrics.Server.CloseClient()
 	ctl.sessionCtx.ClientRegistry.MarkOfflineByRunID(ctl.runID)
 	xl.Infof("client exit success")
-	close(ctl.doneCh)
+	ctl.closeDone()
 }
 
 func (ctl *Control) registerMsgHandlers() {
