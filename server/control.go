@@ -66,13 +66,17 @@ func (cm *ControlManager) Add(runID string, ctl *Control) (old *Control) {
 	return
 }
 
-// we should make sure if it's the same control to prevent delete a new one
-func (cm *ControlManager) Del(runID string, ctl *Control) {
+// Del removes ctl only if it is still the control registered for runID, to avoid
+// deleting a newer one. It reports whether it actually removed ctl, so callers can
+// tell whether ctl was still the active control for this run id.
+func (cm *ControlManager) Del(runID string, ctl *Control) (deleted bool) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	if c, ok := cm.ctlsByRunID[runID]; ok && c == ctl {
 		delete(cm.ctlsByRunID, runID)
+		return true
 	}
+	return false
 }
 
 func (cm *ControlManager) GetByID(runID string) (ctl *Control, ok bool) {

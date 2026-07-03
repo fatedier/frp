@@ -78,3 +78,25 @@ func TestControlReplacedAfterStartLeavesDoneToWorker(t *testing.T) {
 		// expected: doneCh remains open, worker will close it
 	}
 }
+
+// Del must only remove (and report removal of) the control still registered for a
+// run id. A superseded control's late-running login handler relies on this to avoid
+// offlining the run id now owned by its replacement.
+func TestControlManagerDelOnlyRemovesActiveControl(t *testing.T) {
+	cm := NewControlManager()
+	ctlOld := newTestControl(t)
+	ctlNew := newTestControl(t)
+
+	cm.Add("R", ctlOld)
+	cm.Add("R", ctlNew) // replaces ctlOld; ctlNew is now the registered control
+
+	if cm.Del("R", ctlOld) {
+		t.Fatal("Del reported removal for a superseded control")
+	}
+	if got, ok := cm.GetByID("R"); !ok || got != ctlNew {
+		t.Fatal("stale Del affected the active control")
+	}
+	if !cm.Del("R", ctlNew) {
+		t.Fatal("Del did not remove the active control")
+	}
+}
