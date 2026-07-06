@@ -104,6 +104,7 @@ import {
 } from '../api/proxy'
 import { getServerInfo } from '../api/server'
 import type { ProxyStatsInfo } from '../types/proxy'
+import type { ServerInfo } from '../types/server'
 
 const route = useRoute()
 const router = useRouter()
@@ -133,15 +134,9 @@ let searchDebounceTimer: number | null = null
 
 // Server info cache - cache the Promise itself so concurrent first calls
 // from Promise.all (convertProxies) don't kick off multiple HTTP requests.
-type ServerInfoLite = {
-  vhostHTTPPort: number
-  vhostHTTPSPort: number
-  tcpmuxHTTPConnectPort: number
-  subdomainHost: string
-}
-let serverInfoPromise: Promise<ServerInfoLite> | null = null
+let serverInfoPromise: Promise<ServerInfo> | null = null
 
-const fetchServerInfo = (): Promise<ServerInfoLite> => {
+const fetchServerInfo = (): Promise<ServerInfo> => {
   if (!serverInfoPromise) {
     serverInfoPromise = getServerInfo().catch((err) => {
       // Allow retry after failure
@@ -164,25 +159,33 @@ const convertProxy = async (
   }
   if (type === 'http') {
     const info = await fetchServerInfo()
-    if (info && info.vhostHTTPPort) {
-      return new HTTPProxy(proxy, info.vhostHTTPPort, info.subdomainHost)
+    if (info && info.config.vhostHTTPPort) {
+      return new HTTPProxy(
+        proxy,
+        info.config.vhostHTTPPort,
+        info.config.subdomainHost,
+      )
     }
     return null
   }
   if (type === 'https') {
     const info = await fetchServerInfo()
-    if (info && info.vhostHTTPSPort) {
-      return new HTTPSProxy(proxy, info.vhostHTTPSPort, info.subdomainHost)
+    if (info && info.config.vhostHTTPSPort) {
+      return new HTTPSProxy(
+        proxy,
+        info.config.vhostHTTPSPort,
+        info.config.subdomainHost,
+      )
     }
     return null
   }
   if (type === 'tcpmux') {
     const info = await fetchServerInfo()
-    if (info && info.tcpmuxHTTPConnectPort) {
+    if (info && info.config.tcpmuxHTTPConnectPort) {
       return new TCPMuxProxy(
         proxy,
-        info.tcpmuxHTTPConnectPort,
-        info.subdomainHost,
+        info.config.tcpmuxHTTPConnectPort,
+        info.config.subdomainHost,
       )
     }
     return null
