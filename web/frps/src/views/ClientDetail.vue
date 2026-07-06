@@ -161,6 +161,7 @@ import {
 import { getServerInfo } from '../api/server'
 import ProxyCard from '../components/ProxyCard.vue'
 import type { ProxyStatsInfo } from '../types/proxy'
+import type { ServerInfo } from '../types/server'
 
 const route = useRoute()
 const router = useRouter()
@@ -183,16 +184,9 @@ const total = ref(0)
 let requestSeq = 0
 let searchDebounceTimer: number | null = null
 
-type ServerInfoLite = {
-  vhostHTTPPort: number
-  vhostHTTPSPort: number
-  tcpmuxHTTPConnectPort: number
-  subdomainHost: string
-}
+let serverInfoPromise: Promise<ServerInfo> | null = null
 
-let serverInfoPromise: Promise<ServerInfoLite> | null = null
-
-const fetchServerInfo = (): Promise<ServerInfoLite> => {
+const fetchServerInfo = (): Promise<ServerInfo> => {
   if (!serverInfoPromise) {
     serverInfoPromise = getServerInfo().catch((err) => {
       serverInfoPromise = null
@@ -232,25 +226,33 @@ const convertProxy = async (
   }
   if (type === 'http') {
     const info = await fetchServerInfo()
-    if (info && info.vhostHTTPPort) {
-      return new HTTPProxy(proxy, info.vhostHTTPPort, info.subdomainHost)
+    if (info && info.config.vhostHTTPPort) {
+      return new HTTPProxy(
+        proxy,
+        info.config.vhostHTTPPort,
+        info.config.subdomainHost,
+      )
     }
     return null
   }
   if (type === 'https') {
     const info = await fetchServerInfo()
-    if (info && info.vhostHTTPSPort) {
-      return new HTTPSProxy(proxy, info.vhostHTTPSPort, info.subdomainHost)
+    if (info && info.config.vhostHTTPSPort) {
+      return new HTTPSProxy(
+        proxy,
+        info.config.vhostHTTPSPort,
+        info.config.subdomainHost,
+      )
     }
     return null
   }
   if (type === 'tcpmux') {
     const info = await fetchServerInfo()
-    if (info && info.tcpmuxHTTPConnectPort) {
+    if (info && info.config.tcpmuxHTTPConnectPort) {
       return new TCPMuxProxy(
         proxy,
-        info.tcpmuxHTTPConnectPort,
-        info.subdomainHost,
+        info.config.tcpmuxHTTPConnectPort,
+        info.config.subdomainHost,
       )
     }
     return null

@@ -21,6 +21,35 @@ type V2PageResp[T any] struct {
 	Items    []T `json:"items"`
 }
 
+type V2SystemInfoResp struct {
+	Version string                 `json:"version"`
+	Config  V2SystemInfoConfigResp `json:"config"`
+	Status  V2SystemInfoStatusResp `json:"status"`
+}
+
+type V2SystemInfoConfigResp struct {
+	BindPort              int    `json:"bindPort"`
+	VhostHTTPPort         int    `json:"vhostHTTPPort"`
+	VhostHTTPSPort        int    `json:"vhostHTTPSPort"`
+	TCPMuxHTTPConnectPort int    `json:"tcpmuxHTTPConnectPort"`
+	KCPBindPort           int    `json:"kcpBindPort"`
+	QUICBindPort          int    `json:"quicBindPort"`
+	SubdomainHost         string `json:"subdomainHost"`
+	MaxPoolCount          int64  `json:"maxPoolCount"`
+	MaxPortsPerClient     int64  `json:"maxPortsPerClient"`
+	HeartbeatTimeout      int64  `json:"heartbeatTimeout"`
+	AllowPortsStr         string `json:"allowPortsStr"`
+	TLSForce              bool   `json:"tlsForce"`
+}
+
+type V2SystemInfoStatusResp struct {
+	TotalTrafficIn  int64            `json:"totalTrafficIn"`
+	TotalTrafficOut int64            `json:"totalTrafficOut"`
+	CurConns        int64            `json:"curConns"`
+	ClientCounts    int64            `json:"clientCounts"`
+	ProxyTypeCounts map[string]int64 `json:"proxyTypeCount"`
+}
+
 type V2UserResp struct {
 	User        string `json:"user"`
 	ClientCount int    `json:"clientCount"`

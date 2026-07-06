@@ -48,6 +48,40 @@ var apiV2ProxyTypes = []string{
 	string(v1.ProxyTypeSUDP),
 }
 
+// /api/v2/system/info
+func (c *Controller) APIV2SystemInfo(ctx *httppkg.Context) (any, error) {
+	info := c.buildServerInfoResp()
+	proxyTypeCounts := info.ProxyTypeCounts
+	if proxyTypeCounts == nil {
+		proxyTypeCounts = map[string]int64{}
+	}
+
+	return model.V2SystemInfoResp{
+		Version: info.Version,
+		Config: model.V2SystemInfoConfigResp{
+			BindPort:              info.BindPort,
+			VhostHTTPPort:         info.VhostHTTPPort,
+			VhostHTTPSPort:        info.VhostHTTPSPort,
+			TCPMuxHTTPConnectPort: info.TCPMuxHTTPConnectPort,
+			KCPBindPort:           info.KCPBindPort,
+			QUICBindPort:          info.QUICBindPort,
+			SubdomainHost:         info.SubdomainHost,
+			MaxPoolCount:          info.MaxPoolCount,
+			MaxPortsPerClient:     info.MaxPortsPerClient,
+			HeartbeatTimeout:      info.HeartBeatTimeout,
+			AllowPortsStr:         info.AllowPortsStr,
+			TLSForce:              info.TLSForce,
+		},
+		Status: model.V2SystemInfoStatusResp{
+			TotalTrafficIn:  info.TotalTrafficIn,
+			TotalTrafficOut: info.TotalTrafficOut,
+			CurConns:        info.CurConns,
+			ClientCounts:    info.ClientCounts,
+			ProxyTypeCounts: proxyTypeCounts,
+		},
+	}, nil
+}
+
 // /api/v2/users
 func (c *Controller) APIV2UserList(ctx *httppkg.Context) (any, error) {
 	page, pageSize, err := parseV2PageParams(ctx)

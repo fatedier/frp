@@ -25,6 +25,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/fatedier/frp/pkg/config/types"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/metrics/mem"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
@@ -40,10 +41,14 @@ type v2EnvelopeForTest[T any] struct {
 }
 
 type fakeStatsCollector struct {
+	server  *mem.ServerStats
 	proxies map[string]*mem.ProxyStats
 }
 
 func (f *fakeStatsCollector) GetServer() *mem.ServerStats {
+	if f.server != nil {
+		return f.server
+	}
 	return &mem.ServerStats{ProxyTypeCounts: map[string]int64{}}
 }
 
@@ -75,6 +80,108 @@ func (f *fakeStatsCollector) GetProxyTraffic(name string) *mem.ProxyTrafficInfo 
 
 func (f *fakeStatsCollector) ClearOfflineProxies() (int, int) {
 	return 0, len(f.proxies)
+}
+
+func TestAPIV2SystemInfoEnvelope(t *testing.T) {
+	oldStatsCollector := mem.StatsCollector
+	mem.StatsCollector = &fakeStatsCollector{
+		server: &mem.ServerStats{
+			TotalTrafficIn:  1024,
+			TotalTrafficOut: 2048,
+			CurConns:        3,
+			ClientCounts:    4,
+			ProxyTypeCounts: map[string]int64{
+				"tcp":  2,
+				"http": 1,
+			},
+		},
+		proxies: map[string]*mem.ProxyStats{},
+	}
+	t.Cleanup(func() {
+		mem.StatsCollector = oldStatsCollector
+	})
+
+	controller := NewController(&v1.ServerConfig{
+		BindPort:              7000,
+		VhostHTTPPort:         8080,
+		VhostHTTPSPort:        8443,
+		TCPMuxHTTPConnectPort: 9000,
+		KCPBindPort:           7001,
+		QUICBindPort:          7002,
+		SubDomainHost:         "example.com",
+		MaxPortsPerClient:     8,
+		AllowPorts: []types.PortsRange{
+			{Start: 1000, End: 1002},
+			{Single: 2000},
+		},
+		Transport: v1.ServerTransportConfig{
+			MaxPoolCount:     5,
+			HeartbeatTimeout: 90,
+			TLS: v1.TLSServerConfig{
+				Force: true,
+			},
+		},
+	}, registry.NewClientRegistry(), serverproxy.NewManager())
+	router := newV2TestRouter(controller)
+
+	resp := performRequest(router, "/api/v2/system/info")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status mismatch, want %d got %d", http.StatusOK, resp.Code)
+	}
+
+	rawResp := decodeResponse[v2EnvelopeForTest[map[string]json.RawMessage]](t, resp)
+	if rawResp.Code != http.StatusOK || rawResp.Msg != "success" {
+		t.Fatalf("envelope mismatch: %#v", rawResp)
+	}
+	assertRawJSONKeys(t, rawResp.Data, "config", "status", "version")
+	assertRawJSONKeysFromMessage(t, rawResp.Data["config"],
+		"allowPortsStr",
+		"bindPort",
+		"heartbeatTimeout",
+		"kcpBindPort",
+		"maxPoolCount",
+		"maxPortsPerClient",
+		"quicBindPort",
+		"subdomainHost",
+		"tcpmuxHTTPConnectPort",
+		"tlsForce",
+		"vhostHTTPPort",
+		"vhostHTTPSPort",
+	)
+	assertRawJSONKeysFromMessage(t, rawResp.Data["status"],
+		"clientCounts",
+		"curConns",
+		"proxyTypeCount",
+		"totalTrafficIn",
+		"totalTrafficOut",
+	)
+
+	systemResp := decodeResponse[v2EnvelopeForTest[model.V2SystemInfoResp]](t, resp)
+	if systemResp.Data.Version == "" {
+		t.Fatal("version should be set at top level")
+	}
+	if systemResp.Data.Config.BindPort != 7000 ||
+		systemResp.Data.Config.VhostHTTPPort != 8080 ||
+		systemResp.Data.Config.VhostHTTPSPort != 8443 ||
+		systemResp.Data.Config.TCPMuxHTTPConnectPort != 9000 ||
+		systemResp.Data.Config.KCPBindPort != 7001 ||
+		systemResp.Data.Config.QUICBindPort != 7002 ||
+		systemResp.Data.Config.SubdomainHost != "example.com" ||
+		systemResp.Data.Config.MaxPoolCount != 5 ||
+		systemResp.Data.Config.MaxPortsPerClient != 8 ||
+		systemResp.Data.Config.HeartbeatTimeout != 90 ||
+		systemResp.Data.Config.AllowPortsStr != "1000-1002,2000" ||
+		!systemResp.Data.Config.TLSForce {
+		t.Fatalf("config mismatch: %#v", systemResp.Data.Config)
+	}
+	if systemResp.Data.Status.TotalTrafficIn != 1024 ||
+		systemResp.Data.Status.TotalTrafficOut != 2048 ||
+		systemResp.Data.Status.CurConns != 3 ||
+		systemResp.Data.Status.ClientCounts != 4 ||
+		systemResp.Data.Status.ProxyTypeCounts["tcp"] != 2 ||
+		systemResp.Data.Status.ProxyTypeCounts["http"] != 1 {
+		t.Fatalf("status mismatch: %#v", systemResp.Data.Status)
+	}
 }
 
 func TestAPIV2ClientListEnvelopePaginationAndFilters(t *testing.T) {
@@ -322,7 +429,26 @@ func TestLegacyAPIResponsesRemainBare(t *testing.T) {
 	controller := newV2TestController(t)
 	router := newV2TestRouter(controller)
 
-	resp := performRequest(router, "/api/clients")
+	resp := performRequest(router, "/api/serverinfo")
+	var serverInfo model.ServerInfoResp
+	if err := json.Unmarshal(resp.Body.Bytes(), &serverInfo); err != nil {
+		t.Fatalf("legacy serverinfo should be a bare object: %v, body: %s", err, resp.Body.String())
+	}
+	if serverInfo.Version == "" {
+		t.Fatal("legacy serverinfo version should be set")
+	}
+	var serverInfoRaw map[string]json.RawMessage
+	if err := json.Unmarshal(resp.Body.Bytes(), &serverInfoRaw); err != nil {
+		t.Fatalf("unmarshal legacy serverinfo object failed: %v", err)
+	}
+	if _, ok := serverInfoRaw["data"]; ok {
+		t.Fatalf("legacy serverinfo should not use v2 envelope: %s", resp.Body.String())
+	}
+	if _, ok := serverInfoRaw["config"]; ok {
+		t.Fatalf("legacy serverinfo should stay flat, got config in: %s", resp.Body.String())
+	}
+
+	resp = performRequest(router, "/api/clients")
 	var clients []model.ClientInfoResp
 	if err := json.Unmarshal(resp.Body.Bytes(), &clients); err != nil {
 		t.Fatalf("legacy clients should be a bare array: %v, body: %s", err, resp.Body.String())
@@ -400,12 +526,14 @@ func newV2TestController(t *testing.T) *Controller {
 func newV2TestRouter(controller *Controller) *mux.Router {
 	router := mux.NewRouter()
 	router.HandleFunc("/api/v2/users", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2UserList)).Methods(http.MethodGet)
+	router.HandleFunc("/api/v2/system/info", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2SystemInfo)).Methods(http.MethodGet)
 	router.HandleFunc("/api/v2/clients", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ClientList)).Methods(http.MethodGet)
 	encodedPathRouter := router.NewRoute().Subrouter()
 	encodedPathRouter.UseEncodedPath()
 	encodedPathRouter.HandleFunc("/api/v2/clients/{key}", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ClientDetail)).Methods(http.MethodGet)
 	router.HandleFunc("/api/v2/proxies", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ProxyList)).Methods(http.MethodGet)
 	router.HandleFunc("/api/v2/proxies/{name}", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ProxyDetail)).Methods(http.MethodGet)
+	router.HandleFunc("/api/serverinfo", httppkg.MakeHTTPHandlerFunc(controller.APIServerInfo)).Methods(http.MethodGet)
 	router.HandleFunc("/api/clients", httppkg.MakeHTTPHandlerFunc(controller.APIClientList)).Methods(http.MethodGet)
 	router.HandleFunc("/api/proxy/{type}", httppkg.MakeHTTPHandlerFunc(controller.APIProxyByType)).Methods(http.MethodGet)
 	return router
@@ -426,4 +554,27 @@ func decodeResponse[T any](t *testing.T, resp *httptest.ResponseRecorder) T {
 		t.Fatalf("unmarshal response failed: %v, body: %s", err, resp.Body.String())
 	}
 	return out
+}
+
+func assertRawJSONKeys(t *testing.T, raw map[string]json.RawMessage, want ...string) {
+	t.Helper()
+
+	if len(raw) != len(want) {
+		t.Fatalf("json keys mismatch, want %v got %v", want, raw)
+	}
+	for _, key := range want {
+		if _, ok := raw[key]; !ok {
+			t.Fatalf("json key %q missing from %v", key, raw)
+		}
+	}
+}
+
+func assertRawJSONKeysFromMessage(t *testing.T, raw json.RawMessage, want ...string) {
+	t.Helper()
+
+	var out map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("unmarshal raw json object failed: %v, body: %s", err, string(raw))
+	}
+	assertRawJSONKeys(t, out, want...)
 }

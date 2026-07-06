@@ -254,6 +254,7 @@ import {
   SUDPProxy,
 } from '../utils/proxy'
 import Traffic from '../components/Traffic.vue'
+import type { ServerInfo } from '../types/server'
 
 const route = useRoute()
 const router = useRouter()
@@ -275,12 +276,7 @@ const goBack = () => {
   }
 }
 
-let serverInfo: {
-  vhostHTTPPort: number
-  vhostHTTPSPort: number
-  tcpmuxHTTPConnectPort: number
-  subdomainHost: string
-} | null = null
+let serverInfo: ServerInfo | null = null
 
 const clientLink = computed(() => {
   if (!proxy.value) return ''
@@ -367,25 +363,30 @@ const fetchProxy = async () => {
   try {
     const data = await getProxyByNameV2(name)
     const info = await fetchServerInfo()
+    const config = info.config
     const type = data.type || data.conf?.type || ''
 
     if (type === 'tcp') {
       proxy.value = new TCPProxy(data)
     } else if (type === 'udp') {
       proxy.value = new UDPProxy(data)
-    } else if (type === 'http' && info?.vhostHTTPPort) {
-      proxy.value = new HTTPProxy(data, info.vhostHTTPPort, info.subdomainHost)
-    } else if (type === 'https' && info?.vhostHTTPSPort) {
+    } else if (type === 'http' && config.vhostHTTPPort) {
+      proxy.value = new HTTPProxy(
+        data,
+        config.vhostHTTPPort,
+        config.subdomainHost,
+      )
+    } else if (type === 'https' && config.vhostHTTPSPort) {
       proxy.value = new HTTPSProxy(
         data,
-        info.vhostHTTPSPort,
-        info.subdomainHost,
+        config.vhostHTTPSPort,
+        config.subdomainHost,
       )
-    } else if (type === 'tcpmux' && info?.tcpmuxHTTPConnectPort) {
+    } else if (type === 'tcpmux' && config.tcpmuxHTTPConnectPort) {
       proxy.value = new TCPMuxProxy(
         data,
-        info.tcpmuxHTTPConnectPort,
-        info.subdomainHost,
+        config.tcpmuxHTTPConnectPort,
+        config.subdomainHost,
       )
     } else if (type === 'stcp') {
       proxy.value = new STCPProxy(data)
