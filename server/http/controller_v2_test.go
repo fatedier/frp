@@ -22,6 +22,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 
@@ -43,6 +44,7 @@ type v2EnvelopeForTest[T any] struct {
 type fakeStatsCollector struct {
 	server    *mem.ServerStats
 	proxies   map[string]*mem.ProxyStats
+	traffic   map[string]*mem.ProxyTrafficInfo
 	pruneable map[string]bool
 }
 
@@ -76,7 +78,7 @@ func (f *fakeStatsCollector) GetProxyByName(proxyName string) *mem.ProxyStats {
 }
 
 func (f *fakeStatsCollector) GetProxyTraffic(name string) *mem.ProxyTrafficInfo {
-	return nil
+	return f.traffic[name]
 }
 
 func (f *fakeStatsCollector) ClearOfflineProxies() (int, int) {
@@ -441,6 +443,140 @@ func TestAPIV2ProxyListDetailAndUsers(t *testing.T) {
 	}
 }
 
+func TestAPIV2ProxyTrafficEnvelopeSchemaAndHistory(t *testing.T) {
+	oldStatsCollector := mem.StatsCollector
+	mem.StatsCollector = &fakeStatsCollector{
+		proxies: map[string]*mem.ProxyStats{
+			"ssh": {Name: "ssh", Type: "tcp"},
+		},
+		traffic: map[string]*mem.ProxyTrafficInfo{
+			"ssh": {
+				Name:       "ssh",
+				TrafficIn:  []int64{70, 60, 50, 40, 30, 20, 10},
+				TrafficOut: []int64{700, 600, 500, 400, 300, 200, 100},
+			},
+		},
+	}
+	t.Cleanup(func() {
+		mem.StatsCollector = oldStatsCollector
+	})
+
+	controller := NewController(&v1.ServerConfig{}, registry.NewClientRegistry(), serverproxy.NewManager())
+	router := newV2TestRouter(controller)
+
+	resp := performRequest(router, "/api/v2/proxies/ssh/traffic")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status mismatch, want %d got %d, body: %s", http.StatusOK, resp.Code, resp.Body.String())
+	}
+	rawResp := decodeResponse[v2EnvelopeForTest[map[string]json.RawMessage]](t, resp)
+	if rawResp.Code != http.StatusOK || rawResp.Msg != "success" {
+		t.Fatalf("envelope mismatch: %#v", rawResp)
+	}
+	assertRawJSONKeys(t, rawResp.Data, "granularity", "history", "name", "unit")
+
+	trafficResp := decodeResponse[v2EnvelopeForTest[model.V2ProxyTrafficResp]](t, resp)
+	if trafficResp.Data.Name != "ssh" || trafficResp.Data.Unit != "bytes" || trafficResp.Data.Granularity != "day" {
+		t.Fatalf("traffic metadata mismatch: %#v", trafficResp.Data)
+	}
+	if len(trafficResp.Data.History) != 7 {
+		t.Fatalf("history length mismatch, want 7 got %d: %#v", len(trafficResp.Data.History), trafficResp.Data.History)
+	}
+
+	wantIn := []int64{10, 20, 30, 40, 50, 60, 70}
+	wantOut := []int64{100, 200, 300, 400, 500, 600, 700}
+	var prevDate time.Time
+	for i, point := range trafficResp.Data.History {
+		assertRawJSONKeysFromMessage(t, mustMarshalJSON(t, point), "date", "trafficIn", "trafficOut")
+		if point.TrafficIn != wantIn[i] || point.TrafficOut != wantOut[i] {
+			t.Fatalf("history[%d] traffic mismatch: %#v", i, point)
+		}
+		parsedDate, err := time.Parse(time.DateOnly, point.Date)
+		if err != nil {
+			t.Fatalf("history[%d] date should be yyyy-mm-dd, got %q: %v", i, point.Date, err)
+		}
+		if i > 0 && !parsedDate.Equal(prevDate.AddDate(0, 0, 1)) {
+			t.Fatalf("history dates should be oldest to newest, got %s after %s", point.Date, prevDate.Format(time.DateOnly))
+		}
+		prevDate = parsedDate
+	}
+}
+
+func TestAPIV2ProxyTrafficNotFoundEnvelope(t *testing.T) {
+	controller := newV2TestController(t)
+	router := newV2TestRouter(controller)
+
+	resp := performRequest(router, "/api/v2/proxies/missing/traffic")
+	if resp.Code != http.StatusNotFound {
+		t.Fatalf("status mismatch, want %d got %d, body: %s", http.StatusNotFound, resp.Code, resp.Body.String())
+	}
+	errResp := decodeResponse[httppkg.V2Response](t, resp)
+	if errResp.Code != http.StatusNotFound || errResp.Msg != "no proxy info found" || errResp.Data != nil {
+		t.Fatalf("not found envelope mismatch: %#v", errResp)
+	}
+}
+
+func TestAPIV2ProxyDetailAndTrafficEncodedName(t *testing.T) {
+	name := "folder/ssh?x#y"
+	oldStatsCollector := mem.StatsCollector
+	mem.StatsCollector = &fakeStatsCollector{
+		proxies: map[string]*mem.ProxyStats{
+			name: {Name: name, Type: "tcp", User: "encoded"},
+		},
+		traffic: map[string]*mem.ProxyTrafficInfo{
+			name: {
+				Name:       name,
+				TrafficIn:  []int64{1},
+				TrafficOut: []int64{2},
+			},
+		},
+	}
+	t.Cleanup(func() {
+		mem.StatsCollector = oldStatsCollector
+	})
+
+	controller := NewController(&v1.ServerConfig{}, registry.NewClientRegistry(), serverproxy.NewManager())
+	router := newV2TestRouter(controller)
+	encodedName := url.PathEscape(name)
+
+	resp := performRequest(router, "/api/v2/proxies/"+encodedName)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("encoded proxy detail status mismatch, want %d got %d, body: %s", http.StatusOK, resp.Code, resp.Body.String())
+	}
+	detailResp := decodeResponse[v2EnvelopeForTest[model.V2ProxyResp]](t, resp)
+	if detailResp.Data.Name != name || detailResp.Data.User != "encoded" {
+		t.Fatalf("encoded proxy detail mismatch: %#v", detailResp.Data)
+	}
+
+	resp = performRequest(router, "/api/v2/proxies/"+encodedName+"/traffic")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("encoded traffic status mismatch, want %d got %d, body: %s", http.StatusOK, resp.Code, resp.Body.String())
+	}
+	trafficResp := decodeResponse[v2EnvelopeForTest[model.V2ProxyTrafficResp]](t, resp)
+	if trafficResp.Data.Name != name {
+		t.Fatalf("encoded traffic name mismatch: %#v", trafficResp.Data)
+	}
+	if got := trafficResp.Data.History[len(trafficResp.Data.History)-1]; got.TrafficIn != 1 || got.TrafficOut != 2 {
+		t.Fatalf("encoded traffic latest point mismatch: %#v", got)
+	}
+}
+
+func TestAPIV2ProxyTrafficInvalidEncodedNameUses400Envelope(t *testing.T) {
+	controller := newV2TestController(t)
+	handler := httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ProxyTraffic)
+	req := httptest.NewRequest(http.MethodGet, "/api/v2/proxies/%25ZZ/traffic", nil)
+	req = mux.SetURLVars(req, map[string]string{"name": "%ZZ"})
+	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("status mismatch, want %d got %d, body: %s", http.StatusBadRequest, resp.Code, resp.Body.String())
+	}
+	errResp := decodeResponse[httppkg.V2Response](t, resp)
+	if errResp.Code != http.StatusBadRequest || errResp.Msg != "invalid proxy name" || errResp.Data != nil {
+		t.Fatalf("invalid encoded name envelope mismatch: %#v", errResp)
+	}
+}
+
 func TestMatchV2ProxyQueryMatchesSpecFields(t *testing.T) {
 	tests := []struct {
 		name string
@@ -565,6 +701,24 @@ func TestLegacyAPIResponsesRemainBare(t *testing.T) {
 	if err := json.Unmarshal(resp.Body.Bytes(), &envelope); err == nil && envelope.Code != 0 {
 		t.Fatalf("legacy proxy response should not use v2 envelope: %#v", envelope)
 	}
+
+	resp = performRequest(router, "/api/traffic/tcp-alice")
+	var traffic model.GetProxyTrafficResp
+	if err := json.Unmarshal(resp.Body.Bytes(), &traffic); err != nil {
+		t.Fatalf("legacy traffic should be a bare object: %v, body: %s", err, resp.Body.String())
+	}
+	if traffic.Name != "tcp-alice" ||
+		len(traffic.TrafficIn) != 2 || traffic.TrafficIn[0] != 7 || traffic.TrafficIn[1] != 6 ||
+		len(traffic.TrafficOut) != 2 || traffic.TrafficOut[0] != 70 || traffic.TrafficOut[1] != 60 {
+		t.Fatalf("legacy traffic should preserve today-first arrays, got: %#v", traffic)
+	}
+	var trafficRaw map[string]json.RawMessage
+	if err := json.Unmarshal(resp.Body.Bytes(), &trafficRaw); err != nil {
+		t.Fatalf("unmarshal legacy traffic object failed: %v", err)
+	}
+	if _, ok := trafficRaw["data"]; ok {
+		t.Fatalf("legacy traffic should not use v2 envelope: %s", resp.Body.String())
+	}
 }
 
 func newV2TestController(t *testing.T) *Controller {
@@ -605,6 +759,13 @@ func newV2TestController(t *testing.T) *Controller {
 				ClientID: "client-b",
 			},
 		},
+		traffic: map[string]*mem.ProxyTrafficInfo{
+			"tcp-alice": {
+				Name:       "tcp-alice",
+				TrafficIn:  []int64{7, 6},
+				TrafficOut: []int64{70, 60},
+			},
+		},
 	}
 	t.Cleanup(func() {
 		mem.StatsCollector = oldStatsCollector
@@ -629,10 +790,12 @@ func newV2TestRouter(controller *Controller) *mux.Router {
 	encodedPathRouter.UseEncodedPath()
 	encodedPathRouter.HandleFunc("/api/v2/clients/{key}", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ClientDetail)).Methods(http.MethodGet)
 	router.HandleFunc("/api/v2/proxies", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ProxyList)).Methods(http.MethodGet)
-	router.HandleFunc("/api/v2/proxies/{name}", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ProxyDetail)).Methods(http.MethodGet)
+	encodedPathRouter.HandleFunc("/api/v2/proxies/{name}/traffic", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ProxyTraffic)).Methods(http.MethodGet)
+	encodedPathRouter.HandleFunc("/api/v2/proxies/{name}", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ProxyDetail)).Methods(http.MethodGet)
 	router.HandleFunc("/api/serverinfo", httppkg.MakeHTTPHandlerFunc(controller.APIServerInfo)).Methods(http.MethodGet)
 	router.HandleFunc("/api/clients", httppkg.MakeHTTPHandlerFunc(controller.APIClientList)).Methods(http.MethodGet)
 	router.HandleFunc("/api/proxy/{type}", httppkg.MakeHTTPHandlerFunc(controller.APIProxyByType)).Methods(http.MethodGet)
+	router.HandleFunc("/api/traffic/{name}", httppkg.MakeHTTPHandlerFunc(controller.APIProxyTraffic)).Methods(http.MethodGet)
 	return router
 }
 
@@ -678,4 +841,14 @@ func assertRawJSONKeysFromMessage(t *testing.T, raw json.RawMessage, want ...str
 		t.Fatalf("unmarshal raw json object failed: %v, body: %s", err, string(raw))
 	}
 	assertRawJSONKeys(t, out, want...)
+}
+
+func mustMarshalJSON(t *testing.T, value any) json.RawMessage {
+	t.Helper()
+
+	out, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal json failed: %v", err)
+	}
+	return out
 }

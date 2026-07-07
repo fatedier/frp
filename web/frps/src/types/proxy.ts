@@ -47,6 +47,13 @@ export interface ProxyV2Status {
 
 export interface TrafficResponse {
   name: string
-  trafficIn: number[]
-  trafficOut: number[]
+  unit: 'bytes'
+  granularity: 'day'
+  history: TrafficPoint[]
+}
+
+export interface TrafficPoint {
+  date: string
+  trafficIn: number
+  trafficOut: number
 }

@@ -90,3 +90,16 @@ type V2ProxyStatusResp struct {
 	LastStartTime   string `json:"lastStartTime"`
 	LastCloseTime   string `json:"lastCloseTime"`
 }
+
+type V2ProxyTrafficResp struct {
+	Name        string                    `json:"name"`
+	Unit        string                    `json:"unit"`
+	Granularity string                    `json:"granularity"`
+	History     []V2ProxyTrafficPointResp `json:"history"`
+}
+
+type V2ProxyTrafficPointResp struct {
+	Date       string `json:"date"`
+	TrafficIn  int64  `json:"trafficIn"`
+	TrafficOut int64  `json:"trafficOut"`
+}
