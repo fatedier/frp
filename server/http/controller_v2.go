@@ -23,6 +23,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/metrics/mem"
@@ -37,6 +38,9 @@ const (
 	maxV2PageSize     = 200
 
 	v2SystemPruneTypeOfflineProxies = "offline_proxies"
+	v2ProxyTrafficDefaultDays       = 7
+	v2ProxyTrafficUnit              = "bytes"
+	v2ProxyTrafficGranularity       = "day"
 )
 
 var apiV2ProxyTypes = []string{
@@ -190,15 +194,10 @@ func (c *Controller) APIV2ClientList(ctx *httppkg.Context) (any, error) {
 
 // /api/v2/clients/{key}
 func (c *Controller) APIV2ClientDetail(ctx *httppkg.Context) (any, error) {
-	key := ctx.Param("key")
-	if key == "" {
-		return nil, fmt.Errorf("missing client key")
-	}
-	decodedKey, err := url.PathUnescape(key)
+	key, err := decodeV2PathParam(ctx, "key", "client key")
 	if err != nil {
-		return nil, fmt.Errorf("invalid client key %q: %w", key, err)
+		return nil, err
 	}
-	key = decodedKey
 
 	if c.clientRegistry == nil {
 		return nil, fmt.Errorf("client registry unavailable")
@@ -267,9 +266,9 @@ func (c *Controller) APIV2ProxyList(ctx *httppkg.Context) (any, error) {
 
 // /api/v2/proxies/{name}
 func (c *Controller) APIV2ProxyDetail(ctx *httppkg.Context) (any, error) {
-	name := ctx.Param("name")
-	if name == "" {
-		return nil, fmt.Errorf("missing proxy name")
+	name, err := decodeV2PathParam(ctx, "name", "proxy name")
+	if err != nil {
+		return nil, err
 	}
 
 	ps := mem.StatsCollector.GetProxyByName(name)
@@ -277,6 +276,33 @@ func (c *Controller) APIV2ProxyDetail(ctx *httppkg.Context) (any, error) {
 		return nil, httppkg.NewError(http.StatusNotFound, "no proxy info found")
 	}
 	return c.buildV2ProxyResp(ps), nil
+}
+
+// /api/v2/proxies/{name}/traffic
+func (c *Controller) APIV2ProxyTraffic(ctx *httppkg.Context) (any, error) {
+	name, err := decodeV2PathParam(ctx, "name", "proxy name")
+	if err != nil {
+		return nil, err
+	}
+
+	proxyTrafficInfo := mem.StatsCollector.GetProxyTraffic(name)
+	if proxyTrafficInfo == nil {
+		return nil, httppkg.NewError(http.StatusNotFound, "no proxy info found")
+	}
+
+	return buildV2ProxyTrafficResp(name, proxyTrafficInfo, time.Now()), nil
+}
+
+func decodeV2PathParam(ctx *httppkg.Context, key string, label string) (string, error) {
+	raw := ctx.Param(key)
+	if raw == "" {
+		return "", fmt.Errorf("missing %s", label)
+	}
+	decoded, err := url.PathUnescape(raw)
+	if err != nil {
+		return "", httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("invalid %s", label))
+	}
+	return decoded, nil
 }
 
 func getOrCreateV2User(items map[string]*model.V2UserResp, user string) *model.V2UserResp {
@@ -453,6 +479,31 @@ func (c *Controller) listV2ProxyStats(proxyType string) []*mem.ProxyStats {
 		items = append(items, mem.StatsCollector.GetProxiesByType(t)...)
 	}
 	return items
+}
+
+func buildV2ProxyTrafficResp(name string, traffic *mem.ProxyTrafficInfo, now time.Time) model.V2ProxyTrafficResp {
+	history := make([]model.V2ProxyTrafficPointResp, 0, v2ProxyTrafficDefaultDays)
+	for age := v2ProxyTrafficDefaultDays - 1; age >= 0; age-- {
+		history = append(history, model.V2ProxyTrafficPointResp{
+			Date:       now.AddDate(0, 0, -age).Format(time.DateOnly),
+			TrafficIn:  v2TrafficValueAt(traffic.TrafficIn, age),
+			TrafficOut: v2TrafficValueAt(traffic.TrafficOut, age),
+		})
+	}
+
+	return model.V2ProxyTrafficResp{
+		Name:        name,
+		Unit:        v2ProxyTrafficUnit,
+		Granularity: v2ProxyTrafficGranularity,
+		History:     history,
+	}
+}
+
+func v2TrafficValueAt(values []int64, todayFirstIndex int) int64 {
+	if todayFirstIndex >= len(values) {
+		return 0
+	}
+	return values[todayFirstIndex]
 }
 
 func (c *Controller) buildV2ClientStatus(info registry.ClientInfo) model.V2ClientStatusResp {

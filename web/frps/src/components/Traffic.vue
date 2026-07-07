@@ -54,6 +54,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { formatFileSize } from '../utils/format'
 import { getProxyTraffic } from '../api/proxy'
+import type { TrafficResponse } from '../types/proxy'
 
 const props = defineProps<{
   proxyName: string
@@ -71,41 +72,24 @@ const chartData = ref<
 >([])
 const maxVal = ref(0)
 
-const processData = (trafficIn: number[], trafficOut: number[]) => {
-  // Ensure we have arrays and reverse them (server returns newest first)
-  const inArr = [...(trafficIn || [])].reverse()
-  const outArr = [...(trafficOut || [])].reverse()
+const formatDateLabel = (date: string) => {
+  const parts = date.split('-')
+  if (parts.length !== 3) return date
+  return `${Number(parts[1])}-${Number(parts[2])}`
+}
 
-  // Pad with zeros if less than 7 days
-  while (inArr.length < 7) inArr.unshift(0)
-  while (outArr.length < 7) outArr.unshift(0)
-
-  // Slice to last 7 entries just in case
-  const finalIn = inArr.slice(-7)
-  const finalOut = outArr.slice(-7)
-
-  // Calculate dates (last 7 days ending today)
-  const dates: string[] = []
-  const d = new Date()
-  d.setDate(d.getDate() - 6)
-
-  for (let i = 0; i < 7; i++) {
-    dates.push(`${d.getMonth() + 1}-${d.getDate()}`)
-    d.setDate(d.getDate() + 1)
-  }
-
-  // Find max value for scaling
-  const maxIn = Math.max(...finalIn)
-  const maxOut = Math.max(...finalOut)
+const processData = (history: TrafficResponse['history'] = []) => {
+  const points = history || []
+  const maxIn = Math.max(0, ...points.map((item) => item.trafficIn))
+  const maxOut = Math.max(0, ...points.map((item) => item.trafficOut))
   maxVal.value = Math.max(maxIn, maxOut, 100) // Minimum scale 100 bytes
 
-  // Build chart data
-  chartData.value = dates.map((date, i) => ({
-    date,
-    in: finalIn[i],
-    out: finalOut[i],
-    inPercent: (finalIn[i] / maxVal.value) * 100,
-    outPercent: (finalOut[i] / maxVal.value) * 100,
+  chartData.value = points.map((item) => ({
+    date: formatDateLabel(item.date),
+    in: item.trafficIn,
+    out: item.trafficOut,
+    inPercent: (item.trafficIn / maxVal.value) * 100,
+    outPercent: (item.trafficOut / maxVal.value) * 100,
   }))
 }
 
@@ -113,7 +97,7 @@ const fetchData = () => {
   loading.value = true
   getProxyTraffic(props.proxyName)
     .then((json) => {
-      processData(json.trafficIn, json.trafficOut)
+      processData(json.history)
     })
     .catch((err) => {
       ElMessage({
