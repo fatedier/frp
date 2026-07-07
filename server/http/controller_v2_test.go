@@ -41,8 +41,9 @@ type v2EnvelopeForTest[T any] struct {
 }
 
 type fakeStatsCollector struct {
-	server  *mem.ServerStats
-	proxies map[string]*mem.ProxyStats
+	server    *mem.ServerStats
+	proxies   map[string]*mem.ProxyStats
+	pruneable map[string]bool
 }
 
 func (f *fakeStatsCollector) GetServer() *mem.ServerStats {
@@ -80,6 +81,19 @@ func (f *fakeStatsCollector) GetProxyTraffic(name string) *mem.ProxyTrafficInfo 
 
 func (f *fakeStatsCollector) ClearOfflineProxies() (int, int) {
 	return 0, len(f.proxies)
+}
+
+func (f *fakeStatsCollector) PruneOfflineProxies() (int, int) {
+	total := len(f.proxies)
+	cleared := 0
+	for name := range f.pruneable {
+		if _, ok := f.proxies[name]; ok {
+			delete(f.proxies, name)
+			cleared++
+		}
+	}
+	f.pruneable = map[string]bool{}
+	return cleared, total
 }
 
 func TestAPIV2SystemInfoEnvelope(t *testing.T) {
@@ -181,6 +195,88 @@ func TestAPIV2SystemInfoEnvelope(t *testing.T) {
 		systemResp.Data.Status.ProxyTypeCounts["tcp"] != 2 ||
 		systemResp.Data.Status.ProxyTypeCounts["http"] != 1 {
 		t.Fatalf("status mismatch: %#v", systemResp.Data.Status)
+	}
+}
+
+func TestAPIV2SystemPruneOfflineProxies(t *testing.T) {
+	oldStatsCollector := mem.StatsCollector
+	collector := &fakeStatsCollector{
+		proxies: map[string]*mem.ProxyStats{
+			"tcp-offline":    {Name: "tcp-offline", Type: "tcp"},
+			"http-offline":   {Name: "http-offline", Type: "http"},
+			"udp-offline":    {Name: "udp-offline", Type: "udp"},
+			"tcp-online":     {Name: "tcp-online", Type: "tcp"},
+			"http-online":    {Name: "http-online", Type: "http"},
+			"udp-online":     {Name: "udp-online", Type: "udp"},
+			"stcp-restarted": {Name: "stcp-restarted", Type: "stcp"},
+			"xtcp-restarted": {Name: "xtcp-restarted", Type: "xtcp"},
+			"sudp-same-time": {Name: "sudp-same-time", Type: "sudp"},
+			"tcpmux-running": {Name: "tcpmux-running", Type: "tcpmux"},
+		},
+		pruneable: map[string]bool{
+			"tcp-offline":  true,
+			"http-offline": true,
+			"udp-offline":  true,
+		},
+	}
+	mem.StatsCollector = collector
+	t.Cleanup(func() {
+		mem.StatsCollector = oldStatsCollector
+	})
+
+	controller := NewController(&v1.ServerConfig{}, registry.NewClientRegistry(), serverproxy.NewManager())
+	router := newV2TestRouter(controller)
+
+	resp := performRequestWithMethod(router, http.MethodPost, "/api/v2/system/prune?type=offline_proxies")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status mismatch, want %d got %d, body: %s", http.StatusOK, resp.Code, resp.Body.String())
+	}
+	rawResp := decodeResponse[v2EnvelopeForTest[map[string]json.RawMessage]](t, resp)
+	if rawResp.Code != http.StatusOK || rawResp.Msg != "success" {
+		t.Fatalf("envelope mismatch: %#v", rawResp)
+	}
+	assertRawJSONKeys(t, rawResp.Data, "cleared", "total", "type")
+	pruneResp := decodeResponse[v2EnvelopeForTest[model.V2SystemPruneResp]](t, resp)
+	if pruneResp.Data.Type != "offline_proxies" || pruneResp.Data.Cleared != 3 || pruneResp.Data.Total != 10 {
+		t.Fatalf("prune response mismatch: %#v", pruneResp.Data)
+	}
+	if _, ok := collector.proxies["tcp-offline"]; ok {
+		t.Fatal("pruned proxy statistics should be removed")
+	}
+	if _, ok := collector.proxies["tcp-online"]; !ok {
+		t.Fatal("online proxy statistics should remain")
+	}
+
+	resp = performRequestWithMethod(router, http.MethodPost, "/api/v2/system/prune?type=offline_proxies")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("second prune status mismatch, want %d got %d", http.StatusOK, resp.Code)
+	}
+	pruneResp = decodeResponse[v2EnvelopeForTest[model.V2SystemPruneResp]](t, resp)
+	if pruneResp.Data.Cleared != 0 || pruneResp.Data.Total != 7 {
+		t.Fatalf("second prune response mismatch: %#v", pruneResp.Data)
+	}
+}
+
+func TestAPIV2SystemPruneTypeErrorsUseEnvelope(t *testing.T) {
+	controller := newV2TestController(t)
+	router := newV2TestRouter(controller)
+
+	resp := performRequestWithMethod(router, http.MethodPost, "/api/v2/system/prune")
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("missing type status mismatch, want %d got %d", http.StatusBadRequest, resp.Code)
+	}
+	errResp := decodeResponse[httppkg.V2Response](t, resp)
+	if errResp.Code != http.StatusBadRequest || errResp.Msg != "type is required" || errResp.Data != nil {
+		t.Fatalf("missing type error envelope mismatch: %#v", errResp)
+	}
+
+	resp = performRequestWithMethod(router, http.MethodPost, "/api/v2/system/prune?type=clients")
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("invalid type status mismatch, want %d got %d", http.StatusBadRequest, resp.Code)
+	}
+	errResp = decodeResponse[httppkg.V2Response](t, resp)
+	if errResp.Code != http.StatusBadRequest || errResp.Msg != "type must be one of offline_proxies" || errResp.Data != nil {
+		t.Fatalf("invalid type error envelope mismatch: %#v", errResp)
 	}
 }
 
@@ -527,6 +623,7 @@ func newV2TestRouter(controller *Controller) *mux.Router {
 	router := mux.NewRouter()
 	router.HandleFunc("/api/v2/users", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2UserList)).Methods(http.MethodGet)
 	router.HandleFunc("/api/v2/system/info", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2SystemInfo)).Methods(http.MethodGet)
+	router.HandleFunc("/api/v2/system/prune", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2SystemPrune)).Methods(http.MethodPost)
 	router.HandleFunc("/api/v2/clients", httppkg.MakeHTTPHandlerFuncV2(controller.APIV2ClientList)).Methods(http.MethodGet)
 	encodedPathRouter := router.NewRoute().Subrouter()
 	encodedPathRouter.UseEncodedPath()
@@ -540,7 +637,11 @@ func newV2TestRouter(controller *Controller) *mux.Router {
 }
 
 func performRequest(handler http.Handler, target string) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(http.MethodGet, target, nil)
+	return performRequestWithMethod(handler, http.MethodGet, target)
+}
+
+func performRequestWithMethod(handler http.Handler, method, target string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, target, nil)
 	resp := httptest.NewRecorder()
 	handler.ServeHTTP(resp, req)
 	return resp

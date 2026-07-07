@@ -8,6 +8,12 @@ import type {
   TrafficResponse,
 } from '../types/proxy'
 
+export interface SystemPruneResponse {
+  type: 'offline_proxies'
+  cleared: number
+  total: number
+}
+
 export const getProxiesByType = (type: string) => {
   return http.get<GetProxyResponse>(`../api/proxy/${type}`)
 }
@@ -66,5 +72,7 @@ export const getProxyTraffic = (name: string) => {
 }
 
 export const clearOfflineProxies = () => {
-  return http.delete('../api/proxies?status=offline')
+  return http.postV2<SystemPruneResponse>(
+    '../api/v2/system/prune?type=offline_proxies',
+  )
 }

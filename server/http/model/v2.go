@@ -50,6 +50,12 @@ type V2SystemInfoStatusResp struct {
 	ProxyTypeCounts map[string]int64 `json:"proxyTypeCount"`
 }
 
+type V2SystemPruneResp struct {
+	Type    string `json:"type"`
+	Cleared int    `json:"cleared"`
+	Total   int    `json:"total"`
+}
+
 type V2UserResp struct {
 	User        string `json:"user"`
 	ClientCount int    `json:"clientCount"`

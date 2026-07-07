@@ -98,6 +98,13 @@ export const http = {
     request<T>(url, { ...options, method: 'GET' }),
   getV2: <T>(url: string, options?: RequestInit) =>
     requestV2<T>(url, { ...options, method: 'GET' }),
+  postV2: <T>(url: string, body?: any, options?: RequestInit) =>
+    requestV2<T>(url, {
+      ...options,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      body: JSON.stringify(body),
+    }),
   post: <T>(url: string, body?: any, options?: RequestInit) =>
     request<T>(url, {
       ...options,
