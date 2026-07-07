@@ -35,6 +35,8 @@ const (
 	defaultV2Page     = 1
 	defaultV2PageSize = 50
 	maxV2PageSize     = 200
+
+	v2SystemPruneTypeOfflineProxies = "offline_proxies"
 )
 
 var apiV2ProxyTypes = []string{
@@ -79,6 +81,21 @@ func (c *Controller) APIV2SystemInfo(ctx *httppkg.Context) (any, error) {
 			ClientCounts:    info.ClientCounts,
 			ProxyTypeCounts: proxyTypeCounts,
 		},
+	}, nil
+}
+
+// /api/v2/system/prune
+func (c *Controller) APIV2SystemPrune(ctx *httppkg.Context) (any, error) {
+	pruneType, err := parseV2SystemPruneType(ctx.Query("type"))
+	if err != nil {
+		return nil, err
+	}
+
+	cleared, total := mem.StatsCollector.PruneOfflineProxies()
+	return model.V2SystemPruneResp{
+		Type:    pruneType,
+		Cleared: cleared,
+		Total:   total,
 	}, nil
 }
 
@@ -319,6 +336,18 @@ func parseV2ProxyTypeFilter(raw string) (string, error) {
 		return proxyType, nil
 	}
 	return "", httppkg.NewError(http.StatusBadRequest, "type must be one of tcp, udp, http, https, tcpmux, stcp, xtcp, sudp")
+}
+
+func parseV2SystemPruneType(raw string) (string, error) {
+	pruneType := strings.ToLower(raw)
+	switch pruneType {
+	case "":
+		return "", httppkg.NewError(http.StatusBadRequest, "type is required")
+	case v2SystemPruneTypeOfflineProxies:
+		return pruneType, nil
+	default:
+		return "", httppkg.NewError(http.StatusBadRequest, "type must be one of offline_proxies")
+	}
 }
 
 func matchV2StatusFilter(online bool, filter string) bool {

@@ -85,4 +85,5 @@ type Collector interface {
 	GetProxyByName(proxyName string) *ProxyStats
 	GetProxyTraffic(name string) *ProxyTrafficInfo
 	ClearOfflineProxies() (int, int)
+	PruneOfflineProxies() (int, int)
 }
