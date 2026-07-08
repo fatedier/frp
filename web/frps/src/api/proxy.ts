@@ -49,7 +49,7 @@ export const toLegacyProxyStats = (proxy: ProxyV2Info): ProxyStatsInfo => ({
   curConns: proxy.status.curConns,
   lastStartTime: proxy.status.lastStartTime,
   lastCloseTime: proxy.status.lastCloseTime,
-  status: proxy.status.state || proxy.status.phase || '',
+  status: proxy.status.phase,
 })
 
 export const getProxy = (type: string, name: string) => {
