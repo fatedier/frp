@@ -1,7 +1,6 @@
 ## Features
 
-* Added dashboard API v2 pagination endpoints for users, clients, and proxies.
-* The frps dashboard Clients and Proxies pages now use API v2 pagination and server-side search, including proxy type filtering and searchable proxy spec fields such as remote ports, custom domains, and subdomains.
+* Expanded the frps dashboard API v2 migration across Clients, Proxies, Server Overview, Client Detail, and Proxy Detail, covering paginated users/clients/proxies, detail data, proxy traffic history, server system info, offline proxy statistics pruning, server-side pagination, search, and proxy type filtering.
 
 ## Fixes
 
