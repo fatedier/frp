@@ -1,0 +1,132 @@
+###############################################################################
+# frps.toml — FILE CẤU HÌNH SERVER (fork MeoBaka/frp, v1.0.0)
+# Chạy trên VPS/máy có IP public (hoặc mở được port). File tham khảo có giải
+# thích từng dòng. Định dạng TOML.
+###############################################################################
+
+# ============================ 1. LẮNG NGHE CHÍNH ============================
+
+# Địa chỉ bind. 0.0.0.0 = mọi interface. IPv6: bindAddr = "::".
+bindAddr = "0.0.0.0"
+# Cổng control chính (frpc nối vào đây). PHẢI khớp serverPort bên frpc.
+bindPort = 7000
+
+# Cổng UDP cho protocol KCP (có thể trùng bindPort). Bỏ = tắt KCP.
+# kcpBindPort = 7000
+# Cổng UDP cho protocol QUIC. Bỏ = tắt QUIC.
+# quicBindPort = 7002
+
+# Địa chỉ mà các proxy sẽ lắng nghe (mặc định = bindAddr).
+# proxyBindAddr = "127.0.0.1"
+
+# LƯU Ý VỀ wireProtocol (v1/v2):
+# frps KHÔNG cần cấu hình wireProtocol — nó TỰ PHÁT HIỆN theo "magic" client gửi.
+# Client (fork này) mặc định v2 -> frps tự dùng v2. Client v1 -> frps tự dùng v1.
+# Nên server không cần khai gì; chỉ cần build từ fork này để hiểu được v2.
+
+# ============================== 2. XÁC THỰC ================================
+
+auth.method = "token"           # "token" hoặc "oidc"
+auth.token  = "DOI_TOKEN_NAY"   # PHẢI khớp auth.token bên frpc
+# auth.additionalScopes = ["HeartBeats", "NewWorkConns"]
+# auth.tokenSource.type = "file"
+# auth.tokenSource.file.path = "/etc/frp/token"
+# OIDC (nếu auth.method = "oidc"):
+# auth.oidc.issuer = ""
+# auth.oidc.audience = ""
+
+# ============================ 3. TRANSPORT ================================
+
+# Số kết nối tối đa giữ sẵn trong pool cho mỗi proxy. Mặc định 5.
+transport.maxPoolCount = 5
+
+# TCP multiplexing — PHẢI khớp frpc. Mặc định true.
+# transport.tcpMux = true
+# transport.tcpMuxKeepaliveInterval = 30
+# transport.tcpKeepalive = 7200
+
+# Heartbeat timeout (giây). Mặc định 90. Số âm = tắt.
+# transport.heartbeatTimeout = 90
+
+# TLS: force = true nghĩa là CHỈ nhận kết nối TLS (từ chối client không TLS).
+transport.tls.force = false
+# transport.tls.certFile = "server.crt"
+# transport.tls.keyFile  = "server.key"
+# transport.tls.trustedCaFile = "ca.crt"
+
+# Tuỳ chọn QUIC (nếu bật quicBindPort):
+# transport.quic.keepalivePeriod = 10
+# transport.quic.maxIdleTimeout = 30
+# transport.quic.maxIncomingStreams = 100000
+
+# ===================== 4. VIRTUAL HOST (HTTP/HTTPS) =======================
+# Bật nếu dùng proxy type http/https (định tuyến theo domain).
+vhostHTTPPort  = 80
+vhostHTTPSPort = 443
+# vhostHTTPTimeout = 60   # timeout đọc response header (giây)
+
+# Nếu đặt, frpc dùng được subdomain cho http/https.
+# subdomain "test" -> host định tuyến là test.frps.com
+# subDomainHost = "frps.com"
+
+# tcpmux qua HTTP CONNECT trên 1 cổng (0 = tắt).
+# tcpmuxHTTPConnectPort = 1337
+# tcpmuxPassthrough = false
+
+# ==================== 5. WEB DASHBOARD (GIAO DIỆN frps) ====================
+# Bật để xem client/proxy/traffic. Chỉ bật khi đặt webServer.port.
+webServer.addr = "127.0.0.1"    # 0.0.0.0 nếu muốn xem từ máy khác
+webServer.port = 7500
+webServer.user = "admin"
+webServer.password = "admin"
+# webServer.tls.certFile = "server.crt"
+# webServer.tls.keyFile  = "server.key"
+# webServer.pprofEnable = false
+
+# Xuất metrics Prometheus ở /metrics trên webServer.
+enablePrometheus = true
+
+# ================================ 6. LOG =================================
+
+log.to    = "console"    # "console" hoặc "./frps.log"
+log.level = "info"       # trace | debug | info | warn | error
+log.maxDays = 3
+log.disablePrintColor = false
+
+# Gửi lỗi chi tiết (kèm debug) về frpc. Mặc định true.
+detailedErrorsToClient = true
+
+# =========================== 7. GIỚI HẠN / KHÁC ===========================
+
+# Chỉ cho phép frpc mở các cổng trong danh sách. Bỏ = không giới hạn.
+# allowPorts = [
+#   { start = 2000, end = 3000 },
+#   { single = 3001 },
+# ]
+
+# Số cổng tối đa mỗi client. 0 = không giới hạn.
+maxPortsPerClient = 0
+
+# Thời gian chờ tối đa cho một work connection (giây).
+# userConnTimeout = 10
+
+# Kích thước gói UDP (byte), PHẢI khớp frpc. Ảnh hưởng udp/sudp/xudp. Mặc định 1500.
+udpPacketSize = 1500
+
+# Số giờ giữ dữ liệu phân tích đục lỗ NAT (dùng cho xtcp/xudp/xtcp+xudp).
+# frps đóng vai "bà mối" đục lỗ cho các type P2P — cần bật để chúng hoạt động.
+# (NatHoleController luôn được khởi tạo, không cần bật thủ công.)
+natholeAnalysisDataReserveHours = 168
+
+# =========================== 8. SSH TUNNEL GATEWAY ========================
+# Cho phép dùng `ssh -R` để tạo tunnel mà không cần frpc. Bỏ = tắt.
+# sshTunnelGateway.bindPort = 2200
+# sshTunnelGateway.authorizedKeysFile = "/home/frp-user/.ssh/authorized_keys"
+
+# ============================ 9. HTTP PLUGINS ============================
+# Plugin ngoài xử lý sự kiện (Login, NewProxy...) qua HTTP. Bỏ nếu không dùng.
+# [[httpPlugins]]
+# name = "user-manager"
+# addr = "127.0.0.1:9000"
+# path = "/handler"
+# ops = ["Login"]

@@ -1,0 +1,302 @@
+###############################################################################
+# frpc.toml — FILE CẤU HÌNH CLIENT (fork MeoBaka/frp, v1.0.0)
+# File tham khảo có giải thích từng dòng. ĐỪNG chạy trực tiếp — hãy copy phần
+# bạn cần. Định dạng TOML.
+###############################################################################
+
+# =========================== 1. KẾT NỐI TỚI SERVER ===========================
+
+# Địa chỉ IP / hostname của frps (server). IPv6 phải bọc ngoặc vuông ở proxy,
+# riêng serverAddr thì không cần: serverAddr = "::".
+serverAddr = "103.110.32.128"
+# Cổng control của frps (khớp bindPort bên frps). Mặc định 7000.
+serverPort = 7000
+
+# Tên user — nếu đặt, mọi proxy sẽ thành {user}.{proxy} (vd "tuan.ssh").
+# Để rỗng nếu không cần đa người dùng.
+# user = "tuan"
+# Mã định danh tuỳ chọn cho instance frpc này.
+# clientID = "may-pc-1"
+
+# STUN server để đục lỗ NAT (dùng cho xtcp/xudp/xtcp+xudp). Mặc định server công
+# cộng của frp. Đổi nếu bạn tự dựng STUN.
+# natHoleStunServer = "stun.easyvoip.com:3478"
+
+# true = thoát chương trình nếu LẦN ĐẦU login thất bại; false = cứ thử lại mãi.
+# Mặc định true. Đặt false cho dịch vụ chạy nền tự phục hồi.
+loginFailExit = false
+
+# =============================== 2. XÁC THỰC ================================
+
+auth.method = "token"          # "token" (đơn giản) hoặc "oidc"
+auth.token  = "DOI_TOKEN_NAY"  # PHẢI khớp auth.token bên frps
+# Hoặc đọc token từ file (loại trừ lẫn nhau với auth.token ở trên):
+# auth.tokenSource.type = "file"
+# auth.tokenSource.file.path = "/etc/frp/token"
+# Gửi kèm auth cho heartbeat / work conn (tăng bảo mật, phải khớp frps):
+# auth.additionalScopes = ["HeartBeats", "NewWorkConns"]
+
+# =============================== 3. LOG ====================================
+
+log.to    = "console"   # "console" hoặc đường dẫn file, vd "./frpc.log"
+log.level = "info"      # trace | debug | info | warn | error
+log.maxDays = 3
+log.disablePrintColor = false
+
+# ==================== 4. WEB DASHBOARD / ADMIN API (frpc) ===================
+# Bật để quản lý frpc qua HTTP (reload, thêm/sửa proxy qua giao diện).
+# Bỏ block này nếu không cần.
+webServer.addr = "127.0.0.1"   # 0.0.0.0 nếu muốn truy cập từ máy khác
+webServer.port = 7400
+webServer.user = "admin"
+webServer.password = "admin"
+# webServer.pprofEnable = false   # bật pprof golang để debug hiệu năng
+
+# ========================= 5. TRANSPORT (LỚP VẬN CHUYỂN) ====================
+
+# Giao thức nối tới frps: tcp | kcp | quic | websocket | wss. Mặc định tcp.
+transport.protocol = "tcp"
+
+# >>> KHÁC BIỆT CỦA FORK NÀY <<<
+# wireProtocol = codec khung tin nội bộ frpc<->frps: "v1" hoặc "v2".
+# Fork này MẶC ĐỊNH "v2" (v1 gốc bảo mật yếu hơn). v2 có mã hoá AEAD, an toàn hơn.
+# Chỉ đặt "v1" nếu phải nói chuyện với frps CŨ không hỗ trợ v2.
+# Không set = tự dùng v2. Set tường minh để dashboard hiển thị rõ:
+transport.wireProtocol = "v2"
+
+# TCP multiplexing — dồn nhiều stream vào 1 kết nối TCP. Mặc định true.
+# PHẢI khớp với frps. Tắt (false) cho luồng throughput cao cần nhiều kết nối.
+# transport.tcpMux = true
+# transport.tcpMuxKeepaliveInterval = 30
+
+# Số kết nối dựng sẵn trong pool (giảm độ trễ khi có request mới). Mặc định 0.
+transport.poolCount = 5
+
+# Timeout / keepalive khi quay số tới server (giây).
+# transport.dialServerTimeout = 10
+# transport.dialServerKeepalive = 7200
+
+# TLS: mã hoá kênh control tới frps. Từ v0.50.0 mặc định BẬT.
+transport.tls.enable = true
+# transport.tls.certFile = "client.crt"
+# transport.tls.keyFile  = "client.key"
+# transport.tls.trustedCaFile = "ca.crt"
+# transport.tls.serverName = "example.com"
+
+# Heartbeat: giữ kết nối sống + phát hiện đứt. Mặc định interval 30, timeout 90 (giây).
+# Đặt số âm để tắt. KHÔNG khuyến nghị đổi.
+# transport.heartbeatInterval = 30
+# transport.heartbeatTimeout  = 90
+
+# Tuỳ chọn cho protocol = "quic":
+# transport.quic.keepalivePeriod = 10
+# transport.quic.maxIdleTimeout = 30
+# transport.quic.maxIncomingStreams = 100000
+
+# Proxy trung gian để nối tới frps (chỉ khi protocol = tcp):
+# transport.proxyURL = "socks5://user:pass@192.168.1.128:1080"
+
+# ============================ 6. TUỲ CHỌN KHÁC ==============================
+
+# Kích thước gói UDP (byte), phải khớp frps. Ảnh hưởng udp/sudp/xudp. Mặc định 1500.
+udpPacketSize = 1500
+
+# Chỉ chạy các proxy có tên trong danh sách (allowlist toàn cục). Rỗng = chạy tất cả.
+# start = ["rdp", "ssh"]
+# Hoặc bật/tắt từng proxy bằng field enabled = false (khuyến nghị hơn 'start').
+
+# Metadata gửi kèm (server-side plugin dùng được):
+# metadatas.env = "prod"
+
+# Nạp thêm file cấu hình proxy khác:
+# includes = ["./confd/*.toml"]
+
+###############################################################################
+#                              PROXIES (BÊN CUNG CẤP)
+# Mỗi [[proxies]] = một dịch vụ local bạn muốn expose. name PHẢI duy nhất.
+###############################################################################
+
+# ------------------------------- tcp: cổng TCP -------------------------------
+[[proxies]]
+name = "ssh"
+type = "tcp"
+localIP = "127.0.0.1"      # IP dịch vụ local (mặc định 127.0.0.1)
+localPort = 22             # cổng dịch vụ local
+remotePort = 6001          # cổng frps mở ra public (0 = ngẫu nhiên)
+# enabled = true           # false để tắt proxy này mà không xoá
+# transport.useEncryption  = false   # mã hoá thêm cho riêng proxy này
+# transport.useCompression = false   # nén dữ liệu
+# transport.bandwidthLimit = "1MB"   # giới hạn băng thông (KB/MB)
+# transport.bandwidthLimitMode = "client"   # "client" hoặc "server"
+# Health check: frps tự gỡ proxy nếu dịch vụ local chết
+# healthCheck.type = "tcp"
+# healthCheck.timeoutSeconds = 3
+# healthCheck.maxFailed = 3
+# healthCheck.intervalSeconds = 10
+# Load balancing nhiều proxy cùng group:
+# loadBalancer.group = "web"
+# loadBalancer.groupKey = "secret"
+
+# ------------------------------- udp: cổng UDP -------------------------------
+[[proxies]]
+name = "dns"
+type = "udp"
+localIP = "114.114.114.114"
+localPort = 53
+remotePort = 6002
+
+# --------------------------- http: web theo domain --------------------------
+[[proxies]]
+name = "web"
+type = "http"
+localIP = "127.0.0.1"
+localPort = 80
+customDomains = ["web.mienphi.com"]   # domain trỏ về frps
+# subdomain = "web"                    # hoặc dùng subdomain (cần subDomainHost bên frps)
+# locations = ["/", "/api"]            # định tuyến theo path (chỉ http)
+# httpUser = "admin"                   # basic-auth
+# httpPassword = "admin"
+# hostHeaderRewrite = "example.com"
+
+# ------------------------------ https theo domain ----------------------------
+[[proxies]]
+name = "web-secure"
+type = "https"
+localIP = "127.0.0.1"
+localPort = 8443
+customDomains = ["secure.mienphi.com"]
+
+# --------------------- stcp: TCP bí mật (qua relay, có key) ------------------
+# Không mở port public; máy khác cần frpc "visitor" + đúng secretKey mới vào.
+[[proxies]]
+name = "secret-ssh"
+type = "stcp"
+secretKey = "KEY_BI_MAT"
+localIP = "127.0.0.1"
+localPort = 22
+# allowUsers = ["*"]   # chỉ user này được nối; "*" = mọi user
+
+# --------------------- sudp: UDP bí mật (qua relay, có key) ------------------
+[[proxies]]
+name = "secret-dns"
+type = "sudp"
+secretKey = "KEY_BI_MAT"
+localIP = "127.0.0.1"
+localPort = 53
+
+# ================== xtcp: P2P TCP (đục lỗ NAT, KHÔNG qua relay) ==============
+[[proxies]]
+name = "p2p-ssh"
+type = "xtcp"
+secretKey = "KEY_BI_MAT"
+localIP = "127.0.0.1"
+localPort = 22
+# allowUsers = ["user1", "user2"]
+# [proxies.natTraversal]
+# disableAssistedAddrs = false   # true = chỉ dùng địa chỉ public từ STUN
+
+# ============ >>> MỚI: xudp — P2P UDP (đục lỗ NAT cho UDP) <<< ===============
+# frp gốc KHÔNG có. Giống xtcp nhưng chở UDP. Không có fallbackTo (UDP không cần).
+[[proxies]]
+name = "p2p-game"
+type = "xudp"
+secretKey = "KEY_BI_MAT"
+localIP = "127.0.0.1"
+localPort = 27015
+# allowUsers = ["*"]
+
+# ====== >>> MỚI: xtcp+xudp — GỘP TCP+UDP qua 1 LỖ (kiểu tailscale) <<< =======
+# 1 proxy chở CẢ TCP lẫn UDP tới localPort qua CÙNG một lỗ NAT.
+# Hoàn hảo cho REMOTE DESKTOP (RDP dùng TCP 3389 + UDP 3389 để mượt).
+[[proxies]]
+name = "pc-rdp"
+type = "xtcp+xudp"
+secretKey = "KEY_RDP"
+localIP = "127.0.0.1"      # hoặc IP LAN của máy có RDP, vd 192.168.100.19
+localPort = 3389          # dùng cho CẢ TCP lẫn UDP
+# localPortUDP = 3389      # (tuỳ chọn) đổi nếu UDP dùng cổng khác; mặc định = localPort
+
+# ============ >>> MỚI: COMBO SUGAR — khai 1 dòng, tự tách 2 proxy <<< ========
+# tcp+udp / http+https / stcp+sudp: 1 entry -> tự sinh 2 proxy con "-tcp"/"-udp"...
+# Tiện khi dịch vụ cần cả 2 giao thức mà không muốn viết 2 khối.
+[[proxies]]
+name = "voice"          # -> tự tạo voice-tcp + voice-udp
+type = "tcp+udp"
+localPort = 8000
+remotePort = 9000
+# [[proxies]]
+# name = "site"; type = "http+https"; customDomains = ["site.com"]   # -> site-http + site-https
+# [[proxies]]
+# name = "priv"; type = "stcp+sudp"; secretKey = "k"; localPort = 22  # -> priv-stcp + priv-sudp
+
+# ----------------------- ví dụ dùng plugin thay localPort -------------------
+# [[proxies]]
+# name = "socks5"
+# type = "tcp"
+# remotePort = 6005
+# [proxies.plugin]
+# type = "socks5"
+# username = "abc"
+# password = "abc"
+
+###############################################################################
+#                            VISITORS (BÊN TRUY CẬP)
+# Chạy trên máy MUỐN VÀO dịch vụ stcp/sudp/xtcp/xudp/xtcp+xudp ở trên.
+###############################################################################
+
+# --------------------------- visitor cho stcp -------------------------------
+[[visitors]]
+name = "secret-ssh-visitor"
+type = "stcp"
+serverName = "secret-ssh"   # khớp name proxy bên cung cấp
+secretKey = "KEY_BI_MAT"
+bindAddr = "127.0.0.1"      # mở cổng local để bạn kết nối vào
+bindPort = 6022             # vd: ssh 127.0.0.1 -p 6022
+
+# --------------------------- visitor cho xtcp (P2P) -------------------------
+[[visitors]]
+name = "p2p-ssh-visitor"
+type = "xtcp"
+serverName = "p2p-ssh"
+secretKey = "KEY_BI_MAT"
+bindAddr = "127.0.0.1"
+bindPort = 6023
+# serverUser = "user1"        # nếu proxy thuộc user khác
+keepTunnelOpen = true         # đục lỗ sẵn -> vào nhanh, không phải chờ
+# maxRetriesAnHour = 8
+# minRetryInterval = 90
+# fallbackTo = "secret-ssh-visitor"   # nếu đục lỗ fail thì tụt về stcp (relay)
+# fallbackTimeoutMs = 1000
+
+# ------------------ >>> MỚI: visitor cho xudp (P2P UDP) <<< ------------------
+[[visitors]]
+name = "p2p-game-visitor"
+type = "xudp"
+serverName = "p2p-game"
+secretKey = "KEY_BI_MAT"
+bindAddr = "127.0.0.1"
+bindPort = 27015
+keepTunnelOpen = true
+# LƯU Ý: xudp KHÔNG có fallbackTo (UDP mất gói là bình thường).
+
+# ========== >>> MỚI: visitor cho xtcp+xudp — VÀO REMOTE DESKTOP <<< =========
+[[visitors]]
+name = "pc-rdp-visitor"
+type = "xtcp+xudp"
+serverName = "pc-rdp"
+secretKey = "KEY_RDP"
+bindAddr = "127.0.0.1"
+bindPort = 13389            # -> mở mstsc, gõ 127.0.0.1:13389 để vào Desktop
+keepTunnelOpen = true
+
+# ========== >>> MỚI: visitor stcp+sudp — combo, tự tách 2 visitor <<< ========
+# Đối xứng với proxy combo "stcp+sudp". serverName cũng TỰ tách để khớp tên
+# proxy đã tách: serverName="priv" -> nối priv-stcp (TCP) + priv-sudp (UDP).
+# bindPort dùng chung: stcp bind TCP, sudp bind UDP (khác protocol, không đụng).
+[[visitors]]
+name = "priv-visitor"       # -> tự tạo priv-visitor-stcp + priv-visitor-sudp
+type = "stcp+sudp"
+serverName = "priv"         # -> priv-stcp / priv-sudp
+secretKey = "KEY_BI_MAT"
+bindAddr = "127.0.0.1"
+bindPort = 6100

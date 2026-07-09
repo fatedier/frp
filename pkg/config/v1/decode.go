@@ -218,6 +218,76 @@ func expandComboProxyRaw(b jsonx.RawMessage) ([]jsonx.RawMessage, error) {
 	return out, nil
 }
 
+// comboVisitorSubTypes maps a combo visitor type to its concrete sub-types. Only
+// stcp+sudp is meaningful for visitors (tcp/udp/http/https have no visitor side).
+var comboVisitorSubTypes = map[string][]string{
+	"stcp+sudp": {"stcp", "sudp"},
+}
+
+// ComboVisitorSubTypes returns the concrete visitor types a combo visitor type
+// expands into, and whether typ is a combo visitor type.
+func ComboVisitorSubTypes(typ string) ([]string, bool) {
+	subs, ok := comboVisitorSubTypes[typ]
+	return subs, ok
+}
+
+// expandComboVisitorRaw expands a combo visitor raw message into one message per
+// concrete sub-visitor. Both the visitor name AND its serverName are suffixed
+// with "-<subtype>" so they line up with the proxy combo's expanded names
+// (<proxyName>-stcp / <proxyName>-sudp). bindPort is shared: stcp binds TCP and
+// sudp binds UDP, so the same port number does not collide.
+func expandComboVisitorRaw(b jsonx.RawMessage) ([]jsonx.RawMessage, error) {
+	var env struct {
+		Name       string `json:"name"`
+		Type       string `json:"type"`
+		ServerName string `json:"serverName"`
+	}
+	if err := jsonx.Unmarshal(b, &env); err != nil {
+		return nil, err
+	}
+	subs, ok := comboVisitorSubTypes[env.Type]
+	if !ok {
+		return []jsonx.RawMessage{b}, nil
+	}
+
+	var fields map[string]jsonx.RawMessage
+	if err := jsonx.Unmarshal(b, &fields); err != nil {
+		return nil, err
+	}
+
+	out := make([]jsonx.RawMessage, 0, len(subs))
+	for _, st := range subs {
+		m := make(map[string]jsonx.RawMessage, len(fields))
+		for k, v := range fields {
+			m[k] = v
+		}
+		nameRaw, err := jsonx.Marshal(env.Name + "-" + st)
+		if err != nil {
+			return nil, err
+		}
+		typeRaw, err := jsonx.Marshal(st)
+		if err != nil {
+			return nil, err
+		}
+		m["name"] = nameRaw
+		m["type"] = typeRaw
+		if env.ServerName != "" {
+			snRaw, err := jsonx.Marshal(env.ServerName + "-" + st)
+			if err != nil {
+				return nil, err
+			}
+			m["serverName"] = snRaw
+		}
+
+		nb, err := jsonx.Marshal(m)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, nb)
+	}
+	return out, nil
+}
+
 func DecodeClientConfigJSON(b []byte, options DecodeOptions) (ClientConfig, error) {
 	type rawClientConfig struct {
 		ClientCommonConfig
@@ -254,14 +324,20 @@ func DecodeClientConfigJSON(b []byte, options DecodeOptions) (ClientConfig, erro
 	}
 
 	for i, visitorData := range raw.Visitors {
-		visitorCfg, err := DecodeVisitorConfigurerJSON(visitorData, options)
+		expanded, err := expandComboVisitorRaw(visitorData)
 		if err != nil {
-			return ClientConfig{}, fmt.Errorf("decode visitor at index %d: %w", i, err)
+			return ClientConfig{}, fmt.Errorf("expand visitor at index %d: %w", i, err)
 		}
-		cfg.Visitors = append(cfg.Visitors, TypedVisitorConfig{
-			Type:              visitorCfg.GetBaseConfig().Type,
-			VisitorConfigurer: visitorCfg,
-		})
+		for _, vd := range expanded {
+			visitorCfg, err := DecodeVisitorConfigurerJSON(vd, options)
+			if err != nil {
+				return ClientConfig{}, fmt.Errorf("decode visitor at index %d: %w", i, err)
+			}
+			cfg.Visitors = append(cfg.Visitors, TypedVisitorConfig{
+				Type:              visitorCfg.GetBaseConfig().Type,
+				VisitorConfigurer: visitorCfg,
+			})
+		}
 	}
 
 	return cfg, nil

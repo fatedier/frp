@@ -399,6 +399,41 @@ func TestCreateStoreVisitorIgnoresUnknownFields(t *testing.T) {
 	}
 }
 
+func TestCreateStoreVisitorExpandsCombo(t *testing.T) {
+	var created []v1.VisitorConfigurer
+	controller := &Controller{
+		manager: &fakeConfigManager{
+			createStoreVisitFn: func(cfg v1.VisitorConfigurer) (v1.VisitorConfigurer, error) {
+				created = append(created, cfg)
+				return cfg, nil
+			},
+		},
+	}
+
+	body := []byte(`{"name":"sec-v","type":"stcp+sudp","stcp+sudp":{"serverName":"sec","secretKey":"k","bindPort":6000}}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/store/visitors", bytes.NewReader(body))
+	ctx := httppkg.NewContext(httptest.NewRecorder(), req)
+
+	resp, err := controller.CreateStoreVisitor(ctx)
+	if err != nil {
+		t.Fatalf("create combo visitor: %v", err)
+	}
+	if len(created) != 2 {
+		t.Fatalf("expected 2 visitors created, got %d", len(created))
+	}
+	stcp, ok := created[0].(*v1.STCPVisitorConfig)
+	if !ok || stcp.Name != "sec-v-stcp" || stcp.ServerName != "sec-stcp" {
+		t.Fatalf("unexpected stcp sub-visitor: %#v", created[0])
+	}
+	sudp, ok := created[1].(*v1.SUDPVisitorConfig)
+	if !ok || sudp.Name != "sec-v-sudp" || sudp.ServerName != "sec-sudp" {
+		t.Fatalf("unexpected sudp sub-visitor: %#v", created[1])
+	}
+	if list, ok := resp.([]model.VisitorDefinition); !ok || len(list) != 2 {
+		t.Fatalf("unexpected combo response: %T", resp)
+	}
+}
+
 func TestCreateStoreProxyPluginUnknownFieldsAreIgnored(t *testing.T) {
 	var gotPluginType string
 	controller := &Controller{

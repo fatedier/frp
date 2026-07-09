@@ -4,7 +4,7 @@
       <el-input v-model="form.name" :disabled="editing || readonly" placeholder="my-visitor" />
     </el-form-item>
     <ConfigField label="Type" type="select" v-model="form.type" :disabled="editing"
-      :options="[{ label: 'STCP', value: 'stcp' }, { label: 'SUDP', value: 'sudp' }, { label: 'XTCP', value: 'xtcp' }, { label: 'XUDP', value: 'xudp' }, { label: 'XTCP+XUDP', value: 'xtcp+xudp' }]" prop="type" />
+      :options="[{ label: 'STCP', value: 'stcp' }, { label: 'SUDP', value: 'sudp' }, { label: 'XTCP', value: 'xtcp' }, { label: 'XUDP', value: 'xudp' }, { label: 'XTCP+XUDP', value: 'xtcp+xudp' }, { label: 'STCP+SUDP', value: 'stcp+sudp' }]" prop="type" />
     <el-form-item label="Enabled" class="switch-field">
       <el-switch v-model="form.enabled" size="small" />
     </el-form-item>

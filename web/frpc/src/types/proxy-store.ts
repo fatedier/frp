@@ -26,6 +26,7 @@ export interface VisitorDefinition {
   xtcp?: Record<string, any>
   xudp?: Record<string, any>
   'xtcp+xudp'?: Record<string, any>
+  'stcp+sudp'?: Record<string, any>
 }
 
 export interface ProxyListResp {

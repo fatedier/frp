@@ -79,3 +79,79 @@ func ExpandComboProxyBody(body []byte) ([][]byte, bool, error) {
 	}
 	return out, true, nil
 }
+
+// IsComboVisitorType reports whether typ is a combo visitor type (only stcp+sudp).
+func IsComboVisitorType(typ string) bool {
+	_, ok := v1.ComboVisitorSubTypes(typ)
+	return ok
+}
+
+// ExpandComboVisitorBody turns a combo visitor request body into one body per
+// concrete sub-visitor. Unlike proxies, a visitor's serverName lives inside the
+// typed block, so we suffix both the top-level name and the block's serverName
+// with "-<subtype>" so they line up with the expanded proxy combo names.
+func ExpandComboVisitorBody(body []byte) ([][]byte, bool, error) {
+	var env struct {
+		Name string `json:"name"`
+		Type string `json:"type"`
+	}
+	if err := jsonx.Unmarshal(body, &env); err != nil {
+		return nil, false, err
+	}
+	subs, ok := v1.ComboVisitorSubTypes(env.Type)
+	if !ok {
+		return nil, false, nil
+	}
+
+	var fields map[string]jsonx.RawMessage
+	if err := jsonx.Unmarshal(body, &fields); err != nil {
+		return nil, false, err
+	}
+	block := map[string]jsonx.RawMessage{}
+	if raw, ok := fields[env.Type]; ok && len(raw) > 0 {
+		if err := jsonx.Unmarshal(raw, &block); err != nil {
+			return nil, false, err
+		}
+	}
+	var serverName string
+	if snRaw, ok := block["serverName"]; ok {
+		_ = jsonx.Unmarshal(snRaw, &serverName)
+	}
+
+	out := make([][]byte, 0, len(subs))
+	for _, st := range subs {
+		subBlock := make(map[string]jsonx.RawMessage, len(block))
+		for k, v := range block {
+			subBlock[k] = v
+		}
+		if serverName != "" {
+			snRaw, err := jsonx.Marshal(serverName + "-" + st)
+			if err != nil {
+				return nil, false, err
+			}
+			subBlock["serverName"] = snRaw
+		}
+		subBlockRaw, err := jsonx.Marshal(subBlock)
+		if err != nil {
+			return nil, false, err
+		}
+		nameRaw, err := jsonx.Marshal(env.Name + "-" + st)
+		if err != nil {
+			return nil, false, err
+		}
+		typeRaw, err := jsonx.Marshal(st)
+		if err != nil {
+			return nil, false, err
+		}
+		mb, err := jsonx.Marshal(map[string]jsonx.RawMessage{
+			"name": nameRaw,
+			"type": typeRaw,
+			st:     subBlockRaw,
+		})
+		if err != nil {
+			return nil, false, err
+		}
+		out = append(out, mb)
+	}
+	return out, true, nil
+}

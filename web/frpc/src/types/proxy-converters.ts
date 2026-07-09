@@ -351,6 +351,8 @@ function getStoreVisitorBlock(config: VisitorDefinition): Record<string, any> {
       return config.xudp || {}
     case 'xtcp+xudp':
       return config['xtcp+xudp'] || {}
+    case 'stcp+sudp':
+      return config['stcp+sudp'] || {}
   }
 }
 
@@ -374,6 +376,9 @@ function withStoreVisitorBlock(
       break
     case 'xtcp+xudp':
       payload['xtcp+xudp'] = block
+      break
+    case 'stcp+sudp':
+      payload['stcp+sudp'] = block
       break
   }
   return payload

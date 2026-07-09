@@ -392,6 +392,36 @@ func (c *Controller) CreateStoreVisitor(ctx *httppkg.Context) (any, error) {
 		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("read body error: %v", err))
 	}
 
+	// stcp+sudp combo expands into an stcp visitor and a sudp visitor.
+	if subBodies, isCombo, cErr := model.ExpandComboVisitorBody(body); cErr != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("parse combo visitor error: %v", cErr))
+	} else if isCombo {
+		created := make([]model.VisitorDefinition, 0, len(subBodies))
+		for _, sb := range subBodies {
+			var sub model.VisitorDefinition
+			if err := jsonx.Unmarshal(sb, &sub); err != nil {
+				return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("parse JSON error: %v", err))
+			}
+			if err := sub.Validate("", false); err != nil {
+				return nil, httppkg.NewError(http.StatusBadRequest, err.Error())
+			}
+			subCfg, err := sub.ToConfigurer()
+			if err != nil {
+				return nil, httppkg.NewError(http.StatusBadRequest, err.Error())
+			}
+			cr, err := c.manager.CreateStoreVisitor(subCfg)
+			if err != nil {
+				return nil, c.toHTTPError(err)
+			}
+			def, err := model.VisitorDefinitionFromConfigurer(cr)
+			if err != nil {
+				return nil, httppkg.NewError(http.StatusInternalServerError, err.Error())
+			}
+			created = append(created, def)
+		}
+		return created, nil
+	}
+
 	var payload model.VisitorDefinition
 	if err := jsonx.Unmarshal(body, &payload); err != nil {
 		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("parse JSON error: %v", err))
