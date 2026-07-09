@@ -15,25 +15,19 @@
 package model
 
 import (
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/util/jsonx"
 )
 
-// comboProxySubTypes maps an admin-API "combo" proxy type to the concrete proxy
-// types it expands into. This mirrors the config-file sugar in pkg/config/v1 but
-// operates on the admin API's ProxyDefinition JSON shape (typed blocks).
-//
-// Note: "xtcp+xudp" is intentionally NOT here — it is a real single-hole proxy
-// type, handled like any other type.
-var comboProxySubTypes = map[string][]string{
-	"tcp+udp":    {"tcp", "udp"},
-	"http+https": {"http", "https"},
-	"stcp+sudp":  {"stcp", "sudp"},
-}
+// Combo definitions live in one place — v1.ComboProxySubTypes — shared with the
+// config-file loader. This file only adapts them to the admin API's
+// ProxyDefinition JSON shape (typed blocks) instead of flat config fields.
+// Note: "xtcp+xudp" is NOT a combo — it is a real single-hole proxy type.
 
 // IsComboProxyType reports whether typ is a combo sugar type that a single admin
 // API create request expands into multiple concrete proxies.
 func IsComboProxyType(typ string) bool {
-	_, ok := comboProxySubTypes[typ]
+	_, ok := v1.ComboProxySubTypes(typ)
 	return ok
 }
 
@@ -49,7 +43,7 @@ func ExpandComboProxyBody(body []byte) ([][]byte, bool, error) {
 	if err := jsonx.Unmarshal(body, &env); err != nil {
 		return nil, false, err
 	}
-	subs, ok := comboProxySubTypes[env.Type]
+	subs, ok := v1.ComboProxySubTypes(env.Type)
 	if !ok {
 		return nil, false, nil
 	}

@@ -162,6 +162,15 @@ var comboProxySubTypes = map[string][]string{
 	"stcp+sudp":  {"stcp", "sudp"},
 }
 
+// ComboProxySubTypes returns the concrete proxy types a combo proxy type expands
+// into, and whether typ is a combo type at all. This is the single source of
+// truth for combo definitions, shared by the config-file loader (here) and the
+// admin API (client/http/model).
+func ComboProxySubTypes(typ string) ([]string, bool) {
+	subs, ok := comboProxySubTypes[typ]
+	return subs, ok
+}
+
 // expandComboProxyRaw expands a combo proxy raw message into its concrete
 // sub-proxy raw messages (rewriting "type" and suffixing "name" with "-<subtype>").
 // Non-combo messages are returned unchanged.
