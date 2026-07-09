@@ -237,6 +237,8 @@ const (
 	ProxyTypeXTCP     ProxyType = "xtcp"
 	ProxyTypeSUDP     ProxyType = "sudp"
 	ProxyTypeXUDP     ProxyType = "xudp"
+	ProxyTypeTCPUDP   ProxyType = "tcp+udp"
+	ProxyTypeSTCPSUDP ProxyType = "stcp+sudp"
 	ProxyTypeXTCPXUDP ProxyType = "xtcp+xudp"
 )
 
@@ -250,6 +252,8 @@ var proxyConfigTypeMap = map[ProxyType]reflect.Type{
 	ProxyTypeXTCP:     reflect.TypeFor[XTCPProxyConfig](),
 	ProxyTypeSUDP:     reflect.TypeFor[SUDPProxyConfig](),
 	ProxyTypeXUDP:     reflect.TypeFor[XUDPProxyConfig](),
+	ProxyTypeTCPUDP:   reflect.TypeFor[TCPUDPProxyConfig](),
+	ProxyTypeSTCPSUDP: reflect.TypeFor[STCPSUDPProxyConfig](),
 	ProxyTypeXTCPXUDP: reflect.TypeFor[XTCPXUDPProxyConfig](),
 }
 
@@ -310,6 +314,40 @@ func (c *UDPProxyConfig) UnmarshalFromMsg(m *msg.NewProxy) {
 }
 
 func (c *UDPProxyConfig) Clone() ProxyConfigurer {
+	out := *c
+	out.ProxyBaseConfig = c.ProxyBaseConfig.Clone()
+	return &out
+}
+
+var _ ProxyConfigurer = &TCPUDPProxyConfig{}
+
+// TCPUDPProxyConfig is a merged public-port proxy that exposes BOTH a TCP and a
+// UDP service on the SAME RemotePort of frps (e.g. RDP's TCP 3389 + UDP 3389),
+// registered as a single proxy on both frpc and frps. LocalPort is the TCP local
+// service port; LocalPortUDP is the UDP local service port and defaults to
+// LocalPort when zero. It is a real relay type (not sugar) — the server opens one
+// TCP listener and one UDP listener, and each work connection is tagged with its
+// protocol so a single client-side proxy routes it to the right local service.
+type TCPUDPProxyConfig struct {
+	ProxyBaseConfig
+
+	RemotePort   int `json:"remotePort,omitempty"`
+	LocalPortUDP int `json:"localPortUDP,omitempty"`
+}
+
+func (c *TCPUDPProxyConfig) MarshalToMsg(m *msg.NewProxy) {
+	c.ProxyBaseConfig.MarshalToMsg(m)
+
+	m.RemotePort = c.RemotePort
+}
+
+func (c *TCPUDPProxyConfig) UnmarshalFromMsg(m *msg.NewProxy) {
+	c.ProxyBaseConfig.UnmarshalFromMsg(m)
+
+	c.RemotePort = m.RemotePort
+}
+
+func (c *TCPUDPProxyConfig) Clone() ProxyConfigurer {
 	out := *c
 	out.ProxyBaseConfig = c.ProxyBaseConfig.Clone()
 	return &out
@@ -607,6 +645,45 @@ func (c *SUDPProxyConfig) UnmarshalFromMsg(m *msg.NewProxy) {
 }
 
 func (c *SUDPProxyConfig) Clone() ProxyConfigurer {
+	out := *c
+	out.ProxyBaseConfig = c.ProxyBaseConfig.Clone()
+	out.AllowUsers = slices.Clone(c.AllowUsers)
+	return &out
+}
+
+var _ ProxyConfigurer = &STCPSUDPProxyConfig{}
+
+// STCPSUDPProxyConfig is the provider side of a merged secret proxy that carries
+// BOTH TCP and UDP to a local service through the frps relay (no public port),
+// registered as a single proxy. Like stcp/sudp it is reached via a matching
+// visitor holding the same secret key. On the frps side it is one secret listener
+// (identical to stcp/sudp); the TCP/UDP split lives entirely on the client, where
+// every relayed stream is prefixed with a 1-byte tag. LocalPort is the TCP local
+// service port; LocalPortUDP is the UDP local service port and defaults to
+// LocalPort when zero.
+type STCPSUDPProxyConfig struct {
+	ProxyBaseConfig
+
+	Secretkey    string   `json:"secretKey,omitempty"`
+	AllowUsers   []string `json:"allowUsers,omitempty"`
+	LocalPortUDP int      `json:"localPortUDP,omitempty"`
+}
+
+func (c *STCPSUDPProxyConfig) MarshalToMsg(m *msg.NewProxy) {
+	c.ProxyBaseConfig.MarshalToMsg(m)
+
+	m.Sk = c.Secretkey
+	m.AllowUsers = c.AllowUsers
+}
+
+func (c *STCPSUDPProxyConfig) UnmarshalFromMsg(m *msg.NewProxy) {
+	c.ProxyBaseConfig.UnmarshalFromMsg(m)
+
+	c.Secretkey = m.Sk
+	c.AllowUsers = m.AllowUsers
+}
+
+func (c *STCPSUDPProxyConfig) Clone() ProxyConfigurer {
 	out := *c
 	out.ProxyBaseConfig = c.ProxyBaseConfig.Clone()
 	out.AllowUsers = slices.Clone(c.AllowUsers)

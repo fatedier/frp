@@ -326,7 +326,8 @@ func TestCreateStoreProxyIgnoresUnknownFields(t *testing.T) {
 	}
 }
 
-func TestCreateStoreProxyExpandsCombo(t *testing.T) {
+// tcp+udp is a real merged type now: one create request makes exactly one proxy.
+func TestCreateStoreProxyTCPUDPIsSingleRealProxy(t *testing.T) {
 	var created []v1.ProxyConfigurer
 	controller := &Controller{
 		manager: &fakeConfigManager{
@@ -337,30 +338,26 @@ func TestCreateStoreProxyExpandsCombo(t *testing.T) {
 		},
 	}
 
-	body := []byte(`{"name":"game","type":"tcp+udp","tcp+udp":{"localPort":8000,"remotePort":9000}}`)
+	body := []byte(`{"name":"game","type":"tcp+udp","tcp+udp":{"localPort":8000,"remotePort":9000,"localPortUDP":8001}}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/store/proxies", bytes.NewReader(body))
 	ctx := httppkg.NewContext(httptest.NewRecorder(), req)
 
 	resp, err := controller.CreateStoreProxy(ctx)
 	if err != nil {
-		t.Fatalf("create combo proxy: %v", err)
+		t.Fatalf("create tcp+udp proxy: %v", err)
 	}
 
-	if len(created) != 2 {
-		t.Fatalf("expected 2 proxies created, got %d", len(created))
+	if len(created) != 1 {
+		t.Fatalf("expected 1 proxy created, got %d", len(created))
 	}
-	tcp, ok := created[0].(*v1.TCPProxyConfig)
-	if !ok || tcp.Name != "game-tcp" || tcp.LocalPort != 8000 || tcp.RemotePort != 9000 {
-		t.Fatalf("unexpected tcp sub-proxy: %#v", created[0])
-	}
-	udp, ok := created[1].(*v1.UDPProxyConfig)
-	if !ok || udp.Name != "game-udp" || udp.LocalPort != 8000 || udp.RemotePort != 9000 {
-		t.Fatalf("unexpected udp sub-proxy: %#v", created[1])
+	pxy, ok := created[0].(*v1.TCPUDPProxyConfig)
+	if !ok || pxy.Name != "game" || pxy.LocalPort != 8000 || pxy.RemotePort != 9000 || pxy.LocalPortUDP != 8001 {
+		t.Fatalf("unexpected tcp+udp proxy: %#v", created[0])
 	}
 
-	list, ok := resp.([]model.ProxyDefinition)
-	if !ok || len(list) != 2 {
-		t.Fatalf("unexpected combo response: %T", resp)
+	payload, ok := resp.(model.ProxyDefinition)
+	if !ok || payload.Type != "tcp+udp" || payload.TCPUDP == nil {
+		t.Fatalf("unexpected response: %#v", resp)
 	}
 }
 
@@ -399,7 +396,9 @@ func TestCreateStoreVisitorIgnoresUnknownFields(t *testing.T) {
 	}
 }
 
-func TestCreateStoreVisitorExpandsCombo(t *testing.T) {
+// stcp+sudp is a real merged visitor type now: one create request makes exactly
+// one visitor.
+func TestCreateStoreVisitorSTCPSUDPIsSingleRealVisitor(t *testing.T) {
 	var created []v1.VisitorConfigurer
 	controller := &Controller{
 		manager: &fakeConfigManager{
@@ -416,21 +415,18 @@ func TestCreateStoreVisitorExpandsCombo(t *testing.T) {
 
 	resp, err := controller.CreateStoreVisitor(ctx)
 	if err != nil {
-		t.Fatalf("create combo visitor: %v", err)
+		t.Fatalf("create stcp+sudp visitor: %v", err)
 	}
-	if len(created) != 2 {
-		t.Fatalf("expected 2 visitors created, got %d", len(created))
+	if len(created) != 1 {
+		t.Fatalf("expected 1 visitor created, got %d", len(created))
 	}
-	stcp, ok := created[0].(*v1.STCPVisitorConfig)
-	if !ok || stcp.Name != "sec-v-stcp" || stcp.ServerName != "sec-stcp" {
-		t.Fatalf("unexpected stcp sub-visitor: %#v", created[0])
+	v, ok := created[0].(*v1.STCPSUDPVisitorConfig)
+	if !ok || v.Name != "sec-v" || v.ServerName != "sec" || v.BindPort != 6000 {
+		t.Fatalf("unexpected stcp+sudp visitor: %#v", created[0])
 	}
-	sudp, ok := created[1].(*v1.SUDPVisitorConfig)
-	if !ok || sudp.Name != "sec-v-sudp" || sudp.ServerName != "sec-sudp" {
-		t.Fatalf("unexpected sudp sub-visitor: %#v", created[1])
-	}
-	if list, ok := resp.([]model.VisitorDefinition); !ok || len(list) != 2 {
-		t.Fatalf("unexpected combo response: %T", resp)
+	payload, ok := resp.(model.VisitorDefinition)
+	if !ok || payload.Type != "stcp+sudp" || payload.STCPSUDP == nil {
+		t.Fatalf("unexpected response: %#v", resp)
 	}
 }
 

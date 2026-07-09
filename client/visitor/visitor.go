@@ -108,6 +108,12 @@ func NewVisitor(
 			cfg:          cfg,
 			checkCloseCh: make(chan struct{}),
 		}
+	case *v1.STCPSUDPVisitorConfig:
+		visitor = &STCPSUDPVisitor{
+			BaseVisitor:  &baseVisitor,
+			cfg:          cfg,
+			checkCloseCh: make(chan struct{}),
+		}
 	case *v1.XUDPVisitorConfig:
 		visitor = &XUDPVisitor{
 			BaseVisitor:   &baseVisitor,

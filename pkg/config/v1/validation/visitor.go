@@ -31,6 +31,7 @@ func ValidateVisitorConfigurer(c v1.VisitorConfigurer) error {
 	switch v := c.(type) {
 	case *v1.STCPVisitorConfig:
 	case *v1.SUDPVisitorConfig:
+	case *v1.STCPSUDPVisitorConfig:
 	case *v1.XTCPVisitorConfig:
 		return validateXTCPVisitorConfig(v)
 	case *v1.XUDPVisitorConfig:

@@ -124,6 +124,10 @@ func ValidateProxyConfigurerForClient(c v1.ProxyConfigurer) error {
 		return validateSUDPProxyConfigForClient(v)
 	case *v1.XUDPProxyConfig:
 		return validateXUDPProxyConfigForClient(v)
+	case *v1.TCPUDPProxyConfig:
+		return validateTCPUDPProxyConfigForClient(v)
+	case *v1.STCPSUDPProxyConfig:
+		return validateSTCPSUDPProxyConfigForClient(v)
 	case *v1.XTCPXUDPProxyConfig:
 		return validateXTCPXUDPProxyConfigForClient(v)
 	}
@@ -177,6 +181,22 @@ func validateXUDPProxyConfigForServer(c *v1.XUDPProxyConfig, s *v1.ServerConfig)
 	return nil
 }
 
+func validateTCPUDPProxyConfigForClient(c *v1.TCPUDPProxyConfig) error {
+	return nil
+}
+
+func validateTCPUDPProxyConfigForServer(c *v1.TCPUDPProxyConfig, s *v1.ServerConfig) error {
+	return nil
+}
+
+func validateSTCPSUDPProxyConfigForClient(c *v1.STCPSUDPProxyConfig) error {
+	return nil
+}
+
+func validateSTCPSUDPProxyConfigForServer(c *v1.STCPSUDPProxyConfig, s *v1.ServerConfig) error {
+	return nil
+}
+
 func validateXTCPXUDPProxyConfigForClient(c *v1.XTCPXUDPProxyConfig) error {
 	return nil
 }
@@ -210,6 +230,10 @@ func ValidateProxyConfigurerForServer(c v1.ProxyConfigurer, s *v1.ServerConfig) 
 		return validateSUDPProxyConfigForServer(v, s)
 	case *v1.XUDPProxyConfig:
 		return validateXUDPProxyConfigForServer(v, s)
+	case *v1.TCPUDPProxyConfig:
+		return validateTCPUDPProxyConfigForServer(v, s)
+	case *v1.STCPSUDPProxyConfig:
+		return validateSTCPSUDPProxyConfigForServer(v, s)
 	case *v1.XTCPXUDPProxyConfig:
 		return validateXTCPXUDPProxyConfigForServer(v, s)
 	default:

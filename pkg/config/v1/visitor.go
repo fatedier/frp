@@ -77,6 +77,7 @@ const (
 	VisitorTypeXTCP     VisitorType = "xtcp"
 	VisitorTypeSUDP     VisitorType = "sudp"
 	VisitorTypeXUDP     VisitorType = "xudp"
+	VisitorTypeSTCPSUDP VisitorType = "stcp+sudp"
 	VisitorTypeXTCPXUDP VisitorType = "xtcp+xudp"
 )
 
@@ -85,6 +86,7 @@ var visitorConfigTypeMap = map[VisitorType]reflect.Type{
 	VisitorTypeXTCP:     reflect.TypeFor[XTCPVisitorConfig](),
 	VisitorTypeSUDP:     reflect.TypeFor[SUDPVisitorConfig](),
 	VisitorTypeXUDP:     reflect.TypeFor[XUDPVisitorConfig](),
+	VisitorTypeSTCPSUDP: reflect.TypeFor[STCPSUDPVisitorConfig](),
 	VisitorTypeXTCPXUDP: reflect.TypeFor[XTCPXUDPVisitorConfig](),
 }
 
@@ -137,6 +139,23 @@ type SUDPVisitorConfig struct {
 }
 
 func (c *SUDPVisitorConfig) Clone() VisitorConfigurer {
+	out := *c
+	out.VisitorBaseConfig = c.VisitorBaseConfig.Clone()
+	return &out
+}
+
+var _ VisitorConfigurer = &STCPSUDPVisitorConfig{}
+
+// STCPSUDPVisitorConfig is the visitor side of the merged secret proxy. It binds
+// BOTH a local TCP listener and a local UDP listener on BindAddr:BindPort and
+// reaches the provider through the frps relay, tagging each relayed stream so the
+// provider routes it to the TCP or UDP local service. It carries no extra fields
+// beyond the base (relay-based, so no NAT-traversal knobs like xtcp+xudp).
+type STCPSUDPVisitorConfig struct {
+	VisitorBaseConfig
+}
+
+func (c *STCPSUDPVisitorConfig) Clone() VisitorConfigurer {
 	out := *c
 	out.VisitorBaseConfig = c.VisitorBaseConfig.Clone()
 	return &out

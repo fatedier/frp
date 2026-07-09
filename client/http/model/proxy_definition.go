@@ -20,6 +20,8 @@ type ProxyDefinition struct {
 	SUDP     *v1.SUDPProxyConfig     `json:"sudp,omitempty"`
 	XTCP     *v1.XTCPProxyConfig     `json:"xtcp,omitempty"`
 	XUDP     *v1.XUDPProxyConfig     `json:"xudp,omitempty"`
+	TCPUDP   *v1.TCPUDPProxyConfig   `json:"tcp+udp,omitempty"`
+	STCPSUDP *v1.STCPSUDPProxyConfig `json:"stcp+sudp,omitempty"`
 	XTCPXUDP *v1.XTCPXUDPProxyConfig `json:"xtcp+xudp,omitempty"`
 }
 
@@ -86,6 +88,10 @@ func ProxyDefinitionFromConfigurer(cfg v1.ProxyConfigurer) (ProxyDefinition, err
 		payload.XTCP = c
 	case *v1.XUDPProxyConfig:
 		payload.XUDP = c
+	case *v1.TCPUDPProxyConfig:
+		payload.TCPUDP = c
+	case *v1.STCPSUDPProxyConfig:
+		payload.STCPSUDP = c
 	case *v1.XTCPXUDPProxyConfig:
 		payload.XTCPXUDP = c
 	default:
@@ -145,6 +151,16 @@ func (p *ProxyDefinition) activeBlock() (v1.ProxyConfigurer, string, int) {
 		block = p.XUDP
 		blockType = "xudp"
 	}
+	if p.TCPUDP != nil {
+		count++
+		block = p.TCPUDP
+		blockType = "tcp+udp"
+	}
+	if p.STCPSUDP != nil {
+		count++
+		block = p.STCPSUDP
+		blockType = "stcp+sudp"
+	}
 	if p.XTCPXUDP != nil {
 		count++
 		block = p.XTCPXUDP
@@ -156,7 +172,7 @@ func (p *ProxyDefinition) activeBlock() (v1.ProxyConfigurer, string, int) {
 
 func IsProxyType(typ string) bool {
 	switch typ {
-	case "tcp", "udp", "http", "https", "tcpmux", "stcp", "sudp", "xtcp", "xudp", "xtcp+xudp":
+	case "tcp", "udp", "http", "https", "tcpmux", "stcp", "sudp", "xtcp", "xudp", "tcp+udp", "stcp+sudp", "xtcp+xudp":
 		return true
 	default:
 		return false

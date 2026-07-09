@@ -144,6 +144,13 @@ func (pxy *BaseProxy) Close() {
 // GetWorkConnFromPool try to get a new work connections from pool
 // for quickly response, we immediately send the StartWorkConn message to frpc after take out one from pool
 func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn, err error) {
+	return pxy.GetWorkConnFromPoolWithProtocol(src, dst, "")
+}
+
+// GetWorkConnFromPoolWithProtocol behaves like GetWorkConnFromPool but also tags the
+// StartWorkConn with a protocol hint. Merged proxy types (e.g. "tcp+udp") use it so a
+// single client-side proxy can route each work connection to the right handler.
+func (pxy *BaseProxy) GetWorkConnFromPoolWithProtocol(src, dst net.Addr, protocol string) (workConn net.Conn, err error) {
 	xl := xlog.FromContextSafe(pxy.ctx)
 	// try all connections from the pool
 	for i := 0; i < pxy.poolCount+1; i++ {
@@ -179,6 +186,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 			DstAddr:   dstAddr,
 			DstPort:   uint16(dstPort),
 			Error:     "",
+			Protocol:  protocol,
 		})
 		if err != nil {
 			xl.Warnf("failed to send message to work connection from pool: %v, times: %d", err, i)

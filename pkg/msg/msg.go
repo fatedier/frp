@@ -158,6 +158,10 @@ type StartWorkConn struct {
 	SrcPort   uint16 `json:"src_port,omitempty"`
 	DstPort   uint16 `json:"dst_port,omitempty"`
 	Error     string `json:"error,omitempty"`
+	// Protocol hints how the client should route this work connection.
+	// Empty means TCP-style relay (default, backward compatible). Merged proxy
+	// types like "tcp+udp" set it to "udp" so the client can pick the correct handler.
+	Protocol string `json:"protocol,omitempty"`
 }
 
 type NewVisitorConn struct {

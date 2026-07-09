@@ -14,13 +14,18 @@
 
 package v1
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
-func TestExpandComboProxy(t *testing.T) {
+// tcp+udp and stcp+sudp are REAL merged proxy types (not sugar): each entry
+// decodes to a single proxy of that type, keeping its own name. http+https was
+// removed entirely, so it must now be rejected as an unknown type.
+func TestMergedProxyTypesDecodeAsSingleRealProxies(t *testing.T) {
 	jsonStr := `{
 		"proxies": [
-			{"name":"web","type":"http+https","customDomains":["a.com"]},
-			{"name":"game","type":"tcp+udp","localPort":8000,"remotePort":9000},
+			{"name":"game","type":"tcp+udp","localPort":8000,"remotePort":9000,"localPortUDP":8001},
 			{"name":"secret","type":"stcp+sudp","secretKey":"k","localPort":22},
 			{"name":"plain","type":"tcp","localPort":22,"remotePort":6000}
 		]
@@ -35,10 +40,9 @@ func TestExpandComboProxy(t *testing.T) {
 		got[p.GetBaseConfig().Name] = p.GetBaseConfig().Type
 	}
 	want := map[string]string{
-		"web-http": "http", "web-https": "https",
-		"game-tcp": "tcp", "game-udp": "udp",
-		"secret-stcp": "stcp", "secret-sudp": "sudp",
-		"plain": "tcp",
+		"game":   "tcp+udp",
+		"secret": "stcp+sudp",
+		"plain":  "tcp",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("expected %d proxies, got %d: %v", len(want), len(got), got)
@@ -49,12 +53,22 @@ func TestExpandComboProxy(t *testing.T) {
 		}
 	}
 
-	// shared fields must survive the split
+	// The merged tcp+udp proxy keeps its fields on a single real configurer.
 	for _, p := range cfg.Proxies {
-		if p.GetBaseConfig().Name == "game-udp" {
-			if u, ok := p.ProxyConfigurer.(*UDPProxyConfig); !ok || u.LocalPort != 8000 || u.RemotePort != 9000 {
-				t.Errorf("game-udp did not inherit shared fields: %+v", p.ProxyConfigurer)
+		if p.GetBaseConfig().Name == "game" {
+			u, ok := p.ProxyConfigurer.(*TCPUDPProxyConfig)
+			if !ok || u.LocalPort != 8000 || u.RemotePort != 9000 || u.LocalPortUDP != 8001 {
+				t.Errorf("game did not decode as a TCPUDPProxyConfig with expected fields: %+v", p.ProxyConfigurer)
 			}
 		}
+	}
+}
+
+func TestHTTPHTTPSComboTypeRemoved(t *testing.T) {
+	jsonStr := `{"proxies":[{"name":"web","type":"http+https","customDomains":["a.com"]}]}`
+	if _, err := DecodeClientConfigJSON([]byte(jsonStr), DecodeOptions{}); err == nil {
+		t.Fatal("expected http+https to be rejected as unknown type, got nil error")
+	} else if !strings.Contains(err.Error(), "unknown proxy type") {
+		t.Errorf("expected unknown proxy type error, got: %v", err)
 	}
 }

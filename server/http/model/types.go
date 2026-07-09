@@ -100,6 +100,15 @@ type XUDPOutConf struct {
 	BaseOutConf
 }
 
+type TCPUDPOutConf struct {
+	BaseOutConf
+	RemotePort int `json:"remotePort"`
+}
+
+type STCPSUDPOutConf struct {
+	BaseOutConf
+}
+
 type XTCPXUDPOutConf struct {
 	BaseOutConf
 }

@@ -109,8 +109,7 @@ export function formToStoreProxy(form: ProxyFormData): ProxyDefinition {
   if (
     form.type === 'http' ||
     form.type === 'https' ||
-    form.type === 'tcpmux' ||
-    form.type === 'http+https'
+    form.type === 'tcpmux'
   ) {
     if (form.customDomains.length > 0) {
       block.customDomains = form.customDomains.filter(Boolean)
@@ -283,8 +282,6 @@ function getStoreProxyBlock(config: ProxyDefinition): Record<string, any> {
       return config['xtcp+xudp'] || {}
     case 'tcp+udp':
       return config['tcp+udp'] || {}
-    case 'http+https':
-      return config['http+https'] || {}
     case 'stcp+sudp':
       return config['stcp+sudp'] || {}
   }
@@ -328,9 +325,6 @@ function withStoreProxyBlock(
       break
     case 'tcp+udp':
       payload['tcp+udp'] = block
-      break
-    case 'http+https':
-      payload['http+https'] = block
       break
     case 'stcp+sudp':
       payload['stcp+sudp'] = block

@@ -15,6 +15,7 @@ type VisitorDefinition struct {
 	SUDP     *v1.SUDPVisitorConfig     `json:"sudp,omitempty"`
 	XTCP     *v1.XTCPVisitorConfig     `json:"xtcp,omitempty"`
 	XUDP     *v1.XUDPVisitorConfig     `json:"xudp,omitempty"`
+	STCPSUDP *v1.STCPSUDPVisitorConfig `json:"stcp+sudp,omitempty"`
 	XTCPXUDP *v1.XTCPXUDPVisitorConfig `json:"xtcp+xudp,omitempty"`
 }
 
@@ -71,6 +72,8 @@ func VisitorDefinitionFromConfigurer(cfg v1.VisitorConfigurer) (VisitorDefinitio
 		payload.XTCP = c
 	case *v1.XUDPVisitorConfig:
 		payload.XUDP = c
+	case *v1.STCPSUDPVisitorConfig:
+		payload.STCPSUDP = c
 	case *v1.XTCPXUDPVisitorConfig:
 		payload.XTCPXUDP = c
 	default:
@@ -105,6 +108,11 @@ func (p *VisitorDefinition) activeBlock() (v1.VisitorConfigurer, string, int) {
 		block = p.XUDP
 		blockType = "xudp"
 	}
+	if p.STCPSUDP != nil {
+		count++
+		block = p.STCPSUDP
+		blockType = "stcp+sudp"
+	}
 	if p.XTCPXUDP != nil {
 		count++
 		block = p.XTCPXUDP
@@ -115,7 +123,7 @@ func (p *VisitorDefinition) activeBlock() (v1.VisitorConfigurer, string, int) {
 
 func IsVisitorType(typ string) bool {
 	switch typ {
-	case "stcp", "sudp", "xtcp", "xudp", "xtcp+xudp":
+	case "stcp", "sudp", "xtcp", "xudp", "stcp+sudp", "xtcp+xudp":
 		return true
 	default:
 		return false

@@ -216,18 +216,27 @@ localIP = "127.0.0.1"      # hoặc IP LAN của máy có RDP, vd 192.168.100.19
 localPort = 3389          # dùng cho CẢ TCP lẫn UDP
 # localPortUDP = 3389      # (tuỳ chọn) đổi nếu UDP dùng cổng khác; mặc định = localPort
 
-# ============ >>> MỚI: COMBO SUGAR — khai 1 dòng, tự tách 2 proxy <<< ========
-# tcp+udp / http+https / stcp+sudp: 1 entry -> tự sinh 2 proxy con "-tcp"/"-udp"...
-# Tiện khi dịch vụ cần cả 2 giao thức mà không muốn viết 2 khối.
+# ====== >>> MỚI: tcp+udp — GỘP TCP+UDP TRÊN 1 CỔNG PUBLIC (type thật) <<< =====
+# 1 proxy DUY NHẤT mở CẢ TCP lẫn UDP trên CÙNG remotePort ở frps (giống RDP:
+# TCP 3389 + UDP 3389). Không phải sugar — hiện đúng 1 proxy ở cả frpc lẫn frps.
+# localPortUDP mặc định = localPort (đặt khác nếu dịch vụ UDP nghe cổng khác).
 [[proxies]]
-name = "voice"          # -> tự tạo voice-tcp + voice-udp
+name = "voice"
 type = "tcp+udp"
 localPort = 8000
 remotePort = 9000
-# [[proxies]]
-# name = "site"; type = "http+https"; customDomains = ["site.com"]   # -> site-http + site-https
-# [[proxies]]
-# name = "priv"; type = "stcp+sudp"; secretKey = "k"; localPort = 22  # -> priv-stcp + priv-sudp
+# localPortUDP = 8001   # (tuỳ chọn) cổng UDP local khác; mặc định = localPort
+
+# ====== >>> MỚI: stcp+sudp — GỘP TCP+UDP BÍ MẬT QUA RELAY (type thật) <<< =====
+# Bản bí mật của tcp+udp: không mở cổng public, vào qua visitor giữ cùng secretKey.
+# 1 proxy chở cả TCP lẫn UDP; cần visitor "stcp+sudp" tương ứng ở phần dưới.
+[[proxies]]
+name = "priv"
+type = "stcp+sudp"
+secretKey = "KEY_PRIV"
+localPort = 22
+# localPortUDP = 22    # (tuỳ chọn) mặc định = localPort
+# (http+https đã BỎ: khi có SSL thì không ai dùng http nữa)
 
 # ----------------------- ví dụ dùng plugin thay localPort -------------------
 # [[proxies]]
@@ -289,14 +298,14 @@ bindAddr = "127.0.0.1"
 bindPort = 13389            # -> mở mstsc, gõ 127.0.0.1:13389 để vào Desktop
 keepTunnelOpen = true
 
-# ========== >>> MỚI: visitor stcp+sudp — combo, tự tách 2 visitor <<< ========
-# Đối xứng với proxy combo "stcp+sudp". serverName cũng TỰ tách để khớp tên
-# proxy đã tách: serverName="priv" -> nối priv-stcp (TCP) + priv-sudp (UDP).
-# bindPort dùng chung: stcp bind TCP, sudp bind UDP (khác protocol, không đụng).
+# ========== >>> MỚI: visitor stcp+sudp — type thật, 1 visitor <<< ============
+# Đối xứng với proxy "stcp+sudp" (type thật, KHÔNG phải sugar). serverName trỏ
+# thẳng tên proxy "priv". Visitor bind CẢ TCP lẫn UDP trên cùng bindPort; mỗi
+# stream gắn 1 byte tag để frpc bên cung cấp route đúng dịch vụ TCP/UDP.
 [[visitors]]
-name = "priv-visitor"       # -> tự tạo priv-visitor-stcp + priv-visitor-sudp
+name = "priv-visitor"
 type = "stcp+sudp"
-serverName = "priv"         # -> priv-stcp / priv-sudp
-secretKey = "KEY_BI_MAT"
+serverName = "priv"         # khớp thẳng name proxy "priv"
+secretKey = "KEY_PRIV"
 bindAddr = "127.0.0.1"
-bindPort = 6100
+bindPort = 6100             # mở CẢ TCP lẫn UDP 127.0.0.1:6100

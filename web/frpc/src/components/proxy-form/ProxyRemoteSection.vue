@@ -6,7 +6,7 @@
       <div></div>
     </div>
   </template>
-  <template v-if="['http', 'https', 'tcpmux', 'http+https'].includes(form.type)">
+  <template v-if="['http', 'https', 'tcpmux'].includes(form.type)">
     <div class="field-row two-col">
       <ConfigField label="Custom Domains" type="tags" v-model="form.customDomains"
         prop="customDomains" placeholder="example.com" :readonly="readonly" />

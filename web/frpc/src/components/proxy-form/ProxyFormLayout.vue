@@ -3,7 +3,7 @@
     <ConfigSection :readonly="readonly">
       <ProxyBaseSection v-model="form" :readonly="readonly" :editing="editing" />
       <ProxyRemoteSection
-        v-if="['tcp', 'udp', 'http', 'https', 'tcpmux', 'tcp+udp', 'http+https'].includes(form.type)"
+        v-if="['tcp', 'udp', 'http', 'https', 'tcpmux', 'tcp+udp'].includes(form.type)"
         v-model="form" :readonly="readonly" />
       <ProxyBackendSection v-model="form" :readonly="readonly" />
     </ConfigSection>
