@@ -245,6 +245,37 @@ func (c *Controller) CreateStoreProxy(ctx *httppkg.Context) (any, error) {
 		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("read body error: %v", err))
 	}
 
+	// Combo sugar types (tcp+udp, http+https, stcp+sudp) expand into multiple
+	// concrete proxies: one create request becomes several store proxies.
+	if subBodies, isCombo, cErr := model.ExpandComboProxyBody(body); cErr != nil {
+		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("parse combo proxy error: %v", cErr))
+	} else if isCombo {
+		created := make([]model.ProxyDefinition, 0, len(subBodies))
+		for _, sb := range subBodies {
+			var sub model.ProxyDefinition
+			if err := jsonx.Unmarshal(sb, &sub); err != nil {
+				return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("parse JSON error: %v", err))
+			}
+			if err := sub.Validate("", false); err != nil {
+				return nil, httppkg.NewError(http.StatusBadRequest, err.Error())
+			}
+			subCfg, err := sub.ToConfigurer()
+			if err != nil {
+				return nil, httppkg.NewError(http.StatusBadRequest, err.Error())
+			}
+			cr, err := c.manager.CreateStoreProxy(subCfg)
+			if err != nil {
+				return nil, c.toHTTPError(err)
+			}
+			def, err := model.ProxyDefinitionFromConfigurer(cr)
+			if err != nil {
+				return nil, httppkg.NewError(http.StatusInternalServerError, err.Error())
+			}
+			created = append(created, def)
+		}
+		return created, nil
+	}
+
 	var payload model.ProxyDefinition
 	if err := jsonx.Unmarshal(body, &payload); err != nil {
 		return nil, httppkg.NewError(http.StatusBadRequest, fmt.Sprintf("parse JSON error: %v", err))

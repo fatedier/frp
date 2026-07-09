@@ -3,13 +3,13 @@
     <ConfigSection :readonly="readonly">
       <ProxyBaseSection v-model="form" :readonly="readonly" :editing="editing" />
       <ProxyRemoteSection
-        v-if="['tcp', 'udp', 'http', 'https', 'tcpmux'].includes(form.type)"
+        v-if="['tcp', 'udp', 'http', 'https', 'tcpmux', 'tcp+udp', 'http+https'].includes(form.type)"
         v-model="form" :readonly="readonly" />
       <ProxyBackendSection v-model="form" :readonly="readonly" />
     </ConfigSection>
 
     <ProxyAuthSection
-      v-if="['http', 'tcpmux', 'stcp', 'sudp', 'xtcp', 'xudp', 'xtcp+xudp'].includes(form.type)"
+      v-if="['http', 'tcpmux', 'stcp', 'sudp', 'xtcp', 'xudp', 'xtcp+xudp', 'stcp+sudp'].includes(form.type)"
       v-model="form" :readonly="readonly" />
     <ProxyHttpSection v-if="form.type === 'http'" v-model="form" :readonly="readonly" />
     <ProxyTransportSection v-model="form" :readonly="readonly" />

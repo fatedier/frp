@@ -326,6 +326,44 @@ func TestCreateStoreProxyIgnoresUnknownFields(t *testing.T) {
 	}
 }
 
+func TestCreateStoreProxyExpandsCombo(t *testing.T) {
+	var created []v1.ProxyConfigurer
+	controller := &Controller{
+		manager: &fakeConfigManager{
+			createStoreProxyFn: func(cfg v1.ProxyConfigurer) (v1.ProxyConfigurer, error) {
+				created = append(created, cfg)
+				return cfg, nil
+			},
+		},
+	}
+
+	body := []byte(`{"name":"game","type":"tcp+udp","tcp+udp":{"localPort":8000,"remotePort":9000}}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/store/proxies", bytes.NewReader(body))
+	ctx := httppkg.NewContext(httptest.NewRecorder(), req)
+
+	resp, err := controller.CreateStoreProxy(ctx)
+	if err != nil {
+		t.Fatalf("create combo proxy: %v", err)
+	}
+
+	if len(created) != 2 {
+		t.Fatalf("expected 2 proxies created, got %d", len(created))
+	}
+	tcp, ok := created[0].(*v1.TCPProxyConfig)
+	if !ok || tcp.Name != "game-tcp" || tcp.LocalPort != 8000 || tcp.RemotePort != 9000 {
+		t.Fatalf("unexpected tcp sub-proxy: %#v", created[0])
+	}
+	udp, ok := created[1].(*v1.UDPProxyConfig)
+	if !ok || udp.Name != "game-udp" || udp.LocalPort != 8000 || udp.RemotePort != 9000 {
+		t.Fatalf("unexpected udp sub-proxy: %#v", created[1])
+	}
+
+	list, ok := resp.([]model.ProxyDefinition)
+	if !ok || len(list) != 2 {
+		t.Fatalf("unexpected combo response: %T", resp)
+	}
+}
+
 func TestCreateStoreVisitorIgnoresUnknownFields(t *testing.T) {
 	var gotName string
 	controller := &Controller{

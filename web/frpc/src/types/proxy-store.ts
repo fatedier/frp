@@ -13,6 +13,9 @@ export interface ProxyDefinition {
   xtcp?: Record<string, any>
   xudp?: Record<string, any>
   'xtcp+xudp'?: Record<string, any>
+  'tcp+udp'?: Record<string, any>
+  'http+https'?: Record<string, any>
+  'stcp+sudp'?: Record<string, any>
 }
 
 export interface VisitorDefinition {

@@ -9,6 +9,9 @@ export const PROXY_TYPES = [
   'xtcp',
   'xudp',
   'xtcp+xudp',
+  'tcp+udp',
+  'http+https',
+  'stcp+sudp',
 ] as const
 
 export type ProxyType = (typeof PROXY_TYPES)[number]

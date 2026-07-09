@@ -97,11 +97,21 @@ export function formToStoreProxy(form: ProxyFormData): ProxyDefinition {
   }
 
   // Type-specific fields
-  if ((form.type === 'tcp' || form.type === 'udp') && form.remotePort != null) {
+  if (
+    (form.type === 'tcp' ||
+      form.type === 'udp' ||
+      form.type === 'tcp+udp') &&
+    form.remotePort != null
+  ) {
     block.remotePort = form.remotePort
   }
 
-  if (form.type === 'http' || form.type === 'https' || form.type === 'tcpmux') {
+  if (
+    form.type === 'http' ||
+    form.type === 'https' ||
+    form.type === 'tcpmux' ||
+    form.type === 'http+https'
+  ) {
     if (form.customDomains.length > 0) {
       block.customDomains = form.customDomains.filter(Boolean)
     }
@@ -149,7 +159,8 @@ export function formToStoreProxy(form: ProxyFormData): ProxyDefinition {
     form.type === 'sudp' ||
     form.type === 'xtcp' ||
     form.type === 'xudp' ||
-    form.type === 'xtcp+xudp'
+    form.type === 'xtcp+xudp' ||
+    form.type === 'stcp+sudp'
   ) {
     if (form.secretKey) block.secretKey = form.secretKey
     if (form.allowUsers.length > 0) {
@@ -270,6 +281,12 @@ function getStoreProxyBlock(config: ProxyDefinition): Record<string, any> {
       return config.xudp || {}
     case 'xtcp+xudp':
       return config['xtcp+xudp'] || {}
+    case 'tcp+udp':
+      return config['tcp+udp'] || {}
+    case 'http+https':
+      return config['http+https'] || {}
+    case 'stcp+sudp':
+      return config['stcp+sudp'] || {}
   }
 }
 
@@ -308,6 +325,15 @@ function withStoreProxyBlock(
       break
     case 'xtcp+xudp':
       payload['xtcp+xudp'] = block
+      break
+    case 'tcp+udp':
+      payload['tcp+udp'] = block
+      break
+    case 'http+https':
+      payload['http+https'] = block
+      break
+    case 'stcp+sudp':
+      payload['stcp+sudp'] = block
       break
   }
   return payload
