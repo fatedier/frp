@@ -78,12 +78,18 @@ type Control struct {
 	msgDispatcher *msg.Dispatcher
 }
 
-func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, error) {
+// NewControl wires a control connection. The proxy manager (pm) is per-control
+// and is torn down when the connection drops (relay proxies must re-register).
+// The visitor manager (vm) is owned by the Service and shared across reconnects,
+// so P2P visitor tunnels survive frps going down; NewControl only borrows it and
+// (re)binds it to this control in Run.
+func NewControl(ctx context.Context, sessionCtx *SessionContext, vm *visitor.Manager) (*Control, error) {
 	// new xlog instance
 	ctl := &Control{
 		ctx:        ctx,
 		xl:         xlog.FromContextSafe(ctx),
 		sessionCtx: sessionCtx,
+		vm:         vm,
 		doneCh:     make(chan struct{}),
 	}
 	ctl.lastPong.Store(time.Now())
@@ -93,8 +99,6 @@ func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, erro
 	ctl.msgTransporter = transport.NewMessageTransporter(ctl.msgDispatcher)
 
 	ctl.pm = proxy.NewManager(ctl.ctx, sessionCtx.Common, sessionCtx.Auth.EncryptionKey(), ctl.msgTransporter, sessionCtx.VnetController)
-	ctl.vm = visitor.NewManager(ctl.ctx, sessionCtx.RunID, sessionCtx.Common,
-		ctl.connectServer, ctl.msgTransporter, sessionCtx.VnetController)
 	return ctl, nil
 }
 
@@ -104,7 +108,10 @@ func (ctl *Control) Run(proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.Visitor
 	// start all proxies
 	ctl.pm.UpdateAll(proxyCfgs)
 
-	// start all visitors
+	// Bind the shared visitor manager to this (re)connected control, then apply
+	// visitor configs. Existing visitors persist across reconnects; only their
+	// session context is refreshed here.
+	ctl.vm.UpdateSession(ctl.sessionCtx.RunID, ctl.connectServer, ctl.msgTransporter)
 	ctl.vm.UpdateAll(visitorCfgs)
 }
 
@@ -201,8 +208,9 @@ func (ctl *Control) Close() error {
 }
 
 func (ctl *Control) GracefulClose(d time.Duration) error {
+	// Only the per-control proxy manager is closed here. The visitor manager is
+	// owned by the Service and must outlive this control so P2P tunnels survive.
 	ctl.pm.Close()
-	ctl.vm.Close()
 
 	time.Sleep(d)
 
@@ -277,8 +285,9 @@ func (ctl *Control) worker() {
 	xl.Debugf("control message dispatcher exited")
 	ctl.closeSession()
 
+	// Tear down only the per-control proxy manager. The Service-owned visitor
+	// manager (and its live P2P tunnels) stays up across the lost connection.
 	ctl.pm.Close()
-	ctl.vm.Close()
 	close(ctl.doneCh)
 }
 

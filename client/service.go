@@ -28,6 +28,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/client/proxy"
+	"github.com/fatedier/frp/client/visitor"
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/config/source"
@@ -111,6 +112,11 @@ type Service struct {
 	ctlMu sync.RWMutex
 	// manager control connection with server
 	ctl *Control
+	// vm is the visitor manager. It is owned by the Service (not by a single
+	// control connection) and shared across reconnects, so P2P visitor tunnels
+	// (xtcp/xudp/xtcp+xudp) survive frps going down and are only torn down on
+	// real service shutdown.
+	vm *visitor.Manager
 	// Uniq id got from frps, it will be attached to loginMsg.
 	runID string
 
@@ -223,6 +229,10 @@ func (svr *Service) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	svr.ctx = xlog.NewContext(ctx, xlog.FromContextSafe(ctx))
 	svr.cancel = cancel
+
+	// The visitor manager lives for the whole service lifetime and is rebound to
+	// each (re)connected control; this keeps P2P tunnels alive across frps outages.
+	svr.vm = visitor.NewManager(svr.ctx, svr.common, svr.vnetController)
 
 	// set custom DNSServer
 	if svr.common.DNSServer != "" {
@@ -345,7 +355,7 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		visitorCfgs := svr.visitorCfgs
 		svr.cfgMu.RUnlock()
 
-		ctl, err := NewControl(svr.ctx, sessionCtx)
+		ctl, err := NewControl(svr.ctx, sessionCtx, svr.vm)
 		if err != nil {
 			sessionCtx.Conn.Close()
 			sessionCtx.Connector.Close()
@@ -445,6 +455,12 @@ func (svr *Service) stop() {
 		svr.ctl.GracefulClose(svr.gracefulShutdownDuration)
 		svr.ctl = nil
 	}
+	// The visitor manager is owned by the Service; close it (and its P2P tunnels)
+	// only on real shutdown, not when a control connection drops.
+	if svr.vm != nil {
+		svr.vm.Close()
+		svr.vm = nil
+	}
 	if svr.webServer != nil {
 		svr.webServer.Close()
 		svr.webServer = nil
@@ -467,14 +483,10 @@ func (svr *Service) getProxyStatus(name string) (*proxy.WorkingStatus, bool) {
 }
 
 func (svr *Service) getVisitorCfg(name string) (v1.VisitorConfigurer, bool) {
-	svr.ctlMu.RLock()
-	ctl := svr.ctl
-	svr.ctlMu.RUnlock()
-
-	if ctl == nil {
+	if svr.vm == nil {
 		return nil, false
 	}
-	return ctl.vm.GetVisitorCfg(name)
+	return svr.vm.GetVisitorCfg(name)
 }
 
 func (svr *Service) StatusExporter() StatusExporter {

@@ -35,7 +35,7 @@ type Manager struct {
 	clientCfg *v1.ClientCommonConfig
 	cfgs      map[string]v1.VisitorConfigurer
 	visitors  map[string]Visitor
-	helper    Helper
+	helper    *visitorHelperImpl
 
 	checkInterval           time.Duration
 	keepVisitorsRunningOnce sync.Once
@@ -46,12 +46,15 @@ type Manager struct {
 	stopCh chan struct{}
 }
 
+// NewManager creates a visitor manager owned by the client Service (not by a
+// single control connection). Its session context (runID / connectServer /
+// msgTransporter) is (re)bound on every control (re)connect via UpdateSession,
+// so visitors — and in particular the P2P tunnels held by xtcp/xudp/xtcp+xudp
+// visitors — survive frps going down: the manager is only Closed on real service
+// shutdown, never on a lost control connection.
 func NewManager(
 	ctx context.Context,
-	runID string,
 	clientCfg *v1.ClientCommonConfig,
-	connectServer func() (*msg.Conn, error),
-	msgTransporter transport.MessageTransporter,
 	vnetController *vnet.Controller,
 ) *Manager {
 	m := &Manager{
@@ -63,13 +66,22 @@ func NewManager(
 		stopCh:        make(chan struct{}),
 	}
 	m.helper = &visitorHelperImpl{
-		connectServerFn: connectServer,
-		msgTransporter:  msgTransporter,
-		vnetController:  vnetController,
-		transferConnFn:  m.TransferConn,
-		runID:           runID,
+		vnetController: vnetController,
+		transferConnFn: m.TransferConn,
 	}
 	return m
+}
+
+// UpdateSession rebinds the manager's helper to the current control connection.
+// Existing visitors read the helper dynamically, so an established P2P tunnel is
+// untouched while a fresh hole punch (after frps comes back) transparently uses
+// the new control's transporter.
+func (vm *Manager) UpdateSession(
+	runID string,
+	connectServer func() (*msg.Conn, error),
+	msgTransporter transport.MessageTransporter,
+) {
+	vm.helper.update(runID, connectServer, msgTransporter)
 }
 
 // keepVisitorsRunning checks all visitors' status periodically, if some visitor is not running, start it.
@@ -199,16 +211,37 @@ func (vm *Manager) GetVisitorCfg(name string) (v1.VisitorConfigurer, bool) {
 	return cfg, ok
 }
 
+// visitorHelperImpl is shared by all visitors of a manager. Its session-scoped
+// fields (connectServerFn/msgTransporter/runID) are swapped on every control
+// (re)connect, so the accessors take a read lock and callers always see the
+// currently-live control.
 type visitorHelperImpl struct {
+	mu              sync.RWMutex
 	connectServerFn func() (*msg.Conn, error)
 	msgTransporter  transport.MessageTransporter
-	vnetController  *vnet.Controller
-	transferConnFn  func(name string, conn net.Conn) error
 	runID           string
+
+	// vnetController and transferConnFn are stable for the manager's lifetime.
+	vnetController *vnet.Controller
+	transferConnFn func(name string, conn net.Conn) error
+}
+
+func (v *visitorHelperImpl) update(runID string, connectServer func() (*msg.Conn, error), msgTransporter transport.MessageTransporter) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.runID = runID
+	v.connectServerFn = connectServer
+	v.msgTransporter = msgTransporter
 }
 
 func (v *visitorHelperImpl) ConnectServer() (*msg.Conn, error) {
-	return v.connectServerFn()
+	v.mu.RLock()
+	fn := v.connectServerFn
+	v.mu.RUnlock()
+	if fn == nil {
+		return nil, fmt.Errorf("no active control connection to server")
+	}
+	return fn()
 }
 
 func (v *visitorHelperImpl) TransferConn(name string, conn net.Conn) error {
@@ -216,6 +249,8 @@ func (v *visitorHelperImpl) TransferConn(name string, conn net.Conn) error {
 }
 
 func (v *visitorHelperImpl) MsgTransporter() transport.MessageTransporter {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
 	return v.msgTransporter
 }
 
@@ -224,5 +259,7 @@ func (v *visitorHelperImpl) VNetController() *vnet.Controller {
 }
 
 func (v *visitorHelperImpl) RunID() string {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
 	return v.runID
 }
