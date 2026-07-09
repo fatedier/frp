@@ -131,6 +131,11 @@ type NewProxy struct {
 
 	// tcpmux
 	Multiplexer string `json:"multiplexer,omitempty"`
+
+	// udp only: client requests relaying packets as unreliable QUIC
+	// datagrams (RFC 9221) instead of the reliable work-connection stream.
+	// Ignored by servers without support.
+	UDPDatagram bool `json:"udp_datagram,omitempty"`
 }
 
 type NewProxyResp struct {
@@ -158,6 +163,10 @@ type StartWorkConn struct {
 	SrcPort   uint16 `json:"src_port,omitempty"`
 	DstPort   uint16 `json:"dst_port,omitempty"`
 	Error     string `json:"error,omitempty"`
+
+	// udp only: server confirms QUIC datagram relay is active for this
+	// proxy. Absent/false from servers without support -> stream mode.
+	UDPDatagram bool `json:"udp_datagram,omitempty"`
 }
 
 type NewVisitorConn struct {

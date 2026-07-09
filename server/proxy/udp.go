@@ -69,6 +69,10 @@ func NewUDPProxy(baseProxy *BaseProxy) Proxy {
 		return nil
 	}
 	baseProxy.usedPortsNum = 1
+	// QUIC datagram relay bypasses the work-connection stream, so it can't
+	// honor the per-proxy stream wrappers (encryption/compression).
+	baseProxy.udpDatagramWanted = unwrapped.QUICDatagrams &&
+		!unwrapped.Transport.UseEncryption && !unwrapped.Transport.UseCompression
 	return &UDPProxy{
 		BaseProxy: baseProxy,
 		cfg:       unwrapped,
@@ -152,8 +156,9 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 		}
 	}
 
-	// send message to workConn
-	workConnSenderFn := func(payloadConn *msg.Conn, ctx context.Context) {
+	// send message to workConn; when dgMux is set, packets go out as
+	// unreliable QUIC datagrams and only oversized ones use the stream
+	workConnSenderFn := func(payloadConn *msg.Conn, dgMux *udp.DatagramMux, ctx context.Context) {
 		var errRet error
 		for {
 			select {
@@ -161,6 +166,23 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 				if !ok {
 					xl.Infof("sender goroutine for udp work connection closed")
 					return
+				}
+				if dgMux != nil {
+					switch dgErr := dgMux.Send(pxy.GetName(), udpMsg.RemoteAddr, udpMsg.Content); dgErr {
+					case nil:
+						metrics.Server.AddTrafficIn(
+							pxy.GetName(),
+							pxy.GetConfigurer().GetBaseConfig().Type,
+							int64(len(udpMsg.Content)),
+						)
+						continue
+					case udp.ErrDatagramTooLarge:
+						// fall through to the stream for this packet
+					default:
+						xl.Infof("sender goroutine for udp work connection closed: %v", dgErr)
+						_ = payloadConn.Close()
+						return
+					}
 				}
 				if errRet = payloadConn.WriteMsg(udpMsg); errRet != nil {
 					xl.Infof("sender goroutine for udp work connection closed: %v", errRet)
@@ -203,6 +225,30 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 				pxy.workConn.Close()
 			}
 
+			// QUIC datagram lane: mirror of the udpDatagram decision made
+			// in GetWorkConnFromPool for this same work connection
+			var dgMux *udp.DatagramMux
+			if pxy.udpDatagramWanted {
+				if qc, ok := netpkg.QuicConnFrom(workConn); ok && qc.ConnectionState().SupportsDatagrams {
+					dgMux = udp.DatagramMuxFor(qc)
+					dgMux.Register(pxy.GetName(), func(remoteAddr *net.UDPAddr, payload []byte) {
+						m := udp.NewUDPPacket(payload, nil, remoteAddr)
+						_ = errors.PanicToError(func() {
+							select {
+							case pxy.readCh <- m:
+								metrics.Server.AddTrafficOut(
+									pxy.GetName(),
+									pxy.GetConfigurer().GetBaseConfig().Type,
+									int64(len(m.Content)),
+								)
+							default:
+							}
+						})
+					})
+					xl.Infof("udp proxy relaying via quic datagrams")
+				}
+			}
+
 			var rwc io.ReadWriteCloser = workConn
 			if pxy.cfg.Transport.UseEncryption {
 				rwc, err = libio.WithEncryption(rwc, pxy.encryptionKey)
@@ -227,9 +273,12 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 			payloadConn := msg.NewConn(pxy.workConn, msg.NewReadWriter(pxy.workConn, pxy.wireProtocol))
 			ctx, cancel := context.WithCancel(context.Background())
 			go workConnReaderFn(payloadConn)
-			go workConnSenderFn(payloadConn, ctx)
+			go workConnSenderFn(payloadConn, dgMux, ctx)
 			_, ok := <-pxy.checkCloseCh
 			cancel()
+			if dgMux != nil {
+				dgMux.Unregister(pxy.GetName())
+			}
 			if !ok {
 				return
 			}

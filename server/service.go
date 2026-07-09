@@ -266,6 +266,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 			MaxIdleTimeout:     time.Duration(cfg.Transport.QUIC.MaxIdleTimeout) * time.Second,
 			MaxIncomingStreams: int64(cfg.Transport.QUIC.MaxIncomingStreams),
 			KeepAlivePeriod:    time.Duration(cfg.Transport.QUIC.KeepalivePeriod) * time.Second,
+			EnableDatagrams:    true, // for udp proxies with quicDatagrams (RFC 9221)
 		})
 		if err != nil {
 			return nil, fmt.Errorf("listen on quic udp address %s error: %v", address, err)
