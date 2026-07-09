@@ -80,7 +80,7 @@ func (sv *STCPSUDPVisitor) Run() (err error) {
 		sv.sendCh = make(chan *msg.UDPPacket, 1024)
 		sv.readCh = make(chan *msg.UDPPacket, 1024)
 		go sv.udpDispatcher()
-		go udp.ForwardUserConn(sv.udpConn, sv.readCh, sv.sendCh, int(sv.clientCfg.UDPPacketSize))
+		go udp.ForwardUserConn(sv.udpConn, sv.readCh, sv.sendCh, int(sv.clientCfg.UDPPacketSize), nil)
 
 		xl.Infof("stcp+sudp start to work, listen on %s (tcp+udp)", addr)
 	}

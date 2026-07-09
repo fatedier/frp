@@ -40,7 +40,18 @@ func GetContent(m *msg.UDPPacket) (buf []byte, err error) {
 	return m.Content, nil
 }
 
-func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UDPPacket, sendCh chan<- *msg.UDPPacket, bufSize int) {
+// UDPSessionTracker observes distinct UDP source addresses seen by
+// ForwardUserConn so a connectionless UDP proxy can still report a meaningful
+// "current connections" count. OnOpen fires when a new source first sends a
+// packet; OnClose fires when that source has been idle for IdleTimeout (default
+// 30s) or when forwarding stops. It is optional — pass nil to disable tracking.
+type UDPSessionTracker struct {
+	OnOpen      func()
+	OnClose     func()
+	IdleTimeout time.Duration
+}
+
+func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UDPPacket, sendCh chan<- *msg.UDPPacket, bufSize int, tracker *UDPSessionTracker) {
 	// read
 	go func() {
 		for udpMsg := range readCh {
@@ -52,6 +63,48 @@ func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UDPPacket, sendCh 
 		}
 	}()
 
+	// Optional per-source session tracking (distinct RemoteAddr with idle expiry).
+	var (
+		sessMu   sync.Mutex
+		sessions map[string]time.Time
+	)
+	if tracker != nil {
+		if tracker.IdleTimeout <= 0 {
+			tracker.IdleTimeout = 30 * time.Second
+		}
+		sessions = make(map[string]time.Time)
+		stopJanitor := make(chan struct{})
+		defer close(stopJanitor)
+		// On exit, release every still-open session so the counter rebalances.
+		defer func() {
+			sessMu.Lock()
+			for range sessions {
+				tracker.OnClose()
+			}
+			sessions = make(map[string]time.Time)
+			sessMu.Unlock()
+		}()
+		go func() {
+			ticker := time.NewTicker(tracker.IdleTimeout / 2)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-stopJanitor:
+					return
+				case now := <-ticker.C:
+					sessMu.Lock()
+					for addr, last := range sessions {
+						if now.Sub(last) > tracker.IdleTimeout {
+							delete(sessions, addr)
+							tracker.OnClose()
+						}
+					}
+					sessMu.Unlock()
+				}
+			}
+		}()
+	}
+
 	// write
 	buf := pool.GetBuf(bufSize)
 	defer pool.PutBuf(buf)
@@ -59,6 +112,15 @@ func ForwardUserConn(udpConn *net.UDPConn, readCh <-chan *msg.UDPPacket, sendCh 
 		n, remoteAddr, err := udpConn.ReadFromUDP(buf)
 		if err != nil {
 			return
+		}
+		if tracker != nil && remoteAddr != nil {
+			key := remoteAddr.String()
+			sessMu.Lock()
+			if _, ok := sessions[key]; !ok {
+				tracker.OnOpen()
+			}
+			sessions[key] = time.Now()
+			sessMu.Unlock()
 		}
 		// NewUDPPacket copies buf[:n], so the read buffer can be reused
 		udpMsg := NewUDPPacket(buf[:n], nil, remoteAddr)

@@ -85,7 +85,7 @@ func (sv *XUDPVisitor) Run() (err error) {
 	xl.Infof("xudp start to work, listen on %s", addr)
 
 	go sv.dispatcher()
-	go udp.ForwardUserConn(sv.udpConn, sv.readCh, sv.sendCh, int(sv.clientCfg.UDPPacketSize))
+	go udp.ForwardUserConn(sv.udpConn, sv.readCh, sv.sendCh, int(sv.clientCfg.UDPPacketSize), nil)
 
 	go sv.processTunnelStartEvents()
 	if sv.cfg.KeepTunnelOpen {

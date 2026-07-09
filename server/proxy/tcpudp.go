@@ -251,8 +251,15 @@ func (pxy *TCPUDPProxy) runUDPRelay() {
 		}
 	}()
 
+	// Count distinct UDP source addresses as "connections" for the UDP half.
+	name := pxy.GetName()
+	proxyType := pxy.GetConfigurer().GetBaseConfig().Type
+	tracker := &udp.UDPSessionTracker{
+		OnOpen:  func() { metrics.Server.OpenConnection(name, proxyType) },
+		OnClose: func() { metrics.Server.CloseConnection(name, proxyType) },
+	}
 	go func() {
-		udp.ForwardUserConn(pxy.udpConn, pxy.readCh, pxy.sendCh, int(pxy.serverCfg.UDPPacketSize))
+		udp.ForwardUserConn(pxy.udpConn, pxy.readCh, pxy.sendCh, int(pxy.serverCfg.UDPPacketSize), tracker)
 		pxy.Close()
 	}()
 }

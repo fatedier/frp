@@ -240,8 +240,16 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 	// Client will transfor udp message to local udp service and waiting for response for a while.
 	// Response will be wrapped to be forwarded by work connection to server.
 	// Close readCh and sendCh at the end.
+	// Count distinct UDP source addresses as "connections" (UDP is
+	// connectionless, so without this the dashboard would always show 0).
+	name := pxy.GetName()
+	proxyType := pxy.GetConfigurer().GetBaseConfig().Type
+	tracker := &udp.UDPSessionTracker{
+		OnOpen:  func() { metrics.Server.OpenConnection(name, proxyType) },
+		OnClose: func() { metrics.Server.CloseConnection(name, proxyType) },
+	}
 	go func() {
-		udp.ForwardUserConn(udpConn, pxy.readCh, pxy.sendCh, int(pxy.serverCfg.UDPPacketSize))
+		udp.ForwardUserConn(udpConn, pxy.readCh, pxy.sendCh, int(pxy.serverCfg.UDPPacketSize), tracker)
 		pxy.Close()
 	}()
 	return remoteAddr, nil
