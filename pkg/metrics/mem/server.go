@@ -239,9 +239,11 @@ func toProxyStats(name string, proxyStats *ProxyStatistics) *ProxyStats {
 	}
 	if !proxyStats.LastStartTime.IsZero() {
 		ps.LastStartTime = proxyStats.LastStartTime.Format("01-02 15:04:05")
+		ps.LastStartAt = proxyStats.LastStartTime.Unix()
 	}
 	if !proxyStats.LastCloseTime.IsZero() {
 		ps.LastCloseTime = proxyStats.LastCloseTime.Format("01-02 15:04:05")
+		ps.LastCloseAt = proxyStats.LastCloseTime.Unix()
 	}
 	return ps
 }

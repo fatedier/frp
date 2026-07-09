@@ -40,8 +40,8 @@ export interface ProxyV2Status {
   todayTrafficIn: number
   todayTrafficOut: number
   curConns: number
-  lastStartTime: string
-  lastCloseTime: string
+  lastStartAt?: number
+  lastCloseAt?: number
 }
 
 export interface TrafficResponse {
