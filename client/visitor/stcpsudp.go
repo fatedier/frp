@@ -98,8 +98,11 @@ func (sv *STCPSUDPVisitor) Close() {
 	sv.mu.Lock()
 	defer sv.mu.Unlock()
 
+	// Early return makes Close idempotent (it can be called twice on reconnect):
+	// falling through would close readCh/sendCh a second time and panic.
 	select {
 	case <-sv.checkCloseCh:
+		return
 	default:
 		close(sv.checkCloseCh)
 	}

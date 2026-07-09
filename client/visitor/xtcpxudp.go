@@ -63,6 +63,8 @@ type XTCPXUDPVisitor struct {
 	readCh       chan *msg.UDPPacket
 	sendCh       chan *msg.UDPPacket
 
+	closeOnce sync.Once
+
 	cfg *v1.XTCPXUDPVisitorConfig
 }
 
@@ -118,32 +120,33 @@ func (sv *XTCPXUDPVisitor) Run() (err error) {
 }
 
 func (sv *XTCPXUDPVisitor) Close() {
-	sv.mu.Lock()
-	defer sv.mu.Unlock()
+	// closeOnce makes Close idempotent: on frps loss the control closes the
+	// visitor manager, and the reconnect path may close it again — a plain
+	// close(readCh) would panic on the second call.
+	sv.closeOnce.Do(func() {
+		sv.mu.Lock()
+		defer sv.mu.Unlock()
 
-	if sv.checkCloseCh != nil {
-		select {
-		case <-sv.checkCloseCh:
-		default:
+		if sv.checkCloseCh != nil {
 			close(sv.checkCloseCh)
 		}
-	}
-	sv.BaseVisitor.Close()
-	if sv.cancel != nil {
-		sv.cancel()
-	}
-	if sv.session != nil {
-		sv.session.Close()
-	}
-	if sv.udpConn != nil {
-		sv.udpConn.Close()
-	}
-	if sv.readCh != nil {
-		close(sv.readCh)
-	}
-	if sv.sendCh != nil {
-		close(sv.sendCh)
-	}
+		sv.BaseVisitor.Close()
+		if sv.cancel != nil {
+			sv.cancel()
+		}
+		if sv.session != nil {
+			sv.session.Close()
+		}
+		if sv.udpConn != nil {
+			sv.udpConn.Close()
+		}
+		if sv.readCh != nil {
+			close(sv.readCh)
+		}
+		if sv.sendCh != nil {
+			close(sv.sendCh)
+		}
+	})
 }
 
 // ---------------- TCP path (tag 0x01) ----------------
