@@ -1,42 +1,42 @@
-# frp (bản fork tuỳ biến — MeoBaka)
+# frp (customized fork — MeoBaka)
 
-> Đây là **bản fork tuỳ biến** của frp (fast reverse proxy).
-> Toàn bộ tài liệu gốc, kiến trúc, và các tính năng chuẩn của frp xem tại repo chính:
+> This is a **customized fork** of frp (fast reverse proxy).
+> For all the original documentation, architecture, and standard frp features, see the main repo:
 >
 > ### 👉 https://github.com/fatedier/frp
 >
-> README này **chỉ mô tả những phần đã thêm/sửa** so với frp gốc. Mọi thứ khác
-> (tcp, udp, http, https, tcpmux, stcp, sudp, xtcp, plugin, dashboard cơ bản, cách
-> cài đặt chung…) hoạt động y hệt bản gốc — đọc tài liệu ở link trên.
+> This README **only describes the parts that were added/changed** compared to the original frp. Everything else
+> (tcp, udp, http, https, tcpmux, stcp, sudp, xtcp, plugins, the basic dashboard, general
+> installation…) works exactly like the original — read the documentation at the link above.
 
-**Phiên bản fork:** `1.0.0` · **Nhánh:** `meobaka` (base từ frp v0.69.1)
+**Fork version:** `1.0.0` · **Branch:** `meobaka` (based on frp v0.69.1)
 
 ---
 
-## Tóm tắt các thay đổi
+## Summary of changes
 
-| Nhóm | Thay đổi |
+| Category | Change |
 |---|---|
-| ➕ Type mới | `xudp`, `xtcp+xudp`, `tcp+udp`, `stcp+sudp` |
-| 🔒 Bảo mật | Mặc định `transport.wireProtocol` chuyển **v1 → v2** (v1 giữ lại làm tuỳ chọn) |
-| 🐛 Sửa lỗi | Kẹt reconnect sau `i/o deadline reached` ở v2 (issue [#5355](https://github.com/fatedier/frp/issues/5355)) |
-| 🖥️ Dashboard | frpc admin API + giao diện Vue hỗ trợ đầy đủ các type mới |
-| 📄 Ví dụ | `examples/frpc_example.toml`, `examples/frps_example.toml` (chú thích tiếng Việt) |
+| ➕ New types | `xudp`, `xtcp+xudp`, `tcp+udp`, `stcp+sudp` |
+| 🔒 Security | Default `transport.wireProtocol` switched **v1 → v2** (v1 kept as an option) |
+| 🐛 Bug fix | Reconnect getting stuck after `i/o deadline reached` on v2 (issue [#5355](https://github.com/fatedier/frp/issues/5355)) |
+| 🖥️ Dashboard | frpc admin API + Vue UI with full support for the new types |
+| 📄 Examples | `examples/frpc_example.toml`, `examples/frps_example.toml` (fully commented) |
 
 ---
 
-## 1. Type mới
+## 1. New types
 
-Bốn type dưới đây là **type thật** — đăng ký đầy đủ ở cả frpc lẫn frps, hiện đúng
-**1 proxy** trên dashboard (không phải "sugar" tự tách nhiều proxy).
+The four types below are **real types** — fully registered on both frpc and frps, and shown as exactly
+**1 proxy** on the dashboard (not "sugar" that silently splits into multiple proxies).
 
-### `xudp` — P2P UDP đục lỗ NAT
+### `xudp` — P2P UDP NAT hole punching
 
-Bản UDP của `xtcp`: hai máy tự đục lỗ NAT rồi truyền **UDP** trực tiếp (P2P), không
-đi vòng qua frps. Có cả **proxy** (bên cung cấp) và **visitor** (bên truy cập).
+The UDP counterpart of `xtcp`: the two machines punch through NAT themselves and then transfer **UDP**
+directly (P2P), without going through frps. It has both a **proxy** (provider side) and a **visitor** (accessor side).
 
 ```toml
-# Bên cung cấp (frpc)
+# Provider side (frpc)
 [[proxies]]
 name = "game-udp"
 type = "xudp"
@@ -44,7 +44,7 @@ secretKey = "KEY"
 localIP = "127.0.0.1"
 localPort = 27015
 
-# Bên truy cập (frpc khác)
+# Accessor side (another frpc)
 [[visitors]]
 name = "game-udp-visitor"
 type = "xudp"
@@ -52,51 +52,51 @@ serverName = "game-udp"
 secretKey = "KEY"
 bindAddr = "127.0.0.1"
 bindPort = 27015
-protocol = "quic"     # "quic" (mặc định) hoặc "kcp" — tunnel tin cậy trên lỗ UDP
+protocol = "quic"     # "quic" (default) or "kcp" — reliable tunnel over the UDP hole
 ```
 
-> Khác `xtcp`: `xudp` **không có** `fallbackTo` (UDP mất gói là bình thường).
+> Unlike `xtcp`: `xudp` **has no** `fallbackTo` (UDP packet loss is normal).
 
-### `xtcp+xudp` — gộp TCP + UDP qua **1 lỗ NAT** (kiểu tailscale)
+### `xtcp+xudp` — combine TCP + UDP over **a single NAT hole** (tailscale-style)
 
-1 proxy chở **cả TCP lẫn UDP** tới dịch vụ local qua **cùng một lỗ NAT**. Mỗi
-stream trên tunnel được gắn 1 byte tag (0x01 = TCP, 0x02 = UDP) để route. **Hoàn
-hảo cho Remote Desktop** (RDP dùng TCP 3389 + UDP 3389 để mượt).
+One proxy carries **both TCP and UDP** to the local service over **the same NAT hole**. Each
+stream on the tunnel is tagged with a 1-byte marker (0x01 = TCP, 0x02 = UDP) for routing. **Perfect
+for Remote Desktop** (RDP uses TCP 3389 + UDP 3389 for smoothness).
 
-**Có AUTO-FALLBACK sẵn (built-in):** thử P2P đục lỗ trước; nếu quá
-`fallbackTimeoutMs` (mặc định 1000ms) mà không đục được (NAT khó / symmetric /
-CGNAT) thì **tự chuyển sang relay qua frps** (như `stcp+sudp`) — cho **cả TCP lẫn
-UDP**, không cần khai thêm visitor. Provider tự đăng ký sẵn đường relay; hole-punch
-work-conn được đánh dấu `protocol="nathole"`, còn conn relay dùng chung đúng khung
-1-byte-tag nên provider xử lý bằng cùng một handler.
+**Built-in AUTO-FALLBACK:** it tries P2P hole punching first; if `fallbackTimeoutMs`
+(default 1000ms) is exceeded without punching through (difficult NAT / symmetric /
+CGNAT), it **automatically switches to relay via frps** (like `stcp+sudp`) — for **both TCP and
+UDP**, with no extra visitor to declare. The provider pre-registers the relay path itself; the hole-punch
+work-conn is marked `protocol="nathole"`, while the relay conn shares the exact same
+1-byte-tag framing so the provider handles it with the same handler.
 
 ```toml
-# Bên cung cấp (máy có RDP)
+# Provider side (machine with RDP)
 [[proxies]]
 name = "pc-rdp"
 type = "xtcp+xudp"
 secretKey = "KEY_RDP"
 localIP = "127.0.0.1"
-localPort = 3389        # dùng cho CẢ TCP lẫn UDP
-# localPortUDP = 3389   # (tuỳ chọn) đổi nếu UDP nghe cổng khác; mặc định = localPort
+localPort = 3389        # used for BOTH TCP and UDP
+# localPortUDP = 3389   # (optional) change if UDP listens on a different port; default = localPort
 
-# Bên truy cập
+# Accessor side
 [[visitors]]
 name = "pc-rdp-visitor"
 type = "xtcp+xudp"
 serverName = "pc-rdp"
 secretKey = "KEY_RDP"
 bindAddr = "127.0.0.1"
-bindPort = 13389        # mở mstsc → 127.0.0.1:13389 để vào Desktop
+bindPort = 13389        # open mstsc → 127.0.0.1:13389 to reach the Desktop
 keepTunnelOpen = true
-# fallbackTimeoutMs = 1000   # (tuỳ chọn) chờ P2P bao lâu trước khi rớt relay
+# fallbackTimeoutMs = 1000   # (optional) how long to wait for P2P before falling back to relay
 ```
 
-### `tcp+udp` — gộp TCP + UDP trên **1 cổng public**
+### `tcp+udp` — combine TCP + UDP on **a single public port**
 
-1 proxy relay mở **cả TCP lẫn UDP** trên **cùng `remotePort`** ở frps. Cơ chế:
-work-conn của TCP mang protocol rỗng (mặc định), work-conn của UDP được gắn cờ
-`"udp"` để frpc route đúng handler. Không cần visitor (vào thẳng cổng public).
+One relay proxy opens **both TCP and UDP** on **the same `remotePort`** at frps. Mechanism:
+the TCP work-conn carries an empty protocol (default), while the UDP work-conn is flagged
+`"udp"` so frpc routes it to the correct handler. No visitor needed (connect straight to the public port).
 
 ```toml
 [[proxies]]
@@ -104,92 +104,92 @@ name = "voice"
 type = "tcp+udp"
 localIP = "127.0.0.1"
 localPort = 8000
-localPortUDP = 8001    # (tuỳ chọn) cổng UDP local khác; mặc định = localPort
-remotePort = 9000     # cổng TCP+UDP public trên frps
+localPortUDP = 8001    # (optional) different local UDP port; default = localPort
+remotePort = 9000     # public TCP+UDP port on frps
 ```
 
-### `stcp+sudp` — gộp TCP + UDP **bí mật** qua relay
+### `stcp+sudp` — combine TCP + UDP **secretly** over relay
 
-Bản bí mật của `tcp+udp`: không mở cổng public, vào qua **visitor** giữ cùng
-`secretKey`. Trên frps giống hệt stcp/sudp (1 secret listener); phần tách TCP/UDP
-nằm hoàn toàn ở client bằng 1 byte tag mỗi stream (ngoài lớp mã hoá).
+The secret version of `tcp+udp`: it opens no public port and is reached through a **visitor** that
+holds the same `secretKey`. On frps it looks exactly like stcp/sudp (a single secret listener); the TCP/UDP
+splitting lives entirely on the client via a 1-byte tag per stream (outside the encryption layer).
 
 ```toml
-# Bên cung cấp
+# Provider side
 [[proxies]]
 name = "priv"
 type = "stcp+sudp"
 secretKey = "KEY_PRIV"
 localIP = "127.0.0.1"
 localPort = 22
-# localPortUDP = 22   # (tuỳ chọn) mặc định = localPort
+# localPortUDP = 22   # (optional) default = localPort
 
-# Bên truy cập
+# Accessor side
 [[visitors]]
 name = "priv-visitor"
 type = "stcp+sudp"
-serverName = "priv"     # khớp thẳng name proxy
+serverName = "priv"     # matches the proxy name directly
 secretKey = "KEY_PRIV"
 bindAddr = "127.0.0.1"
-bindPort = 6100         # mở CẢ TCP lẫn UDP tại 127.0.0.1:6100
+bindPort = 6100         # opens BOTH TCP and UDP at 127.0.0.1:6100
 ```
 
-**So sánh nhanh 4 type:**
+**Quick comparison of the 4 types:**
 
-| Type | Đường đi | Cần visitor? | Dùng cho |
+| Type | Path | Visitor needed? | Used for |
 |---|---|---|---|
-| `xudp` | P2P đục lỗ NAT | ✅ | UDP P2P độ trễ thấp |
-| `xtcp+xudp` | P2P đục lỗ NAT (1 lỗ, TCP+UDP), **tự rớt relay khi NAT khó** | ✅ | Remote Desktop P2P (chắc ăn) |
-| `tcp+udp` | Relay qua cổng public frps | ❌ | Dịch vụ TCP+UDP có cổng public |
-| `stcp+sudp` | Relay bí mật qua frps | ✅ | Dịch vụ TCP+UDP riêng tư |
+| `xudp` | P2P NAT hole punching | ✅ | Low-latency P2P UDP |
+| `xtcp+xudp` | P2P NAT hole punching (1 hole, TCP+UDP), **auto-falls back to relay on difficult NAT** | ✅ | Remote Desktop P2P (reliable) |
+| `tcp+udp` | Relay via a public frps port | ❌ | TCP+UDP services with a public port |
+| `stcp+sudp` | Secret relay via frps | ✅ | Private TCP+UDP services |
 
 ---
 
-## 2. Mặc định `wireProtocol = v2`
+## 2. Default `wireProtocol = v2`
 
-`transport.wireProtocol` mặc định chuyển từ **v1 → v2** vì v1 bảo mật kém. v2 dùng
-codec mới có mã hoá AEAD. Bản v1 của tác giả **giữ nguyên**, vẫn bật lại được:
+The `transport.wireProtocol` default is switched from **v1 → v2** because v1 has weak security. v2 uses
+a new codec with AEAD encryption. The original v1 is **kept intact** and can still be re-enabled:
 
 ```toml
 [transport]
-wireProtocol = "v1"   # ép về v1 nếu cần tương thích ngược
+wireProtocol = "v1"   # force v1 if backward compatibility is needed
 ```
 
-Không khai gì → chạy v2. frps tự nhận diện v1/v2 qua magic nên hai bên không cần
-khớp thủ công.
+Declare nothing → v2 runs. frps auto-detects v1/v2 via a magic number, so the two sides don't need
+to be matched manually.
 
 ---
 
-## 3. Sửa lỗi kẹt reconnect ở v2 (issue #5355)
+## 3. Fix for reconnect getting stuck on v2 (issue #5355)
 
-Triệu chứng gốc: *"出现 i/o deadline reached 后大概率不能重连"* — sau khi gặp
-`i/o deadline reached`, frpc login lại bằng `runID` cũ nhưng cứ fail mãi, phải tắt
-mở lại frpc. Bản fork **reset `runID` sau 3 lần login thất bại liên tiếp** để lần
-sau là một phiên login mới sạch (giống như khởi động lại), giúp tự hồi phục.
+Original symptom: *"出现 i/o deadline reached 后大概率不能重连"* — after hitting
+`i/o deadline reached`, frpc logs in again with the old `runID` but keeps failing forever, forcing you to
+restart frpc. This fork **resets the `runID` after 3 consecutive failed logins** so that the next
+attempt is a fresh, clean login session (like a restart), enabling self-recovery.
 
 ---
 
 ## 4. Dashboard
 
-frpc admin API và giao diện Vue (`web/frpc`) đã cập nhật để tạo/sửa/hiển thị các
-type mới (`xudp`, `xtcp+xudp`, `tcp+udp`, `stcp+sudp`) như proxy/visitor thật.
+The frpc admin API and the Vue UI (`web/frpc`) have been updated to create/edit/display the new
+types (`xudp`, `xtcp+xudp`, `tcp+udp`, `stcp+sudp`) as real proxies/visitors.
 
 ---
 
 ## 5. Build
 
 ```bash
-# Build nhanh cho dev (bỏ qua nhúng web):
+# Quick build for dev (skip embedding the web assets):
 go build -tags noweb -o bin/frpc.exe ./cmd/frpc
 go build -tags noweb -o bin/frps.exe ./cmd/frps
 
-# Build đầy đủ có dashboard: build web trước rồi build Go:
+# Full build with dashboard: build the web first, then build Go:
 cd web/frpc && npm install && npm run build && cd ../..
 go build -o bin/frpc.exe ./cmd/frpc
 go build -o bin/frps.exe ./cmd/frps
 ```
 
-Binary xuất ra thư mục `bin/`. Kiểm tra cấu hình mẫu:
+Binaries are emitted to the `bin/` directory. Verify the sample configs:
 
 ```bash
 ./bin/frpc.exe verify -c examples/frpc_example.toml
@@ -198,12 +198,12 @@ Binary xuất ra thư mục `bin/`. Kiểm tra cấu hình mẫu:
 
 ---
 
-## 6. Ví dụ cấu hình
+## 6. Configuration examples
 
-`examples/frpc_example.toml` và `examples/frps_example.toml` là bộ cấu hình đầy đủ,
-chú thích tiếng Việt từng mục — bao gồm toàn bộ type mới ở trên.
+`examples/frpc_example.toml` and `examples/frps_example.toml` are complete configuration sets,
+with English comments on every entry — including all of the new types above.
 
 ---
 
-*Mọi tính năng, tuỳ chọn và tài liệu khác không liệt kê ở đây: xem repo gốc
+*Any other features, options, and documentation not listed here: see the original repo
 [fatedier/frp](https://github.com/fatedier/frp).*
