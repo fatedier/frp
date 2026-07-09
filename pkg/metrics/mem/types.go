@@ -41,6 +41,8 @@ type ProxyStats struct {
 	TodayTrafficOut int64
 	LastStartTime   string
 	LastCloseTime   string
+	LastStartAt     int64
+	LastCloseAt     int64
 	CurConns        int64
 }
 

@@ -421,9 +421,21 @@ func TestAPIV2ProxyListDetailAndUsers(t *testing.T) {
 	}
 
 	resp = performRequest(router, "/api/v2/proxies/tcp-alice")
+	rawProxyDetailResp := decodeResponse[v2EnvelopeForTest[map[string]json.RawMessage]](t, resp)
+	assertRawJSONKeysFromMessage(t, rawProxyDetailResp.Data["status"],
+		"curConns",
+		"lastCloseAt",
+		"lastStartAt",
+		"phase",
+		"todayTrafficIn",
+		"todayTrafficOut",
+	)
 	proxyDetailResp := decodeResponse[v2EnvelopeForTest[model.V2ProxyResp]](t, resp)
 	if proxyDetailResp.Data.Name != "tcp-alice" || proxyDetailResp.Data.User != "alice" {
 		t.Fatalf("proxy detail mismatch: %#v", proxyDetailResp.Data)
+	}
+	if proxyDetailResp.Data.Status.LastStartAt != 1783504200 || proxyDetailResp.Data.Status.LastCloseAt != 1783504300 {
+		t.Fatalf("proxy detail timestamp mismatch: %#v", proxyDetailResp.Data.Status)
 	}
 
 	resp = performRequest(router, "/api/v2/users?page=1&pageSize=50")
@@ -744,6 +756,10 @@ func newV2TestController(t *testing.T) *Controller {
 				TodayTrafficIn:  30,
 				TodayTrafficOut: 40,
 				CurConns:        2,
+				LastStartTime:   "07-08 12:30:00",
+				LastCloseTime:   "07-08 12:31:40",
+				LastStartAt:     1783504200,
+				LastCloseAt:     1783504300,
 			},
 			"http-alice": {
 				Name:     "http-alice",

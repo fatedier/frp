@@ -22,6 +22,12 @@ func TestServerMetricsUsesClockForProxyTimestamps(t *testing.T) {
 	clk.SetTime(closedAt)
 	metrics.CloseProxy("proxy", "tcp")
 	require.Equal(closedAt, metrics.info.ProxyStatistics["proxy"].LastCloseTime)
+
+	stats := metrics.GetProxyByName("proxy")
+	require.Equal(start.Format("01-02 15:04:05"), stats.LastStartTime)
+	require.Equal(closedAt.Format("01-02 15:04:05"), stats.LastCloseTime)
+	require.Equal(start.Unix(), stats.LastStartAt)
+	require.Equal(closedAt.Unix(), stats.LastCloseAt)
 }
 
 func TestServerMetricsClearUselessInfoUsesClock(t *testing.T) {
