@@ -228,14 +228,16 @@ export function formToStoreVisitor(form: VisitorFormData): VisitorDefinition {
     if (form.minRetryInterval != null) {
       block.minRetryInterval = form.minRetryInterval
     }
-    // fallbackTo is xtcp-only — datagram xudp has no relay fallback.
-    if (form.type === 'xtcp') {
-      if (form.fallbackTo) {
-        block.fallbackTo = form.fallbackTo
-      }
-      if (form.fallbackTimeoutMs != null) {
-        block.fallbackTimeoutMs = form.fallbackTimeoutMs
-      }
+    // fallbackTo (a named fallback visitor) is xtcp-only. xtcp+xudp has built-in
+    // automatic relay fallback, so it only exposes the timeout knob.
+    if (form.type === 'xtcp' && form.fallbackTo) {
+      block.fallbackTo = form.fallbackTo
+    }
+    if (
+      (form.type === 'xtcp' || form.type === 'xtcp+xudp') &&
+      form.fallbackTimeoutMs != null
+    ) {
+      block.fallbackTimeoutMs = form.fallbackTimeoutMs
     }
     if (form.natTraversalDisableAssistedAddrs) {
       block.natTraversal = {

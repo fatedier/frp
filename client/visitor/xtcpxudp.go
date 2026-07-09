@@ -152,9 +152,18 @@ func (sv *XTCPXUDPVisitor) handleTCPConn(userConn net.Conn) {
 	xl := xlog.FromContextSafe(sv.ctx)
 	defer userConn.Close()
 
-	tunnelConn, err := sv.openTunnel(sv.ctx)
+	// Try P2P first, bounded by FallbackTimeoutMs; if the hole-punched tunnel is
+	// not ready in time, fall back to the frps relay for this connection.
+	ctx := sv.ctx
+	if sv.cfg.FallbackTimeoutMs > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(sv.cfg.FallbackTimeoutMs)*time.Millisecond)
+		defer cancel()
+	}
+	tunnelConn, err := sv.openTunnel(ctx)
 	if err != nil {
-		xl.Errorf("open tunnel error: %v", err)
+		xl.Debugf("open tunnel failed (%v), falling back to relay for this tcp conn", err)
+		sv.relayTCPConn(userConn)
 		return
 	}
 	// tag this stream as TCP before any encryption wrapping
@@ -177,6 +186,33 @@ func (sv *XTCPXUDPVisitor) handleTCPConn(userConn net.Conn) {
 	if len(errs) > 0 {
 		xl.Tracef("join connections errors: %v", errs)
 	}
+}
+
+// relayTCPConn bridges userConn to the provider through the frps relay (the
+// stcp+sudp fallback path), tagging the stream as TCP so the provider routes it
+// to the local TCP service. Used when hole punching fails.
+func (sv *XTCPXUDPVisitor) relayTCPConn(userConn net.Conn) {
+	xl := xlog.FromContextSafe(sv.ctx)
+	visitorConn, err := sv.dialRawVisitorConn(sv.cfg.GetBaseConfig())
+	if err != nil {
+		xl.Warnf("relay fallback dialRawVisitorConn error: %v", err)
+		return
+	}
+	defer visitorConn.Close()
+
+	// tag as TCP before any encryption wrapping (same framing as a tunnel stream)
+	if _, err := visitorConn.Write([]byte{xtcpxudpStreamTagTCP}); err != nil {
+		xl.Warnf("relay fallback write tcp tag error: %v", err)
+		return
+	}
+	remote, recycleFn, err := wrapVisitorConn(visitorConn, sv.cfg.GetBaseConfig())
+	if err != nil {
+		xl.Warnf("relay fallback wrapVisitorConn error: %v", err)
+		return
+	}
+	defer recycleFn()
+
+	libio.Join(userConn, remote)
 }
 
 // ---------------- UDP path (tag 0x02) ----------------
@@ -215,21 +251,51 @@ func (sv *XTCPXUDPVisitor) udpDispatcher() {
 }
 
 func (sv *XTCPXUDPVisitor) getNewUDPVisitorConn() (net.Conn, func(), error) {
-	tunnelConn, err := sv.openTunnel(sv.ctx)
+	// Try P2P first, bounded by FallbackTimeoutMs; if the tunnel is not ready,
+	// fall back to the frps relay for this UDP session.
+	ctx := sv.ctx
+	if sv.cfg.FallbackTimeoutMs > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(sv.cfg.FallbackTimeoutMs)*time.Millisecond)
+		defer cancel()
+	}
+	tunnelConn, err := sv.openTunnel(ctx)
 	if err != nil {
-		return nil, func() {}, err
+		xl := xlog.FromContextSafe(sv.ctx)
+		xl.Debugf("open tunnel failed (%v), falling back to relay for udp", err)
+		return sv.getRelayUDPVisitorConn()
 	}
 	// tag this stream as UDP before any encryption wrapping
 	if _, err := tunnelConn.Write([]byte{xtcpxudpStreamTagUDP}); err != nil {
 		tunnelConn.Close()
-		return nil, func() {}, err
+		return sv.getRelayUDPVisitorConn()
 	}
 	rwc, recycleFn, err := wrapVisitorConn(tunnelConn, sv.cfg.GetBaseConfig())
 	if err != nil {
 		tunnelConn.Close()
-		return nil, func() {}, err
+		return sv.getRelayUDPVisitorConn()
 	}
 	return netpkg.WrapReadWriteCloserToConn(rwc, tunnelConn), recycleFn, nil
+}
+
+// getRelayUDPVisitorConn opens a UDP-tagged connection to the provider through
+// the frps relay (the stcp+sudp fallback path). The returned conn feeds the same
+// udpWorker as a P2P tunnel stream.
+func (sv *XTCPXUDPVisitor) getRelayUDPVisitorConn() (net.Conn, func(), error) {
+	rawConn, err := sv.dialRawVisitorConn(sv.cfg.GetBaseConfig())
+	if err != nil {
+		return nil, func() {}, err
+	}
+	if _, err := rawConn.Write([]byte{xtcpxudpStreamTagUDP}); err != nil {
+		rawConn.Close()
+		return nil, func() {}, err
+	}
+	rwc, recycleFn, err := wrapVisitorConn(rawConn, sv.cfg.GetBaseConfig())
+	if err != nil {
+		rawConn.Close()
+		return nil, func() {}, err
+	}
+	return netpkg.WrapReadWriteCloserToConn(rwc, rawConn), recycleFn, nil
 }
 
 func (sv *XTCPXUDPVisitor) udpWorker(workConn net.Conn, firstPacket *msg.UDPPacket) {

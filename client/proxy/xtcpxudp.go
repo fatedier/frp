@@ -69,6 +69,19 @@ func NewXTCPXUDPProxy(baseProxy *BaseProxy, cfg v1.ProxyConfigurer) Proxy {
 }
 
 func (pxy *XTCPXUDPProxy) InWorkConn(conn net.Conn, startWorkConnMsg *msg.StartWorkConn) {
+	// A hole-punch trigger is tagged Protocol="nathole". Anything else is a
+	// relay-fallback work conn carrying the exact same 1-byte-tagged stream as a
+	// P2P tunnel stream, so it goes straight to the shared stream handler.
+	if startWorkConnMsg.Protocol != msg.StartWorkConnProtocolNatHole {
+		pxy.handleStream(conn, startWorkConnMsg)
+		return
+	}
+	pxy.runNatHole(conn, startWorkConnMsg)
+}
+
+// runNatHole performs the NAT hole-punch handshake and then serves tagged tunnel
+// streams (QUIC/KCP) to the local TCP/UDP services.
+func (pxy *XTCPXUDPProxy) runNatHole(conn net.Conn, startWorkConnMsg *msg.StartWorkConn) {
 	xl := pxy.xl
 	defer conn.Close()
 	// readNatHoleSid is shared with the xtcp provider (same package).

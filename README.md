@@ -63,6 +63,13 @@ protocol = "quic"     # "quic" (mặc định) hoặc "kcp" — tunnel tin cậy
 stream trên tunnel được gắn 1 byte tag (0x01 = TCP, 0x02 = UDP) để route. **Hoàn
 hảo cho Remote Desktop** (RDP dùng TCP 3389 + UDP 3389 để mượt).
 
+**Có AUTO-FALLBACK sẵn (built-in):** thử P2P đục lỗ trước; nếu quá
+`fallbackTimeoutMs` (mặc định 1000ms) mà không đục được (NAT khó / symmetric /
+CGNAT) thì **tự chuyển sang relay qua frps** (như `stcp+sudp`) — cho **cả TCP lẫn
+UDP**, không cần khai thêm visitor. Provider tự đăng ký sẵn đường relay; hole-punch
+work-conn được đánh dấu `protocol="nathole"`, còn conn relay dùng chung đúng khung
+1-byte-tag nên provider xử lý bằng cùng một handler.
+
 ```toml
 # Bên cung cấp (máy có RDP)
 [[proxies]]
@@ -82,6 +89,7 @@ secretKey = "KEY_RDP"
 bindAddr = "127.0.0.1"
 bindPort = 13389        # mở mstsc → 127.0.0.1:13389 để vào Desktop
 keepTunnelOpen = true
+# fallbackTimeoutMs = 1000   # (tuỳ chọn) chờ P2P bao lâu trước khi rớt relay
 ```
 
 ### `tcp+udp` — gộp TCP + UDP trên **1 cổng public**
@@ -131,7 +139,7 @@ bindPort = 6100         # mở CẢ TCP lẫn UDP tại 127.0.0.1:6100
 | Type | Đường đi | Cần visitor? | Dùng cho |
 |---|---|---|---|
 | `xudp` | P2P đục lỗ NAT | ✅ | UDP P2P độ trễ thấp |
-| `xtcp+xudp` | P2P đục lỗ NAT (1 lỗ, TCP+UDP) | ✅ | Remote Desktop P2P |
+| `xtcp+xudp` | P2P đục lỗ NAT (1 lỗ, TCP+UDP), **tự rớt relay khi NAT khó** | ✅ | Remote Desktop P2P (chắc ăn) |
 | `tcp+udp` | Relay qua cổng public frps | ❌ | Dịch vụ TCP+UDP có cổng public |
 | `stcp+sudp` | Relay bí mật qua frps | ✅ | Dịch vụ TCP+UDP riêng tư |
 

@@ -9,9 +9,12 @@
       <ConfigField label="Max Retries per Hour" type="number" v-model="form.maxRetriesAnHour" :min="0" :readonly="readonly" />
       <ConfigField label="Min Retry Interval (s)" type="number" v-model="form.minRetryInterval" :min="0" :readonly="readonly" />
     </div>
-    <div class="field-row two-col">
-      <ConfigField label="Fallback To" type="text" v-model="form.fallbackTo" placeholder="Fallback visitor name" :readonly="readonly" />
-      <ConfigField label="Fallback Timeout (ms)" type="number" v-model="form.fallbackTimeoutMs" :min="0" :readonly="readonly" />
+    <!-- Fallback To: xtcp only (a named fallback visitor).
+         Fallback Timeout: xtcp + xtcp+xudp (xtcp+xudp has built-in auto relay fallback). -->
+    <div class="field-row two-col" v-if="form.type === 'xtcp' || form.type === 'xtcp+xudp'">
+      <ConfigField v-if="form.type === 'xtcp'" label="Fallback To" type="text" v-model="form.fallbackTo" placeholder="Fallback visitor name" :readonly="readonly" />
+      <ConfigField label="Fallback Timeout (ms)" type="number" v-model="form.fallbackTimeoutMs" :min="0"
+        tip="xtcp+xudp: chờ P2P bao lâu (ms) trước khi tự rớt về relay. Mặc định 1000." :readonly="readonly" />
     </div>
   </ConfigSection>
 

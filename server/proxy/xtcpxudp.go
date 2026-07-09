@@ -20,10 +20,14 @@ import (
 	"sync"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/msg"
 )
 
-// The frps side of xtcpxudp is identical to xtcp/xudp: frps only brokers the NAT
-// hole signaling and never sees the payload. writeNatHoleSid is shared with the
+// xtcpxudp brokers NAT hole signaling like xtcp/xudp AND, so the visitor can
+// automatically fall back to the frps relay when hole punching fails, registers a
+// secret visitor listener identical to stcp/sudp. A hole-punch trigger work conn
+// is tagged Protocol="nathole"; relay work conns keep the empty default and carry
+// the same 1-byte-tagged streams as stcp+sudp. writeNatHoleSid is shared with the
 // xtcp server proxy (same package).
 
 func init() {
@@ -62,6 +66,14 @@ func (pxy *XTCPXUDPProxy) Run() (remoteAddr string, err error) {
 	if len(allowUsers) == 0 {
 		allowUsers = []string{pxy.GetUserInfo().User}
 	}
+
+	// Relay fallback path: a secret visitor listener (same as stcp/sudp) so the
+	// visitor can reach this provider through frps when hole punching fails.
+	if err = pxy.startVisitorListener(pxy.cfg.Secretkey, allowUsers, "xtcp+xudp"); err != nil {
+		return "", err
+	}
+
+	// P2P path: NAT hole signaling.
 	sidCh, err := pxy.rc.NatHoleController.ListenClient(pxy.GetName(), pxy.cfg.Secretkey, allowUsers)
 	if err != nil {
 		return "", err
@@ -72,7 +84,9 @@ func (pxy *XTCPXUDPProxy) Run() (remoteAddr string, err error) {
 			case <-pxy.closeCh:
 				return
 			case sid := <-sidCh:
-				workConn, errRet := pxy.GetWorkConnFromPool(nil, nil)
+				// Tag this work conn as a hole-punch trigger so the client runs
+				// the nathole handshake instead of treating it as relay payload.
+				workConn, errRet := pxy.GetWorkConnFromPoolWithProtocol(nil, nil, msg.StartWorkConnProtocolNatHole)
 				if errRet != nil {
 					continue
 				}
@@ -91,6 +105,7 @@ func (pxy *XTCPXUDPProxy) Close() {
 	pxy.closeOnce.Do(func() {
 		pxy.BaseProxy.Close()
 		pxy.rc.NatHoleController.CloseClient(pxy.GetName())
+		pxy.rc.VisitorManager.CloseListener(pxy.GetName())
 		close(pxy.closeCh)
 	})
 }

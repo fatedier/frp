@@ -164,6 +164,19 @@ type StartWorkConn struct {
 	Protocol string `json:"protocol,omitempty"`
 }
 
+// StartWorkConn.Protocol values used by merged/P2P proxy types to route a work
+// connection on the client side.
+const (
+	// StartWorkConnProtocolUDP marks the single UDP relay work connection of a
+	// tcp+udp proxy (TCP work conns keep the empty default).
+	StartWorkConnProtocolUDP = "udp"
+	// StartWorkConnProtocolNatHole marks an xtcp+xudp work connection that
+	// carries a NAT-hole signaling trigger (a NatHoleSid) instead of relay
+	// payload. Relay-fallback work conns keep the empty default and are handled
+	// exactly like an stcp+sudp relay stream.
+	StartWorkConnProtocolNatHole = "nathole"
+)
+
 type NewVisitorConn struct {
 	RunID          string `json:"run_id,omitempty"`
 	ProxyName      string `json:"proxy_name,omitempty"`

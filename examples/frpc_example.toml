@@ -289,6 +289,10 @@ keepTunnelOpen = true
 # LƯU Ý: xudp KHÔNG có fallbackTo (UDP mất gói là bình thường).
 
 # ========== >>> MỚI: visitor cho xtcp+xudp — VÀO REMOTE DESKTOP <<< =========
+# Có AUTO-FALLBACK sẵn: thử P2P đục lỗ trước; nếu quá fallbackTimeoutMs mà không
+# đục được (NAT khó / symmetric / CGNAT) thì TỰ chuyển sang relay qua frps
+# (kiểu stcp+sudp) — không cần khai thêm visitor. RDP vẫn vào được, chỉ là đi
+# vòng qua frps nên chậm hơn P2P một chút.
 [[visitors]]
 name = "pc-rdp-visitor"
 type = "xtcp+xudp"
@@ -297,6 +301,7 @@ secretKey = "KEY_RDP"
 bindAddr = "127.0.0.1"
 bindPort = 13389            # -> mở mstsc, gõ 127.0.0.1:13389 để vào Desktop
 keepTunnelOpen = true
+# fallbackTimeoutMs = 1000  # (tuỳ chọn) chờ P2P bao lâu trước khi rớt relay; mặc định 1000
 
 # ========== >>> MỚI: visitor stcp+sudp — type thật, 1 visitor <<< ============
 # Đối xứng với proxy "stcp+sudp" (type thật, KHÔNG phải sugar). serverName trỏ

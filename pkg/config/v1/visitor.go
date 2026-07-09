@@ -243,6 +243,13 @@ type XTCPXUDPVisitorConfig struct {
 	MaxRetriesAnHour int    `json:"maxRetriesAnHour,omitempty"`
 	MinRetryInterval int    `json:"minRetryInterval,omitempty"`
 
+	// FallbackTimeoutMs is how long to wait for the P2P hole-punched tunnel
+	// before automatically falling back to the frps relay (stcp+sudp style) for
+	// that TCP connection / UDP session. Built-in and always on — no separate
+	// fallback visitor is needed because this visitor already owns the local
+	// port and the provider always registers a relay listener. Defaults to 1000.
+	FallbackTimeoutMs int `json:"fallbackTimeoutMs,omitempty"`
+
 	// NatTraversal configuration for NAT traversal
 	NatTraversal *NatTraversalConfig `json:"natTraversal,omitempty"`
 }
@@ -253,6 +260,7 @@ func (c *XTCPXUDPVisitorConfig) Complete() {
 	c.Protocol = util.EmptyOr(c.Protocol, "quic")
 	c.MaxRetriesAnHour = util.EmptyOr(c.MaxRetriesAnHour, 8)
 	c.MinRetryInterval = util.EmptyOr(c.MinRetryInterval, 90)
+	c.FallbackTimeoutMs = util.EmptyOr(c.FallbackTimeoutMs, 1000)
 }
 
 func (c *XTCPXUDPVisitorConfig) Clone() VisitorConfigurer {
