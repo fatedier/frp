@@ -38,6 +38,7 @@ const (
 	TypeNatHoleResp        byte = 'm'
 	TypeNatHoleSid         byte = '5'
 	TypeNatHoleReport      byte = '6'
+	TypeProxyMetrics       byte = '7'
 )
 
 var msgTypeMap = map[byte]any{
@@ -59,6 +60,7 @@ var msgTypeMap = map[byte]any{
 	TypeNatHoleResp:        NatHoleResp{},
 	TypeNatHoleSid:         NatHoleSid{},
 	TypeNatHoleReport:      NatHoleReport{},
+	TypeProxyMetrics:       ProxyMetrics{},
 }
 
 var TypeNameNatHoleResp = reflect.TypeFor[NatHoleResp]().Name()
@@ -261,4 +263,17 @@ type NatHoleSid struct {
 type NatHoleReport struct {
 	Sid     string `json:"sid,omitempty"`
 	Success bool   `json:"success,omitempty"`
+}
+
+// ProxyMetrics is sent by frpc to frps to report traffic/session counts that
+// frps cannot observe itself — namely P2P (xtcp/xudp/xtcp+xudp) tunnel data,
+// which flows directly through the punched hole and never touches frps. Values
+// are DELTAS since the previous report (ConnsDelta may be negative), so the
+// server just applies AddTraffic / Open-CloseConnection on top of what it
+// already measures for the relay path (no double counting).
+type ProxyMetrics struct {
+	ProxyName       string `json:"proxy_name,omitempty"`
+	ConnsDelta      int64  `json:"conns_delta,omitempty"`
+	TrafficInDelta  int64  `json:"traffic_in_delta,omitempty"`
+	TrafficOutDelta int64  `json:"traffic_out_delta,omitempty"`
 }

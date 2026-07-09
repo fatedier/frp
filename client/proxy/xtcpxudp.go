@@ -54,7 +54,8 @@ func init() {
 type XTCPXUDPProxy struct {
 	*BaseProxy
 
-	cfg *v1.XTCPXUDPProxyConfig
+	cfg     *v1.XTCPXUDPProxyConfig
+	metrics *p2pMetrics
 }
 
 func NewXTCPXUDPProxy(baseProxy *BaseProxy, cfg v1.ProxyConfigurer) Proxy {
@@ -65,6 +66,7 @@ func NewXTCPXUDPProxy(baseProxy *BaseProxy, cfg v1.ProxyConfigurer) Proxy {
 	return &XTCPXUDPProxy{
 		BaseProxy: baseProxy,
 		cfg:       unwrapped,
+		metrics:   newP2PMetrics(naming.AddUserPrefix(baseProxy.clientCfg.User, unwrapped.Name), baseProxy.msgTransporter),
 	}
 }
 
@@ -84,6 +86,8 @@ func (pxy *XTCPXUDPProxy) InWorkConn(conn net.Conn, startWorkConnMsg *msg.StartW
 func (pxy *XTCPXUDPProxy) runNatHole(conn net.Conn, startWorkConnMsg *msg.StartWorkConn) {
 	xl := pxy.xl
 	defer conn.Close()
+	// Report P2P tunnel traffic/sessions to frps (it cannot measure them itself).
+	pxy.metrics.startReporter(pxy.ctx)
 	// readNatHoleSid is shared with the xtcp provider (same package).
 	natHoleSidMsg, err := readNatHoleSid(conn, pxy.clientCfg.Transport.WireProtocol)
 	if err != nil {
@@ -180,7 +184,7 @@ func (pxy *XTCPXUDPProxy) listenByKCP(listenConn *net.UDPConn, raddr *net.UDPAdd
 			xl.Errorf("accept connection error: %v", err)
 			return
 		}
-		go pxy.handleStream(muxConn, startWorkConnMsg)
+		go pxy.handleStream(pxy.metrics.track(muxConn), startWorkConnMsg)
 	}
 }
 
@@ -217,7 +221,7 @@ func (pxy *XTCPXUDPProxy) listenByQUIC(listenConn *net.UDPConn, _ *net.UDPAddr, 
 			_ = c.CloseWithError(0, "")
 			return
 		}
-		go pxy.handleStream(netpkg.QuicStreamToNetConn(stream, c), startWorkConnMsg)
+		go pxy.handleStream(pxy.metrics.track(netpkg.QuicStreamToNetConn(stream, c)), startWorkConnMsg)
 	}
 }
 

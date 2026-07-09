@@ -43,6 +43,7 @@ const (
 	V2TypeNatHoleResp        uint16 = 16
 	V2TypeNatHoleSid         uint16 = 17
 	V2TypeNatHoleReport      uint16 = 18
+	V2TypeProxyMetrics       uint16 = 19
 )
 
 var v2MsgTypeMap = map[uint16]any{
@@ -64,6 +65,7 @@ var v2MsgTypeMap = map[uint16]any{
 	V2TypeNatHoleResp:        NatHoleResp{},
 	V2TypeNatHoleSid:         NatHoleSid{},
 	V2TypeNatHoleReport:      NatHoleReport{},
+	V2TypeProxyMetrics:       ProxyMetrics{},
 }
 
 var v2MsgReflectTypeMap, v2MsgTypeIDMap = buildV2MsgTypeMaps()

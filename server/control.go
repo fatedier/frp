@@ -344,6 +344,36 @@ func (ctl *Control) registerMsgHandlers() {
 	ctl.msgDispatcher.RegisterHandler(&msg.NatHoleClient{}, msg.AsyncHandler(ctl.handleNatHoleClient))
 	ctl.msgDispatcher.RegisterHandler(&msg.NatHoleReport{}, msg.AsyncHandler(ctl.handleNatHoleReport))
 	ctl.msgDispatcher.RegisterHandler(&msg.CloseProxy{}, ctl.handleCloseProxy)
+	ctl.msgDispatcher.RegisterHandler(&msg.ProxyMetrics{}, msg.AsyncHandler(ctl.handleProxyMetrics))
+}
+
+// handleProxyMetrics applies client-reported metrics (P2P tunnel traffic/sessions
+// that frps cannot see itself) on top of what frps already measures for the relay
+// path. Deltas are applied directly, so relay + P2P sum correctly with no double
+// counting.
+func (ctl *Control) handleProxyMetrics(m msg.Message) {
+	inMsg := m.(*msg.ProxyMetrics)
+
+	ctl.mu.RLock()
+	pxy, ok := ctl.proxies[inMsg.ProxyName]
+	ctl.mu.RUnlock()
+	if !ok {
+		return
+	}
+	proxyType := pxy.GetConfigurer().GetBaseConfig().Type
+
+	if inMsg.TrafficInDelta > 0 {
+		metrics.Server.AddTrafficIn(inMsg.ProxyName, proxyType, inMsg.TrafficInDelta)
+	}
+	if inMsg.TrafficOutDelta > 0 {
+		metrics.Server.AddTrafficOut(inMsg.ProxyName, proxyType, inMsg.TrafficOutDelta)
+	}
+	for d := inMsg.ConnsDelta; d > 0; d-- {
+		metrics.Server.OpenConnection(inMsg.ProxyName, proxyType)
+	}
+	for d := inMsg.ConnsDelta; d < 0; d++ {
+		metrics.Server.CloseConnection(inMsg.ProxyName, proxyType)
+	}
 }
 
 func (ctl *Control) handleNewProxy(m msg.Message) {

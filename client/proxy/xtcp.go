@@ -40,7 +40,8 @@ func init() {
 type XTCPProxy struct {
 	*BaseProxy
 
-	cfg *v1.XTCPProxyConfig
+	cfg     *v1.XTCPProxyConfig
+	metrics *p2pMetrics
 }
 
 func NewXTCPProxy(baseProxy *BaseProxy, cfg v1.ProxyConfigurer) Proxy {
@@ -51,12 +52,15 @@ func NewXTCPProxy(baseProxy *BaseProxy, cfg v1.ProxyConfigurer) Proxy {
 	return &XTCPProxy{
 		BaseProxy: baseProxy,
 		cfg:       unwrapped,
+		metrics:   newP2PMetrics(naming.AddUserPrefix(baseProxy.clientCfg.User, unwrapped.Name), baseProxy.msgTransporter),
 	}
 }
 
 func (pxy *XTCPProxy) InWorkConn(conn net.Conn, startWorkConnMsg *msg.StartWorkConn) {
 	xl := pxy.xl
 	defer conn.Close()
+	// Report P2P tunnel traffic/sessions to frps (it cannot measure them itself).
+	pxy.metrics.startReporter(pxy.ctx)
 	natHoleSidMsg, err := readNatHoleSid(conn, pxy.clientCfg.Transport.WireProtocol)
 	if err != nil {
 		xl.Errorf("xtcp read from workConn error: %v", err)
@@ -173,7 +177,7 @@ func (pxy *XTCPProxy) listenByKCP(listenConn *net.UDPConn, raddr *net.UDPAddr, s
 			xl.Errorf("accept connection error: %v", err)
 			return
 		}
-		go pxy.HandleTCPWorkConnection(muxConn, startWorkConnMsg, []byte(pxy.cfg.Secretkey))
+		go pxy.HandleTCPWorkConnection(pxy.metrics.track(muxConn), startWorkConnMsg, []byte(pxy.cfg.Secretkey))
 	}
 }
 
@@ -211,6 +215,6 @@ func (pxy *XTCPProxy) listenByQUIC(listenConn *net.UDPConn, _ *net.UDPAddr, star
 			_ = c.CloseWithError(0, "")
 			return
 		}
-		go pxy.HandleTCPWorkConnection(netpkg.QuicStreamToNetConn(stream, c), startWorkConnMsg, []byte(pxy.cfg.Secretkey))
+		go pxy.HandleTCPWorkConnection(pxy.metrics.track(netpkg.QuicStreamToNetConn(stream, c)), startWorkConnMsg, []byte(pxy.cfg.Secretkey))
 	}
 }
