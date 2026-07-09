@@ -73,15 +73,19 @@ type VisitorConfigurer interface {
 type VisitorType string
 
 const (
-	VisitorTypeSTCP VisitorType = "stcp"
-	VisitorTypeXTCP VisitorType = "xtcp"
-	VisitorTypeSUDP VisitorType = "sudp"
+	VisitorTypeSTCP     VisitorType = "stcp"
+	VisitorTypeXTCP     VisitorType = "xtcp"
+	VisitorTypeSUDP     VisitorType = "sudp"
+	VisitorTypeXUDP     VisitorType = "xudp"
+	VisitorTypeXTCPXUDP VisitorType = "xtcp+xudp"
 )
 
 var visitorConfigTypeMap = map[VisitorType]reflect.Type{
-	VisitorTypeSTCP: reflect.TypeFor[STCPVisitorConfig](),
-	VisitorTypeXTCP: reflect.TypeFor[XTCPVisitorConfig](),
-	VisitorTypeSUDP: reflect.TypeFor[SUDPVisitorConfig](),
+	VisitorTypeSTCP:     reflect.TypeFor[STCPVisitorConfig](),
+	VisitorTypeXTCP:     reflect.TypeFor[XTCPVisitorConfig](),
+	VisitorTypeSUDP:     reflect.TypeFor[SUDPVisitorConfig](),
+	VisitorTypeXUDP:     reflect.TypeFor[XUDPVisitorConfig](),
+	VisitorTypeXTCPXUDP: reflect.TypeFor[XTCPXUDPVisitorConfig](),
 }
 
 type TypedVisitorConfig struct {
@@ -164,6 +168,75 @@ func (c *XTCPVisitorConfig) Complete() {
 }
 
 func (c *XTCPVisitorConfig) Clone() VisitorConfigurer {
+	out := *c
+	out.VisitorBaseConfig = c.VisitorBaseConfig.Clone()
+	out.NatTraversal = c.NatTraversal.Clone()
+	return &out
+}
+
+var _ VisitorConfigurer = &XUDPVisitorConfig{}
+
+// XUDPVisitorConfig is the visitor side of a UDP proxy reached via NAT hole
+// punching (the UDP counterpart of XTCPVisitorConfig). Note: unlike XTCP there
+// is no FallbackTo — relay fallback is meaningless for datagram UDP.
+type XUDPVisitorConfig struct {
+	VisitorBaseConfig
+
+	// Protocol selects the reliable tunnel transport layered on the punched
+	// UDP hole ("quic" or "kcp"). It does NOT refer to the carried payload,
+	// which is always UDP.
+	Protocol         string `json:"protocol,omitempty"`
+	KeepTunnelOpen   bool   `json:"keepTunnelOpen,omitempty"`
+	MaxRetriesAnHour int    `json:"maxRetriesAnHour,omitempty"`
+	MinRetryInterval int    `json:"minRetryInterval,omitempty"`
+
+	// NatTraversal configuration for NAT traversal
+	NatTraversal *NatTraversalConfig `json:"natTraversal,omitempty"`
+}
+
+func (c *XUDPVisitorConfig) Complete() {
+	c.VisitorBaseConfig.Complete()
+
+	c.Protocol = util.EmptyOr(c.Protocol, "quic")
+	c.MaxRetriesAnHour = util.EmptyOr(c.MaxRetriesAnHour, 8)
+	c.MinRetryInterval = util.EmptyOr(c.MinRetryInterval, 90)
+}
+
+func (c *XUDPVisitorConfig) Clone() VisitorConfigurer {
+	out := *c
+	out.VisitorBaseConfig = c.VisitorBaseConfig.Clone()
+	out.NatTraversal = c.NatTraversal.Clone()
+	return &out
+}
+
+var _ VisitorConfigurer = &XTCPXUDPVisitorConfig{}
+
+// XTCPXUDPVisitorConfig is the visitor side of the combined proxy. It binds BOTH
+// a local TCP listener and a local UDP listener on BindAddr:BindPort and carries
+// both over a single hole-punched tunnel using tagged streams.
+type XTCPXUDPVisitorConfig struct {
+	VisitorBaseConfig
+
+	// Protocol selects the reliable tunnel transport over the punched UDP hole
+	// ("quic" or "kcp"). Both TCP and UDP payloads ride this same session.
+	Protocol         string `json:"protocol,omitempty"`
+	KeepTunnelOpen   bool   `json:"keepTunnelOpen,omitempty"`
+	MaxRetriesAnHour int    `json:"maxRetriesAnHour,omitempty"`
+	MinRetryInterval int    `json:"minRetryInterval,omitempty"`
+
+	// NatTraversal configuration for NAT traversal
+	NatTraversal *NatTraversalConfig `json:"natTraversal,omitempty"`
+}
+
+func (c *XTCPXUDPVisitorConfig) Complete() {
+	c.VisitorBaseConfig.Complete()
+
+	c.Protocol = util.EmptyOr(c.Protocol, "quic")
+	c.MaxRetriesAnHour = util.EmptyOr(c.MaxRetriesAnHour, 8)
+	c.MinRetryInterval = util.EmptyOr(c.MinRetryInterval, 90)
+}
+
+func (c *XTCPXUDPVisitorConfig) Clone() VisitorConfigurer {
 	out := *c
 	out.VisitorBaseConfig = c.VisitorBaseConfig.Clone()
 	out.NatTraversal = c.NatTraversal.Clone()

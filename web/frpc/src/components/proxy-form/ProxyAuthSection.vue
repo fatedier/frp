@@ -7,7 +7,7 @@
         <ConfigField label="Route By HTTP User" type="text" v-model="form.routeByHTTPUser" :readonly="readonly" />
       </div>
     </template>
-    <template v-if="['stcp', 'sudp', 'xtcp'].includes(form.type)">
+    <template v-if="['stcp', 'sudp', 'xtcp', 'xudp', 'xtcp+xudp'].includes(form.type)">
       <div class="field-row two-col">
         <ConfigField label="Secret Key" type="password" v-model="form.secretKey" prop="secretKey" :readonly="readonly" />
         <ConfigField label="Allow Users" type="tags" v-model="form.allowUsers" placeholder="username" :readonly="readonly" />

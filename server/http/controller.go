@@ -351,6 +351,10 @@ func getConfFromConfigurer(cfg v1.ProxyConfigurer) any {
 		return &model.STCPOutConf{BaseOutConf: outBase}
 	case *v1.XTCPProxyConfig:
 		return &model.XTCPOutConf{BaseOutConf: outBase}
+	case *v1.XUDPProxyConfig:
+		return &model.XUDPOutConf{BaseOutConf: outBase}
+	case *v1.XTCPXUDPProxyConfig:
+		return &model.XTCPXUDPOutConf{BaseOutConf: outBase}
 	}
 	return outBase
 }

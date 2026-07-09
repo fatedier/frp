@@ -7,11 +7,13 @@ export const PROXY_TYPES = [
   'stcp',
   'sudp',
   'xtcp',
+  'xudp',
+  'xtcp+xudp',
 ] as const
 
 export type ProxyType = (typeof PROXY_TYPES)[number]
 
-export const VISITOR_TYPES = ['stcp', 'sudp', 'xtcp'] as const
+export const VISITOR_TYPES = ['stcp', 'sudp', 'xtcp', 'xudp', 'xtcp+xudp'] as const
 
 export type VisitorType = (typeof VISITOR_TYPES)[number]
 

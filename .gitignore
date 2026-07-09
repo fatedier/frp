@@ -35,3 +35,8 @@ node_modules/
 .claude/
 .sisyphus/
 .superpowers/
+
+P2PTest
+wireguard-windows-master
+tailscale-main
+frp-rdp

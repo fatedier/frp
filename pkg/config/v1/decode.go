@@ -151,6 +151,64 @@ func DecodeVisitorPluginOptionsJSON(b []byte, options DecodeOptions) (TypedVisit
 	}, nil
 }
 
+// comboProxySubTypes maps a "combo" proxy type to the concrete proxy types it
+// expands into. A combo is pure config sugar: one entry named "web" of type
+// "http+https" becomes two proxies "web-http" and "web-https" sharing all other
+// fields. (Note: "xtcp+xudp" is NOT here — that is a real single-hole proxy type
+// registered in the type map, not a sugar expansion.)
+var comboProxySubTypes = map[string][]string{
+	"tcp+udp":    {"tcp", "udp"},
+	"http+https": {"http", "https"},
+	"stcp+sudp":  {"stcp", "sudp"},
+}
+
+// expandComboProxyRaw expands a combo proxy raw message into its concrete
+// sub-proxy raw messages (rewriting "type" and suffixing "name" with "-<subtype>").
+// Non-combo messages are returned unchanged.
+func expandComboProxyRaw(b jsonx.RawMessage) ([]jsonx.RawMessage, error) {
+	var env struct {
+		Type string `json:"type"`
+		Name string `json:"name"`
+	}
+	if err := jsonx.Unmarshal(b, &env); err != nil {
+		return nil, err
+	}
+	subs, ok := comboProxySubTypes[env.Type]
+	if !ok {
+		return []jsonx.RawMessage{b}, nil
+	}
+
+	var fields map[string]jsonx.RawMessage
+	if err := jsonx.Unmarshal(b, &fields); err != nil {
+		return nil, err
+	}
+
+	out := make([]jsonx.RawMessage, 0, len(subs))
+	for _, st := range subs {
+		m := make(map[string]jsonx.RawMessage, len(fields))
+		for k, v := range fields {
+			m[k] = v
+		}
+		typeRaw, err := jsonx.Marshal(st)
+		if err != nil {
+			return nil, err
+		}
+		nameRaw, err := jsonx.Marshal(env.Name + "-" + st)
+		if err != nil {
+			return nil, err
+		}
+		m["type"] = typeRaw
+		m["name"] = nameRaw
+
+		nb, err := jsonx.Marshal(m)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, nb)
+	}
+	return out, nil
+}
+
 func DecodeClientConfigJSON(b []byte, options DecodeOptions) (ClientConfig, error) {
 	type rawClientConfig struct {
 		ClientCommonConfig
@@ -170,14 +228,20 @@ func DecodeClientConfigJSON(b []byte, options DecodeOptions) (ClientConfig, erro
 	}
 
 	for i, proxyData := range raw.Proxies {
-		proxyCfg, err := DecodeProxyConfigurerJSON(proxyData, options)
+		expanded, err := expandComboProxyRaw(proxyData)
 		if err != nil {
-			return ClientConfig{}, fmt.Errorf("decode proxy at index %d: %w", i, err)
+			return ClientConfig{}, fmt.Errorf("expand proxy at index %d: %w", i, err)
 		}
-		cfg.Proxies = append(cfg.Proxies, TypedProxyConfig{
-			Type:            proxyCfg.GetBaseConfig().Type,
-			ProxyConfigurer: proxyCfg,
-		})
+		for _, pd := range expanded {
+			proxyCfg, err := DecodeProxyConfigurerJSON(pd, options)
+			if err != nil {
+				return ClientConfig{}, fmt.Errorf("decode proxy at index %d: %w", i, err)
+			}
+			cfg.Proxies = append(cfg.Proxies, TypedProxyConfig{
+				Type:            proxyCfg.GetBaseConfig().Type,
+				ProxyConfigurer: proxyCfg,
+			})
+		}
 	}
 
 	for i, visitorData := range raw.Visitors {

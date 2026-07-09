@@ -5,7 +5,7 @@
     </ConfigSection>
     <VisitorConnectionSection v-model="form" :readonly="readonly" />
     <VisitorTransportSection v-model="form" :readonly="readonly" />
-    <VisitorXtcpSection v-if="form.type === 'xtcp'" v-model="form" :readonly="readonly" />
+    <VisitorXtcpSection v-if="['xtcp', 'xudp', 'xtcp+xudp'].includes(form.type)" v-model="form" :readonly="readonly" />
   </div>
 </template>
 

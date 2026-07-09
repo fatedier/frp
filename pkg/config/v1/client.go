@@ -105,7 +105,9 @@ type ClientTransportConfig struct {
 	// is "tcp".
 	Protocol string `json:"protocol,omitempty"`
 	// WireProtocol specifies the frpc/frps internal wire protocol version.
-	// Valid values are "v1" and "v2". By default, this value is "v1".
+	// Valid values are "v1" and "v2". By default, this value is "v2".
+	// v1 is the legacy codec kept for backward compatibility; set it explicitly
+	// only when talking to an old frps that does not support v2.
 	WireProtocol string `json:"wireProtocol,omitempty"`
 	// The maximum amount of time a dial to server will wait for a connect to complete.
 	DialServerTimeout int64 `json:"dialServerTimeout,omitempty"`
@@ -146,7 +148,7 @@ type ClientTransportConfig struct {
 
 func (c *ClientTransportConfig) Complete() {
 	c.Protocol = util.EmptyOr(c.Protocol, "tcp")
-	c.WireProtocol = util.EmptyOr(c.WireProtocol, "v1")
+	c.WireProtocol = util.EmptyOr(c.WireProtocol, "v2")
 	c.DialServerTimeout = util.EmptyOr(c.DialServerTimeout, 10)
 	c.DialServerKeepAlive = util.EmptyOr(c.DialServerKeepAlive, 7200)
 	c.ProxyURL = util.EmptyOr(c.ProxyURL, os.Getenv("http_proxy"))

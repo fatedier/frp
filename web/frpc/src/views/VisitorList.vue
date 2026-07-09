@@ -111,6 +111,8 @@ const typeOptions = computed(() => {
     { label: 'STCP', value: 'stcp' },
     { label: 'SUDP', value: 'sudp' },
     { label: 'XTCP', value: 'xtcp' },
+    { label: 'XUDP', value: 'xudp' },
+    { label: 'XTCP+XUDP', value: 'xtcp+xudp' },
   ]
 })
 

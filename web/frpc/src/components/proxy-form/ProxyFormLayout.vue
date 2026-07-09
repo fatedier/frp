@@ -9,13 +9,13 @@
     </ConfigSection>
 
     <ProxyAuthSection
-      v-if="['http', 'tcpmux', 'stcp', 'sudp', 'xtcp'].includes(form.type)"
+      v-if="['http', 'tcpmux', 'stcp', 'sudp', 'xtcp', 'xudp', 'xtcp+xudp'].includes(form.type)"
       v-model="form" :readonly="readonly" />
     <ProxyHttpSection v-if="form.type === 'http'" v-model="form" :readonly="readonly" />
     <ProxyTransportSection v-model="form" :readonly="readonly" />
     <ProxyHealthSection v-model="form" :readonly="readonly" />
     <ProxyLoadBalanceSection v-model="form" :readonly="readonly" />
-    <ProxyNatSection v-if="form.type === 'xtcp'" v-model="form" :readonly="readonly" />
+    <ProxyNatSection v-if="['xtcp', 'xudp', 'xtcp+xudp'].includes(form.type)" v-model="form" :readonly="readonly" />
     <ProxyMetadataSection v-model="form" :readonly="readonly" />
   </div>
 </template>

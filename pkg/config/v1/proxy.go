@@ -228,25 +228,29 @@ type ProxyConfigurer interface {
 type ProxyType string
 
 const (
-	ProxyTypeTCP    ProxyType = "tcp"
-	ProxyTypeUDP    ProxyType = "udp"
-	ProxyTypeTCPMUX ProxyType = "tcpmux"
-	ProxyTypeHTTP   ProxyType = "http"
-	ProxyTypeHTTPS  ProxyType = "https"
-	ProxyTypeSTCP   ProxyType = "stcp"
-	ProxyTypeXTCP   ProxyType = "xtcp"
-	ProxyTypeSUDP   ProxyType = "sudp"
+	ProxyTypeTCP      ProxyType = "tcp"
+	ProxyTypeUDP      ProxyType = "udp"
+	ProxyTypeTCPMUX   ProxyType = "tcpmux"
+	ProxyTypeHTTP     ProxyType = "http"
+	ProxyTypeHTTPS    ProxyType = "https"
+	ProxyTypeSTCP     ProxyType = "stcp"
+	ProxyTypeXTCP     ProxyType = "xtcp"
+	ProxyTypeSUDP     ProxyType = "sudp"
+	ProxyTypeXUDP     ProxyType = "xudp"
+	ProxyTypeXTCPXUDP ProxyType = "xtcp+xudp"
 )
 
 var proxyConfigTypeMap = map[ProxyType]reflect.Type{
-	ProxyTypeTCP:    reflect.TypeFor[TCPProxyConfig](),
-	ProxyTypeUDP:    reflect.TypeFor[UDPProxyConfig](),
-	ProxyTypeHTTP:   reflect.TypeFor[HTTPProxyConfig](),
-	ProxyTypeHTTPS:  reflect.TypeFor[HTTPSProxyConfig](),
-	ProxyTypeTCPMUX: reflect.TypeFor[TCPMuxProxyConfig](),
-	ProxyTypeSTCP:   reflect.TypeFor[STCPProxyConfig](),
-	ProxyTypeXTCP:   reflect.TypeFor[XTCPProxyConfig](),
-	ProxyTypeSUDP:   reflect.TypeFor[SUDPProxyConfig](),
+	ProxyTypeTCP:      reflect.TypeFor[TCPProxyConfig](),
+	ProxyTypeUDP:      reflect.TypeFor[UDPProxyConfig](),
+	ProxyTypeHTTP:     reflect.TypeFor[HTTPProxyConfig](),
+	ProxyTypeHTTPS:    reflect.TypeFor[HTTPSProxyConfig](),
+	ProxyTypeTCPMUX:   reflect.TypeFor[TCPMuxProxyConfig](),
+	ProxyTypeSTCP:     reflect.TypeFor[STCPProxyConfig](),
+	ProxyTypeXTCP:     reflect.TypeFor[XTCPProxyConfig](),
+	ProxyTypeSUDP:     reflect.TypeFor[SUDPProxyConfig](),
+	ProxyTypeXUDP:     reflect.TypeFor[XUDPProxyConfig](),
+	ProxyTypeXTCPXUDP: reflect.TypeFor[XTCPXUDPProxyConfig](),
 }
 
 func NewProxyConfigurerByType(proxyType ProxyType) ProxyConfigurer {
@@ -496,6 +500,82 @@ func (c *XTCPProxyConfig) UnmarshalFromMsg(m *msg.NewProxy) {
 }
 
 func (c *XTCPProxyConfig) Clone() ProxyConfigurer {
+	out := *c
+	out.ProxyBaseConfig = c.ProxyBaseConfig.Clone()
+	out.AllowUsers = slices.Clone(c.AllowUsers)
+	out.NatTraversal = c.NatTraversal.Clone()
+	return &out
+}
+
+var _ ProxyConfigurer = &XUDPProxyConfig{}
+
+// XUDPProxyConfig is the provider side of a UDP proxy that reaches the visitor
+// via NAT hole punching (the UDP counterpart of XTCPProxyConfig).
+type XUDPProxyConfig struct {
+	ProxyBaseConfig
+
+	Secretkey  string   `json:"secretKey,omitempty"`
+	AllowUsers []string `json:"allowUsers,omitempty"`
+
+	// NatTraversal configuration for NAT traversal
+	NatTraversal *NatTraversalConfig `json:"natTraversal,omitempty"`
+}
+
+func (c *XUDPProxyConfig) MarshalToMsg(m *msg.NewProxy) {
+	c.ProxyBaseConfig.MarshalToMsg(m)
+
+	m.Sk = c.Secretkey
+	m.AllowUsers = c.AllowUsers
+}
+
+func (c *XUDPProxyConfig) UnmarshalFromMsg(m *msg.NewProxy) {
+	c.ProxyBaseConfig.UnmarshalFromMsg(m)
+
+	c.Secretkey = m.Sk
+	c.AllowUsers = m.AllowUsers
+}
+
+func (c *XUDPProxyConfig) Clone() ProxyConfigurer {
+	out := *c
+	out.ProxyBaseConfig = c.ProxyBaseConfig.Clone()
+	out.AllowUsers = slices.Clone(c.AllowUsers)
+	out.NatTraversal = c.NatTraversal.Clone()
+	return &out
+}
+
+var _ ProxyConfigurer = &XTCPXUDPProxyConfig{}
+
+// XTCPXUDPProxyConfig is the provider side of a combined proxy that carries BOTH
+// TCP and UDP to a local service over a SINGLE NAT hole (tailscale-style), using
+// tagged tunnel streams. LocalPort is the TCP service port; LocalPortUDP is the
+// UDP service port and defaults to LocalPort when zero (so RDP's TCP 3389 + UDP
+// 3389 need only LocalPort).
+type XTCPXUDPProxyConfig struct {
+	ProxyBaseConfig
+
+	Secretkey    string   `json:"secretKey,omitempty"`
+	AllowUsers   []string `json:"allowUsers,omitempty"`
+	LocalPortUDP int      `json:"localPortUDP,omitempty"`
+
+	// NatTraversal configuration for NAT traversal
+	NatTraversal *NatTraversalConfig `json:"natTraversal,omitempty"`
+}
+
+func (c *XTCPXUDPProxyConfig) MarshalToMsg(m *msg.NewProxy) {
+	c.ProxyBaseConfig.MarshalToMsg(m)
+
+	m.Sk = c.Secretkey
+	m.AllowUsers = c.AllowUsers
+}
+
+func (c *XTCPXUDPProxyConfig) UnmarshalFromMsg(m *msg.NewProxy) {
+	c.ProxyBaseConfig.UnmarshalFromMsg(m)
+
+	c.Secretkey = m.Sk
+	c.AllowUsers = m.AllowUsers
+}
+
+func (c *XTCPXUDPProxyConfig) Clone() ProxyConfigurer {
 	out := *c
 	out.ProxyBaseConfig = c.ProxyBaseConfig.Clone()
 	out.AllowUsers = slices.Clone(c.AllowUsers)

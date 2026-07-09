@@ -96,6 +96,14 @@ type XTCPOutConf struct {
 	BaseOutConf
 }
 
+type XUDPOutConf struct {
+	BaseOutConf
+}
+
+type XTCPXUDPOutConf struct {
+	BaseOutConf
+}
+
 // Get proxy info.
 type ProxyStatsInfo struct {
 	Name            string `json:"name"`

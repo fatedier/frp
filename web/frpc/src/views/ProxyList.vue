@@ -171,7 +171,7 @@ const sourceOptions = computed(() => {
     .map((s) => ({ label: s, value: s }))
 })
 
-const PROXY_TYPE_ORDER = ['tcp', 'udp', 'http', 'https', 'tcpmux', 'stcp', 'sudp', 'xtcp']
+const PROXY_TYPE_ORDER = ['tcp', 'udp', 'http', 'https', 'tcpmux', 'stcp', 'sudp', 'xtcp', 'xudp', 'xtcp+xudp']
 
 const sortByTypeOrder = (types: string[]) => {
   return types.sort((a, b) => {
