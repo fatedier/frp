@@ -304,6 +304,7 @@ func (svr *Service) keepControllerWorking() {
 func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginExit bool) {
 	xl := xlog.FromContextSafe(svr.ctx)
 
+	consecutiveFailures := 0
 	loginFunc := func() (bool, error) {
 		xl.Infof("try to connect to server...")
 		dialer := &controlSessionDialer{
@@ -316,12 +317,24 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		}
 		sessionCtx, err := dialer.Dial(svr.runID)
 		if err != nil {
+			consecutiveFailures++
 			xl.Warnf("connect to server error: %v", err)
+			// If re-login with the previous run id keeps failing (e.g. a stale
+			// server-side session lingers and never returns LoginResp, which the
+			// client observes as "i/o deadline reached"), fall back to a fresh
+			// login just like a manual frpc restart would, so the client recovers
+			// on its own instead of being stuck reconnecting forever.
+			if svr.runID != "" && consecutiveFailures >= 3 {
+				xl.Infof("re-login with run id [%s] failed %d consecutive times, retrying as a fresh client",
+					svr.runID, consecutiveFailures)
+				svr.runID = ""
+			}
 			if firstLoginExit {
 				svr.cancel(cancelErr{Err: err})
 			}
 			return false, err
 		}
+		consecutiveFailures = 0
 
 		svr.runID = sessionCtx.RunID
 		xl.AddPrefix(xlog.LogPrefix{Name: "runID", Value: svr.runID})
