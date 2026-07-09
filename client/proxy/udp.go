@@ -17,6 +17,7 @@
 package proxy
 
 import (
+	"context"
 	"net"
 	"reflect"
 	"strconv"
@@ -128,6 +129,12 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, startMsg *msg.StartWorkConn) {
 
 	if dgMux != nil {
 		dgMux.Register(pxy.cfg.Name, func(remoteAddr *net.UDPAddr, payload []byte) {
+			// The bandwidth limiter can only police (drop) here, not shape:
+			// this callback runs on the quic connection's shared receive
+			// loop, which must never block.
+			if pxy.limiter != nil && !pxy.limiter.AllowN(time.Now(), len(payload)) {
+				return
+			}
 			m := udp.NewUDPPacket(payload, nil, remoteAddr)
 			_ = errors.PanicToError(func() {
 				select {
@@ -168,6 +175,14 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, startMsg *msg.StartWorkConn) {
 				if dgMux != nil {
 					switch dgErr := dgMux.Send(pxy.cfg.Name, m.RemoteAddr, m.Content); dgErr {
 					case nil:
+						// Datagrams bypass the limiter-wrapped work
+						// connection, so account for them here: charging
+						// after the send (like limit.Reader does) delays
+						// subsequent packets to hold the configured rate,
+						// and never double-charges the stream fallback.
+						if pxy.limiter != nil {
+							_ = pxy.limiter.WaitN(context.Background(), len(m.Content))
+						}
 						continue
 					case udp.ErrDatagramTooLarge:
 						// fall through to stream write

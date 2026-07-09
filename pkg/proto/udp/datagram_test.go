@@ -16,6 +16,7 @@ package udp
 
 import (
 	"bytes"
+	"errors"
 	"net"
 	"testing"
 )
@@ -67,6 +68,28 @@ func TestDatagramFrameEncodeErrors(t *testing.T) {
 	raddr, _ := net.ResolveUDPAddr("udp", "1.2.3.4:5")
 	if _, err := encodeDgramFrame(longName, raddr, []byte("x")); err == nil {
 		t.Error("expected error for oversized proxy name")
+	}
+}
+
+func TestDatagramFrameEncodeRejectsOversizedPayload(t *testing.T) {
+	raddr, _ := net.ResolveUDPAddr("udp", "1.2.3.4:5")
+	_, err := encodeDgramFrame("p", raddr, bytes.Repeat([]byte{0xab}, dgramFrameBudget))
+	if !errors.Is(err, ErrDatagramTooLarge) {
+		t.Errorf("err = %v, want ErrDatagramTooLarge", err)
+	}
+}
+
+func TestDatagramFrameDecodeRejectsHostname(t *testing.T) {
+	// a peer-controlled frame must not trigger DNS resolution: only numeric
+	// ip:port addresses are accepted
+	name, addr := "p", "evil.example.com:53"
+	frame := []byte{dgramFrameVersion, byte(len(name))}
+	frame = append(frame, name...)
+	frame = append(frame, byte(len(addr)))
+	frame = append(frame, addr...)
+	frame = append(frame, 'x')
+	if _, _, _, err := decodeDgramFrame(frame); err == nil {
+		t.Error("expected error for hostname address")
 	}
 }
 

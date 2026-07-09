@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sync"
 
 	quic "github.com/quic-go/quic-go"
@@ -138,9 +139,6 @@ func (m *DatagramMux) Send(name string, remoteAddr *net.UDPAddr, payload []byte)
 	if err != nil {
 		return err
 	}
-	if len(frame) > dgramFrameBudget {
-		return ErrDatagramTooLarge
-	}
 	err = m.qc.SendDatagram(frame)
 	if err != nil {
 		var tooLarge *quic.DatagramTooLargeError
@@ -160,7 +158,14 @@ func encodeDgramFrame(name string, remoteAddr *net.UDPAddr, payload []byte) ([]b
 	if len(name) > 255 || len(addr) > 255 {
 		return nil, fmt.Errorf("udp datagram header field too long: name %d, addr %d", len(name), len(addr))
 	}
-	frame := make([]byte, 0, 3+len(name)+len(addr)+len(payload))
+	// Enforce the budget before building the frame: MTU-sized payloads
+	// commonly exceed it and fall back to the stream, so don't pay an
+	// allocation and copy just to throw the frame away.
+	frameLen := 3 + len(name) + len(addr) + len(payload)
+	if frameLen > dgramFrameBudget {
+		return nil, ErrDatagramTooLarge
+	}
+	frame := make([]byte, 0, frameLen)
 	frame = append(frame, dgramFrameVersion, byte(len(name)))
 	frame = append(frame, name...)
 	frame = append(frame, byte(len(addr)))
@@ -186,10 +191,15 @@ func decodeDgramFrame(data []byte) (name string, remoteAddr *net.UDPAddr, payloa
 		err = errors.New("malformed udp datagram frame: addr")
 		return
 	}
-	remoteAddr, err = net.ResolveUDPAddr("udp", string(data[addrStart:addrStart+addrLen]))
-	if err != nil {
+	// The address comes off the wire; accept only numeric "ip:port".
+	// net.ResolveUDPAddr would resolve hostnames, letting a peer stall the
+	// connection's shared receive loop on DNS lookups.
+	ap, perr := netip.ParseAddrPort(string(data[addrStart : addrStart+addrLen]))
+	if perr != nil {
+		err = errors.New("malformed udp datagram frame: addr not numeric ip:port")
 		return
 	}
+	remoteAddr = net.UDPAddrFromAddrPort(ap)
 	payload = data[addrStart+addrLen:]
 	return
 }
