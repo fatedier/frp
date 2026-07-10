@@ -132,6 +132,8 @@ func ValidateProxyConfigurerForClient(c v1.ProxyConfigurer) error {
 		return validateXTCPXUDPProxyConfigForClient(v)
 	case *v1.MCProxyConfig:
 		return validateMCProxyConfigForClient(v)
+	case *v1.PEProxyConfig:
+		return validatePEProxyConfigForClient(v)
 	}
 	return errors.New("unknown proxy config type")
 }
@@ -221,6 +223,23 @@ func validateMCProxyConfigForServer(c *v1.MCProxyConfig, s *v1.ServerConfig) err
 	return validateDomainConfigForServer(&c.DomainConfig, s)
 }
 
+func validatePEProxyConfigForClient(c *v1.PEProxyConfig) error {
+	if c.RemotePort == 0 {
+		return errors.New("remotePort is required for the pe proxy type")
+	}
+	if len(c.ForcedHosts) == 0 {
+		return errors.New("forcedHosts must not be empty for the pe proxy type")
+	}
+	return nil
+}
+
+func validatePEProxyConfigForServer(c *v1.PEProxyConfig, s *v1.ServerConfig) error {
+	if c.RemotePort == 0 {
+		return errors.New("remotePort is required for the pe proxy type")
+	}
+	return nil
+}
+
 func ValidateProxyConfigurerForServer(c v1.ProxyConfigurer, s *v1.ServerConfig) error {
 	base := c.GetBaseConfig()
 	if err := validateProxyBaseConfigForServer(base); err != nil {
@@ -254,6 +273,8 @@ func ValidateProxyConfigurerForServer(c v1.ProxyConfigurer, s *v1.ServerConfig) 
 		return validateXTCPXUDPProxyConfigForServer(v, s)
 	case *v1.MCProxyConfig:
 		return validateMCProxyConfigForServer(v, s)
+	case *v1.PEProxyConfig:
+		return validatePEProxyConfigForServer(v, s)
 	default:
 		return errors.New("unknown proxy config type")
 	}

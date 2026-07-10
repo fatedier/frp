@@ -36,11 +36,22 @@ import (
 
 func init() {
 	RegisterProxyFactory(reflect.TypeFor[*v1.UDPProxyConfig](), NewUDPProxy)
+	// The "pe" (Bedrock) proxy is a plain UDP relay on the server side; its
+	// Bedrock host-routing lives entirely on frpc, so reuse this implementation.
+	RegisterProxyFactory(reflect.TypeFor[*v1.PEProxyConfig](), NewUDPProxy)
+}
+
+// udpProxyConfigurer is any proxy config the server exposes as a public UDP
+// port (UDPProxyConfig and PEProxyConfig).
+type udpProxyConfigurer interface {
+	v1.ProxyConfigurer
+	GetRemotePort() int
+	SetRemotePort(int)
 }
 
 type UDPProxy struct {
 	*BaseProxy
-	cfg *v1.UDPProxyConfig
+	cfg udpProxyConfigurer
 
 	realBindPort int
 
@@ -64,7 +75,7 @@ type UDPProxy struct {
 }
 
 func NewUDPProxy(baseProxy *BaseProxy) Proxy {
-	unwrapped, ok := baseProxy.GetConfigurer().(*v1.UDPProxyConfig)
+	unwrapped, ok := baseProxy.GetConfigurer().(udpProxyConfigurer)
 	if !ok {
 		return nil
 	}
@@ -77,9 +88,9 @@ func NewUDPProxy(baseProxy *BaseProxy) Proxy {
 
 func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 	xl := pxy.xl
-	pxy.realBindPort, err = pxy.rc.UDPPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
+	pxy.realBindPort, err = pxy.rc.UDPPortManager.Acquire(pxy.name, pxy.cfg.GetRemotePort())
 	if err != nil {
-		return "", fmt.Errorf("acquire port %d error: %v", pxy.cfg.RemotePort, err)
+		return "", fmt.Errorf("acquire port %d error: %v", pxy.cfg.GetRemotePort(), err)
 	}
 	defer func() {
 		if err != nil {
@@ -88,7 +99,7 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 	}()
 
 	remoteAddr = fmt.Sprintf(":%d", pxy.realBindPort)
-	pxy.cfg.RemotePort = pxy.realBindPort
+	pxy.cfg.SetRemotePort(pxy.realBindPort)
 	addr, errRet := net.ResolveUDPAddr("udp", net.JoinHostPort(pxy.serverCfg.ProxyBindAddr, strconv.Itoa(pxy.realBindPort)))
 	if errRet != nil {
 		err = errRet
@@ -100,7 +111,7 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 		xl.Warnf("listen udp port error: %v", err)
 		return
 	}
-	xl.Infof("udp proxy listen port [%d]", pxy.cfg.RemotePort)
+	xl.Infof("udp proxy listen port [%d]", pxy.cfg.GetRemotePort())
 
 	pxy.udpConn = udpConn
 	pxy.sendCh = make(chan *msg.UDPPacket, 1024)
@@ -204,7 +215,7 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 			}
 
 			var rwc io.ReadWriteCloser = workConn
-			if pxy.cfg.Transport.UseEncryption {
+			if pxy.GetConfigurer().GetBaseConfig().Transport.UseEncryption {
 				rwc, err = libio.WithEncryption(rwc, pxy.encryptionKey)
 				if err != nil {
 					xl.Errorf("create encryption stream error: %v", err)
@@ -212,7 +223,7 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 					continue
 				}
 			}
-			if pxy.cfg.Transport.UseCompression {
+			if pxy.GetConfigurer().GetBaseConfig().Transport.UseCompression {
 				rwc = libio.WithCompression(rwc)
 			}
 

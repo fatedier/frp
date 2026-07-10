@@ -9,7 +9,7 @@
 > (tcp, udp, http, https, tcpmux, stcp, sudp, xtcp, plugins, the basic dashboard, general
 > installation…) works exactly like the original — read the documentation at the link above.
 
-**Fork version:** `1.1.1` · **Branch:** `meobaka` (based on frp v0.69.1)
+**Fork version:** `1.2.0` · **Branch:** `meobaka` (based on frp v0.69.1)
 
 ---
 
@@ -17,7 +17,7 @@
 
 | Category | Change |
 |---|---|
-| New types | `xudp`, `xtcp+xudp`, `tcp+udp`, `stcp+sudp`, `mc` (Minecraft host routing, issue [#5390](https://github.com/fatedier/frp/issues/5390)) |
+| New types | `xudp`, `xtcp+xudp`, `tcp+udp`, `stcp+sudp`, `mc` (Minecraft Java host routing, issue [#5390](https://github.com/fatedier/frp/issues/5390)), `pe` (Minecraft Bedrock host routing) |
 | Security | Default `transport.wireProtocol` switched **v1 → v2** (v1 kept as an option) |
 | Bug fix | Reconnect getting stuck after `i/o deadline reached` on v2 (issue [#5355](https://github.com/fatedier/frp/issues/5355)) |
 | Dashboard | frpc admin API + Vue UI with full support for the new types |
@@ -170,7 +170,33 @@ Point each domain's DNS at the frps IP; the player just types `survival.example.
 the connection — handshake intact — to the matching backend. No visitor needed; `subdomain` also works
 when `subDomainHost` is set on frps.
 
-**Quick comparison of the 5 types:**
+### `pe` — Minecraft: Bedrock Edition host-routing (UDP/RakNet)
+
+The Bedrock counterpart of `mc`. Bedrock speaks **UDP/RakNet** and only carries the hostname the player
+typed **inside the login packet** (after the RakNet handshake), so — unlike Java `mc` — frps cannot peek
+it. Instead **frpc runs a full Bedrock router** ([gophertunnel](https://github.com/sandertv/gophertunnel)):
+it terminates each connection, reads the login `ServerAddress`, and re-originates to the matching local
+server. frps only opens the public UDP port and tunnels datagrams (it treats `pe` exactly like `udp` — **no
+gophertunnel on frps**). Modeled on [WaterdogPE](https://github.com/WaterdogPE/WaterdogPE) `forced_hosts`.
+
+```toml
+# frps.toml — NOTHING is needed for Bedrock.
+
+# frpc.toml — one public UDP port, many Bedrock servers routed by hostname.
+[[proxies]]
+name = "bedrock"
+type = "pe"
+remotePort = 19132                          # public UDP port on frps
+[proxies.forcedHosts]                        # hostname the player types -> local Bedrock server
+"survival.example.com" = "127.0.0.1:19133"
+"creative.example.com" = "127.0.0.1:19134"
+```
+
+> **Backends must run in offline mode** (`online-mode=false`): the router dials them without an Xbox
+> token, WaterdogPE-style. Bedrock protocol support tracks the bundled gophertunnel version. Only `frpc`
+> carries the Bedrock stack — `frps` stays clean.
+
+**Quick comparison of the 6 types:**
 
 | Type | Path | Visitor needed? | Used for |
 |---|---|---|---|
@@ -178,7 +204,8 @@ when `subDomainHost` is set on frps.
 | `xtcp+xudp` | P2P NAT hole punching (1 hole, TCP+UDP), **auto-falls back to relay on difficult NAT** | Yes | Remote Desktop P2P (reliable) |
 | `tcp+udp` | Relay via a public frps port | No | TCP+UDP services with a public port |
 | `stcp+sudp` | Secret relay via frps | Yes | Private TCP+UDP services |
-| `mc` | Host-routed relay via frps (Minecraft handshake) | No | Many Minecraft servers on one public port |
+| `mc` | Host-routed relay via frps (Minecraft Java handshake) | No | Many Java servers on one public port |
+| `pe` | Bedrock router on frpc (frps tunnels UDP) | No | Many Bedrock (PE) servers on one UDP port |
 
 ---
 
