@@ -3,7 +3,7 @@
 > This is a **customized fork** of frp (fast reverse proxy).
 > For all the original documentation, architecture, and standard frp features, see the main repo:
 >
-> ### 👉 https://github.com/fatedier/frp
+> ### https://github.com/fatedier/frp
 >
 > This README **only describes the parts that were added/changed** compared to the original frp. Everything else
 > (tcp, udp, http, https, tcpmux, stcp, sudp, xtcp, plugins, the basic dashboard, general
@@ -17,11 +17,11 @@
 
 | Category | Change |
 |---|---|
-| ➕ New types | `xudp`, `xtcp+xudp`, `tcp+udp`, `stcp+sudp` |
-| 🔒 Security | Default `transport.wireProtocol` switched **v1 → v2** (v1 kept as an option) |
-| 🐛 Bug fix | Reconnect getting stuck after `i/o deadline reached` on v2 (issue [#5355](https://github.com/fatedier/frp/issues/5355)) |
-| 🖥️ Dashboard | frpc admin API + Vue UI with full support for the new types |
-| 📄 Examples | `examples/frpc_example.toml`, `examples/frps_example.toml` (fully commented) |
+| New types | `xudp`, `xtcp+xudp`, `tcp+udp`, `stcp+sudp` |
+| Security | Default `transport.wireProtocol` switched **v1 → v2** (v1 kept as an option) |
+| Bug fix | Reconnect getting stuck after `i/o deadline reached` on v2 (issue [#5355](https://github.com/fatedier/frp/issues/5355)) |
+| Dashboard | frpc admin API + Vue UI with full support for the new types |
+| Examples | `examples/frpc_example.toml`, `examples/frps_example.toml` (fully commented) |
 
 ---
 
@@ -138,10 +138,10 @@ bindPort = 6100         # opens BOTH TCP and UDP at 127.0.0.1:6100
 
 | Type | Path | Visitor needed? | Used for |
 |---|---|---|---|
-| `xudp` | P2P NAT hole punching | ✅ | Low-latency P2P UDP |
-| `xtcp+xudp` | P2P NAT hole punching (1 hole, TCP+UDP), **auto-falls back to relay on difficult NAT** | ✅ | Remote Desktop P2P (reliable) |
-| `tcp+udp` | Relay via a public frps port | ❌ | TCP+UDP services with a public port |
-| `stcp+sudp` | Secret relay via frps | ✅ | Private TCP+UDP services |
+| `xudp` | P2P NAT hole punching | Yes | Low-latency P2P UDP |
+| `xtcp+xudp` | P2P NAT hole punching (1 hole, TCP+UDP), **auto-falls back to relay on difficult NAT** | Yes | Remote Desktop P2P (reliable) |
+| `tcp+udp` | Relay via a public frps port | No | TCP+UDP services with a public port |
+| `stcp+sudp` | Secret relay via frps | Yes | Private TCP+UDP services |
 
 ---
 
