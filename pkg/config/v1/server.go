@@ -90,6 +90,11 @@ type ServerConfig struct {
 	// UDPPacketSize specifies the UDP packet size
 	// By default, this value is 1500
 	UDPPacketSize int64 `json:"udpPacketSize,omitempty"`
+	// UDPSessionTimeout is the idle timeout (seconds) after which a UDP proxy
+	// source address stops being counted as a current connection. UDP is
+	// connectionless, so this bounds how long the dashboard keeps showing a
+	// session after its last packet. By default, this value is 15.
+	UDPSessionTimeout int64 `json:"udpSessionTimeout,omitempty"`
 	// NatHoleAnalysisDataReserveHours specifies the hours to reserve nat hole analysis data.
 	NatHoleAnalysisDataReserveHours int64 `json:"natholeAnalysisDataReserveHours,omitempty"`
 
@@ -121,6 +126,7 @@ func (c *ServerConfig) Complete() error {
 	c.DetailedErrorsToClient = util.EmptyOr(c.DetailedErrorsToClient, lo.ToPtr(true))
 	c.UserConnTimeout = util.EmptyOr(c.UserConnTimeout, 10)
 	c.UDPPacketSize = util.EmptyOr(c.UDPPacketSize, 1500)
+	c.UDPSessionTimeout = util.EmptyOr(c.UDPSessionTimeout, 15)
 	c.NatHoleAnalysisDataReserveHours = util.EmptyOr(c.NatHoleAnalysisDataReserveHours, 7*24)
 	return nil
 }

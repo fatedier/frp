@@ -177,7 +177,7 @@ func (pxy *XUDPProxy) listenByKCP(listenConn *net.UDPConn, raddr *net.UDPAddr) {
 			xl.Errorf("accept connection error: %v", err)
 			return
 		}
-		go pxy.handleUDPWorkConnection(pxy.metrics.track(muxConn))
+		go pxy.handleUDPWorkConnection(pxy.metrics.countBytes(muxConn))
 	}
 }
 
@@ -215,7 +215,7 @@ func (pxy *XUDPProxy) listenByQUIC(listenConn *net.UDPConn, _ *net.UDPAddr) {
 			_ = c.CloseWithError(0, "")
 			return
 		}
-		go pxy.handleUDPWorkConnection(pxy.metrics.track(netpkg.QuicStreamToNetConn(stream, c)))
+		go pxy.handleUDPWorkConnection(pxy.metrics.countBytes(netpkg.QuicStreamToNetConn(stream, c)))
 	}
 }
 
@@ -288,6 +288,7 @@ func (pxy *XUDPProxy) handleUDPWorkConnection(stream net.Conn) {
 			xl.Debugf("xudp read from workConn stopped: %v", errRet)
 			return
 		}
+		pxy.metrics.udpActivity() // a real UDP packet flowed -> session is active
 		if errRet := errors.PanicToError(func() {
 			readCh <- &udpMsg
 		}); errRet != nil {

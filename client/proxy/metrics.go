@@ -26,20 +26,29 @@ import (
 	"github.com/fatedier/frp/pkg/transport"
 )
 
-// p2pMetrics accumulates session count + byte counters for a provider proxy's
-// P2P tunnel and periodically reports the delta to frps. frps cannot observe P2P
-// data itself (it flows straight through the punched hole), so without this the
-// dashboard shows 0 traffic / 0 connections for xtcp/xudp/xtcp+xudp. Only the
-// P2P path is tracked — the relay-fallback path is measured by frps directly, so
-// the two sum without double counting.
+// udpIdleTimeout is how long after the last real UDP packet a P2P UDP tunnel is
+// still counted as an active session. A P2P UDP stream is kept alive by heartbeat
+// pings, so without this it would be reported as "1 connection" forever; instead
+// it drops to 0 shortly after the app stops sending UDP.
+const udpIdleTimeout = 15 * time.Second
+
+// p2pMetrics measures a provider proxy's P2P tunnel — byte counters plus a
+// session count — and periodically reports the delta to frps, which cannot
+// observe P2P data itself (it bypasses frps through the punched hole). Session
+// counting is split by transport: TCP streams are counted precisely while open
+// (libio.Join returns exactly on close), while the single persistent UDP stream
+// is counted only while UDP packets are recently flowing. Only the P2P path is
+// reported; the relay-fallback path is measured by frps, so the two never double
+// count.
 type p2pMetrics struct {
 	// name is the wire proxy name (with user prefix) exactly as frps keys it.
 	name string
 	mt   transport.MessageTransporter
 
-	conns atomic.Int64 // current active tunnel streams
-	in    atomic.Int64 // cumulative bytes read from the tunnel (peer -> local)
-	out   atomic.Int64 // cumulative bytes written to the tunnel (local -> peer)
+	tcpConns    atomic.Int64 // active TCP streams
+	lastUDPNano atomic.Int64 // unix-nano of the last real UDP packet; 0 = none
+	in          atomic.Int64 // cumulative bytes read from the tunnel
+	out         atomic.Int64 // cumulative bytes written to the tunnel
 
 	lastConns int64
 	lastIn    int64
@@ -52,18 +61,46 @@ func newP2PMetrics(name string, mt transport.MessageTransporter) *p2pMetrics {
 	return &p2pMetrics{name: name, mt: mt}
 }
 
-// track wraps a tunnel stream so its bytes are counted, and marks one more active
-// session; the session is released when the returned conn is closed.
-func (m *p2pMetrics) track(c net.Conn) net.Conn {
+// countBytes wraps a tunnel stream so its bytes are counted. It does NOT count a
+// session — session counting is done per-transport (tcpOpen/tcpClose for TCP,
+// udpActivity for UDP).
+func (m *p2pMetrics) countBytes(c net.Conn) net.Conn {
 	if m == nil {
 		return c
 	}
-	m.conns.Add(1)
-	return &countingConn{Conn: c, m: m}
+	return &byteCountConn{Conn: c, m: m}
+}
+
+func (m *p2pMetrics) tcpOpen() {
+	if m != nil {
+		m.tcpConns.Add(1)
+	}
+}
+
+func (m *p2pMetrics) tcpClose() {
+	if m != nil {
+		m.tcpConns.Add(-1)
+	}
+}
+
+// udpActivity records that a real UDP packet just flowed on the tunnel.
+func (m *p2pMetrics) udpActivity() {
+	if m != nil {
+		m.lastUDPNano.Store(time.Now().UnixNano())
+	}
+}
+
+// currentConns is TCP streams plus 1 if UDP has been active within udpIdleTimeout.
+func (m *p2pMetrics) currentConns() int64 {
+	c := m.tcpConns.Load()
+	if last := m.lastUDPNano.Load(); last != 0 && time.Since(time.Unix(0, last)) < udpIdleTimeout {
+		c++
+	}
+	return c
 }
 
 // startReporter launches the periodic delta reporter once (idempotent). It stops
-// when ctx is done, sending one final flush.
+// when ctx is done after a final flush that zeroes the reported connection count.
 func (m *p2pMetrics) startReporter(ctx context.Context) {
 	if m == nil || m.mt == nil {
 		return
@@ -79,6 +116,10 @@ func (m *p2pMetrics) startReporter(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
+				// Final report: force our reported connections to 0 so frps does
+				// not keep a stale value on graceful shutdown.
+				m.tcpConns.Store(0)
+				m.lastUDPNano.Store(0)
 				m.flush()
 				return
 			case <-ticker.C:
@@ -90,7 +131,7 @@ func (m *p2pMetrics) startReporter(ctx context.Context) {
 
 // flush sends the change since the last report; it is a no-op when nothing moved.
 func (m *p2pMetrics) flush() {
-	conns := m.conns.Load()
+	conns := m.currentConns()
 	in := m.in.Load()
 	out := m.out.Load()
 	dConns := conns - m.lastConns
@@ -108,13 +149,12 @@ func (m *p2pMetrics) flush() {
 	})
 }
 
-type countingConn struct {
+type byteCountConn struct {
 	net.Conn
-	m      *p2pMetrics
-	closed atomic.Bool
+	m *p2pMetrics
 }
 
-func (c *countingConn) Read(b []byte) (int, error) {
+func (c *byteCountConn) Read(b []byte) (int, error) {
 	n, err := c.Conn.Read(b)
 	if n > 0 {
 		c.m.in.Add(int64(n))
@@ -122,17 +162,10 @@ func (c *countingConn) Read(b []byte) (int, error) {
 	return n, err
 }
 
-func (c *countingConn) Write(b []byte) (int, error) {
+func (c *byteCountConn) Write(b []byte) (int, error) {
 	n, err := c.Conn.Write(b)
 	if n > 0 {
 		c.m.out.Add(int64(n))
 	}
 	return n, err
-}
-
-func (c *countingConn) Close() error {
-	if c.closed.CompareAndSwap(false, true) {
-		c.m.conns.Add(-1)
-	}
-	return c.Conn.Close()
 }

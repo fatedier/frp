@@ -152,6 +152,13 @@ func (m *serverMetrics) CloseProxy(name string, proxyType string) {
 	}
 	if proxyStats, ok := m.info.ProxyStatistics[name]; ok {
 		proxyStats.LastCloseTime = m.clock.Now()
+		// Reset any lingering connection count so an offline proxy shows 0.
+		// UDP sessions (source-timeout based) and client-reported P2P conns may
+		// never receive a matching close, so without this they would stay stuck.
+		if cur := proxyStats.CurConns.Count(); cur > 0 {
+			proxyStats.CurConns.Clear()
+			m.info.CurConns.Dec(cur)
+		}
 	}
 }
 
@@ -167,13 +174,17 @@ func (m *serverMetrics) OpenConnection(name string, _ string) {
 }
 
 func (m *serverMetrics) CloseConnection(name string, _ string) {
-	m.info.CurConns.Dec(1)
-
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	proxyStats, ok := m.info.ProxyStatistics[name]
-	if ok {
-		proxyStats.CurConns.Dec(1)
+	// Clamp at 0: a CloseProxy reset (above) may race with an in-flight
+	// CloseConnection, and the counters must never go negative.
+	if m.info.CurConns.Count() > 0 {
+		m.info.CurConns.Dec(1)
+	}
+	if proxyStats, ok := m.info.ProxyStatistics[name]; ok {
+		if proxyStats.CurConns.Count() > 0 {
+			proxyStats.CurConns.Dec(1)
+		}
 	}
 }
 

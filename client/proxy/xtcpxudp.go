@@ -184,7 +184,7 @@ func (pxy *XTCPXUDPProxy) listenByKCP(listenConn *net.UDPConn, raddr *net.UDPAdd
 			xl.Errorf("accept connection error: %v", err)
 			return
 		}
-		go pxy.handleStream(pxy.metrics.track(muxConn), startWorkConnMsg)
+		go pxy.handleStream(pxy.metrics.countBytes(muxConn), startWorkConnMsg)
 	}
 }
 
@@ -221,7 +221,7 @@ func (pxy *XTCPXUDPProxy) listenByQUIC(listenConn *net.UDPConn, _ *net.UDPAddr, 
 			_ = c.CloseWithError(0, "")
 			return
 		}
-		go pxy.handleStream(pxy.metrics.track(netpkg.QuicStreamToNetConn(stream, c)), startWorkConnMsg)
+		go pxy.handleStream(pxy.metrics.countBytes(netpkg.QuicStreamToNetConn(stream, c)), startWorkConnMsg)
 	}
 }
 
@@ -238,6 +238,9 @@ func (pxy *XTCPXUDPProxy) handleStream(stream net.Conn, startWorkConnMsg *msg.St
 	switch tag[0] {
 	case xtcpxudpStreamTagTCP:
 		// Reuse the standard TCP handler; it dials LocalIP:LocalPort and joins.
+		// Count the TCP session for the lifetime of the connection.
+		pxy.metrics.tcpOpen()
+		defer pxy.metrics.tcpClose()
 		pxy.HandleTCPWorkConnection(stream, startWorkConnMsg, []byte(pxy.cfg.Secretkey))
 	case xtcpxudpStreamTagUDP:
 		pxy.handleUDPWorkConnection(stream)
@@ -314,6 +317,7 @@ func (pxy *XTCPXUDPProxy) handleUDPWorkConnection(stream net.Conn) {
 			xl.Debugf("xtcpxudp read from workConn stopped: %v", errRet)
 			return
 		}
+		pxy.metrics.udpActivity() // a real UDP packet flowed -> session is active
 		if errRet := errors.PanicToError(func() {
 			readCh <- &udpMsg
 		}); errRet != nil {

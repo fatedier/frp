@@ -245,8 +245,9 @@ func (pxy *UDPProxy) Run() (remoteAddr string, err error) {
 	name := pxy.GetName()
 	proxyType := pxy.GetConfigurer().GetBaseConfig().Type
 	tracker := &udp.UDPSessionTracker{
-		OnOpen:  func() { metrics.Server.OpenConnection(name, proxyType) },
-		OnClose: func() { metrics.Server.CloseConnection(name, proxyType) },
+		OnOpen:      func() { metrics.Server.OpenConnection(name, proxyType) },
+		OnClose:     func() { metrics.Server.CloseConnection(name, proxyType) },
+		IdleTimeout: time.Duration(pxy.serverCfg.UDPSessionTimeout) * time.Second,
 	}
 	go func() {
 		udp.ForwardUserConn(udpConn, pxy.readCh, pxy.sendCh, int(pxy.serverCfg.UDPPacketSize), tracker)

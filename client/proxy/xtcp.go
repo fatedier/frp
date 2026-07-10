@@ -177,7 +177,12 @@ func (pxy *XTCPProxy) listenByKCP(listenConn *net.UDPConn, raddr *net.UDPAddr, s
 			xl.Errorf("accept connection error: %v", err)
 			return
 		}
-		go pxy.HandleTCPWorkConnection(pxy.metrics.track(muxConn), startWorkConnMsg, []byte(pxy.cfg.Secretkey))
+		stream := pxy.metrics.countBytes(muxConn)
+		pxy.metrics.tcpOpen()
+		go func() {
+			defer pxy.metrics.tcpClose()
+			pxy.HandleTCPWorkConnection(stream, startWorkConnMsg, []byte(pxy.cfg.Secretkey))
+		}()
 	}
 }
 
@@ -215,6 +220,11 @@ func (pxy *XTCPProxy) listenByQUIC(listenConn *net.UDPConn, _ *net.UDPAddr, star
 			_ = c.CloseWithError(0, "")
 			return
 		}
-		go pxy.HandleTCPWorkConnection(pxy.metrics.track(netpkg.QuicStreamToNetConn(stream, c)), startWorkConnMsg, []byte(pxy.cfg.Secretkey))
+		wrapped := pxy.metrics.countBytes(netpkg.QuicStreamToNetConn(stream, c))
+		pxy.metrics.tcpOpen()
+		go func() {
+			defer pxy.metrics.tcpClose()
+			pxy.HandleTCPWorkConnection(wrapped, startWorkConnMsg, []byte(pxy.cfg.Secretkey))
+		}()
 	}
 }
