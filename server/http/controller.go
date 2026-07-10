@@ -58,8 +58,12 @@ func NewController(
 
 // /api/serverinfo
 func (c *Controller) APIServerInfo(ctx *httppkg.Context) (any, error) {
+	return c.buildServerInfoResp(), nil
+}
+
+func (c *Controller) buildServerInfoResp() model.ServerInfoResp {
 	serverStats := mem.StatsCollector.GetServer()
-	svrResp := model.ServerInfoResp{
+	return model.ServerInfoResp{
 		Version:               version.Full(),
 		BindPort:              c.serverCfg.BindPort,
 		VhostHTTPPort:         c.serverCfg.VhostHTTPPort,
@@ -80,8 +84,6 @@ func (c *Controller) APIServerInfo(ctx *httppkg.Context) (any, error) {
 		ClientCounts:    serverStats.ClientCounts,
 		ProxyTypeCounts: serverStats.ProxyTypeCounts,
 	}
-
-	return svrResp, nil
 }
 
 // /api/clients

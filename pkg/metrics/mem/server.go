@@ -95,9 +95,7 @@ func (m *serverMetrics) clearUselessInfo(continuousOfflineDuration time.Duration
 	defer m.mu.Unlock()
 	total = len(m.info.ProxyStatistics)
 	for name, data := range m.info.ProxyStatistics {
-		if !data.LastCloseTime.IsZero() &&
-			data.LastStartTime.Before(data.LastCloseTime) &&
-			m.clock.Since(data.LastCloseTime) > continuousOfflineDuration {
+		if m.shouldClearProxyStats(data, continuousOfflineDuration) {
 			delete(m.info.ProxyStatistics, name)
 			count++
 			log.Tracef("clear proxy [%s]'s statistics data, lastCloseTime: [%s]", name, data.LastCloseTime.String())
@@ -106,7 +104,17 @@ func (m *serverMetrics) clearUselessInfo(continuousOfflineDuration time.Duration
 	return count, total
 }
 
+func (m *serverMetrics) shouldClearProxyStats(data *ProxyStatistics, continuousOfflineDuration time.Duration) bool {
+	return !data.LastCloseTime.IsZero() &&
+		data.LastStartTime.Before(data.LastCloseTime) &&
+		m.clock.Since(data.LastCloseTime) > continuousOfflineDuration
+}
+
 func (m *serverMetrics) ClearOfflineProxies() (int, int) {
+	return m.clearUselessInfo(0)
+}
+
+func (m *serverMetrics) PruneOfflineProxies() (int, int) {
 	return m.clearUselessInfo(0)
 }
 
@@ -242,9 +250,11 @@ func toProxyStats(name string, proxyStats *ProxyStatistics) *ProxyStats {
 	}
 	if !proxyStats.LastStartTime.IsZero() {
 		ps.LastStartTime = proxyStats.LastStartTime.Format("01-02 15:04:05")
+		ps.LastStartAt = proxyStats.LastStartTime.Unix()
 	}
 	if !proxyStats.LastCloseTime.IsZero() {
 		ps.LastCloseTime = proxyStats.LastCloseTime.Format("01-02 15:04:05")
+		ps.LastCloseAt = proxyStats.LastCloseTime.Unix()
 	}
 	return ps
 }

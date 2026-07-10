@@ -1,9 +1,9 @@
 ## Features
 
-* `transport.wireProtocol = "v2"` now also applies to UDP-based proxy payloads, including ordinary UDP and SUDP, so their payload framing is consistent with the selected wire protocol.
-* Improved SUDP compatibility during mixed `transport.wireProtocol` deployments, allowing frps to bridge payloads between v1/default and v2 SUDP clients.
-* XTCP work connection `NatHoleSid` messages now follow the selected `transport.wireProtocol`.
+* Expanded the frps dashboard API v2 migration across Clients, Proxies, Server Overview, Client Detail, and Proxy Detail, covering paginated users/clients/proxies, detail data, proxy traffic history, server system info, offline proxy statistics pruning, server-side pagination, search, and proxy type filtering.
 
-## Compatibility Notes
+## Fixes
 
-* When enabling `transport.wireProtocol = "v2"` for SUDP, upgrade both the proxy and visitor frpc instances first, or keep them on `v1` until both sides are upgraded.
+* WebSocket and WSS tunnel payloads are now sent as binary frames, avoiding disconnects through RFC-compliant intermediaries that validate text frames as UTF-8.
+* The `tls2raw` client plugin now writes the proxy protocol header to the local raw connection when proxy protocol is enabled.
+* frpc now rejects duplicate proxy and visitor names in config files instead of silently overwriting earlier entries.

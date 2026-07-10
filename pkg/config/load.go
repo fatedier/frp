@@ -394,6 +394,10 @@ func LoadClientConfigResult(path string, strict bool) (*ClientConfigLoadResult, 
 		}
 	}
 
+	if err := validateNoDuplicateNames(result.Proxies, result.Visitors); err != nil {
+		return nil, err
+	}
+
 	return result, nil
 }
 
@@ -415,6 +419,31 @@ func LoadClientConfig(path string, strict bool) (
 	proxyCfgs = CompleteProxyConfigurers(proxyCfgs)
 	visitorCfgs = CompleteVisitorConfigurers(visitorCfgs)
 	return result.Common, proxyCfgs, visitorCfgs, result.IsLegacyFormat, nil
+}
+
+// validateNoDuplicateNames rejects proxies or visitors that share a name. They are
+// keyed by name in the config sources, so a duplicate would otherwise be silently
+// overwritten and never started, with no error or log.
+func validateNoDuplicateNames(proxies []v1.ProxyConfigurer, visitors []v1.VisitorConfigurer) error {
+	proxyNames := make(map[string]struct{}, len(proxies))
+	for _, p := range proxies {
+		name := p.GetBaseConfig().Name
+		if _, ok := proxyNames[name]; ok {
+			return fmt.Errorf("proxy name [%s] is duplicated", name)
+		}
+		proxyNames[name] = struct{}{}
+	}
+
+	visitorNames := make(map[string]struct{}, len(visitors))
+	for _, v := range visitors {
+		name := v.GetBaseConfig().Name
+		if _, ok := visitorNames[name]; ok {
+			return fmt.Errorf("visitor name [%s] is duplicated", name)
+		}
+		visitorNames[name] = struct{}{}
+	}
+
+	return nil
 }
 
 func CompleteProxyConfigurers(proxies []v1.ProxyConfigurer) []v1.ProxyConfigurer {

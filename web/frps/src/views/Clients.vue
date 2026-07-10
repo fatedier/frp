@@ -16,7 +16,9 @@
           >
             <span class="status-dot" :class="tab.value"></span>
             <span class="tab-label">{{ tab.label }}</span>
-            <span class="tab-count">{{ tab.count }}</span>
+            <span v-if="tab.count !== null" class="tab-count">{{
+              tab.count
+            }}</span>
           </button>
         </div>
       </div>
@@ -33,9 +35,9 @@
     </div>
 
     <div v-loading="loading" class="clients-content">
-      <div v-if="filteredClients.length > 0" class="clients-list">
+      <div v-if="clients.length > 0" class="clients-list">
         <ClientCard
-          v-for="client in filteredClients"
+          v-for="client in clients"
           :key="client.key"
           :client="client"
         />
@@ -44,82 +46,123 @@
         <el-empty description="No clients found" />
       </div>
     </div>
+
+    <div v-if="total > 0" class="pagination-section">
+      <ElPagination
+        :current-page="page"
+        :page-size="pageSize"
+        :page-sizes="[10, 20, 50, 100]"
+        :total="total"
+        layout="total, sizes, prev, pager, next"
+        @current-change="onPageChange"
+        @size-change="onPageSizeChange"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ElMessage, ElPagination } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { Client } from '../utils/client'
 import ClientCard from '../components/ClientCard.vue'
-import { getClients } from '../api/client'
+import { getClientsV2 } from '../api/client'
 
 const clients = ref<Client[]>([])
 const loading = ref(false)
 const searchText = ref('')
 const statusFilter = ref<'all' | 'online' | 'offline'>('all')
+const page = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
 
 let refreshTimer: number | null = null
-
-const stats = computed(() => {
-  const total = clients.value.length
-  const online = clients.value.filter((c) => c.online).length
-  const offline = total - online
-  return { total, online, offline }
-})
+let searchDebounceTimer: number | null = null
+let requestSeq = 0
 
 const statusTabs = computed(() => [
-  { value: 'all' as const, label: 'All', count: stats.value.total },
-  { value: 'online' as const, label: 'Online', count: stats.value.online },
-  { value: 'offline' as const, label: 'Offline', count: stats.value.offline },
+  {
+    value: 'all' as const,
+    label: 'All',
+    count: statusFilter.value === 'all' ? total.value : null,
+  },
+  {
+    value: 'online' as const,
+    label: 'Online',
+    count: statusFilter.value === 'online' ? total.value : null,
+  },
+  {
+    value: 'offline' as const,
+    label: 'Offline',
+    count: statusFilter.value === 'offline' ? total.value : null,
+  },
 ])
 
-const filteredClients = computed(() => {
-  let result = clients.value
-
-  // Filter by status
-  if (statusFilter.value === 'online') {
-    result = result.filter((c) => c.online)
-  } else if (statusFilter.value === 'offline') {
-    result = result.filter((c) => !c.online)
-  }
-
-  // Filter by search text
-  if (searchText.value) {
-    result = result.filter((c) => c.matchesFilter(searchText.value))
-  }
-
-  // Sort: online first, then by display name
-  result.sort((a, b) => {
-    if (a.online !== b.online) {
-      return a.online ? -1 : 1
-    }
-    return a.displayName.localeCompare(b.displayName)
-  })
-
-  return result
-})
-
-const fetchData = async () => {
-  loading.value = true
+const fetchData = async (silent = false) => {
+  const seq = ++requestSeq
+  if (!silent) loading.value = true
   try {
-    const json = await getClients()
-    clients.value = json.map((data) => new Client(data))
+    const data = await getClientsV2({
+      page: page.value,
+      pageSize: pageSize.value,
+      status: statusFilter.value,
+      q: searchText.value.trim(),
+    })
+    if (seq !== requestSeq) return
+
+    const maxPage = Math.max(1, Math.ceil(data.total / data.pageSize))
+    if (data.items.length === 0 && data.total > 0 && data.page > maxPage) {
+      page.value = maxPage
+      await fetchData(silent)
+      return
+    }
+
+    clients.value = data.items.map((item) => new Client(item))
+    total.value = data.total
+    page.value = data.page
+    pageSize.value = data.pageSize
   } catch (error: any) {
+    if (seq !== requestSeq) return
     ElMessage({
       showClose: true,
       message: 'Failed to fetch clients: ' + error.message,
       type: 'error',
     })
   } finally {
-    loading.value = false
+    if (seq === requestSeq) {
+      loading.value = false
+    }
   }
+}
+
+const clearSearchDebounce = () => {
+  if (searchDebounceTimer !== null) {
+    window.clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = null
+  }
+}
+
+const resetPageAndFetch = () => {
+  clearSearchDebounce()
+  page.value = 1
+  fetchData()
+}
+
+const onPageChange = (value: number) => {
+  clearSearchDebounce()
+  page.value = value
+  fetchData()
+}
+
+const onPageSizeChange = (value: number) => {
+  pageSize.value = value
+  resetPageAndFetch()
 }
 
 const startAutoRefresh = () => {
   refreshTimer = window.setInterval(() => {
-    fetchData()
+    fetchData(true)
   }, 5000)
 }
 
@@ -130,6 +173,19 @@ const stopAutoRefresh = () => {
   }
 }
 
+watch(statusFilter, () => {
+  resetPageAndFetch()
+})
+
+watch(searchText, () => {
+  clearSearchDebounce()
+  page.value = 1
+  searchDebounceTimer = window.setTimeout(() => {
+    searchDebounceTimer = null
+    fetchData()
+  }, 300)
+})
+
 onMounted(() => {
   fetchData()
   startAutoRefresh()
@@ -137,6 +193,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopAutoRefresh()
+  clearSearchDebounce()
 })
 </script>
 
@@ -274,6 +331,11 @@ onUnmounted(() => {
   padding: 60px 0;
 }
 
+.pagination-section {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* Dark mode adjustments */
 html.dark .status-tab {
   background: var(--el-bg-color-overlay);
@@ -297,6 +359,10 @@ html.dark .status-tab.active {
 
   .status-tab {
     flex-shrink: 0;
+  }
+
+  .pagination-section {
+    justify-content: center;
   }
 }
 </style>

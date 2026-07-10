@@ -4,7 +4,7 @@
       <el-col :xs="24" :sm="12" :lg="6">
         <StatCard
           label="Clients"
-          :value="data.clientCounts"
+          :value="data.status.clientCounts"
           type="clients"
           subtitle="Connected clients"
           to="/clients"
@@ -13,7 +13,7 @@
       <el-col :xs="24" :sm="12" :lg="6">
         <StatCard
           label="Proxies"
-          :value="data.proxyCounts"
+          :value="proxyCounts"
           type="proxies"
           subtitle="Active proxies"
           to="/proxies/tcp"
@@ -22,7 +22,7 @@
       <el-col :xs="24" :sm="12" :lg="6">
         <StatCard
           label="Connections"
-          :value="data.curConns"
+          :value="data.status.curConns"
           type="connections"
           subtitle="Current connections"
         />
@@ -54,7 +54,7 @@
               <div class="traffic-info">
                 <div class="label">Inbound</div>
                 <div class="value">
-                  {{ formatFileSize(data.totalTrafficIn) }}
+                  {{ formatFileSize(data.status.totalTrafficIn) }}
                 </div>
               </div>
             </div>
@@ -66,7 +66,7 @@
               <div class="traffic-info">
                 <div class="label">Outbound</div>
                 <div class="value">
-                  {{ formatFileSize(data.totalTrafficOut) }}
+                  {{ formatFileSize(data.status.totalTrafficOut) }}
                 </div>
               </div>
             </div>
@@ -83,7 +83,7 @@
           </template>
           <div class="proxy-types-grid">
             <div
-              v-for="(count, type) in data.proxyTypeCounts"
+              v-for="(count, type) in data.status.proxyTypeCount"
               :key="type"
               class="proxy-type-item"
               v-show="count > 0"
@@ -109,51 +109,51 @@
       <div class="config-grid">
         <div class="config-item">
           <span class="config-label">Bind Port</span>
-          <span class="config-value">{{ data.bindPort }}</span>
+          <span class="config-value">{{ data.config.bindPort }}</span>
         </div>
-        <div class="config-item" v-if="data.kcpBindPort != 0">
+        <div class="config-item" v-if="data.config.kcpBindPort != 0">
           <span class="config-label">KCP Port</span>
-          <span class="config-value">{{ data.kcpBindPort }}</span>
+          <span class="config-value">{{ data.config.kcpBindPort }}</span>
         </div>
-        <div class="config-item" v-if="data.quicBindPort != 0">
+        <div class="config-item" v-if="data.config.quicBindPort != 0">
           <span class="config-label">QUIC Port</span>
-          <span class="config-value">{{ data.quicBindPort }}</span>
+          <span class="config-value">{{ data.config.quicBindPort }}</span>
         </div>
-        <div class="config-item" v-if="data.vhostHTTPPort != 0">
+        <div class="config-item" v-if="data.config.vhostHTTPPort != 0">
           <span class="config-label">HTTP Port</span>
-          <span class="config-value">{{ data.vhostHTTPPort }}</span>
+          <span class="config-value">{{ data.config.vhostHTTPPort }}</span>
         </div>
-        <div class="config-item" v-if="data.vhostHTTPSPort != 0">
+        <div class="config-item" v-if="data.config.vhostHTTPSPort != 0">
           <span class="config-label">HTTPS Port</span>
-          <span class="config-value">{{ data.vhostHTTPSPort }}</span>
+          <span class="config-value">{{ data.config.vhostHTTPSPort }}</span>
         </div>
-        <div class="config-item" v-if="data.tcpmuxHTTPConnectPort != 0">
+        <div class="config-item" v-if="data.config.tcpmuxHTTPConnectPort != 0">
           <span class="config-label">TCPMux Port</span>
-          <span class="config-value">{{ data.tcpmuxHTTPConnectPort }}</span>
+          <span class="config-value">{{ data.config.tcpmuxHTTPConnectPort }}</span>
         </div>
-        <div class="config-item" v-if="data.subdomainHost != ''">
+        <div class="config-item" v-if="data.config.subdomainHost != ''">
           <span class="config-label">Subdomain Host</span>
-          <span class="config-value">{{ data.subdomainHost }}</span>
+          <span class="config-value">{{ data.config.subdomainHost }}</span>
         </div>
         <div class="config-item">
           <span class="config-label">Max Pool Count</span>
-          <span class="config-value">{{ data.maxPoolCount }}</span>
+          <span class="config-value">{{ data.config.maxPoolCount }}</span>
         </div>
         <div class="config-item">
           <span class="config-label">Max Ports/Client</span>
-          <span class="config-value">{{ data.maxPortsPerClient }}</span>
+          <span class="config-value">{{ maxPortsPerClientLabel }}</span>
         </div>
-        <div class="config-item" v-if="data.allowPortsStr != ''">
+        <div class="config-item" v-if="data.config.allowPortsStr != ''">
           <span class="config-label">Allow Ports</span>
-          <span class="config-value">{{ data.allowPortsStr }}</span>
+          <span class="config-value">{{ data.config.allowPortsStr }}</span>
         </div>
-        <div class="config-item" v-if="data.tlsForce">
+        <div class="config-item" v-if="data.config.tlsForce">
           <span class="config-label">TLS Force</span>
           <el-tag size="small" type="warning">Enabled</el-tag>
         </div>
         <div class="config-item">
           <span class="config-label">Heartbeat Timeout</span>
-          <span class="config-value">{{ data.heartbeatTimeout }}s</span>
+          <span class="config-value">{{ data.config.heartbeatTimeout }}s</span>
         </div>
       </div>
     </el-card>
@@ -167,69 +167,59 @@ import { formatFileSize } from '../utils/format'
 import { Download, Upload } from '@element-plus/icons-vue'
 import StatCard from '../components/StatCard.vue'
 import { getServerInfo } from '../api/server'
+import type { ServerInfo } from '../types/server'
 
-const data = ref({
+const data = ref<ServerInfo>({
   version: '',
-  bindPort: 0,
-  kcpBindPort: 0,
-  quicBindPort: 0,
-  vhostHTTPPort: 0,
-  vhostHTTPSPort: 0,
-  tcpmuxHTTPConnectPort: 0,
-  subdomainHost: '',
-  maxPoolCount: 0,
-  maxPortsPerClient: '',
-  allowPortsStr: '',
-  tlsForce: false,
-  heartbeatTimeout: 0,
-  clientCounts: 0,
-  curConns: 0,
-  proxyCounts: 0,
-  totalTrafficIn: 0,
-  totalTrafficOut: 0,
-  proxyTypeCounts: {} as Record<string, number>,
+  config: {
+    bindPort: 0,
+    kcpBindPort: 0,
+    quicBindPort: 0,
+    vhostHTTPPort: 0,
+    vhostHTTPSPort: 0,
+    tcpmuxHTTPConnectPort: 0,
+    subdomainHost: '',
+    maxPoolCount: 0,
+    maxPortsPerClient: 0,
+    allowPortsStr: '',
+    tlsForce: false,
+    heartbeatTimeout: 0,
+  },
+  status: {
+    clientCounts: 0,
+    curConns: 0,
+    totalTrafficIn: 0,
+    totalTrafficOut: 0,
+    proxyTypeCount: {},
+  },
 })
 
 const hasActiveProxies = computed(() => {
-  return Object.values(data.value.proxyTypeCounts).some((c) => c > 0)
+  return Object.values(data.value.status.proxyTypeCount).some((c) => c > 0)
+})
+
+const proxyCounts = computed(() => {
+  return Object.values(data.value.status.proxyTypeCount).reduce(
+    (sum, count) => sum + (count || 0),
+    0,
+  )
+})
+
+const maxPortsPerClientLabel = computed(() => {
+  const value = data.value.config.maxPortsPerClient
+  return value === 0 ? 'no limit' : String(value)
 })
 
 const formatTrafficTotal = () => {
-  const total = data.value.totalTrafficIn + data.value.totalTrafficOut
+  const total =
+    data.value.status.totalTrafficIn + data.value.status.totalTrafficOut
   return formatFileSize(total)
 }
 
 const fetchData = async () => {
   try {
     const json = await getServerInfo()
-    data.value.version = json.version
-    data.value.bindPort = json.bindPort
-    data.value.kcpBindPort = json.kcpBindPort
-    data.value.quicBindPort = json.quicBindPort
-    data.value.vhostHTTPPort = json.vhostHTTPPort
-    data.value.vhostHTTPSPort = json.vhostHTTPSPort
-    data.value.tcpmuxHTTPConnectPort = json.tcpmuxHTTPConnectPort
-    data.value.subdomainHost = json.subdomainHost
-    data.value.maxPoolCount = json.maxPoolCount
-    data.value.maxPortsPerClient = String(json.maxPortsPerClient)
-    if (data.value.maxPortsPerClient == '0') {
-      data.value.maxPortsPerClient = 'no limit'
-    }
-    data.value.allowPortsStr = json.allowPortsStr
-    data.value.tlsForce = json.tlsForce
-    data.value.heartbeatTimeout = json.heartbeatTimeout
-    data.value.clientCounts = json.clientCounts
-    data.value.curConns = json.curConns
-    data.value.totalTrafficIn = json.totalTrafficIn
-    data.value.totalTrafficOut = json.totalTrafficOut
-    data.value.proxyTypeCounts = json.proxyTypeCount || {}
-
-    data.value.proxyCounts = 0
-    if (json.proxyTypeCount != null) {
-      Object.values(json.proxyTypeCount).forEach((count: any) => {
-        data.value.proxyCounts += count || 0
-      })
-    }
+    data.value = json
   } catch {
     ElMessage({
       showClose: true,

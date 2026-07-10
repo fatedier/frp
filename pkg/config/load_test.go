@@ -17,6 +17,8 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -460,6 +462,111 @@ func TestFilterClientConfigurers_FilterByStartAndEnabled(t *testing.T) {
 	require.Len(visitors, 0)
 	require.Len(proxies, 1)
 	require.Equal("keep", proxies[0].GetBaseConfig().Name)
+}
+
+func TestLoadClientConfigResult_DuplicateNames(t *testing.T) {
+	tests := []struct {
+		name      string
+		content   string
+		errSubstr string
+	}{
+		{
+			name: "duplicate proxy names",
+			content: `
+serverAddr = "127.0.0.1"
+serverPort = 7000
+
+[[proxies]]
+name = "dup"
+type = "tcp"
+localPort = 22
+remotePort = 6000
+
+[[proxies]]
+name = "dup"
+type = "tcp"
+localPort = 3306
+remotePort = 6001
+`,
+			errSubstr: "proxy name [dup] is duplicated",
+		},
+		{
+			name: "duplicate visitor names",
+			content: `
+serverAddr = "127.0.0.1"
+serverPort = 7000
+
+[[visitors]]
+name = "dup"
+type = "stcp"
+serverName = "a"
+secretKey = "secret"
+bindPort = 9001
+
+[[visitors]]
+name = "dup"
+type = "stcp"
+serverName = "b"
+secretKey = "secret"
+bindPort = 9002
+`,
+			errSubstr: "visitor name [dup] is duplicated",
+		},
+		{
+			name: "unique names",
+			content: `
+serverAddr = "127.0.0.1"
+serverPort = 7000
+
+[[proxies]]
+name = "p1"
+type = "tcp"
+localPort = 22
+remotePort = 6000
+
+[[proxies]]
+name = "p2"
+type = "tcp"
+localPort = 3306
+remotePort = 6001
+`,
+		},
+		{
+			name: "same name across proxy and visitor",
+			content: `
+serverAddr = "127.0.0.1"
+serverPort = 7000
+
+[[proxies]]
+name = "same"
+type = "tcp"
+localPort = 22
+remotePort = 6000
+
+[[visitors]]
+name = "same"
+type = "stcp"
+serverName = "a"
+secretKey = "secret"
+bindPort = 9001
+`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require := require.New(t)
+			path := filepath.Join(t.TempDir(), "frpc.toml")
+			require.NoError(os.WriteFile(path, []byte(tc.content), 0o600))
+
+			_, err := LoadClientConfigResult(path, false)
+			if tc.errSubstr == "" {
+				require.NoError(err)
+			} else {
+				require.ErrorContains(err, tc.errSubstr)
+			}
+		})
+	}
 }
 
 // TestYAMLEdgeCases tests edge cases for YAML parsing, including non-map types

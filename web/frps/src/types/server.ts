@@ -1,5 +1,10 @@
 export interface ServerInfo {
   version: string
+  config: ServerInfoConfig
+  status: ServerInfoStatus
+}
+
+export interface ServerInfoConfig {
   bindPort: number
   vhostHTTPPort: number
   vhostHTTPSPort: number
@@ -12,8 +17,9 @@ export interface ServerInfo {
   heartbeatTimeout: number
   allowPortsStr: string
   tlsForce: boolean
+}
 
-  // Stats
+export interface ServerInfoStatus {
   totalTrafficIn: number
   totalTrafficOut: number
   curConns: number
