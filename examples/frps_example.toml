@@ -1,5 +1,5 @@
 ###############################################################################
-# frps.toml — SERVER CONFIGURATION FILE (fork MeoBaka/frp, v1.1.0)
+# frps.toml — SERVER CONFIGURATION FILE (fork MeoBaka/frp, v1.1.1)
 # Runs on a VPS/machine with a public IP (or an openable port). Reference file
 # with per-line explanations. TOML format.
 ###############################################################################
