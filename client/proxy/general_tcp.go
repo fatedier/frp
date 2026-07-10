@@ -27,6 +27,7 @@ func init() {
 		&v1.HTTPSProxyConfig{},
 		&v1.STCPProxyConfig{},
 		&v1.TCPMuxProxyConfig{},
+		&v1.MCProxyConfig{},
 	}
 	for _, cfg := range pxyConfs {
 		RegisterProxyFactory(reflect.TypeOf(cfg), NewGeneralTCPProxy)

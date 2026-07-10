@@ -107,6 +107,10 @@ detailedErrorsToClient = true
 # Max ports per client. 0 = unlimited.
 maxPortsPerClient = 0
 
+# NOTE (fork): the "mc" proxy type (Minecraft host-based routing) needs NO config
+# here — its public port is declared on frpc via remotePort and opened on demand,
+# shared by hostname across proxies. It still respects allowPorts / maxPortsPerClient.
+
 # Maximum wait time for a work connection (seconds).
 # userConnTimeout = 10
 

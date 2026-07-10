@@ -215,6 +215,10 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	// Init TCP mux group controller
 	svr.rc.TCPMuxGroupCtl = group.NewTCPMuxGroupCtl(svr.rc.TCPMuxHTTPConnectMuxer)
 
+	// Init Minecraft group controller: opens a shared host-routing muxer per
+	// public port that clients declare (mc proxy remotePort), no frps config.
+	svr.rc.MinecraftGroupCtl = group.NewMinecraftGroupController(cfg.ProxyBindAddr, svr.rc.TCPPortManager, vhostReadWriteTimeout)
+
 	// Init 404 not found page
 	vhost.NotFoundPagePath = cfg.Custom404Page
 

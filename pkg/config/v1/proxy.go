@@ -240,6 +240,7 @@ const (
 	ProxyTypeTCPUDP   ProxyType = "tcp+udp"
 	ProxyTypeSTCPSUDP ProxyType = "stcp+sudp"
 	ProxyTypeXTCPXUDP ProxyType = "xtcp+xudp"
+	ProxyTypeMC       ProxyType = "mc"
 )
 
 var proxyConfigTypeMap = map[ProxyType]reflect.Type{
@@ -255,6 +256,7 @@ var proxyConfigTypeMap = map[ProxyType]reflect.Type{
 	ProxyTypeTCPUDP:   reflect.TypeFor[TCPUDPProxyConfig](),
 	ProxyTypeSTCPSUDP: reflect.TypeFor[STCPSUDPProxyConfig](),
 	ProxyTypeXTCPXUDP: reflect.TypeFor[XTCPXUDPProxyConfig](),
+	ProxyTypeMC:       reflect.TypeFor[MCProxyConfig](),
 }
 
 func NewProxyConfigurerByType(proxyType ProxyType) ProxyConfigurer {
@@ -428,6 +430,49 @@ func (c *HTTPSProxyConfig) UnmarshalFromMsg(m *msg.NewProxy) {
 }
 
 func (c *HTTPSProxyConfig) Clone() ProxyConfigurer {
+	out := *c
+	out.ProxyBaseConfig = c.ProxyBaseConfig.Clone()
+	out.DomainConfig = c.DomainConfig.Clone()
+	return &out
+}
+
+var _ ProxyConfigurer = &MCProxyConfig{}
+
+// MCProxyConfig routes Minecraft (Java Edition) traffic by the "server address"
+// sent in the client's first handshake packet — the hostname the player typed —
+// exactly the way HTTPS proxies route by TLS SNI. Many Minecraft servers can
+// share a single public frps port (minecraftBindPort): frps reads the
+// handshake, matches CustomDomains/SubDomain, and forwards the intact stream to
+// the frpc that registered that hostname. Inspired by the standalone
+// mc-gateway project.
+type MCProxyConfig struct {
+	ProxyBaseConfig
+	DomainConfig
+
+	// RemotePort is the public Minecraft port that frps opens for this proxy.
+	// It is declared client-side (no frps configuration needed); multiple mc
+	// proxies that share the same RemotePort share one listener and are routed
+	// by the handshake hostname.
+	RemotePort int `json:"remotePort,omitempty"`
+}
+
+func (c *MCProxyConfig) MarshalToMsg(m *msg.NewProxy) {
+	c.ProxyBaseConfig.MarshalToMsg(m)
+
+	m.CustomDomains = c.CustomDomains
+	m.SubDomain = c.SubDomain
+	m.RemotePort = c.RemotePort
+}
+
+func (c *MCProxyConfig) UnmarshalFromMsg(m *msg.NewProxy) {
+	c.ProxyBaseConfig.UnmarshalFromMsg(m)
+
+	c.CustomDomains = m.CustomDomains
+	c.SubDomain = m.SubDomain
+	c.RemotePort = m.RemotePort
+}
+
+func (c *MCProxyConfig) Clone() ProxyConfigurer {
 	out := *c
 	out.ProxyBaseConfig = c.ProxyBaseConfig.Clone()
 	out.DomainConfig = c.DomainConfig.Clone()

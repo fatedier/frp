@@ -242,6 +242,27 @@ localPort = 22
 # localPortUDP = 22    # (optional) default = localPort
 # (http+https was REMOVED: once you have SSL nobody serves plain http anymore)
 
+# ============ >>> NEW: mc — MINECRAFT host-based routing (real type) <<< ========
+# Route MANY Minecraft (Java Edition) servers through ONE public port, picking the
+# backend by the hostname in the client handshake (like HTTPS routes by TLS SNI).
+# NO frps config needed: the public port is declared HERE via remotePort. Proxies
+# that share the same remotePort share one listener and are routed by customDomains
+# (even across different frpc clients). See https://github.com/fatedier/frp/issues/5390
+[[proxies]]
+name = "mc-survival"
+type = "mc"
+localIP = "127.0.0.1"
+localPort = 25565
+remotePort = 25565                        # public Minecraft port on frps (declared here)
+customDomains = ["survival.example.com"]  # address players connect with
+# A second server sharing the SAME public port, told apart by hostname:
+# [[proxies]]
+# name = "mc-creative"
+# type = "mc"
+# localPort = 25566
+# remotePort = 25565                       # SAME port -> multiplexed by host
+# customDomains = ["creative.example.com"]
+
 # ----------------------- example: plugin instead of localPort ---------------
 # [[proxies]]
 # name = "socks5"

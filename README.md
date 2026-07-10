@@ -17,7 +17,7 @@
 
 | Category | Change |
 |---|---|
-| New types | `xudp`, `xtcp+xudp`, `tcp+udp`, `stcp+sudp` |
+| New types | `xudp`, `xtcp+xudp`, `tcp+udp`, `stcp+sudp`, `mc` (Minecraft host routing, issue [#5390](https://github.com/fatedier/frp/issues/5390)) |
 | Security | Default `transport.wireProtocol` switched **v1 → v2** (v1 kept as an option) |
 | Bug fix | Reconnect getting stuck after `i/o deadline reached` on v2 (issue [#5355](https://github.com/fatedier/frp/issues/5355)) |
 | Dashboard | frpc admin API + Vue UI with full support for the new types |
@@ -27,8 +27,9 @@
 
 ## 1. New types
 
-The four types below are **real types** — fully registered on both frpc and frps, and shown as exactly
-**1 proxy** on the dashboard (not "sugar" that silently splits into multiple proxies).
+All the types below are **real types** — fully registered on both frpc and frps. The first four merge
+**TCP+UDP into a single proxy** (shown as exactly **1 proxy** on the dashboard, not "sugar" that silently
+splits into multiple proxies); the last, `mc`, adds **Minecraft host-based routing**.
 
 ### `xudp` — P2P UDP NAT hole punching
 
@@ -134,7 +135,42 @@ bindAddr = "127.0.0.1"
 bindPort = 6100         # opens BOTH TCP and UDP at 127.0.0.1:6100
 ```
 
-**Quick comparison of the 4 types:**
+### `mc` — Minecraft host-based routing (Cloudflare-Spectrum style)
+
+Route **many Minecraft (Java Edition) servers through one public port**, choosing the backend by the
+**hostname in the client handshake** (the address the player typed) — exactly the way HTTPS proxies route
+by TLS SNI. Inspired by [mc-gateway](https://github.com/tursom/mc-gateway); requested in issue
+[#5390](https://github.com/fatedier/frp/issues/5390).
+
+**No frps configuration at all** — the public port is declared on frpc via `remotePort`. frps opens it
+lazily on first use and shares one listener among every `mc` proxy on the same port (even across
+different frpc clients), releasing it when the last one disconnects. `allowPorts` still applies.
+
+```toml
+# frps.toml — NOTHING is needed for Minecraft.
+
+# frpc.toml — each server is one proxy; reuse the same remotePort to multiplex by host.
+[[proxies]]
+name = "survival"
+type = "mc"
+localIP = "127.0.0.1"
+localPort = 25565
+remotePort = 25565                        # public port on frps (declared here, not on frps)
+customDomains = ["survival.example.com"]  # the address players connect with
+
+[[proxies]]
+name = "creative"
+type = "mc"
+localPort = 25566
+remotePort = 25565                        # same port -> shared listener, routed by host
+customDomains = ["creative.example.com"]
+```
+
+Point each domain's DNS at the frps IP; the player just types `survival.example.com` and frps forwards
+the connection — handshake intact — to the matching backend. No visitor needed; `subdomain` also works
+when `subDomainHost` is set on frps.
+
+**Quick comparison of the 5 types:**
 
 | Type | Path | Visitor needed? | Used for |
 |---|---|---|---|
@@ -142,6 +178,7 @@ bindPort = 6100         # opens BOTH TCP and UDP at 127.0.0.1:6100
 | `xtcp+xudp` | P2P NAT hole punching (1 hole, TCP+UDP), **auto-falls back to relay on difficult NAT** | Yes | Remote Desktop P2P (reliable) |
 | `tcp+udp` | Relay via a public frps port | No | TCP+UDP services with a public port |
 | `stcp+sudp` | Secret relay via frps | Yes | Private TCP+UDP services |
+| `mc` | Host-routed relay via frps (Minecraft handshake) | No | Many Minecraft servers on one public port |
 
 ---
 

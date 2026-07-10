@@ -53,6 +53,10 @@ type ResourceController struct {
 	// For HTTPS proxies, route requests to different clients by hostname and other information
 	VhostHTTPSMuxer *vhost.HTTPSMuxer
 
+	// For Minecraft proxies, lazily open a shared host-routing muxer per public
+	// port declared by clients, routing by the hostname in the handshake.
+	MinecraftGroupCtl *group.MinecraftGroupController
+
 	// Controller for nat hole connections
 	NatHoleController *nathole.Controller
 
@@ -66,6 +70,9 @@ type ResourceController struct {
 func (rc *ResourceController) Close() error {
 	if rc.VhostHTTPSMuxer != nil {
 		rc.VhostHTTPSMuxer.Close()
+	}
+	if rc.MinecraftGroupCtl != nil {
+		rc.MinecraftGroupCtl.CloseAll()
 	}
 	if rc.TCPMuxHTTPConnectMuxer != nil {
 		rc.TCPMuxHTTPConnectMuxer.Close()

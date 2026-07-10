@@ -130,6 +130,8 @@ func ValidateProxyConfigurerForClient(c v1.ProxyConfigurer) error {
 		return validateSTCPSUDPProxyConfigForClient(v)
 	case *v1.XTCPXUDPProxyConfig:
 		return validateXTCPXUDPProxyConfigForClient(v)
+	case *v1.MCProxyConfig:
+		return validateMCProxyConfigForClient(v)
 	}
 	return errors.New("unknown proxy config type")
 }
@@ -205,6 +207,20 @@ func validateXTCPXUDPProxyConfigForServer(c *v1.XTCPXUDPProxyConfig, s *v1.Serve
 	return nil
 }
 
+func validateMCProxyConfigForClient(c *v1.MCProxyConfig) error {
+	if c.RemotePort == 0 {
+		return errors.New("remotePort is required for the mc proxy type")
+	}
+	return validateDomainConfigForClient(&c.DomainConfig)
+}
+
+func validateMCProxyConfigForServer(c *v1.MCProxyConfig, s *v1.ServerConfig) error {
+	if c.RemotePort == 0 {
+		return errors.New("remotePort is required for the mc proxy type")
+	}
+	return validateDomainConfigForServer(&c.DomainConfig, s)
+}
+
 func ValidateProxyConfigurerForServer(c v1.ProxyConfigurer, s *v1.ServerConfig) error {
 	base := c.GetBaseConfig()
 	if err := validateProxyBaseConfigForServer(base); err != nil {
@@ -236,6 +252,8 @@ func ValidateProxyConfigurerForServer(c v1.ProxyConfigurer, s *v1.ServerConfig) 
 		return validateSTCPSUDPProxyConfigForServer(v, s)
 	case *v1.XTCPXUDPProxyConfig:
 		return validateXTCPXUDPProxyConfigForServer(v, s)
+	case *v1.MCProxyConfig:
+		return validateMCProxyConfigForServer(v, s)
 	default:
 		return errors.New("unknown proxy config type")
 	}
