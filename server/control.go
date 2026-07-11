@@ -227,6 +227,9 @@ func (ctl *Control) Replaced(newCtl *Control) {
 	xl := ctl.xl
 	xl.Infof("replaced by client [%s]", newCtl.runID)
 	ctl.runID = ""
+	// Closing a yamux stream only half-closes it and does not wake a blocked local read.
+	// Expire the read first so the control worker can always finish its cleanup.
+	_ = ctl.sessionCtx.Conn.SetReadDeadline(time.Now())
 	ctl.sessionCtx.Conn.Close()
 
 	// If this control was never started, its worker will never run and would

@@ -15,12 +15,19 @@
 package server
 
 import (
+	"context"
 	"net"
+	"os"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
+	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/util/xlog"
+	"github.com/fatedier/frp/server/registry"
 )
 
 // newTestControl builds a minimal Control sufficient for lifecycle tests.
@@ -100,3 +107,82 @@ func TestControlManagerDelOnlyRemovesActiveControl(t *testing.T) {
 		t.Fatal("Del did not remove the active control")
 	}
 }
+
+func TestControlReplacedInterruptsBlockedRead(t *testing.T) {
+	conn := newDeadlineReadConn()
+	msgConn := msg.NewConn(conn, msg.NewV1ReadWriter(conn))
+	ctl, err := NewControl(context.Background(), &SessionContext{
+		Conn:           msgConn,
+		LoginMsg:       &msg.Login{RunID: "old"},
+		ServerCfg:      &v1.ServerConfig{},
+		ClientRegistry: registry.NewClientRegistry(),
+	})
+	require.NoError(t, err)
+
+	ctl.Start()
+	select {
+	case <-conn.readStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for control reader to start")
+	}
+
+	ctl.Replaced(&Control{runID: "new"})
+
+	select {
+	case <-ctl.doneCh:
+	case <-time.After(time.Second):
+		t.Fatal("replaced control did not stop after its stream was closed")
+	}
+	require.True(t, conn.readDeadlineSet())
+}
+
+type deadlineReadConn struct {
+	readStarted  chan struct{}
+	deadlineCh   chan struct{}
+	readOnce     sync.Once
+	deadlineOnce sync.Once
+}
+
+func newDeadlineReadConn() *deadlineReadConn {
+	return &deadlineReadConn{
+		readStarted: make(chan struct{}),
+		deadlineCh:  make(chan struct{}),
+	}
+}
+
+func (c *deadlineReadConn) Read([]byte) (int, error) {
+	c.readOnce.Do(func() { close(c.readStarted) })
+	<-c.deadlineCh
+	return 0, os.ErrDeadlineExceeded
+}
+
+func (*deadlineReadConn) Write(p []byte) (int, error) { return len(p), nil }
+func (*deadlineReadConn) Close() error                { return nil }
+func (*deadlineReadConn) LocalAddr() net.Addr         { return testAddr("local") }
+func (*deadlineReadConn) RemoteAddr() net.Addr        { return testAddr("remote") }
+func (c *deadlineReadConn) SetDeadline(t time.Time) error {
+	if err := c.SetReadDeadline(t); err != nil {
+		return err
+	}
+	return c.SetWriteDeadline(t)
+}
+func (c *deadlineReadConn) SetReadDeadline(t time.Time) error {
+	if !t.IsZero() {
+		c.deadlineOnce.Do(func() { close(c.deadlineCh) })
+	}
+	return nil
+}
+func (*deadlineReadConn) SetWriteDeadline(time.Time) error { return nil }
+func (c *deadlineReadConn) readDeadlineSet() bool {
+	select {
+	case <-c.deadlineCh:
+		return true
+	default:
+		return false
+	}
+}
+
+type testAddr string
+
+func (a testAddr) Network() string { return string(a) }
+func (a testAddr) String() string  { return string(a) }
