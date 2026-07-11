@@ -12,7 +12,8 @@
       <ConfigField label="Bind Address" type="text" v-model="form.bindAddr"
         placeholder="127.0.0.1" :readonly="readonly" />
       <ConfigField label="Bind Port" type="number" v-model="form.bindPort"
-        :min="bindPortMin" :max="65535" prop="bindPort" :readonly="readonly" />
+        :min="bindPortMin" :max="65535" prop="bindPort" :readonly="readonly"
+        tip="Use -1 to skip the local listener when connections come from another visitor or plugin." />
     </div>
   </ConfigSection>
 </template>

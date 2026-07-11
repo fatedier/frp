@@ -190,6 +190,13 @@ export function formToStoreVisitor(form: VisitorFormData): VisitorDefinition {
     block.bindPort = form.bindPort
   }
 
+  if (form.pluginType === 'virtual_net') {
+    block.plugin = {
+      type: 'virtual_net',
+      destinationIP: form.pluginDestinationIP,
+    }
+  }
+
   if (form.type === 'xtcp') {
     if (form.protocol && form.protocol !== 'quic') {
       block.protocol = form.protocol
@@ -447,6 +454,12 @@ export function storeVisitorToForm(
   form.serverName = c.serverName || ''
   form.bindAddr = c.bindAddr || '127.0.0.1'
   form.bindPort = c.bindPort
+
+  // Visitor plugin
+  if (c.plugin?.type === 'virtual_net') {
+    form.pluginType = 'virtual_net'
+    form.pluginDestinationIP = c.plugin.destinationIP || ''
+  }
 
   // XTCP specific
   form.protocol = c.protocol || 'quic'

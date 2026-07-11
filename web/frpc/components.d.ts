@@ -38,6 +38,7 @@ declare module 'vue' {
     VisitorBaseSection: typeof import('./src/components/visitor-form/VisitorBaseSection.vue')['default']
     VisitorConnectionSection: typeof import('./src/components/visitor-form/VisitorConnectionSection.vue')['default']
     VisitorFormLayout: typeof import('./src/components/visitor-form/VisitorFormLayout.vue')['default']
+    VisitorPluginSection: typeof import('./src/components/visitor-form/VisitorPluginSection.vue')['default']
     VisitorTransportSection: typeof import('./src/components/visitor-form/VisitorTransportSection.vue')['default']
     VisitorXtcpSection: typeof import('./src/components/visitor-form/VisitorXtcpSection.vue')['default']
   }

@@ -79,6 +79,10 @@ export interface VisitorFormData {
   bindAddr: string
   bindPort: number | undefined
 
+  // Visitor plugin
+  pluginType: '' | 'virtual_net'
+  pluginDestinationIP: string
+
   // XTCP specific (XTCPVisitorConfig)
   protocol: string
   keepTunnelOpen: boolean
@@ -155,6 +159,9 @@ export function createDefaultVisitorForm(): VisitorFormData {
     serverName: '',
     bindAddr: '127.0.0.1',
     bindPort: undefined,
+
+    pluginType: '',
+    pluginDestinationIP: '',
 
     protocol: 'quic',
     keepTunnelOpen: false,
