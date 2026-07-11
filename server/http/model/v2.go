@@ -161,8 +161,8 @@ type V2ProxyStatusResp struct {
 	TodayTrafficIn  int64  `json:"todayTrafficIn"`
 	TodayTrafficOut int64  `json:"todayTrafficOut"`
 	CurConns        int64  `json:"curConns"`
-	LastStartTime   string `json:"lastStartTime"`
-	LastCloseTime   string `json:"lastCloseTime"`
+	LastStartAt     int64  `json:"lastStartAt,omitempty"`
+	LastCloseAt     int64  `json:"lastCloseAt,omitempty"`
 }
 
 type V2ProxyTrafficResp struct {

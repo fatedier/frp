@@ -1,4 +1,5 @@
 import { buildQueryString, http } from './http'
+import { formatUnixSeconds } from '../utils/format'
 import type { V2Page } from './http'
 import type {
   GetProxyResponse,
@@ -83,8 +84,8 @@ export const toLegacyProxyStats = (proxy: ProxyV2Info): ProxyStatsInfo => {
     todayTrafficIn: proxy.status.todayTrafficIn,
     todayTrafficOut: proxy.status.todayTrafficOut,
     curConns: proxy.status.curConns,
-    lastStartTime: proxy.status.lastStartTime,
-    lastCloseTime: proxy.status.lastCloseTime,
+    lastStartTime: formatUnixSeconds(proxy.status.lastStartAt),
+    lastCloseTime: formatUnixSeconds(proxy.status.lastCloseAt),
     status: proxy.status.phase,
   }
 }
