@@ -22,6 +22,12 @@ func TestServerMetricsUsesClockForProxyTimestamps(t *testing.T) {
 	clk.SetTime(closedAt)
 	metrics.CloseProxy("proxy", "tcp")
 	require.Equal(closedAt, metrics.info.ProxyStatistics["proxy"].LastCloseTime)
+
+	stats := metrics.GetProxyByName("proxy")
+	require.Equal(start.Format("01-02 15:04:05"), stats.LastStartTime)
+	require.Equal(closedAt.Format("01-02 15:04:05"), stats.LastCloseTime)
+	require.Equal(start.Unix(), stats.LastStartAt)
+	require.Equal(closedAt.Unix(), stats.LastCloseAt)
 }
 
 func TestServerMetricsClearUselessInfoUsesClock(t *testing.T) {
@@ -41,6 +47,70 @@ func TestServerMetricsClearUselessInfoUsesClock(t *testing.T) {
 	require.Equal(1, count)
 	require.Equal(1, total)
 	require.Empty(metrics.info.ProxyStatistics)
+}
+
+func TestServerMetricsClearOfflineProxiesPreservesLegacyTotal(t *testing.T) {
+	require := require.New(t)
+
+	start := time.Date(2026, time.May, 8, 12, 30, 0, 0, time.UTC)
+	clk := clocktesting.NewFakeClock(start.Add(time.Minute))
+	metrics := newServerMetricsWithClock(clk)
+	metrics.info.ProxyStatistics["offline"] = &ProxyStatistics{
+		Name:          "offline",
+		LastStartTime: start.Add(-time.Hour),
+		LastCloseTime: start,
+	}
+	metrics.info.ProxyStatistics["online"] = &ProxyStatistics{
+		Name:          "online",
+		LastStartTime: start,
+	}
+
+	cleared, total := metrics.ClearOfflineProxies()
+
+	require.Equal(1, cleared)
+	require.Equal(2, total)
+	require.False(metrics.hasProxyStatistics("offline"))
+	require.True(metrics.hasProxyStatistics("online"))
+}
+
+func TestServerMetricsPruneOfflineProxiesReportsTotalStats(t *testing.T) {
+	require := require.New(t)
+
+	start := time.Date(2026, time.May, 8, 12, 30, 0, 0, time.UTC)
+	clk := clocktesting.NewFakeClock(start.Add(time.Minute))
+	metrics := newServerMetricsWithClock(clk)
+	metrics.info.ProxyStatistics["offline"] = &ProxyStatistics{
+		Name:          "offline",
+		LastStartTime: start.Add(-time.Hour),
+		LastCloseTime: start,
+	}
+	metrics.info.ProxyStatistics["online"] = &ProxyStatistics{
+		Name:          "online",
+		LastStartTime: start,
+	}
+	metrics.info.ProxyStatistics["restarted"] = &ProxyStatistics{
+		Name:          "restarted",
+		LastStartTime: start.Add(30 * time.Second),
+		LastCloseTime: start,
+	}
+	metrics.info.ProxyStatistics["same-time"] = &ProxyStatistics{
+		Name:          "same-time",
+		LastStartTime: start,
+		LastCloseTime: start,
+	}
+
+	cleared, total := metrics.PruneOfflineProxies()
+
+	require.Equal(1, cleared)
+	require.Equal(4, total)
+	require.False(metrics.hasProxyStatistics("offline"))
+	require.True(metrics.hasProxyStatistics("online"))
+	require.True(metrics.hasProxyStatistics("restarted"))
+	require.True(metrics.hasProxyStatistics("same-time"))
+
+	cleared, total = metrics.PruneOfflineProxies()
+	require.Equal(0, cleared)
+	require.Equal(3, total)
 }
 
 func TestServerMetricsRunUsesClockTicker(t *testing.T) {
