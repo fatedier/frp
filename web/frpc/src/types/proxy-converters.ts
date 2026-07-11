@@ -193,7 +193,7 @@ export function formToStoreVisitor(form: VisitorFormData): VisitorDefinition {
   if (form.pluginType === 'virtual_net') {
     block.plugin = {
       type: 'virtual_net',
-      destinationIP: form.pluginDestinationIP,
+      destinationIP: form.pluginDestinationIP.trim(),
     }
   }
 
