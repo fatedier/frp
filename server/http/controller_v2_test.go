@@ -416,9 +416,17 @@ func TestAPIV2ProxyListDetailAndUsers(t *testing.T) {
 		t.Fatalf("proxy filter total mismatch: %#v", proxyResp.Data)
 	}
 	proxyItem := proxyResp.Data.Items[0]
-	if proxyItem.Name != "tcp-empty" || proxyItem.Type != "tcp" || proxyItem.User != "" || proxyItem.Status.State != "offline" {
+	if proxyItem.Name != "tcp-empty" || proxyItem.Spec.Type != "tcp" || proxyItem.User != "" || proxyItem.Status.State != "offline" {
 		t.Fatalf("proxy item mismatch: %#v", proxyItem)
 	}
+	rawProxyResp := decodeResponse[v2EnvelopeForTest[model.V2PageResp[map[string]json.RawMessage]]](t, resp)
+	assertRawJSONKeys(t, rawProxyResp.Data.Items[0], "clientID", "name", "spec", "status", "user")
+	var rawListSpec map[string]json.RawMessage
+	if err := json.Unmarshal(rawProxyResp.Data.Items[0]["spec"], &rawListSpec); err != nil {
+		t.Fatalf("unmarshal list proxy spec failed: %v", err)
+	}
+	assertRawJSONKeys(t, rawListSpec, "tcp", "type")
+	assertRawJSONKeysFromMessage(t, rawListSpec["tcp"])
 
 	resp = performRequest(router, "/api/v2/proxies/tcp-alice")
 	rawProxyDetailResp := decodeResponse[v2EnvelopeForTest[map[string]json.RawMessage]](t, resp)
@@ -434,6 +442,13 @@ func TestAPIV2ProxyListDetailAndUsers(t *testing.T) {
 	if proxyDetailResp.Data.Name != "tcp-alice" || proxyDetailResp.Data.User != "alice" {
 		t.Fatalf("proxy detail mismatch: %#v", proxyDetailResp.Data)
 	}
+	assertRawJSONKeys(t, rawProxyDetailResp.Data, "clientID", "name", "spec", "status", "user")
+	var rawDetailSpec map[string]json.RawMessage
+	if err := json.Unmarshal(rawProxyDetailResp.Data["spec"], &rawDetailSpec); err != nil {
+		t.Fatalf("unmarshal detail proxy spec failed: %v", err)
+	}
+	assertRawJSONKeys(t, rawDetailSpec, "tcp", "type")
+	assertRawJSONKeysFromMessage(t, rawDetailSpec["tcp"])
 	if proxyDetailResp.Data.Status.LastStartAt != 1783504200 || proxyDetailResp.Data.Status.LastCloseAt != 1783504300 {
 		t.Fatalf("proxy detail timestamp mismatch: %#v", proxyDetailResp.Data.Status)
 	}
@@ -598,64 +613,83 @@ func TestMatchV2ProxyQueryMatchesSpecFields(t *testing.T) {
 	}{
 		{
 			name: "tcp remote port",
-			item: model.V2ProxyResp{Name: "tcp-proxy", Type: "tcp", Spec: &model.TCPOutConf{
-				RemotePort: 6000,
+			item: model.V2ProxyResp{Name: "tcp-proxy", Spec: model.V2ProxySpec{
+				Type: "tcp",
+				TCP:  &model.V2TCPProxySpec{RemotePort: v2TestIntPtr(6000)},
 			}},
 			q:    "6000",
 			want: true,
 		},
 		{
 			name: "udp remote port",
-			item: model.V2ProxyResp{Name: "udp-proxy", Type: "udp", Spec: &model.UDPOutConf{
-				RemotePort: 7000,
+			item: model.V2ProxyResp{Name: "udp-proxy", Spec: model.V2ProxySpec{
+				Type: "udp",
+				UDP:  &model.V2UDPProxySpec{RemotePort: v2TestIntPtr(7000)},
 			}},
 			q:    "7000",
 			want: true,
 		},
 		{
 			name: "remote port does not match colon form",
-			item: model.V2ProxyResp{Name: "tcp-proxy", Type: "tcp", Spec: &model.TCPOutConf{
-				RemotePort: 6000,
+			item: model.V2ProxyResp{Name: "tcp-proxy", Spec: model.V2ProxySpec{
+				Type: "tcp",
+				TCP:  &model.V2TCPProxySpec{RemotePort: v2TestIntPtr(6000)},
 			}},
 			q:    ":6000",
 			want: false,
 		},
 		{
 			name: "http custom domain",
-			item: model.V2ProxyResp{Name: "http-proxy", Type: "http", Spec: &model.HTTPOutConf{
-				DomainConfig: v1.DomainConfig{CustomDomains: []string{"app.example.com"}},
+			item: model.V2ProxyResp{Name: "http-proxy", Spec: model.V2ProxySpec{
+				Type: "http",
+				HTTP: &model.V2HTTPProxySpec{CustomDomains: []string{"app.example.com"}},
 			}},
 			q:    "app.example.com",
 			want: true,
 		},
 		{
 			name: "https subdomain",
-			item: model.V2ProxyResp{Name: "https-proxy", Type: "https", Spec: &model.HTTPSOutConf{
-				DomainConfig: v1.DomainConfig{SubDomain: "portal"},
+			item: model.V2ProxyResp{Name: "https-proxy", Spec: model.V2ProxySpec{
+				Type:  "https",
+				HTTPS: &model.V2HTTPSProxySpec{Subdomain: "portal"},
 			}},
 			q:    "portal",
 			want: true,
 		},
 		{
 			name: "subdomain does not match expanded host",
-			item: model.V2ProxyResp{Name: "https-proxy", Type: "https", Spec: &model.HTTPSOutConf{
-				DomainConfig: v1.DomainConfig{SubDomain: "portal"},
+			item: model.V2ProxyResp{Name: "https-proxy", Spec: model.V2ProxySpec{
+				Type:  "https",
+				HTTPS: &model.V2HTTPSProxySpec{Subdomain: "portal"},
 			}},
 			q:    "portal.example.com",
 			want: false,
 		},
 		{
 			name: "tcpmux custom domain",
-			item: model.V2ProxyResp{Name: "tcpmux-proxy", Type: "tcpmux", Spec: &model.TCPMuxOutConf{
-				DomainConfig: v1.DomainConfig{CustomDomains: []string{"mux.example.com"}},
+			item: model.V2ProxyResp{Name: "tcpmux-proxy", Spec: model.V2ProxySpec{
+				Type:   "tcpmux",
+				TCPMux: &model.V2TCPMuxProxySpec{CustomDomains: []string{"mux.example.com"}},
 			}},
 			q:    "mux.example.com",
 			want: true,
 		},
 		{
-			name: "nil spec does not match spec fields",
-			item: model.V2ProxyResp{Name: "offline-proxy", Type: "tcp", Spec: nil},
+			name: "offline shell does not match online spec fields",
+			item: model.V2ProxyResp{Name: "offline-proxy", Spec: model.V2ProxySpec{
+				Type: "tcp",
+				TCP:  &model.V2TCPProxySpec{},
+			}},
 			q:    "6000",
+			want: false,
+		},
+		{
+			name: "offline shell does not contribute zero remote port",
+			item: model.V2ProxyResp{Name: "offline-proxy", Spec: model.V2ProxySpec{
+				Type: "tcp",
+				TCP:  &model.V2TCPProxySpec{},
+			}},
+			q:    "0",
 			want: false,
 		},
 	}
@@ -731,6 +765,10 @@ func TestLegacyAPIResponsesRemainBare(t *testing.T) {
 	if _, ok := trafficRaw["data"]; ok {
 		t.Fatalf("legacy traffic should not use v2 envelope: %s", resp.Body.String())
 	}
+}
+
+func v2TestIntPtr(value int) *int {
+	return &value
 }
 
 func newV2TestController(t *testing.T) *Controller {

@@ -17,6 +17,7 @@ package http
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"math"
 	"net/http"
 	"net/url"
@@ -255,7 +256,7 @@ func (c *Controller) APIV2ProxyList(ctx *httppkg.Context) (any, error) {
 	}
 
 	slices.SortFunc(items, func(a, b model.V2ProxyResp) int {
-		if v := cmp.Compare(a.Type, b.Type); v != 0 {
+		if v := cmp.Compare(a.Spec.Type, b.Spec.Type); v != 0 {
 			return v
 		}
 		return cmp.Compare(a.Name, b.Name)
@@ -435,26 +436,36 @@ func matchV2ClientQuery(item model.ClientInfoResp, q string) bool {
 func matchV2ProxyQuery(item model.V2ProxyResp, q string) bool {
 	values := []string{
 		item.Name,
-		item.Type,
+		item.Spec.Type,
 		item.User,
 		item.ClientID,
 		item.Status.State,
 	}
 
-	switch spec := item.Spec.(type) {
-	case *model.TCPOutConf:
-		values = append(values, strconv.Itoa(spec.RemotePort))
-	case *model.UDPOutConf:
-		values = append(values, strconv.Itoa(spec.RemotePort))
-	case *model.HTTPOutConf:
-		values = append(values, spec.CustomDomains...)
-		values = append(values, spec.SubDomain)
-	case *model.HTTPSOutConf:
-		values = append(values, spec.CustomDomains...)
-		values = append(values, spec.SubDomain)
-	case *model.TCPMuxOutConf:
-		values = append(values, spec.CustomDomains...)
-		values = append(values, spec.SubDomain)
+	switch item.Spec.Type {
+	case string(v1.ProxyTypeTCP):
+		if item.Spec.TCP != nil && item.Spec.TCP.RemotePort != nil {
+			values = append(values, strconv.Itoa(*item.Spec.TCP.RemotePort))
+		}
+	case string(v1.ProxyTypeUDP):
+		if item.Spec.UDP != nil && item.Spec.UDP.RemotePort != nil {
+			values = append(values, strconv.Itoa(*item.Spec.UDP.RemotePort))
+		}
+	case string(v1.ProxyTypeHTTP):
+		if item.Spec.HTTP != nil {
+			values = append(values, item.Spec.HTTP.CustomDomains...)
+			values = append(values, item.Spec.HTTP.Subdomain)
+		}
+	case string(v1.ProxyTypeHTTPS):
+		if item.Spec.HTTPS != nil {
+			values = append(values, item.Spec.HTTPS.CustomDomains...)
+			values = append(values, item.Spec.HTTPS.Subdomain)
+		}
+	case string(v1.ProxyTypeTCPMUX):
+		if item.Spec.TCPMux != nil {
+			values = append(values, item.Spec.TCPMux.CustomDomains...)
+			values = append(values, item.Spec.TCPMux.Subdomain)
+		}
 	}
 
 	return containsV2Query(q, values...)
@@ -526,20 +537,19 @@ func (c *Controller) buildV2ClientStatus(info registry.ClientInfo) model.V2Clien
 
 func (c *Controller) buildV2ProxyResp(ps *mem.ProxyStats) model.V2ProxyResp {
 	state := "offline"
-	var spec any
+	var cfg v1.ProxyConfigurer
 	if c.pxyManager != nil {
 		if pxy, ok := c.pxyManager.GetByName(ps.Name); ok {
 			state = "online"
-			spec = getConfFromConfigurer(pxy.GetConfigurer())
+			cfg = pxy.GetConfigurer()
 		}
 	}
 
 	return model.V2ProxyResp{
 		Name:     ps.Name,
-		Type:     ps.Type,
 		User:     ps.User,
 		ClientID: ps.ClientID,
-		Spec:     spec,
+		Spec:     buildV2ProxySpec(ps.Type, cfg),
 		Status: model.V2ProxyStatusResp{
 			State:           state,
 			TodayTrafficIn:  ps.TodayTrafficIn,
@@ -547,6 +557,91 @@ func (c *Controller) buildV2ProxyResp(ps *mem.ProxyStats) model.V2ProxyResp {
 			CurConns:        ps.CurConns,
 			LastStartAt:     ps.LastStartAt,
 			LastCloseAt:     ps.LastCloseAt,
+		},
+	}
+}
+
+func buildV2ProxySpec(proxyType string, cfg v1.ProxyConfigurer) model.V2ProxySpec {
+	spec := model.V2ProxySpec{Type: proxyType}
+
+	switch proxyType {
+	case string(v1.ProxyTypeTCP):
+		block := &model.V2TCPProxySpec{}
+		if c, ok := cfg.(*v1.TCPProxyConfig); ok {
+			block.V2ProxyBaseSpec = buildV2ProxyBaseSpec(c.GetBaseConfig())
+			block.RemotePort = &c.RemotePort
+		}
+		spec.TCP = block
+	case string(v1.ProxyTypeUDP):
+		block := &model.V2UDPProxySpec{}
+		if c, ok := cfg.(*v1.UDPProxyConfig); ok {
+			block.V2ProxyBaseSpec = buildV2ProxyBaseSpec(c.GetBaseConfig())
+			block.RemotePort = &c.RemotePort
+		}
+		spec.UDP = block
+	case string(v1.ProxyTypeHTTP):
+		block := &model.V2HTTPProxySpec{}
+		if c, ok := cfg.(*v1.HTTPProxyConfig); ok {
+			block.V2ProxyBaseSpec = buildV2ProxyBaseSpec(c.GetBaseConfig())
+			block.CustomDomains = slices.Clone(c.CustomDomains)
+			block.Subdomain = c.SubDomain
+			block.Locations = slices.Clone(c.Locations)
+			block.HostHeaderRewrite = c.HostHeaderRewrite
+		}
+		spec.HTTP = block
+	case string(v1.ProxyTypeHTTPS):
+		block := &model.V2HTTPSProxySpec{}
+		if c, ok := cfg.(*v1.HTTPSProxyConfig); ok {
+			block.V2ProxyBaseSpec = buildV2ProxyBaseSpec(c.GetBaseConfig())
+			block.CustomDomains = slices.Clone(c.CustomDomains)
+			block.Subdomain = c.SubDomain
+		}
+		spec.HTTPS = block
+	case string(v1.ProxyTypeTCPMUX):
+		block := &model.V2TCPMuxProxySpec{}
+		if c, ok := cfg.(*v1.TCPMuxProxyConfig); ok {
+			block.V2ProxyBaseSpec = buildV2ProxyBaseSpec(c.GetBaseConfig())
+			block.CustomDomains = slices.Clone(c.CustomDomains)
+			block.Subdomain = c.SubDomain
+			block.Multiplexer = c.Multiplexer
+			block.RouteByHTTPUser = c.RouteByHTTPUser
+		}
+		spec.TCPMux = block
+	case string(v1.ProxyTypeSTCP):
+		block := &model.V2STCPProxySpec{}
+		if c, ok := cfg.(*v1.STCPProxyConfig); ok {
+			block.V2ProxyBaseSpec = buildV2ProxyBaseSpec(c.GetBaseConfig())
+		}
+		spec.STCP = block
+	case string(v1.ProxyTypeSUDP):
+		block := &model.V2SUDPProxySpec{}
+		if c, ok := cfg.(*v1.SUDPProxyConfig); ok {
+			block.V2ProxyBaseSpec = buildV2ProxyBaseSpec(c.GetBaseConfig())
+		}
+		spec.SUDP = block
+	case string(v1.ProxyTypeXTCP):
+		block := &model.V2XTCPProxySpec{}
+		if c, ok := cfg.(*v1.XTCPProxyConfig); ok {
+			block.V2ProxyBaseSpec = buildV2ProxyBaseSpec(c.GetBaseConfig())
+		}
+		spec.XTCP = block
+	}
+
+	return spec
+}
+
+func buildV2ProxyBaseSpec(base *v1.ProxyBaseConfig) model.V2ProxyBaseSpec {
+	return model.V2ProxyBaseSpec{
+		Annotations: maps.Clone(base.Annotations),
+		Metadatas:   maps.Clone(base.Metadatas),
+		Transport: &model.V2ProxyTransportSpec{
+			UseEncryption:      base.Transport.UseEncryption,
+			UseCompression:     base.Transport.UseCompression,
+			BandwidthLimit:     base.Transport.BandwidthLimit.String(),
+			BandwidthLimitMode: base.Transport.BandwidthLimitMode,
+		},
+		LoadBalancer: &model.V2ProxyLoadBalancerSpec{
+			Group: base.LoadBalancer.Group,
 		},
 	}
 }
