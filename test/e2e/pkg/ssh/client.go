@@ -61,11 +61,11 @@ func (c *TunnelClient) Start() error {
 }
 
 func (c *TunnelClient) Close() {
-	if c.sshConn != nil {
-		_ = c.sshConn.Close()
-	}
 	if c.ln != nil {
 		_ = c.ln.Close()
+	}
+	if c.sshConn != nil {
+		_ = c.sshConn.Close()
 	}
 }
 
