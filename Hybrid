@@ -1,0 +1,177 @@
+Required Scopes
+
+For ALFEON’s orchestration engine:
+
+contents: read/write
+
+metadata: read
+
+pull_requests: read/write
+
+checks: read/write
+
+workflow: read/write
+
+issues: read/write (for automated review comments)
+
+For MCP:
+
+contents: read
+
+Layer B — Webhooks
+
+Enable these GitHub events:
+
+pull_request
+
+pull_request_review
+
+push
+
+check_run
+
+check_suite
+
+workflow_run
+
+Webhook target:https://<your-alfeon-endpoint>/mcp/github/events
+
+ALFEON’s Hybrid Console will parse these events and route them into your MCP engine.
+
+Layer C — ALFEON Hybrid Dev Console Bindings
+
+Your Dev Console already has:
+
+Pipeline orchestration
+
+Template adaptation
+
+Multi-engine reasoning
+
+Studio console logic
+
+Now add the GitHub binding:
+
+{
+  "github": {
+    "app_id": "<ID>",
+    "installation_id": "<INSTALL_ID>",
+    "private_key": "<PEM>",
+    "webhook_secret": "<SECRET>",
+    "allowed_repos": ["alfeon-core", "alfeon-hybrid", "alfeon-ogle-xviii"]
+  }
+}
+
+This activates ALFEON’s GitHub module.54321Run hybrid reasoning
+
+Provide code-aware responses
+
+Attach context to PR reviews
+
+Here’s the final MCP config:
+
+MCP Providers
+
+{
+  "mcp": {
+    "providers": {
+      "github": {
+        "type": "context",
+        "sources": ["pull_request", "branch", "file"],
+        "max_tokens": 200000
+      },
+      "local": {
+        "type": "context",
+        "sources": ["workspace", "cache"]
+      }
+    }
+  }
+}
+
+MCP Context Rules
+
+{
+  "mcp": {
+    "context_rules": {
+      "include": [
+        "src/**/*.ts",
+        "src/**/*.py",
+        "config/**/*.json",
+        "docs/**/*.md"
+      ],
+      "exclude": [
+        "node_modules/**",
+        "dist/**",
+        "build/**"
+      ]
+    }
+  }
+}
+
+MCP Runtime
+
+{
+  "mcp": {
+    "runtime": {
+      "mode": "hybrid",
+      "embedding_engine": "alfeon-eho-v1",
+      "reasoning_engine": "alfeon-damotis-v2",
+      "cache": true
+    }
+  }
+}
+
+This ties directly into your saved ALFEON character designs (Eho + Damotis) and Hybrid architecture.
+
+🔥 4. ALFEON GitHub Review Flow (Final Pipeline)
+
+Step 1 — PR opened
+
+GitHub → ALFEON webhookALFEON pulls:
+
+Diff
+
+Changed files
+
+Commit history
+
+Repo metadata
+
+Step 2 — MCP Context Build
+
+ALFEON builds:
+
+File embeddings
+
+Repo embeddings
+
+Dependency graph
+
+Semantic map
+
+Step 3 — Hybrid Review
+
+Eho (analysis) + Damotis (reasoning) run:
+
+Structural pass
+
+Semantic pass
+
+Style pass
+
+Step 4 — Unified Review Output
+
+ALFEON posts:
+
+One comment
+
+Suggested fixes
+
+Auto-format patches
+
+Status check
+
+Step 5 — Optional Auto-Fix
+
+If enabled: ALFEON pushes a new commit with corrections.
+Control + Shift + m
