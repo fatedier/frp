@@ -47,10 +47,10 @@ func getFreeTCPPort(t *testing.T) int {
 
 func TestRunSendsInitialRunIDOnFirstLogin(t *testing.T) {
 	clientConn, serverConn := net.Pipe()
-	defer serverConn.Close()
 
 	serverErrCh := make(chan error, 1)
 	go func() {
+		defer serverConn.Close()
 		rw := msg.NewV1ReadWriter(serverConn)
 		var loginMsg msg.Login
 		if err := rw.ReadMsgInto(&loginMsg); err != nil {
@@ -79,11 +79,11 @@ func TestRunSendsInitialRunIDOnFirstLogin(t *testing.T) {
 	}
 
 	err = svr.Run(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "stop after first login") {
-		t.Fatalf("run error = %v, want first-login stop error", err)
-	}
 	if err := <-serverErrCh; err != nil {
 		t.Fatalf("mock server: %v", err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "stop after first login") {
+		t.Fatalf("run error = %v, want first-login stop error", err)
 	}
 }
 
