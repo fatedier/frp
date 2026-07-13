@@ -64,6 +64,11 @@ func (e cancelErr) Error() string {
 type ServiceOptions struct {
 	Common *v1.ClientCommonConfig
 
+	// InitialRunID is sent in the first login request. When empty, frps
+	// assigns a RunID as usual. After a successful login, the RunID returned
+	// by frps is used for subsequent reconnects.
+	InitialRunID string
+
 	// ConfigSourceAggregator manages internal config and optional store sources.
 	// It is required for creating a Service.
 	ConfigSourceAggregator *source.Aggregator
@@ -194,6 +199,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 
 	s := &Service{
 		ctx:              context.Background(),
+		runID:            options.InitialRunID,
 		auth:             authRuntime,
 		webServer:        webServer,
 		common:           options.Common,

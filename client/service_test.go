@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"path/filepath"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/fatedier/frp/pkg/config/source"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/msg"
 )
 
 type failingConnector struct {
@@ -41,6 +43,48 @@ func getFreeTCPPort(t *testing.T) int {
 	defer ln.Close()
 
 	return ln.Addr().(*net.TCPAddr).Port
+}
+
+func TestRunSendsInitialRunIDOnFirstLogin(t *testing.T) {
+	clientConn, serverConn := net.Pipe()
+	defer serverConn.Close()
+
+	serverErrCh := make(chan error, 1)
+	go func() {
+		rw := msg.NewV1ReadWriter(serverConn)
+		var loginMsg msg.Login
+		if err := rw.ReadMsgInto(&loginMsg); err != nil {
+			serverErrCh <- err
+			return
+		}
+		if loginMsg.RunID != "initial-run-id" {
+			serverErrCh <- fmt.Errorf("first login RunID = %q, want %q", loginMsg.RunID, "initial-run-id")
+			return
+		}
+		serverErrCh <- rw.WriteMsg(&msg.LoginResp{Error: "stop after first login"})
+	}()
+
+	svr, err := NewService(ServiceOptions{
+		Common: &v1.ClientCommonConfig{
+			LoginFailExit: lo.ToPtr(true),
+		},
+		ConfigSourceAggregator: source.NewAggregator(source.NewConfigSource()),
+		InitialRunID:           "initial-run-id",
+		ConnectorCreator: func(context.Context, *v1.ClientCommonConfig) Connector {
+			return &testConnector{conn: &trackingConn{Conn: clientConn}}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	err = svr.Run(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "stop after first login") {
+		t.Fatalf("run error = %v, want first-login stop error", err)
+	}
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("mock server: %v", err)
+	}
 }
 
 func TestRunStopsStartedComponentsOnInitialLoginFailure(t *testing.T) {
