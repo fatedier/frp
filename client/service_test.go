@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/samber/lo"
 
@@ -45,13 +47,25 @@ func getFreeTCPPort(t *testing.T) int {
 	return ln.Addr().(*net.TCPAddr).Port
 }
 
-func TestRunSendsInitialRunIDOnFirstLogin(t *testing.T) {
-	clientConn, serverConn := net.Pipe()
+func TestRunSendsInitialRunIDOnFirstLoginAndReconnect(t *testing.T) {
+	firstClientConn, firstServerConn := net.Pipe()
+	secondClientConn, secondServerConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = firstClientConn.Close()
+		_ = firstServerConn.Close()
+		_ = secondClientConn.Close()
+		_ = secondServerConn.Close()
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	serverErrCh := make(chan error, 1)
 	go func() {
-		defer serverConn.Close()
-		rw := msg.NewV1ReadWriter(serverConn)
+		defer firstServerConn.Close()
+		defer secondServerConn.Close()
+
+		rw := msg.NewV1ReadWriter(firstServerConn)
 		var loginMsg msg.Login
 		if err := rw.ReadMsgInto(&loginMsg); err != nil {
 			serverErrCh <- err
@@ -61,29 +75,76 @@ func TestRunSendsInitialRunIDOnFirstLogin(t *testing.T) {
 			serverErrCh <- fmt.Errorf("first login RunID = %q, want %q", loginMsg.RunID, "initial-run-id")
 			return
 		}
-		serverErrCh <- rw.WriteMsg(&msg.LoginResp{Error: "stop after first login"})
+		if err := rw.WriteMsg(&msg.LoginResp{RunID: "initial-run-id"}); err != nil {
+			serverErrCh <- err
+			return
+		}
+		if err := firstServerConn.Close(); err != nil {
+			serverErrCh <- err
+			return
+		}
+
+		rw = msg.NewV1ReadWriter(secondServerConn)
+		loginMsg = msg.Login{}
+		if err := rw.ReadMsgInto(&loginMsg); err != nil {
+			serverErrCh <- err
+			return
+		}
+		if loginMsg.RunID != "initial-run-id" {
+			serverErrCh <- fmt.Errorf("reconnect login RunID = %q, want %q", loginMsg.RunID, "initial-run-id")
+			return
+		}
+		cancel()
+		serverErrCh <- nil
 	}()
 
+	var connectorCount atomic.Int32
 	svr, err := NewService(ServiceOptions{
-		Common: &v1.ClientCommonConfig{
-			LoginFailExit: lo.ToPtr(true),
-		},
+		Common:                 &v1.ClientCommonConfig{},
 		ConfigSourceAggregator: source.NewAggregator(source.NewConfigSource()),
 		InitialRunID:           "initial-run-id",
 		ConnectorCreator: func(context.Context, *v1.ClientCommonConfig) Connector {
-			return &testConnector{conn: &trackingConn{Conn: clientConn}}
+			switch connectorCount.Add(1) {
+			case 1:
+				return &testConnector{conn: &trackingConn{Conn: firstClientConn}}
+			case 2:
+				return &testConnector{conn: &trackingConn{Conn: secondClientConn}}
+			default:
+				return &failingConnector{err: context.Canceled}
+			}
 		},
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
 
-	err = svr.Run(context.Background())
-	if err := <-serverErrCh; err != nil {
-		t.Fatalf("mock server: %v", err)
+	runErrCh := make(chan error, 1)
+	go func() {
+		runErrCh <- svr.Run(ctx)
+	}()
+
+	select {
+	case err := <-serverErrCh:
+		cancel()
+		if err != nil {
+			t.Fatalf("mock server: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		cancel()
+		t.Fatal("timed out waiting for reconnect login")
 	}
-	if err == nil || !strings.Contains(err.Error(), "stop after first login") {
-		t.Fatalf("run error = %v, want first-login stop error", err)
+
+	select {
+	case err := <-runErrCh:
+		if err != nil {
+			t.Fatalf("run service: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for service shutdown")
+	}
+
+	if got := connectorCount.Load(); got != 2 {
+		t.Fatalf("connector attempts = %d, want 2", got)
 	}
 }
 
