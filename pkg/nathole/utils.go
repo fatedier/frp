@@ -18,10 +18,8 @@ import (
 	"bytes"
 	"fmt"
 	"net"
-	"strconv"
 
 	"github.com/fatedier/golib/crypto"
-	"github.com/pion/stun/v3"
 
 	"github.com/fatedier/frp/pkg/msg"
 )
@@ -46,20 +44,6 @@ func DecodeMessageInto(data, key []byte, m msg.Message) error {
 	}
 
 	return msg.ReadMsgInto(bytes.NewReader(buf), m)
-}
-
-type ChangedAddress struct {
-	IP   net.IP
-	Port int
-}
-
-func (s *ChangedAddress) GetFrom(m *stun.Message) error {
-	a := (*stun.MappedAddress)(s)
-	return a.GetFromAs(m, stun.AttrChangedAddress)
-}
-
-func (s *ChangedAddress) String() string {
-	return net.JoinHostPort(s.IP.String(), strconv.Itoa(s.Port))
 }
 
 func ListAllLocalIPs() ([]net.IP, error) {
