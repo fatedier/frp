@@ -9,7 +9,7 @@ all: build
 build: app
 
 app:
-	@$(foreach n, $(os-archs), \
+	@set -e; $(foreach n, $(os-archs), \
 		os=$(shell echo "$(n)" | cut -d : -f 1); \
 		arch=$(shell echo "$(n)" | cut -d : -f 2); \
 		extra=$(shell echo "$(n)" | cut -d : -f 3); \
