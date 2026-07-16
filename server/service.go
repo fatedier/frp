@@ -488,8 +488,13 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 			})
 		}); err != nil {
 			xl.Warnf("write login response error: %v", err)
-			svr.ctlManager.Del(m.RunID, ctl)
-			svr.clientRegistry.MarkOfflineByRunID(m.RunID)
+			// Only mark the run id offline if this control was still the registered
+			// one. A control that was already replaced (its login handler unblocked
+			// late, e.g. after the doneCh close in Replaced) must not offline the run
+			// id now owned by its replacement.
+			if svr.ctlManager.Del(m.RunID, ctl) {
+				svr.clientRegistry.MarkOfflineByRunID(m.RunID)
+			}
 			conn.Close()
 			return
 		}
