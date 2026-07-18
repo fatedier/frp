@@ -25,6 +25,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"time"
+	"strings"
 
 	libio "github.com/fatedier/golib/io"
 	"github.com/fatedier/golib/pool"
@@ -36,6 +37,21 @@ import (
 )
 
 var ErrNoRouteFound = errors.New("no route found")
+
+// hasPathPrefix reports whether path has prefix p at a path-segment boundary.
+// A boundary is satisfied when:
+//   - the prefix itself ends with '/' (e.g. the documented catch-all location "/"),
+//     meaning the separator is already part of the prefix; or
+//   - the path ends exactly at the prefix; or
+//   - the character immediately after the prefix in path is '/'.
+//
+// This ensures that location "/api" matches "/api" and "/api/v1" but not "/apiv2".
+func hasPathPrefix(path, p string) bool {
+	if !strings.HasPrefix(path, p) {
+		return false
+	}
+	return p[len(p)-1] == '/' || len(path) == len(p) || path[len(p)] == '/'
+}
 
 type HTTPReverseProxyOptions struct {
 	ResponseHeaderTimeoutS int64
@@ -70,6 +86,14 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			if rc != nil {
 				if rc.RewriteHost != "" {
 					req.Host = rc.RewriteHost
+				}
+
+				// Strip prefix if enabled and location matches at a path-segment boundary
+				if rc.StripPrefix && rc.Location != "" && hasPathPrefix(req.URL.Path, rc.Location) {
+					req.URL.Path = strings.TrimPrefix(req.URL.Path, rc.Location)
+					if !strings.HasPrefix(req.URL.Path, "/") {
+						req.URL.Path = "/" + req.URL.Path
+					}
 				}
 
 				var endpoint string
