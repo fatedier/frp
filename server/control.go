@@ -200,6 +200,8 @@ func (ctl *Control) Replaced(newCtl *Control) {
 
 func (ctl *Control) RegisterWorkConn(conn *proxy.WorkConn) error {
 	xl := ctl.xl
+	ctl.mu.RLock()
+	defer ctl.mu.RUnlock()
 	defer func() {
 		if err := recover(); err != nil {
 			xl.Errorf("panic error: %v", err)
