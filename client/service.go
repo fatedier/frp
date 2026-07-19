@@ -263,15 +263,15 @@ func (svr *Service) Run(ctx context.Context) error {
 		return fmt.Errorf("login to the server failed: %v. With loginFailExit enabled, no additional retries will be attempted", cancelCause.Err)
 	}
 
-	go svr.keepControllerWorking()
+	go svr.keepControllerWorking(svr.currentControl())
 
 	<-svr.ctx.Done()
 	svr.stop()
 	return nil
 }
 
-func (svr *Service) keepControllerWorking() {
-	<-svr.ctl.Done()
+func (svr *Service) keepControllerWorking(ctl *Control) {
+	<-ctl.Done()
 
 	// There is a situation where the login is successful but due to certain reasons,
 	// the control immediately exits. It is necessary to limit the frequency of reconnection in this case.
@@ -281,8 +281,9 @@ func (svr *Service) keepControllerWorking() {
 		// loopLoginUntilSuccess is another layer of loop that will continuously attempt to
 		// login to the server until successful.
 		svr.loopLoginUntilSuccess(20*time.Second, false)
-		if svr.ctl != nil {
-			<-svr.ctl.Done()
+		ctl := svr.currentControl()
+		if ctl != nil {
+			<-ctl.Done()
 			return false, errors.New("control is closed and try another loop")
 		}
 		// If the control is nil, it means that the login failed and the service is also closed.
@@ -373,7 +374,7 @@ func (svr *Service) UpdateAllConfigurer(proxyCfgs []v1.ProxyConfigurer, visitorC
 	svr.ctlMu.RUnlock()
 
 	if ctl != nil {
-		return svr.ctl.UpdateAllConfigurer(proxyCfgs, visitorCfgs)
+		return ctl.UpdateAllConfigurer(proxyCfgs, visitorCfgs)
 	}
 	return nil
 }
@@ -412,8 +413,16 @@ func (svr *Service) Close() {
 }
 
 func (svr *Service) GracefulClose(d time.Duration) {
+	svr.ctlMu.Lock()
 	svr.gracefulShutdownDuration = d
+	svr.ctlMu.Unlock()
 	svr.cancel(nil)
+}
+
+func (svr *Service) currentControl() *Control {
+	svr.ctlMu.RLock()
+	defer svr.ctlMu.RUnlock()
+	return svr.ctl
 }
 
 func (svr *Service) stop() {
