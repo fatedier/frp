@@ -54,3 +54,12 @@ func TestClonePtr(t *testing.T) {
 	require.Equal(v, *cloned)
 	require.NotSame(&v, cloned)
 }
+
+func TestConstantTimeEqString(t *testing.T) {
+	require := require.New(t)
+	require.True(ConstantTimeEqString("abc", "abc"))
+	require.False(ConstantTimeEqString("abc", "abd"))
+	require.False(ConstantTimeEqString("abc", "ab"))
+	require.False(ConstantTimeEqString("abc", "abcd"))
+	require.True(ConstantTimeEqString("", ""))
+}

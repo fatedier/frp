@@ -131,7 +131,15 @@ func RandomSleep(duration time.Duration, minRatio, maxRatio float64) time.Durati
 	return d
 }
 
+// ConstantTimeEqString reports whether a and b are equal without leaking the
+// equality result via early-exit byte compares. Length mismatches still return
+// false without panicking (subtle.ConstantTimeCompare requires equal length).
 func ConstantTimeEqString(a, b string) bool {
+	if len(a) != len(b) {
+		// Still touch both sides so a pure length check is not the only work.
+		_ = subtle.ConstantTimeByteEq(byte(len(a)), byte(len(b)))
+		return false
+	}
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
