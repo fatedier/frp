@@ -158,6 +158,9 @@ func validateSTCPProxyConfigForClient(c *v1.STCPProxyConfig) error {
 }
 
 func validateXTCPProxyConfigForClient(c *v1.XTCPProxyConfig) error {
+	if c.MaxWorkConnections < 0 {
+		return errors.New("maxWorkConnections should not be negative")
+	}
 	return nil
 }
 

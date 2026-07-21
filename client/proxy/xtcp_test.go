@@ -17,7 +17,9 @@
 package proxy
 
 import (
+	"context"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -53,6 +55,79 @@ func TestReadNatHoleSidUsesSelectedWireProtocol(t *testing.T) {
 			require.Equal(t, "sid", out.Sid)
 			require.NoError(t, <-errCh)
 		})
+	}
+}
+
+func TestRunBoundedWorkConnAppliesBackpressure(t *testing.T) {
+	slots := make(chan struct{}, 2)
+	started := make(chan struct{}, 3)
+	dispatched := make(chan bool, 3)
+	release := make(chan struct{})
+
+	go func() {
+		for range 3 {
+			dispatched <- runBoundedWorkConn(context.Background(), slots, func() {
+				started <- struct{}{}
+				<-release
+			})
+		}
+	}()
+
+	// The first two handlers start immediately.
+	for range 2 {
+		requireRecv(t, started, "handler did not start")
+		require.True(t, <-dispatched)
+	}
+	// The third dispatch waits until a running handler finishes.
+	select {
+	case <-started:
+		t.Fatal("third handler started beyond the limit")
+	case <-time.After(50 * time.Millisecond):
+	}
+	release <- struct{}{}
+	requireRecv(t, started, "handler did not start after a slot was freed")
+	require.True(t, <-dispatched)
+	close(release)
+}
+
+func TestRunBoundedWorkConnUnlimitedByDefault(t *testing.T) {
+	const total = 5
+	var wg sync.WaitGroup
+	wg.Add(total)
+	block := make(chan struct{})
+	for range total {
+		require.True(t, runBoundedWorkConn(context.Background(), nil, func() {
+			wg.Done()
+			<-block
+		}))
+	}
+	// All handlers run concurrently without any dispatch blocking.
+	wg.Wait()
+	close(block)
+}
+
+func TestRunBoundedWorkConnReturnsFalseWhenContextDone(t *testing.T) {
+	slots := make(chan struct{}, 1)
+	release := make(chan struct{})
+	require.True(t, runBoundedWorkConn(context.Background(), slots, func() {
+		<-release
+	}))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	require.False(t, runBoundedWorkConn(ctx, slots, func() {
+		<-release
+	}))
+	close(release)
+}
+
+func requireRecv(t *testing.T, ch <-chan struct{}, msg string) {
+	t.Helper()
+
+	select {
+	case <-ch:
+	case <-time.After(time.Second):
+		t.Fatal(msg)
 	}
 }
 

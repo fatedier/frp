@@ -17,6 +17,7 @@
 package proxy
 
 import (
+	"context"
 	"io"
 	"net"
 	"reflect"
@@ -41,6 +42,10 @@ type XTCPProxy struct {
 	*BaseProxy
 
 	cfg *v1.XTCPProxyConfig
+	// workConnSlots bounds the number of concurrently running work
+	// connection handlers when cfg.MaxWorkConnections is set. A nil
+	// channel means no limit.
+	workConnSlots chan struct{}
 }
 
 func NewXTCPProxy(baseProxy *BaseProxy, cfg v1.ProxyConfigurer) Proxy {
@@ -48,10 +53,14 @@ func NewXTCPProxy(baseProxy *BaseProxy, cfg v1.ProxyConfigurer) Proxy {
 	if !ok {
 		return nil
 	}
-	return &XTCPProxy{
+	pxy := &XTCPProxy{
 		BaseProxy: baseProxy,
 		cfg:       unwrapped,
 	}
+	if unwrapped.MaxWorkConnections > 0 {
+		pxy.workConnSlots = make(chan struct{}, unwrapped.MaxWorkConnections)
+	}
+	return pxy
 }
 
 func (pxy *XTCPProxy) InWorkConn(conn net.Conn, startWorkConnMsg *msg.StartWorkConn) {
@@ -173,7 +182,14 @@ func (pxy *XTCPProxy) listenByKCP(listenConn *net.UDPConn, raddr *net.UDPAddr, s
 			xl.Errorf("accept connection error: %v", err)
 			return
 		}
-		go pxy.HandleTCPWorkConnection(muxConn, startWorkConnMsg, []byte(pxy.cfg.Secretkey))
+		ok := runBoundedWorkConn(pxy.ctx, pxy.workConnSlots, func() {
+			pxy.HandleTCPWorkConnection(muxConn, startWorkConnMsg, []byte(pxy.cfg.Secretkey))
+		})
+		if !ok {
+			xl.Debugf("proxy context done while waiting for a work connection slot")
+			muxConn.Close()
+			return
+		}
 	}
 }
 
@@ -211,6 +227,37 @@ func (pxy *XTCPProxy) listenByQUIC(listenConn *net.UDPConn, _ *net.UDPAddr, star
 			_ = c.CloseWithError(0, "")
 			return
 		}
-		go pxy.HandleTCPWorkConnection(netpkg.QuicStreamToNetConn(stream, c), startWorkConnMsg, []byte(pxy.cfg.Secretkey))
+		conn := netpkg.QuicStreamToNetConn(stream, c)
+		ok := runBoundedWorkConn(pxy.ctx, pxy.workConnSlots, func() {
+			pxy.HandleTCPWorkConnection(conn, startWorkConnMsg, []byte(pxy.cfg.Secretkey))
+		})
+		if !ok {
+			xl.Debugf("proxy context done while waiting for a work connection slot")
+			conn.Close()
+			_ = c.CloseWithError(0, "")
+			return
+		}
 	}
+}
+
+// runBoundedWorkConn runs handler in a new goroutine. slots bounds the
+// number of concurrently running handlers; a nil slots means no limit.
+// When the limit is reached, it blocks until a running handler finishes,
+// applying backpressure to the accept loop. It returns false if ctx is
+// done before a slot becomes available.
+func runBoundedWorkConn(ctx context.Context, slots chan struct{}, handler func()) bool {
+	if slots == nil {
+		go handler()
+		return true
+	}
+	select {
+	case slots <- struct{}{}:
+	case <-ctx.Done():
+		return false
+	}
+	go func() {
+		defer func() { <-slots }()
+		handler()
+	}()
+	return true
 }
