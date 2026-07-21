@@ -70,6 +70,11 @@ func ParseRangeNumbers(rangeStr string) (numbers []int64, err error) {
 	// e.g. 1000-2000,2001,2002,3000-4000
 	numRanges := strings.SplitSeq(rangeStr, ",")
 	for numRangeStr := range numRanges {
+		numRangeStr = strings.TrimSpace(numRangeStr)
+		// Tolerate trailing/duplicate commas: "1,2," or "1,,2".
+		if numRangeStr == "" {
+			continue
+		}
 		// 1000-2000 or 2001
 		numArray := strings.Split(numRangeStr, "-")
 		// length: only 1 or 2 is correct
@@ -77,7 +82,7 @@ func ParseRangeNumbers(rangeStr string) (numbers []int64, err error) {
 		switch rangeType {
 		case 1:
 			// single number
-			singleNum, errRet := strconv.ParseInt(strings.TrimSpace(numArray[0]), 10, 64)
+			singleNum, errRet := strconv.ParseInt(numArray[0], 10, 64)
 			if errRet != nil {
 				err = fmt.Errorf("range number is invalid, %v", errRet)
 				return

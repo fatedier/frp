@@ -40,6 +40,19 @@ func TestParseRangeNumbers(t *testing.T) {
 
 	_, err = ParseRangeNumbers("3-a")
 	require.Error(err)
+
+	// Empty segments from trailing/duplicate commas are ignored.
+	numbers, err = ParseRangeNumbers("1,2,")
+	require.NoError(err)
+	require.Equal([]int64{1, 2}, numbers)
+
+	numbers, err = ParseRangeNumbers("1,,3")
+	require.NoError(err)
+	require.Equal([]int64{1, 3}, numbers)
+
+	numbers, err = ParseRangeNumbers(",")
+	require.NoError(err)
+	require.Empty(numbers)
 }
 
 func TestClonePtr(t *testing.T) {
