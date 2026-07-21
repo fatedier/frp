@@ -34,8 +34,12 @@ func NewWriter(w io.Writer, limiter *rate.Limiter) *Writer {
 }
 
 func (w *Writer) Write(p []byte) (n int, err error) {
-	var nn int
 	b := w.limiter.Burst()
+	// Burst() of 0 would lock the write loop on empty chunks; write through unlimited.
+	if b <= 0 {
+		return w.w.Write(p)
+	}
+	var nn int
 	for {
 		end := len(p)
 		if end == 0 {

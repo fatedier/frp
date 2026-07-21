@@ -34,15 +34,18 @@ func NewReader(r io.Reader, limiter *rate.Limiter) *Reader {
 }
 
 func (r *Reader) Read(p []byte) (n int, err error) {
+	// Burst() of 0 would slice p to empty and spin; treat as unlimited for this read.
 	b := r.limiter.Burst()
-	if b < len(p) {
+	if b > 0 && b < len(p) {
 		p = p[:b]
 	}
 	n, err = r.r.Read(p)
 	if err != nil {
 		return
 	}
-
+	if n == 0 || b <= 0 {
+		return
+	}
 	err = r.limiter.WaitN(context.Background(), n)
 	if err != nil {
 		return
