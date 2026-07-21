@@ -119,6 +119,9 @@ func (monitor *Monitor) checkWorker() {
 
 		if err == nil {
 			xl.Tracef("do one health check success")
+			// Reset consecutive failure count so recovery requires a full
+			// maxFailedTimes window again (not leftover pre-recovery failures).
+			monitor.failedTimes = 0
 			if !monitor.statusOK && monitor.statusNormalFn != nil {
 				xl.Infof("health check status change to success")
 				monitor.statusOK = true
@@ -130,6 +133,7 @@ func (monitor *Monitor) checkWorker() {
 			if monitor.statusOK && int(monitor.failedTimes) >= monitor.maxFailedTimes && monitor.statusFailedFn != nil {
 				xl.Warnf("health check status change to failed")
 				monitor.statusOK = false
+				monitor.failedTimes = 0
 				monitor.statusFailedFn()
 			}
 		}
