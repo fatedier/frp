@@ -94,11 +94,9 @@ func (f *Framework) RunProcessesWithBinaries(
 }
 
 func (f *Framework) RunFrps(args ...string) (*process.Process, string, error) {
-	p := process.NewWithEnvs(TestContext.FRPServerPath, args, f.osEnvs)
-	f.serverProcesses = append(f.serverProcesses, p)
-	err := p.Start()
+	p, output, err := f.StartFrps(args...)
 	if err != nil {
-		return p, p.Output(), err
+		return p, output, err
 	}
 	select {
 	case <-p.Done():
@@ -107,16 +105,38 @@ func (f *Framework) RunFrps(args ...string) (*process.Process, string, error) {
 	return p, p.Output(), nil
 }
 
+// StartFrps starts frps without an implicit sleep so tests can wait on an
+// explicit readiness event.
+func (f *Framework) StartFrps(args ...string) (*process.Process, string, error) {
+	p := process.NewWithEnvs(TestContext.FRPServerPath, args, f.osEnvs)
+	f.serverProcesses = append(f.serverProcesses, p)
+	err := p.Start()
+	if err != nil {
+		return p, p.Output(), err
+	}
+	return p, p.Output(), nil
+}
+
 func (f *Framework) RunFrpc(args ...string) (*process.Process, string, error) {
+	p, output, err := f.StartFrpc(args...)
+	if err != nil {
+		return p, output, err
+	}
+	select {
+	case <-p.Done():
+	case <-time.After(1500 * time.Millisecond):
+	}
+	return p, p.Output(), nil
+}
+
+// StartFrpc starts frpc without an implicit sleep so tests can wait on an
+// explicit login or proxy-readiness event.
+func (f *Framework) StartFrpc(args ...string) (*process.Process, string, error) {
 	p := process.NewWithEnvs(TestContext.FRPClientPath, args, f.osEnvs)
 	f.clientProcesses = append(f.clientProcesses, p)
 	err := p.Start()
 	if err != nil {
 		return p, p.Output(), err
-	}
-	select {
-	case <-p.Done():
-	case <-time.After(1500 * time.Millisecond):
 	}
 	return p, p.Output(), nil
 }

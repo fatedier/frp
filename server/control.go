@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
@@ -40,55 +41,311 @@ import (
 	"github.com/fatedier/frp/server/registry"
 )
 
+type ControlID uint64
+
+var nextControlID atomic.Uint64
+
+type controlEntry struct {
+	ctl *Control
+	id  ControlID
+	// runMu serializes lifecycle and routing decisions for one run ID.
+	// Replacements inherit it; removing the entry releases the manager's reference.
+	runMu *sync.Mutex
+
+	registryOnline    bool
+	registryControlID ControlID
+}
+
 type ControlManager struct {
 	// controls indexed by run id
-	ctlsByRunID map[string]*Control
+	ctlsByRunID map[string]*controlEntry
+	registry    *registry.ClientRegistry
+	closed      bool
 
 	mu sync.RWMutex
 }
 
-func NewControlManager() *ControlManager {
+func NewControlManager(clientRegistry *registry.ClientRegistry) *ControlManager {
 	return &ControlManager{
-		ctlsByRunID: make(map[string]*Control),
+		ctlsByRunID: make(map[string]*controlEntry),
+		registry:    clientRegistry,
 	}
 }
 
-func (cm *ControlManager) Add(runID string, ctl *Control) (old *Control) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	var ok bool
-	old, ok = cm.ctlsByRunID[runID]
-	if ok {
-		old.Replaced(ctl)
+// lockCurrentRun returns the current entry with its run gate held. It never
+// waits for the gate while holding cm.mu and revalidates the gate after waiting.
+// The global order is runMu, cm.mu, ctl.lifecycleMu, then registry locks.
+func (cm *ControlManager) lockCurrentRun(runID string, allowClosed bool) (*controlEntry, bool) {
+	cm.mu.RLock()
+	entry, ok := cm.ctlsByRunID[runID]
+	if cm.closed && !allowClosed {
+		ok = false
 	}
-	cm.ctlsByRunID[runID] = ctl
-	return
+	cm.mu.RUnlock()
+	if !ok {
+		return nil, false
+	}
+
+	runMu := entry.runMu
+	runMu.Lock()
+	cm.mu.RLock()
+	entry, ok = cm.ctlsByRunID[runID]
+	if (cm.closed && !allowClosed) || !ok || entry.runMu != runMu {
+		ok = false
+	}
+	cm.mu.RUnlock()
+	if !ok {
+		runMu.Unlock()
+		return nil, false
+	}
+	return entry, true
 }
 
-// we should make sure if it's the same control to prevent delete a new one
-func (cm *ControlManager) Del(runID string, ctl *Control) {
+// Add makes ctl the pending current generation and records the predecessor
+// finalization barrier it must wait for before activation.
+func (cm *ControlManager) Add(ctl *Control) error {
+	for {
+		// Never wait for a run gate while holding cm.mu.
+		cm.mu.RLock()
+		old := cm.ctlsByRunID[ctl.runID]
+		cm.mu.RUnlock()
+		if old != nil {
+			old.runMu.Lock()
+		}
+
+		cm.mu.Lock()
+		if cm.closed {
+			cm.mu.Unlock()
+			if old != nil {
+				old.runMu.Unlock()
+			}
+			return fmt.Errorf("control manager is closed")
+		}
+		if cm.ctlsByRunID[ctl.runID] != old {
+			cm.mu.Unlock()
+			if old != nil {
+				old.runMu.Unlock()
+			}
+			continue
+		}
+
+		id := ControlID(nextControlID.Add(1))
+		if err := ctl.admit(cm, id); err != nil {
+			cm.mu.Unlock()
+			if old != nil {
+				old.runMu.Unlock()
+			}
+			return err
+		}
+
+		runMu := &sync.Mutex{}
+		if old != nil {
+			runMu = old.runMu
+		}
+		entry := &controlEntry{ctl: ctl, id: id, runMu: runMu}
+		var (
+			oldCtl  *Control
+			barrier <-chan struct{}
+		)
+		if old != nil {
+			oldCtl = old.ctl
+			barrier = oldCtl.markReplaced()
+			ctl.setHandoffBarrier(barrier)
+			entry.registryOnline = old.registryOnline
+			entry.registryControlID = old.registryControlID
+		}
+		cm.ctlsByRunID[ctl.runID] = entry
+		cm.mu.Unlock()
+		if old != nil {
+			old.runMu.Unlock()
+		}
+
+		if oldCtl != nil {
+			oldCtl.Replaced(ctl)
+		}
+		return nil
+	}
+}
+
+// Activate registers ctl as online only if it is still the pending current
+// generation.
+func (cm *ControlManager) Activate(ctl *Control) (bool, error) {
+	entry, ok := cm.lockCurrentRun(ctl.runID, false)
+	if !ok {
+		return false, nil
+	}
+	defer entry.runMu.Unlock()
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	if c, ok := cm.ctlsByRunID[runID]; ok && c == ctl {
-		delete(cm.ctlsByRunID, runID)
+
+	if cm.closed || cm.ctlsByRunID[ctl.runID] != entry || entry.ctl != ctl || entry.id != ctl.controlID {
+		return false, nil
 	}
+
+	ctl.lifecycleMu.Lock()
+	defer ctl.lifecycleMu.Unlock()
+	if ctl.state != controlStatePending {
+		return false, nil
+	}
+	if ctl.activated {
+		return true, nil
+	}
+
+	loginMsg := ctl.sessionCtx.LoginMsg
+	remoteAddr := ctl.sessionCtx.Conn.RemoteAddr().String()
+	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
+		remoteAddr = host
+	}
+	_, conflict := cm.registry.RegisterWithControlID(
+		loginMsg.User,
+		loginMsg.ClientID,
+		ctl.runID,
+		loginMsg.Hostname,
+		loginMsg.Version,
+		remoteAddr,
+		ctl.sessionCtx.WireProtocol,
+		uint64(entry.id),
+	)
+	if conflict {
+		return true, fmt.Errorf("client_id [%s] for user [%s] is already online", loginMsg.ClientID, loginMsg.User)
+	}
+
+	entry.registryOnline = true
+	entry.registryControlID = entry.id
+	ctl.activated = true
+	return true, nil
+}
+
+// completeLogin reserves ctl's current ownership with its run gate while the
+// bounded successful LoginResp write runs, then transitions it to running.
+// The callback must only perform that bounded write; it must not call back into
+// the control manager or the same control lifecycle.
+func (cm *ControlManager) completeLogin(ctl *Control, writeSuccess func() error) (bool, error) {
+	entry, ok := cm.lockCurrentRun(ctl.runID, false)
+	if !ok {
+		return false, nil
+	}
+	defer entry.runMu.Unlock()
+	if entry.ctl != ctl || entry.id != ctl.controlID {
+		return false, nil
+	}
+
+	ctl.lifecycleMu.Lock()
+	defer ctl.lifecycleMu.Unlock()
+	if ctl.state != controlStatePending || !ctl.activated {
+		return false, nil
+	}
+	if err := writeSuccess(); err != nil {
+		return false, err
+	}
+	if !ctl.startLocked() {
+		return false, nil
+	}
+	return true, nil
+}
+
+// Remove deletes and offlines ctl only if it is still the current generation.
+func (cm *ControlManager) Remove(ctl *Control) bool {
+	entry, ok := cm.lockCurrentRun(ctl.runID, true)
+	if !ok {
+		return false
+	}
+	defer entry.runMu.Unlock()
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	if cm.ctlsByRunID[ctl.runID] != entry || entry.ctl != ctl || entry.id != ctl.controlID {
+		return false
+	}
+	delete(cm.ctlsByRunID, ctl.runID)
+	if entry.registryOnline {
+		cm.registry.MarkOfflineByRunIDAndControlID(ctl.runID, uint64(entry.registryControlID))
+	}
+	return true
 }
 
 func (cm *ControlManager) GetByID(runID string) (ctl *Control, ok bool) {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-	ctl, ok = cm.ctlsByRunID[runID]
-	return
+	entry, ok := cm.lockCurrentRun(runID, false)
+	if !ok {
+		return nil, false
+	}
+	defer entry.runMu.Unlock()
+	ctl = entry.ctl
+
+	ctl.lifecycleMu.Lock()
+	defer ctl.lifecycleMu.Unlock()
+	if ctl.state != controlStateRunning {
+		return nil, false
+	}
+	return ctl, true
+}
+
+// admitVisitorByRunID commits a visitor admission against the current running
+// control while its run and lifecycle ownership are held. The callback must
+// only perform the in-memory, buffered visitor admission.
+func (cm *ControlManager) admitVisitorByRunID(runID string, admit func(user string) error) (bool, error) {
+	entry, ok := cm.lockCurrentRun(runID, false)
+	if !ok {
+		return false, nil
+	}
+	defer entry.runMu.Unlock()
+	ctl := entry.ctl
+
+	ctl.lifecycleMu.Lock()
+	defer ctl.lifecycleMu.Unlock()
+	if ctl.state != controlStateRunning {
+		return false, nil
+	}
+	return true, admit(ctl.sessionCtx.LoginMsg.User)
+}
+
+// RegisterWorkConn transfers conn to ctl only if ctl is still the current
+// running generation. On error, ownership remains with the caller.
+func (cm *ControlManager) RegisterWorkConn(ctl *Control, conn *proxy.WorkConn) error {
+	entry, ok := cm.lockCurrentRun(ctl.runID, false)
+	if !ok {
+		cm.mu.RLock()
+		closed := cm.closed
+		cm.mu.RUnlock()
+		if closed {
+			return fmt.Errorf("control manager is closed")
+		}
+		return fmt.Errorf("client control for run id [%s] is no longer current", ctl.runID)
+	}
+	defer entry.runMu.Unlock()
+	if entry.ctl != ctl || entry.id != ctl.controlID {
+		return fmt.Errorf("client control for run id [%s] is no longer current", ctl.runID)
+	}
+
+	ctl.lifecycleMu.Lock()
+	defer ctl.lifecycleMu.Unlock()
+	if ctl.state != controlStateRunning {
+		return fmt.Errorf("client control for run id [%s] is not running", ctl.runID)
+	}
+
+	select {
+	case ctl.workConnCh <- conn:
+		ctl.xl.Debugf("new work connection registered")
+		return nil
+	default:
+		ctl.xl.Debugf("work connection pool is full, discarding")
+		return fmt.Errorf("work connection pool is full, discarding")
+	}
 }
 
 func (cm *ControlManager) Close() error {
 	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	for _, ctl := range cm.ctlsByRunID {
-		ctl.Close()
+	cm.closed = true
+	ctls := make([]*Control, 0, len(cm.ctlsByRunID))
+	for _, entry := range cm.ctlsByRunID {
+		ctls = append(ctls, entry.ctl)
 	}
-	cm.ctlsByRunID = make(map[string]*Control)
+	cm.mu.Unlock()
+
+	for _, ctl := range ctls {
+		cm.Remove(ctl)
+		_ = ctl.Close()
+	}
 	return nil
 }
 
@@ -110,11 +367,19 @@ type SessionContext struct {
 	LoginMsg *msg.Login
 	// server configuration
 	ServerCfg *v1.ServerConfig
-	// client registry
-	ClientRegistry *registry.ClientRegistry
 	// negotiated wire protocol for this client session
 	WireProtocol string
 }
+
+type controlState uint8
+
+const (
+	controlStateCreated controlState = iota
+	controlStatePending
+	controlStateRunning
+	controlStateClosing
+	controlStateClosed
+)
 
 type Control struct {
 	// session context
@@ -142,30 +407,42 @@ type Control struct {
 	// last time got the Ping message
 	lastPing atomic.Value
 
-	// A new run id will be generated when a new client login.
-	// If run id got from login message has same run id, it means it's the same client, so we can
-	// replace old controller instantly.
-	runID string
+	// runID never changes during the lifetime of a control. controlID is assigned
+	// once by ControlManager and distinguishes same-runID generations.
+	runID     string
+	controlID ControlID
+	manager   *ControlManager
+
+	lifecycleMu    sync.Mutex
+	state          controlState
+	activated      bool
+	handoffBarrier <-chan struct{}
+
+	interruptOnce sync.Once
+	interruptErr  error
 
 	mu sync.RWMutex
 
-	xl     *xlog.Logger
-	ctx    context.Context
-	doneCh chan struct{}
+	xl            *xlog.Logger
+	ctx           context.Context
+	doneCh        chan struct{}
+	serverMetrics metrics.ServerMetrics
 }
 
 func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, error) {
 	poolCount := min(sessionCtx.LoginMsg.PoolCount, int(sessionCtx.ServerCfg.Transport.MaxPoolCount))
 	ctl := &Control{
-		sessionCtx:   sessionCtx,
-		workConnCh:   make(chan *proxy.WorkConn, poolCount+10),
-		proxies:      make(map[string]proxy.Proxy),
-		poolCount:    poolCount,
-		portsUsedNum: 0,
-		runID:        sessionCtx.LoginMsg.RunID,
-		xl:           xlog.FromContextSafe(ctx),
-		ctx:          ctx,
-		doneCh:       make(chan struct{}),
+		sessionCtx:    sessionCtx,
+		workConnCh:    make(chan *proxy.WorkConn, poolCount+10),
+		proxies:       make(map[string]proxy.Proxy),
+		poolCount:     poolCount,
+		portsUsedNum:  0,
+		runID:         sessionCtx.LoginMsg.RunID,
+		state:         controlStateCreated,
+		xl:            xlog.FromContextSafe(ctx),
+		ctx:           ctx,
+		doneCh:        make(chan struct{}),
+		serverMetrics: metrics.Server,
 	}
 	ctl.lastPing.Store(time.Now())
 
@@ -175,46 +452,119 @@ func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, erro
 	return ctl, nil
 }
 
-// Start starts the control session workers after login succeeds.
-func (ctl *Control) Start() {
-	go func() {
-		for i := 0; i < ctl.poolCount; i++ {
-			// ignore error here, that means that this control is closed
-			_ = ctl.msgDispatcher.Send(&msg.ReqWorkConn{})
-		}
-	}()
-	go ctl.worker()
+func (ctl *Control) RunID() string {
+	return ctl.runID
 }
 
-func (ctl *Control) Close() error {
-	ctl.sessionCtx.Conn.Close()
+func (ctl *Control) ID() ControlID {
+	ctl.lifecycleMu.Lock()
+	defer ctl.lifecycleMu.Unlock()
+	return ctl.controlID
+}
+
+func (ctl *Control) admit(manager *ControlManager, id ControlID) error {
+	ctl.lifecycleMu.Lock()
+	defer ctl.lifecycleMu.Unlock()
+	if ctl.state != controlStateCreated {
+		return fmt.Errorf("control [%s] is not in created state", ctl.runID)
+	}
+	ctl.manager = manager
+	ctl.controlID = id
+	ctl.state = controlStatePending
 	return nil
 }
 
-func (ctl *Control) Replaced(newCtl *Control) {
-	xl := ctl.xl
-	xl.Infof("replaced by client [%s]", newCtl.runID)
-	ctl.runID = ""
-	ctl.sessionCtx.Conn.Close()
+func (ctl *Control) setHandoffBarrier(barrier <-chan struct{}) {
+	ctl.lifecycleMu.Lock()
+	ctl.handoffBarrier = barrier
+	ctl.lifecycleMu.Unlock()
 }
 
-func (ctl *Control) RegisterWorkConn(conn *proxy.WorkConn) error {
-	xl := ctl.xl
-	defer func() {
-		if err := recover(); err != nil {
-			xl.Errorf("panic error: %v", err)
-			xl.Errorf(string(debug.Stack()))
-		}
-	}()
-
-	select {
-	case ctl.workConnCh <- conn:
-		xl.Debugf("new work connection registered")
-		return nil
-	default:
-		xl.Debugf("work connection pool is full, discarding")
-		return fmt.Errorf("work connection pool is full, discarding")
+func (ctl *Control) WaitForHandoff() {
+	ctl.lifecycleMu.Lock()
+	barrier := ctl.handoffBarrier
+	ctl.lifecycleMu.Unlock()
+	if barrier != nil {
+		<-barrier
 	}
+}
+
+// Start starts the control session workers after login succeeds.
+func (ctl *Control) Start() bool {
+	ctl.lifecycleMu.Lock()
+	defer ctl.lifecycleMu.Unlock()
+	return ctl.startLocked()
+}
+
+func (ctl *Control) startLocked() bool {
+	if ctl.state != controlStatePending || !ctl.activated {
+		return false
+	}
+	ctl.state = controlStateRunning
+	go ctl.worker()
+	return true
+}
+
+func (ctl *Control) Close() error {
+	ctl.lifecycleMu.Lock()
+	switch ctl.state {
+	case controlStateCreated, controlStatePending:
+		ctl.state = controlStateClosing
+		ctl.finishLocked()
+	case controlStateRunning:
+		ctl.state = controlStateClosing
+	}
+	ctl.lifecycleMu.Unlock()
+	return ctl.interruptReadAndClose()
+}
+
+func (ctl *Control) Replaced(newCtl *Control) {
+	ctl.markReplaced()
+	ctl.xl.Infof("replaced by client [%s] (control ID %d)", newCtl.runID, newCtl.ID())
+	_ = ctl.interruptReadAndClose()
+}
+
+// markReplaced returns the transitive predecessor barrier. A pending control
+// has no worker, so it finishes immediately and passes its inherited barrier
+// to the replacement. A running control is finished only by its worker.
+func (ctl *Control) markReplaced() <-chan struct{} {
+	ctl.lifecycleMu.Lock()
+	defer ctl.lifecycleMu.Unlock()
+
+	switch ctl.state {
+	case controlStateCreated:
+		ctl.state = controlStateClosing
+		ctl.finishLocked()
+		return nil
+	case controlStatePending:
+		barrier := ctl.handoffBarrier
+		ctl.state = controlStateClosing
+		ctl.finishLocked()
+		return barrier
+	case controlStateRunning:
+		ctl.state = controlStateClosing
+		return ctl.doneCh
+	case controlStateClosing, controlStateClosed:
+		return ctl.doneCh
+	default:
+		return ctl.doneCh
+	}
+}
+
+func (ctl *Control) interruptReadAndClose() error {
+	ctl.interruptOnce.Do(func() {
+		_ = ctl.sessionCtx.Conn.SetReadDeadline(time.Now())
+		ctl.interruptErr = ctl.sessionCtx.Conn.Close()
+	})
+	return ctl.interruptErr
+}
+
+func (ctl *Control) finishLocked() {
+	if ctl.state == controlStateClosed {
+		return
+	}
+	ctl.state = controlStateClosed
+	close(ctl.doneCh)
 }
 
 // When frps get one user connection, we get one work connection from the pool and return it.
@@ -271,10 +621,10 @@ func (ctl *Control) heartbeatWorker() {
 	}
 
 	xl := ctl.xl
-	go wait.Until(func() {
+	wait.Until(func() {
 		if time.Since(ctl.lastPing.Load().(time.Time)) > time.Duration(ctl.sessionCtx.ServerCfg.Transport.HeartbeatTimeout)*time.Second {
 			xl.Warnf("heartbeat timeout")
-			ctl.sessionCtx.Conn.Close()
+			_ = ctl.Close()
 			return
 		}
 	}, time.Second, ctl.doneCh)
@@ -289,14 +639,14 @@ func (ctl *Control) loginUserInfo() plugin.UserInfo {
 	return plugin.UserInfo{
 		User:  ctl.sessionCtx.LoginMsg.User,
 		Metas: ctl.sessionCtx.LoginMsg.Metas,
-		RunID: ctl.sessionCtx.LoginMsg.RunID,
+		RunID: ctl.runID,
 	}
 }
 
 func (ctl *Control) closeProxy(pxy proxy.Proxy) {
 	pxy.Close()
 	ctl.sessionCtx.PxyManager.Del(pxy.GetName())
-	metrics.Server.CloseProxy(pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
+	ctl.serverMetrics.CloseProxy(pxy.GetName(), pxy.GetConfigurer().GetBaseConfig().Type)
 
 	notifyContent := &plugin.CloseProxyContent{
 		User: ctl.loginUserInfo(),
@@ -311,12 +661,24 @@ func (ctl *Control) closeProxy(pxy proxy.Proxy) {
 
 func (ctl *Control) worker() {
 	xl := ctl.xl
+	ctl.serverMetrics.NewClient()
 
 	go ctl.heartbeatWorker()
 	go ctl.msgDispatcher.Run()
+	go func() {
+		for i := 0; i < ctl.poolCount; i++ {
+			// Ignore the error: it means this control is already closing.
+			_ = ctl.msgDispatcher.Send(&msg.ReqWorkConn{})
+		}
+	}()
 
 	<-ctl.msgDispatcher.Done()
-	ctl.sessionCtx.Conn.Close()
+	ctl.lifecycleMu.Lock()
+	if ctl.state == controlStateRunning {
+		ctl.state = controlStateClosing
+	}
+	ctl.lifecycleMu.Unlock()
+	_ = ctl.interruptReadAndClose()
 
 	ctl.mu.Lock()
 	close(ctl.workConnCh)
@@ -331,10 +693,14 @@ func (ctl *Control) worker() {
 		ctl.closeProxy(pxy)
 	}
 
-	metrics.Server.CloseClient()
-	ctl.sessionCtx.ClientRegistry.MarkOfflineByRunID(ctl.runID)
+	ctl.serverMetrics.CloseClient()
+	if ctl.manager != nil {
+		ctl.manager.Remove(ctl)
+	}
 	xl.Infof("client exit success")
-	close(ctl.doneCh)
+	ctl.lifecycleMu.Lock()
+	ctl.finishLocked()
+	ctl.lifecycleMu.Unlock()
 }
 
 func (ctl *Control) registerMsgHandlers() {
@@ -374,9 +740,9 @@ func (ctl *Control) handleNewProxy(m msg.Message) {
 		xl.Infof("new proxy [%s] type [%s] success", inMsg.ProxyName, inMsg.ProxyType)
 		clientID := ctl.sessionCtx.LoginMsg.ClientID
 		if clientID == "" {
-			clientID = ctl.sessionCtx.LoginMsg.RunID
+			clientID = ctl.runID
 		}
-		metrics.Server.NewProxy(inMsg.ProxyName, inMsg.ProxyType, ctl.sessionCtx.LoginMsg.User, clientID)
+		ctl.serverMetrics.NewProxy(inMsg.ProxyName, inMsg.ProxyType, ctl.sessionCtx.LoginMsg.User, clientID)
 	}
 	_ = ctl.msgDispatcher.Send(resp)
 }

@@ -72,3 +72,89 @@ func TestClientRegistryUsesClockForTimestamps(t *testing.T) {
 		t.Fatalf("disconnected time mismatch, want %s got %s", disconnectedAt, info.DisconnectedAt)
 	}
 }
+
+func TestClientRegistryControlIDPreventsStaleOffline(t *testing.T) {
+	registry := NewClientRegistry()
+	key, conflict := registry.RegisterWithControlID(
+		"user", "client-id", "run-id", "old-host", "1.0.0", "127.0.0.1", wire.ProtocolV1, 1,
+	)
+	if conflict {
+		t.Fatal("unexpected client conflict")
+	}
+	_, conflict = registry.RegisterWithControlID(
+		"user", "client-id", "run-id", "new-host", "1.0.1", "127.0.0.2", wire.ProtocolV2, 2,
+	)
+	if conflict {
+		t.Fatal("same run ID replacement should not conflict")
+	}
+
+	registry.MarkOfflineByRunIDAndControlID("run-id", 1)
+	info, ok := registry.GetByKey(key)
+	if !ok {
+		t.Fatalf("client %q not found", key)
+	}
+	if !info.Online || info.ControlID != 2 || info.Hostname != "new-host" {
+		t.Fatalf("stale offline changed current generation: %+v", info)
+	}
+
+	registry.MarkOfflineByRunIDAndControlID("run-id", 2)
+	info, ok = registry.GetByKey(key)
+	if !ok {
+		t.Fatalf("client %q not found after disconnect", key)
+	}
+	if info.Online || info.ControlID != 0 || info.RunID != "" {
+		t.Fatalf("current generation was not marked offline: %+v", info)
+	}
+}
+
+func TestClientRegistryClientIDConflictSemantics(t *testing.T) {
+	registry := NewClientRegistry()
+	_, conflict := registry.RegisterWithControlID(
+		"user", "client-id", "run-one", "host", "1.0.0", "127.0.0.1", wire.ProtocolV1, 1,
+	)
+	if conflict {
+		t.Fatal("unexpected initial client conflict")
+	}
+	_, conflict = registry.RegisterWithControlID(
+		"user", "client-id", "run-two", "host", "1.0.0", "127.0.0.2", wire.ProtocolV1, 2,
+	)
+	if !conflict {
+		t.Fatal("different online run IDs with the same explicit client ID must conflict")
+	}
+
+	registry.MarkOfflineByRunIDAndControlID("run-one", 1)
+	_, conflict = registry.RegisterWithControlID(
+		"user", "client-id", "run-two", "host", "1.0.0", "127.0.0.2", wire.ProtocolV1, 2,
+	)
+	if conflict {
+		t.Fatal("offline explicit client ID should be reusable")
+	}
+}
+
+func TestClientRegistrySameRunIDMovesBetweenClientKeys(t *testing.T) {
+	registry := NewClientRegistry()
+	oldKey, conflict := registry.RegisterWithControlID(
+		"user", "old-client", "run-id", "old-host", "1.0.0", "127.0.0.1", wire.ProtocolV1, 1,
+	)
+	if conflict {
+		t.Fatal("unexpected initial client conflict")
+	}
+	newKey, conflict := registry.RegisterWithControlID(
+		"user", "new-client", "run-id", "new-host", "1.0.1", "127.0.0.2", wire.ProtocolV2, 2,
+	)
+	if conflict {
+		t.Fatal("same run ID moving to a new client key should not conflict")
+	}
+
+	oldInfo, ok := registry.GetByKey(oldKey)
+	if !ok {
+		t.Fatalf("old explicit client %q should remain as offline history", oldKey)
+	}
+	if oldInfo.Online || oldInfo.RunID != "" || oldInfo.ControlID != 0 {
+		t.Fatalf("old client key remained online: %+v", oldInfo)
+	}
+	newInfo, ok := registry.GetByKey(newKey)
+	if !ok || !newInfo.Online || newInfo.RunID != "run-id" || newInfo.ControlID != 2 {
+		t.Fatalf("new client key was not registered: %+v", newInfo)
+	}
+}
