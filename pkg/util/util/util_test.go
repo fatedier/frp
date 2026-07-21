@@ -42,6 +42,24 @@ func TestParseRangeNumbers(t *testing.T) {
 	require.Error(err)
 }
 
+func TestCanonicalAddr(t *testing.T) {
+	require := require.New(t)
+
+	require.Equal("example.com", CanonicalAddr("example.com", 80))
+	require.Equal("example.com", CanonicalAddr("example.com", 443))
+	require.Equal("example.com:8080", CanonicalAddr("example.com", 8080))
+
+	// Bare IPv6 must stay bracketed even when the default port is omitted.
+	require.Equal("[::1]", CanonicalAddr("::1", 80))
+	require.Equal("[2001:db8::1]", CanonicalAddr("2001:db8::1", 443))
+	require.Equal("[::1]:8080", CanonicalAddr("::1", 8080))
+
+	// Already-bracketed IPv6 and IPv4 stay unchanged for default ports.
+	require.Equal("[::1]", CanonicalAddr("[::1]", 80))
+	require.Equal("127.0.0.1", CanonicalAddr("127.0.0.1", 80))
+	require.Equal("127.0.0.1:8443", CanonicalAddr("127.0.0.1", 8443))
+}
+
 func TestClonePtr(t *testing.T) {
 	require := require.New(t)
 

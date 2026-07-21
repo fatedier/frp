@@ -55,13 +55,19 @@ func GetAuthKey(token string, timestamp int64) (key string) {
 	return hex.EncodeToString(data)
 }
 
+// CanonicalAddr formats host:port for display/routing.
+// Default HTTP(S) ports 80/443 are omitted, but bare IPv6 literals are still
+// bracketed so the result is a valid host (e.g. "[::1]" not "::1").
 func CanonicalAddr(host string, port int) (addr string) {
-	if port == 80 || port == 443 {
-		addr = host
-	} else {
-		addr = net.JoinHostPort(host, strconv.Itoa(port))
+	if port != 80 && port != 443 {
+		return net.JoinHostPort(host, strconv.Itoa(port))
 	}
-	return
+	if host != "" && host[0] != '[' {
+		if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
+			return "[" + host + "]"
+		}
+	}
+	return host
 }
 
 func ParseRangeNumbers(rangeStr string) (numbers []int64, err error) {
