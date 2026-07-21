@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -53,4 +54,14 @@ func TestClonePtr(t *testing.T) {
 	require.NotNil(cloned)
 	require.Equal(v, *cloned)
 	require.NotSame(&v, cloned)
+}
+
+func TestGenerateResponseErrorString(t *testing.T) {
+	require := require.New(t)
+
+	require.Equal("summary", GenerateResponseErrorString("summary", nil, false))
+	// detailed + nil error must not panic and should fall back to summary
+	require.Equal("summary", GenerateResponseErrorString("summary", nil, true))
+	require.Equal("boom", GenerateResponseErrorString("summary", fmt.Errorf("boom"), true))
+	require.Equal("summary", GenerateResponseErrorString("summary", fmt.Errorf("boom"), false))
 }
