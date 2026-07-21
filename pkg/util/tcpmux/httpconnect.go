@@ -25,6 +25,7 @@ import (
 	libnet "github.com/fatedier/golib/net"
 
 	httppkg "github.com/fatedier/frp/pkg/util/http"
+	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/vhost"
 )
 
@@ -84,7 +85,9 @@ func (muxer *HTTPConnectTCPMuxer) sendConnectResponse(c net.Conn, _ map[string]s
 func (muxer *HTTPConnectTCPMuxer) auth(c net.Conn, username, password string, reqInfo map[string]string) (bool, error) {
 	reqUsername := reqInfo["HTTPUser"]
 	reqPassword := reqInfo["HTTPPwd"]
-	if username == reqUsername && password == reqPassword {
+	// Match admin HTTP auth: compare credentials in constant time.
+	if util.ConstantTimeEqString(username, reqUsername) &&
+		util.ConstantTimeEqString(password, reqPassword) {
 		return true, nil
 	}
 

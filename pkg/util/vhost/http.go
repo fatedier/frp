@@ -33,6 +33,7 @@ import (
 
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
+	"github.com/fatedier/frp/pkg/util/util"
 )
 
 var ErrNoRouteFound = errors.New("no route found")
@@ -200,11 +201,15 @@ func checkRouteAuthByRequest(req *http.Request, rc *RouteConfig) bool {
 			return false
 		}
 		user, passwd, ok := httppkg.ParseBasicAuth(proxyAuth)
-		return ok && user == rc.Username && passwd == rc.Password
+		return ok &&
+			util.ConstantTimeEqString(user, rc.Username) &&
+			util.ConstantTimeEqString(passwd, rc.Password)
 	}
 
 	user, passwd, ok := req.BasicAuth()
-	return ok && user == rc.Username && passwd == rc.Password
+	return ok &&
+		util.ConstantTimeEqString(user, rc.Username) &&
+		util.ConstantTimeEqString(passwd, rc.Password)
 }
 
 func (rp *HTTPReverseProxy) connectHandler(rw http.ResponseWriter, req *http.Request) {
