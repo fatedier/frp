@@ -477,6 +477,12 @@ type XTCPProxyConfig struct {
 	Secretkey  string   `json:"secretKey,omitempty"`
 	AllowUsers []string `json:"allowUsers,omitempty"`
 
+	// MaxWorkConnections specifies the maximum number of work connections
+	// that are handled concurrently for this proxy. When the limit is
+	// reached, newly accepted connections wait until a running handler
+	// finishes. By default, this value is 0, which means no limit.
+	MaxWorkConnections int `json:"maxWorkConnections,omitempty"`
+
 	// NatTraversal configuration for NAT traversal
 	NatTraversal *NatTraversalConfig `json:"natTraversal,omitempty"`
 }

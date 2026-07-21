@@ -403,6 +403,10 @@ localPort = 22
 # If not empty, only visitors from specified users can connect.
 # Otherwise, visitors from same user can connect. '*' means allow all users.
 allowUsers = ["user1", "user2"]
+# Maximum number of work connections that are handled concurrently for this proxy.
+# When the limit is reached, newly accepted connections wait until a running one finishes.
+# Default: 0, which means no limit.
+maxWorkConnections = 0
 
 # NAT traversal configuration (optional)
 [proxies.natTraversal]
