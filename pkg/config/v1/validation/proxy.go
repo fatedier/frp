@@ -212,7 +212,9 @@ func validateTCPMuxProxyConfigForServer(c *v1.TCPMuxProxyConfig, s *v1.ServerCon
 
 func validateHTTPProxyConfigForServer(c *v1.HTTPProxyConfig, s *v1.ServerConfig) error {
 	if s.VhostHTTPPort == 0 {
-		return fmt.Errorf("type [http] not supported when vhost http port is not set")
+		// Keep the historical phrase so existing docs/search hits still match, and
+		// tell operators which server field must be configured (common #5097 footgun).
+		return fmt.Errorf("type [http] not supported when vhost http port is not set; set vhostHTTPPort in frps configuration")
 	}
 
 	return validateDomainConfigForServer(&c.DomainConfig, s)
@@ -220,7 +222,7 @@ func validateHTTPProxyConfigForServer(c *v1.HTTPProxyConfig, s *v1.ServerConfig)
 
 func validateHTTPSProxyConfigForServer(c *v1.HTTPSProxyConfig, s *v1.ServerConfig) error {
 	if s.VhostHTTPSPort == 0 {
-		return fmt.Errorf("type [https] not supported when vhost https port is not set")
+		return fmt.Errorf("type [https] not supported when vhost https port is not set; set vhostHTTPSPort in frps configuration")
 	}
 
 	return validateDomainConfigForServer(&c.DomainConfig, s)
