@@ -61,6 +61,11 @@ linters:
     - legacy
     - std-error-handling
     rules:
+    # Keep h2c and HTTP/1.1 Upgrade:h2c compatibility until an explicit migration.
+    - linters:
+      - staticcheck
+      path: ^pkg/util/vhost/http\.go$
+      text: "^SA1019:"
     - linters:
       - errcheck
       - maligned
