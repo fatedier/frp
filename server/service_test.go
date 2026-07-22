@@ -18,12 +18,14 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/http"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/fatedier/golib/net/mux"
 	"github.com/stretchr/testify/require"
 
 	"github.com/fatedier/frp/pkg/auth"
@@ -74,6 +76,71 @@ func TestWriteWithDeadlineTimesOutAndClearsDeadline(t *testing.T) {
 		require.NoError(t, err)
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for write after deadline reset")
+	}
+}
+
+func TestSharedPortHTTPListenerProtocols(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	sharedMux := mux.NewMux(listener)
+	httpListener := sharedMux.ListenHTTP(1)
+	muxServeErr := make(chan error, 1)
+	go func() {
+		muxServeErr <- sharedMux.Serve()
+	}()
+
+	newProtocols := func(http1, unencryptedHTTP2 bool) *http.Protocols {
+		protocols := new(http.Protocols)
+		protocols.SetHTTP1(http1)
+		protocols.SetUnencryptedHTTP2(unencryptedHTTP2)
+		return protocols
+	}
+
+	const handlerProtocolHeader = "X-Test-Handler-Protocol"
+	httpServer := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set(handlerProtocolHeader, r.Proto)
+			w.WriteHeader(http.StatusNoContent)
+		}),
+		ReadHeaderTimeout: time.Second,
+		Protocols:         newProtocols(true, true),
+	}
+	httpServeErr := make(chan error, 1)
+	go func() {
+		httpServeErr <- httpServer.Serve(httpListener)
+	}()
+	t.Cleanup(func() {
+		require.NoError(t, httpServer.Close())
+		require.ErrorIs(t, waitForResult(t, httpServeErr, "shared HTTP server to stop"), http.ErrServerClosed)
+		require.NoError(t, sharedMux.Close())
+		require.ErrorIs(t, waitForResult(t, muxServeErr, "shared mux to stop"), net.ErrClosed)
+	})
+
+	for _, tc := range []struct {
+		name             string
+		http1            bool
+		unencryptedHTTP2 bool
+		expectedProtocol string
+	}{
+		{name: "HTTP/1.1", http1: true, expectedProtocol: "HTTP/1.1"},
+		{name: "HTTP/2 prior knowledge", unencryptedHTTP2: true, expectedProtocol: "HTTP/2.0"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			transport := &http.Transport{
+				Protocols: newProtocols(tc.http1, tc.unencryptedHTTP2),
+			}
+			defer transport.CloseIdleConnections()
+			client := &http.Client{Transport: transport, Timeout: 3 * time.Second}
+			request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://"+listener.Addr().String()+"/", nil)
+			require.NoError(t, err)
+			response, err := client.Do(request)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusNoContent, response.StatusCode)
+			require.Equal(t, tc.expectedProtocol, response.Proto)
+			require.Equal(t, tc.expectedProtocol, response.Header.Get(handlerProtocolHeader))
+			require.NoError(t, response.Body.Close())
+		})
 	}
 }
 
