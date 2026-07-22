@@ -300,10 +300,14 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		svr.rc.HTTPReverseProxy = rp
 
 		address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.VhostHTTPPort))
+		protocols := new(http.Protocols)
+		protocols.SetHTTP1(true)
+		protocols.SetUnencryptedHTTP2(true)
 		server := &http.Server{
 			Addr:              address,
 			Handler:           rp,
 			ReadHeaderTimeout: 60 * time.Second,
+			Protocols:         protocols,
 		}
 		var l net.Listener
 		if httpMuxOn {

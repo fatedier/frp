@@ -28,8 +28,6 @@ import (
 
 	libio "github.com/fatedier/golib/io"
 	"github.com/fatedier/golib/pool"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
@@ -139,7 +137,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			_, _ = rw.Write(getNotFoundPageContent())
 		},
 	}
-	rp.proxy = h2c.NewHandler(proxy, &http2.Server{})
+	rp.proxy = proxy
 	return rp
 }
 
