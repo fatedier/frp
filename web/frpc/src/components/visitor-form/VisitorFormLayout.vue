@@ -4,7 +4,11 @@
       <VisitorBaseSection v-model="form" :readonly="readonly" :editing="editing" />
     </ConfigSection>
     <VisitorConnectionSection v-model="form" :readonly="readonly" />
-    <VisitorPluginSection v-model="form" :readonly="readonly" />
+    <VisitorPluginSection
+      v-if="form.type === 'stcp' || form.type === 'xtcp'"
+      v-model="form"
+      :readonly="readonly"
+    />
     <VisitorTransportSection v-model="form" :readonly="readonly" />
     <VisitorXtcpSection v-if="form.type === 'xtcp'" v-model="form" :readonly="readonly" />
   </div>
