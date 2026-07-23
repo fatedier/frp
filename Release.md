@@ -1,3 +1,7 @@
+## Features
+
+* Support `maxWorkConnections` for xtcp proxies to limit concurrently handled work connections. The default 0 means no limit.
+
 ## Fixes
 
 * HTTP vhost servers no longer support HTTP/1.1 `Upgrade: h2c` requests. Cleartext HTTP/2 prior-knowledge remains supported.
