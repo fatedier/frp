@@ -15,7 +15,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.0
 	github.com/pires/go-proxyproto v0.7.0
 	github.com/prometheus/client_golang v1.19.1
-	github.com/quic-go/quic-go v0.55.0
+	github.com/quic-go/quic-go v0.60.0
 	github.com/rodaine/table v1.2.0
 	github.com/samber/lo v1.47.0
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
@@ -64,7 +64,6 @@ require (
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
-	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/tools v0.47.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
