@@ -15,30 +15,23 @@
 package nathole
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"time"
 
-	"github.com/pion/stun/v3"
+	"github.com/fatedier/golib/net/stun"
 )
 
 var responseTimeout = 3 * time.Second
 
-type Message struct {
-	Body []byte
-	Addr string
-}
-
 // If the localAddr is empty, it will listen on a random port.
 func Discover(stunServers []string, localAddr string) ([]string, net.Addr, error) {
-	// create a discoverConn and get response from messageChan
 	discoverConn, err := listen(localAddr)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer discoverConn.Close()
-
-	go discoverConn.readLoop()
 
 	addresses := make([]string, 0, len(stunServers))
 	for _, addr := range stunServers {
@@ -58,10 +51,9 @@ type stunResponse struct {
 }
 
 type discoverConn struct {
-	conn *net.UDPConn
-
-	localAddr   net.Addr
-	messageChan chan *Message
+	conn      *net.UDPConn
+	client    *stun.Client
+	localAddr net.Addr
 }
 
 func listen(localAddr string) (*discoverConn, error) {
@@ -77,36 +69,21 @@ func listen(localAddr string) (*discoverConn, error) {
 	if err != nil {
 		return nil, err
 	}
+	client, err := stun.NewClient(conn)
+	if err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
 
 	return &discoverConn{
-		conn:        conn,
-		localAddr:   conn.LocalAddr(),
-		messageChan: make(chan *Message, 10),
+		conn:      conn,
+		client:    client,
+		localAddr: conn.LocalAddr(),
 	}, nil
 }
 
 func (c *discoverConn) Close() error {
-	if c.messageChan != nil {
-		close(c.messageChan)
-		c.messageChan = nil
-	}
 	return c.conn.Close()
-}
-
-func (c *discoverConn) readLoop() {
-	for {
-		buf := make([]byte, 1024)
-		n, addr, err := c.conn.ReadFromUDP(buf)
-		if err != nil {
-			return
-		}
-		buf = buf[:n]
-
-		c.messageChan <- &Message{
-			Body: buf,
-			Addr: addr.String(),
-		}
-	}
 }
 
 func (c *discoverConn) doSTUNRequest(addr string) (*stunResponse, error) {
@@ -114,45 +91,28 @@ func (c *discoverConn) doSTUNRequest(addr string) (*stunResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	request, err := stun.Build(stun.TransactionID, stun.BindingRequest)
+	transaction, err := stun.NewBindingTransaction(serverAddr)
 	if err != nil {
 		return nil, err
 	}
-
-	if err = request.NewTransactionID(); err != nil {
+	if err := c.conn.SetReadDeadline(time.Now().Add(responseTimeout)); err != nil {
 		return nil, err
 	}
-	if _, err := c.conn.WriteTo(request.Raw, serverAddr); err != nil {
-		return nil, err
-	}
-
-	var m stun.Message
-	select {
-	case msg := <-c.messageChan:
-		m.Raw = msg.Body
-		if err := m.Decode(); err != nil {
-			return nil, err
+	response, err := c.client.Do(transaction)
+	if err != nil {
+		var netErr net.Error
+		if errors.As(err, &netErr) && netErr.Timeout() {
+			return nil, fmt.Errorf("wait response from stun server timeout")
 		}
-	case <-time.After(responseTimeout):
-		return nil, fmt.Errorf("wait response from stun server timeout")
+		return nil, err
 	}
-	xorAddrGetter := &stun.XORMappedAddress{}
-	mappedAddrGetter := &stun.MappedAddress{}
-	changedAddrGetter := ChangedAddress{}
-	otherAddrGetter := &stun.OtherAddress{}
 
 	resp := &stunResponse{}
-	if err := mappedAddrGetter.GetFrom(&m); err == nil {
-		resp.externalAddr = mappedAddrGetter.String()
+	if response.MappedAddr != nil {
+		resp.externalAddr = response.MappedAddr.String()
 	}
-	if err := xorAddrGetter.GetFrom(&m); err == nil {
-		resp.externalAddr = xorAddrGetter.String()
-	}
-	if err := changedAddrGetter.GetFrom(&m); err == nil {
-		resp.otherAddr = changedAddrGetter.String()
-	}
-	if err := otherAddrGetter.GetFrom(&m); err == nil {
-		resp.otherAddr = otherAddrGetter.String()
+	if response.OtherAddr != nil {
+		resp.otherAddr = response.OtherAddr.String()
 	}
 	return resp, nil
 }

@@ -65,7 +65,7 @@ jobs:
         with:
           context: .
           file: ./dockerfiles/Dockerfile-for-frpc
-          platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x
+          platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le
           push: true
           tags: |
             ${{ env.TAG_FRPC }}
@@ -76,7 +76,7 @@ jobs:
         with:
           context: .
           file: ./dockerfiles/Dockerfile-for-frps
-          platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/s390x
+          platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le
           push: true
           tags: |
             ${{ env.TAG_FRPS }}

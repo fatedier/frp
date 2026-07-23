@@ -16,6 +16,7 @@ package net
 
 import (
 	"context"
+	"crypto/hkdf"
 	"crypto/sha256"
 	"errors"
 	"io"
@@ -25,7 +26,6 @@ import (
 
 	libcrypto "github.com/fatedier/golib/crypto"
 	quic "github.com/quic-go/quic-go"
-	"golang.org/x/crypto/hkdf"
 
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
@@ -335,11 +335,6 @@ func deriveAEADControlKeys(key []byte, algorithm string, transcriptHash []byte) 
 }
 
 func deriveAEADControlKey(key []byte, algorithm string, transcriptHash []byte, direction string) ([]byte, error) {
-	info := []byte(aeadControlHKDFInfoPrefix + " " + algorithm + " " + direction)
-	reader := hkdf.New(sha256.New, key, transcriptHash, info)
-	out := make([]byte, libcrypto.AEADKeySize)
-	if _, err := io.ReadFull(reader, out); err != nil {
-		return nil, err
-	}
-	return out, nil
+	info := aeadControlHKDFInfoPrefix + " " + algorithm + " " + direction
+	return hkdf.Key(sha256.New, key, transcriptHash, info, libcrypto.AEADKeySize)
 }
