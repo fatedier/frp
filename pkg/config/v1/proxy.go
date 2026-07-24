@@ -291,18 +291,31 @@ type UDPProxyConfig struct {
 	ProxyBaseConfig
 
 	RemotePort int `json:"remotePort,omitempty"`
+
+	// QUICDatagrams relays UDP packets as unreliable QUIC datagrams
+	// (RFC 9221) on the frpc<->frps connection instead of the reliable
+	// work-connection stream. Avoids head-of-line blocking and outer
+	// retransmission for payloads that tolerate loss themselves (VPN
+	// DTLS, WireGuard, RTP). Requires transport.protocol = "quic" and a
+	// server with datagram support; falls back to the stream otherwise.
+	// Packets exceeding the QUIC datagram budget for the path
+	// (~1200-1400 bytes) also fall back to the stream per-packet.
+	// Incompatible with useEncryption/useCompression (stream wrappers).
+	QUICDatagrams bool `json:"quicDatagrams,omitempty"`
 }
 
 func (c *UDPProxyConfig) MarshalToMsg(m *msg.NewProxy) {
 	c.ProxyBaseConfig.MarshalToMsg(m)
 
 	m.RemotePort = c.RemotePort
+	m.UDPDatagram = c.QUICDatagrams
 }
 
 func (c *UDPProxyConfig) UnmarshalFromMsg(m *msg.NewProxy) {
 	c.ProxyBaseConfig.UnmarshalFromMsg(m)
 
 	c.RemotePort = m.RemotePort
+	c.QUICDatagrams = m.UDPDatagram
 }
 
 func (c *UDPProxyConfig) Clone() ProxyConfigurer {

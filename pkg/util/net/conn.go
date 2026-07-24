@@ -25,6 +25,7 @@ import (
 	"time"
 
 	libcrypto "github.com/fatedier/golib/crypto"
+	libnet "github.com/fatedier/golib/net"
 	quic "github.com/quic-go/quic-go"
 
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -72,6 +73,10 @@ func (c *ContextConn) WithContext(ctx context.Context) {
 
 func (c *ContextConn) Context() context.Context {
 	return c.ctx
+}
+
+func (c *ContextConn) Unwrap() net.Conn {
+	return c.Conn
 }
 
 type WrapReadWriteCloserConn struct {
@@ -240,6 +245,27 @@ func (conn *wrapQuicStream) RemoteAddr() net.Addr {
 func (conn *wrapQuicStream) Close() error {
 	conn.CancelRead(0)
 	return conn.Stream.Close()
+}
+
+// QuicConnFrom returns the underlying *quic.Conn of a work connection that
+// is (possibly a wrapper around) a QUIC stream. It unwraps any chain of
+// wrappers exposing Unwrap() net.Conn (e.g. ContextConn).
+func QuicConnFrom(c net.Conn) (*quic.Conn, bool) {
+	for c != nil {
+		switch t := c.(type) {
+		case *wrapQuicStream:
+			return t.c, t.c != nil
+		case *libnet.SharedConn:
+			// golib's SharedConn (used by the wire-magic sniffer) embeds
+			// net.Conn but doesn't expose Unwrap
+			c = t.Conn
+		case interface{ Unwrap() net.Conn }:
+			c = t.Unwrap()
+		default:
+			return nil, false
+		}
+	}
+	return nil, false
 }
 
 func NewCryptoReadWriter(rw io.ReadWriter, key []byte) (io.ReadWriter, error) {
