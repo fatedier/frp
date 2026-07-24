@@ -1347,6 +1347,7 @@ Features typically go through three stages:
 
 * [gofrp/plugin](https://github.com/gofrp/plugin) - A repository for frp plugins that contains a variety of plugins implemented based on the frp extension mechanism, meeting the customization needs of different scenarios.
 * [gofrp/tiny-frpc](https://github.com/gofrp/tiny-frpc) - A lightweight version of the frp client (around 3.5MB at minimum) implemented using the ssh protocol, supporting some of the most commonly used features, suitable for devices with limited resources.
+* [MoonProxy](https://github.com/MoonProxyHQ/moonproxy-desktop) - A cross-platform GUI desktop client for frpc (Tauri v2 + Vue 3 + Rust), exposing local services through a graphical interface — no command line required. MIT licensed, macOS & Windows.
 
 ## Contributing
 
