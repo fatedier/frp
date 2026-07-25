@@ -1,5 +1,12 @@
 {
   "name": "frp-web",
   "private": true,
-  "workspaces": ["shared", "frpc", "frps"]
+  "workspaces": [
+    "shared",
+    "frpc",
+    "frps"
+  ],
+  "dependencies": {
+    "postcss": "^8.5.18"
+  }
 }
