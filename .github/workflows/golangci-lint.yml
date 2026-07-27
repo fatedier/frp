@@ -22,12 +22,8 @@ jobs:
     - uses: actions/setup-node@v6
       with:
         node-version: '22'
-    - name: Build web assets (frps)
-      run: make build
-      working-directory: web/frps
-    - name: Build web assets (frpc)
-      run: make build
-      working-directory: web/frpc
+    - name: Test and build web assets
+      run: make web-ci
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v9
       with:
