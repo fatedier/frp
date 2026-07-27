@@ -7,14 +7,15 @@ jobs:
     steps:
     - checkout
     - run:
-        name: Build web assets (frps)
-        command: make install build
-        working_directory: web/frps
+        name: Test and build web assets
+        command: make web-ci
     - run:
-        name: Build web assets (frpc)
-        command: make install build
-        working_directory: web/frpc
-    - run: make
+        name: Check Go formatting and build binaries
+        command: |
+          set -e
+          make env fmt
+          git diff --exit-code
+          make build
     - run: make alltest
 
 workflows:
