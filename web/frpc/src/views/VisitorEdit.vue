@@ -110,7 +110,11 @@ const formRules: FormRules = {
   pluginDestinationIP: [
     {
       validator: (_rule, value, callback) => {
-        if (form.value.pluginType === 'virtual_net' && !value?.trim()) {
+        if (
+          form.value.pluginType === 'virtual_net' &&
+          (form.value.type === 'stcp' || form.value.type === 'xtcp') &&
+          !value?.trim()
+        ) {
           callback(new Error('Destination IP is required for virtual_net'))
           return
         }
