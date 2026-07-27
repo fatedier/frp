@@ -54,6 +54,9 @@ type WebServerConfig struct {
 	// Port specifies the port for the web server to listen on. If this
 	// value is 0, the admin server will not be started.
 	Port int `json:"port,omitempty"`
+	// UnixSocket specifies a unix socket path for the web server to listen on.
+	// When set, it takes precedence over Addr and Port.
+	UnixSocket string `json:"unixSocket,omitempty"`
 	// User specifies the username that the web server will use for login.
 	User string `json:"user,omitempty"`
 	// Password specifies the password that the admin server will use for login.

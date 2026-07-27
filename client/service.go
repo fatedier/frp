@@ -188,7 +188,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 	// Create the web server after all fallible steps so its listener is not
 	// leaked when an earlier error causes NewService to return.
 	var webServer *httppkg.Server
-	if options.Common.WebServer.Port > 0 {
+	if options.Common.WebServer.Port > 0 || options.Common.WebServer.UnixSocket != "" {
 		ws, err := httppkg.NewServer(options.Common.WebServer)
 		if err != nil {
 			return nil, err

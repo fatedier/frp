@@ -146,7 +146,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	}
 
 	var webServer *httppkg.Server
-	if cfg.WebServer.Port > 0 {
+	if cfg.WebServer.Port > 0 || cfg.WebServer.UnixSocket != "" {
 		ws, err := httppkg.NewServer(cfg.WebServer)
 		if err != nil {
 			return nil, err
