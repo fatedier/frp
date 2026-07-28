@@ -130,6 +130,7 @@ func (c *defaultConnectorImpl) Open() error {
 				MaxIdleTimeout:     time.Duration(c.cfg.Transport.QUIC.MaxIdleTimeout) * time.Second,
 				MaxIncomingStreams: int64(c.cfg.Transport.QUIC.MaxIncomingStreams),
 				KeepAlivePeriod:    time.Duration(c.cfg.Transport.QUIC.KeepalivePeriod) * time.Second,
+				EnableDatagrams:    true, // for udp proxies with quicDatagrams (RFC 9221)
 			})
 		if err != nil {
 			return err

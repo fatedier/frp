@@ -66,6 +66,10 @@ func (c *Conn) WithContext(ctx context.Context) {
 	}
 }
 
+func (c *Conn) Unwrap() net.Conn {
+	return c.Conn
+}
+
 type V1ReadWriter struct {
 	rw io.ReadWriter
 }

@@ -17,6 +17,7 @@
 package proxy
 
 import (
+	"context"
 	"net"
 	"reflect"
 	"strconv"
@@ -45,7 +46,9 @@ type UDPProxy struct {
 	// include msg.UDPPacket and msg.Ping
 	sendCh   chan msg.Message
 	workConn net.Conn
-	closed   bool
+	// non-nil while relaying via unreliable QUIC datagrams (RFC 9221)
+	dgMux  *udp.DatagramMux
+	closed bool
 }
 
 func NewUDPProxy(baseProxy *BaseProxy, cfg v1.ProxyConfigurer) Proxy {
@@ -73,6 +76,10 @@ func (pxy *UDPProxy) Close() {
 
 	if !pxy.closed {
 		pxy.closed = true
+		if pxy.dgMux != nil {
+			pxy.dgMux.Unregister(pxy.cfg.Name)
+			pxy.dgMux = nil
+		}
 		if pxy.workConn != nil {
 			pxy.workConn.Close()
 		}
@@ -85,11 +92,23 @@ func (pxy *UDPProxy) Close() {
 	}
 }
 
-func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
+func (pxy *UDPProxy) InWorkConn(conn net.Conn, startMsg *msg.StartWorkConn) {
 	xl := pxy.xl
 	xl.Infof("incoming a new work connection for udp proxy, %s", conn.RemoteAddr().String())
 	// close resources related with old workConn
 	pxy.Close()
+
+	// QUIC datagram lane, confirmed by the server for this work connection
+	var dgMux *udp.DatagramMux
+	if startMsg != nil && startMsg.UDPDatagram &&
+		!pxy.cfg.Transport.UseEncryption && !pxy.cfg.Transport.UseCompression {
+		if qc, ok := netpkg.QuicConnFrom(conn); ok && qc.ConnectionState().SupportsDatagrams {
+			dgMux = udp.DatagramMuxFor(qc)
+			xl.Infof("udp proxy relaying via quic datagrams")
+		} else {
+			xl.Warnf("server enabled quic datagrams but work connection does not support them, using stream")
+		}
+	}
 
 	remote, _, err := pxy.wrapWorkConn(conn, pxy.encryptionKey)
 	if err != nil {
@@ -101,10 +120,30 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 	pxy.workConn = netpkg.WrapReadWriteCloserToConn(remote, conn)
 	// Plain UDP payload follows the configured wire protocol for message framing.
 	payloadRW := msg.NewReadWriter(pxy.workConn, pxy.clientCfg.Transport.WireProtocol)
+	pxy.dgMux = dgMux
 	pxy.readCh = make(chan *msg.UDPPacket, 1024)
 	pxy.sendCh = make(chan msg.Message, 1024)
 	pxy.closed = false
+	readCh := pxy.readCh
 	pxy.mu.Unlock()
+
+	if dgMux != nil {
+		dgMux.Register(pxy.cfg.Name, func(remoteAddr *net.UDPAddr, payload []byte) {
+			// The bandwidth limiter can only police (drop) here, not shape:
+			// this callback runs on the quic connection's shared receive
+			// loop, which must never block.
+			if pxy.limiter != nil && !pxy.limiter.AllowN(time.Now(), len(payload)) {
+				return
+			}
+			m := udp.NewUDPPacket(payload, nil, remoteAddr)
+			_ = errors.PanicToError(func() {
+				select {
+				case readCh <- m:
+				default:
+				}
+			})
+		})
+	}
 
 	workConnReaderFn := func(rw msg.ReadWriter, readCh chan *msg.UDPPacket) {
 		for {
@@ -131,6 +170,27 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 			switch m := rawMsg.(type) {
 			case *msg.UDPPacket:
 				xl.Tracef("send udp package to workConn, len: %d", len(m.Content))
+				// prefer the unreliable QUIC datagram lane; oversized
+				// packets fall back to the stream
+				if dgMux != nil {
+					switch dgErr := dgMux.Send(pxy.cfg.Name, m.RemoteAddr, m.Content); dgErr {
+					case nil:
+						// Datagrams bypass the limiter-wrapped work
+						// connection, so account for them here: charging
+						// after the send (like limit.Reader does) delays
+						// subsequent packets to hold the configured rate,
+						// and never double-charges the stream fallback.
+						if pxy.limiter != nil {
+							_ = pxy.limiter.WaitN(context.Background(), len(m.Content))
+						}
+						continue
+					case udp.ErrDatagramTooLarge:
+						// fall through to stream write
+					default:
+						xl.Errorf("udp datagram write error: %v", dgErr)
+						return
+					}
+				}
 			case *msg.Ping:
 				xl.Tracef("send ping message to udp workConn")
 			}

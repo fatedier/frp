@@ -96,6 +96,10 @@ type BaseProxy struct {
 	configurer    v1.ProxyConfigurer
 	wireProtocol  string
 
+	// udp proxies with quicDatagrams: relay packets as unreliable QUIC
+	// datagrams when the work connection rides a QUIC connection.
+	udpDatagramWanted bool
+
 	mu  sync.RWMutex
 	xl  *xlog.Logger
 	ctx context.Context
@@ -172,13 +176,22 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 			dstAddr, dstPortStr, _ = net.SplitHostPort(dst.String())
 			dstPort, _ = strconv.ParseUint(dstPortStr, 10, 16)
 		}
+		// confirm QUIC datagram relay only when this specific work
+		// connection can actually carry it
+		udpDatagram := false
+		if pxy.udpDatagramWanted {
+			if qc, ok := netpkg.QuicConnFrom(pxyWorkConn.conn); ok {
+				udpDatagram = qc.ConnectionState().SupportsDatagrams
+			}
+		}
 		workConn, err = pxyWorkConn.Start(&msg.StartWorkConn{
-			ProxyName: pxy.GetName(),
-			SrcAddr:   srcAddr,
-			SrcPort:   uint16(srcPort),
-			DstAddr:   dstAddr,
-			DstPort:   uint16(dstPort),
-			Error:     "",
+			ProxyName:   pxy.GetName(),
+			SrcAddr:     srcAddr,
+			SrcPort:     uint16(srcPort),
+			DstAddr:     dstAddr,
+			DstPort:     uint16(dstPort),
+			Error:       "",
+			UDPDatagram: udpDatagram,
 		})
 		if err != nil {
 			xl.Warnf("failed to send message to work connection from pool: %v, times: %d", err, i)
