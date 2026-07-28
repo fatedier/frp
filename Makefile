@@ -17,7 +17,7 @@ env:
 web: frps-web frpc-web
 
 web-ci:
-	cd web && npm ci && npm run test:unit && npm run build --workspace frps && npm run build --workspace frpc
+	cd web && npm ci && npm run lint:check --workspace frps && npm run lint:check --workspace frpc && npm run test:unit && npm run build --workspace frps && npm run build --workspace frpc
 
 frps-web:
 	$(MAKE) -C web/frps build
