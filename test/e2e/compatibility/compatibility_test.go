@@ -192,6 +192,41 @@ transport.wireProtocol = "v2"
 	})
 })
 
+var _ = ginkgo.Describe("[Compatibility: BinaryUDPPacket]", func() {
+	f := framework.NewDefaultFramework()
+
+	ginkgo.BeforeEach(func() {
+		supportsV2, knownVersion := baselineSupportsControlWireProtocolV2(compatCtx.BaselineVersion)
+		if !knownVersion || !supportsV2 {
+			ginkgo.Skip(fmt.Sprintf("baseline version %q does not have known wire protocol v2 support", compatCtx.BaselineVersion))
+		}
+	})
+
+	ginkgo.It("current frps falls back to JSON for baseline frpc", func() {
+		portName := port.GenName("CompatBinaryUDPBaselineFRPC")
+		clientConf := udpClientConfig("udp", portName, `transport.wireProtocol = "v2"`)
+		f.RunProcessesWithBinaries(
+			compatCtx.CurrentFRPSPath,
+			compatCtx.BaselineFRPCPath,
+			consts.DefaultServerConfig,
+			[]string{clientConf},
+		)
+		framework.NewRequestExpect(f).Protocol("udp").PortName(portName).Ensure()
+	})
+
+	ginkgo.It("current frpc falls back to JSON for baseline frps", func() {
+		portName := port.GenName("CompatBinaryUDPBaselineFRPS")
+		clientConf := udpClientConfig("udp", portName, `transport.wireProtocol = "v2"`)
+		f.RunProcessesWithBinaries(
+			compatCtx.BaselineFRPSPath,
+			compatCtx.CurrentFRPCPath,
+			consts.DefaultServerConfig,
+			[]string{clientConf},
+		)
+		framework.NewRequestExpect(f).Protocol("udp").PortName(portName).Ensure()
+	})
+})
+
 func tcpClientConfig(proxyName string, remotePortName string, extra string) string {
 	return fmt.Sprintf(`
 serverAddr = "127.0.0.1"
@@ -206,6 +241,22 @@ type = "tcp"
 localPort = {{ .%s }}
 remotePort = {{ .%s }}
 `, consts.PortServerName, extra, proxyName, framework.TCPEchoServerPort, remotePortName)
+}
+
+func udpClientConfig(proxyName string, remotePortName string, extra string) string {
+	return fmt.Sprintf(`
+serverAddr = "127.0.0.1"
+serverPort = {{ .%s }}
+loginFailExit = true
+log.level = "trace"
+%s
+
+[[proxies]]
+name = "%s"
+type = "udp"
+localPort = {{ .%s }}
+remotePort = {{ .%s }}
+`, consts.PortServerName, extra, proxyName, framework.UDPEchoServerPort, remotePortName)
 }
 
 func expectProcessExit(p *process.Process, timeout time.Duration) {

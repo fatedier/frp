@@ -47,6 +47,8 @@ type SessionContext struct {
 	Connector MessageConnector
 	// Virtual net controller
 	VnetController *vnet.Controller
+	// UDPPacketCodec is immutable for the lifetime of this negotiated session.
+	UDPPacketCodec string
 }
 
 type Control struct {
@@ -92,7 +94,14 @@ func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, erro
 	ctl.registerMsgHandlers()
 	ctl.msgTransporter = transport.NewMessageTransporter(ctl.msgDispatcher)
 
-	ctl.pm = proxy.NewManager(ctl.ctx, sessionCtx.Common, sessionCtx.Auth.EncryptionKey(), ctl.msgTransporter, sessionCtx.VnetController)
+	ctl.pm = proxy.NewManager(
+		ctl.ctx,
+		sessionCtx.Common,
+		sessionCtx.Auth.EncryptionKey(),
+		ctl.msgTransporter,
+		sessionCtx.VnetController,
+		sessionCtx.UDPPacketCodec,
+	)
 	ctl.vm = visitor.NewManager(ctl.ctx, sessionCtx.RunID, sessionCtx.Common,
 		ctl.connectServer, ctl.msgTransporter, sessionCtx.VnetController)
 	return ctl, nil

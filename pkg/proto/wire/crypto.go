@@ -68,7 +68,8 @@ func NewServerHello(clientHello ClientHello) (ServerHello, error) {
 	return ServerHello{
 		Selected: ServerSelection{
 			Message: MessageSelection{
-				Codec: MessageCodecJSON,
+				Codec:          MessageCodecJSON,
+				UDPPacketCodec: selectUDPPacketCodec(clientHello.Capabilities.Message.UDPPacketCodecs),
 			},
 			Crypto: CryptoSelection{
 				Algorithm:    algorithm,
@@ -92,6 +93,15 @@ func ValidateServerHelloForClient(clientHello ClientHello, serverHello ServerHel
 	if serverHello.Selected.Message.Codec != MessageCodecJSON {
 		return fmt.Errorf("unsupported selected message codec: %s", serverHello.Selected.Message.Codec)
 	}
+	udpPacketCodec := serverHello.Selected.Message.UDPPacketCodec
+	if udpPacketCodec != "" {
+		if udpPacketCodec != UDPPacketCodecBinary {
+			return fmt.Errorf("unsupported selected UDP packet codec: %s", udpPacketCodec)
+		}
+		if !Supports(clientHello.Capabilities.Message.UDPPacketCodecs, udpPacketCodec) {
+			return fmt.Errorf("selected UDP packet codec was not advertised by client: %s", udpPacketCodec)
+		}
+	}
 	cryptoSelection := serverHello.Selected.Crypto
 	if !IsSupportedAEADAlgorithm(cryptoSelection.Algorithm) {
 		return fmt.Errorf("unknown selected crypto algorithm: %s", cryptoSelection.Algorithm)
@@ -103,6 +113,13 @@ func ValidateServerHelloForClient(clientHello ClientHello, serverHello ServerHel
 		return fmt.Errorf("invalid crypto server random length %d, want %d", len(cryptoSelection.ServerRandom), CryptoRandomSize)
 	}
 	return nil
+}
+
+func selectUDPPacketCodec(codecs []string) string {
+	if Supports(codecs, UDPPacketCodecBinary) {
+		return UDPPacketCodecBinary
+	}
+	return ""
 }
 
 func NewCryptoContext(algorithm string, clientHelloPayload, serverHelloPayload []byte) *CryptoContext {

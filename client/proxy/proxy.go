@@ -61,6 +61,7 @@ func NewProxy(
 	encryptionKey []byte,
 	msgTransporter transport.MessageTransporter,
 	vnetController *vnet.Controller,
+	udpPacketCodec string,
 ) (pxy Proxy) {
 	var limiter *rate.Limiter
 	limitBytes := pxyConf.GetBaseConfig().Transport.BandwidthLimit.Bytes()
@@ -77,6 +78,7 @@ func NewProxy(
 		vnetController: vnetController,
 		xl:             xlog.FromContextSafe(ctx),
 		ctx:            ctx,
+		udpPacketCodec: udpPacketCodec,
 	}
 
 	factory := proxyFactoryRegistry[reflect.TypeOf(pxyConf)]
@@ -98,9 +100,10 @@ type BaseProxy struct {
 	proxyPlugin        plugin.Plugin
 	inWorkConnCallback func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) /* continue */ bool
 
-	mu  sync.RWMutex
-	xl  *xlog.Logger
-	ctx context.Context
+	mu             sync.RWMutex
+	xl             *xlog.Logger
+	ctx            context.Context
+	udpPacketCodec string
 }
 
 func (pxy *BaseProxy) Run() error {

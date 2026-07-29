@@ -148,8 +148,38 @@ func TestNewServerHelloSelectsFirstSupportedAEADAlgorithm(t *testing.T) {
 	serverHello, err := NewServerHello(hello)
 	require.NoError(t, err)
 	require.Equal(t, MessageCodecJSON, serverHello.Selected.Message.Codec)
+	require.Equal(t, UDPPacketCodecBinary, serverHello.Selected.Message.UDPPacketCodec)
 	require.Equal(t, AEADAlgorithmXChaCha20Poly1305, serverHello.Selected.Crypto.Algorithm)
 	require.Len(t, serverHello.Selected.Crypto.ServerRandom, CryptoRandomSize)
+}
+
+func TestUDPPacketCodecNegotiationFallbackAndValidation(t *testing.T) {
+	hello := mustClientHello(t, BootstrapInfo{})
+	serverHello, err := NewServerHello(hello)
+	require.NoError(t, err)
+	require.Equal(t, UDPPacketCodecBinary, serverHello.Selected.Message.UDPPacketCodec)
+	require.NoError(t, ValidateServerHelloForClient(hello, serverHello))
+
+	legacyHello := hello
+	legacyHello.Capabilities.Message.UDPPacketCodecs = nil
+	legacyServerHello, err := NewServerHello(legacyHello)
+	require.NoError(t, err)
+	require.Empty(t, legacyServerHello.Selected.Message.UDPPacketCodec)
+	require.NoError(t, ValidateServerHelloForClient(legacyHello, legacyServerHello))
+
+	unknownOffer := hello
+	unknownOffer.Capabilities.Message.UDPPacketCodecs = []string{"unknown"}
+	unknownServerHello, err := NewServerHello(unknownOffer)
+	require.NoError(t, err)
+	require.Empty(t, unknownServerHello.Selected.Message.UDPPacketCodec)
+
+	rejected := serverHello
+	rejected.Selected.Message.UDPPacketCodec = "unknown"
+	require.ErrorContains(t, ValidateServerHelloForClient(hello, rejected), "unsupported selected UDP packet codec")
+
+	unadvertised := serverHello
+	unadvertised.Selected.Message.UDPPacketCodec = UDPPacketCodecBinary
+	require.ErrorContains(t, ValidateServerHelloForClient(legacyHello, unadvertised), "was not advertised")
 }
 
 func TestNewClientCryptoContextValidatesServerHello(t *testing.T) {
