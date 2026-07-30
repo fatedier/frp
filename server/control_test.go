@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"errors"
+	"math"
 	"net"
 	"os"
 	"sync"
@@ -50,6 +51,57 @@ func TestControlPendingReplacementFinishesWithoutStarting(t *testing.T) {
 	require.Equal(t, []string{"deadline", "close"}, oldConn.eventsSnapshot())
 	require.Equal(t, int64(0), metrics.newClients())
 	require.Equal(t, int64(0), metrics.closedClients())
+}
+
+func TestNewControlPoolCountBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		poolCount     int
+		maxPoolCount  int64
+		wantErr       string
+		wantPoolCount int
+		wantCapacity  int
+	}{
+		{name: "negative pool count below offset", poolCount: -11, maxPoolCount: 5, wantErr: "invalid pool count"},
+		{name: "negative pool count at offset", poolCount: -10, maxPoolCount: 5, wantErr: "invalid pool count"},
+		{name: "negative pool count", poolCount: -1, maxPoolCount: 5, wantErr: "invalid pool count"},
+		{name: "zero pool count", poolCount: 0, maxPoolCount: 5, wantPoolCount: 0, wantCapacity: 10},
+		{name: "pool count capped", poolCount: 10, maxPoolCount: 5, wantPoolCount: 5, wantCapacity: 15},
+		{name: "maximum int pool count capped", poolCount: math.MaxInt, maxPoolCount: 5, wantPoolCount: 5, wantCapacity: 15},
+		{name: "negative maximum", poolCount: 1, maxPoolCount: -1, wantErr: "invalid max pool count"},
+		{name: "maximum int64 with small client pool", poolCount: 1, maxPoolCount: math.MaxInt64, wantPoolCount: 1, wantCapacity: 11},
+		{name: "maximum int client and server overflow", poolCount: math.MaxInt, maxPoolCount: math.MaxInt64, wantErr: "cannot safely add"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			conn := newDeadlineReadConn()
+			msgConn := msg.NewConn(conn, msg.NewV1ReadWriter(conn))
+			cfg := &v1.ServerConfig{}
+			cfg.Transport.MaxPoolCount = tc.maxPoolCount
+
+			ctl, err := NewControl(context.Background(), &SessionContext{
+				RC:            &controller.ResourceController{},
+				PxyManager:    proxy.NewManager(),
+				PluginManager: plugin.NewManager(),
+				AuthVerifier:  auth.AlwaysPassVerifier,
+				Conn:          msgConn,
+				LoginMsg: &msg.Login{
+					RunID:     "pool-count-run",
+					PoolCount: tc.poolCount,
+				},
+				ServerCfg: cfg,
+			})
+			if tc.wantErr != "" {
+				require.Nil(t, ctl)
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tc.wantPoolCount, ctl.poolCount)
+			require.Equal(t, tc.wantCapacity, cap(ctl.workConnCh))
+			require.NoError(t, ctl.Close())
+		})
+	}
 }
 
 func TestControlRunningReplacementFinishesInWorker(t *testing.T) {

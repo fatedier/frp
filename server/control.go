@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"math"
 	"net"
 	"runtime/debug"
 	"sync"
@@ -44,6 +45,8 @@ import (
 type ControlID uint64
 
 var nextControlID atomic.Uint64
+
+const workConnPoolCapacityOffset = 10
 
 type controlEntry struct {
 	ctl *Control
@@ -431,10 +434,27 @@ type Control struct {
 }
 
 func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, error) {
-	poolCount := min(sessionCtx.LoginMsg.PoolCount, int(sessionCtx.ServerCfg.Transport.MaxPoolCount))
+	if sessionCtx.LoginMsg.PoolCount < 0 {
+		return nil, fmt.Errorf("invalid pool count %d, must be non-negative", sessionCtx.LoginMsg.PoolCount)
+	}
+	if sessionCtx.ServerCfg.Transport.MaxPoolCount < 0 {
+		return nil, fmt.Errorf(
+			"invalid max pool count %d, must be non-negative",
+			sessionCtx.ServerCfg.Transport.MaxPoolCount,
+		)
+	}
+	effectivePoolCount := min(int64(sessionCtx.LoginMsg.PoolCount), sessionCtx.ServerCfg.Transport.MaxPoolCount)
+	maxPoolCountForChannel := int64(math.MaxInt) - int64(workConnPoolCapacityOffset)
+	if effectivePoolCount > maxPoolCountForChannel {
+		return nil, fmt.Errorf(
+			"invalid effective pool count %d, cannot safely add %d for work connection pool capacity",
+			effectivePoolCount, workConnPoolCapacityOffset,
+		)
+	}
+	poolCount := int(effectivePoolCount)
 	ctl := &Control{
 		sessionCtx:    sessionCtx,
-		workConnCh:    make(chan *proxy.WorkConn, poolCount+10),
+		workConnCh:    make(chan *proxy.WorkConn, poolCount+workConnPoolCapacityOffset),
 		proxies:       make(map[string]proxy.Proxy),
 		poolCount:     poolCount,
 		portsUsedNum:  0,
