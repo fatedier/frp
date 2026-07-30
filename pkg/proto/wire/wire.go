@@ -36,6 +36,7 @@ const (
 	FrameTypeMessage     uint16 = 16
 
 	MessageCodecJSON           = "json"
+	UDPPacketCodecBinary       = "binary-v1"
 	DefaultMaxFramePayloadSize = 64 * 1024
 
 	MagicV2 = "FRP\x00\x02\r\n"
@@ -182,7 +183,8 @@ type ClientCapabilities struct {
 }
 
 type MessageCapabilities struct {
-	Codecs []string `json:"codecs,omitempty"`
+	Codecs          []string `json:"codecs,omitempty"`
+	UDPPacketCodecs []string `json:"udpPacketCodecs,omitempty"`
 }
 
 type CryptoCapabilities struct {
@@ -201,7 +203,8 @@ type ServerSelection struct {
 }
 
 type MessageSelection struct {
-	Codec string `json:"codec,omitempty"`
+	Codec          string `json:"codec,omitempty"`
+	UDPPacketCodec string `json:"udpPacketCodec,omitempty"`
 }
 
 type CryptoSelection struct {
@@ -214,7 +217,8 @@ func clientHelloWithCryptoRandom(bootstrap BootstrapInfo, clientRandom []byte) C
 		Bootstrap: bootstrap,
 		Capabilities: ClientCapabilities{
 			Message: MessageCapabilities{
-				Codecs: []string{MessageCodecJSON},
+				Codecs:          []string{MessageCodecJSON},
+				UDPPacketCodecs: []string{UDPPacketCodecBinary},
 			},
 			Crypto: CryptoCapabilities{
 				Algorithms:   PreferredAEADAlgorithms(),

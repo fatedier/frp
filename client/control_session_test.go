@@ -117,6 +117,7 @@ func TestControlSessionDialerDialV1(t *testing.T) {
 	defer sessionCtx.Connector.Close()
 
 	require.Equal(t, "run-v1", sessionCtx.RunID)
+	require.Empty(t, sessionCtx.UDPPacketCodec)
 	require.NotNil(t, sessionCtx.Conn)
 	require.NotNil(t, sessionCtx.Connector)
 	require.False(t, connector.closed.Load())
@@ -225,6 +226,7 @@ func TestControlSessionDialerDialV2(t *testing.T) {
 	defer sessionCtx.Connector.Close()
 
 	require.Equal(t, "run-v2", sessionCtx.RunID)
+	require.Equal(t, wire.UDPPacketCodecBinary, sessionCtx.UDPPacketCodec)
 	require.NotNil(t, sessionCtx.Conn)
 	require.NotNil(t, sessionCtx.Connector)
 	require.False(t, connector.closed.Load())

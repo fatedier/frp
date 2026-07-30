@@ -43,6 +43,7 @@ const (
 	V2TypeNatHoleResp        uint16 = 16
 	V2TypeNatHoleSid         uint16 = 17
 	V2TypeNatHoleReport      uint16 = 18
+	V2TypeUDPPacketBinary    uint16 = 19
 )
 
 var v2MsgTypeMap = map[uint16]any{

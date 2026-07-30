@@ -368,7 +368,8 @@ type SessionContext struct {
 	// server configuration
 	ServerCfg *v1.ServerConfig
 	// negotiated wire protocol for this client session
-	WireProtocol string
+	WireProtocol   string
+	UDPPacketCodec string
 }
 
 type controlState uint8
@@ -821,6 +822,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		ServerCfg:          ctl.sessionCtx.ServerCfg,
 		EncryptionKey:      ctl.sessionCtx.EncryptionKey,
 		WireProtocol:       ctl.sessionCtx.WireProtocol,
+		UDPPacketCodec:     ctl.sessionCtx.UDPPacketCodec,
 	})
 	if err != nil {
 		return remoteAddr, err

@@ -470,7 +470,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 				}
 			}
 			if err == nil {
-				ctl, err = svr.RegisterControl(controlConn, m, internal, acceptedConn.wireProtocol)
+				ctl, err = svr.RegisterControl(controlConn, m, internal, acceptedConn.wireProtocol, acceptedConn.udpPacketCodec)
 			}
 		}
 
@@ -509,7 +509,12 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 			return
 		}
 	case *msg.NewWorkConn:
-		if err := svr.RegisterWorkConn(acceptedConn.conn, m); err != nil {
+		if err := svr.RegisterWorkConn(
+			acceptedConn.conn,
+			m,
+			acceptedConn.wireProtocol,
+			acceptedConn.clientHelloPresent,
+		); err != nil {
 			_ = acceptedConn.conn.WriteMsg(&msg.StartWorkConn{
 				Error: util.GenerateResponseErrorString("invalid NewWorkConn", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
 			})
@@ -547,10 +552,12 @@ func (svr *Service) completeControlLogin(ctl *Control, writeSuccess func() error
 }
 
 type acceptedConnection struct {
-	conn          *msg.Conn
-	wireProtocol  string
-	cryptoContext *wire.CryptoContext
-	firstMsg      msg.Message
+	conn               *msg.Conn
+	wireProtocol       string
+	clientHelloPresent bool
+	udpPacketCodec     string
+	cryptoContext      *wire.CryptoContext
+	firstMsg           msg.Message
 }
 
 func (svr *Service) acceptConnection(ctx context.Context, conn net.Conn) (*acceptedConnection, error) {
@@ -618,6 +625,7 @@ func (ac *acceptedConnection) readFirstV2Msg(conn net.Conn, wireConn *wire.Conn)
 		return nil, fmt.Errorf("read v2 frame: %w", err)
 	}
 	if frame.Type == wire.FrameTypeClientHello {
+		ac.clientHelloPresent = true
 		if err := ac.handleClientHello(conn, wireConn, frame); err != nil {
 			return nil, err
 		}
@@ -666,6 +674,7 @@ func (ac *acceptedConnection) handleClientHello(conn net.Conn, wireConn *wire.Co
 		return fmt.Errorf("write ServerHello: %w", err)
 	}
 	ac.cryptoContext = cryptoContext
+	ac.udpPacketCodec = serverHello.Selected.Message.UDPPacketCodec
 	return nil
 }
 
@@ -759,7 +768,20 @@ func (svr *Service) RegisterControl(
 	loginMsg *msg.Login,
 	internal bool,
 	wireProtocol string,
+	udpPacketCodec string,
 ) (*Control, error) {
+	switch wireProtocol {
+	case wire.ProtocolV1:
+		if udpPacketCodec != "" {
+			return nil, fmt.Errorf("UDP packet codec %q requires wire protocol v2", udpPacketCodec)
+		}
+	case wire.ProtocolV2:
+		if udpPacketCodec != "" && udpPacketCodec != wire.UDPPacketCodecBinary {
+			return nil, fmt.Errorf("unsupported UDP packet codec selection: %s", udpPacketCodec)
+		}
+	default:
+		return nil, fmt.Errorf("unsupported wire protocol: %s", wireProtocol)
+	}
 	// If client's RunID is empty, it's a new client, we just create a new controller.
 	// Otherwise, we check if there is one controller has the same run id. If so, we release previous controller and start new one.
 	var err error
@@ -787,15 +809,16 @@ func (svr *Service) RegisterControl(
 	}
 
 	ctl, err := NewControl(ctx, &SessionContext{
-		RC:            svr.rc,
-		PxyManager:    svr.pxyManager,
-		PluginManager: svr.pluginManager,
-		AuthVerifier:  authVerifier,
-		EncryptionKey: svr.auth.EncryptionKey(),
-		Conn:          ctlConn,
-		LoginMsg:      loginMsg,
-		ServerCfg:     svr.cfg,
-		WireProtocol:  wireProtocol,
+		RC:             svr.rc,
+		PxyManager:     svr.pxyManager,
+		PluginManager:  svr.pluginManager,
+		AuthVerifier:   authVerifier,
+		EncryptionKey:  svr.auth.EncryptionKey(),
+		Conn:           ctlConn,
+		LoginMsg:       loginMsg,
+		ServerCfg:      svr.cfg,
+		WireProtocol:   wireProtocol,
+		UDPPacketCodec: udpPacketCodec,
 	})
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
@@ -820,12 +843,23 @@ func (svr *Service) RegisterControl(
 }
 
 // RegisterWorkConn register a new work connection to control and proxies need it.
-func (svr *Service) RegisterWorkConn(workConn *msg.Conn, newMsg *msg.NewWorkConn) error {
+func (svr *Service) RegisterWorkConn(
+	workConn *msg.Conn,
+	newMsg *msg.NewWorkConn,
+	workWireProtocol string,
+	workClientHelloPresent bool,
+) error {
+	if workClientHelloPresent {
+		return fmt.Errorf("ClientHello is not allowed on work connections")
+	}
 	xl := netpkg.NewLogFromConn(workConn)
 	ctl, exist := svr.ctlManager.GetByID(newMsg.RunID)
 	if !exist {
 		xl.Warnf("no client control found for run id [%s]", newMsg.RunID)
 		return fmt.Errorf("no client control found for run id [%s]", newMsg.RunID)
+	}
+	if workWireProtocol != ctl.sessionCtx.WireProtocol {
+		return fmt.Errorf("work connection wire protocol mismatch: got %s want %s", workWireProtocol, ctl.sessionCtx.WireProtocol)
 	}
 
 	// server plugin hook
