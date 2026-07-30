@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"errors"
+	"math"
 	"net"
 	"net/http"
 	"runtime"
@@ -627,6 +628,48 @@ func TestServiceRegisterControlRejectsInvalidCodecSelection(t *testing.T) {
 			ctl, err := svr.RegisterControl(msgConn, &msg.Login{}, true, tc.wireProtocol, tc.udpPacketCodec)
 			require.Nil(t, ctl)
 			require.ErrorContains(t, err, tc.errorSubstring)
+		})
+	}
+}
+
+func TestServiceRegisterControlPoolCountBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		poolCount int
+		wantErr   bool
+		wantPool  int
+	}{
+		{name: "less than channel offset", poolCount: -11, wantErr: true},
+		{name: "channel offset", poolCount: -10, wantErr: true},
+		{name: "negative", poolCount: -1, wantErr: true},
+		{name: "zero", poolCount: 0, wantPool: 0},
+		{name: "capped by server maximum", poolCount: 10, wantPool: 5},
+		{name: "maximum int capped", poolCount: math.MaxInt, wantPool: 5},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svr := newControlTestService(t)
+			svr.cfg.Transport.MaxPoolCount = 5
+			conn := newDeadlineReadConn()
+			msgConn := msg.NewConn(conn, msg.NewV1ReadWriter(conn))
+			const timestamp = int64(1)
+
+			ctl, err := svr.RegisterControl(msgConn, &msg.Login{
+				RunID:        "pool-count-run",
+				ClientID:     "client",
+				Timestamp:    timestamp,
+				PrivilegeKey: util.GetAuthKey("", timestamp),
+				PoolCount:    tc.poolCount,
+			}, false, wire.ProtocolV1, "")
+			if tc.wantErr {
+				require.Nil(t, ctl)
+				require.ErrorContains(t, err, "unexpected error when creating new controller")
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tc.wantPool, ctl.poolCount)
+			require.NoError(t, ctl.Close())
+			waitForControlDone(t, ctl)
 		})
 	}
 }
