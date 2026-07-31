@@ -110,12 +110,12 @@ var _ = ginkgo.Describe("[Feature: WireProtocol]", func() {
 			name: "default sudp visitor",
 		},
 		{
-			name:              "v2 sudp visitor",
+			name:              "v2 binary raw sudp visitor",
 			proxyWireConfig:   `transport.wireProtocol = "v2"`,
 			visitorWireConfig: `transport.wireProtocol = "v2"`,
 		},
 		{
-			name:              "mixed sudp proxy v1 visitor v2",
+			name:              "v1 JSON proxy -> v2 Binary visitor transcode",
 			proxyWireConfig:   `transport.wireProtocol = "v1"`,
 			visitorWireConfig: `transport.wireProtocol = "v2"`,
 			extraProxyConfig: `
@@ -128,7 +128,7 @@ var _ = ginkgo.Describe("[Feature: WireProtocol]", func() {
 			`,
 		},
 		{
-			name:              "mixed sudp proxy v2 visitor v1",
+			name:              "v2 Binary proxy -> v1 JSON visitor transcode",
 			proxyWireConfig:   `transport.wireProtocol = "v2"`,
 			visitorWireConfig: `transport.wireProtocol = "v1"`,
 		},

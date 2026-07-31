@@ -428,20 +428,24 @@ func TestServiceVisitorAdmissionSerializesReplacement(t *testing.T) {
 	}
 	t.Cleanup(resume)
 	type admissionResult struct {
-		admitted bool
-		user     string
-		err      error
+		admitted       bool
+		user           string
+		wireProtocol   string
+		udpPacketCodec string
+		err            error
 	}
 	admissionDone := make(chan admissionResult, 1)
 	go func() {
-		var admittedUser string
-		admitted, admitErr := svr.ctlManager.admitVisitorByRunID("shared-run", func(user string) error {
-			admittedUser = user
+		result := admissionResult{}
+		result.admitted, result.err = svr.ctlManager.admitVisitorByRunID("shared-run", func(user, wireProtocol, udpPacketCodec string) error {
+			result.user = user
+			result.wireProtocol = wireProtocol
+			result.udpPacketCodec = udpPacketCodec
 			close(admissionEntered)
 			<-resumeAdmission
 			return nil
 		})
-		admissionDone <- admissionResult{admitted: admitted, user: admittedUser, err: admitErr}
+		admissionDone <- result
 	}()
 	waitForSignal(t, admissionEntered, "visitor admission callback")
 	runMu := currentRunGateForTest(svr.ctlManager, "shared-run")
@@ -477,6 +481,8 @@ func TestServiceVisitorAdmissionSerializesReplacement(t *testing.T) {
 	require.NoError(t, admission.err)
 	require.True(t, admission.admitted)
 	require.Equal(t, "old-user", admission.user)
+	require.Equal(t, wire.ProtocolV1, admission.wireProtocol)
+	require.Empty(t, admission.udpPacketCodec)
 	replacement := waitForResult(t, replacementDone, "replacement")
 	require.NoError(t, replacement.err)
 	ctlB := replacement.ctl
@@ -760,6 +766,81 @@ func TestServiceVisitorRoutingExcludesPendingUser(t *testing.T) {
 
 	require.NoError(t, ctl.Close())
 	waitForControlDone(t, ctl)
+}
+
+func TestServiceVisitorRoutingCarriesControlPacketCodec(t *testing.T) {
+	svr := newControlTestService(t)
+	listener, err := svr.rc.VisitorManager.Listen("visitor", "secret", []string{"visitor-user"})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = listener.Close() })
+
+	controlConn := newDeadlineReadConn()
+	controlMsgConn := msg.NewConn(controlConn, msg.NewV2ReadWriter(controlConn))
+	ctl, err := svr.RegisterControl(controlMsgConn, &msg.Login{
+		RunID:    "visitor-binary-run",
+		User:     "visitor-user",
+		ClientID: "visitor-client",
+		ClientSpec: msg.ClientSpec{
+			AlwaysAuthPass: true,
+		},
+	}, true, wire.ProtocolV2, wire.UDPPacketCodecBinary)
+	require.NoError(t, err)
+
+	timestamp := time.Now().Unix()
+	visitorMsg := &msg.NewVisitorConn{
+		RunID:     "visitor-binary-run",
+		ProxyName: "visitor",
+		Timestamp: timestamp,
+		SignKey:   util.GetAuthKey("secret", timestamp),
+	}
+	require.NoError(t, svr.completeControlLogin(ctl, func() error { return nil }))
+	waitForSignal(t, controlConn.readStarted, "binary visitor control reader to start")
+
+	runningConn := newCountingCloseConn()
+	require.NoError(t, svr.RegisterVisitorConn(runningConn, visitorMsg, wire.ProtocolV2))
+	accepted, err := listener.Accept()
+	require.NoError(t, err)
+	metadata, ok := accepted.(interface {
+		WireProtocol() string
+		UDPPacketCodec() string
+	})
+	require.True(t, ok)
+	require.Equal(t, wire.ProtocolV2, metadata.WireProtocol())
+	require.Equal(t, wire.UDPPacketCodecBinary, metadata.UDPPacketCodec())
+	require.NoError(t, accepted.Close())
+	require.Equal(t, int64(1), runningConn.closeCount.Load())
+
+	mismatchConn := newCountingCloseConn()
+	err = svr.RegisterVisitorConn(mismatchConn, visitorMsg, wire.ProtocolV1)
+	require.ErrorContains(t, err, "visitor connection wire protocol mismatch")
+	require.NoError(t, mismatchConn.Close())
+	require.Equal(t, int64(1), mismatchConn.closeCount.Load())
+
+	require.NoError(t, ctl.Close())
+	waitForControlDone(t, ctl)
+}
+
+func TestServiceVisitorRoutingLegacyFallsBackToJSONPacketCodec(t *testing.T) {
+	svr := newControlTestService(t)
+	listener, err := svr.rc.VisitorManager.Listen("visitor", "secret", []string{""})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = listener.Close() })
+
+	timestamp := time.Now().Unix()
+	visitorMsg := &msg.NewVisitorConn{
+		ProxyName: "visitor",
+		Timestamp: timestamp,
+		SignKey:   util.GetAuthKey("secret", timestamp),
+	}
+	visitorConn := newCountingCloseConn()
+	require.NoError(t, svr.RegisterVisitorConn(visitorConn, visitorMsg, wire.ProtocolV2))
+	accepted, err := listener.Accept()
+	require.NoError(t, err)
+	metadata, ok := accepted.(interface{ UDPPacketCodec() string })
+	require.True(t, ok)
+	require.Empty(t, metadata.UDPPacketCodec())
+	require.NoError(t, accepted.Close())
+	require.Equal(t, int64(1), visitorConn.closeCount.Load())
 }
 
 func newControlTestService(t *testing.T) *Service {

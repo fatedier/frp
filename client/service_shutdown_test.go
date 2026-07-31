@@ -35,7 +35,7 @@ func newGracefulCloseTestService() *Service {
 		doneCh: make(chan struct{}),
 	}
 	ctl.pm = proxy.NewManager(ctx, common, nil, nil, nil, "")
-	ctl.vm = visitor.NewManager(ctx, "graceful-close-race", common, nil, nil, nil)
+	ctl.vm = visitor.NewManager(ctx, "graceful-close-race", common, nil, nil, nil, "")
 	return &Service{ctl: ctl, cancel: context.CancelCauseFunc(func(error) {})}
 }
 

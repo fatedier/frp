@@ -286,7 +286,7 @@ func (cm *ControlManager) GetByID(runID string) (ctl *Control, ok bool) {
 // admitVisitorByRunID commits a visitor admission against the current running
 // control while its run and lifecycle ownership are held. The callback must
 // only perform the in-memory, buffered visitor admission.
-func (cm *ControlManager) admitVisitorByRunID(runID string, admit func(user string) error) (bool, error) {
+func (cm *ControlManager) admitVisitorByRunID(runID string, admit func(user, wireProtocol, udpPacketCodec string) error) (bool, error) {
 	entry, ok := cm.lockCurrentRun(runID, false)
 	if !ok {
 		return false, nil
@@ -299,7 +299,7 @@ func (cm *ControlManager) admitVisitorByRunID(runID string, admit func(user stri
 	if ctl.state != controlStateRunning {
 		return false, nil
 	}
-	return true, admit(ctl.sessionCtx.LoginMsg.User)
+	return true, admit(ctl.sessionCtx.LoginMsg.User, ctl.sessionCtx.WireProtocol, ctl.sessionCtx.UDPPacketCodec)
 }
 
 // RegisterWorkConn transfers conn to ctl only if ctl is still the current

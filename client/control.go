@@ -103,7 +103,7 @@ func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, erro
 		sessionCtx.UDPPacketCodec,
 	)
 	ctl.vm = visitor.NewManager(ctl.ctx, sessionCtx.RunID, sessionCtx.Common,
-		ctl.connectServer, ctl.msgTransporter, sessionCtx.VnetController)
+		ctl.connectServer, ctl.msgTransporter, sessionCtx.VnetController, sessionCtx.UDPPacketCodec)
 	return ctl, nil
 }
 

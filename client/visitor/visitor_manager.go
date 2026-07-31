@@ -53,7 +53,12 @@ func NewManager(
 	connectServer func() (*msg.Conn, error),
 	msgTransporter transport.MessageTransporter,
 	vnetController *vnet.Controller,
+	udpPacketCodecs ...string,
 ) *Manager {
+	udpPacketCodec := ""
+	if len(udpPacketCodecs) > 0 {
+		udpPacketCodec = udpPacketCodecs[0]
+	}
 	m := &Manager{
 		clientCfg:     clientCfg,
 		cfgs:          make(map[string]v1.VisitorConfigurer),
@@ -68,6 +73,7 @@ func NewManager(
 		vnetController:  vnetController,
 		transferConnFn:  m.TransferConn,
 		runID:           runID,
+		udpPacketCodec:  udpPacketCodec,
 	}
 	return m
 }
@@ -205,6 +211,7 @@ type visitorHelperImpl struct {
 	vnetController  *vnet.Controller
 	transferConnFn  func(name string, conn net.Conn) error
 	runID           string
+	udpPacketCodec  string
 }
 
 func (v *visitorHelperImpl) ConnectServer() (*msg.Conn, error) {
@@ -225,4 +232,8 @@ func (v *visitorHelperImpl) VNetController() *vnet.Controller {
 
 func (v *visitorHelperImpl) RunID() string {
 	return v.runID
+}
+
+func (v *visitorHelperImpl) UDPPacketCodec() string {
+	return v.udpPacketCodec
 }

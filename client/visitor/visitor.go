@@ -50,6 +50,17 @@ type Helper interface {
 	RunID() string
 }
 
+type udpPacketCodecProvider interface {
+	UDPPacketCodec() string
+}
+
+func udpPacketCodecFromHelper(helper Helper) string {
+	if provider, ok := helper.(udpPacketCodecProvider); ok {
+		return provider.UDPPacketCodec()
+	}
+	return ""
+}
+
 // Visitor is used for forward traffics from local port tot remote service.
 type Visitor interface {
 	Run() error
