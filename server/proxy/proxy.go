@@ -328,16 +328,28 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 
 func (pxy *BaseProxy) joinUserConnection(local io.ReadWriteCloser, userConn net.Conn, proxyType string, xl *xlog.Logger) (int64, int64, []error) {
 	visitorWireProtocol := wireProtocolFromConn(userConn)
-	if proxyType == string(v1.ProxyTypeSUDP) && isMixedWireProtocol(pxy.wireProtocol, visitorWireProtocol) {
-		xl.Infof("bridge mixed SUDP payload codecs, proxy wireProtocol [%s], visitor wireProtocol [%s]",
-			normalizeWireProtocol(pxy.wireProtocol), normalizeWireProtocol(visitorWireProtocol))
-		return joinSUDPMessageBridge(local, userConn, pxy.wireProtocol, visitorWireProtocol, xl)
+	visitorUDPPacketCodec := udpPacketCodecFromConn(userConn)
+	if proxyType == string(v1.ProxyTypeSUDP) {
+		mixed, err := isMixedSUDPPacketEncoding(pxy.wireProtocol, pxy.udpPacketCodec, visitorWireProtocol, visitorUDPPacketCodec)
+		if err != nil {
+			return 0, 0, []error{err}
+		}
+		if mixed {
+			xl.Infof("bridge mixed SUDP payload codecs, proxy [%s/%s], visitor [%s/%s]",
+				normalizeWireProtocol(pxy.wireProtocol), pxy.udpPacketCodec,
+				normalizeWireProtocol(visitorWireProtocol), visitorUDPPacketCodec)
+			return joinSUDPMessageBridge(local, userConn, pxy.wireProtocol, pxy.udpPacketCodec, visitorWireProtocol, visitorUDPPacketCodec, xl)
+		}
 	}
 	return libio.Join(local, userConn)
 }
 
 type wireProtocolGetter interface {
 	WireProtocol() string
+}
+
+type udpPacketCodecGetter interface {
+	UDPPacketCodec() string
 }
 
 func wireProtocolFromConn(conn net.Conn) string {
@@ -347,8 +359,44 @@ func wireProtocolFromConn(conn net.Conn) string {
 	return ""
 }
 
+func udpPacketCodecFromConn(conn net.Conn) string {
+	if getter, ok := conn.(udpPacketCodecGetter); ok {
+		return getter.UDPPacketCodec()
+	}
+	return ""
+}
+
 func isMixedWireProtocol(left, right string) bool {
 	return normalizeWireProtocol(left) != normalizeWireProtocol(right)
+}
+
+func isMixedSUDPPacketEncoding(leftWire, leftCodec, rightWire, rightCodec string) (bool, error) {
+	leftCodec, err := normalizeUDPPacketCodec(leftWire, leftCodec)
+	if err != nil {
+		return false, fmt.Errorf("invalid left SUDP packet encoding: %w", err)
+	}
+	rightCodec, err = normalizeUDPPacketCodec(rightWire, rightCodec)
+	if err != nil {
+		return false, fmt.Errorf("invalid right SUDP packet encoding: %w", err)
+	}
+	return normalizeWireProtocol(leftWire) != normalizeWireProtocol(rightWire) || leftCodec != rightCodec, nil
+}
+
+func normalizeUDPPacketCodec(wireProtocol, codec string) (string, error) {
+	switch wireProtocol {
+	case "", wire.ProtocolV1:
+		if codec != "" {
+			return "", fmt.Errorf("UDP packet codec %q requires wire protocol v2", codec)
+		}
+		return "", nil
+	case wire.ProtocolV2:
+		if codec == "" || codec == wire.UDPPacketCodecBinary {
+			return codec, nil
+		}
+		return "", fmt.Errorf("unsupported UDP packet codec %q", codec)
+	default:
+		return "", fmt.Errorf("unsupported wire protocol %q", wireProtocol)
+	}
 }
 
 func normalizeWireProtocol(wireProtocol string) string {
@@ -362,13 +410,21 @@ func joinSUDPMessageBridge(
 	proxyConn io.ReadWriteCloser,
 	visitorConn io.ReadWriteCloser,
 	proxyWireProtocol string,
+	proxyUDPPacketCodec string,
 	visitorWireProtocol string,
+	visitorUDPPacketCodec string,
 	xl *xlog.Logger,
 ) (inCount int64, outCount int64, errs []error) {
 	// The mixed bridge decodes and re-encodes messages, so raw framed byte counts
 	// are not available. Count UDP payload bytes and ignore heartbeat traffic.
-	proxyRW := msg.NewReadWriter(proxyConn, proxyWireProtocol)
-	visitorRW := msg.NewReadWriter(visitorConn, visitorWireProtocol)
+	proxyRW, err := msg.NewUDPPacketReadWriter(proxyConn, proxyWireProtocol, proxyUDPPacketCodec)
+	if err != nil {
+		return 0, 0, []error{err}
+	}
+	visitorRW, err := msg.NewUDPPacketReadWriter(visitorConn, visitorWireProtocol, visitorUDPPacketCodec)
+	if err != nil {
+		return 0, 0, []error{err}
+	}
 
 	var (
 		once       sync.Once
