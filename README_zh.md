@@ -15,6 +15,16 @@ frp 是一个完全开源的项目，我们的开发工作完全依靠赞助者�
 
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
+<p align="center">
+  <a href="https://github.com/beclab/Olares" target="_blank">
+    <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_olares.jpeg">
+	<br>
+	<b>The sovereign cloud that puts you in control</b>
+	<br>
+	<sub>An open source, self-hosted alternative to public clouds, built for data ownership and privacy</sub>
+  </a>
+</p>
+
 <div align="center">
 
 ## Recall.ai - API for meeting recordings
@@ -30,16 +40,6 @@ an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and 
     <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_jetbrains.jpg">
 	<br>
 	<b>The complete IDE crafted for professional Go developers</b>
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/beclab/Olares" target="_blank">
-    <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_olares.jpeg">
-	<br>
-	<b>The sovereign cloud that puts you in control</b>
-	<br>
-	<sub>An open source, self-hosted alternative to public clouds, built for data ownership and privacy</sub>
   </a>
 </p>
 <!--gold sponsors end-->
