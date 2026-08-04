@@ -33,7 +33,6 @@ import (
 	"github.com/fatedier/frp/pkg/config/source"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
-	"github.com/fatedier/frp/pkg/policy/featuregate"
 	"github.com/fatedier/frp/pkg/policy/security"
 	"github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/version"
@@ -129,12 +128,6 @@ func runClient(cfgFilePath string, unsafeFeatures *security.UnsafeFeatures) erro
 	if result.IsLegacyFormat {
 		fmt.Printf("WARNING: ini format is deprecated and the support will be removed in the future, " +
 			"please use yaml/json/toml format instead!\n")
-	}
-
-	if len(result.Common.FeatureGates) > 0 {
-		if err := featuregate.SetFromMap(result.Common.FeatureGates); err != nil {
-			return err
-		}
 	}
 
 	return runClientWithAggregator(result, unsafeFeatures, cfgFilePath)

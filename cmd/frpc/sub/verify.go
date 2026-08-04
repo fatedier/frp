@@ -29,6 +29,18 @@ func init() {
 	rootCmd.AddCommand(verifyCmd)
 }
 
+func verifyClientConfig(
+	configFile string,
+	strict bool,
+	unsafeFeatures *security.UnsafeFeatures,
+) (validation.Warning, error) {
+	cliCfg, proxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(configFile, strict)
+	if err != nil {
+		return nil, err
+	}
+	return validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs, unsafeFeatures)
+}
+
 var verifyCmd = &cobra.Command{
 	Use:   "verify",
 	Short: "Verify that the configures is valid",
@@ -38,13 +50,8 @@ var verifyCmd = &cobra.Command{
 			return nil
 		}
 
-		cliCfg, proxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(cfgFile, strictConfigMode)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
 		unsafeFeatures := security.NewUnsafeFeatures(allowUnsafe)
-		warning, err := validation.ValidateAllClientConfig(cliCfg, proxyCfgs, visitorCfgs, unsafeFeatures)
+		warning, err := verifyClientConfig(cfgFile, strictConfigMode, unsafeFeatures)
 		if warning != nil {
 			fmt.Printf("WARNING: %v\n", warning)
 		}
