@@ -33,6 +33,7 @@ import (
 	"github.com/fatedier/frp/pkg/config"
 	"github.com/fatedier/frp/pkg/config/source"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/policy/security"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
@@ -510,6 +511,13 @@ func (svr *Service) reloadConfigFromSourcesLocked() error {
 	proxies, visitors = config.FilterClientConfigurers(reloadCommon, proxies, visitors)
 	proxies = config.CompleteProxyConfigurers(proxies)
 	visitors = config.CompleteVisitorConfigurers(visitors)
+	requirements := validation.GetClientConfigRequirements(reloadCommon, proxies, visitors)
+	if svr.vnetController == nil && requirements.VirtualNet {
+		return errors.New(
+			"VirtualNet-dependent configuration requires a VirtualNet runtime enabled at startup; " +
+				"restart frpc after configuring featureGates.VirtualNet and virtualNet.address",
+		)
+	}
 
 	// Atomically replace the entire configuration
 	if err := svr.UpdateAllConfigurer(proxies, visitors); err != nil {
