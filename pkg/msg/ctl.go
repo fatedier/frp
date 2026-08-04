@@ -22,13 +22,25 @@ import (
 
 type Message = jsonMsg.Message
 
-var msgCtl *jsonMsg.MsgCtl
+var (
+	msgCtl    *jsonMsg.MsgCtl
+	udpMsgCtl *jsonMsg.MsgCtl
+)
 
 func init() {
-	msgCtl = jsonMsg.NewMsgCtl()
-	for typeByte, msg := range msgTypeMap {
-		msgCtl.RegisterMsg(typeByte, msg)
+	msgCtl = newMsgCtl(0)
+	udpMsgCtl = newMsgCtl(maxV1UDPPacketMessageSize)
+}
+
+func newMsgCtl(maxMessageLength int64) *jsonMsg.MsgCtl {
+	ctl := jsonMsg.NewMsgCtl()
+	if maxMessageLength > 0 {
+		ctl.SetMaxMsgLength(maxMessageLength)
 	}
+	for typeByte, msg := range msgTypeMap {
+		ctl.RegisterMsg(typeByte, msg)
+	}
+	return ctl
 }
 
 func ReadMsg(c io.Reader) (msg Message, err error) {

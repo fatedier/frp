@@ -26,6 +26,10 @@ import (
 
 const MaxUDPPayloadSize = 65507
 
+// V1 JSON encoding expands binary payloads with base64. Keep the larger bound
+// local to UDP work connections instead of relaxing the control-plane limit.
+const maxV1UDPPacketMessageSize = 128 * 1024
+
 const (
 	udpPacketFlagLocalAddr  byte = 1 << 0
 	udpPacketFlagRemoteAddr byte = 1 << 1
@@ -322,7 +326,7 @@ func NewUDPPacketReadWriter(rw io.ReadWriter, wireProtocol, udpPacketCodec strin
 		if udpPacketCodec != "" {
 			return nil, fmt.Errorf("UDP packet codec %q requires wire protocol v2", udpPacketCodec)
 		}
-		return NewV1ReadWriter(rw), nil
+		return newV1ReadWriter(rw, udpMsgCtl), nil
 	case wire.ProtocolV2:
 		switch udpPacketCodec {
 		case "":

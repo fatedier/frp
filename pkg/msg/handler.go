@@ -20,6 +20,8 @@ import (
 	"net"
 	"reflect"
 
+	jsonMsg "github.com/fatedier/golib/msg/json"
+
 	"github.com/fatedier/frp/pkg/proto/wire"
 )
 
@@ -67,11 +69,16 @@ func (c *Conn) WithContext(ctx context.Context) {
 }
 
 type V1ReadWriter struct {
-	rw io.ReadWriter
+	rw     io.ReadWriter
+	msgCtl *jsonMsg.MsgCtl
 }
 
 func NewV1ReadWriter(rw io.ReadWriter) ReadWriter {
-	return &V1ReadWriter{rw: rw}
+	return newV1ReadWriter(rw, msgCtl)
+}
+
+func newV1ReadWriter(rw io.ReadWriter, ctl *jsonMsg.MsgCtl) ReadWriter {
+	return &V1ReadWriter{rw: rw, msgCtl: ctl}
 }
 
 // NewReadWriter wraps rw with the message codec for the selected wire protocol.
@@ -88,15 +95,15 @@ func NewReadWriter(rw io.ReadWriter, wireProtocol string) ReadWriter {
 }
 
 func (rw *V1ReadWriter) ReadMsg() (Message, error) {
-	return ReadMsg(rw.rw)
+	return rw.msgCtl.ReadMsg(rw.rw)
 }
 
 func (rw *V1ReadWriter) ReadMsgInto(m Message) error {
-	return ReadMsgInto(rw.rw, m)
+	return rw.msgCtl.ReadMsgInto(rw.rw, m)
 }
 
 func (rw *V1ReadWriter) WriteMsg(m Message) error {
-	return WriteMsg(rw.rw, m)
+	return rw.msgCtl.WriteMsg(rw.rw, m)
 }
 
 func AsyncHandler(f func(Message)) func(Message) {

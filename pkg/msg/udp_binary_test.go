@@ -201,6 +201,47 @@ func TestNewUDPPacketReadWriterDefaultProtocolUsesV1(t *testing.T) {
 	require.Equal(t, TypeUDPPacket, stream.Bytes()[0])
 }
 
+func TestNewUDPPacketReadWriterV1SupportsLargePayload(t *testing.T) {
+	for _, tc := range []struct {
+		size     int
+		readInto bool
+	}{
+		{size: 10 * 1024},
+		{size: MaxUDPPayloadSize, readInto: true},
+	} {
+		t.Run(strconv.Itoa(tc.size), func(t *testing.T) {
+			in := &UDPPacket{
+				Content:    bytes.Repeat([]byte{0xa5}, tc.size),
+				RemoteAddr: &net.UDPAddr{IP: net.ParseIP("203.0.113.9"), Port: 54321},
+			}
+			var stream bytes.Buffer
+			writer, err := NewUDPPacketReadWriter(&stream, wire.ProtocolV1, "")
+			require.NoError(t, err)
+			require.NoError(t, writer.WriteMsg(in))
+
+			reader, err := NewUDPPacketReadWriter(&stream, wire.ProtocolV1, "")
+			require.NoError(t, err)
+			var out *UDPPacket
+			if tc.readInto {
+				out = &UDPPacket{}
+				require.NoError(t, reader.ReadMsgInto(out))
+			} else {
+				message, err := reader.ReadMsg()
+				require.NoError(t, err)
+				out = message.(*UDPPacket)
+			}
+			require.Equal(t, in.Content, out.Content)
+			require.Equal(t, in.RemoteAddr.String(), out.RemoteAddr.String())
+		})
+	}
+
+	var controlStream bytes.Buffer
+	controlRW := NewV1ReadWriter(&controlStream)
+	require.NoError(t, controlRW.WriteMsg(&UDPPacket{Content: bytes.Repeat([]byte{0xa5}, 10*1024)}))
+	_, err := controlRW.ReadMsg()
+	require.ErrorContains(t, err, "message length exceed the limit")
+}
+
 func TestNewUDPPacketReadWriterRejectsInvalidSelection(t *testing.T) {
 	for _, tc := range []struct {
 		name           string
