@@ -1,4 +1,4 @@
-// Copyright 2019 fatedier, fatedier@gmail.com
+// Copyright 2026 The frp Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,43 +15,23 @@
 package limit
 
 import (
-	"context"
-	"io"
+	"fmt"
 
 	"golang.org/x/time/rate"
 )
 
-type Reader struct {
-	r       io.Reader
-	limiter *rate.Limiter
+// NewBandwidthLimiter creates a limiter whose rate preserves the configured
+// byte limit while keeping the burst representable as an int on all targets.
+func NewBandwidthLimiter(bytes int64) *rate.Limiter {
+	if bytes <= 0 {
+		return nil
+	}
+
+	maxInt := int64(^uint(0) >> 1)
+	burst := min(bytes, maxInt)
+	return rate.NewLimiter(rate.Limit(float64(bytes)), int(burst))
 }
 
-func NewReader(r io.Reader, limiter *rate.Limiter) *Reader {
-	return &Reader{
-		r:       r,
-		limiter: limiter,
-	}
-}
-
-func (r *Reader) Read(p []byte) (n int, err error) {
-	b := r.limiter.Burst()
-	if b <= 0 {
-		if len(p) == 0 {
-			return 0, nil
-		}
-		return 0, invalidBurstError(b)
-	}
-	if b < len(p) {
-		p = p[:b]
-	}
-	n, err = r.r.Read(p)
-	if err != nil {
-		return
-	}
-
-	err = r.limiter.WaitN(context.Background(), n)
-	if err != nil {
-		return
-	}
-	return
+func invalidBurstError(burst int) error {
+	return fmt.Errorf("invalid limiter burst: %d", burst)
 }
