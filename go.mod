@@ -13,7 +13,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.36.3
 	github.com/pelletier/go-toml/v2 v2.2.0
-	github.com/pires/go-proxyproto v0.7.0
+	github.com/pires/go-proxyproto v0.15.0
 	github.com/prometheus/client_golang v1.19.1
 	github.com/quic-go/quic-go v0.60.0
 	github.com/rodaine/table v1.2.0
