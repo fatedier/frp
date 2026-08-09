@@ -16,7 +16,11 @@ package ssh
 
 import (
 	"encoding/binary"
+	"io"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	cryptossh "golang.org/x/crypto/ssh"
@@ -67,5 +71,45 @@ func TestParseExecPayloadRejectsMalformedPayloads(t *testing.T) {
 			require.False(t, ok)
 			require.Empty(t, got)
 		})
+	}
+}
+
+type trackingChannel struct {
+	active     atomic.Int32
+	concurrent atomic.Bool
+}
+
+func (c *trackingChannel) Read([]byte) (int, error) { return 0, io.EOF }
+
+func (c *trackingChannel) Write(p []byte) (int, error) {
+	if c.active.Add(1) != 1 {
+		c.concurrent.Store(true)
+	}
+	time.Sleep(time.Millisecond)
+	c.active.Add(-1)
+	return len(p), nil
+}
+
+func (c *trackingChannel) Close() error                                   { return nil }
+func (c *trackingChannel) CloseWrite() error                              { return nil }
+func (c *trackingChannel) SendRequest(string, bool, []byte) (bool, error) { return false, nil }
+func (c *trackingChannel) Stderr() io.ReadWriter                          { return nil }
+
+func TestWriteToClientSerializesChannelWrites(t *testing.T) {
+	channel := &trackingChannel{}
+	s := &TunnelServer{firstChannel: channel}
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			<-start
+			s.writeToClient("message")
+		})
+	}
+	close(start)
+	wg.Wait()
+
+	if channel.concurrent.Load() {
+		t.Fatal("channel writes were concurrent")
 	}
 }
