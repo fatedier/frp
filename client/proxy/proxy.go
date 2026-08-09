@@ -66,7 +66,7 @@ func NewProxy(
 	var limiter *rate.Limiter
 	limitBytes := pxyConf.GetBaseConfig().Transport.BandwidthLimit.Bytes()
 	if limitBytes > 0 && pxyConf.GetBaseConfig().Transport.BandwidthLimitMode == types.BandwidthLimitModeClient {
-		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
+		limiter = limit.NewBandwidthLimiter(limitBytes)
 	}
 
 	baseProxy := BaseProxy{
