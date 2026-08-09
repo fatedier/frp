@@ -174,6 +174,26 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	xl.Tracef("handle tcp work connection, useEncryption: %t, useCompression: %t",
 		baseCfg.Transport.UseEncryption, baseCfg.Transport.UseCompression)
 
+	var srcAddr, dstAddr *net.TCPAddr
+	if m.SrcAddr != "" && m.SrcPort != 0 {
+		if m.DstAddr == "" {
+			m.DstAddr = "127.0.0.1"
+		}
+		var err error
+		srcAddr, err = net.ResolveTCPAddr("tcp", net.JoinHostPort(m.SrcAddr, strconv.Itoa(int(m.SrcPort))))
+		if err != nil {
+			xl.Warnf("resolve source address [%s] error: %v", m.SrcAddr, err)
+			_ = workConn.Close()
+			return
+		}
+		dstAddr, err = net.ResolveTCPAddr("tcp", net.JoinHostPort(m.DstAddr, strconv.Itoa(int(m.DstPort))))
+		if err != nil {
+			xl.Warnf("resolve destination address [%s] error: %v", m.DstAddr, err)
+			_ = workConn.Close()
+			return
+		}
+	}
+
 	remote, recycleFn, err := pxy.wrapWorkConn(workConn, encKey)
 	if err != nil {
 		xl.Errorf("wrap work connection: %v", err)
@@ -183,11 +203,6 @@ func (pxy *BaseProxy) HandleTCPWorkConnection(workConn net.Conn, m *msg.StartWor
 	// check if we need to send proxy protocol info
 	var connInfo plugin.ConnectionInfo
 	if m.SrcAddr != "" && m.SrcPort != 0 {
-		if m.DstAddr == "" {
-			m.DstAddr = "127.0.0.1"
-		}
-		srcAddr, _ := net.ResolveTCPAddr("tcp", net.JoinHostPort(m.SrcAddr, strconv.Itoa(int(m.SrcPort))))
-		dstAddr, _ := net.ResolveTCPAddr("tcp", net.JoinHostPort(m.DstAddr, strconv.Itoa(int(m.DstPort))))
 		connInfo.SrcAddr = srcAddr
 		connInfo.DstAddr = dstAddr
 	}
