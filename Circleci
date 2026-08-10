@@ -1,0 +1,4 @@
+brew install circleci
+circleci auth login
+circleci auth signup
+circleci run get
