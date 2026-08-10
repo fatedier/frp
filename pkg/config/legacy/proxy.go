@@ -93,16 +93,16 @@ func NewProxyConfFromIni(prefix, name string, section *ini.Section) (ProxyConf, 
 	return conf, nil
 }
 
-// LocalSvrConf configures what location the client will to, or what
+// LocalSvrConf configures what location the client will forward to, or what
 // plugin will be used.
 type LocalSvrConf struct {
-	// LocalIP specifies the IP address or host name to to.
+	// LocalIP specifies the IP address or host name of the backend.
 	LocalIP string `ini:"local_ip" json:"local_ip"`
-	// LocalPort specifies the port to to.
+	// LocalPort specifies the port of the backend.
 	LocalPort int `ini:"local_port" json:"local_port"`
 
-	// Plugin specifies what plugin should be used for ng. If this value
-	// is set, the LocalIp and LocalPort values will be ignored. By default,
+	// Plugin specifies what plugin should be used for handling connections. If this value
+	// is set, the LocalIP and LocalPort values will be ignored. By default,
 	// this value is "".
 	Plugin string `ini:"plugin" json:"plugin"`
 	// PluginParams specify parameters to be passed to the plugin, if one is
