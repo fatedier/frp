@@ -1,0 +1,4 @@
+brew install CircleCI-Public/circleci/chunk
+chunk init
+chunk auth set circleci
+/chunk-sidecar
