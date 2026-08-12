@@ -35,6 +35,7 @@ import (
 
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
 	modelmetrics "github.com/fatedier/frp/pkg/metrics"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
@@ -790,6 +791,9 @@ func (svr *Service) RegisterControl(
 		if err != nil {
 			return nil, err
 		}
+	}
+	if err := validation.ValidateRunID(loginMsg.RunID); err != nil {
+		return nil, fmt.Errorf("invalid run id: %w", err)
 	}
 
 	ctx := netpkg.NewContextFromConn(ctlConn)
