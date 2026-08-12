@@ -529,7 +529,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 			})
 			conn.Close()
 		} else {
-			xl.Infof("get a new visitor connection from [%s] for proxy [%s]", conn.RemoteAddr().String(), m.ProxyName)
+			xl.Infof("get a new visitor user connection from [%s] for proxy [%s]", conn.RemoteAddr().String(), m.ProxyName)
 			_ = acceptedConn.conn.WriteMsg(&msg.NewVisitorConnResp{
 				ProxyName: m.ProxyName,
 				Error:     "",
