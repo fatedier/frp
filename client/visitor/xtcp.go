@@ -153,7 +153,7 @@ func (sv *XTCPVisitor) handleConn(userConn net.Conn) {
 		}
 	}()
 
-	xl.Debugf("get a new xtcp user connection")
+	xl.Infof("get a new xtcp user connection from [%s]", userConn.RemoteAddr().String())
 
 	// Open a tunnel connection to the server. If there is already a successful hole-punching connection,
 	// it will be reused. Otherwise, it will block and wait for a successful hole-punching connection until timeout.

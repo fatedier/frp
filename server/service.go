@@ -522,13 +522,14 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 		}
 	case *msg.NewVisitorConn:
 		if err = svr.RegisterVisitorConn(conn, m, acceptedConn.wireProtocol); err != nil {
-			xl.Warnf("register visitor conn error: %v", err)
+			xl.Warnf("register visitor conn from [%s] for proxy [%s] error: %v", conn.RemoteAddr().String(), m.ProxyName, err)
 			_ = acceptedConn.conn.WriteMsg(&msg.NewVisitorConnResp{
 				ProxyName: m.ProxyName,
 				Error:     util.GenerateResponseErrorString("register visitor conn error", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
 			})
 			conn.Close()
 		} else {
+			xl.Infof("get a new visitor connection from [%s] for proxy [%s]", conn.RemoteAddr().String(), m.ProxyName)
 			_ = acceptedConn.conn.WriteMsg(&msg.NewVisitorConnResp{
 				ProxyName: m.ProxyName,
 				Error:     "",

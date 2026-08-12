@@ -90,6 +90,10 @@ func (sv *SUDPVisitor) dispatcher() {
 			return
 		}
 
+		if firstPacket.RemoteAddr != nil {
+			xl.Infof("get a new sudp user connection from [%s]", firstPacket.RemoteAddr.String())
+		}
+
 		visitorConn, recycleFn, err = sv.getNewVisitorConn()
 		if err != nil {
 			xl.Warnf("newVisitorConn to frps error: %v, try to reconnect", err)
