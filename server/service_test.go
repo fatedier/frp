@@ -17,10 +17,12 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"net"
 	"net/http"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -31,6 +33,7 @@ import (
 
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/proto/wire"
@@ -634,6 +637,22 @@ func TestServiceRegisterControlRejectsInvalidCodecSelection(t *testing.T) {
 			ctl, err := svr.RegisterControl(msgConn, &msg.Login{}, true, tc.wireProtocol, tc.udpPacketCodec)
 			require.Nil(t, ctl)
 			require.ErrorContains(t, err, tc.errorSubstring)
+		})
+	}
+}
+
+func TestServiceRegisterControlRejectsInvalidRunID(t *testing.T) {
+	for _, runID := range []string{
+		"run\nforged",
+		strings.Repeat("a", validation.MaxRunIDLength+1),
+	} {
+		t.Run(fmt.Sprintf("run_id_%d", len(runID)), func(t *testing.T) {
+			svr := newControlTestService(t)
+			conn := newDeadlineReadConn()
+			msgConn := msg.NewConn(conn, msg.NewV1ReadWriter(conn))
+			ctl, err := svr.RegisterControl(msgConn, &msg.Login{RunID: runID}, true, wire.ProtocolV1, "")
+			require.Nil(t, ctl)
+			require.ErrorContains(t, err, "invalid run id")
 		})
 	}
 }
