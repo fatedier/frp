@@ -48,6 +48,11 @@ type VirtualNetPlugin struct {
 	cancel context.CancelFunc
 }
 
+const (
+	virtualNetReconnectBaseDelay = 60 * time.Second
+	virtualNetReconnectMaxDelay  = 300 * time.Second
+)
+
 func NewVirtualNetPlugin(pluginCtx PluginContext, options v1.VisitorPluginOptions) (Plugin, error) {
 	opts := options.(*v1.VirtualNetVisitorPluginOptions)
 
@@ -152,8 +157,7 @@ func (p *VirtualNetPlugin) run() {
 					p.pluginCtx.Name, p.consecutiveErrors, closeErr)
 
 				// Exponential backoff: 60s, 120s, 240s, 300s (capped)
-				baseDelay := 60 * time.Second
-				reconnectDelay = min(baseDelay*time.Duration(1<<uint(p.consecutiveErrors-1)), 300*time.Second)
+				reconnectDelay = virtualNetReconnectDelay(p.consecutiveErrors)
 			} else {
 				// Reset consecutive errors on successful connection
 				if p.consecutiveErrors > 0 {
@@ -182,6 +186,18 @@ func (p *VirtualNetPlugin) run() {
 	}
 }
 
+// virtualNetReconnectDelay returns a bounded reconnect delay without allowing
+// the exponential shift to overflow for large consecutive error counts.
+func virtualNetReconnectDelay(consecutiveErrors int) time.Duration {
+	if consecutiveErrors <= 1 {
+		return virtualNetReconnectBaseDelay
+	}
+	if consecutiveErrors >= 4 {
+		return virtualNetReconnectMaxDelay
+	}
+	return virtualNetReconnectBaseDelay * time.Duration(1<<uint(consecutiveErrors-1))
+}
+
 // cleanupControllerConn closes the current controllerConn (if it exists) under lock.
 func (p *VirtualNetPlugin) cleanupControllerConn(xl *xlog.Logger) {
 	p.mu.Lock()
@@ -202,9 +218,12 @@ func (p *VirtualNetPlugin) Close() error {
 	// Signal the run loop goroutine to stop.
 	p.cancel()
 
-	// Unregister the route from the controller.
-	if p.pluginCtx.VnetController != nil {
-		p.pluginCtx.VnetController.UnregisterClientRoute(p.pluginCtx.Name)
+	// Unregister the route only if it is still owned by this plugin instance.
+	p.mu.Lock()
+	controllerConn := p.controllerConn
+	p.mu.Unlock()
+	if p.pluginCtx.VnetController != nil && controllerConn != nil &&
+		p.pluginCtx.VnetController.UnregisterClientRoute(p.pluginCtx.Name, controllerConn) {
 		xl.Infof("unregistered client route for visitor [%s]", p.pluginCtx.Name)
 	}
 
