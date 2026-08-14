@@ -611,8 +611,8 @@ func (ctl *Control) GetWorkConn() (workConn *proxy.WorkConn, err error) {
 		}
 		xl.Debugf("get work connection from pool")
 
-    // When we get a work connection from pool, replace it with a new one.
-    _ = ctl.msgDispatcher.Send(&msg.ReqWorkConn{})
+		// When we get a work connection from pool, replace it with a new one.
+		_ = ctl.msgDispatcher.Send(&msg.ReqWorkConn{})
 
 	default:
 		// no work connections available in the poll, send message to frpc to get more
