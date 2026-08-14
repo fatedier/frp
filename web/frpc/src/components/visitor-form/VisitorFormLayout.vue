@@ -4,6 +4,11 @@
       <VisitorBaseSection v-model="form" :readonly="readonly" :editing="editing" />
     </ConfigSection>
     <VisitorConnectionSection v-model="form" :readonly="readonly" />
+    <VisitorPluginSection
+      v-if="form.type === 'stcp' || form.type === 'xtcp'"
+      v-model="form"
+      :readonly="readonly"
+    />
     <VisitorTransportSection v-model="form" :readonly="readonly" />
     <VisitorXtcpSection v-if="form.type === 'xtcp'" v-model="form" :readonly="readonly" />
   </div>
@@ -15,6 +20,7 @@ import type { VisitorFormData } from '../../types'
 import ConfigSection from '../ConfigSection.vue'
 import VisitorBaseSection from './VisitorBaseSection.vue'
 import VisitorConnectionSection from './VisitorConnectionSection.vue'
+import VisitorPluginSection from './VisitorPluginSection.vue'
 import VisitorTransportSection from './VisitorTransportSection.vue'
 import VisitorXtcpSection from './VisitorXtcpSection.vue'
 

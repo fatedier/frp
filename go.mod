@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
 	github.com/coreos/go-oidc/v3 v3.18.0
-	github.com/fatedier/golib v0.8.1
+	github.com/fatedier/golib v0.8.2
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.0
@@ -13,7 +13,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.36.3
 	github.com/pelletier/go-toml/v2 v2.2.0
-	github.com/pires/go-proxyproto v0.7.0
+	github.com/pires/go-proxyproto v0.15.0
 	github.com/prometheus/client_golang v1.19.1
 	github.com/quic-go/quic-go v0.60.0
 	github.com/rodaine/table v1.2.0

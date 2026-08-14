@@ -12,7 +12,8 @@
       <ConfigField label="Bind Address" type="text" v-model="form.bindAddr"
         placeholder="127.0.0.1" :readonly="readonly" />
       <ConfigField label="Bind Port" type="number" v-model="form.bindPort"
-        :min="bindPortMin" :max="65535" prop="bindPort" :readonly="readonly" />
+        :min="bindPortMin" :max="65535" prop="bindPort" :readonly="readonly"
+        :tip="bindPortTip" />
     </div>
   </ConfigSection>
 </template>
@@ -36,6 +37,9 @@ const form = computed({
 })
 
 const bindPortMin = computed(() => (form.value.type === 'sudp' ? 1 : undefined))
+const bindPortTip = computed(() => form.value.type === 'sudp'
+  ? ''
+  : 'Use -1 to skip the local listener when connections come from another visitor or plugin.')
 </script>
 
 <style scoped lang="scss">

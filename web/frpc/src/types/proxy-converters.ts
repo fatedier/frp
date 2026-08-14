@@ -190,6 +190,16 @@ export function formToStoreVisitor(form: VisitorFormData): VisitorDefinition {
     block.bindPort = form.bindPort
   }
 
+  if (
+    form.pluginType === 'virtual_net' &&
+    (form.type === 'stcp' || form.type === 'xtcp')
+  ) {
+    block.plugin = {
+      type: 'virtual_net',
+      destinationIP: form.pluginDestinationIP.trim(),
+    }
+  }
+
   if (form.type === 'xtcp') {
     if (form.protocol && form.protocol !== 'quic') {
       block.protocol = form.protocol
@@ -447,6 +457,15 @@ export function storeVisitorToForm(
   form.serverName = c.serverName || ''
   form.bindAddr = c.bindAddr || '127.0.0.1'
   form.bindPort = c.bindPort
+
+  // Visitor plugin (only supported by stcp/xtcp; sudp runtime never uses it)
+  if (
+    c.plugin?.type === 'virtual_net' &&
+    (form.type === 'stcp' || form.type === 'xtcp')
+  ) {
+    form.pluginType = 'virtual_net'
+    form.pluginDestinationIP = c.plugin.destinationIP || ''
+  }
 
   // XTCP specific
   form.protocol = c.protocol || 'quic'

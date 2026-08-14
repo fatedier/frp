@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"math"
 	"net"
 	"runtime/debug"
 	"sync"
@@ -44,6 +45,8 @@ import (
 type ControlID uint64
 
 var nextControlID atomic.Uint64
+
+const workConnPoolCapacityOffset = 10
 
 type controlEntry struct {
 	ctl *Control
@@ -283,7 +286,7 @@ func (cm *ControlManager) GetByID(runID string) (ctl *Control, ok bool) {
 // admitVisitorByRunID commits a visitor admission against the current running
 // control while its run and lifecycle ownership are held. The callback must
 // only perform the in-memory, buffered visitor admission.
-func (cm *ControlManager) admitVisitorByRunID(runID string, admit func(user string) error) (bool, error) {
+func (cm *ControlManager) admitVisitorByRunID(runID string, admit func(user, wireProtocol, udpPacketCodec string) error) (bool, error) {
 	entry, ok := cm.lockCurrentRun(runID, false)
 	if !ok {
 		return false, nil
@@ -296,7 +299,7 @@ func (cm *ControlManager) admitVisitorByRunID(runID string, admit func(user stri
 	if ctl.state != controlStateRunning {
 		return false, nil
 	}
-	return true, admit(ctl.sessionCtx.LoginMsg.User)
+	return true, admit(ctl.sessionCtx.LoginMsg.User, ctl.sessionCtx.WireProtocol, ctl.sessionCtx.UDPPacketCodec)
 }
 
 // RegisterWorkConn transfers conn to ctl only if ctl is still the current
@@ -368,7 +371,8 @@ type SessionContext struct {
 	// server configuration
 	ServerCfg *v1.ServerConfig
 	// negotiated wire protocol for this client session
-	WireProtocol string
+	WireProtocol   string
+	UDPPacketCodec string
 }
 
 type controlState uint8
@@ -430,10 +434,27 @@ type Control struct {
 }
 
 func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, error) {
-	poolCount := min(sessionCtx.LoginMsg.PoolCount, int(sessionCtx.ServerCfg.Transport.MaxPoolCount))
+	if sessionCtx.LoginMsg.PoolCount < 0 {
+		return nil, fmt.Errorf("invalid pool count %d, must be non-negative", sessionCtx.LoginMsg.PoolCount)
+	}
+	if sessionCtx.ServerCfg.Transport.MaxPoolCount < 0 {
+		return nil, fmt.Errorf(
+			"invalid max pool count %d, must be non-negative",
+			sessionCtx.ServerCfg.Transport.MaxPoolCount,
+		)
+	}
+	effectivePoolCount := min(int64(sessionCtx.LoginMsg.PoolCount), sessionCtx.ServerCfg.Transport.MaxPoolCount)
+	maxPoolCountForChannel := int64(math.MaxInt) - int64(workConnPoolCapacityOffset)
+	if effectivePoolCount > maxPoolCountForChannel {
+		return nil, fmt.Errorf(
+			"invalid effective pool count %d, cannot safely add %d for work connection pool capacity",
+			effectivePoolCount, workConnPoolCapacityOffset,
+		)
+	}
+	poolCount := int(effectivePoolCount)
 	ctl := &Control{
 		sessionCtx:    sessionCtx,
-		workConnCh:    make(chan *proxy.WorkConn, poolCount+10),
+		workConnCh:    make(chan *proxy.WorkConn, poolCount+workConnPoolCapacityOffset),
 		proxies:       make(map[string]proxy.Proxy),
 		poolCount:     poolCount,
 		portsUsedNum:  0,
@@ -821,6 +842,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		ServerCfg:          ctl.sessionCtx.ServerCfg,
 		EncryptionKey:      ctl.sessionCtx.EncryptionKey,
 		WireProtocol:       ctl.sessionCtx.WireProtocol,
+		UDPPacketCodec:     ctl.sessionCtx.UDPPacketCodec,
 	})
 	if err != nil {
 		return remoteAddr, err

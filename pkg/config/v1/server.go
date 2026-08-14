@@ -167,7 +167,7 @@ type ServerTransportConfig struct {
 	// If negative, keep-alive probes are disabled.
 	TCPKeepAlive int64 `json:"tcpKeepalive,omitempty"`
 	// MaxPoolCount specifies the maximum pool size for each proxy. By default,
-	// this value is 5.
+	// this value is 5. Negative values are invalid.
 	MaxPoolCount int64 `json:"maxPoolCount,omitempty"`
 	// HeartBeatTimeout specifies the maximum time to wait for a heartbeat
 	// before terminating the connection. It is not recommended to change this

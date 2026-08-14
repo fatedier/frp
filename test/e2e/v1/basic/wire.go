@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 
@@ -109,12 +110,12 @@ var _ = ginkgo.Describe("[Feature: WireProtocol]", func() {
 			name: "default sudp visitor",
 		},
 		{
-			name:              "v2 sudp visitor",
+			name:              "v2 binary raw sudp visitor",
 			proxyWireConfig:   `transport.wireProtocol = "v2"`,
 			visitorWireConfig: `transport.wireProtocol = "v2"`,
 		},
 		{
-			name:              "mixed sudp proxy v1 visitor v2",
+			name:              "v1 JSON proxy -> v2 Binary visitor transcode",
 			proxyWireConfig:   `transport.wireProtocol = "v1"`,
 			visitorWireConfig: `transport.wireProtocol = "v2"`,
 			extraProxyConfig: `
@@ -127,7 +128,7 @@ var _ = ginkgo.Describe("[Feature: WireProtocol]", func() {
 			`,
 		},
 		{
-			name:              "mixed sudp proxy v2 visitor v1",
+			name:              "v2 Binary proxy -> v1 JSON visitor transcode",
 			proxyWireConfig:   `transport.wireProtocol = "v2"`,
 			visitorWireConfig: `transport.wireProtocol = "v1"`,
 		},
@@ -202,6 +203,87 @@ var _ = ginkgo.Describe("[Feature: WireProtocol]", func() {
 		expectClientWireProtocol(webPort, "wire-v1", "v1")
 		expectClientWireProtocol(webPort, "wire-v2", "v2")
 	})
+})
+
+var _ = ginkgo.Describe("[Feature: BinaryUDPPacket]", func() {
+	f := framework.NewDefaultFramework()
+
+	for _, tc := range []struct {
+		name           string
+		protocol       string
+		extraServer    string
+		extraTransport string
+	}{
+		{name: "tcp mux on", protocol: "tcp", extraTransport: "transport.tcpMux = true"},
+		{name: "tcp mux off", protocol: "tcp", extraServer: "transport.tcpMux = false", extraTransport: "transport.tcpMux = false"},
+		{name: "kcp", protocol: "kcp"},
+		{name: "quic stream", protocol: "quic"},
+		{name: "websocket", protocol: "websocket"},
+	} {
+		ginkgo.It(tc.name, func() {
+			runClientServerTest(f, &generalTestConfigures{
+				server: renderBindPortConfig(tc.protocol) + "\n" + tc.extraServer,
+				client: fmt.Sprintf(`
+				transport.wireProtocol = "v2"
+				transport.protocol = %q
+				%s
+				`, tc.protocol, tc.extraTransport),
+			})
+		})
+	}
+
+	ginkgo.It("wss", func() {
+		wssPort := f.AllocPort()
+		runClientServerTest(f, &generalTestConfigures{
+			clientPrefix: fmt.Sprintf(`
+			serverAddr = "127.0.0.1"
+			serverPort = %d
+			loginFailExit = false
+			transport.protocol = "wss"
+			transport.wireProtocol = "v2"
+			log.level = "trace"
+			`, wssPort),
+			client2: fmt.Sprintf(`
+			[[proxies]]
+			name = "wss2ws"
+			type = "tcp"
+			remotePort = %d
+			[proxies.plugin]
+			type = "https2http"
+			localAddr = "127.0.0.1:{{ .%s }}"
+			`, wssPort, consts.PortServerName),
+			testDelay: 10 * time.Second,
+		})
+	})
+
+	for _, tc := range []struct {
+		name      string
+		transport string
+	}{
+		{name: "plain"},
+		{name: "aes-cfb", transport: "transport.useEncryption = true"},
+		{name: "snappy", transport: "transport.useCompression = true"},
+		{name: "snappy and aes-cfb", transport: "transport.useEncryption = true\ntransport.useCompression = true"},
+		{name: "limiter", transport: "transport.bandwidthLimit = \"1MB\""},
+	} {
+		ginkgo.It(tc.name, func() {
+			serverConf := consts.DefaultServerConfig
+			udpPortName := port.GenName("BinaryUDPPacket")
+			clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+			transport.wireProtocol = "v2"
+
+			[[proxies]]
+			name = "udp"
+			type = "udp"
+			localPort = {{ .%s }}
+			remotePort = {{ .%s }}
+			%s
+			`, framework.UDPEchoServerPort, udpPortName, tc.transport)
+
+			f.RunProcesses(serverConf, []string{clientConf})
+			framework.NewRequestExpect(f).Protocol("udp").PortName(udpPortName).Ensure()
+		})
+	}
 })
 
 type wireClientInfo struct {

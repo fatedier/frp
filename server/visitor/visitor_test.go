@@ -25,7 +25,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
-func TestManagerNewConnCarriesWireProtocol(t *testing.T) {
+func TestManagerNewConnCarriesWireProtocolAndUDPPacketCodec(t *testing.T) {
 	vm := NewManager()
 	listener, err := vm.Listen("sudp", "secret", []string{"*"})
 	require.NoError(t, err)
@@ -47,6 +47,7 @@ func TestManagerNewConnCarriesWireProtocol(t *testing.T) {
 			false,
 			"user",
 			wire.ProtocolV2,
+			wire.UDPPacketCodecBinary,
 		)
 	}()
 
@@ -54,8 +55,12 @@ func TestManagerNewConnCarriesWireProtocol(t *testing.T) {
 	require.NoError(t, err)
 	defer acceptedConn.Close()
 
-	getter, ok := acceptedConn.(interface{ WireProtocol() string })
+	metadata, ok := acceptedConn.(interface {
+		WireProtocol() string
+		UDPPacketCodec() string
+	})
 	require.True(t, ok)
-	require.Equal(t, wire.ProtocolV2, getter.WireProtocol())
+	require.Equal(t, wire.ProtocolV2, metadata.WireProtocol())
+	require.Equal(t, wire.UDPPacketCodecBinary, metadata.UDPPacketCodec())
 	require.NoError(t, <-errCh)
 }

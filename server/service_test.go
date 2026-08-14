@@ -17,9 +17,12 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -30,6 +33,7 @@ import (
 
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/proto/wire"
@@ -76,6 +80,70 @@ func TestWriteWithDeadlineTimesOutAndClearsDeadline(t *testing.T) {
 		require.NoError(t, err)
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for write after deadline reset")
+	}
+}
+
+func TestServiceAcceptConnectionTracksClientHelloPresence(t *testing.T) {
+	for _, tc := range []struct {
+		name               string
+		clientHelloPresent bool
+		offeredCodecs      []string
+		expectedCodec      string
+	}{
+		{
+			name: "absent Hello",
+		},
+		{
+			name:               "present Hello with JSON fallback",
+			clientHelloPresent: true,
+		},
+		{
+			name:               "present Hello with binary codec",
+			clientHelloPresent: true,
+			offeredCodecs:      []string{wire.UDPPacketCodecBinary},
+			expectedCodec:      wire.UDPPacketCodecBinary,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			serverConn, clientConn := net.Pipe()
+			defer serverConn.Close()
+			defer clientConn.Close()
+
+			clientErrCh := make(chan error, 1)
+			go func() {
+				if err := wire.WriteMagic(clientConn); err != nil {
+					clientErrCh <- err
+					return
+				}
+				wireConn := wire.NewConn(clientConn)
+				if tc.clientHelloPresent {
+					hello, err := wire.NewClientHello(wire.BootstrapInfo{})
+					if err != nil {
+						clientErrCh <- err
+						return
+					}
+					hello.Capabilities.Message.UDPPacketCodecs = tc.offeredCodecs
+					if err := wireConn.WriteJSONFrame(wire.FrameTypeClientHello, hello); err != nil {
+						clientErrCh <- err
+						return
+					}
+					var serverHello wire.ServerHello
+					if err := wireConn.ReadJSONFrame(wire.FrameTypeServerHello, &serverHello); err != nil {
+						clientErrCh <- err
+						return
+					}
+				}
+				clientErrCh <- msg.NewV2ReadWriterWithConn(wireConn).WriteMsg(&msg.NewWorkConn{RunID: "shared-run"})
+			}()
+
+			acceptedConn, err := (&Service{}).acceptConnection(t.Context(), serverConn)
+			require.NoError(t, err)
+			require.NoError(t, <-clientErrCh)
+			require.Equal(t, tc.clientHelloPresent, acceptedConn.clientHelloPresent)
+			require.Equal(t, tc.expectedCodec, acceptedConn.udpPacketCodec)
+			require.IsType(t, &msg.NewWorkConn{}, acceptedConn.firstMsg)
+			require.NoError(t, acceptedConn.conn.Close())
+		})
 	}
 }
 
@@ -363,20 +431,24 @@ func TestServiceVisitorAdmissionSerializesReplacement(t *testing.T) {
 	}
 	t.Cleanup(resume)
 	type admissionResult struct {
-		admitted bool
-		user     string
-		err      error
+		admitted       bool
+		user           string
+		wireProtocol   string
+		udpPacketCodec string
+		err            error
 	}
 	admissionDone := make(chan admissionResult, 1)
 	go func() {
-		var admittedUser string
-		admitted, admitErr := svr.ctlManager.admitVisitorByRunID("shared-run", func(user string) error {
-			admittedUser = user
+		result := admissionResult{}
+		result.admitted, result.err = svr.ctlManager.admitVisitorByRunID("shared-run", func(user, wireProtocol, udpPacketCodec string) error {
+			result.user = user
+			result.wireProtocol = wireProtocol
+			result.udpPacketCodec = udpPacketCodec
 			close(admissionEntered)
 			<-resumeAdmission
 			return nil
 		})
-		admissionDone <- admissionResult{admitted: admitted, user: admittedUser, err: admitErr}
+		admissionDone <- result
 	}()
 	waitForSignal(t, admissionEntered, "visitor admission callback")
 	runMu := currentRunGateForTest(svr.ctlManager, "shared-run")
@@ -412,6 +484,8 @@ func TestServiceVisitorAdmissionSerializesReplacement(t *testing.T) {
 	require.NoError(t, admission.err)
 	require.True(t, admission.admitted)
 	require.Equal(t, "old-user", admission.user)
+	require.Equal(t, wire.ProtocolV1, admission.wireProtocol)
+	require.Empty(t, admission.udpPacketCodec)
 	replacement := waitForResult(t, replacementDone, "replacement")
 	require.NoError(t, replacement.err)
 	ctlB := replacement.ctl
@@ -428,7 +502,7 @@ func TestServiceWorkConnRoutingRequiresCurrentRunningControl(t *testing.T) {
 
 	pendingConn := newCountingCloseConn()
 	pendingMsgConn := msg.NewConn(pendingConn, msg.NewV1ReadWriter(pendingConn))
-	err = registerWorkConnAsCaller(svr, pendingMsgConn, &msg.NewWorkConn{RunID: "shared-run"})
+	err = registerWorkConnAsCaller(svr, pendingMsgConn, &msg.NewWorkConn{RunID: "shared-run"}, wire.ProtocolV1, false)
 	require.Error(t, err)
 	require.Equal(t, int64(1), pendingConn.closeCount.Load())
 	require.Len(t, ctl.workConnCh, 0)
@@ -442,12 +516,187 @@ func TestServiceWorkConnRoutingRequiresCurrentRunningControl(t *testing.T) {
 
 	runningConn := newCountingCloseConn()
 	runningMsgConn := msg.NewConn(runningConn, msg.NewV1ReadWriter(runningConn))
-	require.NoError(t, svr.RegisterWorkConn(runningMsgConn, &msg.NewWorkConn{RunID: "shared-run"}))
+	require.NoError(t, svr.RegisterWorkConn(runningMsgConn, &msg.NewWorkConn{RunID: "shared-run"}, wire.ProtocolV1, false))
 	require.Len(t, ctl.workConnCh, 1)
 
 	require.NoError(t, ctl.Close())
 	waitForControlDone(t, ctl)
 	require.Equal(t, int64(1), runningConn.closeCount.Load())
+}
+
+func TestServiceWorkConnRoutingRejectsWireProtocolMismatch(t *testing.T) {
+	svr := newControlTestService(t)
+	ctl, controlConn, err := registerLifecycleTestControl(svr)
+	require.NoError(t, err)
+	require.NoError(t, svr.completeControlLogin(ctl, func() error { return nil }))
+	waitForSignal(t, controlConn.readStarted, "control reader to start")
+
+	workConn := newCountingCloseConn()
+	workMsgConn := msg.NewConn(workConn, msg.NewV2ReadWriter(workConn))
+	err = svr.RegisterWorkConn(workMsgConn, &msg.NewWorkConn{RunID: "shared-run"}, wire.ProtocolV2, false)
+	require.ErrorContains(t, err, "wire protocol mismatch")
+	require.Len(t, ctl.workConnCh, 0)
+	_ = workMsgConn.Close()
+	require.NoError(t, ctl.Close())
+}
+
+func TestServiceWorkConnRoutingClientHelloPolicy(t *testing.T) {
+	for _, tc := range []struct {
+		name                   string
+		controlUDPPacketCodec  string
+		workClientHelloPresent bool
+		errorSubstring         string
+	}{
+		{
+			name: "JSON control allows work connection without Hello",
+		},
+		{
+			name:                  "binary control allows work connection without Hello",
+			controlUDPPacketCodec: wire.UDPPacketCodecBinary,
+		},
+		{
+			name:                   "JSON control rejects work connection with Hello",
+			workClientHelloPresent: true,
+			errorSubstring:         "ClientHello is not allowed",
+		},
+		{
+			name:                   "binary control rejects work connection with Hello",
+			controlUDPPacketCodec:  wire.UDPPacketCodecBinary,
+			workClientHelloPresent: true,
+			errorSubstring:         "ClientHello is not allowed",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svr := newControlTestService(t)
+			controlConn := newDeadlineReadConn()
+			controlMsgConn := msg.NewConn(controlConn, msg.NewV2ReadWriter(controlConn))
+			ctl, err := svr.RegisterControl(controlMsgConn, &msg.Login{
+				RunID:    "shared-run",
+				ClientID: "client",
+				ClientSpec: msg.ClientSpec{
+					AlwaysAuthPass: true,
+				},
+			}, true, wire.ProtocolV2, tc.controlUDPPacketCodec)
+			require.NoError(t, err)
+			require.NoError(t, svr.completeControlLogin(ctl, func() error { return nil }))
+			waitForSignal(t, controlConn.readStarted, "control reader to start")
+
+			workConn := newCountingCloseConn()
+			workMsgConn := msg.NewConn(workConn, msg.NewV2ReadWriter(workConn))
+			err = svr.RegisterWorkConn(
+				workMsgConn,
+				&msg.NewWorkConn{RunID: "shared-run"},
+				wire.ProtocolV2,
+				tc.workClientHelloPresent,
+			)
+			if tc.errorSubstring != "" {
+				require.ErrorContains(t, err, tc.errorSubstring)
+				require.Len(t, ctl.workConnCh, 0)
+				require.NoError(t, workMsgConn.Close())
+			} else {
+				require.NoError(t, err)
+				require.Len(t, ctl.workConnCh, 1)
+			}
+
+			require.NoError(t, ctl.Close())
+			waitForControlDone(t, ctl)
+			require.Equal(t, int64(1), workConn.closeCount.Load())
+		})
+	}
+}
+
+func TestServiceRegisterControlRejectsInvalidCodecSelection(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		wireProtocol   string
+		udpPacketCodec string
+		errorSubstring string
+	}{
+		{
+			name:           "binary codec over v1",
+			wireProtocol:   wire.ProtocolV1,
+			udpPacketCodec: wire.UDPPacketCodecBinary,
+			errorSubstring: "requires wire protocol v2",
+		},
+		{
+			name:           "unknown v2 codec",
+			wireProtocol:   wire.ProtocolV2,
+			udpPacketCodec: "unknown",
+			errorSubstring: "unsupported UDP packet codec",
+		},
+		{
+			name:           "unknown wire protocol",
+			wireProtocol:   "unknown",
+			errorSubstring: "unsupported wire protocol",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svr := newControlTestService(t)
+			conn := newDeadlineReadConn()
+			msgConn := msg.NewConn(conn, msg.NewV1ReadWriter(conn))
+			ctl, err := svr.RegisterControl(msgConn, &msg.Login{}, true, tc.wireProtocol, tc.udpPacketCodec)
+			require.Nil(t, ctl)
+			require.ErrorContains(t, err, tc.errorSubstring)
+		})
+	}
+}
+
+func TestServiceRegisterControlRejectsInvalidRunID(t *testing.T) {
+	for _, runID := range []string{
+		"run\nforged",
+		strings.Repeat("a", validation.MaxRunIDLength+1),
+	} {
+		t.Run(fmt.Sprintf("run_id_%d", len(runID)), func(t *testing.T) {
+			svr := newControlTestService(t)
+			conn := newDeadlineReadConn()
+			msgConn := msg.NewConn(conn, msg.NewV1ReadWriter(conn))
+			ctl, err := svr.RegisterControl(msgConn, &msg.Login{RunID: runID}, true, wire.ProtocolV1, "")
+			require.Nil(t, ctl)
+			require.ErrorContains(t, err, "invalid run id")
+		})
+	}
+}
+
+func TestServiceRegisterControlPoolCountBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		poolCount int
+		wantErr   bool
+		wantPool  int
+	}{
+		{name: "less than channel offset", poolCount: -11, wantErr: true},
+		{name: "channel offset", poolCount: -10, wantErr: true},
+		{name: "negative", poolCount: -1, wantErr: true},
+		{name: "zero", poolCount: 0, wantPool: 0},
+		{name: "capped by server maximum", poolCount: 10, wantPool: 5},
+		{name: "maximum int capped", poolCount: math.MaxInt, wantPool: 5},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svr := newControlTestService(t)
+			svr.cfg.Transport.MaxPoolCount = 5
+			conn := newDeadlineReadConn()
+			msgConn := msg.NewConn(conn, msg.NewV1ReadWriter(conn))
+			const timestamp = int64(1)
+
+			ctl, err := svr.RegisterControl(msgConn, &msg.Login{
+				RunID:        "pool-count-run",
+				ClientID:     "client",
+				Timestamp:    timestamp,
+				PrivilegeKey: util.GetAuthKey("", timestamp),
+				PoolCount:    tc.poolCount,
+			}, false, wire.ProtocolV1, "")
+			if tc.wantErr {
+				require.Nil(t, ctl)
+				require.ErrorContains(t, err, "unexpected error when creating new controller")
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tc.wantPool, ctl.poolCount)
+			require.NoError(t, ctl.Close())
+			waitForControlDone(t, ctl)
+		})
+	}
 }
 
 func TestServiceWorkConnRoutingRejectsLostGeneration(t *testing.T) {
@@ -465,7 +714,7 @@ func TestServiceWorkConnRoutingRejectsLostGeneration(t *testing.T) {
 			workMsgConn := msg.NewConn(workConn, msg.NewV1ReadWriter(workConn))
 			routeDone := make(chan error, 1)
 			go func() {
-				routeDone <- registerWorkConnAsCaller(svr, workMsgConn, &msg.NewWorkConn{RunID: "shared-run"})
+				routeDone <- registerWorkConnAsCaller(svr, workMsgConn, &msg.NewWorkConn{RunID: "shared-run"}, wire.ProtocolV1, false)
 			}()
 			waitForSignal(t, barrier.entered, "work connection plugin barrier")
 
@@ -509,7 +758,7 @@ func TestServiceVisitorRoutingExcludesPendingUser(t *testing.T) {
 		ClientSpec: msg.ClientSpec{
 			AlwaysAuthPass: true,
 		},
-	}, true, wire.ProtocolV1)
+	}, true, wire.ProtocolV1, "")
 	require.NoError(t, err)
 
 	timestamp := time.Now().Unix()
@@ -536,6 +785,81 @@ func TestServiceVisitorRoutingExcludesPendingUser(t *testing.T) {
 
 	require.NoError(t, ctl.Close())
 	waitForControlDone(t, ctl)
+}
+
+func TestServiceVisitorRoutingCarriesControlPacketCodec(t *testing.T) {
+	svr := newControlTestService(t)
+	listener, err := svr.rc.VisitorManager.Listen("visitor", "secret", []string{"visitor-user"})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = listener.Close() })
+
+	controlConn := newDeadlineReadConn()
+	controlMsgConn := msg.NewConn(controlConn, msg.NewV2ReadWriter(controlConn))
+	ctl, err := svr.RegisterControl(controlMsgConn, &msg.Login{
+		RunID:    "visitor-binary-run",
+		User:     "visitor-user",
+		ClientID: "visitor-client",
+		ClientSpec: msg.ClientSpec{
+			AlwaysAuthPass: true,
+		},
+	}, true, wire.ProtocolV2, wire.UDPPacketCodecBinary)
+	require.NoError(t, err)
+
+	timestamp := time.Now().Unix()
+	visitorMsg := &msg.NewVisitorConn{
+		RunID:     "visitor-binary-run",
+		ProxyName: "visitor",
+		Timestamp: timestamp,
+		SignKey:   util.GetAuthKey("secret", timestamp),
+	}
+	require.NoError(t, svr.completeControlLogin(ctl, func() error { return nil }))
+	waitForSignal(t, controlConn.readStarted, "binary visitor control reader to start")
+
+	runningConn := newCountingCloseConn()
+	require.NoError(t, svr.RegisterVisitorConn(runningConn, visitorMsg, wire.ProtocolV2))
+	accepted, err := listener.Accept()
+	require.NoError(t, err)
+	metadata, ok := accepted.(interface {
+		WireProtocol() string
+		UDPPacketCodec() string
+	})
+	require.True(t, ok)
+	require.Equal(t, wire.ProtocolV2, metadata.WireProtocol())
+	require.Equal(t, wire.UDPPacketCodecBinary, metadata.UDPPacketCodec())
+	require.NoError(t, accepted.Close())
+	require.Equal(t, int64(1), runningConn.closeCount.Load())
+
+	mismatchConn := newCountingCloseConn()
+	err = svr.RegisterVisitorConn(mismatchConn, visitorMsg, wire.ProtocolV1)
+	require.ErrorContains(t, err, "visitor connection wire protocol mismatch")
+	require.NoError(t, mismatchConn.Close())
+	require.Equal(t, int64(1), mismatchConn.closeCount.Load())
+
+	require.NoError(t, ctl.Close())
+	waitForControlDone(t, ctl)
+}
+
+func TestServiceVisitorRoutingLegacyFallsBackToJSONPacketCodec(t *testing.T) {
+	svr := newControlTestService(t)
+	listener, err := svr.rc.VisitorManager.Listen("visitor", "secret", []string{""})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = listener.Close() })
+
+	timestamp := time.Now().Unix()
+	visitorMsg := &msg.NewVisitorConn{
+		ProxyName: "visitor",
+		Timestamp: timestamp,
+		SignKey:   util.GetAuthKey("secret", timestamp),
+	}
+	visitorConn := newCountingCloseConn()
+	require.NoError(t, svr.RegisterVisitorConn(visitorConn, visitorMsg, wire.ProtocolV2))
+	accepted, err := listener.Accept()
+	require.NoError(t, err)
+	metadata, ok := accepted.(interface{ UDPPacketCodec() string })
+	require.True(t, ok)
+	require.Empty(t, metadata.UDPPacketCodec())
+	require.NoError(t, accepted.Close())
+	require.Equal(t, int64(1), visitorConn.closeCount.Load())
 }
 
 func newControlTestService(t *testing.T) *Service {
@@ -567,7 +891,7 @@ func registerLifecycleTestControl(svr *Service) (*Control, *deadlineReadConn, er
 		ClientSpec: msg.ClientSpec{
 			AlwaysAuthPass: true,
 		},
-	}, true, wire.ProtocolV1)
+	}, true, wire.ProtocolV1, "")
 	return ctl, conn, err
 }
 
@@ -584,8 +908,14 @@ func waitForDifferentCurrentControl(t *testing.T, manager *ControlManager, runID
 	return nil
 }
 
-func registerWorkConnAsCaller(svr *Service, workConn *msg.Conn, newMsg *msg.NewWorkConn) error {
-	err := svr.RegisterWorkConn(workConn, newMsg)
+func registerWorkConnAsCaller(
+	svr *Service,
+	workConn *msg.Conn,
+	newMsg *msg.NewWorkConn,
+	wireProtocol string,
+	clientHelloPresent bool,
+) error {
+	err := svr.RegisterWorkConn(workConn, newMsg, wireProtocol, clientHelloPresent)
 	if err != nil {
 		_ = workConn.Close()
 	}

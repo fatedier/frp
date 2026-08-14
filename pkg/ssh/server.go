@@ -70,6 +70,7 @@ type TunnelServer struct {
 	sshConn        *ssh.ServerConn
 	sc             *ssh.ServerConfig
 	firstChannel   ssh.Channel
+	firstChannelMu sync.Mutex
 
 	vc                 *virtual.Client
 	peerServerListener *netpkg.InternalListener
@@ -191,6 +192,8 @@ func (s *TunnelServer) Run() error {
 }
 
 func (s *TunnelServer) writeToClient(data string) {
+	s.firstChannelMu.Lock()
+	defer s.firstChannelMu.Unlock()
 	if s.firstChannel == nil {
 		return
 	}
@@ -304,9 +307,11 @@ func (s *TunnelServer) handleNewChannel(channel ssh.NewChannel, extraPayloadCh c
 	if err != nil {
 		return
 	}
+	s.firstChannelMu.Lock()
 	if s.firstChannel == nil {
 		s.firstChannel = ch
 	}
+	s.firstChannelMu.Unlock()
 	go s.keepAlive(ch)
 
 	for req := range reqs {

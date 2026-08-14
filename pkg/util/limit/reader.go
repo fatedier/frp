@@ -35,6 +35,12 @@ func NewReader(r io.Reader, limiter *rate.Limiter) *Reader {
 
 func (r *Reader) Read(p []byte) (n int, err error) {
 	b := r.limiter.Burst()
+	if b <= 0 {
+		if len(p) == 0 {
+			return 0, nil
+		}
+		return 0, invalidBurstError(b)
+	}
 	if b < len(p) {
 		p = p[:b]
 	}
