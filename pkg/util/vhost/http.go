@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"time"
 
 	libio "github.com/fatedier/golib/io"
@@ -144,7 +145,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 // Register register the route config to reverse proxy
 // reverse proxy will use CreateConnFn from routeCfg to create a connection to the remote service
 func (rp *HTTPReverseProxy) Register(routeCfg RouteConfig) error {
-	err := rp.vhostRouter.Add(routeCfg.Domain, routeCfg.Location, routeCfg.RouteByHTTPUser, &routeCfg)
+	err := rp.vhostRouter.Add(routeCfg.Domain, routeCfg.Location, routeCfg.RouteByHTTPUser, routeCfg.IpsAllowList, &routeCfg)
 	if err != nil {
 		return err
 	}
@@ -154,6 +155,24 @@ func (rp *HTTPReverseProxy) Register(routeCfg RouteConfig) error {
 // UnRegister unregister route config by domain and location
 func (rp *HTTPReverseProxy) UnRegister(routeCfg RouteConfig) {
 	rp.vhostRouter.Del(routeCfg.Domain, routeCfg.Location, routeCfg.RouteByHTTPUser)
+}
+
+// CheckClientOriginIPAddr checks addr against the ip allow list configured for the matched route.
+// To prevent IP spoofing, be sure to delete any pre-existing X-Forwarded-For header coming from
+// the client or an untrusted proxy before it reaches frps.
+func (rp *HTTPReverseProxy) CheckClientOriginIPAddr(domain, location, routeByHTTPUser, addr string) bool {
+	if addr != "" {
+		// Selecting the first ip in the list; it's safe to take it once we ensure the first ip
+		// cannot be set by untrusted proxies or the client.
+		if ips := strings.Split(addr, ", "); len(ips) > 1 {
+			addr = ips[0]
+		}
+	}
+	vr, ok := rp.vhostRouter.getByRoute(domain, location, routeByHTTPUser)
+	if ok && vr.ipFilter != nil {
+		return vr.ipFilter.Allowed(addr)
+	}
+	return true
 }
 
 func (rp *HTTPReverseProxy) GetRouteConfig(domain, location, routeByHTTPUser string) *RouteConfig {
@@ -277,6 +296,18 @@ func (rp *HTTPReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 			http.Error(rw, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		}
 		return
+	}
+
+	if rc != nil {
+		// Identifying the originating IP address of a client connecting through a proxy server.
+		addr := req.Header.Get("X-Forwarded-For")
+		if addr == "" {
+			addr, _, _ = net.SplitHostPort(req.RemoteAddr)
+		}
+		if !rp.CheckClientOriginIPAddr(rc.Domain, rc.Location, rc.RouteByHTTPUser, addr) {
+			http.Error(rw, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
 	}
 
 	if req.Method == http.MethodConnect {

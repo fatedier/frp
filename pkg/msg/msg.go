@@ -120,6 +120,7 @@ type NewProxy struct {
 	Locations         []string          `json:"locations,omitempty"`
 	HTTPUser          string            `json:"http_user,omitempty"`
 	HTTPPwd           string            `json:"http_pwd,omitempty"`
+	IpsAllowList      []string          `json:"ips_allow_list,omitempty"`
 	HostHeaderRewrite string            `json:"host_header_rewrite,omitempty"`
 	Headers           map[string]string `json:"headers,omitempty"`
 	ResponseHeaders   map[string]string `json:"response_headers,omitempty"`

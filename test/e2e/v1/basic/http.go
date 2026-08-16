@@ -536,4 +536,69 @@ var _ = ginkgo.Describe("[Feature: HTTP]", func() {
 			}).
 			Ensure(framework.ExpectResponseCode(504))
 	})
+
+	ginkgo.It("Ip allow list", func() {
+		vhostHTTPPort := f.AllocPort()
+		serverConf := getDefaultServerConf(vhostHTTPPort)
+		serverConf += `
+		subdomainHost = "example.com"
+		`
+
+		fooPort := f.AllocPort()
+		f.RunServer("", newHTTPServer(fooPort, "foo"))
+
+		barPort := f.AllocPort()
+		f.RunServer("", newHTTPServer(barPort, "bar"))
+
+		bazPort := f.AllocPort()
+		f.RunServer("", newHTTPServer(bazPort, "baz"))
+
+		clientConf := consts.DefaultClientConfig
+		clientConf += fmt.Sprintf(`
+			[[proxies]]
+			name = "foo"
+			type = "http"
+			localPort = %d
+			subdomain = "foo"
+
+			[[proxies]]
+			name = "bar"
+			type = "http"
+			localPort = %d
+			subdomain = "bar"
+			ipsAllowList = ["127.0.0.1/16"]
+
+			[[proxies]]
+			name = "baz"
+			type = "http"
+			localPort = %d
+			subdomain = "baz"
+			ipsAllowList = ["127.1.0.1/16"]
+			`, fooPort, barPort, bazPort)
+
+		f.RunProcesses(serverConf, []string{clientConf})
+
+		// no allow list configured: request passes through
+		framework.NewRequestExpect(f).Explain("foo subdomain").Port(vhostHTTPPort).
+			RequestModify(func(r *request.Request) {
+				r.HTTP().HTTPHost("foo.example.com")
+			}).
+			ExpectResp([]byte("foo")).
+			Ensure()
+
+		// client ip matches the allow list: request passes through
+		framework.NewRequestExpect(f).Explain("bar subdomain").Port(vhostHTTPPort).
+			RequestModify(func(r *request.Request) {
+				r.HTTP().HTTPHost("bar.example.com")
+			}).
+			ExpectResp([]byte("bar")).
+			Ensure()
+
+		// client ip does not match the allow list: request is rejected
+		framework.NewRequestExpect(f).Explain("baz subdomain").Port(vhostHTTPPort).
+			RequestModify(func(r *request.Request) {
+				r.HTTP().HTTPHost("baz.example.com")
+			}).
+			Ensure(framework.ExpectResponseCode(403))
+	})
 })

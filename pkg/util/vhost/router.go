@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"sync"
+
+	"github.com/jpillora/ipfilter"
 )
 
 var ErrRouterConfigConflict = errors.New("router config conflict")
@@ -22,6 +24,7 @@ type Router struct {
 	domain   string
 	location string
 	httpUser string
+	ipFilter *ipfilter.IPFilter
 
 	// store any object here
 	payload any
@@ -33,7 +36,7 @@ func NewRouters() *Routers {
 	}
 }
 
-func (r *Routers) Add(domain, location, httpUser string, payload any) error {
+func (r *Routers) Add(domain, location, httpUser string, ipsAllowList []string, payload any) error {
 	domain = strings.ToLower(domain)
 
 	r.mutex.Lock()
@@ -52,10 +55,19 @@ func (r *Routers) Add(domain, location, httpUser string, payload any) error {
 		vrs = make([]*Router, 0, 1)
 	}
 
+	var ipFilter *ipfilter.IPFilter
+	if len(ipsAllowList) > 0 {
+		ipFilter = ipfilter.New(ipfilter.Options{
+			AllowedIPs:     ipsAllowList,
+			BlockByDefault: true,
+		})
+	}
+
 	vr := &Router{
 		domain:   domain,
 		location: location,
 		httpUser: httpUser,
+		ipFilter: ipFilter,
 		payload:  payload,
 	}
 	vrs = append(vrs, vr)

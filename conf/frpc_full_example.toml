@@ -244,6 +244,9 @@ localPort = 80
 # if not set, you can access this customDomains without certification
 httpUser = "admin"
 httpPassword = "admin"
+# ipsAllowList restricts which client IPs/subnets may access this proxy (IPv4/IPv6).
+# if not set, all IPs are allowed.
+# ipsAllowList = ["192.168.0.0/16", "255.255.0.0"]
 # if domain for frps is frps.com, then you can access [web01] proxy by URL http://web01.frps.com
 subdomain = "web01"
 customDomains = ["web01.yourdomain.com"]

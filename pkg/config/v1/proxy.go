@@ -320,6 +320,7 @@ type HTTPProxyConfig struct {
 	Locations         []string         `json:"locations,omitempty"`
 	HTTPUser          string           `json:"httpUser,omitempty"`
 	HTTPPassword      string           `json:"httpPassword,omitempty"`
+	IpsAllowList      []string         `json:"ipsAllowList,omitempty"`
 	HostHeaderRewrite string           `json:"hostHeaderRewrite,omitempty"`
 	RequestHeaders    HeaderOperations `json:"requestHeaders,omitempty"`
 	ResponseHeaders   HeaderOperations `json:"responseHeaders,omitempty"`
@@ -335,6 +336,7 @@ func (c *HTTPProxyConfig) MarshalToMsg(m *msg.NewProxy) {
 	m.HostHeaderRewrite = c.HostHeaderRewrite
 	m.HTTPUser = c.HTTPUser
 	m.HTTPPwd = c.HTTPPassword
+	m.IpsAllowList = c.IpsAllowList
 	m.Headers = c.RequestHeaders.Set
 	m.ResponseHeaders = c.ResponseHeaders.Set
 	m.RouteByHTTPUser = c.RouteByHTTPUser
@@ -349,6 +351,7 @@ func (c *HTTPProxyConfig) UnmarshalFromMsg(m *msg.NewProxy) {
 	c.HostHeaderRewrite = m.HostHeaderRewrite
 	c.HTTPUser = m.HTTPUser
 	c.HTTPPassword = m.HTTPPwd
+	c.IpsAllowList = m.IpsAllowList
 	c.RequestHeaders.Set = m.Headers
 	c.ResponseHeaders.Set = m.ResponseHeaders
 	c.RouteByHTTPUser = m.RouteByHTTPUser
@@ -359,6 +362,7 @@ func (c *HTTPProxyConfig) Clone() ProxyConfigurer {
 	out.ProxyBaseConfig = c.ProxyBaseConfig.Clone()
 	out.DomainConfig = c.DomainConfig.Clone()
 	out.Locations = slices.Clone(c.Locations)
+	out.IpsAllowList = slices.Clone(c.IpsAllowList)
 	out.RequestHeaders = c.RequestHeaders.Clone()
 	out.ResponseHeaders = c.ResponseHeaders.Clone()
 	return &out

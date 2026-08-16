@@ -76,6 +76,8 @@ func RegisterProxyFlags(cmd *cobra.Command, c v1.ProxyConfigurer, opts ...Regist
 		cmd.Flags().StringSliceVarP(&cc.Locations, "locations", "", []string{}, "locations")
 		cmd.Flags().StringVarP(&cc.HTTPUser, "http_user", "", "", "http auth user")
 		cmd.Flags().StringVarP(&cc.HTTPPassword, "http_pwd", "", "", "http auth password")
+		cmd.Flags().StringSliceVarP(&cc.IpsAllowList, "ips_allow_list", "", []string{},
+			"lists the rules to configure which IP addresses and subnet masks can access your client (e.g. \"192.168.0.0/16,255.255.0.0\") - IPv4/IPv6 support")
 		cmd.Flags().StringVarP(&cc.HostHeaderRewrite, "host_header_rewrite", "", "", "host header rewrite")
 	case *v1.HTTPSProxyConfig:
 		registerProxyDomainConfigFlags(cmd, &cc.DomainConfig)

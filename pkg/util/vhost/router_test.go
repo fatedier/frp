@@ -26,10 +26,10 @@ import (
 
 func TestRoutersGet(t *testing.T) {
 	routers := NewRouters()
-	require.NoError(t, routers.Add("example.com", "/api", "alice", "exact-user"))
-	require.NoError(t, routers.Add("example.com", "/public", "", "exact-all-users"))
-	require.NoError(t, routers.Add("*.example.com", "/api", "", "wildcard-all-users"))
-	require.NoError(t, routers.Add("*", "/api", "", "all-domains"))
+	require.NoError(t, routers.Add("example.com", "/api", "alice", nil, "exact-user"))
+	require.NoError(t, routers.Add("example.com", "/public", "", nil, "exact-all-users"))
+	require.NoError(t, routers.Add("*.example.com", "/api", "", nil, "wildcard-all-users"))
+	require.NoError(t, routers.Add("*", "/api", "", nil, "all-domains"))
 
 	t.Run("exact host and user match with normalized domain", func(t *testing.T) {
 		router, ok := routers.Get("EXAMPLE.COM", "/api/users", "alice")
@@ -62,14 +62,14 @@ func TestRoutersGet(t *testing.T) {
 
 func TestRoutersGetByRoute(t *testing.T) {
 	routers := NewRouters()
-	require.NoError(t, routers.Add("example.com", "/api", "alice", "exact-user"))
-	require.NoError(t, routers.Add("example.com", "/api", "", "exact-all-users"))
-	require.NoError(t, routers.Add("exact.example.com", "/api", "", "exact-subdomain"))
-	require.NoError(t, routers.Add("*.example.com", "/api", "", "wildcard-all-users"))
-	require.NoError(t, routers.Add("*.foo.example.com", "/api", "", "specific-wildcard"))
-	require.NoError(t, routers.Add("*.bar.com", "/api", "", "wildcard-parent-domain"))
-	require.NoError(t, routers.Add("*", "/admin", "root", "all-domains-user"))
-	require.NoError(t, routers.Add("*", "/", "", "all-domains"))
+	require.NoError(t, routers.Add("example.com", "/api", "alice", nil, "exact-user"))
+	require.NoError(t, routers.Add("example.com", "/api", "", nil, "exact-all-users"))
+	require.NoError(t, routers.Add("exact.example.com", "/api", "", nil, "exact-subdomain"))
+	require.NoError(t, routers.Add("*.example.com", "/api", "", nil, "wildcard-all-users"))
+	require.NoError(t, routers.Add("*.foo.example.com", "/api", "", nil, "specific-wildcard"))
+	require.NoError(t, routers.Add("*.bar.com", "/api", "", nil, "wildcard-parent-domain"))
+	require.NoError(t, routers.Add("*", "/admin", "root", nil, "all-domains-user"))
+	require.NoError(t, routers.Add("*", "/", "", nil, "all-domains"))
 
 	tests := []struct {
 		name     string
@@ -154,8 +154,8 @@ func TestRoutersGetByRoute(t *testing.T) {
 
 func TestRoutersGetByRouteNoMatch(t *testing.T) {
 	routers := NewRouters()
-	require.NoError(t, routers.Add("*.example.com", "/api", "", "wildcard-all-users"))
-	require.NoError(t, routers.Add("*.com", "/api", "", "top-level-wildcard"))
+	require.NoError(t, routers.Add("*.example.com", "/api", "", nil, "wildcard-all-users"))
+	require.NoError(t, routers.Add("*.com", "/api", "", nil, "top-level-wildcard"))
 
 	tests := []struct {
 		name     string
@@ -190,7 +190,7 @@ func TestRoutersGetByRouteNoMatch(t *testing.T) {
 
 func TestRoutersConcurrentGetByRouteAndAdd(t *testing.T) {
 	routers := NewRouters()
-	require.NoError(t, routers.Add("*.example.com", "/api", "", "wildcard"))
+	require.NoError(t, routers.Add("*.example.com", "/api", "", nil, "wildcard"))
 
 	const readers = 8
 	const iterations = 200
@@ -227,7 +227,7 @@ func TestRoutersConcurrentGetByRouteAndAdd(t *testing.T) {
 				return
 			default:
 			}
-			err := routers.Add(fmt.Sprintf("host-%d.example.com", i), "/api", "", i)
+			err := routers.Add(fmt.Sprintf("host-%d.example.com", i), "/api", "", nil, i)
 			if err != nil {
 				errCh <- err
 				return

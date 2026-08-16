@@ -277,6 +277,7 @@ func Convert_ProxyConf_To_v1(conf ProxyConf) v1.ProxyConfigurer {
 		c.Locations = v.Locations
 		c.HTTPUser = v.HTTPUser
 		c.HTTPPassword = v.HTTPPwd
+		c.IpsAllowList = v.IpsAllowList
 		c.HostHeaderRewrite = v.HostHeaderRewrite
 		c.RequestHeaders.Set = v.Headers
 		c.RouteByHTTPUser = v.RouteByHTTPUser

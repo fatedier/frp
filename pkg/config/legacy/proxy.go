@@ -229,6 +229,7 @@ type HTTPProxyConf struct {
 	Locations         []string          `ini:"locations" json:"locations"`
 	HTTPUser          string            `ini:"http_user" json:"http_user"`
 	HTTPPwd           string            `ini:"http_pwd" json:"http_pwd"`
+	IpsAllowList      []string          `ini:"ips_allow_list" json:"ips_allow_list"`
 	HostHeaderRewrite string            `ini:"host_header_rewrite" json:"host_header_rewrite"`
 	Headers           map[string]string `ini:"-" json:"headers"`
 	RouteByHTTPUser   string            `ini:"route_by_http_user" json:"route_by_http_user"`

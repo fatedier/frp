@@ -119,6 +119,7 @@ type RouteConfig struct {
 	Password        string
 	Headers         map[string]string
 	ResponseHeaders map[string]string
+	IpsAllowList    []string
 	RouteByHTTPUser string
 
 	CreateConnFn           CreateConnFunc
@@ -140,7 +141,7 @@ func (v *Muxer) Listen(ctx context.Context, cfg *RouteConfig) (l *Listener, err 
 		accept:          make(chan net.Conn),
 		ctx:             ctx,
 	}
-	err = v.registryRouter.Add(cfg.Domain, cfg.Location, cfg.RouteByHTTPUser, l)
+	err = v.registryRouter.Add(cfg.Domain, cfg.Location, cfg.RouteByHTTPUser, cfg.IpsAllowList, l)
 	if err != nil {
 		return
 	}

@@ -85,7 +85,7 @@ func (g *HTTPGroup) Register(
 		tmp.CreateConnFn = g.createConn
 		tmp.ChooseEndpointFn = g.chooseEndpoint
 		tmp.CreateConnByEndpointFn = g.createConnByEndpoint
-		err = g.ctl.vhostRouter.Add(routeConfig.Domain, routeConfig.Location, routeConfig.RouteByHTTPUser, &tmp)
+		err = g.ctl.vhostRouter.Add(routeConfig.Domain, routeConfig.Location, routeConfig.RouteByHTTPUser, routeConfig.IpsAllowList, &tmp)
 		if err != nil {
 			return
 		}
