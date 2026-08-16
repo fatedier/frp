@@ -1,0 +1,35 @@
+[
+  {
+    "gitRepoName": "frp",
+    "artifacts": [
+      {
+        "imageName": "frpc",
+        "buildContext": ".",
+        "dockerfileName": "./dockerfiles/Dockerfile-for-frpc",
+        "imageRepoProd": "quay.io/codefresh",
+        "imageRepoDev": "quay.io/codefresh/dev",
+        "imageCacheRepo": "quay.io/codefresh/dev/cache"
+      },
+      {
+        "imageName": "frps",
+        "buildContext": ".",
+        "dockerfileName": "./dockerfiles/Dockerfile-for-frps",
+        "imageRepoProd": "quay.io/codefresh",
+        "imageRepoDev": "quay.io/codefresh/dev",
+        "imageCacheRepo": "quay.io/codefresh/dev/cache"
+      }
+    ],
+    "tests": [
+      {
+        "name": "unit",
+        "image": "golang:1.25",
+        "command": "make test"
+      },
+      {
+        "name": "e2e",
+        "image": "golang:1.25",
+        "command": "make build && make e2e"
+      }
+    ]
+  }
+]
