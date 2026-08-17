@@ -25,7 +25,7 @@ import (
 	"time"
 
 	libio "github.com/fatedier/golib/io"
-	fmux "github.com/hashicorp/yamux"
+	fmux "github.com/fatedier/yamux"
 	quic "github.com/quic-go/quic-go"
 	"golang.org/x/time/rate"
 
