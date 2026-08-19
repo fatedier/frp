@@ -1,6 +1,9 @@
 <template>
   <div id="app">
-    <header class="header">
+    <router-view v-if="isLoginPage"></router-view>
+
+    <template v-else>
+      <header class="header">
       <div class="header-content">
         <div class="brand-section">
           <button v-if="isMobile" class="hamburger-btn" @click="toggleSidebar" aria-label="Toggle menu">
@@ -30,6 +33,16 @@
             :inactive-icon="Sunny"
             class="theme-switch"
           />
+          <el-tooltip content="Sign out" placement="bottom">
+            <button
+              type="button"
+              class="logout-btn"
+              aria-label="Sign out"
+              @click="handleLogout"
+            >
+              <el-icon><SwitchButton /></el-icon>
+            </button>
+          </el-tooltip>
         </div>
       </div>
     </header>
@@ -75,26 +88,47 @@
         <router-view></router-view>
       </main>
     </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useDark } from '@vueuse/core'
-import { Moon, Sunny } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { Moon, Sunny, SwitchButton } from '@element-plus/icons-vue'
 import GitHubIcon from './assets/icons/github.svg?component'
 import LogoIcon from './assets/icons/logo.svg?component'
 import { useResponsive } from './composables/useResponsive'
+import { logoutRequest } from './api/auth'
+import { resetAuthState } from './stores/auth'
 
 const route = useRoute()
+const router = useRouter()
 const isDark = useDark()
 const { isMobile } = useResponsive()
+
+const isLoginPage = computed(() => route.name === 'Login')
 
 const sidebarOpen = ref(false)
 
 const toggleSidebar = () => {
   sidebarOpen.value = !sidebarOpen.value
+}
+
+const handleLogout = async () => {
+  try {
+    await logoutRequest()
+  } catch {
+    // The session cookie is HttpOnly, so it can only be cleared by the
+    // server; if the request failed the session is still alive and we must
+    // not pretend the user is signed out.
+    ElMessage.error('Sign out failed, please try again')
+    return
+  }
+  resetAuthState()
+  await router.push('/login')
 }
 
 const closeSidebar = () => {
@@ -227,6 +261,26 @@ html.dark .theme-switch {
 
 .theme-switch .el-switch__core .el-switch__inner .el-icon {
   color: #909399 !important;
+}
+
+// Logout button
+.logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--el-color-danger, #f56c6c);
+  font-size: 16px;
+  transition: all 0.15s ease;
+}
+
+.logout-btn:hover {
+  background: rgba(245, 108, 108, 0.12);
 }
 
 // Layout

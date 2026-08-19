@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ClientConfigure from '../views/ClientConfigure.vue'
+import Login from '../views/Login.vue'
 import ProxyDetail from '../views/ProxyDetail.vue'
 import ProxyEdit from '../views/ProxyEdit.vue'
 import ProxyList from '../views/ProxyList.vue'
@@ -8,10 +9,17 @@ import VisitorDetail from '../views/VisitorDetail.vue'
 import VisitorEdit from '../views/VisitorEdit.vue'
 import VisitorList from '../views/VisitorList.vue'
 import { useProxyStore } from '../stores/proxy'
+import { checkAuthState } from '../stores/auth'
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
+    {
+      path: '/login',
+      name: 'Login',
+      component: Login,
+      meta: { public: true },
+    },
     {
       path: '/',
       redirect: '/proxies',
@@ -69,6 +77,18 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
+  const authed = await checkAuthState()
+  if (to.meta.public) {
+    // Already authenticated users are sent back to the dashboard.
+    if (authed && to.name === 'Login') {
+      return { path: '/' }
+    }
+    return true
+  }
+  if (!authed) {
+    return { name: 'Login', query: { redirect: to.fullPath } }
+  }
+
   if (!to.matched.some((record) => record.meta.requiresStore)) {
     return true
   }

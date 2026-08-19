@@ -27,7 +27,7 @@ export default [
       'vue/multi-word-component-names': [
         'error',
         {
-          ignores: ['Overview'],
+          ignores: ['Overview', 'Login'],
         },
       ],
     },

@@ -26,6 +26,19 @@ import (
 
 func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) {
 	helper.Router.HandleFunc("/healthz", healthz)
+
+	// Public view routes: the SPA shell contains no sensitive data, all data
+	// APIs registered on the subrouter below stay behind the auth middleware.
+	// They must be registered before the subrouter because the mux router
+	// matches routes in registration order.
+	helper.Router.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")
+	helper.Router.PathPrefix("/static/").Handler(
+		netpkg.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(helper.AssetsFS))),
+	).Methods("GET")
+	helper.Router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
+	})
+
 	subRouter := helper.Router.NewRoute().Subrouter()
 
 	subRouter.Use(helper.AuthMiddleware)
@@ -58,16 +71,6 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	subRouter.HandleFunc("/api/v2/proxies", httppkg.MakeHTTPHandlerFuncV2(apiController.APIV2ProxyList)).Methods("GET")
 	v2EncodedPathRouter.HandleFunc("/api/v2/proxies/{name}/traffic", httppkg.MakeHTTPHandlerFuncV2(apiController.APIV2ProxyTraffic)).Methods("GET")
 	v2EncodedPathRouter.HandleFunc("/api/v2/proxies/{name}", httppkg.MakeHTTPHandlerFuncV2(apiController.APIV2ProxyDetail)).Methods("GET")
-
-	// view
-	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")
-	subRouter.PathPrefix("/static/").Handler(
-		netpkg.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(helper.AssetsFS))),
-	).Methods("GET")
-
-	subRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
-	})
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) {

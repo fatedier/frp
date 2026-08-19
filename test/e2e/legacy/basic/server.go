@@ -174,7 +174,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 		}).Port(dashboardPort).ExpectResp([]byte("")).Ensure()
 
 		framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
-			r.HTTP().HTTPPath("/")
+			r.HTTP().HTTPPath("/api/serverinfo")
 		}).Port(dashboardPort).
 			Ensure(framework.ExpectResponseCode(401))
 	})

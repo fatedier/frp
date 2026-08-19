@@ -1,4 +1,5 @@
 // http.ts - Base HTTP client
+import { resetAuthState } from '../stores/authState'
 
 class HTTPError extends Error {
   status: number
@@ -11,6 +12,18 @@ class HTTPError extends Error {
   }
 }
 
+// redirectOnUnauthorized sends the SPA to the login page when a request fails
+// with 401 (e.g. the session expired mid-use). The cached auth state is
+// dropped first, otherwise the router guard would trust the stale "already
+// authenticated" cache and bounce the user right back. Navigation happens
+// through the hash so the router picks it up.
+function redirectOnUnauthorized() {
+  resetAuthState()
+  if (window.location.hash.startsWith('#/login')) return
+  const current = window.location.hash.slice(1) || '/'
+  window.location.hash = `#/login?redirect=${encodeURIComponent(current)}`
+}
+
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   const defaultOptions: RequestInit = {
     credentials: 'include',
@@ -19,6 +32,9 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(url, { ...defaultOptions, ...options })
 
   if (!response.ok) {
+    if (response.status === 401) {
+      redirectOnUnauthorized()
+    }
     throw new HTTPError(
       response.status,
       response.statusText,

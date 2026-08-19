@@ -29,7 +29,19 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	// Healthz endpoint without auth
 	helper.Router.HandleFunc("/healthz", healthz)
 
-	// API routes and static files with auth
+	// Public view routes: the SPA shell contains no sensitive data, all data
+	// APIs registered on the subrouter below stay behind the auth middleware.
+	// They must be registered before the subrouter because the mux router
+	// matches routes in registration order.
+	helper.Router.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods(http.MethodGet)
+	helper.Router.PathPrefix("/static/").Handler(
+		netpkg.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(helper.AssetsFS))),
+	).Methods(http.MethodGet)
+	helper.Router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
+	})
+
+	// API routes with auth
 	subRouter := helper.Router.NewRoute().Subrouter()
 	subRouter.Use(helper.AuthMiddleware)
 	subRouter.Use(httppkg.NewRequestLogger)
@@ -53,14 +65,6 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 		subRouter.HandleFunc("/api/store/visitors/{name}", httppkg.MakeHTTPHandlerFunc(apiController.UpdateStoreVisitor)).Methods(http.MethodPut)
 		subRouter.HandleFunc("/api/store/visitors/{name}", httppkg.MakeHTTPHandlerFunc(apiController.DeleteStoreVisitor)).Methods(http.MethodDelete)
 	}
-
-	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")
-	subRouter.PathPrefix("/static/").Handler(
-		netpkg.MakeHTTPGzipHandler(http.StripPrefix("/static/", http.FileServer(helper.AssetsFS))),
-	).Methods("GET")
-	subRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
-	})
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) {

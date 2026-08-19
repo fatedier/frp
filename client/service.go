@@ -189,7 +189,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 	// leaked when an earlier error causes NewService to return.
 	var webServer *httppkg.Server
 	if options.Common.WebServer.Port > 0 {
-		ws, err := httppkg.NewServer(options.Common.WebServer)
+		ws, err := httppkg.NewServerWithOptions(options.Common.WebServer, httppkg.WithSessionCookieName("frpc_session"))
 		if err != nil {
 			return nil, err
 		}
