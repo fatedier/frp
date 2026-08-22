@@ -110,6 +110,31 @@ func (q *BandwidthQuantity) Bytes() int64 {
 	return q.i
 }
 
+// StringList is a list of strings that also accepts a single string value in
+// configuration, so existing single-value configs keep working while new
+// configs can specify multiple values. It is parsed from JSON through the
+// YAML->JSON pipeline used by config loading.
+type StringList []string
+
+func (l *StringList) UnmarshalJSON(b []byte) error {
+	if len(b) == 4 && string(b) == "null" {
+		return nil
+	}
+	if len(b) > 0 && b[0] == '[' {
+		return json.Unmarshal(b, (*[]string)(l))
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	*l = StringList{s}
+	return nil
+}
+
+func (l StringList) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]string(l))
+}
+
 type PortsRange struct {
 	Start  int `json:"start,omitempty"`
 	End    int `json:"end,omitempty"`

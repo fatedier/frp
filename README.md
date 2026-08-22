@@ -451,8 +451,8 @@ Note that it may not work with all types of NAT devices. You might want to fallb
   # frpc.toml
   serverAddr = "x.x.x.x"
   serverPort = 7000
-  # set up a new stun server if the default one is not available.
-  # natHoleStunServer = "xxx"
+  # set up stun servers if the default one is not available.
+  # natHoleStunServer = ["xxx", "yyy"]
 
   [[proxies]]
   name = "p2p_ssh"
@@ -468,8 +468,8 @@ Note that it may not work with all types of NAT devices. You might want to fallb
   # frpc.toml
   serverAddr = "x.x.x.x"
   serverPort = 7000
-  # set up a new stun server if the default one is not available.
-  # natHoleStunServer = "xxx"
+  # set up stun servers if the default one is not available.
+  # natHoleStunServer = ["xxx", "yyy"]
 
   [[visitors]]
   name = "p2p_ssh_visitor"
