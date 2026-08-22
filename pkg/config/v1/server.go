@@ -108,7 +108,7 @@ func (c *ServerConfig) Complete() error {
 	c.SSHTunnelGateway.Complete()
 
 	c.BindAddr = util.EmptyOr(c.BindAddr, "0.0.0.0")
-	c.BindPort = util.EmptyOr(c.BindPort, 7000)
+	c.BindPort = util.EmptyOr(c.BindPort, 42841)
 	if c.ProxyBindAddr == "" {
 		c.ProxyBindAddr = c.BindAddr
 	}

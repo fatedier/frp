@@ -19,6 +19,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
 	"math/big"
@@ -52,10 +53,27 @@ func newRandomTLSKeyPair() (*tls.Certificate, error) {
 		serialNumber = big.NewInt(1)
 	}
 
+	// Populate the certificate with fields typical of a normal TLS server
+	// certificate. An empty-subject, no-SAN, 10-year cert is an obvious
+	// throwaway/self-signed tell; using the OpenSSL-default organization and a
+	// 1-year validity makes it blend in with the vast pool of ordinary
+	// self-signed certs instead of standing out.
+	//
+	// NOTE: this is cosmetic only. A self-signed cert still fails chain
+	// validation and will not survive active probing. For real anti-DPI use a
+	// CA-signed certificate for a domain you control (certFile/keyFile).
 	template := x509.Certificate{
 		SerialNumber: serialNumber,
-		NotBefore:    time.Now().Add(-1 * time.Hour),
-		NotAfter:     time.Now().Add(365 * 24 * time.Hour * 10),
+		Subject: pkix.Name{
+			CommonName:   "localhost",
+			Organization: []string{"Internet Widgits Pty Ltd"},
+		},
+		DNSNames:              []string{"localhost"},
+		NotBefore:             time.Now().Add(-1 * time.Hour),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
 	}
 
 	certDER, err := x509.CreateCertificate(

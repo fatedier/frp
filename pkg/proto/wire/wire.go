@@ -38,7 +38,11 @@ const (
 	MessageCodecJSON           = "json"
 	DefaultMaxFramePayloadSize = 64 * 1024
 
-	MagicV2 = "FRP\x00\x02\r\n"
+	// MagicV2 is the wire-protocol handshake prefix. It is sent inside the TLS
+	// tunnel, but we deliberately avoid any recognizable ASCII (previously the
+	// literal "FRP") so that if the tunnel is ever downgraded to plaintext the
+	// prefix does not self-identify the protocol.
+	MagicV2 = "\x91\x63\x00\x02\r\n"
 )
 
 type Frame struct {

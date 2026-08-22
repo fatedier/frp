@@ -84,9 +84,9 @@ type ClientCommonConfig struct {
 
 func (c *ClientCommonConfig) Complete() error {
 	c.ServerAddr = util.EmptyOr(c.ServerAddr, "0.0.0.0")
-	c.ServerPort = util.EmptyOr(c.ServerPort, 7000)
+	c.ServerPort = util.EmptyOr(c.ServerPort, 42841)
 	c.LoginFailExit = util.EmptyOr(c.LoginFailExit, lo.ToPtr(true))
-	c.NatHoleSTUNServer = util.EmptyOr(c.NatHoleSTUNServer, "stun.easyvoip.com:3478")
+	c.NatHoleSTUNServer = util.EmptyOr(c.NatHoleSTUNServer, "stun.l.google.com:19302")
 
 	if err := c.Auth.Complete(); err != nil {
 		return err
@@ -146,7 +146,7 @@ type ClientTransportConfig struct {
 
 func (c *ClientTransportConfig) Complete() {
 	c.Protocol = util.EmptyOr(c.Protocol, "tcp")
-	c.WireProtocol = util.EmptyOr(c.WireProtocol, "v1")
+	c.WireProtocol = util.EmptyOr(c.WireProtocol, "v2")
 	c.DialServerTimeout = util.EmptyOr(c.DialServerTimeout, 10)
 	c.DialServerKeepAlive = util.EmptyOr(c.DialServerKeepAlive, 7200)
 	c.ProxyURL = util.EmptyOr(c.ProxyURL, os.Getenv("http_proxy"))

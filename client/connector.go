@@ -17,6 +17,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -121,7 +122,7 @@ func (c *defaultConnectorImpl) Open() error {
 			xl.Warnf("fail to build tls configuration, err: %v", err)
 			return err
 		}
-		tlsConfig.NextProtos = []string{"frp"}
+		tlsConfig.NextProtos = []string{"h2"}
 
 		conn, err := quic.DialAddr(
 			c.ctx,
@@ -219,17 +220,26 @@ func (c *defaultConnectorImpl) realConnect() (net.Conn, error) {
 		dialOptions = append(dialOptions, libnet.WithAfterHook(libnet.AfterHook{
 			Hook: netpkg.DialHookCustomTLSHeadByte(tlsConfig != nil, lo.FromPtr(c.cfg.Transport.TLS.DisableCustomTLSFirstByte)),
 		}))
-		dialOptions = append(dialOptions, libnet.WithTLSConfig(tlsConfig))
+		dialOptions = append(dialOptions, libnet.WithAfterHook(libnet.AfterHook{
+			Priority: math.MaxUint64,
+			Hook:     transport.DialHookUTLS(tlsConfig),
+		}))
 	case "wss":
 		protocol = "tcp"
-		dialOptions = append(dialOptions, libnet.WithTLSConfigAndPriority(100, tlsConfig))
+		dialOptions = append(dialOptions, libnet.WithAfterHook(libnet.AfterHook{
+			Priority: 100,
+			Hook:     transport.DialHookUTLS(tlsConfig),
+		}))
 		// Make sure that if it is wss, the websocket hook is executed after the tls hook.
 		dialOptions = append(dialOptions, libnet.WithAfterHook(libnet.AfterHook{Hook: netpkg.DialHookWebsocket(protocol, tlsConfig.ServerName), Priority: 110}))
 	default:
 		dialOptions = append(dialOptions, libnet.WithAfterHook(libnet.AfterHook{
 			Hook: netpkg.DialHookCustomTLSHeadByte(tlsConfig != nil, lo.FromPtr(c.cfg.Transport.TLS.DisableCustomTLSFirstByte)),
 		}))
-		dialOptions = append(dialOptions, libnet.WithTLSConfig(tlsConfig))
+		dialOptions = append(dialOptions, libnet.WithAfterHook(libnet.AfterHook{
+			Priority: math.MaxUint64,
+			Hook:     transport.DialHookUTLS(tlsConfig),
+		}))
 	}
 
 	if c.cfg.Transport.ConnectServerLocalIP != "" {

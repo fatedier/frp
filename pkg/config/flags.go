@@ -155,7 +155,7 @@ func RegisterClientCommonConfigFlags(cmd *cobra.Command, c *v1.ClientCommonConfi
 
 	if !options.sshMode {
 		cmd.PersistentFlags().StringVarP(&c.ServerAddr, "server_addr", "s", "127.0.0.1", "frp server's address")
-		cmd.PersistentFlags().IntVarP(&c.ServerPort, "server_port", "P", 7000, "frp server's port")
+		cmd.PersistentFlags().IntVarP(&c.ServerPort, "server_port", "P", 42841, "frp server's port")
 		cmd.PersistentFlags().StringVarP(&c.Transport.Protocol, "protocol", "p", "tcp",
 			fmt.Sprintf("optional values are %v", validation.SupportedTransportProtocols))
 		cmd.PersistentFlags().StringVarP(&c.Log.Level, "log_level", "", "info", "log level")
@@ -228,7 +228,7 @@ func (f *BoolFuncFlag) Type() string {
 
 func RegisterServerConfigFlags(cmd *cobra.Command, c *v1.ServerConfig, opts ...RegisterFlagOption) {
 	cmd.PersistentFlags().StringVarP(&c.BindAddr, "bind_addr", "", "0.0.0.0", "bind address")
-	cmd.PersistentFlags().IntVarP(&c.BindPort, "bind_port", "p", 7000, "bind port")
+	cmd.PersistentFlags().IntVarP(&c.BindPort, "bind_port", "p", 42841, "bind port")
 	cmd.PersistentFlags().IntVarP(&c.KCPBindPort, "kcp_bind_port", "", 0, "kcp bind udp port")
 	cmd.PersistentFlags().IntVarP(&c.QUICBindPort, "quic_bind_port", "", 0, "quic bind udp port")
 	cmd.PersistentFlags().StringVarP(&c.ProxyBindAddr, "proxy_bind_addr", "", "0.0.0.0", "proxy bind address")

@@ -1,0 +1,12 @@
+# Keep the Docker build context small and cache-stable.
+.git
+bin/
+release/
+*.exe
+test/
+**/node_modules
+web/frps/dist
+web/frpc/dist
+*.md
+Dockerfile*
+.dockerignore

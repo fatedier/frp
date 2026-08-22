@@ -1,0 +1,20 @@
+# Minimal frpc image: multi-stage build, no web UI (noweb), scratch base.
+# Final image contains only the static binary + CA certificates.
+FROM golang:1.25-alpine AS building
+
+RUN apk add --no-cache ca-certificates
+
+COPY . /building
+WORKDIR /building
+
+# CGO disabled -> fully static binary; -s -w strips debug/symbol tables to shrink size.
+# The "noweb" tag skips embedding the frontend admin assets.
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -tags "frpc,noweb" -o /frpc ./cmd/frpc
+
+FROM scratch
+
+# CA bundle so outbound TLS can verify certs; ~200KB.
+COPY --from=building /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=building /frpc /frpc
+
+ENTRYPOINT ["/frpc"]

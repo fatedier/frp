@@ -1,0 +1,21 @@
+# Minimal frps image: multi-stage build, no web UI (noweb), scratch base.
+# Final image contains only the static binary + CA certificates.
+FROM golang:1.25-alpine AS building
+
+# git is only needed if the build must resolve VCS info; keep the layer tiny.
+RUN apk add --no-cache ca-certificates
+
+COPY . /building
+WORKDIR /building
+
+# CGO disabled -> fully static binary; -s -w strips debug/symbol tables to shrink size.
+# The "noweb" tag skips embedding the frontend dashboard assets.
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -tags "frps,noweb" -o /frps ./cmd/frps
+
+FROM scratch
+
+# CA bundle so outbound TLS (e.g. OIDC auth) can verify certs; ~200KB.
+COPY --from=building /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=building /frps /frps
+
+ENTRYPOINT ["/frps"]
