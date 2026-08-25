@@ -4,7 +4,7 @@
 [![GitHub release](https://img.shields.io/github/tag/fatedier/frp.svg?label=release)](https://github.com/fatedier/frp/releases)
 [![GitHub Releases Stats](https://img.shields.io/github/downloads/fatedier/frp/total.svg?logo=github)](https://somsubhra.github.io/github-release-stats/?username=fatedier&repository=frp)
 
-[README](README.md) | [中文文档](README_zh.md)
+[README](README.md) | [中文文档](README_zh.md) | [Documentation](https://gofrp.org)
 
 ## Sponsors
 
@@ -46,6 +46,10 @@ an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and 
 frp is a fast reverse proxy that allows you to expose a local server located behind a NAT or firewall to the Internet. It currently supports **TCP** and **UDP**, as well as **HTTP** and **HTTPS** protocols, enabling requests to be forwarded to internal services via domain name.
 
 frp also offers a P2P connect mode.
+
+## Documentation
+
+Full documentation is available at [https://gofrp.org](https://gofrp.org).
 
 ## Table of Contents
 
