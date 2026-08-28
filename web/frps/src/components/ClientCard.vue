@@ -124,7 +124,7 @@ const viewDetail = () => {
 }
 
 .status-dot-large.offline {
-  background-color: var(--el-text-color-placeholder);
+  background-color: var(--el-color-danger);
 }
 
 .card-content {
@@ -223,8 +223,8 @@ const viewDetail = () => {
 }
 
 .status-badge.offline {
-  background: var(--el-fill-color);
-  color: var(--el-text-color-secondary);
+  background: var(--el-color-danger-light-9);
+  color: var(--el-color-danger);
 }
 
 .arrow-icon {

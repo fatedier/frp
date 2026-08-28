@@ -277,7 +277,7 @@ func TestAPIV2SystemPruneTypeErrorsUseEnvelope(t *testing.T) {
 		t.Fatalf("invalid type status mismatch, want %d got %d", http.StatusBadRequest, resp.Code)
 	}
 	errResp = decodeResponse[httppkg.V2Response](t, resp)
-	if errResp.Code != http.StatusBadRequest || errResp.Msg != "type must be one of offline_proxies" || errResp.Data != nil {
+	if errResp.Code != http.StatusBadRequest || errResp.Msg != "type must be one of offline_proxies, offline_clients" || errResp.Data != nil {
 		t.Fatalf("invalid type error envelope mismatch: %#v", errResp)
 	}
 }

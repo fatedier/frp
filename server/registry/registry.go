@@ -27,6 +27,7 @@ type ClientInfo struct {
 	Key              string
 	User             string
 	RawClientID      string
+	ClientIDValue    string
 	RunID            string
 	ControlID        uint64
 	Hostname         string
@@ -41,7 +42,7 @@ type ClientInfo struct {
 }
 
 // ClientRegistry keeps track of active clients keyed by "{user}.{clientID}" (runID fallback when raw clientID is empty).
-// Entries without an explicit raw clientID are removed on disconnect to avoid stale offline records.
+// Offline clients are retained so the dashboard can still list and inspect them.
 type ClientRegistry struct {
 	mu       sync.RWMutex
 	clients  map[string]*ClientInfo
@@ -119,6 +120,7 @@ func (cr *ClientRegistry) RegisterWithControlID(
 	}
 
 	info.RawClientID = rawClientID
+	info.ClientIDValue = effectiveID
 	info.RunID = runID
 	info.ControlID = controlID
 	info.Hostname = hostname
@@ -157,11 +159,7 @@ func (cr *ClientRegistry) markOfflineByRunID(runID string, controlID uint64, mat
 		return
 	}
 	if info, ok := cr.clients[key]; ok && info.RunID == runID && (!matchControlID || info.ControlID == controlID) {
-		if info.RawClientID == "" {
-			delete(cr.clients, key)
-		} else {
-			setClientOffline(info, cr.clock.Now())
-		}
+		setClientOffline(info, cr.clock.Now())
 	}
 	if info, ok := cr.clients[key]; !ok || info.RunID != runID {
 		delete(cr.runIndex, runID)
@@ -199,12 +197,31 @@ func (cr *ClientRegistry) GetByKey(key string) (ClientInfo, bool) {
 	return *info, true
 }
 
-// ClientID returns the resolved client identifier for external use.
-func (info ClientInfo) ClientID() string {
-	if info.RawClientID != "" {
-		return info.RawClientID
+// ClearOfflineClients removes every offline client entry and returns the number
+// of removed clients plus the total number of clients before removal.
+func (cr *ClientRegistry) ClearOfflineClients() (int, int) {
+	cr.mu.Lock()
+	defer cr.mu.Unlock()
+
+	total := len(cr.clients)
+	cleared := 0
+	for key, info := range cr.clients {
+		if info.Online {
+			continue
+		}
+		if info.RunID != "" {
+			delete(cr.runIndex, info.RunID)
+		}
+		delete(cr.clients, key)
+		cleared++
 	}
-	return info.RunID
+	return cleared, total
+}
+
+// ClientID returns the resolved client identifier for external use. It is
+// preserved across disconnects so offline clients keep showing their id.
+func (info ClientInfo) ClientID() string {
+	return info.ClientIDValue
 }
 
 func (cr *ClientRegistry) composeClientKey(user, id string) string {
