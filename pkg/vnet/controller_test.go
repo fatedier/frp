@@ -51,6 +51,13 @@ func TestClientRouterDeleteRouteRequiresMatchingConnection(t *testing.T) {
 	require.NoError(err)
 	require.Same(replacementConn, got)
 
+	// The read loop for an old connection can exit after a replacement route
+	// has already been registered. Its deferred cleanup must keep the new owner.
+	controller.clientRouter.removeConnRoute(oldConn)
+	got, err = controller.clientRouter.findConn(net.ParseIP("10.1.0.1"))
+	require.NoError(err)
+	require.Same(replacementConn, got)
+
 	require.True(controller.UnregisterClientRoute("vnet-visitor", replacementConn))
 	_, err = controller.clientRouter.findConn(net.ParseIP("10.1.0.1"))
 	require.Error(err)
