@@ -30,6 +30,8 @@ import (
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
+const testVirtualNetVisitorName = "vnet-visitor"
+
 type fakeClientRouteController struct {
 	mu sync.Mutex
 
@@ -74,10 +76,10 @@ func (c *fakeClientRouteController) UnregisterClientRoute(name string, conn io.W
 	return true
 }
 
-func (c *fakeClientRouteController) owner(name string) io.Writer {
+func (c *fakeClientRouteController) owner() io.Writer {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.routes[name]
+	return c.routes[testVirtualNetVisitorName]
 }
 
 func (c *fakeClientRouteController) callCounts() (register, unregister int) {
@@ -108,13 +110,13 @@ func newTrackedPipe(t *testing.T) (*trackedConn, *trackedConn) {
 	return trackedLeft, trackedRight
 }
 
-func newTestVirtualNetPlugin(t *testing.T, name string, controller *fakeClientRouteController) *VirtualNetPlugin {
+func newTestVirtualNetPlugin(t *testing.T, controller *fakeClientRouteController) *VirtualNetPlugin {
 	t.Helper()
 	pluginCtx := context.Background()
 	ctx, cancel := context.WithCancel(pluginCtx)
 	p := &VirtualNetPlugin{
 		pluginCtx: PluginContext{
-			Name: name,
+			Name: testVirtualNetVisitorName,
 			Ctx:  pluginCtx,
 		},
 		routeController: controller,
@@ -168,8 +170,8 @@ func TestVirtualNetReconnectDelay(t *testing.T) {
 
 func TestVirtualNetPluginCloseBeforeRegisterDoesNotReplaceNewRoute(t *testing.T) {
 	controller := newFakeClientRouteController()
-	oldPlugin := newTestVirtualNetPlugin(t, "vnet-visitor", controller)
-	newPlugin := newTestVirtualNetPlugin(t, "vnet-visitor", controller)
+	oldPlugin := newTestVirtualNetPlugin(t, controller)
+	newPlugin := newTestVirtualNetPlugin(t, controller)
 	oldControllerConn, oldPluginConn := newTrackedPipe(t)
 	newControllerConn, newPluginConn := newTrackedPipe(t)
 
@@ -185,7 +187,7 @@ func TestVirtualNetPluginCloseBeforeRegisterDoesNotReplaceNewRoute(t *testing.T)
 	close(allowOldRegister)
 
 	require.False(t, waitResult(t, oldRegisterResult))
-	require.Same(t, newControllerConn, controller.owner("vnet-visitor"))
+	require.Same(t, newControllerConn, controller.owner())
 	registerCalls, _ := controller.callCounts()
 	require.Equal(t, 1, registerCalls)
 	require.True(t, oldControllerConn.closed.Load())
@@ -194,7 +196,7 @@ func TestVirtualNetPluginCloseBeforeRegisterDoesNotReplaceNewRoute(t *testing.T)
 
 func TestVirtualNetPluginRegisterBeforeCloseIsCleanedUp(t *testing.T) {
 	controller := newFakeClientRouteController()
-	p := newTestVirtualNetPlugin(t, "vnet-visitor", controller)
+	p := newTestVirtualNetPlugin(t, controller)
 	controllerConn, pluginConn := newTrackedPipe(t)
 	registerEntered := make(chan struct{})
 	var registerEnteredOnce sync.Once
@@ -218,7 +220,7 @@ func TestVirtualNetPluginRegisterBeforeCloseIsCleanedUp(t *testing.T) {
 
 	require.NoError(t, waitResult(t, closeResult))
 	require.True(t, waitResult(t, registerResult))
-	require.Nil(t, controller.owner("vnet-visitor"))
+	require.Nil(t, controller.owner())
 	registerCalls, unregisterCalls := controller.callCounts()
 	require.Equal(t, 1, registerCalls)
 	require.Equal(t, 1, unregisterCalls)
@@ -227,17 +229,17 @@ func TestVirtualNetPluginRegisterBeforeCloseIsCleanedUp(t *testing.T) {
 
 func TestVirtualNetPluginOldConnectionCleanupKeepsReplacementRoute(t *testing.T) {
 	controller := newFakeClientRouteController()
-	oldPlugin := newTestVirtualNetPlugin(t, "vnet-visitor", controller)
-	newPlugin := newTestVirtualNetPlugin(t, "vnet-visitor", controller)
+	oldPlugin := newTestVirtualNetPlugin(t, controller)
+	newPlugin := newTestVirtualNetPlugin(t, controller)
 	oldControllerConn, oldPluginConn := newTrackedPipe(t)
 	newControllerConn, newPluginConn := newTrackedPipe(t)
 
 	require.True(t, oldPlugin.registerControllerConn(oldControllerConn, oldPluginConn))
 	require.True(t, newPlugin.registerControllerConn(newControllerConn, newPluginConn))
-	require.Same(t, newControllerConn, controller.owner("vnet-visitor"))
+	require.Same(t, newControllerConn, controller.owner())
 
 	oldPlugin.cleanupControllerConn(xlog.FromContextSafe(oldPlugin.ctx), oldControllerConn)
 
-	require.Same(t, newControllerConn, controller.owner("vnet-visitor"))
+	require.Same(t, newControllerConn, controller.owner())
 	require.True(t, oldControllerConn.closed.Load())
 }
