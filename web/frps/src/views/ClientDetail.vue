@@ -143,7 +143,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElPagination } from 'element-plus'
+import { ElMessage, ElPagination, ElButton } from 'element-plus'
 import { ArrowLeft, Loading, Search } from '@element-plus/icons-vue'
 import { Client } from '../utils/client'
 import { getClientV2 } from '../api/client'
@@ -486,8 +486,8 @@ onMounted(async () => {
 }
 
 .status-badge.offline {
-  background: var(--hover-bg);
-  color: var(--text-secondary);
+  background: var(--el-color-danger-light-9);
+  color: var(--el-color-danger);
 }
 
 html.dark .status-badge.online {
