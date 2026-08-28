@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"math/big"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -103,10 +104,17 @@ func TestWebsocketListenerHandleConnWSS(t *testing.T) {
 	}
 	defer srvConn.Close()
 
-	// Regression: *websocket.Conn.RemoteAddr() resolves the origin URL, which
-	// must not be nil (would panic before config.Origin was populated).
-	if addr := srvConn.RemoteAddr().String(); addr == "" {
+	// Regression: RemoteAddr() must report the real client TCP address, not
+	// the websocket origin URL (e.g. "http://ssps.sazas.cn:1000").
+	addr := srvConn.RemoteAddr().String()
+	if addr == "" {
 		t.Fatalf("RemoteAddr() returned empty string")
+	}
+	if !strings.HasPrefix(addr, "127.0.0.1:") {
+		t.Fatalf("RemoteAddr() = %q, want the real client address (127.0.0.1:*)", addr)
+	}
+	if strings.Contains(addr, "ssps.sazas.cn") {
+		t.Fatalf("RemoteAddr() returned the websocket origin URL: %q", addr)
 	}
 
 	// Exchange a payload to prove the tunnel works end to end.

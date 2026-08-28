@@ -93,7 +93,11 @@ func NewWebsocketListener(ln net.Listener, paths ...string) (wl *WebsocketListen
 		// frames and close the connection on invalid bytes.
 		c.PayloadType = websocket.BinaryFrame
 		notifyCh := make(chan struct{})
-		conn := WrapCloseNotifyConn(c, func(_ error) {
+		// *websocket.Conn.RemoteAddr() reports the websocket origin URL rather
+		// than the real client address, so surface the actual peer address
+		// (recorded on the upgrade request) to frps.
+		ra := remoteAddrFromRequest(c.Request(), c.RemoteAddr())
+		conn := WrapCloseNotifyConn(&wsRemoteAddrConn{Conn: c, remoteAddr: ra}, func(_ error) {
 			close(notifyCh)
 		})
 		wl.acceptCh <- conn
@@ -143,10 +147,45 @@ func (wl *WebsocketListener) HandleConn(c net.Conn) error {
 	if err != nil {
 		return err
 	}
+	// http.Server normally sets Request.RemoteAddr before invoking the
+	// handler, but here we drive ServeHTTP directly, so record the real
+	// client address (the underlying connection peer) ourselves. frps uses
+	// it as the client address instead of the websocket origin URL.
+	if req.RemoteAddr == "" {
+		req.RemoteAddr = c.RemoteAddr().String()
+	}
 	w := &hijackResponseWriter{conn: c, buf: br}
 	wl.wsServer.ServeHTTP(w, req)
 	return nil
 }
+
+// wsRemoteAddrConn overrides RemoteAddr so that frps sees the real client
+// address (from the upgrade request) instead of the websocket origin URL that
+// *websocket.Conn.RemoteAddr would otherwise report.
+type wsRemoteAddrConn struct {
+	*websocket.Conn
+	remoteAddr net.Addr
+}
+
+func (w *wsRemoteAddrConn) RemoteAddr() net.Addr { return w.remoteAddr }
+
+// remoteAddrFromRequest returns the real client network address recorded on
+// the websocket upgrade request. When it is unavailable, fallback (the
+// websocket origin) is returned to avoid breaking existing behaviour.
+func remoteAddrFromRequest(req *http.Request, fallback net.Addr) net.Addr {
+	if req != nil && req.RemoteAddr != "" {
+		if tcp, err := net.ResolveTCPAddr("tcp", req.RemoteAddr); err == nil {
+			return tcp
+		}
+		return stringAddr(req.RemoteAddr)
+	}
+	return fallback
+}
+
+type stringAddr string
+
+func (a stringAddr) Network() string { return "tcp" }
+func (a stringAddr) String() string { return string(a) }
 
 func (p *WebsocketListener) Accept() (net.Conn, error) {
 	c, ok := <-p.acceptCh
