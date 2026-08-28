@@ -24,7 +24,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/fatedier/golib/crypto"
@@ -128,6 +130,10 @@ type Service struct {
 
 	tlsConfig *tls.Config
 
+	// reloadTLS re-reads the server TLS certificate/key from disk. It is wired
+	// to a SIGHUP handler so operators can rotate certificates without restart.
+	reloadTLS func() error
+
 	cfg *v1.ServerConfig
 
 	// service context
@@ -137,7 +143,7 @@ type Service struct {
 }
 
 func NewService(cfg *v1.ServerConfig) (*Service, error) {
-	tlsConfig, err := transport.NewServerTLSConfig(
+	tlsConfig, reloadTLS, err := transport.NewServerTLSConfigWithReloader(
 		cfg.Transport.TLS.CertFile,
 		cfg.Transport.TLS.KeyFile,
 		cfg.Transport.TLS.TrustedCaFile)
@@ -180,6 +186,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		auth:              authRuntime,
 		webServer:         webServer,
 		tlsConfig:         tlsConfig,
+		reloadTLS:         reloadTLS,
 		cfg:               cfg,
 		ctx:               context.Background(),
 	}
@@ -266,6 +273,12 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.QUICBindPort))
 		quicTLSCfg := tlsConfig.Clone()
 		quicTLSCfg.NextProtos = []string{"frp"}
+		// Serve the reloaded certificate via the GetCertificate callback and keep
+		// this clone's static client-CA/ALPN settings. Do not delegate to
+		// GetConfigForClient: the config it returns omits NextProtos (which
+		// would break QUIC ALPN negotiation) and re-selects the certificate on
+		// every handshake.
+		quicTLSCfg.GetConfigForClient = nil
 		svr.quicListener, err = quic.ListenAddr(address, quicTLSCfg, &quic.Config{
 			MaxIdleTimeout:     time.Duration(cfg.Transport.QUIC.MaxIdleTimeout) * time.Second,
 			MaxIncomingStreams: int64(cfg.Transport.QUIC.MaxIncomingStreams),
@@ -399,11 +412,33 @@ func (svr *Service) Run(ctx context.Context) {
 
 	svr.HandleListener(svr.listener, false)
 
+	svr.handleTLSReloadSignal()
+
 	<-svr.ctx.Done()
 	// service context may not be canceled by svr.Close(), we should call it here to release resources
 	if svr.listener != nil {
 		svr.Close()
 	}
+}
+
+// handleTLSReloadSignal listens for SIGHUP and reloads the server TLS
+// certificate/key from disk when it arrives, so certificate rotation does not
+// require a restart.
+func (svr *Service) handleTLSReloadSignal() {
+	if svr.reloadTLS == nil {
+		return
+	}
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGHUP)
+	go func() {
+		for range sigCh {
+			if err := svr.reloadTLS(); err != nil {
+				log.Errorf("reload tls certificate failed: %v", err)
+			} else {
+				log.Infof("tls certificate reloaded")
+			}
+		}
+	}()
 }
 
 func (svr *Service) Close() error {
