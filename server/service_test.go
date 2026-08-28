@@ -576,7 +576,7 @@ func TestServiceWorkConnRoutingClientHelloPolicy(t *testing.T) {
 				ClientSpec: msg.ClientSpec{
 					AlwaysAuthPass: true,
 				},
-			}, true, wire.ProtocolV2, tc.controlUDPPacketCodec)
+			}, true, wire.ProtocolV2, tc.controlUDPPacketCodec, "tcp")
 			require.NoError(t, err)
 			require.NoError(t, svr.completeControlLogin(ctl, func() error { return nil }))
 			waitForSignal(t, controlConn.readStarted, "control reader to start")
@@ -634,7 +634,7 @@ func TestServiceRegisterControlRejectsInvalidCodecSelection(t *testing.T) {
 			svr := newControlTestService(t)
 			conn := newDeadlineReadConn()
 			msgConn := msg.NewConn(conn, msg.NewV1ReadWriter(conn))
-			ctl, err := svr.RegisterControl(msgConn, &msg.Login{}, true, tc.wireProtocol, tc.udpPacketCodec)
+			ctl, err := svr.RegisterControl(msgConn, &msg.Login{}, true, tc.wireProtocol, tc.udpPacketCodec, "")
 			require.Nil(t, ctl)
 			require.ErrorContains(t, err, tc.errorSubstring)
 		})
@@ -650,7 +650,7 @@ func TestServiceRegisterControlRejectsInvalidRunID(t *testing.T) {
 			svr := newControlTestService(t)
 			conn := newDeadlineReadConn()
 			msgConn := msg.NewConn(conn, msg.NewV1ReadWriter(conn))
-			ctl, err := svr.RegisterControl(msgConn, &msg.Login{RunID: runID}, true, wire.ProtocolV1, "")
+			ctl, err := svr.RegisterControl(msgConn, &msg.Login{RunID: runID}, true, wire.ProtocolV1, "", "")
 			require.Nil(t, ctl)
 			require.ErrorContains(t, err, "invalid run id")
 		})
@@ -684,7 +684,7 @@ func TestServiceRegisterControlPoolCountBoundaries(t *testing.T) {
 				Timestamp:    timestamp,
 				PrivilegeKey: util.GetAuthKey("", timestamp),
 				PoolCount:    tc.poolCount,
-			}, false, wire.ProtocolV1, "")
+			}, false, wire.ProtocolV1, "", "")
 			if tc.wantErr {
 				require.Nil(t, ctl)
 				require.ErrorContains(t, err, "unexpected error when creating new controller")
@@ -758,7 +758,7 @@ func TestServiceVisitorRoutingExcludesPendingUser(t *testing.T) {
 		ClientSpec: msg.ClientSpec{
 			AlwaysAuthPass: true,
 		},
-	}, true, wire.ProtocolV1, "")
+	}, true, wire.ProtocolV1, "", "")
 	require.NoError(t, err)
 
 	timestamp := time.Now().Unix()
@@ -802,7 +802,7 @@ func TestServiceVisitorRoutingCarriesControlPacketCodec(t *testing.T) {
 		ClientSpec: msg.ClientSpec{
 			AlwaysAuthPass: true,
 		},
-	}, true, wire.ProtocolV2, wire.UDPPacketCodecBinary)
+	}, true, wire.ProtocolV2, wire.UDPPacketCodecBinary, "tcp")
 	require.NoError(t, err)
 
 	timestamp := time.Now().Unix()
@@ -891,7 +891,7 @@ func registerLifecycleTestControl(svr *Service) (*Control, *deadlineReadConn, er
 		ClientSpec: msg.ClientSpec{
 			AlwaysAuthPass: true,
 		},
-	}, true, wire.ProtocolV1, "")
+	}, true, wire.ProtocolV1, "", "")
 	return ctl, conn, err
 }
 

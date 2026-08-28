@@ -388,16 +388,16 @@ func (svr *Service) Run(ctx context.Context) {
 		}()
 	}
 
-	go svr.HandleListener(svr.sshTunnelListener, true)
+	go svr.HandleListener(svr.sshTunnelListener, true, "")
 
 	if svr.kcpListener != nil {
-		go svr.HandleListener(svr.kcpListener, false)
+		go svr.HandleListener(svr.kcpListener, false, "kcp")
 	}
 	if svr.quicListener != nil {
 		go svr.HandleQUICListener(svr.quicListener)
 	}
-	go svr.HandleListener(svr.websocketListener, false)
-	go svr.HandleListener(svr.tlsListener, false)
+	go svr.HandleListener(svr.websocketListener, false, "websocket")
+	go svr.HandleListener(svr.tlsListener, false, "tls")
 
 	if svr.rc.NatHoleController != nil {
 		go svr.rc.NatHoleController.CleanWorker(svr.ctx)
@@ -407,7 +407,7 @@ func (svr *Service) Run(ctx context.Context) {
 		go svr.sshTunnelGateway.Run()
 	}
 
-	svr.HandleListener(svr.listener, false)
+	svr.HandleListener(svr.listener, false, "tcp")
 
 	<-svr.ctx.Done()
 	// service context may not be canceled by svr.Close(), we should call it here to release resources
@@ -450,7 +450,7 @@ func (svr *Service) Close() error {
 	return nil
 }
 
-func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, internal bool) {
+func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, internal bool, protocol string) {
 	xl := xlog.FromContextSafe(ctx)
 
 	acceptedConn, err := svr.acceptConnection(ctx, conn)
@@ -481,7 +481,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 				}
 			}
 			if err == nil {
-				ctl, err = svr.RegisterControl(controlConn, m, internal, acceptedConn.wireProtocol, acceptedConn.udpPacketCodec)
+				ctl, err = svr.RegisterControl(controlConn, m, internal, acceptedConn.wireProtocol, acceptedConn.udpPacketCodec, protocol)
 			}
 		}
 
@@ -692,7 +692,7 @@ func (ac *acceptedConnection) handleClientHello(conn net.Conn, wireConn *wire.Co
 // HandleListener accepts connections from client and call handleConnection to handle them.
 // If internal is true, it means that this listener is used for internal communication like ssh tunnel gateway.
 // TODO(fatedier): Pass some parameters of listener/connection through context to avoid passing too many parameters.
-func (svr *Service) HandleListener(l net.Listener, internal bool) {
+func (svr *Service) HandleListener(l net.Listener, internal bool, protocol string) {
 	// Listen for incoming connections from client.
 	for {
 		c, err := l.Accept()
@@ -731,14 +731,22 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 			c = wc
 			if isWS {
 				go func() {
-					_ = svr.websocketListener.HandleConn(wc)
+					_ = svr.websocketListener.HandleConn(wc, "wss")
 				}()
 				continue
 			}
 		}
 
+		// The accepted connection may carry its own protocol label (e.g. a
+		// wss connection delivered through the websocket listener). Prefer that
+		// over the listener's default label.
+		connProtocol := protocol
+		if tc, ok := c.(interface{ Protocol() string }); ok {
+			connProtocol = tc.Protocol()
+		}
+
 		// Start a new goroutine to handle connection.
-		go func(ctx context.Context, frpConn net.Conn) {
+		go func(ctx context.Context, frpConn net.Conn, t string) {
 			if lo.FromPtr(svr.cfg.Transport.TCPMux) && !internal {
 				fmuxCfg := fmux.DefaultConfig()
 				fmuxCfg.KeepAliveInterval = time.Duration(svr.cfg.Transport.TCPMuxKeepaliveInterval) * time.Second
@@ -759,12 +767,12 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 						session.Close()
 						return
 					}
-					go svr.handleConnection(ctx, stream, internal)
+					go svr.handleConnection(ctx, stream, internal, t)
 				}
 			} else {
-				svr.handleConnection(ctx, frpConn, internal)
+				svr.handleConnection(ctx, frpConn, internal, t)
 			}
-		}(ctx, c)
+		}(ctx, c, connProtocol)
 	}
 }
 
@@ -785,7 +793,7 @@ func (svr *Service) HandleQUICListener(l *quic.Listener) {
 					_ = frpConn.CloseWithError(0, "")
 					return
 				}
-				go svr.handleConnection(ctx, netpkg.QuicStreamToNetConn(stream, frpConn), false)
+				go svr.handleConnection(ctx, netpkg.QuicStreamToNetConn(stream, frpConn), false, "quic")
 			}
 		}(context.Background(), c)
 	}
@@ -797,6 +805,7 @@ func (svr *Service) RegisterControl(
 	internal bool,
 	wireProtocol string,
 	udpPacketCodec string,
+	detectedProtocol string,
 ) (*Control, error) {
 	switch wireProtocol {
 	case wire.ProtocolV1:
@@ -839,6 +848,13 @@ func (svr *Service) RegisterControl(
 		return nil, err
 	}
 
+	// Prefer the protocol reported by the client (matches its configuration);
+	// fall back to the server-detected protocol for older clients.
+	protocol := loginMsg.Protocol
+	if protocol == "" {
+		protocol = detectedProtocol
+	}
+
 	ctl, err := NewControl(ctx, &SessionContext{
 		RC:             svr.rc,
 		PxyManager:     svr.pxyManager,
@@ -850,6 +866,7 @@ func (svr *Service) RegisterControl(
 		ServerCfg:      svr.cfg,
 		WireProtocol:   wireProtocol,
 		UDPPacketCodec: udpPacketCodec,
+		Protocol:       protocol,
 	})
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)

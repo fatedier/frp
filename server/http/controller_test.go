@@ -81,6 +81,7 @@ func TestBuildClientInfoRespIncludesWireProtocol(t *testing.T) {
 		RunID:            "run-id",
 		Version:          "1.0.0",
 		WireProtocol:     wire.ProtocolV2,
+		Protocol:         "wss",
 		Hostname:         "host",
 		IP:               "127.0.0.1",
 		FirstConnectedAt: time.Unix(1, 0),
@@ -91,5 +92,8 @@ func TestBuildClientInfoRespIncludesWireProtocol(t *testing.T) {
 	resp := buildClientInfoResp(info)
 	if resp.WireProtocol != wire.ProtocolV2 {
 		t.Fatalf("wire protocol mismatch, want %q got %q", wire.ProtocolV2, resp.WireProtocol)
+	}
+	if resp.Protocol != "wss" {
+		t.Fatalf("protocol mismatch, want %q got %q", "wss", resp.Protocol)
 	}
 }

@@ -32,6 +32,14 @@
                   </el-tag>
                 </div>
                 <div class="client-meta">
+                  <el-tag
+                    v-if="client.protocolLabel"
+                    size="small"
+                    :type="client.protocolTagType"
+                    class="protocol-tag"
+                  >
+                    {{ client.protocolLabel }}
+                  </el-tag>
                   <span v-if="client.ip" class="meta-item">{{
                     client.ip
                   }}</span>
@@ -468,9 +476,16 @@ onMounted(async () => {
 
 .client-meta {
   display: flex;
+  align-items: center;
   gap: 12px;
   font-size: 14px;
   color: var(--text-secondary);
+}
+
+.protocol-tag {
+  height: 22px;
+  padding: 0 8px;
+  font-weight: 500;
 }
 
 .status-badge {

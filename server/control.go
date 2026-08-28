@@ -208,6 +208,7 @@ func (cm *ControlManager) Activate(ctl *Control) (bool, error) {
 		remoteAddr,
 		ctl.sessionCtx.WireProtocol,
 		uint64(entry.id),
+		ctl.sessionCtx.Protocol,
 	)
 	if conflict {
 		return true, fmt.Errorf("client_id [%s] for user [%s] is already online", loginMsg.ClientID, loginMsg.User)
@@ -373,6 +374,10 @@ type SessionContext struct {
 	// negotiated wire protocol for this client session
 	WireProtocol   string
 	UDPPacketCodec string
+	// protocol used by the client to reach the server (e.g. "tcp", "tls",
+	// "websocket", "wss", "kcp", "quic"), as reported by the client and
+	// falling back to the server-detected value.
+	Protocol string
 }
 
 type controlState uint8

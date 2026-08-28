@@ -5,6 +5,7 @@ export interface ClientInfoData {
   runID: string
   version?: string
   wireProtocol?: string
+  protocol?: string
   hostname: string
   clientIP?: string
   firstConnectedAt: number

@@ -76,13 +76,13 @@ func TestClientRegistryUsesClockForTimestamps(t *testing.T) {
 func TestClientRegistryControlIDPreventsStaleOffline(t *testing.T) {
 	registry := NewClientRegistry()
 	key, conflict := registry.RegisterWithControlID(
-		"user", "client-id", "run-id", "old-host", "1.0.0", "127.0.0.1", wire.ProtocolV1, 1,
+		"user", "client-id", "run-id", "old-host", "1.0.0", "127.0.0.1", wire.ProtocolV1, 1, "",
 	)
 	if conflict {
 		t.Fatal("unexpected client conflict")
 	}
 	_, conflict = registry.RegisterWithControlID(
-		"user", "client-id", "run-id", "new-host", "1.0.1", "127.0.0.2", wire.ProtocolV2, 2,
+		"user", "client-id", "run-id", "new-host", "1.0.1", "127.0.0.2", wire.ProtocolV2, 2, "",
 	)
 	if conflict {
 		t.Fatal("same run ID replacement should not conflict")
@@ -110,13 +110,13 @@ func TestClientRegistryControlIDPreventsStaleOffline(t *testing.T) {
 func TestClientRegistryClientIDConflictSemantics(t *testing.T) {
 	registry := NewClientRegistry()
 	_, conflict := registry.RegisterWithControlID(
-		"user", "client-id", "run-one", "host", "1.0.0", "127.0.0.1", wire.ProtocolV1, 1,
+		"user", "client-id", "run-one", "host", "1.0.0", "127.0.0.1", wire.ProtocolV1, 1, "",
 	)
 	if conflict {
 		t.Fatal("unexpected initial client conflict")
 	}
 	_, conflict = registry.RegisterWithControlID(
-		"user", "client-id", "run-two", "host", "1.0.0", "127.0.0.2", wire.ProtocolV1, 2,
+		"user", "client-id", "run-two", "host", "1.0.0", "127.0.0.2", wire.ProtocolV1, 2, "",
 	)
 	if !conflict {
 		t.Fatal("different online run IDs with the same explicit client ID must conflict")
@@ -124,7 +124,7 @@ func TestClientRegistryClientIDConflictSemantics(t *testing.T) {
 
 	registry.MarkOfflineByRunIDAndControlID("run-one", 1)
 	_, conflict = registry.RegisterWithControlID(
-		"user", "client-id", "run-two", "host", "1.0.0", "127.0.0.2", wire.ProtocolV1, 2,
+		"user", "client-id", "run-two", "host", "1.0.0", "127.0.0.2", wire.ProtocolV1, 2, "",
 	)
 	if conflict {
 		t.Fatal("offline explicit client ID should be reusable")
@@ -134,13 +134,13 @@ func TestClientRegistryClientIDConflictSemantics(t *testing.T) {
 func TestClientRegistrySameRunIDMovesBetweenClientKeys(t *testing.T) {
 	registry := NewClientRegistry()
 	oldKey, conflict := registry.RegisterWithControlID(
-		"user", "old-client", "run-id", "old-host", "1.0.0", "127.0.0.1", wire.ProtocolV1, 1,
+		"user", "old-client", "run-id", "old-host", "1.0.0", "127.0.0.1", wire.ProtocolV1, 1, "",
 	)
 	if conflict {
 		t.Fatal("unexpected initial client conflict")
 	}
 	newKey, conflict := registry.RegisterWithControlID(
-		"user", "new-client", "run-id", "new-host", "1.0.1", "127.0.0.2", wire.ProtocolV2, 2,
+		"user", "new-client", "run-id", "new-host", "1.0.1", "127.0.0.2", wire.ProtocolV2, 2, "",
 	)
 	if conflict {
 		t.Fatal("same run ID moving to a new client key should not conflict")

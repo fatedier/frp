@@ -3,6 +3,7 @@ package net
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"net"
 	"net/http"
@@ -10,6 +11,13 @@ import (
 
 	"golang.org/x/net/websocket"
 )
+
+// protocolCtxKey carries the detected protocol (e.g. "websocket", "wss") of a
+// websocket upgrade across the request so the delivered connection can report
+// which protocol was used.
+type protocolCtxKeyType struct{}
+
+var protocolCtxKey = protocolCtxKeyType{}
 
 var ErrWebsocketListenerClosed = errors.New("websocket listener closed")
 
@@ -93,11 +101,18 @@ func NewWebsocketListener(ln net.Listener, paths ...string) (wl *WebsocketListen
 		// frames and close the connection on invalid bytes.
 		c.PayloadType = websocket.BinaryFrame
 		notifyCh := make(chan struct{})
+		// Determine the detected protocol. wss connections set it on the
+		// request context in HandleConn; plaintext websocket connections
+		// default to "websocket".
+		protocol := "websocket"
+		if t, ok := c.Request().Context().Value(protocolCtxKey).(string); ok && t != "" {
+			protocol = t
+		}
 		// *websocket.Conn.RemoteAddr() reports the websocket origin URL rather
 		// than the real client address, so surface the actual peer address
 		// (recorded on the upgrade request) to frps.
 		ra := remoteAddrFromRequest(c.Request(), c.RemoteAddr())
-		conn := WrapCloseNotifyConn(&wsRemoteAddrConn{Conn: c, remoteAddr: ra}, func(_ error) {
+		conn := WrapCloseNotifyConn(&wsRemoteAddrConn{Conn: c, remoteAddr: ra, protocol: protocol}, func(_ error) {
 			close(notifyCh)
 		})
 		wl.acceptCh <- conn
@@ -141,7 +156,7 @@ func NewWebsocketListener(ln net.Listener, paths ...string) (wl *WebsocketListen
 // it to the listener. It is used to support wss (websocket over TLS) where the
 // TLS termination happens before the websocket muxer can see the plaintext
 // "GET" request.
-func (wl *WebsocketListener) HandleConn(c net.Conn) error {
+func (wl *WebsocketListener) HandleConn(c net.Conn, protocol string) error {
 	br := bufio.NewReader(c)
 	req, err := http.ReadRequest(br)
 	if err != nil {
@@ -154,6 +169,9 @@ func (wl *WebsocketListener) HandleConn(c net.Conn) error {
 	if req.RemoteAddr == "" {
 		req.RemoteAddr = c.RemoteAddr().String()
 	}
+	// Tag the request with the detected protocol so the delivered connection
+	// can report whether it arrived over websocket or wss.
+	req = req.WithContext(context.WithValue(req.Context(), protocolCtxKey, protocol))
 	w := &hijackResponseWriter{conn: c, buf: br}
 	wl.wsServer.ServeHTTP(w, req)
 	return nil
@@ -161,13 +179,19 @@ func (wl *WebsocketListener) HandleConn(c net.Conn) error {
 
 // wsRemoteAddrConn overrides RemoteAddr so that frps sees the real client
 // address (from the upgrade request) instead of the websocket origin URL that
-// *websocket.Conn.RemoteAddr would otherwise report.
+// *websocket.Conn.RemoteAddr would otherwise report. It also carries the
+// detected protocol (e.g. "websocket", "wss") for the dashboard.
 type wsRemoteAddrConn struct {
 	*websocket.Conn
 	remoteAddr net.Addr
+	protocol   string
 }
 
 func (w *wsRemoteAddrConn) RemoteAddr() net.Addr { return w.remoteAddr }
+
+// Protocol returns the detected protocol for this connection. It implements the
+// interface used by frps to recover the label from the accepted net.Conn.
+func (w *wsRemoteAddrConn) Protocol() string { return w.protocol }
 
 // remoteAddrFromRequest returns the real client network address recorded on
 // the websocket upgrade request. When it is unavailable, fallback (the
@@ -185,7 +209,7 @@ func remoteAddrFromRequest(req *http.Request, fallback net.Addr) net.Addr {
 type stringAddr string
 
 func (a stringAddr) Network() string { return "tcp" }
-func (a stringAddr) String() string { return string(a) }
+func (a stringAddr) String() string  { return string(a) }
 
 func (p *WebsocketListener) Accept() (net.Conn, error) {
 	c, ok := <-p.acceptCh

@@ -23,6 +23,14 @@
 
       <div class="card-meta">
         <div class="meta-group">
+          <el-tag
+            v-if="client.protocolLabel"
+            size="small"
+            :type="client.protocolTagType"
+            class="protocol-tag"
+          >
+            {{ client.protocolLabel }}
+          </el-tag>
           <span v-if="client.ip" class="meta-item">
             <span class="meta-label">IP</span>
             <span class="meta-value">{{ client.ip }}</span>
@@ -163,6 +171,12 @@ const viewDetail = () => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.protocol-tag {
+  height: 20px;
+  padding: 0 8px;
+  font-weight: 500;
 }
 
 .meta-item {

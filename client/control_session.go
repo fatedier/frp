@@ -116,6 +116,7 @@ func (d *controlSessionDialer) buildLoginMsg(previousRunID string) (*msg.Login, 
 		Timestamp: time.Now().Unix(),
 		RunID:     previousRunID,
 		Metas:     d.common.Metadatas,
+		Protocol:  d.common.Transport.Protocol,
 	}
 	if d.clientSpec != nil {
 		loginMsg.ClientSpec = *d.clientSpec

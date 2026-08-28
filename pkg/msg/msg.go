@@ -90,6 +90,12 @@ type Login struct {
 
 	// Some global configures.
 	PoolCount int `json:"pool_count,omitempty"`
+
+	// Protocol is the transport protocol the client used to reach the server
+	// (e.g. "tcp", "tls", "websocket", "wss", "kcp", "quic"). It is reported
+	// by the client so the dashboard can show the exact protocol from the
+	// client configuration.
+	Protocol string `json:"protocol,omitempty"`
 }
 
 type LoginResp struct {

@@ -81,7 +81,7 @@ func TestWebsocketListenerHandleConnWSS(t *testing.T) {
 		if err := tlsConn.Handshake(); err != nil {
 			return
 		}
-		_ = wl.HandleConn(tlsConn)
+		_ = wl.HandleConn(tlsConn, "wss")
 	}()
 
 	// Client connects via wss to /api/message.

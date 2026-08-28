@@ -33,6 +33,7 @@ type ClientInfo struct {
 	IP               string
 	Version          string
 	WireProtocol     string
+	Protocol         string
 	FirstConnectedAt time.Time
 	LastConnectedAt  time.Time
 	DisconnectedAt   time.Time
@@ -65,7 +66,7 @@ func newClientRegistryWithClock(clk clock.PassiveClock) *ClientRegistry {
 
 // Register stores/updates metadata for a client and returns the registry key plus whether it conflicts with an online client.
 func (cr *ClientRegistry) Register(user, rawClientID, runID, hostname, version, remoteAddr, wireProtocol string) (key string, conflict bool) {
-	return cr.RegisterWithControlID(user, rawClientID, runID, hostname, version, remoteAddr, wireProtocol, 0)
+	return cr.RegisterWithControlID(user, rawClientID, runID, hostname, version, remoteAddr, wireProtocol, 0, "")
 }
 
 // RegisterWithControlID is the generation-aware form used by ControlManager.
@@ -74,6 +75,7 @@ func (cr *ClientRegistry) Register(user, rawClientID, runID, hostname, version, 
 func (cr *ClientRegistry) RegisterWithControlID(
 	user, rawClientID, runID, hostname, version, remoteAddr, wireProtocol string,
 	controlID uint64,
+	protocol string,
 ) (key string, conflict bool) {
 	if runID == "" {
 		return "", false
@@ -123,6 +125,7 @@ func (cr *ClientRegistry) RegisterWithControlID(
 	info.IP = remoteAddr
 	info.Version = version
 	info.WireProtocol = wireProtocol
+	info.Protocol = protocol
 	if info.FirstConnectedAt.IsZero() {
 		info.FirstConnectedAt = now
 	}
