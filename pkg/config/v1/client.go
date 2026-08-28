@@ -16,6 +16,7 @@ package v1
 
 import (
 	"os"
+	"strings"
 
 	"github.com/samber/lo"
 
@@ -142,6 +143,11 @@ type ClientTransportConfig struct {
 	HeartbeatTimeout int64 `json:"heartbeatTimeout,omitempty"`
 	// TLS specifies TLS settings for the connection to the server.
 	TLS TLSClientConfig `json:"tls,omitempty"`
+	// WebsocketPath specifies the URL path used when connecting to the server
+	// over the "websocket" or "wss" protocol. It must match one of the paths
+	// configured on frps via transport.websocketPaths. If empty, the default
+	// path "/~!frp" is used.
+	WebsocketPath string `json:"websocketPath,omitempty"`
 }
 
 func (c *ClientTransportConfig) Complete() {
@@ -163,6 +169,12 @@ func (c *ClientTransportConfig) Complete() {
 	}
 	c.QUIC.Complete()
 	c.TLS.Complete()
+	// Normalize the websocket path so a value without a leading "/" (e.g.
+	// "custom/path") produces a valid URL. The server side does the same in
+	// ServerTransportConfig.Complete(); keep the client consistent.
+	if c.WebsocketPath != "" && !strings.HasPrefix(c.WebsocketPath, "/") {
+		c.WebsocketPath = "/" + c.WebsocketPath
+	}
 }
 
 type TLSClientConfig struct {

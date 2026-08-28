@@ -136,6 +136,24 @@ transport.tls.enable = true
 # Since v0.50.0, the default value has been changed to true, and the first custom byte is disabled by default.
 # transport.tls.disableCustomTLSFirstByte = true
 
+# transport.websocketPath specifies the URL path used when protocol is
+# "websocket" or "wss". It must match one of the paths configured on frps via
+# transport.websocketPaths; otherwise the connection will be rejected.
+#
+# If empty, the default path "/~!frp" is used. The value is automatically
+# prefixed with "/" if it does not already start with one.
+#
+# Example (connect to a custom websocket endpoint configured on frps):
+# transport.protocol = "websocket"
+# transport.websocketPath = "/custom/path"
+#
+# Combined with frps side:
+#   # frps.toml
+#   transport.websocketPaths = ["/~!frp", "/custom/path"]
+#   # frpc.toml
+#   transport.protocol = "websocket"
+#   transport.websocketPath = "/custom/path"
+
 # Heartbeat configure, it's not recommended to modify the default value.
 # The default value of heartbeatInterval is 10 and heartbeatTimeout is 90. Set negative value
 # to disable it.

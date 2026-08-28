@@ -47,6 +47,23 @@ transport.tls.force = false
 # transport.tls.keyFile = "server.key"
 # transport.tls.trustedCaFile = "ca.crt"
 
+# transport.websocketPaths specifies the URL paths that frps accepts websocket
+# upgrade requests on. frpc must connect using one of these paths (see
+# transport.websocketPath in frpc's config).
+#
+# Multiple paths can be configured so that frpc can connect through different
+# entry points, for example behind different reverse proxies / locations, or
+# when you want to expose frp over websocket on more than one endpoint.
+#
+# If empty, the default path "/~!frp" is used. Each path is automatically
+# prefixed with "/" if it does not already start with one.
+#
+# Example: accept websocket connections on several endpoints:
+# transport.websocketPaths = ["/~!frp", "/frp-ws", "/custom/path"]
+#
+# Note: this option only takes effect when transport.protocol on the frpc side
+# is set to "websocket" or "wss".
+
 # If you want to support virtual host, you must set the http port for listening (optional)
 # Note: http port and https port can be same with bindPort
 vhostHTTPPort = 80

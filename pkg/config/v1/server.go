@@ -15,6 +15,8 @@
 package v1
 
 import (
+	"strings"
+
 	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/config/types"
@@ -177,6 +179,16 @@ type ServerTransportConfig struct {
 	QUIC QUICOptions `json:"quic,omitempty"`
 	// TLS specifies TLS settings for the connection from the client.
 	TLS TLSServerConfig `json:"tls,omitempty"`
+	// WebsocketPaths specifies the URL paths that the server accepts websocket
+	// upgrade requests on. Multiple paths can be configured so that frpc can
+	// connect through different entry points (e.g. behind different reverse
+	// proxies). It also enables wss (websocket over TLS): after TLS termination
+	// frps inspects each client connection for a websocket upgrade request
+	// matching one of these paths. This detection only runs when at least one
+	// path is configured here, so default frps (no websocketPaths set) pays no
+	// per-connection peeking cost. When empty, the plaintext websocket listener
+	// still serves the default path "/~!frp".
+	WebsocketPaths []string `json:"websocketPaths,omitempty"`
 }
 
 func (c *ServerTransportConfig) Complete() {
@@ -193,6 +205,11 @@ func (c *ServerTransportConfig) Complete() {
 	c.QUIC.Complete()
 	if c.TLS.TrustedCaFile != "" {
 		c.TLS.Force = true
+	}
+	for i, p := range c.WebsocketPaths {
+		if !strings.HasPrefix(p, "/") {
+			c.WebsocketPaths[i] = "/" + p
+		}
 	}
 }
 
