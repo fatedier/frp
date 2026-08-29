@@ -39,6 +39,7 @@ const (
 	maxV2PageSize     = 200
 
 	v2SystemPruneTypeOfflineProxies = "offline_proxies"
+	v2SystemPruneTypeOfflineClients = "offline_clients"
 	v2ProxyTrafficDefaultDays       = 7
 	v2ProxyTrafficUnit              = "bytes"
 	v2ProxyTrafficGranularity       = "day"
@@ -96,7 +97,16 @@ func (c *Controller) APIV2SystemPrune(ctx *httppkg.Context) (any, error) {
 		return nil, err
 	}
 
-	cleared, total := mem.StatsCollector.PruneOfflineProxies()
+	var cleared, total int
+	switch pruneType {
+	case v2SystemPruneTypeOfflineProxies:
+		cleared, total = mem.StatsCollector.PruneOfflineProxies()
+	case v2SystemPruneTypeOfflineClients:
+		if c.clientRegistry == nil {
+			return nil, fmt.Errorf("client registry unavailable")
+		}
+		cleared, total = c.clientRegistry.ClearOfflineClients()
+	}
 	return model.V2SystemPruneResp{
 		Type:    pruneType,
 		Cleared: cleared,
@@ -370,10 +380,10 @@ func parseV2SystemPruneType(raw string) (string, error) {
 	switch pruneType {
 	case "":
 		return "", httppkg.NewError(http.StatusBadRequest, "type is required")
-	case v2SystemPruneTypeOfflineProxies:
+	case v2SystemPruneTypeOfflineProxies, v2SystemPruneTypeOfflineClients:
 		return pruneType, nil
 	default:
-		return "", httppkg.NewError(http.StatusBadRequest, "type must be one of offline_proxies")
+		return "", httppkg.NewError(http.StatusBadRequest, "type must be one of offline_proxies, offline_clients")
 	}
 }
 

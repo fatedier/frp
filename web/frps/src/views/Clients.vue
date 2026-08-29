@@ -21,6 +21,12 @@
             }}</span>
           </button>
         </div>
+
+        <div class="actions-section">
+          <ActionButton variant="outline" size="small" danger @click="showClearDialog = true">
+            Clear Offline
+          </ActionButton>
+        </div>
       </div>
 
       <div class="search-section">
@@ -58,6 +64,15 @@
         @size-change="onPageSizeChange"
       />
     </div>
+
+    <ConfirmDialog
+      v-model="showClearDialog"
+      title="Clear Offline"
+      message="Are you sure you want to clear all offline clients?"
+      confirm-text="Clear"
+      danger
+      @confirm="handleClearConfirm"
+    />
   </div>
 </template>
 
@@ -65,9 +80,11 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage, ElPagination } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
+import ActionButton from '@shared/components/ActionButton.vue'
+import ConfirmDialog from '@shared/components/ConfirmDialog.vue'
 import { Client } from '../utils/client'
 import ClientCard from '../components/ClientCard.vue'
-import { getClientsV2 } from '../api/client'
+import { getClientsV2, clearOfflineClients } from '../api/client'
 
 const clients = ref<Client[]>([])
 const loading = ref(false)
@@ -76,6 +93,7 @@ const statusFilter = ref<'all' | 'online' | 'offline'>('all')
 const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const showClearDialog = ref(false)
 
 let refreshTimer: number | null = null
 let searchDebounceTimer: number | null = null
@@ -158,6 +176,23 @@ const onPageChange = (value: number) => {
 const onPageSizeChange = (value: number) => {
   pageSize.value = value
   resetPageAndFetch()
+}
+
+const handleClearConfirm = async () => {
+  try {
+    await clearOfflineClients()
+    ElMessage({
+      message: 'Successfully cleared offline clients',
+      type: 'success',
+    })
+    showClearDialog.value = false
+    await fetchData()
+  } catch (err: any) {
+    ElMessage({
+      message: 'Failed to clear offline clients: ' + err.message,
+      type: 'warning',
+    })
+  }
 }
 
 const startAutoRefresh = () => {
