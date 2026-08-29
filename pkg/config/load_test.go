@@ -24,6 +24,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/fatedier/frp/pkg/config/types"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
 
@@ -189,6 +190,47 @@ unixPath = "/tmp/uds.sock"
 	pluginStr += `unknown = "unknown"`
 	err = LoadConfigure([]byte(pluginStr), &clientCfg, true)
 	require.Error(err)
+}
+
+func TestLoadClientConfigNatHoleSTUNServerAcceptsStringAndList(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    types.StringList
+	}{
+		{
+			name: "toml single value for backward compatibility",
+			content: `
+natHoleStunServer = "stun.easyvoip.com:3478"
+`,
+			want: types.StringList{"stun.easyvoip.com:3478"},
+		},
+		{
+			name: "toml multiple values",
+			content: `
+natHoleStunServer = ["stun1.example.com:3478", "stun2.example.com:3478"]
+`,
+			want: types.StringList{"stun1.example.com:3478", "stun2.example.com:3478"},
+		},
+		{
+			name: "yaml multiple values",
+			content: `
+natHoleStunServer:
+- stun1.example.com:3478
+- stun2.example.com:3478
+`,
+			want: types.StringList{"stun1.example.com:3478", "stun2.example.com:3478"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clientCfg := v1.ClientConfig{}
+			err := LoadConfigure([]byte(tt.content), &clientCfg, false)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, clientCfg.NatHoleSTUNServer)
+		})
+	}
 }
 
 func TestLoadClientConfigStrictMode_UnknownPluginField(t *testing.T) {
