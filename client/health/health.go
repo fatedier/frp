@@ -119,6 +119,7 @@ func (monitor *Monitor) checkWorker() {
 
 		if err == nil {
 			xl.Tracef("do one health check success")
+			monitor.failedTimes = 0
 			if !monitor.statusOK && monitor.statusNormalFn != nil {
 				xl.Infof("health check status change to success")
 				monitor.statusOK = true
