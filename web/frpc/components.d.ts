@@ -13,6 +13,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     ConfigField: typeof import('./src/components/ConfigField.vue')['default']
     ConfigSection: typeof import('./src/components/ConfigSection.vue')['default']
+    ElButton: typeof import('element-plus/es')['ElButton']
     ElDialog: typeof import('element-plus/es')['ElDialog']
     ElForm: typeof import('element-plus/es')['ElForm']
     ElFormItem: typeof import('element-plus/es')['ElFormItem']
@@ -22,6 +23,7 @@ declare module 'vue' {
     ElRadio: typeof import('element-plus/es')['ElRadio']
     ElRadioGroup: typeof import('element-plus/es')['ElRadioGroup']
     ElSwitch: typeof import('element-plus/es')['ElSwitch']
+    ElTooltip: typeof import('element-plus/es')['ElTooltip']
     KeyValueEditor: typeof import('./src/components/KeyValueEditor.vue')['default']
     ProxyAuthSection: typeof import('./src/components/proxy-form/ProxyAuthSection.vue')['default']
     ProxyBackendSection: typeof import('./src/components/proxy-form/ProxyBackendSection.vue')['default']

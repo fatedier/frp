@@ -26,7 +26,6 @@ import (
 
 	"github.com/fatedier/frp/assets"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
-	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
 
 var (
@@ -45,7 +44,38 @@ type Server struct {
 	authMiddleware mux.MiddlewareFunc
 }
 
+type serverOptions struct {
+	sessionCookieName string
+}
+
+// ServerOption is an optional setting for NewServer.
+type ServerOption func(*serverOptions)
+
+// WithSessionCookieName overrides the login session cookie name. frps and
+// frpc set distinct names ("frps_session" / "frpc_session") so both
+// dashboards can hold independent sessions when served from the same host,
+// since cookies are scoped by host name only, not by port.
+func WithSessionCookieName(name string) ServerOption {
+	return func(o *serverOptions) {
+		o.sessionCookieName = name
+	}
+}
+
+// NewServer creates the dashboard web server with the default session cookie
+// name. Its signature is kept unchanged for downstream callers; use
+// NewServerWithOptions to customize the session cookie name.
 func NewServer(cfg v1.WebServerConfig) (*Server, error) {
+	return NewServerWithOptions(cfg)
+}
+
+// NewServerWithOptions creates the dashboard web server with optional
+// settings.
+func NewServerWithOptions(cfg v1.WebServerConfig, opts ...ServerOption) (*Server, error) {
+	options := &serverOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	assets.Load(cfg.AssetsDir)
 
 	addr := net.JoinHostPort(cfg.Addr, strconv.Itoa(cfg.Port))
@@ -83,8 +113,24 @@ func NewServer(cfg v1.WebServerConfig) (*Server, error) {
 			Certificates: []tls.Certificate{cert},
 		}
 	}
-	s.authMiddleware = netpkg.NewHTTPAuthMiddleware(cfg.User, cfg.Password).SetAuthFailDelay(200 * time.Millisecond).Middleware
+	sessions, err := newSessionManager()
+	if err != nil {
+		return nil, err
+	}
+	authMid := NewSessionAuthMiddleware(cfg.User, cfg.Password, options.sessionCookieName, sessions).
+		SetAuthFailDelay(200 * time.Millisecond)
+	s.registerAuthHandlers(authMid)
+	s.authMiddleware = authMid.Middleware
 	return s, nil
+}
+
+// registerAuthHandlers exposes the public auth endpoints used by the dashboard
+// web UI. They must be registered before RouteRegister adds the protected
+// /api routes, since the mux router matches routes in registration order.
+func (s *Server) registerAuthHandlers(authMid *SessionAuthMiddleware) {
+	s.router.Handle("/api/auth/login", authMid.LoginHandler()).Methods(http.MethodPost)
+	s.router.Handle("/api/auth/logout", authMid.LogoutHandler()).Methods(http.MethodPost)
+	s.router.Handle("/api/auth/check", authMid.CheckHandler()).Methods(http.MethodGet)
 }
 
 func (s *Server) Address() string {

@@ -147,7 +147,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 
 	var webServer *httppkg.Server
 	if cfg.WebServer.Port > 0 {
-		ws, err := httppkg.NewServer(cfg.WebServer)
+		ws, err := httppkg.NewServerWithOptions(cfg.WebServer, httppkg.WithSessionCookieName("frps_session"))
 		if err != nil {
 			return nil, err
 		}

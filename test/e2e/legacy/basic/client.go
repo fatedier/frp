@@ -97,7 +97,7 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 		}).Port(dashboardPort).ExpectResp([]byte("")).Ensure()
 
 		framework.NewRequestExpect(f).RequestModify(func(r *request.Request) {
-			r.HTTP().HTTPPath("/")
+			r.HTTP().HTTPPath("/api/status")
 		}).Port(dashboardPort).
 			Ensure(framework.ExpectResponseCode(401))
 	})
