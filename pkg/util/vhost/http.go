@@ -105,6 +105,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			ResponseHeaderTimeout: rp.responseHeaderTimeout,
 			IdleConnTimeout:       60 * time.Second,
 			MaxIdleConnsPerHost:   5,
+			DisableCompression:    true,
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				return rp.CreateConnection(ctx.Value(RouteInfoKey).(*RequestRouteInfo), true)
 			},
