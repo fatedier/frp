@@ -703,7 +703,7 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 			var isTLS, custom bool
 			c, isTLS, custom, err = netpkg.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, forceTLS, connReadTimeout)
 			if err != nil {
-				log.Warnf("checkAndEnableTLSServerConnWithTimeout error: %v", err)
+				log.Warnf("checkAndEnableTLSServerConnWithTimeout error from [%s]: %v", originConn.RemoteAddr(), err)
 				originConn.Close()
 				continue
 			}

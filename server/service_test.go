@@ -15,6 +15,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -28,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	goliblog "github.com/fatedier/golib/log"
 	"github.com/fatedier/golib/net/mux"
 	"github.com/stretchr/testify/require"
 
@@ -37,12 +39,55 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/proto/wire"
+	frplog "github.com/fatedier/frp/pkg/util/log"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/proxy"
 	"github.com/fatedier/frp/server/registry"
 	"github.com/fatedier/frp/server/visitor"
 )
+
+func TestHandleListenerLogsRemoteAddressOnTLSCheckError(t *testing.T) {
+	output := bytes.NewBuffer(nil)
+	oldLogger := frplog.Logger
+	frplog.Logger = goliblog.New(
+		goliblog.WithOutput(output),
+		goliblog.WithLevel(goliblog.TraceLevel),
+		goliblog.WithCaller(false),
+	)
+	t.Cleanup(func() {
+		frplog.Logger = oldLogger
+	})
+
+	serverConn, clientConn := net.Pipe()
+	defer clientConn.Close()
+
+	remoteAddr := &net.TCPAddr{IP: net.ParseIP("192.0.2.1"), Port: 12345}
+	listener := &singleConnListener{
+		conn: &remoteAddrConn{
+			Conn:       serverConn,
+			remoteAddr: remoteAddr,
+		},
+	}
+	svr := &Service{
+		cfg: &v1.ServerConfig{
+			Transport: v1.ServerTransportConfig{
+				TLS: v1.TLSServerConfig{Force: true},
+			},
+		},
+	}
+
+	writeErrCh := make(chan error, 1)
+	go func() {
+		_, err := clientConn.Write([]byte{0x01})
+		writeErrCh <- err
+	}()
+
+	svr.HandleListener(listener, false)
+	require.NoError(t, <-writeErrCh)
+	require.Contains(t, output.String(), "checkAndEnableTLSServerConnWithTimeout error from [192.0.2.1:12345]")
+	require.Contains(t, output.String(), "non-TLS connection received on a TlsOnly server")
+}
 
 func TestWriteWithDeadlineTimesOutAndClearsDeadline(t *testing.T) {
 	serverConn, clientConn := net.Pipe()
@@ -963,6 +1008,29 @@ func (p *workConnBarrierPlugin) Handle(
 type countingCloseConn struct {
 	closeCount atomic.Int64
 }
+
+type singleConnListener struct {
+	conn net.Conn
+}
+
+func (l *singleConnListener) Accept() (net.Conn, error) {
+	if l.conn == nil {
+		return nil, net.ErrClosed
+	}
+	conn := l.conn
+	l.conn = nil
+	return conn, nil
+}
+
+func (*singleConnListener) Close() error   { return nil }
+func (*singleConnListener) Addr() net.Addr { return lifecycleTestAddr("local") }
+
+type remoteAddrConn struct {
+	net.Conn
+	remoteAddr net.Addr
+}
+
+func (c *remoteAddrConn) RemoteAddr() net.Addr { return c.remoteAddr }
 
 func newCountingCloseConn() *countingCloseConn { return &countingCloseConn{} }
 
