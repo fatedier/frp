@@ -16,6 +16,7 @@ package auth
 
 import (
 	"context"
+	"crypto"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -74,6 +75,17 @@ func createOIDCHTTPClient(trustedCAFile string, insecureSkipVerify bool, proxyUR
 	}
 
 	return &http.Client{Transport: transport}, nil
+}
+
+func VerifierFromPublicKeys(cfg v1.AuthOIDCServerConfig, keys []crypto.PublicKey) (*oidc.IDTokenVerifier, error) {
+	verifierConf := &oidc.Config{
+		ClientID:          cfg.Audience,
+		SkipClientIDCheck: cfg.Audience == "",
+		SkipExpiryCheck:   cfg.SkipExpiryCheck,
+		SkipIssuerCheck:   cfg.SkipIssuerCheck,
+	}
+	keySet := &oidc.StaticKeySet{PublicKeys: keys}
+	return oidc.NewVerifier(cfg.Issuer, keySet, verifierConf), nil
 }
 
 // nonCachingTokenSource wraps a clientcredentials.Config to fetch a fresh
@@ -273,10 +285,39 @@ type OidcAuthConsumer struct {
 	subjectsFromLogin map[string]struct{}
 }
 
+func NewTokenVerifierFromStatic(cfg v1.AuthOIDCServerConfig) (TokenVerifier, error) {
+	if cfg.IssuerSpec.PemFile != "" {
+		pemBytes, err := os.ReadFile(cfg.IssuerSpec.PemFile)
+		if err == nil {
+			key, err := DecodePemCert(pemBytes)
+			if err != nil {
+				return nil, err
+			}
+			return VerifierFromPublicKeys(cfg, key)
+		}
+	}
+	if cfg.IssuerSpec.JWKSFile != "" {
+		jwksBytes, err := os.ReadFile(cfg.IssuerSpec.JWKSFile)
+		if err != nil {
+			return nil, err
+		}
+		jwks, err := DecodeJWKSFile(jwksBytes)
+		if err != nil {
+			return nil, err
+		}
+		return VerifierFromPublicKeys(cfg, DecodeJWKS(jwks))
+	}
+	return VerifierFromPublicKeys(cfg, DecodeJWKS(cfg.IssuerSpec.JWKS))
+}
+
 func NewTokenVerifier(cfg v1.AuthOIDCServerConfig) TokenVerifier {
 	provider, err := oidc.NewProvider(context.Background(), cfg.Issuer)
 	if err != nil {
-		panic(err)
+		verifier, err := NewTokenVerifierFromStatic(cfg)
+		if err != nil {
+			panic(err)
+		}
+		return verifier
 	}
 	verifierConf := oidc.Config{
 		ClientID:          cfg.Audience,
