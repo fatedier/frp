@@ -72,9 +72,13 @@ func (svr *Service) autoTransportEndpoints() []msg.TransportEndpoint {
 		if port <= 0 || !has(protocol) {
 			return
 		}
+		addr := cfg.BindAddr
+		if addr == "0.0.0.0" || addr == "::" || addr == "[::]" {
+			addr = ""
+		}
 		endpoints = append(endpoints, msg.TransportEndpoint{
 			Protocol: protocol,
-			Addr:     cfg.BindAddr,
+			Addr:     addr,
 			Port:     port,
 			Enabled:  true,
 		})
@@ -128,6 +132,13 @@ func autoLoginWithFallback(login *msg.Login, privilegeKey string, timestamp int6
 	return &out
 }
 
+func autoTransportErrorString(summary string, err error, detailed bool) string {
+	if !detailed {
+		return summary
+	}
+	return fmt.Sprintf("%s: %v", summary, err)
+}
+
 func (svr *Service) handleClientHelloAuto(conn net.Conn, m *msg.ClientHelloAuto) {
 	resp := &msg.ServerHelloAuto{
 		ProtocolMode:       svr.cfg.Transport.Protocol,
@@ -141,7 +152,7 @@ func (svr *Service) handleClientHelloAuto(conn net.Conn, m *msg.ClientHelloAuto)
 		resp.Error = err.Error()
 		resp.AutoEnabled = false
 	} else if err := svr.verifyAutoLogin(conn, autoLoginFromClientHello(m)); err != nil {
-		resp.Error = fmt.Sprintf("auto transport auth failed: %v", err)
+		resp.Error = autoTransportErrorString("auto transport auth failed", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient))
 		resp.AutoEnabled = false
 	}
 	metrics.AutoNegotiation(metrics.Server, resp.Error == "" && resp.AutoEnabled)
@@ -158,7 +169,7 @@ func (svr *Service) handleProbeTransport(conn net.Conn, m *msg.ProbeTransport, e
 	if err := validateClientAutoVersion(m.ClientAutoVersion); err != nil {
 		resp.Error = err.Error()
 	} else if err := svr.verifyAutoLogin(conn, autoLoginFromProbe(m)); err != nil {
-		resp.Error = fmt.Sprintf("auto transport probe auth failed: %v", err)
+		resp.Error = autoTransportErrorString("auto transport probe auth failed", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient))
 	} else if err := svr.validateSelectedTransportForEntry(m.Protocol, m.Addr, m.Port, entry); err != nil {
 		resp.Error = err.Error()
 	}

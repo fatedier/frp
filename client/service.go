@@ -216,6 +216,9 @@ func NewService(options ServiceOptions) (*Service, error) {
 		handleWorkConnCb: options.HandleWorkConnCb,
 	}
 
+	if options.Common.DNSServer != "" {
+		netpkg.SetDefaultDNSAddress(options.Common.DNSServer)
+	}
 	if webServer != nil {
 		webServer.RouteRegister(s.registerRouteHandlers)
 	}

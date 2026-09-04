@@ -296,6 +296,27 @@ func (ctl *Control) heartbeatWorker() {
 			}
 		}, time.Second, ctl.doneCh)
 	}
+
+	// Periodic auto transport candidate recheck.
+	if ctl.sessionCtx.AutoTransport != nil && ctl.sessionCtx.Common.Transport.Auto.RecheckIntervalSec > 0 {
+		recheckInterval := time.Duration(ctl.sessionCtx.Common.Transport.Auto.RecheckIntervalSec) * time.Second
+		go func() {
+			ticker := time.NewTicker(recheckInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctl.doneCh:
+					return
+				case <-ticker.C:
+					if ctl.sessionCtx.AutoTransport.shouldRecheck() {
+						xl.Infof("auto transport recheck triggered, closing session to re-probe optimal candidates")
+						ctl.closeSession()
+						return
+					}
+				}
+			}
+		}()
+	}
 }
 
 func (ctl *Control) worker() {

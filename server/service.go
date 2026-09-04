@@ -106,6 +106,9 @@ type Service struct {
 	// Manage all controllers
 	ctlManager *ControlManager
 
+	// Track last transport switch time per client runID
+	lastTransportSwitchTimes sync.Map
+
 	// Track logical clients keyed by user.clientID (runID fallback when raw clientID is empty).
 	clientRegistry *registry.ClientRegistry
 
@@ -827,8 +830,8 @@ func (svr *Service) serveTLSFrpConn(ctx context.Context, c net.Conn) {
 }
 
 func (svr *Service) serveWebsocketConn(ctx context.Context, c net.Conn, entry autoTransportEntry) {
+	_ = c.SetDeadline(time.Now().Add(connReadTimeout))
 	ln := netpkg.NewWebsocketListener(newSingleConnListener(c))
-	defer ln.Close()
 
 	acceptCh := make(chan net.Conn, 1)
 	errCh := make(chan error, 1)
@@ -841,15 +844,35 @@ func (svr *Service) serveWebsocketConn(ctx context.Context, c net.Conn, entry au
 		acceptCh <- conn
 	}()
 
+	timer := time.NewTimer(connReadTimeout)
+	defer timer.Stop()
+
 	select {
 	case wsConn := <-acceptCh:
+		_ = wsConn.SetDeadline(time.Time{})
+		_ = ln.Close()
 		svr.serveFrpConn(ctx, wsConn, false, entry)
 	case err := <-errCh:
+		_ = ln.Close()
 		log.Warnf("accept websocket connection error: %v", err)
 		c.Close()
-	case <-time.After(connReadTimeout):
+	case <-timer.C:
+		_ = ln.Close()
 		log.Warnf("accept websocket connection timeout")
 		c.Close()
+		go func() {
+			if wsConn := <-acceptCh; wsConn != nil {
+				_ = wsConn.Close()
+			}
+		}()
+	case <-ctx.Done():
+		_ = ln.Close()
+		c.Close()
+		go func() {
+			if wsConn := <-acceptCh; wsConn != nil {
+				_ = wsConn.Close()
+			}
+		}()
 	}
 }
 
@@ -1043,6 +1066,19 @@ func (svr *Service) RegisterControl(
 	if oldCtl, ok := svr.ctlManager.GetByID(loginMsg.RunID); ok && oldCtl != nil && oldCtl.sessionCtx != nil {
 		oldTransport = oldCtl.sessionCtx.Transport
 	}
+	if oldTransport != "" && oldTransport != selectedTransport {
+		if svr.cfg.Transport.Auto.AllowDynamicSwitch != nil && !*svr.cfg.Transport.Auto.AllowDynamicSwitch {
+			return nil, fmt.Errorf("dynamic transport switch is disabled on server")
+		}
+		if svr.cfg.Transport.Auto.SwitchCooldownSec > 0 {
+			if lastSwitch, ok := svr.lastTransportSwitchTimes.Load(loginMsg.RunID); ok {
+				if time.Since(lastSwitch.(time.Time)) < time.Duration(svr.cfg.Transport.Auto.SwitchCooldownSec)*time.Second {
+					return nil, fmt.Errorf("transport switch cooldown active on server")
+				}
+			}
+		}
+		svr.lastTransportSwitchTimes.Store(loginMsg.RunID, time.Now())
+	}
 
 	if err := svr.ctlManager.Add(ctl); err != nil {
 		return ctl, err
@@ -1059,7 +1095,6 @@ func (svr *Service) RegisterControl(
 
 	// for statistics
 	metrics.AutoTransportSelected(metrics.Server, selectedTransport)
-	metrics.AutoTransportClientOnline(metrics.Server, selectedTransport)
 	metrics.AutoTransportSwitch(metrics.Server, oldTransport, selectedTransport)
 	svr.logSelectedTransport(loginMsg.RunID, selectedTransport, selectedPort, selectedReason, selectedScores)
 	svr.logTransportSwitch(loginMsg.RunID, oldTransport, selectedTransport, selectedReason, selectedScores)

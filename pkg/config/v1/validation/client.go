@@ -175,6 +175,21 @@ func validateTransportConfig(c *v1.ClientTransportConfig) (Warning, error) {
 		if err := validateProtocolList("transport.auto.candidates", c.Auto.Candidates); err != nil {
 			errs = AppendError(errs, err)
 		}
+		if c.ProxyURL != "" && !slices.Contains(c.Auto.Candidates, v1.TransportProtocolTCP) {
+			errs = AppendError(errs, fmt.Errorf("transport.auto.candidates must contain tcp when transport.proxyURL is configured"))
+		}
+		if c.Auto.AllowUDP != nil && !*c.Auto.AllowUDP {
+			hasNonUDP := false
+			for _, p := range c.Auto.Candidates {
+				if p != v1.TransportProtocolKCP && p != v1.TransportProtocolQUIC {
+					hasNonUDP = true
+					break
+				}
+			}
+			if !hasNonUDP {
+				errs = AppendError(errs, fmt.Errorf("transport.auto.candidates contains only UDP protocols but allowUDP is false"))
+			}
+		}
 		if !slices.Contains(v1.SupportedAutoTransportStrategies, c.Auto.Strategy) {
 			errs = AppendError(errs, fmt.Errorf("invalid transport.auto.strategy, optional values are %v", v1.SupportedAutoTransportStrategies))
 		}
@@ -184,11 +199,26 @@ func validateTransportConfig(c *v1.ClientTransportConfig) (Warning, error) {
 		if c.Auto.ProbeCount <= 0 {
 			errs = AppendError(errs, fmt.Errorf("transport.auto.probeCount must be greater than 0"))
 		}
+		if c.Auto.FailureThreshold <= 0 {
+			errs = AppendError(errs, fmt.Errorf("transport.auto.failureThreshold must be greater than 0"))
+		}
+		if c.Auto.DegradeThreshold <= 0 {
+			errs = AppendError(errs, fmt.Errorf("transport.auto.degradeThreshold must be greater than 0"))
+		}
+		if c.Auto.CooldownSec < 0 {
+			errs = AppendError(errs, fmt.Errorf("transport.auto.cooldownSec must be non-negative"))
+		}
+		if c.Auto.StickyDurationSec < 0 {
+			errs = AppendError(errs, fmt.Errorf("transport.auto.stickyDurationSec must be non-negative"))
+		}
+		if c.Auto.RecheckIntervalSec < 0 {
+			errs = AppendError(errs, fmt.Errorf("transport.auto.recheckIntervalSec must be non-negative"))
+		}
 		if !slices.Contains([]string{v1.TransportProtocolTCP}, c.Auto.BootstrapProtocol) {
 			errs = AppendError(errs, fmt.Errorf("transport.auto.bootstrapProtocol only supports tcp"))
 		}
-		if c.Auto.BootstrapPort <= 0 {
-			errs = AppendError(errs, fmt.Errorf("transport.auto.bootstrapPort must be greater than 0"))
+		if c.Auto.BootstrapPort <= 0 || c.Auto.BootstrapPort > 65535 {
+			errs = AppendError(errs, fmt.Errorf("invalid transport.auto.bootstrapPort, port must be between 1 and 65535"))
 		}
 	}
 	if !slices.Contains(SupportedWireProtocols, c.WireProtocol) {

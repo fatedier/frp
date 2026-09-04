@@ -687,6 +687,7 @@ func (ctl *Control) closeProxy(pxy proxy.Proxy) {
 func (ctl *Control) worker() {
 	xl := ctl.xl
 	ctl.serverMetrics.NewClient()
+	metrics.AutoTransportClientOnline(ctl.serverMetrics, ctl.sessionCtx.Transport)
 
 	go ctl.heartbeatWorker()
 	go ctl.msgDispatcher.Run()

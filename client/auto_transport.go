@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
@@ -115,6 +116,7 @@ type autoTransportManager struct {
 
 	lastHeartbeatRTT       time.Duration
 	avgHeartbeatRTT        time.Duration
+	baselineHeartbeatRTT   time.Duration
 	heartbeatTimeouts      int
 	workConnFailures       int
 	qualityDegradeCount    int
@@ -167,7 +169,9 @@ func newAutoTransportManager(
 		common:           common,
 		auth:             authRuntime,
 		connectorCreator: connectorCreator,
-		resolveIPAddrs:   net.DefaultResolver.LookupIPAddr,
+		resolveIPAddrs: func(ctx context.Context, host string) ([]net.IPAddr, error) {
+			return net.DefaultResolver.LookupIPAddr(ctx, host)
+		},
 		lastScores:       make(map[string]int64),
 		lastScoreDetails: make(map[string]AutoTransportScoreDetail),
 		lastSuccessRates: make(map[string]float64),
@@ -280,7 +284,9 @@ func (m *autoTransportManager) reportLoginSuccess(protocol string) {
 	if m.selected != nil && m.selected.Protocol == protocol {
 		m.selectedAt = time.Now()
 	}
-	m.failures[protocol] = 0
+	if m.failures[protocol] > 0 {
+		m.failures[protocol]--
+	}
 	delete(m.blacklistUntil, protocol)
 	m.persistLastGood(protocol)
 }
@@ -318,15 +324,25 @@ func (m *autoTransportManager) reportHeartbeatRTT(rtt time.Duration) bool {
 	m.heartbeatTimeouts = 0
 	if m.avgHeartbeatRTT <= 0 {
 		m.avgHeartbeatRTT = rtt
+	} else {
+		m.avgHeartbeatRTT = (m.avgHeartbeatRTT*4 + rtt) / 5
+	}
+	if m.baselineHeartbeatRTT <= 0 {
+		m.baselineHeartbeatRTT = rtt
 		return false
 	}
 
-	previousAvg := m.avgHeartbeatRTT
-	m.avgHeartbeatRTT = (m.avgHeartbeatRTT*4 + rtt) / 5
-	if rtt >= previousAvg*3 && rtt >= time.Second {
+	baseline := m.baselineHeartbeatRTT
+	if rtt >= baseline*3 && rtt >= time.Second {
 		return m.recordDegradeLocked(autoTransportReasonHeartbeatRTT, &m.qualityDegradeCount)
 	}
-	m.qualityDegradeCount = 0
+	if rtt < baseline*2 {
+		m.baselineHeartbeatRTT = (m.baselineHeartbeatRTT*4 + rtt) / 5
+		m.qualityDegradeCount = 0
+		if m.selected != nil {
+			m.failures[m.selected.Protocol] = 0
+		}
+	}
 	if m.state == autoTransportStateDegraded && m.heartbeatTimeouts == 0 && m.workConnFailures == 0 {
 		m.state = autoTransportStateConnected
 	}
@@ -345,6 +361,9 @@ func (m *autoTransportManager) reportWorkConnSuccess() {
 	defer m.mu.Unlock()
 
 	m.workConnFailures = 0
+	if m.selected != nil {
+		m.failures[m.selected.Protocol] = 0
+	}
 	if m.state == autoTransportStateDegraded && m.heartbeatTimeouts == 0 && m.qualityDegradeCount == 0 {
 		m.state = autoTransportStateConnected
 	}
@@ -630,8 +649,9 @@ func (m *autoTransportManager) expandCandidatesByResolvedAddr(
 
 	out := make([]autoTransportCandidate, 0, len(candidates))
 	seen := make(map[string]struct{})
+	dnsCache := make(map[string][]net.IPAddr)
 	for _, candidate := range candidates {
-		expanded := m.resolveCandidateAddrs(ctx, candidate)
+		expanded := m.resolveCandidateAddrs(ctx, candidate, dnsCache)
 		for _, c := range expanded {
 			key := autoTransportCandidateKey(c)
 			if _, ok := seen[key]; ok {
@@ -647,20 +667,33 @@ func (m *autoTransportManager) expandCandidatesByResolvedAddr(
 func (m *autoTransportManager) resolveCandidateAddrs(
 	ctx context.Context,
 	candidate autoTransportCandidate,
+	dnsCache map[string][]net.IPAddr,
 ) []autoTransportCandidate {
 	host := normalizeAutoTransportHost(candidate.Addr)
 	if host == "" || net.ParseIP(host) != nil {
 		return []autoTransportCandidate{candidate}
 	}
 
-	timeout := time.Duration(m.common.Transport.Auto.ProbeTimeoutMs) * time.Millisecond
-	if timeout <= 0 {
-		timeout = 1200 * time.Millisecond
-	}
-	resolveCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
+	var (
+		addrs []net.IPAddr
+		err   error
+	)
+	if cached, ok := dnsCache[host]; ok {
+		addrs = cached
+	} else {
+		timeout := time.Duration(m.common.Transport.Auto.ProbeTimeoutMs) * time.Millisecond
+		if timeout <= 0 {
+			timeout = 1200 * time.Millisecond
+		}
+		resolveCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
 
-	addrs, err := m.resolveIPAddrs(resolveCtx, host)
+		addrs, err = m.resolveIPAddrs(resolveCtx, host)
+		if err == nil && len(addrs) > 0 {
+			dnsCache[host] = addrs
+		}
+	}
+
 	if err != nil || len(addrs) == 0 {
 		if err != nil {
 			log.Warnf("auto transport: resolve %s failed, keep hostname candidate: %v", host, err)
@@ -729,6 +762,26 @@ func (m *autoTransportManager) isBlacklisted(protocol string) bool {
 		return false
 	}
 	return true
+}
+
+func (m *autoTransportManager) shouldRecheck() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.state != autoTransportStateConnected || m.selected == nil || !m.lastDynamic {
+		return false
+	}
+	now := time.Now()
+	for proto, until := range m.blacklistUntil {
+		if now.After(until) {
+			delete(m.blacklistUntil, proto)
+			return true
+		}
+	}
+	if len(m.common.Transport.Auto.Candidates) > 0 && m.selected.Protocol != m.common.Transport.Auto.Candidates[0] {
+		return true
+	}
+	return false
 }
 
 func (m *autoTransportManager) usableEndpointAddr(addr string) string {
@@ -859,12 +912,36 @@ func (m *autoTransportManager) probeOnce(ctx context.Context, candidate autoTran
 	}
 	defer connector.Close()
 
-	conn, err := connector.Connect()
-	if err != nil {
-		return 0, err
+	type connectResult struct {
+		conn net.Conn
+		err  error
+	}
+	connectCh := make(chan connectResult, 1)
+	go func() {
+		c, err := connector.Connect()
+		connectCh <- connectResult{conn: c, err: err}
+	}()
+
+	var conn net.Conn
+	select {
+	case <-doCtx.Done():
+		_ = connector.Close()
+		go func() {
+			res := <-connectCh
+			if res.conn != nil {
+				_ = res.conn.Close()
+			}
+		}()
+		return 0, doCtx.Err()
+	case res := <-connectCh:
+		if res.err != nil {
+			return 0, res.err
+		}
+		conn = res.conn
 	}
 	defer conn.Close()
 
+	_ = conn.SetDeadline(time.Now().Add(timeout))
 	probe := &msg.ProbeTransport{
 		Protocol:          candidate.Protocol,
 		Addr:              candidate.advertisedAddr(),
@@ -1126,9 +1203,7 @@ func copyStringMap(in map[string]string) map[string]string {
 		return nil
 	}
 	out := make(map[string]string, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
+	maps.Copy(out, in)
 	return out
 }
 
@@ -1137,9 +1212,7 @@ func copyBoolMap(in map[string]bool) map[string]bool {
 		return nil
 	}
 	out := make(map[string]bool, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
+	maps.Copy(out, in)
 	return out
 }
 
@@ -1148,9 +1221,7 @@ func copyFloat64Map(in map[string]float64) map[string]float64 {
 		return nil
 	}
 	out := make(map[string]float64, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
+	maps.Copy(out, in)
 	return out
 }
 
@@ -1159,9 +1230,7 @@ func copyInt64Map(in map[string]int64) map[string]int64 {
 		return nil
 	}
 	out := make(map[string]int64, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
+	maps.Copy(out, in)
 	return out
 }
 
@@ -1170,8 +1239,6 @@ func copyScoreDetailsMap(in map[string]AutoTransportScoreDetail) map[string]Auto
 		return nil
 	}
 	out := make(map[string]AutoTransportScoreDetail, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
+	maps.Copy(out, in)
 	return out
 }

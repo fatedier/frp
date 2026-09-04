@@ -66,6 +66,22 @@ func (v *ConfigValidator) ValidateServerConfig(c *v1.ServerConfig) (Warning, err
 		if err := validateProtocolList("transport.auto.advertiseProtocols", c.Transport.Auto.AdvertiseProtocols); err != nil {
 			errs = AppendError(errs, err)
 		}
+		if slices.Contains(c.Transport.Auto.AdvertiseProtocols, v1.TransportProtocolTCP) && c.BindPort <= 0 {
+			errs = AppendError(errs, fmt.Errorf("bindPort must be configured when tcp is in transport.auto.advertiseProtocols"))
+		}
+		if slices.Contains(c.Transport.Auto.AdvertiseProtocols, v1.TransportProtocolKCP) && c.KCPBindPort <= 0 {
+			errs = AppendError(errs, fmt.Errorf("kcpBindPort must be configured when kcp is in transport.auto.advertiseProtocols"))
+		}
+		if slices.Contains(c.Transport.Auto.AdvertiseProtocols, v1.TransportProtocolQUIC) && c.QUICBindPort <= 0 {
+			errs = AppendError(errs, fmt.Errorf("quicBindPort must be configured when quic is in transport.auto.advertiseProtocols"))
+		}
+		if (slices.Contains(c.Transport.Auto.AdvertiseProtocols, v1.TransportProtocolWebsocket) ||
+			slices.Contains(c.Transport.Auto.AdvertiseProtocols, v1.TransportProtocolWSS)) && c.BindPort <= 0 {
+			errs = AppendError(errs, fmt.Errorf("bindPort must be configured when websocket/wss is in transport.auto.advertiseProtocols"))
+		}
+		if c.Transport.Auto.SwitchCooldownSec < 0 {
+			errs = AppendError(errs, fmt.Errorf("transport.auto.switchCooldownSec must be non-negative"))
+		}
 		if err := validateProtocolList("transport.auto.preferOrder", c.Transport.Auto.PreferOrder); err != nil {
 			errs = AppendError(errs, err)
 		}
