@@ -28,18 +28,18 @@ type V2SystemInfoResp struct {
 }
 
 type V2SystemInfoConfigResp struct {
-	BindPort              int    `json:"bindPort"`
-	VhostHTTPPort         int    `json:"vhostHTTPPort"`
-	VhostHTTPSPort        int    `json:"vhostHTTPSPort"`
-	TCPMuxHTTPConnectPort int    `json:"tcpmuxHTTPConnectPort"`
-	KCPBindPort           int    `json:"kcpBindPort"`
-	QUICBindPort          int    `json:"quicBindPort"`
-	SubdomainHost         string `json:"subdomainHost"`
-	MaxPoolCount          int64  `json:"maxPoolCount"`
-	MaxPortsPerClient     int64  `json:"maxPortsPerClient"`
-	HeartbeatTimeout      int64  `json:"heartbeatTimeout"`
-	AllowPortsStr         string   `json:"allowPortsStr"`
-	TLSForce              bool     `json:"tlsForce"`
+	BindPort               int      `json:"bindPort"`
+	VhostHTTPPort          int      `json:"vhostHTTPPort"`
+	VhostHTTPSPort         int      `json:"vhostHTTPSPort"`
+	TCPMuxHTTPConnectPort  int      `json:"tcpmuxHTTPConnectPort"`
+	KCPBindPort            int      `json:"kcpBindPort"`
+	QUICBindPort           int      `json:"quicBindPort"`
+	SubdomainHost          string   `json:"subdomainHost"`
+	MaxPoolCount           int64    `json:"maxPoolCount"`
+	MaxPortsPerClient      int64    `json:"maxPortsPerClient"`
+	HeartbeatTimeout       int64    `json:"heartbeatTimeout"`
+	AllowPortsStr          string   `json:"allowPortsStr"`
+	TLSForce               bool     `json:"tlsForce"`
 	TransportProtocol      string   `json:"transportProtocol,omitempty"`
 	AutoTransportEnabled   bool     `json:"autoTransportEnabled,omitempty"`
 	AutoTransportProtocols []string `json:"autoTransportProtocols,omitempty"`
