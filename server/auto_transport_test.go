@@ -44,12 +44,12 @@ func newAutoTransportServiceForTest(t *testing.T, cfg *v1.ServerConfig) *Service
 	}
 }
 
-func validAutoClientHello(t *testing.T, token string) *msg.ClientHelloAuto {
+func validAutoClientHello(t *testing.T) *msg.ClientHelloAuto {
 	t.Helper()
 
 	clientAuth, err := auth.BuildClientAuth(&v1.AuthClientConfig{
 		Method: v1.AuthMethodToken,
-		Token:  token,
+		Token:  "secret",
 	})
 	if err != nil {
 		t.Fatalf("build client auth: %v", err)
@@ -137,7 +137,7 @@ func TestAutoTransportServerHelloAdvertisesFixedEndpointModel(t *testing.T) {
 	cfg.Transport.Protocol = v1.TransportProtocolAuto
 	svr := newAutoTransportServiceForTest(t, cfg)
 
-	resp := readServerHelloFromHandler(t, svr, validAutoClientHello(t, "secret"))
+	resp := readServerHelloFromHandler(t, svr, validAutoClientHello(t))
 	if resp.Error != "" {
 		t.Fatalf("unexpected server hello error: %s", resp.Error)
 	}
@@ -295,7 +295,7 @@ func TestClientHelloAutoRunsLoginPlugin(t *testing.T) {
 	svr.pluginManager = splugin.NewManager()
 	svr.pluginManager.Register(rejectingLoginPlugin{})
 
-	resp := readServerHelloFromHandler(t, svr, validAutoClientHello(t, "secret"))
+	resp := readServerHelloFromHandler(t, svr, validAutoClientHello(t))
 	if resp.Error == "" {
 		t.Fatal("expected plugin rejection")
 	}
@@ -341,7 +341,7 @@ func TestClientHelloAutoPassesLoginIdentityToPlugin(t *testing.T) {
 	svr.pluginManager = splugin.NewManager()
 	svr.pluginManager.Register(requiringLoginIdentityPlugin{})
 
-	hello := validAutoClientHello(t, "secret")
+	hello := validAutoClientHello(t)
 	hello.Login = &msg.Login{
 		PrivilegeKey: hello.PrivilegeKey,
 		Timestamp:    hello.Timestamp,
@@ -367,7 +367,7 @@ func TestProbeTransportPassesLoginIdentityToPlugin(t *testing.T) {
 	svr.pluginManager = splugin.NewManager()
 	svr.pluginManager.Register(requiringLoginIdentityPlugin{})
 
-	hello := validAutoClientHello(t, "secret")
+	hello := validAutoClientHello(t)
 	probe := &msg.ProbeTransport{
 		Protocol:          v1.TransportProtocolTCP,
 		Addr:              "server.example.com",
@@ -429,7 +429,7 @@ func TestClientHelloAutoRejectsUnsupportedVersion(t *testing.T) {
 	cfg.Transport.Protocol = v1.TransportProtocolAuto
 	svr := newAutoTransportServiceForTest(t, cfg)
 
-	hello := validAutoClientHello(t, "secret")
+	hello := validAutoClientHello(t)
 	hello.ClientAutoVersion = msg.AutoTransportVersion + 1
 	resp := readServerHelloFromHandler(t, svr, hello)
 	if resp.Error == "" {
