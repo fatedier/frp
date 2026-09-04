@@ -155,6 +155,10 @@ type AuthOIDCServerConfig struct {
 }
 
 type ServerTransportConfig struct {
+	// Protocol specifies the server transport mode. Static mode is "tcp" by
+	// default. "auto" enables server-side capability advertisement for clients
+	// that also use automatic transport selection.
+	Protocol string `json:"protocol,omitempty"`
 	// TCPMux toggles TCP stream multiplexing. This allows multiple requests
 	// from a client to share a single TCP connection. By default, this value
 	// is true.
@@ -177,9 +181,12 @@ type ServerTransportConfig struct {
 	QUIC QUICOptions `json:"quic,omitempty"`
 	// TLS specifies TLS settings for the connection from the client.
 	TLS TLSServerConfig `json:"tls,omitempty"`
+	// Auto specifies server-side automatic transport advertisement options.
+	Auto ServerAutoTransportConfig `json:"auto,omitempty"`
 }
 
 func (c *ServerTransportConfig) Complete() {
+	c.Protocol = util.EmptyOr(c.Protocol, TransportProtocolTCP)
 	c.TCPMux = util.EmptyOr(c.TCPMux, lo.ToPtr(true))
 	c.TCPMuxKeepaliveInterval = util.EmptyOr(c.TCPMuxKeepaliveInterval, 30)
 	c.TCPKeepAlive = util.EmptyOr(c.TCPKeepAlive, 7200)
@@ -194,6 +201,7 @@ func (c *ServerTransportConfig) Complete() {
 	if c.TLS.TrustedCaFile != "" {
 		c.TLS.Force = true
 	}
+	c.Auto.Complete(c.Protocol)
 }
 
 type TLSServerConfig struct {
