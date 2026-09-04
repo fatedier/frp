@@ -1079,10 +1079,7 @@ func (svr *Service) RegisterControl(
 		svr.transportSwitchRecords = make(map[string]transportSwitchRecord)
 	}
 	if len(svr.transportSwitchRecords) > 100 {
-		cooldown := time.Duration(svr.cfg.Transport.Auto.SwitchCooldownSec) * time.Second
-		if cooldown < 10*time.Minute {
-			cooldown = 10 * time.Minute
-		}
+		cooldown := max(time.Duration(svr.cfg.Transport.Auto.SwitchCooldownSec)*time.Second, 10*time.Minute)
 		for id, rec := range svr.transportSwitchRecords {
 			if now.Sub(rec.switchAt) > cooldown {
 				delete(svr.transportSwitchRecords, id)
