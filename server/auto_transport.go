@@ -73,7 +73,9 @@ func (svr *Service) autoTransportEndpoints() []msg.TransportEndpoint {
 			return
 		}
 		addr := cfg.BindAddr
-		if addr == "0.0.0.0" || addr == "::" || addr == "[::]" {
+		if ip := net.ParseIP(addr); ip != nil && (ip.IsUnspecified() || ip.IsLoopback()) {
+			addr = ""
+		} else if addr == "0.0.0.0" || addr == "::" || addr == "[::]" || addr == "127.0.0.1" || addr == "::1" || addr == "[::1]" {
 			addr = ""
 		}
 		endpoints = append(endpoints, msg.TransportEndpoint{
@@ -211,7 +213,7 @@ func (svr *Service) validateSelectedTransportForEntry(protocol string, addr stri
 }
 
 func advertisedAddrMatches(advertised string, selected string) bool {
-	if advertised == "" || advertised == "0.0.0.0" || advertised == "::" || advertised == "[::]" {
+	if advertised == "" || advertised == "0.0.0.0" || advertised == "::" || advertised == "[::]" || advertised == "127.0.0.1" || advertised == "::1" {
 		return true
 	}
 	return advertised == selected

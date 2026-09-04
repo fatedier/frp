@@ -284,10 +284,6 @@ func (m *autoTransportManager) reportLoginSuccess(protocol string) {
 	if m.selected != nil && m.selected.Protocol == protocol {
 		m.selectedAt = time.Now()
 	}
-	if m.failures[protocol] > 0 {
-		m.failures[protocol]--
-	}
-	delete(m.blacklistUntil, protocol)
 	m.persistLastGood(protocol)
 }
 
@@ -689,9 +685,8 @@ func (m *autoTransportManager) resolveCandidateAddrs(
 		defer cancel()
 
 		addrs, err = m.resolveIPAddrs(resolveCtx, host)
-		if err == nil && len(addrs) > 0 {
-			dnsCache[host] = addrs
-		}
+		// Cache result even on failure to avoid repeating failed DNS resolutions serially per candidate
+		dnsCache[host] = addrs
 	}
 
 	if err != nil || len(addrs) == 0 {
@@ -771,15 +766,15 @@ func (m *autoTransportManager) shouldRecheck() bool {
 	if m.state != autoTransportStateConnected || m.selected == nil || !m.lastDynamic {
 		return false
 	}
+	if !m.selectedAt.IsZero() && time.Since(m.selectedAt) < time.Duration(m.common.Transport.Auto.StickyDurationSec)*time.Second {
+		return false
+	}
 	now := time.Now()
 	for proto, until := range m.blacklistUntil {
 		if now.After(until) {
 			delete(m.blacklistUntil, proto)
 			return true
 		}
-	}
-	if len(m.common.Transport.Auto.Candidates) > 0 && m.selected.Protocol != m.common.Transport.Auto.Candidates[0] {
-		return true
 	}
 	return false
 }
@@ -941,7 +936,11 @@ func (m *autoTransportManager) probeOnce(ctx context.Context, candidate autoTran
 	}
 	defer conn.Close()
 
-	_ = conn.SetDeadline(time.Now().Add(timeout))
+	if deadline, ok := doCtx.Deadline(); ok {
+		_ = conn.SetDeadline(deadline)
+	} else {
+		_ = conn.SetDeadline(time.Now().Add(timeout))
+	}
 	probe := &msg.ProbeTransport{
 		Protocol:          candidate.Protocol,
 		Addr:              candidate.advertisedAddr(),
@@ -954,7 +953,6 @@ func (m *autoTransportManager) probeOnce(ctx context.Context, candidate autoTran
 	if err := msg.WriteMsg(conn, probe); err != nil {
 		return 0, err
 	}
-	_ = conn.SetReadDeadline(time.Now().Add(timeout))
 	var resp msg.ProbeTransportResp
 	if err := msg.ReadMsgInto(conn, &resp); err != nil {
 		return 0, err
@@ -997,6 +995,11 @@ func (m *autoTransportManager) recordSelectionLocked(
 		m.switchCount++
 		m.lastSwitchAt = time.Now()
 		m.selectedAt = time.Time{}
+		m.baselineHeartbeatRTT = 0
+		m.avgHeartbeatRTT = 0
+		m.qualityDegradeCount = 0
+		m.heartbeatTimeouts = 0
+		m.workConnFailures = 0
 	}
 
 	c := candidate

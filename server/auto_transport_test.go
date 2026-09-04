@@ -224,7 +224,7 @@ func TestValidateSelectedTransportRequiresMatchingConnectionEntry(t *testing.T) 
 
 func TestValidateSelectedTransportRequiresAdvertisedAddrWhenSpecific(t *testing.T) {
 	cfg := &v1.ServerConfig{
-		BindAddr:     "127.0.0.1",
+		BindAddr:     "203.0.113.10",
 		BindPort:     7000,
 		KCPBindPort:  7000,
 		QUICBindPort: 7002,
@@ -232,8 +232,8 @@ func TestValidateSelectedTransportRequiresAdvertisedAddrWhenSpecific(t *testing.
 	cfg.Transport.Protocol = v1.TransportProtocolAuto
 	svr := newAutoTransportServiceForTest(t, cfg)
 
-	if err := svr.validateSelectedTransport(v1.TransportProtocolTCP, "127.0.0.1", 7000); err != nil {
-		t.Fatalf("expected tcp@127.0.0.1:7000 to be valid: %v", err)
+	if err := svr.validateSelectedTransport(v1.TransportProtocolTCP, "203.0.113.10", 7000); err != nil {
+		t.Fatalf("expected tcp@203.0.113.10:7000 to be valid: %v", err)
 	}
 	if err := svr.validateSelectedTransport(v1.TransportProtocolTCP, "192.0.2.1", 7000); err == nil {
 		t.Fatal("expected tcp@192.0.2.1:7000 to be rejected")

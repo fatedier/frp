@@ -106,8 +106,9 @@ type Service struct {
 	// Manage all controllers
 	ctlManager *ControlManager
 
-	// Track last transport switch time per client runID
-	lastTransportSwitchTimes sync.Map
+	// Track last transport and switch times per client runID with bounded lifecycle
+	transportSwitchMu      sync.Mutex
+	transportSwitchRecords map[string]transportSwitchRecord
 
 	// Track logical clients keyed by user.clientID (runID fallback when raw clientID is empty).
 	clientRegistry *registry.ClientRegistry
@@ -621,6 +622,11 @@ func (svr *Service) completeControlLogin(ctl *Control, writeSuccess func() error
 	return nil
 }
 
+type transportSwitchRecord struct {
+	transport string
+	switchAt  time.Time
+}
+
 type acceptedConnection struct {
 	conn               *msg.Conn
 	wireProtocol       string
@@ -860,19 +866,23 @@ func (svr *Service) serveWebsocketConn(ctx context.Context, c net.Conn, entry au
 		_ = ln.Close()
 		log.Warnf("accept websocket connection timeout")
 		c.Close()
-		go func() {
-			if wsConn := <-acceptCh; wsConn != nil {
+		select {
+		case wsConn := <-acceptCh:
+			if wsConn != nil {
 				_ = wsConn.Close()
 			}
-		}()
+		default:
+		}
 	case <-ctx.Done():
 		_ = ln.Close()
 		c.Close()
-		go func() {
-			if wsConn := <-acceptCh; wsConn != nil {
+		select {
+		case wsConn := <-acceptCh:
+			if wsConn != nil {
 				_ = wsConn.Close()
 			}
-		}()
+		default:
+		}
 	}
 }
 
@@ -1063,22 +1073,52 @@ func (svr *Service) RegisterControl(
 	}
 
 	oldTransport := ""
-	if oldCtl, ok := svr.ctlManager.GetByID(loginMsg.RunID); ok && oldCtl != nil && oldCtl.sessionCtx != nil {
-		oldTransport = oldCtl.sessionCtx.Transport
+	now := time.Now()
+	svr.transportSwitchMu.Lock()
+	if svr.transportSwitchRecords == nil {
+		svr.transportSwitchRecords = make(map[string]transportSwitchRecord)
 	}
-	if oldTransport != "" && oldTransport != selectedTransport {
-		if svr.cfg.Transport.Auto.AllowDynamicSwitch != nil && !*svr.cfg.Transport.Auto.AllowDynamicSwitch {
-			return nil, fmt.Errorf("dynamic transport switch is disabled on server")
+	if len(svr.transportSwitchRecords) > 100 {
+		cooldown := time.Duration(svr.cfg.Transport.Auto.SwitchCooldownSec) * time.Second
+		if cooldown < 10*time.Minute {
+			cooldown = 10 * time.Minute
 		}
-		if svr.cfg.Transport.Auto.SwitchCooldownSec > 0 {
-			if lastSwitch, ok := svr.lastTransportSwitchTimes.Load(loginMsg.RunID); ok {
-				if time.Since(lastSwitch.(time.Time)) < time.Duration(svr.cfg.Transport.Auto.SwitchCooldownSec)*time.Second {
-					return nil, fmt.Errorf("transport switch cooldown active on server")
-				}
+		for id, rec := range svr.transportSwitchRecords {
+			if now.Sub(rec.switchAt) > cooldown {
+				delete(svr.transportSwitchRecords, id)
 			}
 		}
-		svr.lastTransportSwitchTimes.Store(loginMsg.RunID, time.Now())
 	}
+
+	record, hasRecord := svr.transportSwitchRecords[loginMsg.RunID]
+	if hasRecord {
+		oldTransport = record.transport
+	} else if oldCtl, ok := svr.ctlManager.GetByID(loginMsg.RunID); ok && oldCtl != nil && oldCtl.sessionCtx != nil {
+		oldTransport = oldCtl.sessionCtx.Transport
+	}
+
+	if oldTransport != "" && oldTransport != selectedTransport {
+		if svr.cfg.Transport.Auto.AllowDynamicSwitch != nil && !*svr.cfg.Transport.Auto.AllowDynamicSwitch {
+			svr.transportSwitchMu.Unlock()
+			return nil, fmt.Errorf("dynamic transport switch is disabled on server")
+		}
+		if svr.cfg.Transport.Auto.SwitchCooldownSec > 0 && hasRecord {
+			if now.Sub(record.switchAt) < time.Duration(svr.cfg.Transport.Auto.SwitchCooldownSec)*time.Second {
+				svr.transportSwitchMu.Unlock()
+				return nil, fmt.Errorf("transport switch cooldown active on server")
+			}
+		}
+		svr.transportSwitchRecords[loginMsg.RunID] = transportSwitchRecord{
+			transport: selectedTransport,
+			switchAt:  now,
+		}
+	} else if !hasRecord {
+		svr.transportSwitchRecords[loginMsg.RunID] = transportSwitchRecord{
+			transport: selectedTransport,
+			switchAt:  now,
+		}
+	}
+	svr.transportSwitchMu.Unlock()
 
 	if err := svr.ctlManager.Add(ctl); err != nil {
 		return ctl, err
