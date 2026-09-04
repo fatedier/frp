@@ -14,6 +14,18 @@ kcpBindPort = 7000
 # if not set, quic is disabled in frps.
 # quicBindPort = 7002
 
+# Enable server-side automatic transport capability advertisement.
+# Auto mode is only active when both frps and frpc set transport.protocol = "auto".
+# In this mode, this implementation requires kcpBindPort to equal bindPort,
+# and quicBindPort to be different from both bindPort and kcpBindPort.
+# The following dotted keys are top-level TOML keys. Do not put them under a [transport] table.
+# transport.protocol = "auto"
+# transport.auto.enabled = true
+# transport.auto.allowDynamicSwitch = true
+# transport.auto.advertiseProtocols = ["tcp", "kcp", "quic", "websocket", "wss"]
+# transport.auto.preferOrder = ["quic", "tcp", "wss", "websocket", "kcp"]
+# transport.auto.switchCooldownSec = 300
+
 # Specify which address proxy will listen for, default value is same with bindAddr
 # proxyBindAddr = "127.0.0.1"
 
