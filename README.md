@@ -13,6 +13,18 @@ frp is an open source project with its ongoing development made possible entirel
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
 <p align="center">
+  <a href="https://www.rapidproxy.io/?ref=frp" target="_blank">
+    <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_rapidproxy.png">
+    <br>
+    <b>High-performance residential and ISP proxies for developers</b>
+  </a>
+  <br>
+  <sub>90M+ residential IPs worldwide. Rotating IPs, sticky sessions, and traffic that never expires.</sub>
+  <br>
+  <sub>From $0.55/GB. Use RAPID10 for 10% off. Try it for free.</sub>
+</p>
+
+<p align="center">
   <a href="https://jb.gg/frp" target="_blank">
     <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_jetbrains.jpg">
 	<br>
