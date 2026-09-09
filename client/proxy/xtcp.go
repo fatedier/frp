@@ -71,7 +71,7 @@ func (pxy *XTCPProxy) InWorkConn(conn net.Conn, startWorkConnMsg *msg.StartWorkC
 		opts.DisableAssistedAddrs = true
 	}
 
-	prepareResult, err := nathole.Prepare([]string{pxy.clientCfg.NatHoleSTUNServer}, opts)
+	prepareResult, err := nathole.Prepare(pxy.clientCfg.NatHoleSTUNServer, opts)
 	if err != nil {
 		xl.Warnf("nathole prepare error: %v", err)
 		return

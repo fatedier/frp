@@ -64,6 +64,45 @@ func TestBandwidthQuantity_InvalidNumber(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestStringList(t *testing.T) {
+	tests := []struct {
+		name string
+		json string
+		want StringList
+	}{
+		{
+			name: "single value for backward compatibility",
+			json: `"stun.easyvoip.com:3478"`,
+			want: StringList{"stun.easyvoip.com:3478"},
+		},
+		{
+			name: "array",
+			json: `["stun1.example.com:3478","stun2.example.com:3478"]`,
+			want: StringList{"stun1.example.com:3478", "stun2.example.com:3478"},
+		},
+		{
+			name: "null",
+			json: `null`,
+			want: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var l StringList
+			err := json.Unmarshal([]byte(tt.json), &l)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, l)
+		})
+	}
+
+	// Marshal always emits an array, even for a single value.
+	l := StringList{"stun.easyvoip.com:3478"}
+	buf, err := json.Marshal(l)
+	require.NoError(t, err)
+	require.Equal(t, `["stun.easyvoip.com:3478"]`, string(buf))
+}
+
 func TestPortsRangeSlice2String(t *testing.T) {
 	require := require.New(t)
 

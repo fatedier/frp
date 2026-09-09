@@ -34,13 +34,24 @@ func Discover(stunServers []string, localAddr string) ([]string, net.Addr, error
 	defer discoverConn.Close()
 
 	addresses := make([]string, 0, len(stunServers))
+	var errs []error
 	for _, addr := range stunServers {
 		// get external address from stun server
 		externalAddrs, err := discoverConn.discoverFromStunServer(addr)
 		if err != nil {
-			return nil, nil, err
+			// Try the remaining STUN servers. A single unreachable server must
+			// not abort the whole discovery; the next server may still give us
+			// our external address.
+			errs = append(errs, err)
+			continue
 		}
 		addresses = append(addresses, externalAddrs...)
+	}
+	if len(addresses) == 0 {
+		if len(errs) == 0 {
+			return nil, nil, fmt.Errorf("discover error: no stun server configured")
+		}
+		return nil, nil, fmt.Errorf("discover error: no external address found from any stun server: %v", errors.Join(errs...))
 	}
 	return addresses, discoverConn.localAddr, nil
 }

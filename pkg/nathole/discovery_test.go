@@ -339,6 +339,93 @@ func TestSTUNTimeoutUsesCallerDeadlineWithoutRetry(t *testing.T) {
 	require.True(t, netErr.Timeout())
 }
 
+func TestDiscoverMergesAddressesFromMultipleSTUNServers(t *testing.T) {
+	server1 := listenTestUDP4(t)
+	server2 := listenTestUDP4(t)
+
+	done1 := serveOneSTUNRequest(server1, func(request []byte, _ *net.UDPAddr) ([]byte, error) {
+		return makeTestSTUNResponse(request, testBindingSuccess,
+			testSTUNAttribute{typ: testAttrXORMapped, value: testIPv4AddressValue(net.ParseIP("198.51.100.10"), 40000, true)},
+		)
+	})
+	done2 := serveOneSTUNRequest(server2, func(request []byte, _ *net.UDPAddr) ([]byte, error) {
+		return makeTestSTUNResponse(request, testBindingSuccess,
+			testSTUNAttribute{typ: testAttrXORMapped, value: testIPv4AddressValue(net.ParseIP("203.0.113.20"), 50000, true)},
+		)
+	})
+
+	addresses, _, err := Discover(
+		[]string{server1.LocalAddr().String(), server2.LocalAddr().String()}, "")
+	require.NoError(t, err)
+	require.Equal(t, []string{"198.51.100.10:40000", "203.0.113.20:50000"}, addresses)
+
+	waitSTUNExchange(t, done1)
+	waitSTUNExchange(t, done2)
+}
+
+func TestDiscoverFallsBackToNextSTUNServer(t *testing.T) {
+	originalTimeout := responseTimeout
+	responseTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { responseTimeout = originalTimeout })
+
+	// First server never replies, so discovery must fall through to the next one.
+	deadServer := listenTestUDP4(t)
+	deadDone := serveOneSTUNRequest(deadServer, nil)
+
+	aliveServer := listenTestUDP4(t)
+	aliveDone := serveOneSTUNRequest(aliveServer, func(request []byte, _ *net.UDPAddr) ([]byte, error) {
+		return makeTestSTUNResponse(request, testBindingSuccess,
+			testSTUNAttribute{typ: testAttrXORMapped, value: testIPv4AddressValue(net.ParseIP("198.51.100.10"), 40000, true)},
+		)
+	})
+
+	addresses, _, err := Discover(
+		[]string{deadServer.LocalAddr().String(), aliveServer.LocalAddr().String()}, "")
+	require.NoError(t, err)
+	require.Equal(t, []string{"198.51.100.10:40000"}, addresses)
+
+	waitSTUNExchange(t, deadDone)
+	waitSTUNExchange(t, aliveDone)
+}
+
+func TestDiscoverIgnoresSubsequentServerFailure(t *testing.T) {
+	originalTimeout := responseTimeout
+	responseTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { responseTimeout = originalTimeout })
+
+	aliveServer := listenTestUDP4(t)
+	aliveDone := serveOneSTUNRequest(aliveServer, func(request []byte, _ *net.UDPAddr) ([]byte, error) {
+		return makeTestSTUNResponse(request, testBindingSuccess,
+			testSTUNAttribute{typ: testAttrXORMapped, value: testIPv4AddressValue(net.ParseIP("198.51.100.10"), 40000, true)},
+		)
+	})
+
+	// Second server never replies; the successful first server must win.
+	deadServer := listenTestUDP4(t)
+	deadDone := serveOneSTUNRequest(deadServer, nil)
+
+	addresses, _, err := Discover(
+		[]string{aliveServer.LocalAddr().String(), deadServer.LocalAddr().String()}, "")
+	require.NoError(t, err)
+	require.Equal(t, []string{"198.51.100.10:40000"}, addresses)
+
+	waitSTUNExchange(t, aliveDone)
+	waitSTUNExchange(t, deadDone)
+}
+
+func TestDiscoverReturnsErrorWhenAllSTUNServersFail(t *testing.T) {
+	originalTimeout := responseTimeout
+	responseTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { responseTimeout = originalTimeout })
+
+	server := listenTestUDP4(t)
+	done := serveOneSTUNRequest(server, nil)
+
+	_, _, err := Discover([]string{server.LocalAddr().String()}, "")
+	require.ErrorContains(t, err, "no external address found from any stun server")
+	waitSTUNExchange(t, done)
+}
+
 func TestSTUNClientLeavesSocketAndDeadlineWithCaller(t *testing.T) {
 	originalTimeout := responseTimeout
 	responseTimeout = 100 * time.Millisecond

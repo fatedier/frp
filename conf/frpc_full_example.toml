@@ -11,8 +11,9 @@ user = "your_name"
 serverAddr = "0.0.0.0"
 serverPort = 7000
 
-# STUN server to help penetrate NAT hole.
-# natHoleStunServer = "stun.easyvoip.com:3478"
+# STUN servers to help penetrate NAT hole. Multiple servers improve the
+# punch-through success rate; a single value is also accepted.
+# natHoleStunServer = ["stun.easyvoip.com:3478", "stun2.example.com:3478"]
 
 # Decide if exit program when first login failed, otherwise continuous relogin to frps
 # default is true

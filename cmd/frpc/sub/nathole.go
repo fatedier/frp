@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/config/types"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/nathole"
 )
@@ -57,7 +58,7 @@ var natholeDiscoveryCmd = &cobra.Command{
 			}
 		}
 		if natHoleSTUNServer != "" {
-			cfg.NatHoleSTUNServer = natHoleSTUNServer
+			cfg.NatHoleSTUNServer = types.StringList{natHoleSTUNServer}
 		}
 
 		if err := validateForNatHoleDiscovery(cfg); err != nil {
@@ -65,7 +66,7 @@ var natholeDiscoveryCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		addrs, localAddr, err := nathole.Discover([]string{cfg.NatHoleSTUNServer}, natHoleLocalAddr)
+		addrs, localAddr, err := nathole.Discover(cfg.NatHoleSTUNServer, natHoleLocalAddr)
 		if err != nil {
 			fmt.Println("discover error:", err)
 			os.Exit(1)
@@ -93,7 +94,7 @@ var natholeDiscoveryCmd = &cobra.Command{
 }
 
 func validateForNatHoleDiscovery(cfg *v1.ClientCommonConfig) error {
-	if cfg.NatHoleSTUNServer == "" {
+	if len(cfg.NatHoleSTUNServer) == 0 {
 		return fmt.Errorf("nat_hole_stun_server can not be empty")
 	}
 	return nil

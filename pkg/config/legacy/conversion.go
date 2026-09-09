@@ -43,7 +43,18 @@ func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConf
 
 	out.ServerAddr = conf.ServerAddr
 	out.ServerPort = conf.ServerPort
-	out.NatHoleSTUNServer = conf.NatHoleSTUNServer
+	if conf.NatHoleSTUNServer != "" {
+		// Legacy ini config holds a single value; a comma-separated list is
+		// also accepted so legacy users can specify multiple STUN servers.
+		// Trim each entry: a natural ini style like "a:3478, b:3478" leaves a
+		// leading space on every entry after the first, which breaks address
+		// resolution.
+		parts := strings.Split(conf.NatHoleSTUNServer, ",")
+		for i, part := range parts {
+			parts[i] = strings.TrimSpace(part)
+		}
+		out.NatHoleSTUNServer = types.StringList(parts)
+	}
 	out.Transport.DialServerTimeout = conf.DialServerTimeout
 	out.Transport.DialServerKeepAlive = conf.DialServerKeepAlive
 	out.Transport.ConnectServerLocalIP = conf.ConnectServerLocalIP
