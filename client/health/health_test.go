@@ -509,7 +509,28 @@ func TestMonitorStopCancelsWork(t *testing.T) {
 	})
 }
 
-func TestMonitorTimerCancellationWinsWhenBothReady(t *testing.T) {
+type gatedErrContext struct {
+	context.Context
+	errCalled  chan struct{}
+	releaseErr chan struct{}
+}
+
+func (ctx *gatedErrContext) Err() error {
+	select {
+	case ctx.errCalled <- struct{}{}:
+	default:
+	}
+	<-ctx.releaseErr
+	return ctx.Context.Err()
+}
+
+func TestMonitorTimerCancellationAfterTimerFires(t *testing.T) {
+	baseCtx, cancel := context.WithCancel(context.Background())
+	ctx := &gatedErrContext{
+		Context:    baseCtx,
+		errCalled:  make(chan struct{}, 1),
+		releaseErr: make(chan struct{}),
+	}
 	monitor := NewMonitor(
 		context.Background(),
 		v1.HealthCheckConfig{Type: "tcp"},
@@ -517,6 +538,8 @@ func TestMonitorTimerCancellationWinsWhenBothReady(t *testing.T) {
 		nil,
 		nil,
 	)
+	monitor.ctx = ctx
+	monitor.cancel = cancel
 
 	timerReady := make(chan time.Time, 1)
 	timerReady <- time.Now()
@@ -524,10 +547,29 @@ func TestMonitorTimerCancellationWinsWhenBothReady(t *testing.T) {
 	monitor.timerFactory = func(time.Duration) (<-chan time.Time, func()) {
 		return timerReady, func() { timerStopped.Store(true) }
 	}
-	monitor.Stop()
 
-	// Both channels are ready before waitForNextCheck starts. Whichever select
-	// branch is chosen must return false; the timer branch must re-check ctx.
-	require.False(t, monitor.waitForNextCheck())
+	waitResult := make(chan bool, 1)
+	go func() {
+		waitResult <- monitor.waitForNextCheck()
+	}()
+
+	// ctx.Done is not ready when select runs, so receiving timerReady is the
+	// only possible branch. Err signals after that receive and blocks until the
+	// test cancels the context, deterministically exercising the cancellation
+	// re-check in the timer branch.
+	select {
+	case <-ctx.errCalled:
+	case <-time.After(time.Second):
+		t.Fatal("timer branch did not re-check the monitor context")
+	}
+	cancel()
+	close(ctx.releaseErr)
+
+	select {
+	case shouldContinue := <-waitResult:
+		require.False(t, shouldContinue)
+	case <-time.After(time.Second):
+		t.Fatal("timer wait did not observe context cancellation")
+	}
 	require.True(t, timerStopped.Load())
 }
