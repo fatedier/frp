@@ -54,6 +54,7 @@ type Monitor struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+	doneCh chan struct{}
 
 	timerFactory func(time.Duration) (<-chan time.Time, func())
 }
@@ -98,6 +99,7 @@ func NewMonitor(ctx context.Context, cfg v1.HealthCheckConfig, addr string,
 		statusFailedFn: statusFailedFn,
 		ctx:            newctx,
 		cancel:         cancel,
+		doneCh:         make(chan struct{}),
 		timerFactory:   newHealthTimer,
 	}
 }
@@ -110,7 +112,14 @@ func (monitor *Monitor) Stop() {
 	monitor.cancel()
 }
 
+// Done is closed when the worker launched by Start has exited.
+func (monitor *Monitor) Done() <-chan struct{} {
+	return monitor.doneCh
+}
+
 func (monitor *Monitor) checkWorker() {
+	defer close(monitor.doneCh)
+
 	for {
 		if monitor.ctx.Err() != nil {
 			return

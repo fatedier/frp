@@ -3,13 +3,16 @@ package features
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 
 	"github.com/fatedier/frp/pkg/sdk/client"
 	"github.com/fatedier/frp/pkg/transport"
@@ -20,8 +23,8 @@ import (
 	"github.com/fatedier/frp/test/e2e/pkg/request"
 )
 
-func waitForProxyStatus(proxyClient *client.Client, proxyName, want string, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func waitForProxyStatus(proxyClient *client.Client, proxyName, want string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	ticker := time.NewTicker(25 * time.Millisecond)
@@ -62,6 +65,25 @@ func waitForSignal(signal <-chan struct{}) error {
 	case <-timer.C:
 		return fmt.Errorf("timeout waiting for backend health-check signal")
 	}
+}
+
+func waitForServerProxyStatus(port int, proxyName, want string, timeout time.Duration) error {
+	return waitForLifecycleCondition(timeout, func() error {
+		body, err := getLifecycleEndpoint(port, "/api/proxies/"+url.PathEscape(proxyName))
+		if err != nil {
+			return err
+		}
+		var status struct {
+			Status string `json:"status"`
+		}
+		if err := json.Unmarshal([]byte(body), &status); err != nil {
+			return err
+		}
+		if status.Status != want {
+			return fmt.Errorf("frps proxy %q status %q, want %q", proxyName, status.Status, want)
+		}
+		return nil
+	})
 }
 
 type httpHealthStage struct {
@@ -305,7 +327,10 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 
 	ginkgo.Describe("Health Check", func() {
 		ginkgo.It("TCP", func() {
-			serverConf := consts.DefaultServerConfig
+			dashboardPort := f.AllocPort()
+			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			webServer.port = %d
+			`, dashboardPort)
 			clientConf := consts.DefaultClientConfig
 
 			fooPort := f.AllocPort()
@@ -348,8 +373,8 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 
 			f.RunProcesses(serverConf, []string{clientConf})
 			proxyClient := f.APIClientForFrpc(adminPort)
-			framework.ExpectNoError(waitForProxyStatus(proxyClient, "foo", "running", 5*time.Second))
-			framework.ExpectNoError(waitForProxyStatus(proxyClient, "bar", "running", 5*time.Second))
+			framework.ExpectNoError(waitForProxyStatus(proxyClient, "foo", "running"))
+			framework.ExpectNoError(waitForProxyStatus(proxyClient, "bar", "running"))
 
 			// Both requests traverse frps, the load-balancing group, frpc, and the
 			// corresponding local backend.
@@ -362,20 +387,20 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			}
 			framework.ExpectContainElements(results, []string{"foo", "bar"})
 
-			// A failed TCP Dial has no backend event and the API exposes no
-			// failure counter. The deterministic barrier is the threshold
-			// transition below, followed by a data-plane check that only foo
-			// remains; the running phase is verified again after recovery.
+			// frps removes the group listener before deleting the proxy from
+			// its manager. Its offline status is the removal barrier; frpc's
+			// local check-failed status alone does not acknowledge that work.
 			for range 2 {
 				framework.ExpectNoError(barServer.Close())
-				framework.ExpectNoError(waitForProxyStatus(proxyClient, "bar", "check failed", 5*time.Second))
+				framework.ExpectNoError(waitForProxyStatus(proxyClient, "bar", "check failed"))
+				framework.ExpectNoError(waitForServerProxyStatus(dashboardPort, "bar", "offline", 5*time.Second))
 				for range 10 {
 					framework.NewRequestExpect(f).Port(remotePort).ExpectResp([]byte("foo")).Ensure()
 				}
 
 				barServer = newBarServer()
 				f.RunServer("", barServer)
-				framework.ExpectNoError(waitForProxyStatus(proxyClient, "bar", "running", 5*time.Second))
+				framework.ExpectNoError(waitForProxyStatus(proxyClient, "bar", "running"))
 				results = []string{}
 				for range 10 {
 					framework.NewRequestExpect(f).Port(remotePort).Ensure(validateFooBarResponse, func(resp *request.Response) bool {
@@ -389,9 +414,11 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 
 		ginkgo.It("HTTP", func() {
 			vhostPort := f.AllocPort()
+			dashboardPort := f.AllocPort()
 			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
 			vhostHTTPPort = %d
-			`, vhostPort)
+			webServer.port = %d
+			`, vhostPort, dashboardPort)
 			clientConf := consts.DefaultClientConfig
 
 			fooPort := f.AllocPort()
@@ -417,7 +444,11 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 						default:
 						}
 						if currentStage.release != nil {
-							<-currentStage.release
+							select {
+							case <-currentStage.release:
+							case <-r.Context().Done():
+								return
+							}
 						}
 						return
 					}
@@ -451,13 +482,14 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			healthCheck.type = "http"
 			healthCheck.intervalSeconds = 1
 			healthCheck.maxFailed = 3
+			healthCheck.timeoutSeconds = 10
 			healthCheck.path = "/healthz"
 			`, adminPort, fooPort, barPort)
 
 			f.RunProcesses(serverConf, []string{clientConf})
 			proxyClient := f.APIClientForFrpc(adminPort)
-			framework.ExpectNoError(waitForProxyStatus(proxyClient, "foo", "running", 5*time.Second))
-			framework.ExpectNoError(waitForProxyStatus(proxyClient, "bar", "running", 5*time.Second))
+			framework.ExpectNoError(waitForProxyStatus(proxyClient, "foo", "running"))
+			framework.ExpectNoError(waitForProxyStatus(proxyClient, "bar", "running"))
 
 			// Ordinary requests traverse the real HTTP proxy path.
 			var contents []string
@@ -491,15 +523,30 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 				framework.ExpectNoError(waitForSignal(failureSignals))
 				release <- struct{}{}
 				framework.ExpectNoError(waitForSignal(failureSignals))
-				framework.ExpectNoError(waitForProxyStatus(proxyClient, "bar", "running", time.Second))
-				release <- struct{}{}
 
 				recoverySignals := make(chan struct{}, 1)
+				recoveryRelease := make(chan struct{})
 				stageMu.Lock()
-				stage = &httpHealthStage{healthy: true, signal: recoverySignals}
+				stage = &httpHealthStage{healthy: true, signal: recoverySignals, release: recoveryRelease}
 				stageMu.Unlock()
+				release <- struct{}{}
+
+				// The next request can only start after the worker consumed the
+				// second failed response. Hold this success response until the
+				// assertion finishes, so premature removal cannot be hidden by
+				// recovery. Consistently also gives the proxy worker time to act
+				// on an erroneous failure notification without retrying it away.
 				framework.ExpectNoError(waitForSignal(recoverySignals))
-				framework.ExpectNoError(waitForProxyStatus(proxyClient, "bar", "running", 5*time.Second))
+				gomega.Consistently(func() string {
+					ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+					defer cancel()
+					status, err := proxyClient.GetProxyStatus(ctx, "bar")
+					if err != nil {
+						return err.Error()
+					}
+					return status.Status
+				}, time.Second, 25*time.Millisecond).Should(gomega.Equal("running"))
+				close(recoveryRelease)
 			}
 			runFailureRecovery()
 			results := doFooBarHTTPRequest(vhostPort, "example.com")
@@ -522,7 +569,10 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 				framework.ExpectNoError(waitForSignal(failureSignals))
 				release <- struct{}{}
 			}
-			framework.ExpectNoError(waitForProxyStatus(proxyClient, "bar", "check failed", 5*time.Second))
+			framework.ExpectNoError(waitForProxyStatus(proxyClient, "bar", "check failed"))
+			// HTTPProxy.Close unregisters the group route before frps reports
+			// offline. Only then assert that fresh data-plane requests use foo.
+			framework.ExpectNoError(waitForServerProxyStatus(dashboardPort, "bar", "offline", 5*time.Second))
 			results = doFooBarHTTPRequest(vhostPort, "example.com")
 			framework.ExpectContainElements(results, []string{"foo"})
 			framework.ExpectNotContainElements(results, []string{"bar"})
@@ -531,8 +581,11 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			stageMu.Lock()
 			stage = &httpHealthStage{healthy: true, signal: recoverySignals}
 			stageMu.Unlock()
+			// Release any additional failed request already waiting while the
+			// removal and data-plane assertions were in progress.
+			close(release)
 			framework.ExpectNoError(waitForSignal(recoverySignals))
-			framework.ExpectNoError(waitForProxyStatus(proxyClient, "bar", "running", 5*time.Second))
+			framework.ExpectNoError(waitForProxyStatus(proxyClient, "bar", "running"))
 			results = doFooBarHTTPRequest(vhostPort, "example.com")
 			framework.ExpectContainElements(results, []string{"foo", "bar"})
 		})

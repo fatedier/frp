@@ -203,13 +203,68 @@ func TestMonitorConsecutiveFailureWindows(t *testing.T) {
 	}
 }
 
+type workerStatus struct {
+	failedTimes uint64
+	statusOK    bool
+}
+
+type workerInterval struct {
+	status workerStatus
+	timer  chan time.Time
+}
+
+func observeWorkerIntervals(monitor *Monitor) <-chan workerInterval {
+	intervals := make(chan workerInterval, 1)
+	monitor.timerFactory = func(time.Duration) (<-chan time.Time, func()) {
+		timer := make(chan time.Time, 1)
+		// The worker takes this snapshot after handleCheckResult. Sending it
+		// publishes the state to the test; no test goroutine reads live fields.
+		interval := workerInterval{
+			status: workerStatus{failedTimes: monitor.failedTimes, statusOK: monitor.statusOK},
+			timer:  timer,
+		}
+		select {
+		case intervals <- interval:
+		case <-monitor.ctx.Done():
+		}
+		return timer, func() {}
+	}
+	return intervals
+}
+
+func awaitWorkerInterval(t *testing.T, intervals <-chan workerInterval, want workerStatus) chan time.Time {
+	t.Helper()
+	select {
+	case interval := <-intervals:
+		require.Equal(t, want, interval.status)
+		return interval.timer
+	case <-time.After(time.Second):
+		t.Fatal("health worker did not reach the interval barrier")
+		return nil
+	}
+}
+
+func stopMonitorWorker(t *testing.T, monitor *Monitor) {
+	t.Helper()
+	monitor.Stop()
+	select {
+	case <-monitor.Done():
+	case <-time.After(time.Second):
+		t.Error("health worker did not exit after Stop")
+	}
+}
+
 func TestMonitorWorkerProcessesResults(t *testing.T) {
 	requestReady := make(chan struct{}, 1)
 	responses := make(chan int)
 	requestCanceled := make(chan struct{})
 	var cancelOnce sync.Once
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestReady <- struct{}{}
+		select {
+		case requestReady <- struct{}{}:
+		case <-r.Context().Done():
+			return
+		}
 		select {
 		case code := <-responses:
 			w.WriteHeader(code)
@@ -225,15 +280,15 @@ func TestMonitorWorkerProcessesResults(t *testing.T) {
 		v1.HealthCheckConfig{
 			Type:           "http",
 			Path:           "/health",
-			TimeoutSeconds: 1,
+			TimeoutSeconds: 5,
 			MaxFailed:      3,
 		},
 		strings.TrimPrefix(server.URL, "http://"),
 		func() { events <- "normal" },
 		func() { events <- "failed" },
 	)
-	monitor.interval = 0
-	t.Cleanup(monitor.Stop)
+	intervals := observeWorkerIntervals(monitor)
+	t.Cleanup(func() { stopMonitorWorker(t, monitor) })
 
 	awaitRequest := func() {
 		t.Helper()
@@ -252,58 +307,40 @@ func TestMonitorWorkerProcessesResults(t *testing.T) {
 			t.Fatalf("health check callback %q was not called", want)
 		}
 	}
-	respond := func(code int) {
+	checkResult := func(code int, want workerStatus, event string) {
 		t.Helper()
-		responses <- code
+		awaitRequest()
+		select {
+		case responses <- code:
+		case <-time.After(time.Second):
+			t.Fatal("health check handler did not accept the response")
+		}
+		timer := awaitWorkerInterval(t, intervals, want)
+		if event != "" {
+			awaitEvent(event)
+		}
+		// The worker has finished this result and cannot emit another
+		// callback until the test releases the next check.
+		select {
+		case got := <-events:
+			t.Fatalf("unexpected health check callback %q", got)
+		default:
+		}
+		timer <- time.Now()
 	}
 
 	monitor.Start()
+	checkResult(http.StatusOK, workerStatus{statusOK: true}, "normal")
+	checkResult(http.StatusServiceUnavailable, workerStatus{failedTimes: 1, statusOK: true}, "")
+	checkResult(http.StatusServiceUnavailable, workerStatus{failedTimes: 2, statusOK: true}, "")
+	checkResult(http.StatusOK, workerStatus{statusOK: true}, "")
+	checkResult(http.StatusServiceUnavailable, workerStatus{failedTimes: 1, statusOK: true}, "")
+	checkResult(http.StatusServiceUnavailable, workerStatus{failedTimes: 2, statusOK: true}, "")
+	checkResult(http.StatusServiceUnavailable, workerStatus{failedTimes: 3}, "failed")
+	checkResult(http.StatusOK, workerStatus{statusOK: true}, "normal")
 
 	awaitRequest()
-	respond(http.StatusOK)
-	awaitEvent("normal")
-
-	awaitRequest()
-	require.True(t, monitor.statusOK)
-	require.Zero(t, monitor.failedTimes)
-	respond(http.StatusServiceUnavailable)
-
-	awaitRequest()
-	require.True(t, monitor.statusOK)
-	require.Equal(t, uint64(1), monitor.failedTimes)
-	respond(http.StatusServiceUnavailable)
-
-	awaitRequest()
-	require.True(t, monitor.statusOK)
-	require.Equal(t, uint64(2), monitor.failedTimes)
-	respond(http.StatusOK)
-
-	awaitRequest()
-	require.True(t, monitor.statusOK)
-	require.Zero(t, monitor.failedTimes)
-	respond(http.StatusServiceUnavailable)
-
-	awaitRequest()
-	require.True(t, monitor.statusOK)
-	require.Equal(t, uint64(1), monitor.failedTimes)
-	respond(http.StatusServiceUnavailable)
-
-	awaitRequest()
-	require.True(t, monitor.statusOK)
-	require.Equal(t, uint64(2), monitor.failedTimes)
-	respond(http.StatusServiceUnavailable)
-	awaitEvent("failed")
-
-	awaitRequest()
-	require.False(t, monitor.statusOK)
-	require.Equal(t, uint64(3), monitor.failedTimes)
-	respond(http.StatusOK)
-	awaitEvent("normal")
-
-	awaitRequest()
-	require.True(t, monitor.statusOK)
-	require.Zero(t, monitor.failedTimes)
-	monitor.Stop()
+	stopMonitorWorker(t, monitor)
 	select {
 	case <-requestCanceled:
 	case <-time.After(time.Second):
@@ -317,13 +354,8 @@ func TestMonitorTCPWorkerProcessesResults(t *testing.T) {
 	addr := initialBackend.listener.Addr().String()
 	recoveryAccepted := make(chan struct{}, 1)
 
-	type workerStatus struct {
-		failedTimes uint64
-		statusOK    bool
-	}
 	normalCallbacks := make(chan workerStatus, 2)
 	failedCallbacks := make(chan workerStatus, 2)
-	timerReady := make(chan chan time.Time, 16)
 	var monitor *Monitor
 	monitor = NewMonitor(
 		context.Background(),
@@ -340,31 +372,16 @@ func TestMonitorTCPWorkerProcessesResults(t *testing.T) {
 			failedCallbacks <- workerStatus{failedTimes: monitor.failedTimes, statusOK: monitor.statusOK}
 		},
 	)
-	monitor.interval = 0
-	monitor.timerFactory = func(time.Duration) (<-chan time.Time, func()) {
-		timer := make(chan time.Time, 1)
-		timerReady <- timer
-		return timer, func() {}
-	}
+	intervals := observeWorkerIntervals(monitor)
 	recoveryBackend := (*tcpHealthBackend)(nil)
 	t.Cleanup(func() {
-		monitor.Stop()
+		stopMonitorWorker(t, monitor)
 		initialBackend.Close()
 		if recoveryBackend != nil {
 			recoveryBackend.Close()
 		}
 	})
 
-	awaitTimer := func() chan time.Time {
-		t.Helper()
-		select {
-		case timer := <-timerReady:
-			return timer
-		case <-time.After(time.Second):
-			t.Fatal("TCP worker did not reach the interval barrier")
-			return nil
-		}
-	}
 	awaitStatus := func(ch <-chan workerStatus, want workerStatus, message string) {
 		t.Helper()
 		select {
@@ -383,22 +400,18 @@ func TestMonitorTCPWorkerProcessesResults(t *testing.T) {
 	}
 	awaitStatus(normalCallbacks, workerStatus{failedTimes: 0, statusOK: true}, "TCP worker did not report the initial success")
 
-	initialTimer := awaitTimer()
+	initialTimer := awaitWorkerInterval(t, intervals, workerStatus{statusOK: true})
 	initialBackend.Close()
 	initialTimer <- time.Now()
 
-	firstFailureTimer := awaitTimer()
-	require.Equal(t, uint64(1), monitor.failedTimes)
-	require.True(t, monitor.statusOK)
+	firstFailureTimer := awaitWorkerInterval(t, intervals, workerStatus{failedTimes: 1, statusOK: true})
 	firstFailureTimer <- time.Now()
 
-	secondFailureTimer := awaitTimer()
-	require.Equal(t, uint64(2), monitor.failedTimes)
-	require.True(t, monitor.statusOK)
+	secondFailureTimer := awaitWorkerInterval(t, intervals, workerStatus{failedTimes: 2, statusOK: true})
 	secondFailureTimer <- time.Now()
 
 	awaitStatus(failedCallbacks, workerStatus{failedTimes: 3, statusOK: false}, "TCP worker did not report the third failed health check")
-	thirdFailureTimer := awaitTimer()
+	thirdFailureTimer := awaitWorkerInterval(t, intervals, workerStatus{failedTimes: 3})
 
 	recoveryBackend = newTCPHealthBackend(t, addr, recoveryAccepted)
 	thirdFailureTimer <- time.Now()
@@ -409,27 +422,18 @@ func TestMonitorTCPWorkerProcessesResults(t *testing.T) {
 	}
 	awaitStatus(normalCallbacks, workerStatus{failedTimes: 0, statusOK: true}, "TCP worker did not report recovery")
 
-	recoveryTimer := awaitTimer()
+	recoveryTimer := awaitWorkerInterval(t, intervals, workerStatus{statusOK: true})
 	recoveryBackend.Close()
 	recoveryTimer <- time.Now()
 
-	firstRecoveryFailureTimer := awaitTimer()
-	require.Equal(t, uint64(1), monitor.failedTimes)
-	require.True(t, monitor.statusOK)
+	firstRecoveryFailureTimer := awaitWorkerInterval(t, intervals, workerStatus{failedTimes: 1, statusOK: true})
 	firstRecoveryFailureTimer <- time.Now()
 
-	secondRecoveryFailureTimer := awaitTimer()
-	require.Equal(t, uint64(2), monitor.failedTimes)
-	require.True(t, monitor.statusOK)
+	secondRecoveryFailureTimer := awaitWorkerInterval(t, intervals, workerStatus{failedTimes: 2, statusOK: true})
 	secondRecoveryFailureTimer <- time.Now()
 
 	awaitStatus(failedCallbacks, workerStatus{failedTimes: 3, statusOK: false}, "TCP worker did not report the third failed health check after recovery")
-	monitor.Stop()
-	select {
-	case <-monitor.ctx.Done():
-	case <-time.After(time.Second):
-		t.Fatal("TCP worker did not stop after cancellation")
-	}
+	stopMonitorWorker(t, monitor)
 }
 
 func TestMonitorMaxFailedOne(t *testing.T) {
@@ -476,7 +480,7 @@ func TestMonitorStopCancelsWork(t *testing.T) {
 			func() {},
 			func() {},
 		)
-		t.Cleanup(monitor.Stop)
+		t.Cleanup(func() { stopMonitorWorker(t, monitor) })
 		monitor.Start()
 
 		select {
@@ -484,7 +488,7 @@ func TestMonitorStopCancelsWork(t *testing.T) {
 		case <-time.After(time.Second):
 			t.Fatal("health check request did not start")
 		}
-		monitor.Stop()
+		stopMonitorWorker(t, monitor)
 		select {
 		case <-requestCanceled:
 		case <-time.After(time.Second):
@@ -494,19 +498,14 @@ func TestMonitorStopCancelsWork(t *testing.T) {
 
 	t.Run("interval wait", func(t *testing.T) {
 		monitor := NewMonitor(context.Background(), v1.HealthCheckConfig{Type: "tcp"}, "", nil, nil)
-		monitor.interval = time.Hour
-		waitResult := make(chan bool, 1)
-		go func() {
-			waitResult <- monitor.waitForNextCheck()
-		}()
+		intervals := observeWorkerIntervals(monitor)
+		t.Cleanup(func() { stopMonitorWorker(t, monitor) })
+		monitor.Start()
 
-		monitor.Stop()
-		select {
-		case shouldContinue := <-waitResult:
-			require.False(t, shouldContinue)
-		case <-time.After(time.Second):
-			t.Fatal("interval wait did not stop after cancellation")
-		}
+		// A real worker has completed its first check and installed a timer
+		// that will never fire. Stop must release the wait and exit the loop.
+		awaitWorkerInterval(t, intervals, workerStatus{})
+		stopMonitorWorker(t, monitor)
 	})
 }
 
