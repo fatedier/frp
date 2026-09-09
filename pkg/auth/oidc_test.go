@@ -2,6 +2,8 @@ package auth_test
 
 import (
 	"context"
+	"crypto/rsa"
+	_ "embed"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +12,8 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/stretchr/testify/require"
 
 	"github.com/fatedier/frp/pkg/auth"
@@ -18,6 +22,15 @@ import (
 )
 
 type mockTokenVerifier struct{}
+
+//go:embed testSample/pki.json
+var pkiJwkContent []byte
+
+//go:embed testSample/pki/server.full.pem
+var pkiPemContent []byte
+
+//go:embed testSample/pem_single.pem
+var singlePemContent []byte
 
 func (m *mockTokenVerifier) Verify(ctx context.Context, subject string) (*oidc.IDToken, error) {
 	return &oidc.IDToken{
@@ -250,4 +263,251 @@ func TestNewOidcAuthSetterRejectsInvalidStaticConfig(t *testing.T) {
 	})
 	r.Error(err)
 	r.Contains(err.Error(), "cannot specify both auth.oidc.audience and auth.oidc.additionalEndpointParams.audience")
+}
+
+func setupStaticOidc(t *testing.T) (*jose.JSONWebKeySet, jwt.Builder) {
+	// Test Setup include Load JWKS + Generate Token
+	r := require.New(t)
+	jwks, err := auth.DecodeJWKSFile(pkiJwkContent)
+	r.NoError((err))
+	signer, err := jose.NewSigner(jose.SigningKey{
+		Algorithm: jose.RS256,
+		Key:       jwks.Key("00000000-0000-ffff-0000-000000000000")[0].Key.(*rsa.PrivateKey),
+	}, nil)
+	r.NoError((err))
+	for i, k := range jwks.Keys {
+		pk := k.Key.(*rsa.PrivateKey)
+		jwks.Keys[i].Key = pk.Public() // We provides Private so to avoid issue with Verifier cast them as Public
+	}
+	return jwks, jwt.Signed(signer)
+}
+
+func TestPingAfterStaticLoginSucceeds(t *testing.T) {
+	// Test Setup include Load JWKS + Generate Token
+	jwks, builder := setupStaticOidc(t)
+	builder = builder.Claims(jwt.Claims{
+		Issuer:    "https://kubernetes.default.svc.cluster.local",
+		Subject:   "system:serviceaccount:default:default",
+		Audience:  jwt.Audience{"https://kubernetes.default.svc.cluster.local", "k3s"},
+		NotBefore: jwt.NewNumericDate(time.Now()),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Expiry:    jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+	})
+
+	r := require.New(t)
+	verifier, err := auth.NewTokenVerifierFromStatic(
+		v1.AuthOIDCServerConfig{
+			Issuer:   "https://kubernetes.default.svc.cluster.local",
+			Audience: "k3s",
+			IssuerSpec: v1.AuthOIDCIssuer{
+				JWKS: jwks,
+			},
+		})
+	r.NoError((err))
+	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, verifier)
+	token, err := builder.Serialize()
+	r.NoError(err)
+
+	err = consumer.VerifyLogin(&msg.Login{
+		PrivilegeKey: token,
+	})
+	r.NoError(err)
+
+	err = consumer.VerifyPing(&msg.Ping{
+		PrivilegeKey: token,
+		Timestamp:    time.Now().UnixMilli(),
+	})
+	r.NoError(err)
+}
+
+func TestExpiredTokenStaticLoginFailed(t *testing.T) {
+	// Test Setup include Load JWKS + Generate Token
+	jwks, builder := setupStaticOidc(t)
+	builder = builder.Claims(jwt.Claims{
+		Issuer:    "https://kubernetes.default.svc.cluster.local",
+		Subject:   "system:serviceaccount:default:default",
+		Audience:  jwt.Audience{"https://kubernetes.default.svc.cluster.local", "k3s"},
+		NotBefore: jwt.NewNumericDate(time.Now()),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Expiry:    jwt.NewNumericDate(time.Now().Add(-1 * time.Hour)),
+	})
+
+	r := require.New(t)
+	verifier, err := auth.NewTokenVerifierFromStatic(v1.AuthOIDCServerConfig{
+		Issuer:   "https://kubernetes.default.svc.cluster.local",
+		Audience: "k3s",
+		IssuerSpec: v1.AuthOIDCIssuer{
+			JWKS: jwks,
+		},
+	})
+	r.NoError((err))
+	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, verifier)
+	token, err := builder.Serialize()
+	r.NoError(err)
+
+	err = consumer.VerifyLogin(&msg.Login{
+		PrivilegeKey: token,
+	})
+	r.Error(err)
+	r.Contains(err.Error(), "oidc: token is expired")
+}
+
+func TestBadAudienceStaticLoginFailed(t *testing.T) {
+	// Test Setup include Load JWKS + Generate Token
+	jwks, builder := setupStaticOidc(t)
+	builder = builder.Claims(jwt.Claims{
+		Issuer:    "https://kubernetes.default.svc.cluster.local",
+		Subject:   "system:serviceaccount:default:default",
+		Audience:  jwt.Audience{"https://kubernetes.default.svc.cluster.local", "k3s"},
+		NotBefore: jwt.NewNumericDate(time.Now()),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Expiry:    jwt.NewNumericDate(time.Now().Add(-1 * time.Hour)),
+	})
+
+	r := require.New(t)
+	verifier, err := auth.NewTokenVerifierFromStatic(v1.AuthOIDCServerConfig{
+		Issuer:   "https://kubernetes.default.svc.cluster.local",
+		Audience: "k8s",
+		IssuerSpec: v1.AuthOIDCIssuer{
+			JWKS: jwks,
+		},
+	})
+	r.NoError((err))
+	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, verifier)
+	token, err := builder.Serialize()
+	r.NoError(err)
+
+	err = consumer.VerifyLogin(&msg.Login{
+		PrivilegeKey: token,
+	})
+	r.Error(err)
+	r.Contains(err.Error(), `oidc: expected audience "k8s" got ["https://kubernetes.default.svc.cluster.local" "k3s"]`)
+}
+
+func TestBadIssuerStaticLoginFailed(t *testing.T) {
+	// Test Setup include Load JWKS + Generate Token
+	jwks, builder := setupStaticOidc(t)
+	builder = builder.Claims(jwt.Claims{
+		Issuer:    "https://kubernetes.default.svc.cluster.local",
+		Subject:   "system:serviceaccount:default:default",
+		Audience:  jwt.Audience{"https://kubernetes.default.svc.cluster.local", "k3s"},
+		NotBefore: jwt.NewNumericDate(time.Now()),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Expiry:    jwt.NewNumericDate(time.Now().Add(-1 * time.Hour)),
+	})
+
+	r := require.New(t)
+	verifier, err := auth.NewTokenVerifierFromStatic(v1.AuthOIDCServerConfig{
+		Issuer:   "https://kubernetes.default.svc.cluster",
+		Audience: "k3s",
+		IssuerSpec: v1.AuthOIDCIssuer{
+			JWKS: jwks,
+		},
+	})
+	r.NoError((err))
+	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, verifier)
+	token, err := builder.Serialize()
+	r.NoError(err)
+
+	err = consumer.VerifyLogin(&msg.Login{
+		PrivilegeKey: token,
+	})
+	r.Error(err)
+	r.Contains(err.Error(), "oidc: id token issued by a different provider")
+}
+
+func TestPingAfterStaticLoginCrossJKWSPemSucceeds(t *testing.T) {
+	// Test Setup include Load JWKS + Generate Token
+	_, builder := setupStaticOidc(t)
+	builder = builder.Claims(jwt.Claims{
+		Issuer:    "https://kubernetes.default.svc.cluster.local",
+		Subject:   "system:serviceaccount:default:default",
+		Audience:  jwt.Audience{"https://kubernetes.default.svc.cluster.local", "k3s"},
+		NotBefore: jwt.NewNumericDate(time.Now()),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Expiry:    jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+	})
+
+	r := require.New(t)
+	keys, err := auth.DecodePemCert(pkiPemContent)
+	r.NoError(err)
+	verifier, err := auth.VerifierFromPublicKeys(
+		v1.AuthOIDCServerConfig{Issuer: "https://kubernetes.default.svc.cluster.local", Audience: "k3s"},
+		keys,
+	)
+	r.NoError((err))
+	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, verifier)
+	token, err := builder.Serialize()
+	r.NoError(err)
+
+	err = consumer.VerifyLogin(&msg.Login{
+		PrivilegeKey: token,
+	})
+	r.NoError((err))
+
+	err = consumer.VerifyPing(&msg.Ping{
+		PrivilegeKey: token,
+		Timestamp:    time.Now().UnixMilli(),
+	})
+	r.NoError(err)
+}
+
+func TestBadPublicKeyStaticLoginFailed(t *testing.T) {
+	// Test Setup include Load JWKS + Generate Token
+	_, builder := setupStaticOidc(t)
+	builder = builder.Claims(jwt.Claims{
+		Issuer:    "https://kubernetes.default.svc.cluster.local",
+		Subject:   "system:serviceaccount:default:default",
+		Audience:  jwt.Audience{"https://kubernetes.default.svc.cluster.local", "k3s"},
+		NotBefore: jwt.NewNumericDate(time.Now()),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Expiry:    jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+	})
+
+	r := require.New(t)
+	keys, err := auth.DecodePemCert(singlePemContent)
+	r.NoError(err)
+	verifier, err := auth.VerifierFromPublicKeys(
+		v1.AuthOIDCServerConfig{Issuer: "https://kubernetes.default.svc.cluster.local", Audience: "k3s"},
+		keys,
+	)
+	r.NoError((err))
+	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, verifier)
+	token, err := builder.Serialize()
+	r.NoError(err)
+
+	err = consumer.VerifyLogin(&msg.Login{
+		PrivilegeKey: token,
+	})
+	r.Error((err))
+	r.Contains(err.Error(), "failed to verify signature: no public keys able to verify jwt")
+}
+
+func TestEmptyKeysSetLoginFailed(t *testing.T) {
+	// Test Setup include Load JWKS + Generate Token
+	_, builder := setupStaticOidc(t)
+	builder = builder.Claims(jwt.Claims{
+		Issuer:    "https://kubernetes.default.svc.cluster.local",
+		Subject:   "system:serviceaccount:default:default",
+		Audience:  jwt.Audience{"https://kubernetes.default.svc.cluster.local", "k3s"},
+		NotBefore: jwt.NewNumericDate(time.Now()),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Expiry:    jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+	})
+
+	r := require.New(t)
+	verifier, err := auth.VerifierFromPublicKeys(
+		v1.AuthOIDCServerConfig{Issuer: "https://kubernetes.default.svc.cluster.local", Audience: "k3s"},
+		auth.DecodeJWKS(nil),
+	)
+	r.NoError((err))
+	consumer := auth.NewOidcAuthVerifier([]v1.AuthScope{v1.AuthScopeHeartBeats}, verifier)
+	token, err := builder.Serialize()
+	r.NoError(err)
+
+	err = consumer.VerifyLogin(&msg.Login{
+		PrivilegeKey: token,
+	})
+	r.Error(err)
+	r.Contains(err.Error(), "invalid OIDC token in login: failed to verify signature: no public keys able to verify jwt")
 }
