@@ -67,6 +67,11 @@ func waitForSignal(signal <-chan struct{}) error {
 	}
 }
 
+// Keep this longer than client/proxy.statusCheckInterval (3s). The wrapper's
+// health notification is deliberately non-blocking, so the E2E assertion must
+// also cover the fallback poll plus scheduling margin while recovery is gated.
+const proxyFallbackObservationWindow = 4 * time.Second
+
 func waitForServerProxyStatus(port int, proxyName, want string, timeout time.Duration) error {
 	return waitForLifecycleCondition(timeout, func() error {
 		body, err := getLifecycleEndpoint(port, "/api/proxies/"+url.PathEscape(proxyName))
@@ -545,7 +550,7 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 						return err.Error()
 					}
 					return status.Status
-				}, time.Second, 25*time.Millisecond).Should(gomega.Equal("running"))
+				}, proxyFallbackObservationWindow, 25*time.Millisecond).Should(gomega.Equal("running"))
 				close(recoveryRelease)
 			}
 			runFailureRecovery()
