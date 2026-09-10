@@ -370,6 +370,10 @@ type SessionContext struct {
 	LoginMsg *msg.Login
 	// server configuration
 	ServerCfg *v1.ServerConfig
+	// client registry
+	ClientRegistry *registry.ClientRegistry
+	// selected transport protocol for auto mode, empty for static clients.
+	Transport string
 	// negotiated wire protocol for this client session
 	WireProtocol   string
 	UDPPacketCodec string
@@ -683,6 +687,7 @@ func (ctl *Control) closeProxy(pxy proxy.Proxy) {
 func (ctl *Control) worker() {
 	xl := ctl.xl
 	ctl.serverMetrics.NewClient()
+	metrics.AutoTransportClientOnline(ctl.serverMetrics, ctl.sessionCtx.Transport)
 
 	go ctl.heartbeatWorker()
 	go ctl.msgDispatcher.Run()
@@ -715,8 +720,11 @@ func (ctl *Control) worker() {
 	}
 
 	ctl.serverMetrics.CloseClient()
+	metrics.AutoTransportClientOffline(ctl.serverMetrics, ctl.sessionCtx.Transport)
 	if ctl.manager != nil {
 		ctl.manager.Remove(ctl)
+	} else if ctl.sessionCtx.ClientRegistry != nil {
+		ctl.sessionCtx.ClientRegistry.MarkOfflineByRunID(ctl.runID)
 	}
 	xl.Infof("client exit success")
 	ctl.lifecycleMu.Lock()

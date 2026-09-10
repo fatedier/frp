@@ -81,6 +81,15 @@ func DetectLegacyINIFormatFromFile(path string) bool {
 	return DetectLegacyINIFormat(b)
 }
 
+func shouldDetectLegacyINIFormat(path string) bool {
+	switch detectFormatFromPath(path) {
+	case "toml", "yaml", "json":
+		return false
+	default:
+		return true
+	}
+}
+
 func RenderWithTemplate(in []byte, values *Values) ([]byte, error) {
 	tmpl, err := template.New("frp").Funcs(template.FuncMap{
 		"parseNumberRange":     parseNumberRange,
@@ -298,7 +307,7 @@ func LoadServerConfig(path string, strict bool) (*v1.ServerConfig, bool, error) 
 		isLegacyFormat bool
 	)
 	// detect legacy ini format
-	if DetectLegacyINIFormatFromFile(path) {
+	if shouldDetectLegacyINIFormat(path) && DetectLegacyINIFormatFromFile(path) {
 		content, err := legacy.GetRenderedConfFromFile(path)
 		if err != nil {
 			return nil, true, err
@@ -349,7 +358,7 @@ func LoadClientConfigResult(path string, strict bool) (*ClientConfigLoadResult, 
 		Visitors: make([]v1.VisitorConfigurer, 0),
 	}
 
-	if DetectLegacyINIFormatFromFile(path) {
+	if shouldDetectLegacyINIFormat(path) && DetectLegacyINIFormatFromFile(path) {
 		legacyCommon, legacyProxyCfgs, legacyVisitorCfgs, err := legacy.ParseClientConfig(path)
 		if err != nil {
 			return nil, err

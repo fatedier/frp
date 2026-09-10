@@ -28,26 +28,35 @@ type V2SystemInfoResp struct {
 }
 
 type V2SystemInfoConfigResp struct {
-	BindPort              int    `json:"bindPort"`
-	VhostHTTPPort         int    `json:"vhostHTTPPort"`
-	VhostHTTPSPort        int    `json:"vhostHTTPSPort"`
-	TCPMuxHTTPConnectPort int    `json:"tcpmuxHTTPConnectPort"`
-	KCPBindPort           int    `json:"kcpBindPort"`
-	QUICBindPort          int    `json:"quicBindPort"`
-	SubdomainHost         string `json:"subdomainHost"`
-	MaxPoolCount          int64  `json:"maxPoolCount"`
-	MaxPortsPerClient     int64  `json:"maxPortsPerClient"`
-	HeartbeatTimeout      int64  `json:"heartbeatTimeout"`
-	AllowPortsStr         string `json:"allowPortsStr"`
-	TLSForce              bool   `json:"tlsForce"`
+	BindPort               int      `json:"bindPort"`
+	VhostHTTPPort          int      `json:"vhostHTTPPort"`
+	VhostHTTPSPort         int      `json:"vhostHTTPSPort"`
+	TCPMuxHTTPConnectPort  int      `json:"tcpmuxHTTPConnectPort"`
+	KCPBindPort            int      `json:"kcpBindPort"`
+	QUICBindPort           int      `json:"quicBindPort"`
+	SubdomainHost          string   `json:"subdomainHost"`
+	MaxPoolCount           int64    `json:"maxPoolCount"`
+	MaxPortsPerClient      int64    `json:"maxPortsPerClient"`
+	HeartbeatTimeout       int64    `json:"heartbeatTimeout"`
+	AllowPortsStr          string   `json:"allowPortsStr"`
+	TLSForce               bool     `json:"tlsForce"`
+	TransportProtocol      string   `json:"transportProtocol,omitempty"`
+	AutoTransportEnabled   bool     `json:"autoTransportEnabled,omitempty"`
+	AutoTransportProtocols []string `json:"autoTransportProtocols,omitempty"`
 }
 
 type V2SystemInfoStatusResp struct {
-	TotalTrafficIn  int64            `json:"totalTrafficIn"`
-	TotalTrafficOut int64            `json:"totalTrafficOut"`
-	CurConns        int64            `json:"curConns"`
-	ClientCounts    int64            `json:"clientCounts"`
-	ProxyTypeCounts map[string]int64 `json:"proxyTypeCount"`
+	TotalTrafficIn                 int64            `json:"totalTrafficIn"`
+	TotalTrafficOut                int64            `json:"totalTrafficOut"`
+	CurConns                       int64            `json:"curConns"`
+	ClientCounts                   int64            `json:"clientCounts"`
+	ProxyTypeCounts                map[string]int64 `json:"proxyTypeCount"`
+	AutoNegotiationSuccess         int64            `json:"autoNegotiationSuccess,omitempty"`
+	AutoNegotiationFailure         int64            `json:"autoNegotiationFailure,omitempty"`
+	AutoTransportSelections        map[string]int64 `json:"autoTransportSelections,omitempty"`
+	AutoTransportClientCounts      map[string]int64 `json:"autoTransportClientCounts,omitempty"`
+	AutoTransportSwitchCounts      map[string]int64 `json:"autoTransportSwitchCounts,omitempty"`
+	AutoTransportIllegalSelections map[string]int64 `json:"autoTransportIllegalSelections,omitempty"`
 }
 
 type V2SystemPruneResp struct {
