@@ -69,3 +69,14 @@ type NewUserConnContent struct {
 	ProxyType  string   `json:"proxy_type"`
 	RemoteAddr string   `json:"remote_addr"`
 }
+
+// NewHTTPRequestContent contains request and matched-route metadata for a
+// read-only authorization decision before backend connection acquisition.
+type NewHTTPRequestContent struct {
+	RemoteAddr    string `json:"remote_addr"`
+	Host          string `json:"host"`
+	Method        string `json:"method"`
+	URI           string `json:"uri"`
+	RouteDomain   string `json:"route_domain"`
+	RouteLocation string `json:"route_location"`
+}

@@ -59,6 +59,7 @@ var (
 		splugin.OpPing,
 		splugin.OpNewWorkConn,
 		splugin.OpNewUserConn,
+		splugin.OpNewHTTPRequest,
 	}
 )
 

@@ -23,8 +23,22 @@ import (
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
+	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/proto/wire"
+	"github.com/fatedier/frp/server/controller"
 )
+
+// TestHTTPProxyNewHTTPRequestCheckFuncDisabled verifies that the production
+// route setup keeps a nil callback when no request plugin is configured.
+func TestHTTPProxyNewHTTPRequestCheckFuncDisabled(t *testing.T) {
+	pxy := &HTTPProxy{
+		BaseProxy: &BaseProxy{
+			rc: &controller.ResourceController{PluginManager: plugin.NewManager()},
+		},
+	}
+
+	require.Nil(t, pxy.newHTTPRequestCheckFunc())
+}
 
 func TestWorkConnStartWritesStartWorkConn(t *testing.T) {
 	client, server := net.Pipe()

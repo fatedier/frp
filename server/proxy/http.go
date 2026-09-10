@@ -17,12 +17,14 @@ package proxy
 import (
 	"io"
 	"net"
+	"net/http"
 	"reflect"
 	"strings"
 
 	libio "github.com/fatedier/golib/io"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/util/limit"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
@@ -55,13 +57,14 @@ func NewHTTPProxy(baseProxy *BaseProxy) Proxy {
 func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 	xl := pxy.xl
 	routeConfig := vhost.RouteConfig{
-		RewriteHost:     pxy.cfg.HostHeaderRewrite,
-		RouteByHTTPUser: pxy.cfg.RouteByHTTPUser,
-		Headers:         pxy.cfg.RequestHeaders.Set,
-		ResponseHeaders: pxy.cfg.ResponseHeaders.Set,
-		Username:        pxy.cfg.HTTPUser,
-		Password:        pxy.cfg.HTTPPassword,
-		CreateConnFn:    pxy.GetRealConn,
+		RewriteHost:        pxy.cfg.HostHeaderRewrite,
+		RouteByHTTPUser:    pxy.cfg.RouteByHTTPUser,
+		Headers:            pxy.cfg.RequestHeaders.Set,
+		ResponseHeaders:    pxy.cfg.ResponseHeaders.Set,
+		Username:           pxy.cfg.HTTPUser,
+		Password:           pxy.cfg.HTTPPassword,
+		CreateConnFn:       pxy.GetRealConn,
+		CheckHTTPRequestFn: pxy.newHTTPRequestCheckFunc(),
 	}
 
 	locations := pxy.cfg.Locations
@@ -109,6 +112,24 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 	}
 	remoteAddr = strings.Join(addrs, ",")
 	return
+}
+
+// newHTTPRequestCheckFunc builds the optional routed-request admission hook.
+// Returning nil preserves the original request path when no plugin uses it.
+func (pxy *HTTPProxy) newHTTPRequestCheckFunc() vhost.CheckHTTPRequestFunc {
+	if !pxy.rc.PluginManager.NewHTTPRequestEnabled() {
+		return nil
+	}
+	return func(req *http.Request, route *vhost.RouteConfig) error {
+		return pxy.rc.PluginManager.NewHTTPRequest(req.Context(), &plugin.NewHTTPRequestContent{
+			RemoteAddr:    req.RemoteAddr,
+			Host:          req.Host,
+			Method:        req.Method,
+			URI:           req.URL.Path,
+			RouteDomain:   route.Domain,
+			RouteLocation: route.Location,
+		})
+	}
 }
 
 func (pxy *HTTPProxy) GetRealConn(remoteAddr string) (workConn net.Conn, err error) {

@@ -17,7 +17,9 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
@@ -331,6 +333,169 @@ func TestManagerCloseProxyAggregatesErrors(t *testing.T) {
 	for _, level := range logOutput.levels {
 		if level != goliblog.WarnLevel {
 			t.Fatalf("expected warning log level, got %v", logOutput.levels)
+		}
+	}
+}
+
+// TestManagerNewHTTPRequestKeepsContentReadOnly verifies that plugin-returned
+// content cannot alter the request observed by later plugins or the caller.
+func TestManagerNewHTTPRequestKeepsContentReadOnly(t *testing.T) {
+	m := NewManager()
+	content := &NewHTTPRequestContent{
+		Host:   "example.com",
+		Method: http.MethodGet,
+		URI:    "/private",
+	}
+	observed := 0
+
+	m.Register(testPlugin{
+		name: "attempt mutation",
+		ops:  map[string]bool{OpNewHTTPRequest: true},
+		handler: func(ctx context.Context, op string, got any) (*Response, any, error) {
+			if GetReqidFromContext(ctx) == "" {
+				t.Fatal("expected request id in context")
+			}
+			if op != OpNewHTTPRequest {
+				t.Fatalf("unexpected op: %s", op)
+			}
+			if got.(NewHTTPRequestContent).Host != content.Host {
+				t.Fatalf("unexpected host: %q", got.(NewHTTPRequestContent).Host)
+			}
+			changed := got.(NewHTTPRequestContent)
+			changed.Host = "mutated.example.com"
+			return &Response{Unchange: false}, &changed, nil
+		},
+	})
+	m.Register(testPlugin{
+		name: "observe original",
+		ops:  map[string]bool{OpNewHTTPRequest: true},
+		handler: func(_ context.Context, _ string, got any) (*Response, any, error) {
+			observed++
+			if got.(NewHTTPRequestContent).Host != "example.com" {
+				t.Fatalf("request content was mutated: %q", got.(NewHTTPRequestContent).Host)
+			}
+			return &Response{Unchange: true}, nil, nil
+		},
+	})
+
+	if err := m.NewHTTPRequest(context.Background(), content); err != nil {
+		t.Fatalf("NewHTTPRequest failed: %v", err)
+	}
+	if observed != 1 {
+		t.Fatalf("expected second plugin once, got %d", observed)
+	}
+	if content.Host != "example.com" {
+		t.Fatalf("caller content was mutated: %q", content.Host)
+	}
+}
+
+// TestManagerNewHTTPRequestRejectStopsChain verifies that rejection prevents
+// later request plugins from running.
+func TestManagerNewHTTPRequestRejectStopsChain(t *testing.T) {
+	m := NewManager()
+	called := false
+	m.Register(testPlugin{
+		name: "reject",
+		ops:  map[string]bool{OpNewHTTPRequest: true},
+		handler: func(context.Context, string, any) (*Response, any, error) {
+			return &Response{Reject: true, RejectReason: "blocked"}, nil, nil
+		},
+	})
+	m.Register(testPlugin{
+		name: "unused",
+		ops:  map[string]bool{OpNewHTTPRequest: true},
+		handler: func(context.Context, string, any) (*Response, any, error) {
+			called = true
+			return &Response{Unchange: true}, nil, nil
+		},
+	})
+
+	err := m.NewHTTPRequest(context.Background(), &NewHTTPRequestContent{})
+	if err == nil || err.Error() != "blocked" {
+		t.Fatalf("expected blocked error, got %v", err)
+	}
+	if called {
+		t.Fatal("expected plugin chain to stop after reject")
+	}
+}
+
+// TestManagerNewHTTPRequestPluginErrorRejects verifies that transport errors
+// are returned to the request admission caller.
+func TestManagerNewHTTPRequestPluginErrorRejects(t *testing.T) {
+	m := NewManager()
+	m.Register(testPlugin{
+		name: "error",
+		ops:  map[string]bool{OpNewHTTPRequest: true},
+		handler: func(context.Context, string, any) (*Response, any, error) {
+			return nil, nil, errors.New("boom")
+		},
+	})
+
+	err := m.NewHTTPRequest(context.Background(), &NewHTTPRequestContent{})
+	if err == nil || err.Error() != "send NewHTTPRequest request to plugin error" {
+		t.Fatalf("unexpected plugin error: %v", err)
+	}
+}
+
+// TestManagerNewHTTPRequestWithoutPlugins verifies the compatibility fast path.
+func TestManagerNewHTTPRequestWithoutPlugins(t *testing.T) {
+	if err := NewManager().NewHTTPRequest(context.Background(), &NewHTTPRequestContent{}); err != nil {
+		t.Fatalf("unexpected error without plugins: %v", err)
+	}
+}
+
+// TestManagerNewHTTPRequestEnabled verifies that the HTTP request hook is
+// installed only when at least one plugin supports the operation.
+func TestManagerNewHTTPRequestEnabled(t *testing.T) {
+	m := NewManager()
+	if m.NewHTTPRequestEnabled() {
+		t.Fatal("expected NewHTTPRequest to be disabled without plugins")
+	}
+
+	m.Register(testPlugin{
+		name: "request plugin",
+		ops:  map[string]bool{OpNewHTTPRequest: true},
+		handler: func(context.Context, string, any) (*Response, any, error) {
+			return &Response{Unchange: true}, nil, nil
+		},
+	})
+	if !m.NewHTTPRequestEnabled() {
+		t.Fatal("expected NewHTTPRequest to be enabled after registration")
+	}
+}
+
+// TestManagerNewHTTPRequestPropagatesCancellation verifies that request
+// cancellation reaches the plugin transport instead of being detached.
+func TestManagerNewHTTPRequestPropagatesCancellation(t *testing.T) {
+	m := NewManager()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	m.Register(testPlugin{
+		name: "observe cancellation",
+		ops:  map[string]bool{OpNewHTTPRequest: true},
+		handler: func(ctx context.Context, _ string, _ any) (*Response, any, error) {
+			return nil, nil, ctx.Err()
+		},
+	})
+
+	err := m.NewHTTPRequest(ctx, &NewHTTPRequestContent{})
+	if err == nil {
+		t.Fatal("expected canceled request to fail")
+	}
+}
+
+// TestNewHTTPRequestContentJSONContract verifies that request admission sends
+// only request and matched-route metadata with unambiguous group semantics.
+func TestNewHTTPRequestContentJSONContract(t *testing.T) {
+	encoded, err := json.Marshal(NewHTTPRequestContent{})
+	if err != nil {
+		t.Fatalf("marshal content: %v", err)
+	}
+
+	for _, unexpected := range []string{`"user"`, `"proxy_name"`} {
+		if strings.Contains(string(encoded), unexpected) {
+			t.Fatalf("unexpected field %s in %s", unexpected, encoded)
 		}
 	}
 }

@@ -25,29 +25,35 @@ import (
 )
 
 type Manager struct {
-	loginPlugins       []Plugin
-	newProxyPlugins    []Plugin
-	closeProxyPlugins  []Plugin
-	pingPlugins        []Plugin
-	newWorkConnPlugins []Plugin
-	newUserConnPlugins []Plugin
+	loginPlugins          []Plugin
+	newProxyPlugins       []Plugin
+	closeProxyPlugins     []Plugin
+	pingPlugins           []Plugin
+	newWorkConnPlugins    []Plugin
+	newUserConnPlugins    []Plugin
+	newHTTPRequestPlugins []Plugin
 }
 
 func NewManager() *Manager {
 	return &Manager{
-		loginPlugins:       make([]Plugin, 0),
-		newProxyPlugins:    make([]Plugin, 0),
-		closeProxyPlugins:  make([]Plugin, 0),
-		pingPlugins:        make([]Plugin, 0),
-		newWorkConnPlugins: make([]Plugin, 0),
-		newUserConnPlugins: make([]Plugin, 0),
+		loginPlugins:          make([]Plugin, 0),
+		newProxyPlugins:       make([]Plugin, 0),
+		closeProxyPlugins:     make([]Plugin, 0),
+		pingPlugins:           make([]Plugin, 0),
+		newWorkConnPlugins:    make([]Plugin, 0),
+		newUserConnPlugins:    make([]Plugin, 0),
+		newHTTPRequestPlugins: make([]Plugin, 0),
 	}
 }
 
 func newPluginRequestContext() (context.Context, *xlog.Logger) {
+	return newPluginRequestContextWithParent(context.Background())
+}
+
+func newPluginRequestContextWithParent(parent context.Context) (context.Context, *xlog.Logger) {
 	reqid, _ := util.RandID()
 	xl := xlog.New().AppendPrefix("reqid: " + reqid)
-	ctx := xlog.NewContext(context.Background(), xl)
+	ctx := xlog.NewContext(parent, xl)
 	return NewReqidContext(ctx, reqid), xl
 }
 
@@ -124,6 +130,9 @@ func (m *Manager) Register(p Plugin) {
 	if p.IsSupport(OpNewUserConn) {
 		m.newUserConnPlugins = append(m.newUserConnPlugins, p)
 	}
+	if p.IsSupport(OpNewHTTPRequest) {
+		m.newHTTPRequestPlugins = append(m.newHTTPRequestPlugins, p)
+	}
 }
 
 func (m *Manager) Login(content *LoginContent) (*LoginContent, error) {
@@ -167,4 +176,31 @@ func (m *Manager) NewWorkConn(content *NewWorkConnContent) (*NewWorkConnContent,
 func (m *Manager) NewUserConn(content *NewUserConnContent) (*NewUserConnContent, error) {
 	// Preserve the pre-refactor log level for NewUserConn plugin errors.
 	return handleMutableContent(m.newUserConnPlugins, OpNewUserConn, content, pluginErrorLogInfo)
+}
+
+// NewHTTPRequestEnabled reports whether request admission plugins are registered.
+func (m *Manager) NewHTTPRequestEnabled() bool {
+	return len(m.newHTTPRequestPlugins) > 0
+}
+
+// NewHTTPRequest invokes request plugins without allowing response content to
+// mutate the request that will be forwarded. The request context propagates
+// cancellation to the plugin transport.
+func (m *Manager) NewHTTPRequest(ctx context.Context, content *NewHTTPRequestContent) error {
+	if len(m.newHTTPRequestPlugins) == 0 {
+		return nil
+	}
+
+	ctx, xl := newPluginRequestContextWithParent(ctx)
+	for _, p := range m.newHTTPRequestPlugins {
+		res, _, err := p.Handle(ctx, OpNewHTTPRequest, *content)
+		if err != nil {
+			logPluginError(xl, p, OpNewHTTPRequest, err, pluginErrorLogWarn)
+			return errors.New("send NewHTTPRequest request to plugin error")
+		}
+		if res.Reject {
+			return fmt.Errorf("%s", res.RejectReason)
+		}
+	}
+	return nil
 }

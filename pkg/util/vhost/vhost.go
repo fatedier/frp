@@ -16,6 +16,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"time"
 
@@ -110,6 +111,10 @@ type CreateConnFunc func(remoteAddr string) (net.Conn, error)
 
 type CreateConnByEndpointFunc func(endpoint, remoteAddr string) (net.Conn, error)
 
+// CheckHTTPRequestFunc checks a routed HTTP request before a backend work
+// connection is acquired.
+type CheckHTTPRequestFunc func(req *http.Request, route *RouteConfig) error
+
 // RouteConfig is the params used to match HTTP requests
 type RouteConfig struct {
 	Domain          string
@@ -124,6 +129,7 @@ type RouteConfig struct {
 	CreateConnFn           CreateConnFunc
 	ChooseEndpointFn       ChooseEndpointFunc
 	CreateConnByEndpointFn CreateConnByEndpointFunc
+	CheckHTTPRequestFn     CheckHTTPRequestFunc
 }
 
 // listen for a new domain name, if rewriteHost is not empty and rewriteHost func is not nil,
