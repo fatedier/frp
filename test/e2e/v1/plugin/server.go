@@ -437,8 +437,6 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			framework.ExpectEqual(int32(0), backendCalls.Load())
 
 			blocked := <-records
-			framework.ExpectEqual("request-user", blocked.User.User)
-			framework.ExpectEqual("request-user.http-request", blocked.ProxyName)
 			framework.ExpectNotEqual("", blocked.RemoteAddr)
 			framework.ExpectEqual("plugin.example.com", blocked.Host)
 			framework.ExpectEqual(http.MethodGet, blocked.Method)

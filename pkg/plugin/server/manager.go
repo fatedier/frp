@@ -47,9 +47,13 @@ func NewManager() *Manager {
 }
 
 func newPluginRequestContext() (context.Context, *xlog.Logger) {
+	return newPluginRequestContextWithParent(context.Background())
+}
+
+func newPluginRequestContextWithParent(parent context.Context) (context.Context, *xlog.Logger) {
 	reqid, _ := util.RandID()
 	xl := xlog.New().AppendPrefix("reqid: " + reqid)
-	ctx := xlog.NewContext(context.Background(), xl)
+	ctx := xlog.NewContext(parent, xl)
 	return NewReqidContext(ctx, reqid), xl
 }
 
@@ -174,14 +178,20 @@ func (m *Manager) NewUserConn(content *NewUserConnContent) (*NewUserConnContent,
 	return handleMutableContent(m.newUserConnPlugins, OpNewUserConn, content, pluginErrorLogInfo)
 }
 
+// NewHTTPRequestEnabled reports whether request admission plugins are registered.
+func (m *Manager) NewHTTPRequestEnabled() bool {
+	return len(m.newHTTPRequestPlugins) > 0
+}
+
 // NewHTTPRequest invokes request plugins without allowing response content to
-// mutate the request that will be forwarded.
-func (m *Manager) NewHTTPRequest(content *NewHTTPRequestContent) error {
+// mutate the request that will be forwarded. The request context propagates
+// cancellation to the plugin transport.
+func (m *Manager) NewHTTPRequest(ctx context.Context, content *NewHTTPRequestContent) error {
 	if len(m.newHTTPRequestPlugins) == 0 {
 		return nil
 	}
 
-	ctx, xl := newPluginRequestContext()
+	ctx, xl := newPluginRequestContextWithParent(ctx)
 	for _, p := range m.newHTTPRequestPlugins {
 		res, _, err := p.Handle(ctx, OpNewHTTPRequest, *content)
 		if err != nil {

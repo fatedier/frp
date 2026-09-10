@@ -225,12 +225,6 @@ This operation is read-only. A response with `reject: true` stops the request an
 ```
 {
     "content": {
-        "user": {
-            "user": <string>,
-            "metas": map<string>string
-            "run_id": <string>
-        },
-        "proxy_name": <string>,
         "remote_addr": <string>,
         "host": <string>,
         "method": <string>,

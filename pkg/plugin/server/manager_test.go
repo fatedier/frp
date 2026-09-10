@@ -17,6 +17,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -377,7 +378,7 @@ func TestManagerNewHTTPRequestKeepsContentReadOnly(t *testing.T) {
 		},
 	})
 
-	if err := m.NewHTTPRequest(content); err != nil {
+	if err := m.NewHTTPRequest(context.Background(), content); err != nil {
 		t.Fatalf("NewHTTPRequest failed: %v", err)
 	}
 	if observed != 1 {
@@ -409,7 +410,7 @@ func TestManagerNewHTTPRequestRejectStopsChain(t *testing.T) {
 		},
 	})
 
-	err := m.NewHTTPRequest(&NewHTTPRequestContent{})
+	err := m.NewHTTPRequest(context.Background(), &NewHTTPRequestContent{})
 	if err == nil || err.Error() != "blocked" {
 		t.Fatalf("expected blocked error, got %v", err)
 	}
@@ -430,7 +431,7 @@ func TestManagerNewHTTPRequestPluginErrorRejects(t *testing.T) {
 		},
 	})
 
-	err := m.NewHTTPRequest(&NewHTTPRequestContent{})
+	err := m.NewHTTPRequest(context.Background(), &NewHTTPRequestContent{})
 	if err == nil || err.Error() != "send NewHTTPRequest request to plugin error" {
 		t.Fatalf("unexpected plugin error: %v", err)
 	}
@@ -438,7 +439,63 @@ func TestManagerNewHTTPRequestPluginErrorRejects(t *testing.T) {
 
 // TestManagerNewHTTPRequestWithoutPlugins verifies the compatibility fast path.
 func TestManagerNewHTTPRequestWithoutPlugins(t *testing.T) {
-	if err := NewManager().NewHTTPRequest(&NewHTTPRequestContent{}); err != nil {
+	if err := NewManager().NewHTTPRequest(context.Background(), &NewHTTPRequestContent{}); err != nil {
 		t.Fatalf("unexpected error without plugins: %v", err)
+	}
+}
+
+// TestManagerNewHTTPRequestEnabled verifies that the HTTP request hook is
+// installed only when at least one plugin supports the operation.
+func TestManagerNewHTTPRequestEnabled(t *testing.T) {
+	m := NewManager()
+	if m.NewHTTPRequestEnabled() {
+		t.Fatal("expected NewHTTPRequest to be disabled without plugins")
+	}
+
+	m.Register(testPlugin{
+		name: "request plugin",
+		ops:  map[string]bool{OpNewHTTPRequest: true},
+		handler: func(context.Context, string, any) (*Response, any, error) {
+			return &Response{Unchange: true}, nil, nil
+		},
+	})
+	if !m.NewHTTPRequestEnabled() {
+		t.Fatal("expected NewHTTPRequest to be enabled after registration")
+	}
+}
+
+// TestManagerNewHTTPRequestPropagatesCancellation verifies that request
+// cancellation reaches the plugin transport instead of being detached.
+func TestManagerNewHTTPRequestPropagatesCancellation(t *testing.T) {
+	m := NewManager()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	m.Register(testPlugin{
+		name: "observe cancellation",
+		ops:  map[string]bool{OpNewHTTPRequest: true},
+		handler: func(ctx context.Context, _ string, _ any) (*Response, any, error) {
+			return nil, nil, ctx.Err()
+		},
+	})
+
+	err := m.NewHTTPRequest(ctx, &NewHTTPRequestContent{})
+	if err == nil {
+		t.Fatal("expected canceled request to fail")
+	}
+}
+
+// TestNewHTTPRequestContentJSONContract verifies that request admission sends
+// only request and matched-route metadata with unambiguous group semantics.
+func TestNewHTTPRequestContentJSONContract(t *testing.T) {
+	encoded, err := json.Marshal(NewHTTPRequestContent{})
+	if err != nil {
+		t.Fatalf("marshal content: %v", err)
+	}
+
+	for _, unexpected := range []string{`"user"`, `"proxy_name"`} {
+		if strings.Contains(string(encoded), unexpected) {
+			t.Fatalf("unexpected field %s in %s", unexpected, encoded)
+		}
 	}
 }
