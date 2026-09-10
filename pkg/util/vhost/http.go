@@ -279,6 +279,13 @@ func (rp *HTTPReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 		return
 	}
 
+	if rc != nil && rc.CheckHTTPRequestFn != nil {
+		if err := rc.CheckHTTPRequestFn(newreq, rc); err != nil {
+			http.Error(rw, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
+	}
+
 	if req.Method == http.MethodConnect {
 		rp.connectHandler(rw, newreq)
 	} else {

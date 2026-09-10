@@ -2,6 +2,7 @@ package vhost
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -179,4 +180,64 @@ func TestGetRequestRouteUser(t *testing.T) {
 
 		require.Empty(t, getRequestRouteUser(req))
 	})
+}
+
+// TestHTTPReverseProxyRejectsCheckedRequestBeforeBackend verifies that both
+// regular and CONNECT requests are checked before a backend connection exists.
+func TestHTTPReverseProxyRejectsCheckedRequestBeforeBackend(t *testing.T) {
+	for _, method := range []string{http.MethodGet, http.MethodConnect} {
+		t.Run(method, func(t *testing.T) {
+			rp := NewHTTPReverseProxy(HTTPReverseProxyOptions{}, NewRouters())
+			checked := 0
+			backendCalls := 0
+			err := rp.Register(RouteConfig{
+				Domain: "example.com",
+				CheckHTTPRequestFn: func(req *http.Request, route *RouteConfig) error {
+					checked++
+					require.Equal(t, method, req.Method)
+					require.Equal(t, "example.com", route.Domain)
+					return errors.New("blocked")
+				},
+				CreateConnFn: func(string) (net.Conn, error) {
+					backendCalls++
+					return nil, errors.New("backend must not be called")
+				},
+			})
+			require.NoError(t, err)
+
+			req := httptest.NewRequest(method, "/private", nil)
+			req.Host = "example.com"
+			response := httptest.NewRecorder()
+			rp.ServeHTTP(response, req)
+
+			require.Equal(t, http.StatusForbidden, response.Code)
+			require.Equal(t, 1, checked)
+			require.Zero(t, backendCalls)
+		})
+	}
+}
+
+// TestHTTPReverseProxyAuthenticatesBeforeRequestCheck verifies that route
+// authentication failures do not invoke request plugins.
+func TestHTTPReverseProxyAuthenticatesBeforeRequestCheck(t *testing.T) {
+	rp := NewHTTPReverseProxy(HTTPReverseProxyOptions{}, NewRouters())
+	checked := 0
+	err := rp.Register(RouteConfig{
+		Domain:   "example.com",
+		Username: "alice",
+		Password: "secret",
+		CheckHTTPRequestFn: func(*http.Request, *RouteConfig) error {
+			checked++
+			return nil
+		},
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/private", nil)
+	req.Host = "example.com"
+	response := httptest.NewRecorder()
+	rp.ServeHTTP(response, req)
+
+	require.Equal(t, http.StatusUnauthorized, response.Code)
+	require.Zero(t, checked)
 }
