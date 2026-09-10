@@ -241,3 +241,33 @@ func TestHTTPReverseProxyAuthenticatesBeforeRequestCheck(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, response.Code)
 	require.Zero(t, checked)
 }
+
+// BenchmarkHTTPReverseProxyRequestCheck measures the optional callback branch
+// without imposing a performance threshold on the feature.
+func BenchmarkHTTPReverseProxyRequestCheck(b *testing.B) {
+	req := httptest.NewRequest(http.MethodGet, "/private", nil)
+
+	b.Run("disabled", func(b *testing.B) {
+		route := &RouteConfig{}
+		b.ReportAllocs()
+		for b.Loop() {
+			if route.CheckHTTPRequestFn != nil {
+				_ = route.CheckHTTPRequestFn(req, route)
+			}
+		}
+	})
+
+	b.Run("enabled-allow", func(b *testing.B) {
+		route := &RouteConfig{
+			CheckHTTPRequestFn: func(*http.Request, *RouteConfig) error {
+				return nil
+			},
+		}
+		b.ReportAllocs()
+		for b.Loop() {
+			if route.CheckHTTPRequestFn != nil {
+				_ = route.CheckHTTPRequestFn(req, route)
+			}
+		}
+	})
+}

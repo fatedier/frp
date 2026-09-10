@@ -70,7 +70,7 @@ The response can look like any of the following:
 
 ### Operation
 
-Currently `Login`, `NewProxy`, `CloseProxy`, `Ping`, `NewWorkConn` and `NewUserConn` operations are supported.
+Currently `Login`, `NewProxy`, `CloseProxy`, `Ping`, `NewWorkConn`, `NewUserConn` and `NewHTTPRequest` operations are supported.
 
 #### Login
 
@@ -210,6 +210,33 @@ New user connection received from proxy (support `tcp`, `stcp`, `https` and `tcp
         "proxy_name": <string>,
         "proxy_type": <string>,
         "remote_addr": <string>
+    }
+}
+```
+
+#### NewHTTPRequest
+
+A new request for an HTTP proxy. The operation is invoked after host and location routing and HTTP Basic Auth succeed, but before frps acquires a backend work connection.
+
+This operation is read-only. A response with `reject: true` stops the request and returns HTTP 403 to the client. Returned content is ignored when the request is allowed.
+
+`uri` contains only the URL path. Query parameters, request bodies, cookies, authorization headers and other request headers are not sent to the plugin.
+
+```
+{
+    "content": {
+        "user": {
+            "user": <string>,
+            "metas": map<string>string
+            "run_id": <string>
+        },
+        "proxy_name": <string>,
+        "remote_addr": <string>,
+        "host": <string>,
+        "method": <string>,
+        "uri": <string>,
+        "route_domain": <string>,
+        "route_location": <string>
     }
 }
 ```
