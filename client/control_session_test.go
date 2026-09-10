@@ -171,7 +171,7 @@ func TestControlSessionDialerDialV2(t *testing.T) {
 			serverErrCh <- fmt.Errorf("unexpected user: %s", loginMsg.User)
 			return
 		}
-		serverHello, err := wire.NewServerHello(hello)
+		serverHello, sharedSecret, err := wire.NewServerHello(hello)
 		if err != nil {
 			serverErrCh <- err
 			return
@@ -183,6 +183,7 @@ func TestControlSessionDialerDialV2(t *testing.T) {
 		}
 		cryptoContext := wire.NewCryptoContext(
 			serverHello.Selected.Crypto.Algorithm,
+			sharedSecret,
 			clientHelloFrame.Payload,
 			serverHelloFrame.Payload,
 		)
@@ -197,7 +198,7 @@ func TestControlSessionDialerDialV2(t *testing.T) {
 
 		controlRW, err := netpkg.NewAEADCryptoReadWriter(
 			serverRaw,
-			[]byte("token"),
+			cryptoContext.DeriveIKM([]byte("token")),
 			netpkg.AEADCryptoRoleServer,
 			cryptoContext.Algorithm,
 			cryptoContext.TranscriptHash,

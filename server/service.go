@@ -609,9 +609,13 @@ func (ac *acceptedConnection) newControlReadWriter(rw io.ReadWriter, key []byte)
 		if ac.cryptoContext == nil {
 			return nil, fmt.Errorf("missing v2 crypto negotiation")
 		}
+		ikm := ac.cryptoContext.DeriveIKM(key)
+		if len(ikm) == 0 {
+			return nil, fmt.Errorf("v2 control channel has no keying material")
+		}
 		return netpkg.NewAEADCryptoReadWriter(
 			rw,
-			key,
+			ikm,
 			netpkg.AEADCryptoRoleServer,
 			ac.cryptoContext.Algorithm,
 			ac.cryptoContext.TranscriptHash,
@@ -649,7 +653,7 @@ func (ac *acceptedConnection) handleClientHello(conn net.Conn, wireConn *wire.Co
 		return fmt.Errorf("decode ClientHello: %w", err)
 	}
 
-	serverHello, err := wire.NewServerHello(hello)
+	serverHello, sharedSecret, err := wire.NewServerHello(hello)
 	if err != nil {
 		serverHello = wire.DefaultServerHello()
 		serverHello.Error = err.Error()
@@ -666,6 +670,7 @@ func (ac *acceptedConnection) handleClientHello(conn net.Conn, wireConn *wire.Co
 	}
 	cryptoContext := wire.NewCryptoContext(
 		serverHello.Selected.Crypto.Algorithm,
+		sharedSecret,
 		frame.Payload,
 		serverHelloFrame.Payload,
 	)

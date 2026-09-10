@@ -166,6 +166,38 @@ var _ = ginkgo.Describe("[Feature: WireProtocol]", func() {
 		})
 	}
 
+	for _, tc := range []struct {
+		name         string
+		wireProtocol string
+		token        string
+	}{
+		{name: "v2 without a pre-shared token", wireProtocol: "v2"},
+		{name: "v2 with a pre-shared token", wireProtocol: "v2", token: "123456"},
+		{name: "v1 with a pre-shared token", wireProtocol: "v1", token: "123456"},
+	} {
+		ginkgo.It(tc.name, func() {
+			var authConf string
+			if tc.token != "" {
+				authConf = fmt.Sprintf("auth.token = %q", tc.token)
+			}
+			serverConf := consts.DefaultServerConfig + authConf
+			tcpPortName := port.GenName("WireControlKey")
+			clientConf := consts.DefaultClientConfig + authConf + fmt.Sprintf(`
+			transport.wireProtocol = %q
+
+			[[proxies]]
+			name = "tcp"
+			type = "tcp"
+			localPort = {{ .%s }}
+			remotePort = {{ .%s }}
+			`, tc.wireProtocol, framework.TCPEchoServerPort, tcpPortName)
+
+			f.RunProcesses(serverConf, []string{clientConf})
+
+			framework.NewRequestExpect(f).PortName(tcpPortName).Ensure()
+		})
+	}
+
 	ginkgo.It("reports client wire protocol", func() {
 		webPort := f.AllocPort()
 		serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
