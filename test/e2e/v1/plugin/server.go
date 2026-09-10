@@ -1,7 +1,11 @@
 package plugin
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -10,7 +14,9 @@ import (
 	"github.com/fatedier/frp/pkg/transport"
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
+	"github.com/fatedier/frp/test/e2e/mock/server/httpserver"
 	pluginpkg "github.com/fatedier/frp/test/e2e/pkg/plugin"
+	"github.com/fatedier/frp/test/e2e/pkg/request"
 )
 
 var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
@@ -362,6 +368,98 @@ var _ = ginkgo.Describe("[Feature: Server-Plugins]", func() {
 			framework.NewRequestExpect(f).Port(remotePort).Ensure()
 
 			framework.ExpectNotEqual("", record)
+		})
+	})
+
+	ginkgo.Describe("NewHTTPRequest", func() {
+		newFunc := func() *plugin.Request {
+			var r plugin.Request
+			r.Content = &plugin.NewHTTPRequestContent{}
+			return &r
+		}
+
+		ginkgo.It("checks every routed request before backend access", func() {
+			pluginPort := f.AllocPort()
+			records := make(chan plugin.NewHTTPRequestContent, 2)
+			handler := func(req *plugin.Request) *plugin.Response {
+				content := req.Content.(*plugin.NewHTTPRequestContent)
+				records <- *content
+				if content.URI == "/api/blocked" {
+					return &plugin.Response{Reject: true, RejectReason: "blocked"}
+				}
+				return &plugin.Response{Unchange: true}
+			}
+			pluginServer := pluginpkg.NewHTTPPluginServer(pluginPort, newFunc, handler, nil)
+			f.RunServer("", pluginServer)
+
+			backendPort := f.AllocPort()
+			var backendCalls atomic.Int32
+			backend := httpserver.New(
+				httpserver.WithBindPort(backendPort),
+				httpserver.WithHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					backendCalls.Add(1)
+					_, _ = w.Write([]byte("backend"))
+				})),
+			)
+			f.RunServer("", backend)
+
+			vhostHTTPPort := f.AllocPort()
+			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			vhostHTTPPort = %d
+
+			[[httpPlugins]]
+			name = "request-policy"
+			addr = "127.0.0.1:%d"
+			path = "/handler"
+			ops = ["NewHTTPRequest"]
+			`, vhostHTTPPort, pluginPort)
+			clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+			user = "request-user"
+
+			[[proxies]]
+			name = "http-request"
+			type = "http"
+			localPort = %d
+			customDomains = ["plugin.example.com"]
+			locations = ["/api"]
+			`, backendPort)
+			f.RunProcesses(serverConf, []string{clientConf})
+
+			framework.NewRequestExpect(f).Port(vhostHTTPPort).
+				RequestModify(func(r *request.Request) {
+					r.HTTP().HTTPHost("plugin.example.com").HTTPPath("/api/blocked?secret=value").
+						HTTPHeaders(map[string]string{
+							"Authorization": "Bearer private-token",
+							"Cookie":        "session=private-cookie",
+						})
+				}).
+				Ensure(framework.ExpectResponseCode(http.StatusForbidden))
+			framework.ExpectEqual(int32(0), backendCalls.Load())
+
+			blocked := <-records
+			framework.ExpectEqual("request-user", blocked.User.User)
+			framework.ExpectEqual("request-user.http-request", blocked.ProxyName)
+			framework.ExpectNotEqual("", blocked.RemoteAddr)
+			framework.ExpectEqual("plugin.example.com", blocked.Host)
+			framework.ExpectEqual(http.MethodGet, blocked.Method)
+			framework.ExpectEqual("/api/blocked", blocked.URI)
+			framework.ExpectEqual("plugin.example.com", blocked.RouteDomain)
+			framework.ExpectEqual("/api", blocked.RouteLocation)
+			encoded, err := json.Marshal(blocked)
+			framework.ExpectNoError(err)
+			framework.ExpectEqual(false, strings.Contains(string(encoded), "secret=value"))
+			framework.ExpectEqual(false, strings.Contains(strings.ToLower(string(encoded)), "authorization"))
+			framework.ExpectEqual(false, strings.Contains(strings.ToLower(string(encoded)), "cookie"))
+
+			framework.NewRequestExpect(f).Port(vhostHTTPPort).
+				RequestModify(func(r *request.Request) {
+					r.HTTP().HTTPHost("plugin.example.com").HTTPPath("/api/allowed")
+				}).
+				ExpectResp([]byte("backend")).
+				Ensure()
+			allowed := <-records
+			framework.ExpectEqual("/api/allowed", allowed.URI)
+			framework.ExpectEqual(int32(1), backendCalls.Load())
 		})
 	})
 

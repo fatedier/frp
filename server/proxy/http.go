@@ -17,12 +17,14 @@ package proxy
 import (
 	"io"
 	"net"
+	"net/http"
 	"reflect"
 	"strings"
 
 	libio "github.com/fatedier/golib/io"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/util/limit"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
@@ -62,6 +64,18 @@ func (pxy *HTTPProxy) Run() (remoteAddr string, err error) {
 		Username:        pxy.cfg.HTTPUser,
 		Password:        pxy.cfg.HTTPPassword,
 		CreateConnFn:    pxy.GetRealConn,
+		CheckHTTPRequestFn: func(req *http.Request, route *vhost.RouteConfig) error {
+			return pxy.rc.PluginManager.NewHTTPRequest(&plugin.NewHTTPRequestContent{
+				User:          pxy.GetUserInfo(),
+				ProxyName:     pxy.GetName(),
+				RemoteAddr:    req.RemoteAddr,
+				Host:          req.Host,
+				Method:        req.Method,
+				URI:           req.URL.Path,
+				RouteDomain:   route.Domain,
+				RouteLocation: route.Location,
+			})
+		},
 	}
 
 	locations := pxy.cfg.Locations
