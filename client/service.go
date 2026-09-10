@@ -260,22 +260,23 @@ func (svr *Service) Run(ctx context.Context) error {
 
 	// first login to frps
 	svr.loopLoginUntilSuccess(10*time.Second, lo.FromPtr(svr.common.LoginFailExit))
-	if svr.ctl == nil {
+	ctl := svr.getControl()
+	if ctl == nil {
 		cancelCause := cancelErr{}
 		_ = errors.As(context.Cause(svr.ctx), &cancelCause)
 		svr.stop()
 		return fmt.Errorf("login to the server failed: %v. With loginFailExit enabled, no additional retries will be attempted", cancelCause.Err)
 	}
 
-	go svr.keepControllerWorking()
+	go svr.keepControllerWorking(ctl)
 
 	<-svr.ctx.Done()
 	svr.stop()
 	return nil
 }
 
-func (svr *Service) keepControllerWorking() {
-	<-svr.ctl.Done()
+func (svr *Service) keepControllerWorking(ctl *Control) {
+	<-ctl.Done()
 
 	// There is a situation where the login is successful but due to certain reasons,
 	// the control immediately exits. It is necessary to limit the frequency of reconnection in this case.
@@ -285,8 +286,9 @@ func (svr *Service) keepControllerWorking() {
 		// loopLoginUntilSuccess is another layer of loop that will continuously attempt to
 		// login to the server until successful.
 		svr.loopLoginUntilSuccess(20*time.Second, false)
-		if svr.ctl != nil {
-			<-svr.ctl.Done()
+		ctl := svr.getControl()
+		if ctl != nil {
+			<-ctl.Done()
 			return false, errors.New("control is closed and try another loop")
 		}
 		// If the control is nil, it means that the login failed and the service is also closed.
@@ -372,12 +374,9 @@ func (svr *Service) UpdateAllConfigurer(proxyCfgs []v1.ProxyConfigurer, visitorC
 	svr.visitorCfgs = visitorCfgs
 	svr.cfgMu.Unlock()
 
-	svr.ctlMu.RLock()
-	ctl := svr.ctl
-	svr.ctlMu.RUnlock()
-
+	ctl := svr.getControl()
 	if ctl != nil {
-		return svr.ctl.UpdateAllConfigurer(proxyCfgs, visitorCfgs)
+		return ctl.UpdateAllConfigurer(proxyCfgs, visitorCfgs)
 	}
 	return nil
 }
@@ -445,6 +444,14 @@ func (svr *Service) stop() {
 		_ = svr.vnetController.Stop()
 		svr.vnetController = nil
 	}
+}
+
+// getControl returns a snapshot of the current control under ctlMu.
+// Callers must not hold ctlMu while waiting on or invoking the control.
+func (svr *Service) getControl() *Control {
+	svr.ctlMu.RLock()
+	defer svr.ctlMu.RUnlock()
+	return svr.ctl
 }
 
 func (svr *Service) getProxyStatus(name string) (*proxy.WorkingStatus, bool) {

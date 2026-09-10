@@ -93,3 +93,51 @@ func TestGracefulCloseDoesNotBlockDuringStop(t *testing.T) {
 		t.Fatalf("GracefulClose blocked for %v while stop was waiting", elapsed)
 	}
 }
+
+// TestUpdateAllConfigurerAndStopSynchronizeControl verifies that configuration
+// updates and shutdown synchronize access to the active control.
+func TestUpdateAllConfigurerAndStopSynchronizeControl(t *testing.T) {
+	for range 1000 {
+		svr := newGracefulCloseTestService()
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			<-start
+			_ = svr.UpdateAllConfigurer(nil, nil)
+		}()
+		go func() {
+			defer wg.Done()
+			<-start
+			svr.stop()
+		}()
+
+		close(start)
+		wg.Wait()
+	}
+}
+
+// TestKeepControllerWorkingWaitsForCapturedControl verifies that replacing the
+// Service field does not redirect a monitor away from its original control.
+func TestKeepControllerWorkingWaitsForCapturedControl(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	initialControl := &Control{doneCh: make(chan struct{})}
+	currentControl := &Control{doneCh: make(chan struct{})}
+	svr := &Service{ctx: ctx, ctl: currentControl}
+	monitorDone := make(chan struct{})
+	go func() {
+		svr.keepControllerWorking(initialControl)
+		close(monitorDone)
+	}()
+
+	close(initialControl.doneCh)
+	select {
+	case <-monitorDone:
+	case <-time.After(time.Second):
+		t.Fatal("controller monitor did not finish after the captured control closed")
+	}
+}
