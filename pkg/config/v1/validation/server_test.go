@@ -49,3 +49,33 @@ func TestValidateServerConfigMaxPoolCount(t *testing.T) {
 		})
 	}
 }
+
+// TestValidateServerConfigHTTPPluginOps verifies that NewHTTPRequest is
+// accepted without weakening validation for unknown operations.
+func TestValidateServerConfigHTTPPluginOps(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		op      string
+		wantErr bool
+	}{
+		{name: "new HTTP request", op: "NewHTTPRequest"},
+		{name: "unknown", op: "UnknownOperation", wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := validServerConfigWithAuth(v1.AuthServerConfig{Method: v1.AuthMethodToken})
+			cfg.HTTPPlugins = []v1.HTTPPluginOptions{{
+				Name: "request-policy",
+				Addr: "127.0.0.1:9000",
+				Path: "/handler",
+				Ops:  []string{tc.op},
+			}}
+
+			_, err := NewConfigValidator(nil).ValidateServerConfig(cfg)
+			if tc.wantErr {
+				require.ErrorContains(t, err, "invalid http plugin ops")
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
