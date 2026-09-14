@@ -24,6 +24,7 @@ import (
 	"time"
 
 	goliblog "github.com/fatedier/golib/log"
+	"github.com/stretchr/testify/require"
 
 	"github.com/fatedier/frp/pkg/msg"
 	frplog "github.com/fatedier/frp/pkg/util/log"
@@ -257,6 +258,133 @@ func TestManagerMutableContentRejectStopsChain(t *testing.T) {
 	if called {
 		t.Fatal("expected plugin chain to stop after reject")
 	}
+}
+
+func TestManagerNewWorkConnPreservesMetadataBetweenPlugins(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		id   uint64
+		kind string
+	}{
+		{name: "typed", id: 7, kind: msg.WorkConnTypeReserve},
+		{name: "legacy"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewManager()
+			observations := 0
+			for range 2 {
+				// Model an old plugin replacing the entire content, including
+				// intentionally omitted ordinary fields. Only metadata is restored.
+				partial := &NewWorkConnContent{NewWorkConn: msg.NewWorkConn{RunID: "mutated", Timestamp: 42}}
+				m.Register(testPlugin{
+					name: "partial", ops: map[string]bool{OpNewWorkConn: true},
+					handler: func(context.Context, string, any) (*Response, any, error) {
+						return &Response{Unchange: false}, partial, nil
+					},
+				})
+				m.Register(testPlugin{
+					name: "policy", ops: map[string]bool{OpNewWorkConn: true},
+					handler: func(_ context.Context, _ string, raw any) (*Response, any, error) {
+						content := raw.(NewWorkConnContent)
+						observations++
+						if content.ControlID != tc.id || content.WorkConnType != tc.kind {
+							return &Response{Reject: true, RejectReason: "lost scheduling metadata"}, nil, nil
+						}
+						require.Equal(t, "mutated", content.RunID)
+						require.Equal(t, int64(42), content.Timestamp)
+						require.Empty(t, content.User.User, "ordinary omitted fields must not be merged back")
+						require.Zero(t, partial.ControlID, "do not mutate the plugin's response")
+						// Unchange must ignore even an invalid returned generation.
+						content.ControlID = tc.id + 1
+						content.WorkConnType = "ignored"
+						return &Response{Unchange: true}, &content, nil
+					},
+				})
+			}
+			got, err := m.NewWorkConn(&NewWorkConnContent{
+				User:        UserInfo{User: "original"},
+				NewWorkConn: msg.NewWorkConn{RunID: "original", ControlID: tc.id, WorkConnType: tc.kind},
+			})
+			require.NoError(t, err)
+			require.Equal(t, 2, observations)
+			require.Equal(t, tc.id, got.ControlID)
+			require.Equal(t, tc.kind, got.WorkConnType)
+			require.Equal(t, "mutated", got.RunID)
+		})
+	}
+}
+
+func TestManagerNewWorkConnMetadataValidationPreservesPluginContract(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		initialID  uint64
+		returnedID uint64
+		response   Response
+		pluginErr  error
+		wantErr    string
+		wantIDErr  bool
+	}{
+		{name: "changed generation", initialID: 7, returnedID: 8, wantErr: "from 7 to 8", wantIDErr: true},
+		{name: "legacy cannot inject generation", returnedID: 8, wantErr: "from 0 to 8", wantIDErr: true},
+		{name: "same generation", initialID: 7, returnedID: 7},
+		{name: "omitted generation", initialID: 7},
+		{name: "unchange ignores generation rewrite", initialID: 7, returnedID: 8, response: Response{Unchange: true}},
+		{
+			name: "reject stops before validation", initialID: 7, returnedID: 8,
+			response: Response{Reject: true, RejectReason: "policy rejection"}, wantErr: "policy rejection",
+		},
+		{
+			name: "error stops before validation", initialID: 7, returnedID: 8,
+			pluginErr: errors.New("unavailable"), wantErr: "send NewWorkConn request to plugin error",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewManager()
+			m.Register(testPlugin{
+				name: "mutate", ops: map[string]bool{OpNewWorkConn: true},
+				handler: func(context.Context, string, any) (*Response, any, error) {
+					return &tc.response, &NewWorkConnContent{NewWorkConn: msg.NewWorkConn{
+						ControlID: tc.returnedID, WorkConnType: msg.WorkConnTypeDemand,
+					}}, tc.pluginErr
+				},
+			})
+			called := false
+			m.Register(testPlugin{
+				name: "observe", ops: map[string]bool{OpNewWorkConn: true},
+				handler: func(_ context.Context, _ string, raw any) (*Response, any, error) {
+					called = true
+					content := raw.(NewWorkConnContent)
+					require.Equal(t, tc.initialID, content.ControlID)
+					require.Equal(t, msg.WorkConnTypeReserve, content.WorkConnType)
+					return &Response{Unchange: true}, nil, nil
+				},
+			})
+			got, err := m.NewWorkConn(&NewWorkConnContent{NewWorkConn: msg.NewWorkConn{
+				ControlID: tc.initialID, WorkConnType: msg.WorkConnTypeReserve,
+			}})
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				require.Nil(t, got)
+				require.False(t, called)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, got)
+				require.True(t, called)
+			}
+			require.Equal(t, tc.wantIDErr, errors.Is(err, ErrNewWorkConnControlIDChanged))
+		})
+	}
+}
+
+func TestManagerNewWorkConnChangedContentRequiresPointer(t *testing.T) {
+	m := NewManager()
+	m.Register(testPlugin{
+		name: "invalid", ops: map[string]bool{OpNewWorkConn: true},
+		handler: func(context.Context, string, any) (*Response, any, error) {
+			return &Response{Unchange: false}, NewWorkConnContent{}, nil
+		},
+	})
+	require.Panics(t, func() { _, _ = m.NewWorkConn(&NewWorkConnContent{}) })
 }
 
 func TestManagerMutableContentPluginErrorLogLevel(t *testing.T) {

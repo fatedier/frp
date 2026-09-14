@@ -147,9 +147,19 @@ type NewWorkConn struct {
 	RunID        string `json:"run_id,omitempty"`
 	PrivilegeKey string `json:"privilege_key,omitempty"`
 	Timestamp    int64  `json:"timestamp,omitempty"`
+	WorkConnType string `json:"work_conn_type,omitempty"`
+	ControlID    uint64 `json:"control_id,omitempty"`
 }
 
-type ReqWorkConn struct{}
+const (
+	WorkConnTypeDemand  = "demand"
+	WorkConnTypeReserve = "reserve"
+)
+
+type ReqWorkConn struct {
+	WorkConnType string `json:"work_conn_type,omitempty"`
+	ControlID    uint64 `json:"control_id,omitempty"`
+}
 
 type StartWorkConn struct {
 	ProxyName string `json:"proxy_name,omitempty"`

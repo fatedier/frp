@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"net/http"
@@ -497,7 +498,7 @@ func TestServiceVisitorAdmissionSerializesReplacement(t *testing.T) {
 
 func TestServiceWorkConnRoutingRequiresCurrentRunningControl(t *testing.T) {
 	svr := newControlTestService(t)
-	ctl, controlConn, err := registerLifecycleTestControl(svr)
+	ctl, controlConn, err := registerLifecycleTestControlWithPoolCount(svr, 1)
 	require.NoError(t, err)
 
 	pendingConn := newCountingCloseConn()
@@ -522,6 +523,152 @@ func TestServiceWorkConnRoutingRequiresCurrentRunningControl(t *testing.T) {
 	require.NoError(t, ctl.Close())
 	waitForControlDone(t, ctl)
 	require.Equal(t, int64(1), runningConn.closeCount.Load())
+}
+
+func TestServiceWorkConnRoutingRejectsStaleControlGeneration(t *testing.T) {
+	svr := newControlTestService(t)
+	ctl, controlConn, err := registerLifecycleTestControl(svr)
+	require.NoError(t, err)
+	require.NoError(t, svr.completeControlLogin(ctl, func() error { return nil }))
+	waitForSignal(t, controlConn.readStarted, "control reader to start")
+
+	workConn := newCountingCloseConn()
+	workMsgConn := msg.NewConn(workConn, msg.NewV1ReadWriter(workConn))
+	err = svr.RegisterWorkConn(
+		workMsgConn,
+		&msg.NewWorkConn{RunID: "shared-run", ControlID: uint64(ctl.ID()) + 1},
+		wire.ProtocolV1,
+		false,
+	)
+	require.ErrorContains(t, err, "generation")
+	require.Len(t, ctl.workConnCh, 0)
+	_ = workMsgConn.Close()
+
+	require.NoError(t, ctl.Close())
+	waitForControlDone(t, ctl)
+}
+
+func TestServiceNewWorkConnPluginPreservesSchedulingMetadata(t *testing.T) {
+	svr := newControlTestService(t)
+	svr.pluginManager.Register(&partialNewWorkConnPlugin{runID: "plugin-modified"})
+	ctl, controlConn, err := registerLifecycleTestControlWithPoolCount(svr, 2)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = ctl.Close() })
+	policy := &workConnPolicyPlugin{
+		controlID: uint64(ctl.ID()), workConnType: msg.WorkConnTypeReserve, runID: "plugin-modified",
+	}
+	svr.pluginManager.Register(policy)
+	ctl.workConnMu.Lock()
+	// Keep startup deterministic: the explicit leases below already represent
+	// the supply this plugin-routing test needs.
+	ctl.workConnReserveWindow = 0
+	ctl.newWorkConnLeaseLocked(workConnRequestDemand)
+	ctl.newWorkConnLeaseLocked(workConnRequestReserve)
+	ctl.workConnMu.Unlock()
+	require.NoError(t, svr.completeControlLogin(ctl, func() error { return nil }))
+	waitForSignal(t, controlConn.readStarted, "control reader to start")
+
+	workConn := newCountingCloseConn()
+	workMsgConn := msg.NewConn(workConn, msg.NewV1ReadWriter(workConn))
+	err = svr.RegisterWorkConn(
+		workMsgConn,
+		&msg.NewWorkConn{
+			RunID:        "shared-run",
+			WorkConnType: msg.WorkConnTypeReserve,
+			ControlID:    uint64(ctl.ID()),
+		},
+		wire.ProtocolV1,
+		false,
+	)
+	require.NoError(t, err)
+	require.True(t, policy.called)
+	require.Len(t, ctl.workConnCh, 1)
+	ctl.workConnMu.Lock()
+	demandPending := len(ctl.workConnPending[workConnRequestDemand])
+	reservePending := len(ctl.workConnPending[workConnRequestReserve])
+	ctl.workConnMu.Unlock()
+	require.Equal(t, 1, demandPending)
+	require.Zero(t, reservePending)
+
+	require.NoError(t, ctl.Close())
+	waitForControlDone(t, ctl)
+	require.Equal(t, int64(1), workConn.closeCount.Load())
+}
+
+func TestServiceNewWorkConnPluginCannotRewriteControlID(t *testing.T) {
+	svr := newControlTestService(t)
+	ctl, controlConn, err := registerLifecycleTestControl(svr)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = ctl.Close() })
+	svr.pluginManager.Register(&partialNewWorkConnPlugin{controlID: uint64(ctl.ID()) + 1})
+	policy := &workConnPolicyPlugin{controlID: uint64(ctl.ID()), workConnType: msg.WorkConnTypeDemand, runID: "shared-run"}
+	svr.pluginManager.Register(policy)
+	require.NoError(t, svr.completeControlLogin(ctl, func() error { return nil }))
+	waitForSignal(t, controlConn.readStarted, "control reader to start")
+
+	workConn := newCountingCloseConn()
+	workMsgConn := msg.NewConn(workConn, msg.NewV1ReadWriter(workConn))
+	err = svr.RegisterWorkConn(
+		workMsgConn,
+		&msg.NewWorkConn{
+			RunID:        "shared-run",
+			WorkConnType: msg.WorkConnTypeDemand,
+			ControlID:    uint64(ctl.ID()),
+		},
+		wire.ProtocolV1,
+		false,
+	)
+	require.ErrorContains(t, err, "plugin changed work connection control generation")
+	require.ErrorIs(t, err, errWorkConnControlUnavailable)
+	require.ErrorIs(t, err, plugin.ErrNewWorkConnControlIDChanged)
+	require.False(t, policy.called)
+	require.Empty(t, ctl.workConnCh)
+	_ = workMsgConn.Close()
+
+	require.NoError(t, ctl.Close())
+	waitForControlDone(t, ctl)
+}
+
+func TestServiceReservePoolFullClosesWithoutStartWorkConnError(t *testing.T) {
+	svr := newControlTestService(t)
+	ctl, controlConn, err := registerLifecycleTestControlWithPoolCount(svr, 1)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = ctl.Close() })
+	require.NoError(t, svr.completeControlLogin(ctl, func() error { return nil }))
+	waitForSignal(t, controlConn.readStarted, "control reader to start")
+
+	pooledConns := make([]*proxy.WorkConn, 0, cap(ctl.workConnCh))
+	ctl.workConnMu.Lock()
+	for i := 0; i < cap(ctl.workConnCh); i++ {
+		conn := newCountingCloseConn()
+		pooledConns = append(pooledConns, proxy.NewWorkConn(msg.NewConn(conn, msg.NewV1ReadWriter(conn))))
+		ctl.workConnCh <- pooledConns[len(pooledConns)-1]
+	}
+	ctl.workConnMu.Unlock()
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+	handleDone := make(chan struct{})
+	go func() {
+		svr.handleConnection(context.Background(), serverConn, false)
+		close(handleDone)
+	}()
+	clientMsgConn := msg.NewConn(clientConn, msg.NewV1ReadWriter(clientConn))
+	require.NoError(t, clientConn.SetReadDeadline(time.Now().Add(time.Second)))
+	require.NoError(t, clientMsgConn.WriteMsg(&msg.NewWorkConn{
+		RunID:        "shared-run",
+		WorkConnType: msg.WorkConnTypeReserve,
+	}))
+	_, err = clientMsgConn.ReadMsg()
+	require.ErrorIs(t, err, io.EOF)
+	waitForSignal(t, handleDone, "pool-full work connection handler to return")
+	_ = clientConn.Close()
+
+	require.NoError(t, ctl.Close())
+	waitForControlDone(t, ctl)
 }
 
 func TestServiceWorkConnRoutingRejectsWireProtocolMismatch(t *testing.T) {
@@ -570,9 +717,18 @@ func TestServiceWorkConnRoutingClientHelloPolicy(t *testing.T) {
 			svr := newControlTestService(t)
 			controlConn := newDeadlineReadConn()
 			controlMsgConn := msg.NewConn(controlConn, msg.NewV2ReadWriter(controlConn))
+			if tc.errorSubstring == "" {
+				svr.cfg.Transport.MaxPoolCount = 1
+			}
 			ctl, err := svr.RegisterControl(controlMsgConn, &msg.Login{
 				RunID:    "shared-run",
 				ClientID: "client",
+				PoolCount: func() int {
+					if tc.errorSubstring == "" {
+						return 1
+					}
+					return 0
+				}(),
 				ClientSpec: msg.ClientSpec{
 					AlwaysAuthPass: true,
 				},
@@ -883,11 +1039,19 @@ func newControlTestService(t *testing.T) *Service {
 }
 
 func registerLifecycleTestControl(svr *Service) (*Control, *deadlineReadConn, error) {
+	return registerLifecycleTestControlWithPoolCount(svr, 0)
+}
+
+func registerLifecycleTestControlWithPoolCount(svr *Service, poolCount int) (*Control, *deadlineReadConn, error) {
 	conn := newDeadlineReadConn()
 	msgConn := msg.NewConn(conn, msg.NewReadWriter(conn, wire.ProtocolV1))
+	if poolCount > 0 {
+		svr.cfg.Transport.MaxPoolCount = int64(poolCount)
+	}
 	ctl, err := svr.RegisterControl(msgConn, &msg.Login{
-		RunID:    "shared-run",
-		ClientID: "client",
+		RunID:     "shared-run",
+		ClientID:  "client",
+		PoolCount: poolCount,
 		ClientSpec: msg.ClientSpec{
 			AlwaysAuthPass: true,
 		},
@@ -937,6 +1101,50 @@ func waitForResult[T any](t *testing.T, ch <-chan T, description string) T {
 type workConnBarrierPlugin struct {
 	entered chan struct{}
 	resume  chan struct{}
+}
+
+type partialNewWorkConnPlugin struct {
+	controlID    uint64
+	workConnType string
+	runID        string
+}
+
+type workConnPolicyPlugin struct {
+	controlID    uint64
+	workConnType string
+	runID        string
+	called       bool
+}
+
+func (*workConnPolicyPlugin) Name() string { return "work-conn-policy" }
+
+func (*workConnPolicyPlugin) IsSupport(op string) bool { return op == plugin.OpNewWorkConn }
+
+func (p *workConnPolicyPlugin) Handle(_ context.Context, _ string, rawContent any) (*plugin.Response, any, error) {
+	p.called = true
+	content := rawContent.(plugin.NewWorkConnContent)
+	if content.ControlID != p.controlID || content.WorkConnType != p.workConnType || content.RunID != p.runID {
+		return &plugin.Response{Reject: true, RejectReason: "unexpected scheduling metadata or mutable run ID"}, nil, nil
+	}
+	return &plugin.Response{Unchange: true}, nil, nil
+}
+
+func (*partialNewWorkConnPlugin) Name() string { return "partial-new-work-conn" }
+
+func (*partialNewWorkConnPlugin) IsSupport(op string) bool { return op == plugin.OpNewWorkConn }
+
+func (p *partialNewWorkConnPlugin) Handle(
+	_ context.Context,
+	_ string,
+	rawContent any,
+) (*plugin.Response, any, error) {
+	content := rawContent.(plugin.NewWorkConnContent)
+	content.ControlID = p.controlID
+	content.WorkConnType = p.workConnType
+	if p.runID != "" {
+		content.RunID = p.runID
+	}
+	return &plugin.Response{Unchange: false}, &content, nil
 }
 
 func newWorkConnBarrierPlugin() *workConnBarrierPlugin {

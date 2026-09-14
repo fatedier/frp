@@ -36,6 +36,7 @@ import (
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
+	pkgerr "github.com/fatedier/frp/pkg/errors"
 	modelmetrics "github.com/fatedier/frp/pkg/metrics"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
@@ -516,6 +517,13 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 			acceptedConn.wireProtocol,
 			acceptedConn.clientHelloPresent,
 		); err != nil {
+			if errors.Is(err, errWorkConnPoolFull) || errors.Is(err, errWorkConnControlUnavailable) || errors.Is(err, pkgerr.ErrCtlClosed) {
+				// Pool-full and control-close/replacement races are normal for
+				// reserve or late work connections. Do not turn them into a
+				// misleading StartWorkConn error on frpc.
+				conn.Close()
+				return
+			}
 			_ = acceptedConn.conn.WriteMsg(&msg.StartWorkConn{
 				Error: util.GenerateResponseErrorString("invalid NewWorkConn", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
 			})
@@ -860,10 +868,18 @@ func (svr *Service) RegisterWorkConn(
 	ctl, exist := svr.ctlManager.GetByID(newMsg.RunID)
 	if !exist {
 		xl.Warnf("no client control found for run id [%s]", newMsg.RunID)
-		return fmt.Errorf("no client control found for run id [%s]", newMsg.RunID)
+		return fmt.Errorf("%w: no client control found for run id [%s]", errWorkConnControlUnavailable, newMsg.RunID)
 	}
 	if workWireProtocol != ctl.sessionCtx.WireProtocol {
 		return fmt.Errorf("work connection wire protocol mismatch: got %s want %s", workWireProtocol, ctl.sessionCtx.WireProtocol)
+	}
+	currentControlID := uint64(ctl.ID())
+	requestedControlID := newMsg.ControlID
+	if requestedControlID != 0 && requestedControlID != currentControlID {
+		return fmt.Errorf(
+			"%w: work connection belongs to control generation %d, current generation is %d",
+			errWorkConnControlUnavailable, requestedControlID, currentControlID,
+		)
 	}
 
 	// server plugin hook
@@ -876,6 +892,9 @@ func (svr *Service) RegisterWorkConn(
 		NewWorkConn: *newMsg,
 	}
 	retContent, err := svr.pluginManager.NewWorkConn(content)
+	if errors.Is(err, plugin.ErrNewWorkConnControlIDChanged) {
+		return fmt.Errorf("%w: %w", errWorkConnControlUnavailable, err)
+	}
 	if err == nil {
 		newMsg = &retContent.NewWorkConn
 		// Check auth.
@@ -885,7 +904,11 @@ func (svr *Service) RegisterWorkConn(
 		xl.Warnf("invalid NewWorkConn with run id [%s]", newMsg.RunID)
 		return err
 	}
-	return svr.ctlManager.RegisterWorkConn(ctl, proxy.NewWorkConn(workConn))
+	return svr.ctlManager.RegisterWorkConnWithType(
+		ctl,
+		proxy.NewWorkConn(workConn),
+		normalizeWorkConnRequestKind(workConnRequestKind(newMsg.WorkConnType)),
+	)
 }
 
 func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVisitorConn, wireProtocol string) error {

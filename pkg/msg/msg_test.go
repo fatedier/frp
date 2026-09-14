@@ -19,6 +19,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/fatedier/frp/pkg/proto/wire"
 )
 
 func TestV1MessageTypeIDsAreStable(t *testing.T) {
@@ -52,4 +54,23 @@ func TestMessageTypeMapIsCompleteAndUnique(t *testing.T) {
 		require.NotContains(t, msgTypes, msgType)
 		msgTypes[msgType] = struct{}{}
 	}
+}
+
+func TestWorkConnRequestTypeRoundTrip(t *testing.T) {
+	in := &ReqWorkConn{WorkConnType: WorkConnTypeReserve, ControlID: 7}
+	out, err := DecodeV2MessageFrame(mustEncodeV2MessageFrame(t, in))
+	require.NoError(t, err)
+	require.Equal(t, in, out)
+
+	inNew := &NewWorkConn{RunID: "run", WorkConnType: WorkConnTypeDemand, ControlID: 7}
+	outNew, err := DecodeV2MessageFrame(mustEncodeV2MessageFrame(t, inNew))
+	require.NoError(t, err)
+	require.Equal(t, inNew, outNew)
+}
+
+func mustEncodeV2MessageFrame(t *testing.T, m Message) *wire.Frame {
+	t.Helper()
+	frame, err := EncodeV2MessageFrame(m)
+	require.NoError(t, err)
+	return frame
 }
