@@ -645,7 +645,7 @@ func (ctl *Control) heartbeatWorker() {
 	wait.Until(func() {
 		if time.Since(ctl.lastPing.Load().(time.Time)) > time.Duration(ctl.sessionCtx.ServerCfg.Transport.HeartbeatTimeout)*time.Second {
 			xl.Warnf("heartbeat timeout for control id [%d]", ctl.controlID)
-			
+
 			// Verify this session is still the current one before closing.
 			// If it has been replaced, this stale session should just exit without killing the run.
 			ctl.manager.mu.RLock()
