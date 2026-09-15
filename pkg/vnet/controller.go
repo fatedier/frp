@@ -246,7 +246,7 @@ func (c *Controller) RegisterClientRoute(ctx context.Context, name string, route
 	go c.readLoopClient(ctx, conn)
 }
 
-// UnregisterClientRoute removes a client route.
+// UnregisterClientRoute removes a client route regardless of ownership.
 func (c *Controller) UnregisterClientRoute(name string) {
 	c.clientRouter.delRouteByName(name)
 }
