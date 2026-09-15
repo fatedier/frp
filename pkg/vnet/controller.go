@@ -246,17 +246,17 @@ func (c *Controller) RegisterClientRoute(ctx context.Context, name string, route
 	go c.readLoopClient(ctx, conn)
 }
 
-+// UnregisterClientRouteByName removes a client route regardless of ownership.
-+func (c *Controller) UnregisterClientRouteByName(name string) {
-+	c.clientRouter.delRoute(name)
-+}
-+
- // UnregisterClientRoute removes a client route only when it is still owned by conn.
- func (c *Controller) UnregisterClientRoute(name string, conn io.Writer) bool {
- 	return c.clientRouter.delRoute(name, conn)
- }
+// UnregisterClientRouteByName removes a client route regardless of ownership.
+func (c *Controller) UnregisterClientRouteByName(name string) {
+	c.clientRouter.delRouteByName(name)
+}
 
- // StartServerConnReadLoop starts the read loop for a server connection
+// UnregisterClientRoute removes a client route only when it is still owned by conn.
+func (c *Controller) UnregisterClientRoute(name string, conn io.Writer) bool {
+	return c.clientRouter.delRoute(name, conn)
+}
+
+// StartServerConnReadLoop starts the read loop for a server connection
 // (dynamically associates with source IPs)
 func (c *Controller) StartServerConnReadLoop(ctx context.Context, conn io.ReadWriteCloser, onClose func()) {
 	go c.readLoopServer(ctx, conn, onClose)
@@ -307,6 +307,12 @@ func (r *clientRouter) findConn(dst net.IP) (io.Writer, error) {
 		}
 	}
 	return nil, fmt.Errorf("no route found for destination %s", dst)
+}
+
+func (r *clientRouter) delRouteByName(name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.routes, name)
 }
 
 func (r *clientRouter) delRoute(name string, conn io.Writer) bool {
