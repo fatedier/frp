@@ -24,7 +24,7 @@ import (
 	"time"
 
 	libnet "github.com/fatedier/golib/net"
-	fmux "github.com/hashicorp/yamux"
+	fmux "github.com/fatedier/yamux"
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
 

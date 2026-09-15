@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"time"
 
-	fmux "github.com/hashicorp/yamux"
+	fmux "github.com/fatedier/yamux"
 	"github.com/quic-go/quic-go"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"

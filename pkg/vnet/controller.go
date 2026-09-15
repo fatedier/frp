@@ -246,10 +246,16 @@ func (c *Controller) RegisterClientRoute(ctx context.Context, name string, route
 	go c.readLoopClient(ctx, conn)
 }
 
-// UnregisterClientRoute Remove client route from routing table
+// UnregisterClientRoute removes a client route regardless of ownership.
 func (c *Controller) UnregisterClientRoute(name string) {
-	c.clientRouter.delRoute(name)
+	c.clientRouter.delRouteByName(name)
 }
+
+// UnregisterClientRouteWithConn removes a client route only when it is still owned by conn.
+func (c *Controller) UnregisterClientRouteWithConn(name string, conn io.Writer) bool {
+	return c.clientRouter.delRoute(name, conn)
+}
+// Final check for API compatibility.
 
 // StartServerConnReadLoop starts the read loop for a server connection
 // (dynamically associates with source IPs)
@@ -304,10 +310,21 @@ func (r *clientRouter) findConn(dst net.IP) (io.Writer, error) {
 	return nil, fmt.Errorf("no route found for destination %s", dst)
 }
 
-func (r *clientRouter) delRoute(name string) {
+func (r *clientRouter) delRouteByName(name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.routes, name)
+}
+
+func (r *clientRouter) delRoute(name string, conn io.Writer) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	re, ok := r.routes[name]
+	if !ok || re.conn != conn {
+		return false
+	}
+	delete(r.routes, name)
+	return true
 }
 
 func (r *clientRouter) removeConnRoute(conn io.Writer) {
