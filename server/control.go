@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -29,7 +28,6 @@ import (
 	"github.com/fatedier/frp/pkg/auth"
 	"github.com/fatedier/frp/pkg/config"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
-	pkgerr "github.com/fatedier/frp/pkg/errors"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/transport"
@@ -45,8 +43,6 @@ import (
 type ControlID uint64
 
 var nextControlID atomic.Uint64
-
-const workConnPoolCapacityOffset = 10
 
 type controlEntry struct {
 	ctl *Control
@@ -305,35 +301,46 @@ func (cm *ControlManager) admitVisitorByRunID(runID string, admit func(user, wir
 // RegisterWorkConn transfers conn to ctl only if ctl is still the current
 // running generation. On error, ownership remains with the caller.
 func (cm *ControlManager) RegisterWorkConn(ctl *Control, conn *proxy.WorkConn) error {
+	return cm.registerWorkConn(ctl, conn, workConnRequestLegacy)
+}
+
+func (cm *ControlManager) RegisterWorkConnWithType(ctl *Control, conn *proxy.WorkConn, kind workConnRequestKind) error {
+	return cm.registerWorkConn(ctl, conn, kind)
+}
+
+func (cm *ControlManager) registerWorkConn(ctl *Control, conn *proxy.WorkConn, kind workConnRequestKind) error {
 	entry, ok := cm.lockCurrentRun(ctl.runID, false)
 	if !ok {
 		cm.mu.RLock()
 		closed := cm.closed
 		cm.mu.RUnlock()
 		if closed {
-			return fmt.Errorf("control manager is closed")
+			return fmt.Errorf("%w: control manager is closed", errWorkConnControlUnavailable)
 		}
-		return fmt.Errorf("client control for run id [%s] is no longer current", ctl.runID)
+		return fmt.Errorf("%w: client control for run id [%s] is no longer current", errWorkConnControlUnavailable, ctl.runID)
 	}
-	defer entry.runMu.Unlock()
 	if entry.ctl != ctl || entry.id != ctl.controlID {
-		return fmt.Errorf("client control for run id [%s] is no longer current", ctl.runID)
+		entry.runMu.Unlock()
+		return fmt.Errorf("%w: client control for run id [%s] is no longer current", errWorkConnControlUnavailable, ctl.runID)
 	}
 
 	ctl.lifecycleMu.Lock()
-	defer ctl.lifecycleMu.Unlock()
 	if ctl.state != controlStateRunning {
-		return fmt.Errorf("client control for run id [%s] is not running", ctl.runID)
+		ctl.lifecycleMu.Unlock()
+		entry.runMu.Unlock()
+		return fmt.Errorf("%w: client control for run id [%s] is not running", errWorkConnControlUnavailable, ctl.runID)
 	}
 
-	select {
-	case ctl.workConnCh <- conn:
+	accepted, err := ctl.registerWorkConnState(conn, kind)
+	ctl.lifecycleMu.Unlock()
+	entry.runMu.Unlock()
+	ctl.requestWorkConnReconcile()
+	if accepted {
 		ctl.xl.Debugf("new work connection registered")
 		return nil
-	default:
-		ctl.xl.Debugf("work connection pool is full, discarding")
-		return fmt.Errorf("work connection pool is full, discarding")
 	}
+	ctl.xl.Debugf("work connection pool is full, discarding")
+	return err
 }
 
 func (cm *ControlManager) Close() error {
@@ -386,6 +393,8 @@ const (
 )
 
 type Control struct {
+	workConnScheduler
+
 	// session context
 	sessionCtx *SessionContext
 
@@ -396,14 +405,8 @@ type Control struct {
 	// It provides a channel for sending messages, and you can register handlers to process messages based on their respective types.
 	msgDispatcher *msg.Dispatcher
 
-	// work connections
-	workConnCh chan *proxy.WorkConn
-
 	// proxies in one client
 	proxies map[string]proxy.Proxy
-
-	// pool count
-	poolCount int
 
 	// ports used, for limitations
 	portsUsedNum int
@@ -452,22 +455,44 @@ func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, erro
 		)
 	}
 	poolCount := int(effectivePoolCount)
+	leaseTimeout := time.Duration(sessionCtx.ServerCfg.UserConnTimeout) * time.Second
+	if leaseTimeout <= 0 {
+		leaseTimeout = 10 * time.Second
+	}
+	doneCh := make(chan struct{})
+	xl := xlog.FromContextSafe(ctx)
 	ctl := &Control{
+		workConnScheduler: newWorkConnScheduler(
+			poolCount,
+			leaseTimeout,
+			xl,
+			doneCh,
+		),
 		sessionCtx:    sessionCtx,
-		workConnCh:    make(chan *proxy.WorkConn, poolCount+workConnPoolCapacityOffset),
 		proxies:       make(map[string]proxy.Proxy),
-		poolCount:     poolCount,
 		portsUsedNum:  0,
 		runID:         sessionCtx.LoginMsg.RunID,
 		state:         controlStateCreated,
-		xl:            xlog.FromContextSafe(ctx),
+		xl:            xl,
 		ctx:           ctx,
-		doneCh:        make(chan struct{}),
+		doneCh:        doneCh,
 		serverMetrics: metrics.Server,
 	}
 	ctl.lastPing.Store(time.Now())
 
 	ctl.msgDispatcher = msg.NewDispatcher(sessionCtx.Conn)
+	ctl.sendRequest = func(kind workConnRequestKind) error {
+		ctl.lifecycleMu.Lock()
+		controlID := ctl.controlID
+		ctl.lifecycleMu.Unlock()
+		return ctl.msgDispatcher.Send(&msg.ReqWorkConn{
+			WorkConnType: string(kind),
+			ControlID:    uint64(controlID),
+		})
+	}
+	ctl.dispatcherDone = func() <-chan struct{} {
+		return ctl.msgDispatcher.Done()
+	}
 	ctl.registerMsgHandlers()
 	ctl.msgTransporter = transport.NewMessageTransporter(ctl.msgDispatcher)
 	return ctl, nil
@@ -531,18 +556,23 @@ func (ctl *Control) Close() error {
 	switch ctl.state {
 	case controlStateCreated, controlStatePending:
 		ctl.state = controlStateClosing
+		ctl.takeWorkConnPool()
 		ctl.finishLocked()
 	case controlStateRunning:
 		ctl.state = controlStateClosing
+		ctl.takeWorkConnPool()
 	}
 	ctl.lifecycleMu.Unlock()
-	return ctl.interruptReadAndClose()
+	err := ctl.interruptReadAndClose()
+	ctl.startWorkConnCleanup()
+	return err
 }
 
 func (ctl *Control) Replaced(newCtl *Control) {
 	ctl.markReplaced()
 	ctl.xl.Infof("replaced by client [%s] (control ID %d)", newCtl.runID, newCtl.ID())
 	_ = ctl.interruptReadAndClose()
+	ctl.startWorkConnCleanup()
 }
 
 // markReplaced returns the transitive predecessor barrier. A pending control
@@ -550,24 +580,31 @@ func (ctl *Control) Replaced(newCtl *Control) {
 // to the replacement. A running control is finished only by its worker.
 func (ctl *Control) markReplaced() <-chan struct{} {
 	ctl.lifecycleMu.Lock()
-	defer ctl.lifecycleMu.Unlock()
 
 	switch ctl.state {
 	case controlStateCreated:
 		ctl.state = controlStateClosing
+		ctl.takeWorkConnPool()
 		ctl.finishLocked()
+		ctl.lifecycleMu.Unlock()
 		return nil
 	case controlStatePending:
 		barrier := ctl.handoffBarrier
 		ctl.state = controlStateClosing
+		ctl.takeWorkConnPool()
 		ctl.finishLocked()
+		ctl.lifecycleMu.Unlock()
 		return barrier
 	case controlStateRunning:
 		ctl.state = controlStateClosing
+		ctl.takeWorkConnPool()
+		ctl.lifecycleMu.Unlock()
 		return ctl.doneCh
 	case controlStateClosing, controlStateClosed:
+		ctl.lifecycleMu.Unlock()
 		return ctl.doneCh
 	default:
+		ctl.lifecycleMu.Unlock()
 		return ctl.doneCh
 	}
 }
@@ -586,54 +623,6 @@ func (ctl *Control) finishLocked() {
 	}
 	ctl.state = controlStateClosed
 	close(ctl.doneCh)
-}
-
-// When frps get one user connection, we get one work connection from the pool and return it.
-// If no workConn available in the pool, send message to frpc to get one or more
-// and wait until it is available.
-// return an error if wait timeout
-func (ctl *Control) GetWorkConn() (workConn *proxy.WorkConn, err error) {
-	xl := ctl.xl
-	defer func() {
-		if err := recover(); err != nil {
-			xl.Errorf("panic error: %v", err)
-			xl.Errorf(string(debug.Stack()))
-		}
-	}()
-
-	var ok bool
-	// get a work connection from the pool
-	select {
-	case workConn, ok = <-ctl.workConnCh:
-		if !ok {
-			err = pkgerr.ErrCtlClosed
-			return
-		}
-		xl.Debugf("get work connection from pool")
-	default:
-		// no work connections available in the poll, send message to frpc to get more
-		if err := ctl.msgDispatcher.Send(&msg.ReqWorkConn{}); err != nil {
-			return nil, fmt.Errorf("control is already closed")
-		}
-
-		select {
-		case workConn, ok = <-ctl.workConnCh:
-			if !ok {
-				err = pkgerr.ErrCtlClosed
-				xl.Warnf("no work connections available, %v", err)
-				return
-			}
-
-		case <-time.After(time.Duration(ctl.sessionCtx.ServerCfg.UserConnTimeout) * time.Second):
-			err = fmt.Errorf("timeout trying to get work connection")
-			xl.Warnf("%v", err)
-			return
-		}
-	}
-
-	// When we get a work connection from pool, replace it with a new one.
-	_ = ctl.msgDispatcher.Send(&msg.ReqWorkConn{})
-	return
 }
 
 func (ctl *Control) heartbeatWorker() {
@@ -686,12 +675,7 @@ func (ctl *Control) worker() {
 
 	go ctl.heartbeatWorker()
 	go ctl.msgDispatcher.Run()
-	go func() {
-		for i := 0; i < ctl.poolCount; i++ {
-			// Ignore the error: it means this control is already closing.
-			_ = ctl.msgDispatcher.Send(&msg.ReqWorkConn{})
-		}
-	}()
+	ctl.requestWorkConnReconcile()
 
 	<-ctl.msgDispatcher.Done()
 	ctl.lifecycleMu.Lock()
@@ -701,11 +685,8 @@ func (ctl *Control) worker() {
 	ctl.lifecycleMu.Unlock()
 	_ = ctl.interruptReadAndClose()
 
+	ctl.closeWorkConnPool()
 	ctl.mu.Lock()
-	close(ctl.workConnCh)
-	for workConn := range ctl.workConnCh {
-		workConn.Close()
-	}
 	proxies := ctl.proxies
 	ctl.proxies = make(map[string]proxy.Proxy)
 	ctl.mu.Unlock()

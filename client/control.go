@@ -121,8 +121,9 @@ func (ctl *Control) SetInWorkConnCallback(cb func(*v1.ProxyBaseConfig, net.Conn,
 	ctl.pm.SetInWorkConnCallback(cb)
 }
 
-func (ctl *Control) handleReqWorkConn(_ msg.Message) {
+func (ctl *Control) handleReqWorkConn(raw msg.Message) {
 	xl := ctl.xl
+	req := raw.(*msg.ReqWorkConn)
 	workConn, err := ctl.connectServer()
 	if err != nil {
 		xl.Warnf("start new connection to server error: %v", err)
@@ -130,7 +131,9 @@ func (ctl *Control) handleReqWorkConn(_ msg.Message) {
 	}
 
 	m := &msg.NewWorkConn{
-		RunID: ctl.sessionCtx.RunID,
+		RunID:        ctl.sessionCtx.RunID,
+		WorkConnType: req.WorkConnType,
+		ControlID:    req.ControlID,
 	}
 	if err = ctl.sessionCtx.Auth.Setter.SetNewWorkConn(m); err != nil {
 		xl.Warnf("error during NewWorkConn authentication: %v", err)

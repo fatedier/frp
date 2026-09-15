@@ -33,6 +33,10 @@ type Manager struct {
 	newUserConnPlugins []Plugin
 }
 
+// ErrNewWorkConnControlIDChanged identifies an attempt to change the control
+// generation in a NewWorkConn plugin response.
+var ErrNewWorkConnControlIDChanged = errors.New("plugin changed work connection control generation")
+
 func NewManager() *Manager {
 	return &Manager{
 		loginPlugins:       make([]Plugin, 0),
@@ -72,6 +76,7 @@ func handleMutableContent[T any](
 	op string,
 	content *T,
 	logMode pluginErrorLogMode,
+	afterChange func(*T) (*T, error),
 ) (*T, error) {
 	if len(plugins) == 0 {
 		return content, nil
@@ -100,6 +105,12 @@ func handleMutableContent[T any](
 			// Preserve the existing Plugin contract: changed content must be *T.
 			// Buggy Plugin implementations still panic here, by design.
 			content = retContent.(*T)
+			if afterChange != nil {
+				content, err = afterChange(content)
+				if err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 	return content, nil
@@ -127,11 +138,11 @@ func (m *Manager) Register(p Plugin) {
 }
 
 func (m *Manager) Login(content *LoginContent) (*LoginContent, error) {
-	return handleMutableContent(m.loginPlugins, OpLogin, content, pluginErrorLogWarn)
+	return handleMutableContent(m.loginPlugins, OpLogin, content, pluginErrorLogWarn, nil)
 }
 
 func (m *Manager) NewProxy(content *NewProxyContent) (*NewProxyContent, error) {
-	return handleMutableContent(m.newProxyPlugins, OpNewProxy, content, pluginErrorLogWarn)
+	return handleMutableContent(m.newProxyPlugins, OpNewProxy, content, pluginErrorLogWarn, nil)
 }
 
 func (m *Manager) CloseProxy(content *CloseProxyContent) error {
@@ -157,14 +168,30 @@ func (m *Manager) CloseProxy(content *CloseProxyContent) error {
 }
 
 func (m *Manager) Ping(content *PingContent) (*PingContent, error) {
-	return handleMutableContent(m.pingPlugins, OpPing, content, pluginErrorLogWarn)
+	return handleMutableContent(m.pingPlugins, OpPing, content, pluginErrorLogWarn, nil)
 }
 
 func (m *Manager) NewWorkConn(content *NewWorkConnContent) (*NewWorkConnContent, error) {
-	return handleMutableContent(m.newWorkConnPlugins, OpNewWorkConn, content, pluginErrorLogWarn)
+	if len(m.newWorkConnPlugins) == 0 {
+		return content, nil
+	}
+	controlID, workConnType := content.ControlID, content.WorkConnType
+	return handleMutableContent(m.newWorkConnPlugins, OpNewWorkConn, content, pluginErrorLogWarn,
+		func(changed *NewWorkConnContent) (*NewWorkConnContent, error) {
+			if changed.ControlID != 0 && changed.ControlID != controlID {
+				return nil, fmt.Errorf("%w from %d to %d", ErrNewWorkConnControlIDChanged, controlID, changed.ControlID)
+			}
+			// Older plugins may omit scheduling metadata. Restore it before the
+			// next plugin observes the replacement, leaving all other fields mutable.
+			// Copy the response so the manager does not mutate plugin-owned content.
+			restored := *changed
+			restored.ControlID = controlID
+			restored.WorkConnType = workConnType
+			return &restored, nil
+		})
 }
 
 func (m *Manager) NewUserConn(content *NewUserConnContent) (*NewUserConnContent, error) {
 	// Preserve the pre-refactor log level for NewUserConn plugin errors.
-	return handleMutableContent(m.newUserConnPlugins, OpNewUserConn, content, pluginErrorLogInfo)
+	return handleMutableContent(m.newUserConnPlugins, OpNewUserConn, content, pluginErrorLogInfo, nil)
 }
