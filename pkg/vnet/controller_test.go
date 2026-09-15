@@ -46,7 +46,7 @@ func TestClientRouterDeleteRouteRequiresMatchingConnection(t *testing.T) {
 	controller.clientRouter.addRoute("vnet-visitor", []net.IPNet{*route}, oldConn)
 	controller.clientRouter.addRoute("vnet-visitor", []net.IPNet{*route}, replacementConn)
 
-	require.False(controller.UnregisterClientRoute("vnet-visitor", oldConn))
+	require.False(controller.UnregisterClientRouteByName("vnet-visitor"))
 	got, err := controller.clientRouter.findConn(net.ParseIP("10.1.0.1"))
 	require.NoError(err)
 	require.Same(replacementConn, got)
@@ -58,7 +58,7 @@ func TestClientRouterDeleteRouteRequiresMatchingConnection(t *testing.T) {
 	require.NoError(err)
 	require.Same(replacementConn, got)
 
-	require.True(controller.UnregisterClientRoute("vnet-visitor", replacementConn))
+	require.True(controller.UnregisterClientRouteWithConn("vnet-visitor", replacementConn))
 	_, err = controller.clientRouter.findConn(net.ParseIP("10.1.0.1"))
 	require.Error(err)
 }

@@ -246,9 +246,9 @@ func (p *VirtualNetPlugin) cleanupControllerConnLocked(xl *xlog.Logger, controll
 	}
 
 	if p.routeController != nil &&
-		p.routeController.UnregisterClientRoute(p.pluginCtx.Name, controllerConn) {
-		xl.Infof("unregistered client route for visitor [%s]", p.pluginCtx.Name)
-	}
+		if p.routeController.UnregisterClientRouteWithConn(p.pluginCtx.Name, controllerConn) {
+			xl.Infof("unregister client route [%s] success", p.pluginCtx.Name)
+		}
 	xl.Debugf("cleaning up controllerConn for visitor [%s]", p.pluginCtx.Name)
 	_ = controllerConn.Close()
 	if p.controllerConn == controllerConn {
