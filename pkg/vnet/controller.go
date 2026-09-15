@@ -246,13 +246,18 @@ func (c *Controller) RegisterClientRoute(ctx context.Context, name string, route
 	go c.readLoopClient(ctx, conn)
 }
 
-// UnregisterClientRouteByName removes a client route regardless of ownership.
-func (c *Controller) UnregisterClientRouteByName(name string) {
+// UnregisterClientRoute removes a client route.
+func (c *Controller) UnregisterClientRoute(name string) {
 	c.clientRouter.delRouteByName(name)
 }
 
-// UnregisterClientRoute removes a client route only when it is still owned by conn.
-func (c *Controller) UnregisterClientRoute(name string, conn io.Writer) bool {
+// UnregisterClientRouteWithConn removes a client route only when it is still owned by conn.
+func (c *Controller) UnregisterClientRouteWithConn(name string, conn io.Writer) bool {
+	return c.clientRouter.delRoute(name, conn)
+}
+
+// UnregisterClientRouteWithConn removes a client route only when it is still owned by conn.
+func (c *Controller) UnregisterClientRouteWithConn(name string, conn io.Writer) bool {
 	return c.clientRouter.delRoute(name, conn)
 }
 
