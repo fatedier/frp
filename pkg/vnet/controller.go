@@ -255,6 +255,7 @@ func (c *Controller) UnregisterClientRoute(name string) {
 func (c *Controller) UnregisterClientRouteWithConn(name string, conn io.Writer) bool {
 	return c.clientRouter.delRoute(name, conn)
 }
+// Final check for API compatibility.
 
 // StartServerConnReadLoop starts the read loop for a server connection
 // (dynamically associates with source IPs)
