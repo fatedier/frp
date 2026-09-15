@@ -256,11 +256,6 @@ func (c *Controller) UnregisterClientRouteWithConn(name string, conn io.Writer) 
 	return c.clientRouter.delRoute(name, conn)
 }
 
-// UnregisterClientRouteWithConn removes a client route only when it is still owned by conn.
-func (c *Controller) UnregisterClientRouteWithConn(name string, conn io.Writer) bool {
-	return c.clientRouter.delRoute(name, conn)
-}
-
 // StartServerConnReadLoop starts the read loop for a server connection
 // (dynamically associates with source IPs)
 func (c *Controller) StartServerConnReadLoop(ctx context.Context, conn io.ReadWriteCloser, onClose func()) {
