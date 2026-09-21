@@ -126,6 +126,13 @@ func NewServerTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 }
 
 func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Config, error) {
+	return NewClientTLSConfigWithSystemRoots(certPath, keyPath, caPath, serverName, false)
+}
+
+// NewClientTLSConfigWithSystemRoots behaves like NewClientTLSConfig, except that when
+// caPath is empty and useSystemRoots is true, the server certificate is verified against
+// the host's root store.
+func NewClientTLSConfigWithSystemRoots(certPath, keyPath, caPath, serverName string, useSystemRoots bool) (*tls.Config, error) {
 	base := &tls.Config{}
 
 	if certPath != "" && keyPath != "" {
@@ -139,7 +146,8 @@ func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Conf
 
 	base.ServerName = serverName
 
-	if caPath != "" {
+	switch {
+	case caPath != "":
 		pool, err := newCertPool(caPath)
 		if err != nil {
 			return nil, err
@@ -147,7 +155,11 @@ func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Conf
 
 		base.RootCAs = pool
 		base.InsecureSkipVerify = false
-	} else {
+	case useSystemRoots:
+		// A nil RootCAs makes crypto/tls use the host root store, through the
+		// platform verifier on macOS and Windows.
+		base.InsecureSkipVerify = false
+	default:
 		base.InsecureSkipVerify = true
 	}
 

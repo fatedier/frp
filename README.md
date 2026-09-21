@@ -724,6 +724,8 @@ transport.tls.keyFile = "certificate.key"
 transport.tls.trustedCaFile = "ca.crt"
 ```
 
+By default, when neither `transport.tls.trustedCaFile` nor `transport.tls.useSystemRoots` is set, `frpc` does not verify the server certificate. Set `transport.tls.useSystemRoots = true` to verify it against the host's root store instead. With `wss`, verification applies to the TLS endpoint, which may be a reverse proxy. `useSystemRoots` is ignored when `transport.tls.trustedCaFile` is set.
+
 **`frps` TLS settings:**
 
 ```toml
