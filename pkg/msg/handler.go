@@ -19,6 +19,7 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"sync"
 
 	"github.com/fatedier/frp/pkg/proto/wire"
 )
@@ -27,6 +28,12 @@ type ReadWriter interface {
 	ReadMsg() (Message, error)
 	ReadMsgInto(Message) error
 	WriteMsg(Message) error
+}
+
+// ReadWriteCloser allows a dispatcher write failure to interrupt its reader.
+type ReadWriteCloser interface {
+	ReadWriter
+	io.Closer
 }
 
 type Conn struct {
@@ -107,18 +114,21 @@ func AsyncHandler(f func(Message)) func(Message) {
 
 // Dispatcher is used to send messages to net.Conn or register handlers for messages read from net.Conn.
 type Dispatcher struct {
-	rw ReadWriter
+	rw ReadWriteCloser
 
 	sendCh      chan Message
 	doneCh      chan struct{}
+	stopCh      chan struct{}
+	stopOnce    sync.Once
 	msgHandlers map[reflect.Type]func(Message)
 }
 
-func NewDispatcher(rw ReadWriter) *Dispatcher {
+func NewDispatcher(rw ReadWriteCloser) *Dispatcher {
 	return &Dispatcher{
 		rw:          rw,
 		sendCh:      make(chan Message, 100),
 		doneCh:      make(chan struct{}),
+		stopCh:      make(chan struct{}),
 		msgHandlers: make(map[reflect.Type]func(Message)),
 	}
 }
@@ -129,23 +139,42 @@ func (d *Dispatcher) Run() {
 	go d.readLoop()
 }
 
+// stop rejects new sends and interrupts ReadMsg. Done remains owned by
+// readLoop so the control owner cannot clean up while a handler is running.
+func (d *Dispatcher) stop() {
+	d.stopOnce.Do(func() {
+		close(d.stopCh)
+		_ = d.rw.Close()
+	})
+}
+
 func (d *Dispatcher) sendLoop() {
 	for {
 		select {
-		case <-d.doneCh:
+		case <-d.stopCh:
 			return
 		case m := <-d.sendCh:
-			_ = d.rw.WriteMsg(m)
+			if err := d.rw.WriteMsg(m); err != nil {
+				d.stop()
+				return
+			}
 		}
 	}
 }
 
 func (d *Dispatcher) readLoop() {
+	defer close(d.doneCh)
+	defer d.stop()
 	for {
 		m, err := d.rw.ReadMsg()
 		if err != nil {
-			close(d.doneCh)
 			return
+		}
+
+		select {
+		case <-d.stopCh:
+			return
+		default:
 		}
 
 		if handler, ok := d.msgHandlers[reflect.TypeOf(m)]; ok {
@@ -156,7 +185,12 @@ func (d *Dispatcher) readLoop() {
 
 func (d *Dispatcher) Send(m Message) error {
 	select {
-	case <-d.doneCh:
+	case <-d.stopCh:
+		return io.EOF
+	default:
+	}
+	select {
+	case <-d.stopCh:
 		return io.EOF
 	case d.sendCh <- m:
 		return nil
