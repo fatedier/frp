@@ -30,12 +30,6 @@ type ReadWriter interface {
 	WriteMsg(Message) error
 }
 
-// ReadWriteCloser allows a dispatcher write failure to interrupt its reader.
-type ReadWriteCloser interface {
-	ReadWriter
-	io.Closer
-}
-
 type Conn struct {
 	net.Conn
 	rw ReadWriter
@@ -114,7 +108,7 @@ func AsyncHandler(f func(Message)) func(Message) {
 
 // Dispatcher is used to send messages to net.Conn or register handlers for messages read from net.Conn.
 type Dispatcher struct {
-	rw ReadWriteCloser
+	rw ReadWriter
 
 	sendCh      chan Message
 	doneCh      chan struct{}
@@ -123,7 +117,10 @@ type Dispatcher struct {
 	msgHandlers map[reflect.Type]func(Message)
 }
 
-func NewDispatcher(rw ReadWriteCloser) *Dispatcher {
+// NewDispatcher uses Close, when rw implements io.Closer, to interrupt ReadMsg
+// after a write failure. Otherwise, the caller must arrange for ReadMsg to return
+// before Done can close.
+func NewDispatcher(rw ReadWriter) *Dispatcher {
 	return &Dispatcher{
 		rw:          rw,
 		sendCh:      make(chan Message, 100),
@@ -139,12 +136,14 @@ func (d *Dispatcher) Run() {
 	go d.readLoop()
 }
 
-// stop rejects new sends and interrupts ReadMsg. Done remains owned by
-// readLoop so the control owner cannot clean up while a handler is running.
+// stop rejects new sends and interrupts ReadMsg when rw is closable. Done remains
+// owned by readLoop so the control owner cannot clean up while a handler is running.
 func (d *Dispatcher) stop() {
 	d.stopOnce.Do(func() {
 		close(d.stopCh)
-		_ = d.rw.Close()
+		if closer, ok := d.rw.(io.Closer); ok {
+			_ = closer.Close()
+		}
 	})
 }
 
@@ -183,17 +182,29 @@ func (d *Dispatcher) readLoop() {
 	}
 }
 
+// Send queues m for writing. A nil error does not guarantee delivery.
 func (d *Dispatcher) Send(m Message) error {
 	select {
 	case <-d.stopCh:
 		return io.EOF
 	default:
 	}
+	return d.enqueue(m)
+}
+
+func (d *Dispatcher) enqueue(m Message) error {
 	select {
 	case <-d.stopCh:
 		return io.EOF
 	case d.sendCh <- m:
-		return nil
+		// Both cases can be ready if shutdown races with enqueueing. Do not
+		// report success when shutdown is already observable after the send.
+		select {
+		case <-d.stopCh:
+			return io.EOF
+		default:
+			return nil
+		}
 	}
 }
 

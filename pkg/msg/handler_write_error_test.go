@@ -21,6 +21,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	libcrypto "github.com/fatedier/golib/crypto"
@@ -83,6 +84,7 @@ type regressionControl struct {
 	transport   *regressionTransport
 	writes      chan error
 	incoming    chan Message
+	beforeRead  func() error
 	beforeWrite func()
 	closeCalls  atomic.Int32
 }
@@ -100,6 +102,11 @@ func newRegressionControl(t *testing.T) *regressionControl {
 }
 
 func (c *regressionControl) ReadMsg() (Message, error) {
+	if c.beforeRead != nil {
+		if err := c.beforeRead(); err != nil {
+			return nil, err
+		}
+	}
 	select {
 	case m := <-c.incoming:
 		return m, nil
@@ -285,58 +292,96 @@ func TestDispatcherWriteErrorWaitsForSynchronousHandler(t *testing.T) {
 }
 
 func TestDispatcherWriteErrorUnblocksSenderWithFullQueue(t *testing.T) {
-	c := newRegressionControl(t)
-	regressionWarm(t, c)
-	defer c.transport.close()
-	entered, release := make(chan struct{}), make(chan struct{})
-	var releaseOnce sync.Once
-	defer releaseOnce.Do(func() { close(release) })
-	c.beforeWrite = func() { close(entered); <-release }
-	c.transport.arm()
-	d := NewDispatcher(c)
-	if err := d.Send(&ReqWorkConn{}); err != nil {
-		t.Fatal(err)
-	}
-	d.Run()
-	regressionAwait(t, entered, "blocked transport write")
-	for i := 0; i < cap(d.sendCh); i++ {
-		if err := d.Send(&ReqWorkConn{}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	sent := make(chan error, 1)
-	go func() { sent <- d.Send(&ReqWorkConn{}) }()
-	select {
-	case err := <-sent:
-		t.Fatalf("Send did not block on full queue: %v", err)
-	case <-time.After(20 * time.Millisecond):
-	}
-	releaseOnce.Do(func() { close(release) })
-	select {
-	case err := <-sent:
-		if !errors.Is(err, io.EOF) {
-			t.Fatalf("blocked Send after write failure: %v", err)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("write failure did not unblock full-queue sender")
-	}
-	regressionAwait(t, d.Done(), "full-queue dispatcher cleanup")
-}
-
-func TestDispatcherConcurrentReadWriteFailureClosesOnce(t *testing.T) {
-	for range 100 {
+	synctest.Test(t, func(t *testing.T) {
 		c := newRegressionControl(t)
 		regressionWarm(t, c)
-		d := NewDispatcher(c)
+		defer c.transport.close()
+		entered, release := make(chan struct{}), make(chan struct{})
+		var releaseOnce sync.Once
+		defer releaseOnce.Do(func() { close(release) })
+		c.beforeWrite = func() { close(entered); <-release }
 		c.transport.arm()
+		d := NewDispatcher(c)
 		if err := d.Send(&ReqWorkConn{}); err != nil {
 			t.Fatal(err)
 		}
 		d.Run()
-		go c.transport.close()
-		regressionAwait(t, d.Done(), "concurrent read/write shutdown")
-		if c.closeCalls.Load() != 1 {
-			t.Fatalf("connection closed %d times", c.closeCalls.Load())
+		regressionAwait(t, entered, "blocked transport write")
+		for i := 0; i < cap(d.sendCh); i++ {
+			if err := d.Send(&ReqWorkConn{}); err != nil {
+				t.Fatal(err)
+			}
 		}
+		sent := make(chan error, 1)
+		go func() { sent <- d.Send(&ReqWorkConn{}) }()
+		// Wait until the sender has reached its full-queue channel wait.
+		synctest.Wait()
+		select {
+		case err := <-sent:
+			t.Fatalf("Send did not block on full queue: %v", err)
+		default:
+		}
+		releaseOnce.Do(func() { close(release) })
+		select {
+		case err := <-sent:
+			if !errors.Is(err, io.EOF) {
+				t.Fatalf("blocked Send after write failure: %v", err)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("write failure did not unblock full-queue sender")
+		}
+		regressionAwait(t, d.Done(), "full-queue dispatcher cleanup")
+	})
+}
+
+func TestDispatcherConcurrentReadWriteFailureClosesOnce(t *testing.T) {
+	for range 100 {
+		func() {
+			c := newRegressionControl(t)
+			regressionWarm(t, c)
+			defer c.transport.close()
+			readEntered, writeEntered := make(chan struct{}), make(chan struct{})
+			release := make(chan struct{})
+			var releaseOnce sync.Once
+			defer releaseOnce.Do(func() { close(release) })
+			c.beforeRead = func() error {
+				close(readEntered)
+				<-release
+				return io.EOF
+			}
+			c.beforeWrite = func() {
+				close(writeEntered)
+				<-release
+			}
+			d := NewDispatcher(c)
+			c.transport.arm()
+			if err := d.Send(&ReqWorkConn{}); err != nil {
+				t.Fatal(err)
+			}
+			readExited, writeExited := make(chan struct{}), make(chan struct{})
+			go func() {
+				defer close(readExited)
+				d.readLoop()
+			}()
+			go func() {
+				defer close(writeExited)
+				d.sendLoop()
+			}()
+			regressionAwait(t, readEntered, "read path before injected failure")
+			regressionAwait(t, writeEntered, "write path before injected failure")
+			releaseOnce.Do(func() { close(release) })
+			regressionAwait(t, readExited, "failed read loop exit")
+			regressionAwait(t, writeExited, "failed write loop exit")
+			regressionAwait(t, d.Done(), "concurrent read/write shutdown")
+			if err := regressionReceiveWrite(t, c); !errors.Is(err, errRegressionWriteTimeout) {
+				t.Fatalf("concurrent WriteMsg failure: %v", err)
+			}
+			if _, failures, _ := c.transport.snapshot(); failures != 1 {
+				t.Fatalf("injected transport failed %d times", failures)
+			}
+			if c.closeCalls.Load() != 1 {
+				t.Fatalf("connection closed %d times", c.closeCalls.Load())
+			}
+		}()
 	}
 }
