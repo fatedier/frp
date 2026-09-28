@@ -4,8 +4,10 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
+	gerr "github.com/fatedier/golib/errors"
 	"golang.org/x/net/websocket"
 )
 
@@ -20,6 +22,9 @@ type WebsocketListener struct {
 	acceptCh chan net.Conn
 
 	server *http.Server
+
+	mu     sync.Mutex
+	closed bool
 }
 
 // NewWebsocketListener to handle websocket connections
@@ -41,7 +46,15 @@ func NewWebsocketListener(ln net.Listener) (wl *WebsocketListener) {
 		conn := WrapCloseNotifyConn(c, func(_ error) {
 			close(notifyCh)
 		})
-		wl.acceptCh <- conn
+		// The listener may be closed while this connection is being handed
+		// over, so the send has to tolerate a closed channel. A nil error
+		// means the connection was accepted and is owned by the caller.
+		if err := gerr.PanicToError(func() {
+			wl.acceptCh <- conn
+		}); err != nil {
+			conn.Close()
+			return
+		}
 		<-notifyCh
 	}))
 
@@ -66,6 +79,15 @@ func (p *WebsocketListener) Accept() (net.Conn, error) {
 }
 
 func (p *WebsocketListener) Close() error {
+	p.mu.Lock()
+	if !p.closed {
+		p.closed = true
+		// Closing acceptCh releases a pending Accept, matching the other
+		// listeners in this package. Otherwise it blocks forever and the
+		// caller never learns that the listener is closed.
+		close(p.acceptCh)
+	}
+	p.mu.Unlock()
 	return p.server.Close()
 }
 
