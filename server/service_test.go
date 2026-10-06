@@ -974,3 +974,34 @@ func (*countingCloseConn) RemoteAddr() net.Addr             { return lifecycleTe
 func (*countingCloseConn) SetDeadline(time.Time) error      { return nil }
 func (*countingCloseConn) SetReadDeadline(time.Time) error  { return nil }
 func (*countingCloseConn) SetWriteDeadline(time.Time) error { return nil }
+
+func TestAcceptedConnectionNewControlReadWriterKeyingMaterial(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		method  v1.AuthMethod
+		wantErr string
+	}{
+		{name: "token auth without a secret keeps the pre-key-share channel", method: v1.AuthMethodToken},
+		{name: "oidc fails closed without a shared secret", method: v1.AuthMethodOIDC, wantErr: "no keying material"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ac := &acceptedConnection{
+				wireProtocol:  wire.ProtocolV2,
+				cryptoContext: wire.NewCryptoContext(wire.AEADAlgorithmAES256GCM, nil, []byte("client-hello"), []byte("server-hello")),
+			}
+			clientRaw, serverRaw := net.Pipe()
+			defer clientRaw.Close()
+			defer serverRaw.Close()
+
+			_, err := ac.newControlReadWriter(serverRaw, nil, tc.method)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}

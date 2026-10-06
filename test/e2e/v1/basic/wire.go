@@ -11,6 +11,7 @@ import (
 
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
+	"github.com/fatedier/frp/test/e2e/mock/server/oidcserver"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
 )
 
@@ -197,6 +198,35 @@ var _ = ginkgo.Describe("[Feature: WireProtocol]", func() {
 			framework.NewRequestExpect(f).PortName(tcpPortName).Ensure()
 		})
 	}
+
+	ginkgo.It("v2 with OIDC authentication", func() {
+		oidcSrv := oidcserver.New(oidcserver.WithBindPort(f.AllocPort()))
+		f.RunServer("", oidcSrv)
+
+		tcpPortName := port.GenName("WireV2OIDC")
+		serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+		auth.method = "oidc"
+		auth.oidc.issuer = "%s"
+		auth.oidc.audience = "frps"
+		`, oidcSrv.Issuer())
+		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+		auth.method = "oidc"
+		auth.oidc.clientID = "test-client"
+		auth.oidc.clientSecret = "test-secret"
+		auth.oidc.tokenEndpointURL = "%s"
+		transport.wireProtocol = "v2"
+
+		[[proxies]]
+		name = "tcp"
+		type = "tcp"
+		localPort = {{ .%s }}
+		remotePort = {{ .%s }}
+		`, oidcSrv.TokenEndpoint(), framework.TCPEchoServerPort, tcpPortName)
+
+		f.RunProcesses(serverConf, []string{clientConf})
+
+		framework.NewRequestExpect(f).PortName(tcpPortName).Ensure()
+	})
 
 	ginkgo.It("reports client wire protocol", func() {
 		webPort := f.AllocPort()

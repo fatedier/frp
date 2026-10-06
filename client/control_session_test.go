@@ -298,3 +298,38 @@ func TestControlSessionDialerDialSSHTunnelSkipsControlEncryption(t *testing.T) {
 	require.NoError(t, sessionCtx.Conn.WriteMsg(&msg.Ping{}))
 	require.NoError(t, <-serverErrCh)
 }
+
+func TestControlSessionDialerNewControlReadWriterKeyingMaterial(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		method  v1.AuthMethod
+		wantErr string
+	}{
+		{name: "token auth without a secret keeps the pre-key-share channel", method: v1.AuthMethodToken},
+		{name: "oidc fails closed without a shared secret", method: v1.AuthMethodOIDC, wantErr: "no keying material"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			d := &controlSessionDialer{
+				common: &v1.ClientCommonConfig{
+					Auth:      v1.AuthClientConfig{Method: tc.method},
+					Transport: v1.ClientTransportConfig{WireProtocol: wire.ProtocolV2},
+				},
+				auth: &auth.ClientAuth{},
+			}
+			clientRaw, serverRaw := net.Pipe()
+			defer clientRaw.Close()
+			defer serverRaw.Close()
+
+			noSecret := wire.NewCryptoContext(wire.AEADAlgorithmAES256GCM, nil, []byte("client-hello"), []byte("server-hello"))
+			_, err := d.newControlReadWriter(clientRaw, noSecret)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}

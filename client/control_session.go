@@ -216,7 +216,8 @@ func (d *controlSessionDialer) newControlReadWriter(conn net.Conn, cryptoContext
 			return nil, errors.New("missing v2 crypto negotiation")
 		}
 		ikm := cryptoContext.DeriveIKM(d.auth.EncryptionKey())
-		if len(ikm) == 0 {
+		// Token auth with an empty token never had a secret; only non-token auth fails closed.
+		if len(ikm) == 0 && d.common.Auth.Method != v1.AuthMethodToken {
 			return nil, errors.New("v2 control channel has no keying material")
 		}
 		return netpkg.NewAEADCryptoReadWriter(
