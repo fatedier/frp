@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/samber/lo"
-
 	"github.com/fatedier/frp/pkg/config/source"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
@@ -49,7 +47,7 @@ func TestRunStopsStartedComponentsOnInitialLoginFailure(t *testing.T) {
 
 	svr, err := NewService(ServiceOptions{
 		Common: &v1.ClientCommonConfig{
-			LoginFailExit: lo.ToPtr(true),
+			LoginFailExit: new(true),
 			WebServer: v1.WebServerConfig{
 				Addr: "127.0.0.1",
 				Port: port,
