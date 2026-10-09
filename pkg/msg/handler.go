@@ -20,6 +20,7 @@ import (
 	"net"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/fatedier/frp/pkg/proto/wire"
 )
@@ -117,9 +118,11 @@ type Dispatcher struct {
 	msgHandlers map[reflect.Type]func(Message)
 }
 
-// NewDispatcher uses Close, when rw implements io.Closer, to interrupt ReadMsg
-// after a write failure. Otherwise, the caller must arrange for ReadMsg to return
-// before Done can close.
+// NewDispatcher uses SetReadDeadline, when supported, and Close, when rw
+// implements io.Closer, to interrupt ReadMsg after a write failure. Without a
+// working read deadline, Close or the caller must arrange for ReadMsg to return.
+// These methods must return in bounded time and must not wait for Done: Done
+// closes only after ReadMsg, any synchronous handler, and stop have returned.
 func NewDispatcher(rw ReadWriter) *Dispatcher {
 	return &Dispatcher{
 		rw:          rw,
@@ -136,11 +139,14 @@ func (d *Dispatcher) Run() {
 	go d.readLoop()
 }
 
-// stop rejects new sends and interrupts ReadMsg when rw is closable. Done remains
+// stop rejects new sends and interrupts ReadMsg when supported by rw. Done remains
 // owned by readLoop so the control owner cannot clean up while a handler is running.
 func (d *Dispatcher) stop() {
 	d.stopOnce.Do(func() {
 		close(d.stopCh)
+		if conn, ok := d.rw.(interface{ SetReadDeadline(time.Time) error }); ok {
+			_ = conn.SetReadDeadline(time.Now())
+		}
 		if closer, ok := d.rw.(io.Closer); ok {
 			_ = closer.Close()
 		}
