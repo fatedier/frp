@@ -3,6 +3,7 @@ package vhost
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -12,7 +13,86 @@ import (
 	"github.com/stretchr/testify/require"
 
 	httppkg "github.com/fatedier/frp/pkg/util/http"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 )
+
+func TestHTTPConnectTunnel(t *testing.T) {
+	for _, pipelined := range []bool{false, true} {
+		t.Run(fmt.Sprintf("pipelined=%v", pipelined), func(t *testing.T) {
+			remote, backend := net.Pipe()
+			defer remote.Close()
+			defer backend.Close()
+			require.NoError(t, backend.SetDeadline(time.Now().Add(5*time.Second)))
+
+			rp := NewHTTPReverseProxy(HTTPReverseProxyOptions{}, NewRouters())
+			require.NoError(t, rp.Register(RouteConfig{
+				Domain: "target.example.com",
+				CreateConnFn: func(string) (net.Conn, error) {
+					return remote, nil
+				},
+			}))
+			listener := netpkg.NewInternalListener()
+			server := &http.Server{Handler: rp, ReadHeaderTimeout: time.Second}
+			serveErr := make(chan error, 1)
+			go func() {
+				serveErr <- server.Serve(listener)
+			}()
+			defer func() {
+				require.NoError(t, server.Close())
+				require.ErrorIs(t, <-serveErr, http.ErrServerClosed)
+			}()
+
+			client, incoming := net.Pipe()
+			defer client.Close()
+			defer incoming.Close()
+			require.NoError(t, client.SetDeadline(time.Now().Add(5*time.Second)))
+			require.NoError(t, listener.PutConn(incoming))
+
+			request := "CONNECT target.example.com:443 HTTP/1.1\r\nHost: target.example.com:443\r\n\r\n"
+			if pipelined {
+				// One pipe write puts the tunnel data in net/http's request buffer.
+				request += "early data"
+			}
+			_, err := io.WriteString(client, request)
+			require.NoError(t, err)
+			backendReader := bufio.NewReader(backend)
+			req, err := http.ReadRequest(backendReader)
+			require.NoError(t, err)
+			defer req.Body.Close()
+			require.Equal(t, http.MethodConnect, req.Method)
+			require.Equal(t, "target.example.com:443", req.Host)
+			if pipelined {
+				data := make([]byte, len("early data"))
+				_, err = io.ReadFull(backendReader, data)
+				require.NoError(t, err)
+				require.Equal(t, "early data", string(data))
+			}
+
+			writeErr := make(chan error, 1)
+			go func() {
+				_, err := io.WriteString(backend, "HTTP/1.1 200 Connection Established\r\n\r\nreply")
+				writeErr <- err
+			}()
+			clientReader := bufio.NewReader(client)
+			response, err := http.ReadResponse(clientReader, req)
+			require.NoError(t, err)
+			defer response.Body.Close()
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			reply := make([]byte, len("reply"))
+			_, err = io.ReadFull(clientReader, reply)
+			require.NoError(t, err)
+			require.Equal(t, "reply", string(reply))
+			require.NoError(t, <-writeErr)
+
+			_, err = io.WriteString(client, "later data")
+			require.NoError(t, err)
+			data := make([]byte, len("later data"))
+			_, err = io.ReadFull(backendReader, data)
+			require.NoError(t, err)
+			require.Equal(t, "later data", string(data))
+		})
+	}
+}
 
 func TestHTTPServerProtocols(t *testing.T) {
 	rp := NewHTTPReverseProxy(HTTPReverseProxyOptions{}, NewRouters())

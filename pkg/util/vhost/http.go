@@ -212,7 +212,7 @@ func (rp *HTTPReverseProxy) connectHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
-	client, _, err := hj.Hijack()
+	client, buffered, err := hj.Hijack()
 	if err != nil {
 		rw.WriteHeader(http.StatusInternalServerError)
 		return
@@ -225,7 +225,7 @@ func (rp *HTTPReverseProxy) connectHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 	_ = req.Write(remote)
-	go libio.Join(remote, client)
+	go libio.Join(remote, libio.WrapReadWriteCloser(buffered.Reader, client, client.Close))
 }
 
 func getRequestRouteUser(req *http.Request) string {
