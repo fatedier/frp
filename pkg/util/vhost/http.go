@@ -206,11 +206,27 @@ func checkRouteAuthByRequest(req *http.Request, rc *RouteConfig) bool {
 }
 
 func (rp *HTTPReverseProxy) connectHandler(rw http.ResponseWriter, req *http.Request) {
+	if req.ContentLength > 0 || len(req.TransferEncoding) > 0 {
+		http.Error(rw, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
 	hj, ok := rw.(http.Hijacker)
 	if !ok {
 		rw.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	// Forward only CONNECT headers; the original Body must not be used after Hijack.
+	outreq := req.Clone(req.Context())
+	outreq.Body = nil
+	outreq.GetBody = nil
+	outreq.ContentLength = 0
+	outreq.TransferEncoding = nil
+	outreq.Trailer = nil
+	outreq.Header.Del("Content-Length")
+	outreq.Header.Del("Transfer-Encoding")
+	outreq.Header.Del("Trailer")
 
 	client, buffered, err := hj.Hijack()
 	if err != nil {
@@ -224,7 +240,11 @@ func (rp *HTTPReverseProxy) connectHandler(rw http.ResponseWriter, req *http.Req
 		client.Close()
 		return
 	}
-	_ = req.Write(remote)
+	if err := outreq.Write(remote); err != nil {
+		_ = remote.Close()
+		_ = client.Close()
+		return
+	}
 	go libio.Join(remote, libio.WrapReadWriteCloser(buffered.Reader, client, client.Close))
 }
 
