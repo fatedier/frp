@@ -16,6 +16,7 @@ package client
 
 import (
 	"context"
+	"crypto/ecdh"
 	"errors"
 	"fmt"
 	"io"
@@ -138,6 +139,7 @@ func (d *controlSessionDialer) exchangeLogin(conn net.Conn, loginMsg *msg.Login)
 	var wireConn *wire.Conn
 	var clientHello wire.ClientHello
 	var clientHelloPayload []byte
+	var clientKeyPriv *ecdh.PrivateKey
 
 	if d.common.Transport.WireProtocol == wire.ProtocolV2 {
 		if err := wire.WriteMagic(conn); err != nil {
@@ -147,7 +149,7 @@ func (d *controlSessionDialer) exchangeLogin(conn net.Conn, loginMsg *msg.Login)
 		wireConn = wire.NewConn(conn)
 		rw = msg.NewV2ReadWriterWithConn(wireConn)
 		var err error
-		clientHello, err = wire.NewClientHello(wire.BootstrapInfo{
+		clientHello, clientKeyPriv, err = wire.NewClientHello(wire.BootstrapInfo{
 			Transport: d.common.Transport.Protocol,
 			TLS:       lo.FromPtr(d.common.Transport.TLS.Enable) || d.common.Transport.Protocol == "wss" || d.common.Transport.Protocol == "quic",
 			TCPMux:    lo.FromPtr(d.common.Transport.TCPMux),
@@ -190,7 +192,7 @@ func (d *controlSessionDialer) exchangeLogin(conn net.Conn, loginMsg *msg.Login)
 		if serverHello.Error != "" {
 			return nil, errors.New(serverHello.Error)
 		}
-		cryptoContext, err = wire.NewClientCryptoContext(clientHelloPayload, serverHelloFrame.Payload)
+		cryptoContext, err = wire.NewClientCryptoContext(clientKeyPriv, clientHelloPayload, serverHelloFrame.Payload)
 		if err != nil {
 			return nil, err
 		}
@@ -213,9 +215,13 @@ func (d *controlSessionDialer) newControlReadWriter(conn net.Conn, cryptoContext
 		if cryptoContext == nil {
 			return nil, errors.New("missing v2 crypto negotiation")
 		}
+		ikm := cryptoContext.DeriveIKM(d.auth.EncryptionKey())
+		if len(ikm) == 0 {
+			return nil, errors.New("v2 control channel has no keying material")
+		}
 		return netpkg.NewAEADCryptoReadWriter(
 			conn,
-			d.auth.EncryptionKey(),
+			ikm,
 			netpkg.AEADCryptoRoleClient,
 			cryptoContext.Algorithm,
 			cryptoContext.TranscriptHash,

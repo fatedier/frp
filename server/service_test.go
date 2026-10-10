@@ -117,7 +117,7 @@ func TestServiceAcceptConnectionTracksClientHelloPresence(t *testing.T) {
 				}
 				wireConn := wire.NewConn(clientConn)
 				if tc.clientHelloPresent {
-					hello, err := wire.NewClientHello(wire.BootstrapInfo{})
+					hello, _, err := wire.NewClientHello(wire.BootstrapInfo{})
 					if err != nil {
 						clientErrCh <- err
 						return

@@ -15,6 +15,7 @@
 package wire
 
 import (
+	"crypto/ecdh"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
@@ -43,27 +44,61 @@ var supportedAEADAlgorithms = []string{
 type CryptoContext struct {
 	Algorithm      string
 	TranscriptHash []byte
+	SharedSecret   []byte
 }
 
-func NewClientHello(bootstrap BootstrapInfo) (ClientHello, error) {
+// DeriveIKM returns the ECDH shared secret followed by the pre-shared auth key.
+// Either may be absent.
+func (c *CryptoContext) DeriveIKM(authKey []byte) []byte {
+	ikm := make([]byte, 0, len(c.SharedSecret)+len(authKey))
+	ikm = append(ikm, c.SharedSecret...)
+	ikm = append(ikm, authKey...)
+	return ikm
+}
+
+// NewClientHello returns the hello and the ephemeral private key that
+// NewClientCryptoContext needs to complete the exchange.
+func NewClientHello(bootstrap BootstrapInfo) (ClientHello, *ecdh.PrivateKey, error) {
 	clientRandom, err := newCryptoRandom()
 	if err != nil {
-		return ClientHello{}, err
+		return ClientHello{}, nil, err
 	}
-	return clientHelloWithCryptoRandom(bootstrap, clientRandom), nil
+	priv, err := ecdh.X25519().GenerateKey(rand.Reader)
+	if err != nil {
+		return ClientHello{}, nil, fmt.Errorf("generate X25519 key: %w", err)
+	}
+	hello := clientHelloWithCryptoRandom(bootstrap, clientRandom)
+	hello.Capabilities.Crypto.ClientKeyShare = priv.PublicKey().Bytes()
+	return hello, priv, nil
 }
 
-func NewServerHello(clientHello ClientHello) (ServerHello, error) {
+func NewServerHello(clientHello ClientHello) (ServerHello, []byte, error) {
 	if err := ValidateClientHello(clientHello); err != nil {
-		return ServerHello{}, err
+		return ServerHello{}, nil, err
 	}
 	algorithm, ok := SelectAEADAlgorithm(clientHello.Capabilities.Crypto.Algorithms)
 	if !ok {
-		return ServerHello{}, fmt.Errorf("no supported crypto algorithm")
+		return ServerHello{}, nil, fmt.Errorf("no supported crypto algorithm")
 	}
 	serverRandom, err := newCryptoRandom()
 	if err != nil {
-		return ServerHello{}, err
+		return ServerHello{}, nil, err
+	}
+	var serverKeyShare, sharedSecret []byte
+	if len(clientHello.Capabilities.Crypto.ClientKeyShare) > 0 {
+		clientPub, err := ecdh.X25519().NewPublicKey(clientHello.Capabilities.Crypto.ClientKeyShare)
+		if err != nil {
+			return ServerHello{}, nil, fmt.Errorf("invalid client key share: %w", err)
+		}
+		priv, err := ecdh.X25519().GenerateKey(rand.Reader)
+		if err != nil {
+			return ServerHello{}, nil, fmt.Errorf("generate X25519 key: %w", err)
+		}
+		sharedSecret, err = priv.ECDH(clientPub)
+		if err != nil {
+			return ServerHello{}, nil, fmt.Errorf("X25519 exchange: %w", err)
+		}
+		serverKeyShare = priv.PublicKey().Bytes()
 	}
 	return ServerHello{
 		Selected: ServerSelection{
@@ -72,11 +107,12 @@ func NewServerHello(clientHello ClientHello) (ServerHello, error) {
 				UDPPacketCodec: selectUDPPacketCodec(clientHello.Capabilities.Message.UDPPacketCodecs),
 			},
 			Crypto: CryptoSelection{
-				Algorithm:    algorithm,
-				ServerRandom: serverRandom,
+				Algorithm:      algorithm,
+				ServerRandom:   serverRandom,
+				ServerKeyShare: serverKeyShare,
 			},
 		},
-	}, nil
+	}, sharedSecret, nil
 }
 
 func ValidateCryptoCapabilities(c CryptoCapabilities) error {
@@ -112,6 +148,9 @@ func ValidateServerHelloForClient(clientHello ClientHello, serverHello ServerHel
 	if len(cryptoSelection.ServerRandom) != CryptoRandomSize {
 		return fmt.Errorf("invalid crypto server random length %d, want %d", len(cryptoSelection.ServerRandom), CryptoRandomSize)
 	}
+	if len(cryptoSelection.ServerKeyShare) > 0 && len(clientHello.Capabilities.Crypto.ClientKeyShare) == 0 {
+		return fmt.Errorf("server sent a key share that was not advertised by client")
+	}
 	return nil
 }
 
@@ -122,14 +161,15 @@ func selectUDPPacketCodec(codecs []string) string {
 	return ""
 }
 
-func NewCryptoContext(algorithm string, clientHelloPayload, serverHelloPayload []byte) *CryptoContext {
+func NewCryptoContext(algorithm string, sharedSecret, clientHelloPayload, serverHelloPayload []byte) *CryptoContext {
 	return &CryptoContext{
 		Algorithm:      algorithm,
 		TranscriptHash: HashCryptoTranscript(clientHelloPayload, serverHelloPayload),
+		SharedSecret:   sharedSecret,
 	}
 }
 
-func NewClientCryptoContext(clientHelloPayload, serverHelloPayload []byte) (*CryptoContext, error) {
+func NewClientCryptoContext(clientPriv *ecdh.PrivateKey, clientHelloPayload, serverHelloPayload []byte) (*CryptoContext, error) {
 	var clientHello ClientHello
 	if err := json.Unmarshal(clientHelloPayload, &clientHello); err != nil {
 		return nil, fmt.Errorf("decode ClientHello transcript: %w", err)
@@ -142,7 +182,22 @@ func NewClientCryptoContext(clientHelloPayload, serverHelloPayload []byte) (*Cry
 		return nil, err
 	}
 
-	return NewCryptoContext(serverHello.Selected.Crypto.Algorithm, clientHelloPayload, serverHelloPayload), nil
+	var sharedSecret []byte
+	if serverKeyShare := serverHello.Selected.Crypto.ServerKeyShare; len(serverKeyShare) > 0 {
+		if clientPriv == nil {
+			return nil, fmt.Errorf("server sent a key share but client has no private key")
+		}
+		serverPub, err := ecdh.X25519().NewPublicKey(serverKeyShare)
+		if err != nil {
+			return nil, fmt.Errorf("invalid server key share: %w", err)
+		}
+		sharedSecret, err = clientPriv.ECDH(serverPub)
+		if err != nil {
+			return nil, fmt.Errorf("X25519 exchange: %w", err)
+		}
+	}
+
+	return NewCryptoContext(serverHello.Selected.Crypto.Algorithm, sharedSecret, clientHelloPayload, serverHelloPayload), nil
 }
 
 func HashCryptoTranscript(clientHelloPayload, serverHelloPayload []byte) []byte {
