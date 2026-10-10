@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	gerr "github.com/fatedier/golib/errors"
 	"golang.org/x/net/websocket"
 )
 
@@ -20,11 +19,11 @@ const (
 type WebsocketListener struct {
 	ln       net.Listener
 	acceptCh chan net.Conn
+	done     chan struct{}
 
 	server *http.Server
 
-	mu     sync.Mutex
-	closed bool
+	closeOnce sync.Once
 }
 
 // NewWebsocketListener to handle websocket connections
@@ -33,6 +32,7 @@ func NewWebsocketListener(ln net.Listener) (wl *WebsocketListener) {
 	wl = &WebsocketListener{
 		ln:       ln,
 		acceptCh: make(chan net.Conn),
+		done:     make(chan struct{}),
 	}
 
 	muxer := http.NewServeMux()
@@ -46,14 +46,13 @@ func NewWebsocketListener(ln net.Listener) (wl *WebsocketListener) {
 		conn := WrapCloseNotifyConn(c, func(_ error) {
 			close(notifyCh)
 		})
-		// The listener may be closed while this connection is being handed
-		// over, so the send has to tolerate a closed channel. A nil error
-		// means the connection was accepted and is owned by the caller.
-		if err := gerr.PanicToError(func() {
-			wl.acceptCh <- conn
-		}); err != nil {
+		select {
+		case <-wl.done:
 			conn.Close()
 			return
+		case wl.acceptCh <- conn:
+			// A ready handoff may win when Close races with it. Once delivered,
+			// the connection is owned by the caller of Accept.
 		}
 		<-notifyCh
 	}))
@@ -71,23 +70,21 @@ func NewWebsocketListener(ln net.Listener) (wl *WebsocketListener) {
 }
 
 func (p *WebsocketListener) Accept() (net.Conn, error) {
-	c, ok := <-p.acceptCh
-	if !ok {
+	select {
+	case <-p.done:
 		return nil, ErrWebsocketListenerClosed
+	default:
 	}
-	return c, nil
+	select {
+	case <-p.done:
+		return nil, ErrWebsocketListenerClosed
+	case c := <-p.acceptCh:
+		return c, nil
+	}
 }
 
 func (p *WebsocketListener) Close() error {
-	p.mu.Lock()
-	if !p.closed {
-		p.closed = true
-		// Closing acceptCh releases a pending Accept, matching the other
-		// listeners in this package. Otherwise it blocks forever and the
-		// caller never learns that the listener is closed.
-		close(p.acceptCh)
-	}
-	p.mu.Unlock()
+	p.closeOnce.Do(func() { close(p.done) })
 	return p.server.Close()
 }
 
