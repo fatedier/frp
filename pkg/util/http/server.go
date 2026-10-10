@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"os"
 	"strconv"
 	"time"
 
@@ -48,12 +49,16 @@ type Server struct {
 func NewServer(cfg v1.WebServerConfig) (*Server, error) {
 	assets.Load(cfg.AssetsDir)
 
-	addr := net.JoinHostPort(cfg.Addr, strconv.Itoa(cfg.Port))
+	network, addr := "tcp", net.JoinHostPort(cfg.Addr, strconv.Itoa(cfg.Port))
 	if addr == ":" {
 		addr = ":http"
 	}
+	if cfg.UnixSocket != "" {
+		network, addr = "unix", cfg.UnixSocket
+		_ = os.Remove(addr)
+	}
 
-	ln, err := net.Listen("tcp", addr)
+	ln, err := net.Listen(network, addr)
 	if err != nil {
 		return nil, err
 	}
