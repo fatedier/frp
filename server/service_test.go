@@ -981,10 +981,13 @@ func TestAcceptedConnectionNewControlReadWriterKeyingMaterial(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		method  v1.AuthMethod
+		require bool
 		wantErr string
 	}{
-		{name: "token auth without a secret keeps the pre-key-share channel", method: v1.AuthMethodToken},
-		{name: "oidc fails closed without a shared secret", method: v1.AuthMethodOIDC, wantErr: "no keying material"},
+		{name: "token auth without a key share keeps the pre-key-share channel", method: v1.AuthMethodToken},
+		{name: "oidc without a key share falls back to the pre-key-share channel", method: v1.AuthMethodOIDC},
+		{name: "requireKeyShare rejects a client without a key share", method: v1.AuthMethodOIDC, require: true, wantErr: "requireKeyShare"},
+		{name: "requireKeyShare rejects token auth too", method: v1.AuthMethodToken, require: true, wantErr: "requireKeyShare"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -996,7 +999,7 @@ func TestAcceptedConnectionNewControlReadWriterKeyingMaterial(t *testing.T) {
 			defer clientRaw.Close()
 			defer serverRaw.Close()
 
-			_, err := ac.newControlReadWriter(serverRaw, nil, tc.method)
+			_, err := ac.newControlReadWriter(serverRaw, nil, tc.method, tc.require)
 			if tc.wantErr != "" {
 				require.ErrorContains(t, err, tc.wantErr)
 				return

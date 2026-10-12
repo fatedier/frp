@@ -305,17 +305,20 @@ func TestControlSessionDialerNewControlReadWriterKeyingMaterial(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		method  v1.AuthMethod
+		require bool
 		wantErr string
 	}{
-		{name: "token auth without a secret keeps the pre-key-share channel", method: v1.AuthMethodToken},
-		{name: "oidc fails closed without a shared secret", method: v1.AuthMethodOIDC, wantErr: "no keying material"},
+		{name: "token auth without a key share keeps the pre-key-share channel", method: v1.AuthMethodToken},
+		{name: "oidc without a key share falls back to the pre-key-share channel", method: v1.AuthMethodOIDC},
+		{name: "requireKeyShare rejects a server without a key share", method: v1.AuthMethodOIDC, require: true, wantErr: "requireKeyShare"},
+		{name: "requireKeyShare rejects token auth too", method: v1.AuthMethodToken, require: true, wantErr: "requireKeyShare"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			d := &controlSessionDialer{
 				common: &v1.ClientCommonConfig{
 					Auth:      v1.AuthClientConfig{Method: tc.method},
-					Transport: v1.ClientTransportConfig{WireProtocol: wire.ProtocolV2},
+					Transport: v1.ClientTransportConfig{WireProtocol: wire.ProtocolV2, RequireKeyShare: tc.require},
 				},
 				auth: &auth.ClientAuth{},
 			}

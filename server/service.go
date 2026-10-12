@@ -465,7 +465,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 			controlConn := acceptedConn.conn
 			if !internal {
 				var controlRW io.ReadWriter
-				controlRW, err = acceptedConn.newControlReadWriter(conn, svr.auth.EncryptionKey(), svr.cfg.Auth.Method)
+				controlRW, err = acceptedConn.newControlReadWriter(conn, svr.auth.EncryptionKey(), svr.cfg.Auth.Method, svr.cfg.Transport.RequireKeyShare)
 				if err == nil {
 					controlConn = acceptedConn.messageConnFor(controlRW)
 				}
@@ -604,19 +604,22 @@ func (ac *acceptedConnection) messageConnFor(rw io.ReadWriter) *msg.Conn {
 	return msg.NewConn(ac.conn, msg.NewReadWriter(rw, ac.wireProtocol))
 }
 
-func (ac *acceptedConnection) newControlReadWriter(rw io.ReadWriter, key []byte, authMethod v1.AuthMethod) (io.ReadWriter, error) {
+func (ac *acceptedConnection) newControlReadWriter(rw io.ReadWriter, key []byte, authMethod v1.AuthMethod, requireKeyShare bool) (io.ReadWriter, error) {
 	if ac.wireProtocol == wire.ProtocolV2 {
 		if ac.cryptoContext == nil {
 			return nil, fmt.Errorf("missing v2 crypto negotiation")
 		}
-		ikm := ac.cryptoContext.DeriveIKM(key)
-		// Token auth with an empty token never had a secret; only non-token auth fails closed.
-		if len(ikm) == 0 && authMethod != v1.AuthMethodToken {
-			return nil, fmt.Errorf("v2 control channel has no keying material")
+		if len(ac.cryptoContext.SharedSecret) == 0 {
+			if requireKeyShare {
+				return nil, fmt.Errorf("client did not offer an X25519 key share and transport.requireKeyShare is set")
+			}
+			if authMethod != v1.AuthMethodToken {
+				log.Warnf("client did not offer an X25519 key share; the v2 control channel is not protected against passive observers, upgrade frpc")
+			}
 		}
 		return netpkg.NewAEADCryptoReadWriter(
 			rw,
-			ikm,
+			ac.cryptoContext.DeriveIKM(key),
 			netpkg.AEADCryptoRoleServer,
 			ac.cryptoContext.Algorithm,
 			ac.cryptoContext.TranscriptHash,

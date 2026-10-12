@@ -31,6 +31,7 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/wire"
+	"github.com/fatedier/frp/pkg/util/log"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/vnet"
@@ -215,14 +216,17 @@ func (d *controlSessionDialer) newControlReadWriter(conn net.Conn, cryptoContext
 		if cryptoContext == nil {
 			return nil, errors.New("missing v2 crypto negotiation")
 		}
-		ikm := cryptoContext.DeriveIKM(d.auth.EncryptionKey())
-		// Token auth with an empty token never had a secret; only non-token auth fails closed.
-		if len(ikm) == 0 && d.common.Auth.Method != v1.AuthMethodToken {
-			return nil, errors.New("v2 control channel has no keying material")
+		if len(cryptoContext.SharedSecret) == 0 {
+			if d.common.Transport.RequireKeyShare {
+				return nil, errors.New("server did not offer an X25519 key share and transport.requireKeyShare is set")
+			}
+			if d.common.Auth.Method != v1.AuthMethodToken {
+				log.Warnf("server did not offer an X25519 key share; the v2 control channel is not protected against passive observers, upgrade frps")
+			}
 		}
 		return netpkg.NewAEADCryptoReadWriter(
 			conn,
-			ikm,
+			cryptoContext.DeriveIKM(d.auth.EncryptionKey()),
 			netpkg.AEADCryptoRoleClient,
 			cryptoContext.Algorithm,
 			cryptoContext.TranscriptHash,
