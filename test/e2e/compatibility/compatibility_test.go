@@ -239,28 +239,28 @@ var _ = ginkgo.Describe("[Compatibility: V2 key share]", func() {
 
 	const (
 		v2Client = "transport.wireProtocol = \"v2\"\nauth.token = \"123456\"\n"
-		token    = "auth.token = \"123456\"\n"
+		authConf = "auth.token = \"123456\"\n"
 		strict   = "transport.requireKeyShare = true\n"
 	)
 
 	ginkgo.It("current frps serves baseline v2 frpc without a key share", func() {
 		portName := port.GenName("CompatKeyShareBaselineFRPC")
 		f.RunProcessesWithBinaries(compatCtx.CurrentFRPSPath, compatCtx.BaselineFRPCPath,
-			consts.DefaultServerConfig+token, []string{tcpClientConfig("tcp", portName, v2Client)})
+			consts.DefaultServerConfig+authConf, []string{tcpClientConfig("tcp", portName, v2Client)})
 		framework.NewRequestExpect(f).PortName(portName).Ensure()
 	})
 
 	ginkgo.It("current v2 frpc connects to baseline frps without a key share", func() {
 		portName := port.GenName("CompatKeyShareBaselineFRPS")
 		f.RunProcessesWithBinaries(compatCtx.BaselineFRPSPath, compatCtx.CurrentFRPCPath,
-			consts.DefaultServerConfig+token, []string{tcpClientConfig("tcp", portName, v2Client)})
+			consts.DefaultServerConfig+authConf, []string{tcpClientConfig("tcp", portName, v2Client)})
 		framework.NewRequestExpect(f).PortName(portName).Ensure()
 	})
 
 	ginkgo.It("current frps with requireKeyShare rejects baseline v2 frpc", func() {
 		portName := port.GenName("CompatKeyShareStrictFRPS")
 		_, clientProcesses := f.RunProcessesWithBinaries(compatCtx.CurrentFRPSPath, compatCtx.BaselineFRPCPath,
-			consts.DefaultServerConfig+token+strict, []string{tcpClientConfig("tcp", portName, v2Client)})
+			consts.DefaultServerConfig+authConf+strict, []string{tcpClientConfig("tcp", portName, v2Client)})
 		expectProcessExit(clientProcesses[0], 5*time.Second)
 		framework.NewRequestExpect(f).PortName(portName).ExpectError(true).Ensure()
 	})
@@ -268,7 +268,7 @@ var _ = ginkgo.Describe("[Compatibility: V2 key share]", func() {
 	ginkgo.It("current frpc with requireKeyShare rejects baseline frps", func() {
 		portName := port.GenName("CompatKeyShareStrictFRPC")
 		_, clientProcesses := f.RunProcessesWithBinaries(compatCtx.BaselineFRPSPath, compatCtx.CurrentFRPCPath,
-			consts.DefaultServerConfig+token, []string{tcpClientConfig("tcp", portName, v2Client+strict)})
+			consts.DefaultServerConfig+authConf, []string{tcpClientConfig("tcp", portName, v2Client+strict)})
 		expectProcessExit(clientProcesses[0], 5*time.Second)
 		framework.NewRequestExpect(f).PortName(portName).ExpectError(true).Ensure()
 	})
