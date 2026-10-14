@@ -58,7 +58,7 @@ func newStandardDateCounterWithClock(reserveDays int64, clk clock.PassiveClock) 
 		reserveDays:    reserveDays,
 		counts:         make([]int64, reserveDays),
 		clock:          clk,
-		lastUpdateDate: startOfDay(clk.Now()),
+		lastUpdateDate: calendarDate(clk.Now()),
 	}
 }
 
@@ -114,7 +114,7 @@ func (c *StandardDateCounter) Clear() {
 // rotate
 // Must hold the lock before calling this function.
 func (c *StandardDateCounter) rotate(now time.Time) {
-	now = startOfDay(now)
+	now = calendarDate(now)
 	days := int(now.Sub(c.lastUpdateDate).Hours() / 24)
 	reserveDays := int(c.reserveDays)
 
@@ -132,7 +132,8 @@ func (c *StandardDateCounter) rotate(now time.Time) {
 	c.lastUpdateDate = now
 }
 
-// startOfDay returns midnight in t's location.
-func startOfDay(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+// calendarDate represents t's local date as midnight UTC for day arithmetic.
+// This avoids variable day lengths and nonexistent local midnights during DST.
+func calendarDate(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }

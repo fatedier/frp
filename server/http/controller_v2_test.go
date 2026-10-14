@@ -615,7 +615,7 @@ func TestMatchV2ProxyQueryMatchesSpecFields(t *testing.T) {
 			name: "tcp remote port",
 			item: model.V2ProxyResp{Name: "tcp-proxy", Spec: model.V2ProxySpec{
 				Type: "tcp",
-				TCP:  &model.V2TCPProxySpec{RemotePort: v2TestIntPtr(6000)},
+				TCP:  &model.V2TCPProxySpec{RemotePort: new(6000)},
 			}},
 			q:    "6000",
 			want: true,
@@ -624,7 +624,7 @@ func TestMatchV2ProxyQueryMatchesSpecFields(t *testing.T) {
 			name: "udp remote port",
 			item: model.V2ProxyResp{Name: "udp-proxy", Spec: model.V2ProxySpec{
 				Type: "udp",
-				UDP:  &model.V2UDPProxySpec{RemotePort: v2TestIntPtr(7000)},
+				UDP:  &model.V2UDPProxySpec{RemotePort: new(7000)},
 			}},
 			q:    "7000",
 			want: true,
@@ -633,7 +633,7 @@ func TestMatchV2ProxyQueryMatchesSpecFields(t *testing.T) {
 			name: "remote port does not match colon form",
 			item: model.V2ProxyResp{Name: "tcp-proxy", Spec: model.V2ProxySpec{
 				Type: "tcp",
-				TCP:  &model.V2TCPProxySpec{RemotePort: v2TestIntPtr(6000)},
+				TCP:  &model.V2TCPProxySpec{RemotePort: new(6000)},
 			}},
 			q:    ":6000",
 			want: false,
@@ -765,10 +765,6 @@ func TestLegacyAPIResponsesRemainBare(t *testing.T) {
 	if _, ok := trafficRaw["data"]; ok {
 		t.Fatalf("legacy traffic should not use v2 envelope: %s", resp.Body.String())
 	}
-}
-
-func v2TestIntPtr(value int) *int {
-	return &value
 }
 
 func newV2TestController(t *testing.T) *Controller {

@@ -15,6 +15,26 @@ frp 是一个完全开源的项目，我们的开发工作完全依靠赞助者�
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
 <p align="center">
+  <a href="https://www.rapidproxy.io/?ref=frp" target="_blank">
+    <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_rapidproxy.png">
+    <br>
+    <b>High-performance residential and ISP proxies for developers</b>
+  </a>
+  <br>
+  <sub>90M+ residential IPs worldwide. Rotating IPs, sticky sessions, and traffic that never expires.</sub>
+  <br>
+  <sub>From $0.55/GB. Use RAPID10 for 10% off. Try it for free.</sub>
+</p>
+
+<p align="center">
+  <a href="https://jb.gg/frp" target="_blank">
+    <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_jetbrains.jpg">
+	<br>
+	<b>The complete IDE crafted for professional Go developers</b>
+  </a>
+</p>
+
+<p align="center">
   <a href="https://github.com/beclab/Olares" target="_blank">
     <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_olares.jpeg">
 	<br>
@@ -34,13 +54,6 @@ an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and 
 
 </div>
 
-<p align="center">
-  <a href="https://jb.gg/frp" target="_blank">
-    <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_jetbrains.jpg">
-	<br>
-	<b>The complete IDE crafted for professional Go developers</b>
-  </a>
-</p>
 <!--gold sponsors end-->
 
 ## 为什么使用 frp ？

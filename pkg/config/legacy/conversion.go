@@ -17,8 +17,6 @@ package legacy
 import (
 	"strings"
 
-	"github.com/samber/lo"
-
 	"github.com/fatedier/frp/pkg/config/types"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 )
@@ -49,7 +47,7 @@ func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConf
 	out.Transport.ConnectServerLocalIP = conf.ConnectServerLocalIP
 	out.Transport.ProxyURL = conf.HTTPProxy
 	out.Transport.PoolCount = conf.PoolCount
-	out.Transport.TCPMux = lo.ToPtr(conf.TCPMux)
+	out.Transport.TCPMux = new(conf.TCPMux)
 	out.Transport.TCPMuxKeepaliveInterval = conf.TCPMuxKeepaliveInterval
 	out.Transport.Protocol = conf.Protocol
 	out.Transport.HeartbeatInterval = conf.HeartbeatInterval
@@ -57,8 +55,8 @@ func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConf
 	out.Transport.QUIC.KeepalivePeriod = conf.QUICKeepalivePeriod
 	out.Transport.QUIC.MaxIdleTimeout = conf.QUICMaxIdleTimeout
 	out.Transport.QUIC.MaxIncomingStreams = conf.QUICMaxIncomingStreams
-	out.Transport.TLS.Enable = lo.ToPtr(conf.TLSEnable)
-	out.Transport.TLS.DisableCustomTLSFirstByte = lo.ToPtr(conf.DisableCustomTLSFirstByte)
+	out.Transport.TLS.Enable = new(conf.TLSEnable)
+	out.Transport.TLS.DisableCustomTLSFirstByte = new(conf.DisableCustomTLSFirstByte)
 	out.Transport.TLS.CertFile = conf.TLSCertFile
 	out.Transport.TLS.KeyFile = conf.TLSKeyFile
 	out.Transport.TLS.TrustedCaFile = conf.TLSTrustedCaFile
@@ -77,7 +75,7 @@ func Convert_ClientCommonConf_To_v1(conf *ClientCommonConf) *v1.ClientCommonConf
 	out.WebServer.PprofEnable = conf.PprofEnable
 
 	out.DNSServer = conf.DNSServer
-	out.LoginFailExit = lo.ToPtr(conf.LoginFailExit)
+	out.LoginFailExit = new(conf.LoginFailExit)
 	out.Start = conf.Start
 	out.UDPPacketSize = conf.UDPPacketSize
 	out.Metadatas = conf.Metas
@@ -134,14 +132,14 @@ func Convert_ServerCommonConf_To_v1(conf *ServerCommonConf) *v1.ServerConfig {
 	out.Log.MaxDays = conf.LogMaxDays
 	out.Log.DisablePrintColor = conf.DisableLogColor
 
-	out.DetailedErrorsToClient = lo.ToPtr(conf.DetailedErrorsToClient)
+	out.DetailedErrorsToClient = new(conf.DetailedErrorsToClient)
 	out.SubDomainHost = conf.SubDomainHost
 	out.Custom404Page = conf.Custom404Page
 	out.UserConnTimeout = conf.UserConnTimeout
 	out.UDPPacketSize = conf.UDPPacketSize
 	out.NatHoleAnalysisDataReserveHours = conf.NatHoleAnalysisDataReserveHours
 
-	out.Transport.TCPMux = lo.ToPtr(conf.TCPMux)
+	out.Transport.TCPMux = new(conf.TCPMux)
 	out.Transport.TCPMuxKeepaliveInterval = conf.TCPMuxKeepaliveInterval
 	out.Transport.TCPKeepAlive = conf.TCPKeepAlive
 	out.Transport.MaxPoolCount = conf.MaxPoolCount

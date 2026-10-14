@@ -2,6 +2,9 @@ package features
 
 import (
 	"fmt"
+	"io"
+	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -104,5 +107,83 @@ var _ = ginkgo.Describe("[Feature: Bandwidth Limit]", func() {
 		framework.Logf("request duration: %s", duration.String())
 
 		framework.ExpectTrue(duration.Seconds() > 8, "100Kb with 10KB limit, want > 8 seconds, but got %s", duration.String())
+	})
+
+	ginkgo.It("Server Bandwidth Limit closes work connection when user disconnects", func() {
+		newFunc := func() *plugin.Request {
+			var r plugin.Request
+			r.Content = &plugin.NewProxyContent{}
+			return &r
+		}
+		pluginPort := f.AllocPort()
+		handler := func(req *plugin.Request) *plugin.Response {
+			var ret plugin.Response
+			content := req.Content.(*plugin.NewProxyContent)
+			content.BandwidthLimit = "10MB"
+			content.BandwidthLimitMode = "server"
+			ret.Content = content
+			return &ret
+		}
+		pluginServer := pluginpkg.NewHTTPPluginServer(pluginPort, newFunc, handler, nil)
+
+		f.RunServer("", pluginServer)
+
+		serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+		[[httpPlugins]]
+		name = "test"
+		addr = "127.0.0.1:%d"
+		path = "/handler"
+		ops = ["NewProxy"]
+		`, pluginPort)
+		clientConf := consts.DefaultClientConfig
+
+		// The local server echoes the first message, then stays idle until the
+		// connection from frpc is closed.
+		localClosed := make(chan struct{})
+		localPort := f.AllocPort()
+		localServer := streamserver.New(streamserver.TCP, streamserver.WithBindPort(localPort),
+			streamserver.WithCustomHandler(func(c net.Conn) {
+				defer c.Close()
+				buf := make([]byte, 1024)
+				n, err := c.Read(buf)
+				if err != nil {
+					return
+				}
+				if _, err := c.Write(buf[:n]); err != nil {
+					return
+				}
+				_, _ = io.Copy(io.Discard, c)
+				close(localClosed)
+			}))
+		f.RunServer("", localServer)
+
+		remotePort := f.AllocPort()
+		clientConf += fmt.Sprintf(`
+			[[proxies]]
+			name = "tcp"
+			type = "tcp"
+			localPort = %d
+			remotePort = %d
+			`, localPort, remotePort)
+
+		f.RunProcesses(serverConf, []string{clientConf})
+
+		conn, err := net.Dial("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(remotePort)))
+		framework.ExpectNoError(err)
+		_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+		_, err = conn.Write([]byte("ping"))
+		framework.ExpectNoError(err)
+		buf := make([]byte, 4)
+		_, err = io.ReadFull(conn, buf)
+		framework.ExpectNoError(err)
+		framework.ExpectEqual(string(buf), "ping")
+
+		conn.Close()
+
+		select {
+		case <-localClosed:
+		case <-time.After(5 * time.Second):
+			framework.Failf("local connection is not closed after user connection is closed")
+		}
 	})
 })

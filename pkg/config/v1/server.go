@@ -118,7 +118,7 @@ func (c *ServerConfig) Complete() error {
 	}
 
 	c.VhostHTTPTimeout = util.EmptyOr(c.VhostHTTPTimeout, 60)
-	c.DetailedErrorsToClient = util.EmptyOr(c.DetailedErrorsToClient, lo.ToPtr(true))
+	c.DetailedErrorsToClient = util.EmptyOr(c.DetailedErrorsToClient, new(true))
 	c.UserConnTimeout = util.EmptyOr(c.UserConnTimeout, 10)
 	c.UDPPacketSize = util.EmptyOr(c.UDPPacketSize, 1500)
 	c.NatHoleAnalysisDataReserveHours = util.EmptyOr(c.NatHoleAnalysisDataReserveHours, 7*24)
@@ -180,7 +180,7 @@ type ServerTransportConfig struct {
 }
 
 func (c *ServerTransportConfig) Complete() {
-	c.TCPMux = util.EmptyOr(c.TCPMux, lo.ToPtr(true))
+	c.TCPMux = util.EmptyOr(c.TCPMux, new(true))
 	c.TCPMuxKeepaliveInterval = util.EmptyOr(c.TCPMuxKeepaliveInterval, 30)
 	c.TCPKeepAlive = util.EmptyOr(c.TCPKeepAlive, 7200)
 	c.MaxPoolCount = util.EmptyOr(c.MaxPoolCount, 5)

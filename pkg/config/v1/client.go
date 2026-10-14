@@ -85,7 +85,7 @@ type ClientCommonConfig struct {
 func (c *ClientCommonConfig) Complete() error {
 	c.ServerAddr = util.EmptyOr(c.ServerAddr, "0.0.0.0")
 	c.ServerPort = util.EmptyOr(c.ServerPort, 7000)
-	c.LoginFailExit = util.EmptyOr(c.LoginFailExit, lo.ToPtr(true))
+	c.LoginFailExit = util.EmptyOr(c.LoginFailExit, new(true))
 	c.NatHoleSTUNServer = util.EmptyOr(c.NatHoleSTUNServer, "stun.easyvoip.com:3478")
 
 	if err := c.Auth.Complete(); err != nil {
@@ -151,7 +151,7 @@ func (c *ClientTransportConfig) Complete() {
 	c.DialServerKeepAlive = util.EmptyOr(c.DialServerKeepAlive, 7200)
 	c.ProxyURL = util.EmptyOr(c.ProxyURL, os.Getenv("http_proxy"))
 	c.PoolCount = util.EmptyOr(c.PoolCount, 1)
-	c.TCPMux = util.EmptyOr(c.TCPMux, lo.ToPtr(true))
+	c.TCPMux = util.EmptyOr(c.TCPMux, new(true))
 	c.TCPMuxKeepaliveInterval = util.EmptyOr(c.TCPMuxKeepaliveInterval, 30)
 	if lo.FromPtr(c.TCPMux) {
 		// If TCPMux is enabled, heartbeat of application layer is unnecessary because we can rely on heartbeat in tcpmux.
@@ -180,8 +180,8 @@ type TLSClientConfig struct {
 }
 
 func (c *TLSClientConfig) Complete() {
-	c.Enable = util.EmptyOr(c.Enable, lo.ToPtr(true))
-	c.DisableCustomTLSFirstByte = util.EmptyOr(c.DisableCustomTLSFirstByte, lo.ToPtr(true))
+	c.Enable = util.EmptyOr(c.Enable, new(true))
+	c.DisableCustomTLSFirstByte = util.EmptyOr(c.DisableCustomTLSFirstByte, new(true))
 }
 
 type AuthClientConfig struct {

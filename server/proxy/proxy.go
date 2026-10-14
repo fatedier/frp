@@ -308,9 +308,7 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	}
 
 	if pxy.GetLimiter() != nil {
-		local = libio.WrapReadWriteCloser(limit.NewReader(local, pxy.GetLimiter()), limit.NewWriter(local, pxy.GetLimiter()), func() error {
-			return local.Close()
-		})
+		local = libio.WrapReadWriteCloser(limit.NewReader(local, pxy.GetLimiter()), limit.NewWriter(local, pxy.GetLimiter()), local.Close)
 	}
 
 	xl.Debugf("join connections, workConn(l[%s] r[%s]) userConn(l[%s] r[%s])", workConn.LocalAddr().String(),

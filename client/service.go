@@ -155,6 +155,9 @@ type Service struct {
 	ctx context.Context
 	// call cancel to stop service
 	cancel context.CancelCauseFunc
+	// Protect cancel publication and shutdown before the first Run.
+	lifecycleMu sync.Mutex
+	closed      bool
 
 	connectorCreator func(context.Context, *v1.ClientCommonConfig) Connector
 	handleWorkConnCb func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool
@@ -225,8 +228,20 @@ func NewService(options ServiceOptions) (*Service, error) {
 
 func (svr *Service) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancelCause(ctx)
+	svr.lifecycleMu.Lock()
+	if svr.closed {
+		svr.lifecycleMu.Unlock()
+		cancel(nil)
+		return ctx.Err()
+	}
 	svr.ctx = xlog.NewContext(ctx, xlog.FromContextSafe(ctx))
 	svr.cancel = cancel
+	svr.lifecycleMu.Unlock()
+	defer cancel(nil)
+	defer svr.stop()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	// set custom DNSServer
 	if svr.common.DNSServer != "" {
@@ -237,7 +252,6 @@ func (svr *Service) Run(ctx context.Context) error {
 		vnetController := svr.vnetController
 		if err := svr.vnetController.Init(); err != nil {
 			log.Errorf("init virtual network controller error: %v", err)
-			svr.stop()
 			return err
 		}
 		go func() {
@@ -263,19 +277,25 @@ func (svr *Service) Run(ctx context.Context) error {
 	if svr.ctl == nil {
 		cancelCause := cancelErr{}
 		_ = errors.As(context.Cause(svr.ctx), &cancelCause)
-		svr.stop()
 		return fmt.Errorf("login to the server failed: %v. With loginFailExit enabled, no additional retries will be attempted", cancelCause.Err)
 	}
 
 	go svr.keepControllerWorking()
 
 	<-svr.ctx.Done()
-	svr.stop()
 	return nil
 }
 
 func (svr *Service) keepControllerWorking() {
-	<-svr.ctl.Done()
+	// ctl is swapped under ctlMu in loopLoginUntilSuccess / stop; take a
+	// snapshot before waiting so stop's nil write does not race this read.
+	svr.ctlMu.RLock()
+	ctl := svr.ctl
+	svr.ctlMu.RUnlock()
+	if ctl == nil {
+		return
+	}
+	<-ctl.Done()
 
 	// There is a situation where the login is successful but due to certain reasons,
 	// the control immediately exits. It is necessary to limit the frequency of reconnection in this case.
@@ -285,8 +305,11 @@ func (svr *Service) keepControllerWorking() {
 		// loopLoginUntilSuccess is another layer of loop that will continuously attempt to
 		// login to the server until successful.
 		svr.loopLoginUntilSuccess(20*time.Second, false)
-		if svr.ctl != nil {
-			<-svr.ctl.Done()
+		svr.ctlMu.RLock()
+		ctl := svr.ctl
+		svr.ctlMu.RUnlock()
+		if ctl != nil {
+			<-ctl.Done()
 			return false, errors.New("control is closed and try another loop")
 		}
 		// If the control is nil, it means that the login failed and the service is also closed.
@@ -377,7 +400,7 @@ func (svr *Service) UpdateAllConfigurer(proxyCfgs []v1.ProxyConfigurer, visitorC
 	svr.ctlMu.RUnlock()
 
 	if ctl != nil {
-		return svr.ctl.UpdateAllConfigurer(proxyCfgs, visitorCfgs)
+		return ctl.UpdateAllConfigurer(proxyCfgs, visitorCfgs)
 	}
 	return nil
 }
@@ -417,7 +440,20 @@ func (svr *Service) Close() {
 
 func (svr *Service) GracefulClose(d time.Duration) {
 	svr.gracefulShutdownDuration.Store(int64(d))
-	svr.cancel(nil)
+	svr.lifecycleMu.Lock()
+	if svr.closed {
+		svr.lifecycleMu.Unlock()
+		return
+	}
+	svr.closed = true
+	cancel := svr.cancel
+	svr.lifecycleMu.Unlock()
+	if cancel != nil {
+		// Once Run has claimed startup, it also owns cleanup.
+		cancel(nil)
+	} else {
+		svr.stop()
+	}
 }
 
 func (svr *Service) stop() {

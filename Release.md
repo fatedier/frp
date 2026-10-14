@@ -1,9 +1,13 @@
-## Features
+## Improvements
 
-* UDP packet payloads for ordinary UDP proxies and SUDP now use a dedicated binary codec when frpc and frps successfully negotiate the capability under wire protocol v2, using a more compact wire representation. Wire protocol v1 remains JSON; wire protocol v2 falls back to JSON `UDPPacket` when the peer does not support or did not negotiate the capability.
+* Building frp from source now requires Go 1.26.0 or later.
 
 ## Fixes
 
-* Fixed a server panic and remote denial of service caused by a client sending a negative `pool_count`. Negative values are now rejected before work-connection pool resources are allocated.
-* Fixed `frpc verify` ignoring configured `featureGates`, which caused VirtualNet configurations to be rejected even when the feature was enabled.
-* Fixed a case-insensitive validation bypass that allowed `customDomains` under the configured `subDomainHost` to be registered using mixed-case domain names.
+* Updated dependencies to fix SSH tunnel gateway channel deadlocks and panics caused by malformed challenges from NTLM-authenticated HTTP proxies.
+* Fixed VirtualNet routing issues during reconnection and shutdown, and excessive retries after repeated connection failures.
+* Health checks now reset the failure count after success, so `healthCheck.maxFailed` applies to consecutive failures.
+* Fixed control connections getting stuck after message write failures, which could block reconnection.
+* Fixed incorrect daily traffic statistics around daylight-saving transitions and skipped local midnights.
+* Fixed early-data loss in HTTP virtual-host CONNECT tunnels. Requests with a positive content length or transfer encoding now return HTTP 400.
+* Fixed work connections remaining open when server-side bandwidth limiting is enabled for TCP, HTTP, and UDP proxies.
