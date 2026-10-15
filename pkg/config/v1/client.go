@@ -107,6 +107,10 @@ type ClientTransportConfig struct {
 	// WireProtocol specifies the frpc/frps internal wire protocol version.
 	// Valid values are "v1" and "v2". By default, this value is "v1".
 	WireProtocol string `json:"wireProtocol,omitempty"`
+	// RequireKeyShare makes a v2 connection fail unless the server performs the
+	// X25519 key exchange. By default, this value is false so that servers
+	// predating the key exchange keep working.
+	RequireKeyShare bool `json:"requireKeyShare,omitempty"`
 	// The maximum amount of time a dial to server will wait for a connect to complete.
 	DialServerTimeout int64 `json:"dialServerTimeout,omitempty"`
 	// DialServerKeepAlive specifies the interval between keep-alive probes for an active network connection between frpc and frps.

@@ -16,6 +16,7 @@ package client
 
 import (
 	"context"
+	"crypto/ecdh"
 	"errors"
 	"fmt"
 	"io"
@@ -30,6 +31,7 @@ import (
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/proto/wire"
+	"github.com/fatedier/frp/pkg/util/log"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/vnet"
@@ -138,6 +140,7 @@ func (d *controlSessionDialer) exchangeLogin(conn net.Conn, loginMsg *msg.Login)
 	var wireConn *wire.Conn
 	var clientHello wire.ClientHello
 	var clientHelloPayload []byte
+	var clientKeyPriv *ecdh.PrivateKey
 
 	if d.common.Transport.WireProtocol == wire.ProtocolV2 {
 		if err := wire.WriteMagic(conn); err != nil {
@@ -147,7 +150,7 @@ func (d *controlSessionDialer) exchangeLogin(conn net.Conn, loginMsg *msg.Login)
 		wireConn = wire.NewConn(conn)
 		rw = msg.NewV2ReadWriterWithConn(wireConn)
 		var err error
-		clientHello, err = wire.NewClientHello(wire.BootstrapInfo{
+		clientHello, clientKeyPriv, err = wire.NewClientHello(wire.BootstrapInfo{
 			Transport: d.common.Transport.Protocol,
 			TLS:       lo.FromPtr(d.common.Transport.TLS.Enable) || d.common.Transport.Protocol == "wss" || d.common.Transport.Protocol == "quic",
 			TCPMux:    lo.FromPtr(d.common.Transport.TCPMux),
@@ -190,7 +193,7 @@ func (d *controlSessionDialer) exchangeLogin(conn net.Conn, loginMsg *msg.Login)
 		if serverHello.Error != "" {
 			return nil, errors.New(serverHello.Error)
 		}
-		cryptoContext, err = wire.NewClientCryptoContext(clientHelloPayload, serverHelloFrame.Payload)
+		cryptoContext, err = wire.NewClientCryptoContext(clientKeyPriv, clientHelloPayload, serverHelloFrame.Payload)
 		if err != nil {
 			return nil, err
 		}
@@ -213,9 +216,17 @@ func (d *controlSessionDialer) newControlReadWriter(conn net.Conn, cryptoContext
 		if cryptoContext == nil {
 			return nil, errors.New("missing v2 crypto negotiation")
 		}
+		if len(cryptoContext.SharedSecret) == 0 {
+			if d.common.Transport.RequireKeyShare {
+				return nil, errors.New("server did not offer an X25519 key share and transport.requireKeyShare is set")
+			}
+			if d.common.Auth.Method != v1.AuthMethodToken {
+				log.Warnf("server did not offer an X25519 key share; the v2 control channel is not protected against passive observers, upgrade frps")
+			}
+		}
 		return netpkg.NewAEADCryptoReadWriter(
 			conn,
-			d.auth.EncryptionKey(),
+			cryptoContext.DeriveIKM(d.auth.EncryptionKey()),
 			netpkg.AEADCryptoRoleClient,
 			cryptoContext.Algorithm,
 			cryptoContext.TranscriptHash,

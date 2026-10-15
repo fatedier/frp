@@ -117,7 +117,7 @@ func TestServiceAcceptConnectionTracksClientHelloPresence(t *testing.T) {
 				}
 				wireConn := wire.NewConn(clientConn)
 				if tc.clientHelloPresent {
-					hello, err := wire.NewClientHello(wire.BootstrapInfo{})
+					hello, _, err := wire.NewClientHello(wire.BootstrapInfo{})
 					if err != nil {
 						clientErrCh <- err
 						return
@@ -974,3 +974,37 @@ func (*countingCloseConn) RemoteAddr() net.Addr             { return lifecycleTe
 func (*countingCloseConn) SetDeadline(time.Time) error      { return nil }
 func (*countingCloseConn) SetReadDeadline(time.Time) error  { return nil }
 func (*countingCloseConn) SetWriteDeadline(time.Time) error { return nil }
+
+func TestAcceptedConnectionNewControlReadWriterKeyingMaterial(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		method  v1.AuthMethod
+		require bool
+		wantErr string
+	}{
+		{name: "token auth without a key share keeps the pre-key-share channel", method: v1.AuthMethodToken},
+		{name: "oidc without a key share falls back to the pre-key-share channel", method: v1.AuthMethodOIDC},
+		{name: "requireKeyShare rejects a client without a key share", method: v1.AuthMethodOIDC, require: true, wantErr: "requireKeyShare"},
+		{name: "requireKeyShare rejects token auth too", method: v1.AuthMethodToken, require: true, wantErr: "requireKeyShare"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ac := &acceptedConnection{
+				wireProtocol:  wire.ProtocolV2,
+				cryptoContext: wire.NewCryptoContext(wire.AEADAlgorithmAES256GCM, nil, []byte("client-hello"), []byte("server-hello")),
+			}
+			clientRaw, serverRaw := net.Pipe()
+			defer clientRaw.Close()
+			defer serverRaw.Close()
+
+			_, err := ac.newControlReadWriter(serverRaw, nil, tc.method, tc.require)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}

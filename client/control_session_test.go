@@ -171,7 +171,7 @@ func TestControlSessionDialerDialV2(t *testing.T) {
 			serverErrCh <- fmt.Errorf("unexpected user: %s", loginMsg.User)
 			return
 		}
-		serverHello, err := wire.NewServerHello(hello)
+		serverHello, sharedSecret, err := wire.NewServerHello(hello)
 		if err != nil {
 			serverErrCh <- err
 			return
@@ -183,6 +183,7 @@ func TestControlSessionDialerDialV2(t *testing.T) {
 		}
 		cryptoContext := wire.NewCryptoContext(
 			serverHello.Selected.Crypto.Algorithm,
+			sharedSecret,
 			clientHelloFrame.Payload,
 			serverHelloFrame.Payload,
 		)
@@ -197,7 +198,7 @@ func TestControlSessionDialerDialV2(t *testing.T) {
 
 		controlRW, err := netpkg.NewAEADCryptoReadWriter(
 			serverRaw,
-			[]byte("token"),
+			cryptoContext.DeriveIKM([]byte("token")),
 			netpkg.AEADCryptoRoleServer,
 			cryptoContext.Algorithm,
 			cryptoContext.TranscriptHash,
@@ -296,4 +297,42 @@ func TestControlSessionDialerDialSSHTunnelSkipsControlEncryption(t *testing.T) {
 	require.Equal(t, "run-ssh-tunnel", sessionCtx.RunID)
 	require.NoError(t, sessionCtx.Conn.WriteMsg(&msg.Ping{}))
 	require.NoError(t, <-serverErrCh)
+}
+
+func TestControlSessionDialerNewControlReadWriterKeyingMaterial(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		method  v1.AuthMethod
+		require bool
+		wantErr string
+	}{
+		{name: "token auth without a key share keeps the pre-key-share channel", method: v1.AuthMethodToken},
+		{name: "oidc without a key share falls back to the pre-key-share channel", method: v1.AuthMethodOIDC},
+		{name: "requireKeyShare rejects a server without a key share", method: v1.AuthMethodOIDC, require: true, wantErr: "requireKeyShare"},
+		{name: "requireKeyShare rejects token auth too", method: v1.AuthMethodToken, require: true, wantErr: "requireKeyShare"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			d := &controlSessionDialer{
+				common: &v1.ClientCommonConfig{
+					Auth:      v1.AuthClientConfig{Method: tc.method},
+					Transport: v1.ClientTransportConfig{WireProtocol: wire.ProtocolV2, RequireKeyShare: tc.require},
+				},
+				auth: &auth.ClientAuth{},
+			}
+			clientRaw, serverRaw := net.Pipe()
+			defer clientRaw.Close()
+			defer serverRaw.Close()
+
+			noSecret := wire.NewCryptoContext(wire.AEADAlgorithmAES256GCM, nil, []byte("client-hello"), []byte("server-hello"))
+			_, err := d.newControlReadWriter(clientRaw, noSecret)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
 }

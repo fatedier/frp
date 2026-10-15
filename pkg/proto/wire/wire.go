@@ -188,8 +188,9 @@ type MessageCapabilities struct {
 }
 
 type CryptoCapabilities struct {
-	Algorithms   []string `json:"algorithms,omitempty"`
-	ClientRandom []byte   `json:"clientRandom,omitempty"`
+	Algorithms     []string `json:"algorithms,omitempty"`
+	ClientRandom   []byte   `json:"clientRandom,omitempty"`
+	ClientKeyShare []byte   `json:"clientKeyShare,omitempty"`
 }
 
 type ServerHello struct {
@@ -208,8 +209,9 @@ type MessageSelection struct {
 }
 
 type CryptoSelection struct {
-	Algorithm    string `json:"algorithm,omitempty"`
-	ServerRandom []byte `json:"serverRandom,omitempty"`
+	Algorithm      string `json:"algorithm,omitempty"`
+	ServerRandom   []byte `json:"serverRandom,omitempty"`
+	ServerKeyShare []byte `json:"serverKeyShare,omitempty"`
 }
 
 func clientHelloWithCryptoRandom(bootstrap BootstrapInfo, clientRandom []byte) ClientHello {
