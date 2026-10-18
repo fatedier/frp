@@ -712,7 +712,9 @@ transport.tls.keyFile = "certificate.key"
 transport.tls.trustedCaFile = "ca.crt"
 ```
 
-By default, when neither `transport.tls.trustedCaFile` nor `transport.tls.useSystemRoots` is set, `frpc` does not verify the server certificate. Set `transport.tls.useSystemRoots = true` to verify it against the host's root store instead. With `wss`, verification applies to the TLS endpoint, which may be a reverse proxy. `useSystemRoots` is ignored when `transport.tls.trustedCaFile` is set.
+By default, when neither `transport.tls.trustedCaFile` nor `transport.tls.useSystemCa` is set, `frpc` does not verify the server certificate. Set `transport.tls.useSystemCa = true` to verify it using the host's system CAs. If `trustedCaFile` is also set, its CA certificates are added to the system CA pool; setting only `trustedCaFile` trusts only the CAs in that file. CA loading or certificate verification failures cause the connection to fail without falling back to another trust source or skipping verification.
+
+`useSystemCa` is supported only in `frpc`'s `transport.tls`, and requires `transport.tls.enable = true` unless `transport.protocol = "wss"`. With `wss`, the outer TLS connection is always enabled and verification applies to the TLS endpoint, which may be a reverse proxy. Setting `useSystemCa = true` in `frps`'s `transport.tls` or either process's `webServer.tls` is a configuration error.
 
 **`frps` TLS settings:**
 
