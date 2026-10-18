@@ -177,8 +177,8 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 			client:      "transport.tls.enable = false",
 			expectError: true,
 		})
-		defineClientServerTest("useSystemRoots rejects the default self-signed server certificate", f, &generalTestConfigures{
-			client:      "transport.tls.useSystemRoots = true",
+		defineClientServerTest("useSystemCa rejects the default self-signed server certificate", f, &generalTestConfigures{
+			client:      "transport.tls.useSystemCa = true",
 			expectError: true,
 		})
 	})

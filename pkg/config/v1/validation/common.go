@@ -23,6 +23,9 @@ import (
 
 func validateWebServerConfig(c *v1.WebServerConfig) error {
 	if c.TLS != nil {
+		if c.TLS.UseSystemCa {
+			return fmt.Errorf("webServer.tls.useSystemCa is only supported in frpc transport.tls")
+		}
 		if c.TLS.CertFile == "" {
 			return fmt.Errorf("tls.certFile must be specified when tls is enabled")
 		}

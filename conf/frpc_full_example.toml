@@ -131,9 +131,11 @@ transport.tls.enable = true
 # transport.tls.trustedCaFile = "ca.crt"
 # transport.tls.serverName = "example.com"
 
-# If useSystemRoots is true and trustedCaFile is not set, frpc verifies the server certificate
-# against the host's root store.
-# transport.tls.useSystemRoots = false
+# If useSystemCa is true, frpc verifies the server certificate using system CAs.
+# If trustedCaFile is also set, its CA certificates are added to the system CA pool.
+# Only supported in frpc transport.tls; requires tls.enable = true unless protocol is wss.
+# CA loading or certificate verification failures cause the connection to fail.
+# transport.tls.useSystemCa = false
 
 # If the disableCustomTLSFirstByte is set to false, frpc will establish a connection with frps using the
 # first custom byte when tls is enabled.

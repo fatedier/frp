@@ -79,6 +79,10 @@ type TLSConfig struct {
 	KeyFile string `json:"keyFile,omitempty"`
 	// TrustedCaFile specifies the path of the trusted ca file that will load.
 	TrustedCaFile string `json:"trustedCaFile,omitempty"`
+	// UseSystemCa enables server certificate verification using system CAs.
+	// If TrustedCaFile is also set, its certificates are added to the system CA pool.
+	// Only supported in frpc's transport.tls. With neither trust source, frpc skips verification.
+	UseSystemCa bool `json:"useSystemCa,omitempty"`
 	// ServerName specifies the custom server name of tls certificate. By
 	// default, server name if same to ServerAddr.
 	ServerName string `json:"serverName,omitempty"`
