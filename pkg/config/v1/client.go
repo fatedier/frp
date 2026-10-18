@@ -175,6 +175,9 @@ type TLSClientConfig struct {
 	// first custom byte when tls is enabled.
 	// Since v0.50.0, the default value has been changed to true, and the first custom byte is disabled by default.
 	DisableCustomTLSFirstByte *bool `json:"disableCustomTLSFirstByte,omitempty"`
+	// UseSystemRoots enables server certificate verification using system roots.
+	// TrustedCaFile takes precedence. If neither is configured, verification is disabled.
+	UseSystemRoots bool `json:"useSystemRoots,omitempty"`
 
 	TLSConfig
 }

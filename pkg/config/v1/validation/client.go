@@ -163,6 +163,10 @@ func validateTransportConfig(c *v1.ClientTransportConfig) (Warning, error) {
 		warnings = AppendError(warnings, checkTLSConfig("transport.tls.certFile", c.TLS.CertFile))
 		warnings = AppendError(warnings, checkTLSConfig("transport.tls.keyFile", c.TLS.KeyFile))
 		warnings = AppendError(warnings, checkTLSConfig("transport.tls.trustedCaFile", c.TLS.TrustedCaFile))
+		// wss keeps TLS on regardless of transport.tls.enable.
+		if c.TLS.UseSystemRoots && c.Protocol != "wss" {
+			warnings = AppendError(warnings, fmt.Errorf("transport.tls.useSystemRoots is ignored when transport.tls.enable is false"))
+		}
 	}
 
 	if !slices.Contains(SupportedTransportProtocols, c.Protocol) {
