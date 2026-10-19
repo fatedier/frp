@@ -152,20 +152,6 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		return nil, err
 	}
 
-	var webServer *httppkg.Server
-	if cfg.WebServer.Port > 0 {
-		ws, err := httppkg.NewServer(cfg.WebServer)
-		if err != nil {
-			return nil, err
-		}
-		webServer = ws
-
-		modelmetrics.EnableMem()
-		if cfg.EnablePrometheus {
-			modelmetrics.EnablePrometheus()
-		}
-	}
-
 	authRuntime, err := auth.BuildServerAuth(&cfg.Auth)
 	if err != nil {
 		return nil, err
@@ -179,19 +165,13 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		pluginManager:  plugin.NewManager(),
 		rc: &controller.ResourceController{
 			VisitorManager: visitor.NewManager(),
-			TCPPortManager: ports.NewManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
-			UDPPortManager: ports.NewManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 		},
 		sshTunnelListener: netpkg.NewInternalListener(),
 		httpVhostRouter:   vhost.NewRouters(),
 		auth:              authRuntime,
-		webServer:         webServer,
 		tlsConfig:         tlsConfig,
 		cfg:               cfg,
 		ctx:               context.Background(),
-	}
-	if webServer != nil {
-		webServer.RouteRegister(svr.registerRouteHandlers)
 	}
 
 	// Create tcpmux httpconnect multiplexer.
@@ -216,9 +196,6 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		log.Infof("plugin [%s] has been registered", p.Name)
 	}
 	svr.rc.PluginManager = svr.pluginManager
-
-	// Init group controller
-	svr.rc.TCPGroupCtl = group.NewTCPGroupCtl(svr.rc.TCPPortManager)
 
 	// Init HTTP group controller
 	svr.rc.HTTPGroupCtl = group.NewHTTPGroupController(svr.httpVhostRouter)
@@ -369,6 +346,32 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		return nil, fmt.Errorf("create nat hole controller error, %v", err)
 	}
 	svr.rc.NatHoleController = nc
+
+	// Create the web server after all fallible steps so its listener is not
+	// leaked when an earlier error causes NewService to return.
+	if cfg.WebServer.Port > 0 {
+		ws, err := httppkg.NewServer(cfg.WebServer)
+		if err != nil {
+			// All other listeners are already created and must be released on failure.
+			_ = svr.Close()
+			return nil, err
+		}
+		svr.webServer = ws
+
+		modelmetrics.EnableMem()
+		if cfg.EnablePrometheus {
+			modelmetrics.EnablePrometheus()
+		}
+	}
+
+	// Start port-manager cleanup workers only after all fallible steps have succeeded.
+	svr.rc.TCPPortManager = ports.NewManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts)
+	svr.rc.UDPPortManager = ports.NewManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts)
+	svr.rc.TCPGroupCtl = group.NewTCPGroupCtl(svr.rc.TCPPortManager)
+
+	if svr.webServer != nil {
+		svr.webServer.RouteRegister(svr.registerRouteHandlers)
+	}
 	return svr, nil
 }
 

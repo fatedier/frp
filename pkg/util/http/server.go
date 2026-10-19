@@ -53,11 +53,6 @@ func NewServer(cfg v1.WebServerConfig) (*Server, error) {
 		addr = ":http"
 	}
 
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return nil, err
-	}
-
 	router := mux.NewRouter()
 	hs := &http.Server{
 		Addr:         addr,
@@ -67,7 +62,6 @@ func NewServer(cfg v1.WebServerConfig) (*Server, error) {
 	}
 	s := &Server{
 		addr:   addr,
-		ln:     ln,
 		hs:     hs,
 		router: router,
 	}
@@ -84,6 +78,13 @@ func NewServer(cfg v1.WebServerConfig) (*Server, error) {
 		}
 	}
 	s.authMiddleware = netpkg.NewHTTPAuthMiddleware(cfg.User, cfg.Password).SetAuthFailDelay(200 * time.Millisecond).Middleware
+
+	// Bind only after all fallible preparation so an error cannot leak the listener.
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	s.ln = ln
 	return s, nil
 }
 
