@@ -424,6 +424,15 @@ func (svr *Service) UpdateConfigSource(
 	svr.reloadMu.Lock()
 	defer svr.reloadMu.Unlock()
 
+	return svr.updateConfigSourceLocked(common, proxyCfgs, visitorCfgs)
+}
+
+// Caller must hold reloadMu.
+func (svr *Service) updateConfigSourceLocked(
+	common *v1.ClientCommonConfig,
+	proxyCfgs []v1.ProxyConfigurer,
+	visitorCfgs []v1.VisitorConfigurer,
+) error {
 	cfgSource := svr.configSource
 	if cfgSource == nil {
 		return fmt.Errorf("config source is not available")
