@@ -128,8 +128,8 @@ type Service struct {
 	vnetController *vnet.Controller
 
 	cfgMu sync.RWMutex
-	// reloadMu serializes reload transactions to keep reloadCommon and applied
-	// config in sync across concurrent API operations.
+	// reloadMu serializes config updates with control startup and publication,
+	// keeping reloadCommon and applied config in sync across reloads and reconnects.
 	reloadMu sync.Mutex
 	common   *v1.ClientCommonConfig
 	// reloadCommon is used for filtering/defaulting during config-source reloads.
@@ -354,11 +354,6 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		xl.AddPrefix(xlog.LogPrefix{Name: "runID", Value: svr.runID})
 		xl.Infof("login to server success, get run id [%s]", svr.runID)
 
-		svr.cfgMu.RLock()
-		proxyCfgs := svr.proxyCfgs
-		visitorCfgs := svr.visitorCfgs
-		svr.cfgMu.RUnlock()
-
 		ctl, err := NewControl(svr.ctx, sessionCtx)
 		if err != nil {
 			sessionCtx.Conn.Close()
@@ -367,6 +362,15 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 			return false, err
 		}
 		ctl.SetInWorkConnCallback(svr.handleWorkConnCb)
+
+		// An update must either precede this snapshot or apply to the published
+		// control. Keep dialing and login outside the reload transaction.
+		svr.reloadMu.Lock()
+		defer svr.reloadMu.Unlock()
+		svr.cfgMu.RLock()
+		proxyCfgs := svr.proxyCfgs
+		visitorCfgs := svr.visitorCfgs
+		svr.cfgMu.RUnlock()
 
 		ctl.Run(proxyCfgs, visitorCfgs)
 		// close and replace previous control
@@ -390,6 +394,13 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 }
 
 func (svr *Service) UpdateAllConfigurer(proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error {
+	svr.reloadMu.Lock()
+	defer svr.reloadMu.Unlock()
+	return svr.updateAllConfigurerLocked(proxyCfgs, visitorCfgs)
+}
+
+// Caller must hold reloadMu.
+func (svr *Service) updateAllConfigurerLocked(proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error {
 	svr.cfgMu.Lock()
 	svr.proxyCfgs = proxyCfgs
 	svr.visitorCfgs = visitorCfgs
@@ -556,7 +567,7 @@ func (svr *Service) reloadConfigFromSourcesLocked() error {
 	}
 
 	// Atomically replace the entire configuration
-	if err := svr.UpdateAllConfigurer(proxies, visitors); err != nil {
+	if err := svr.updateAllConfigurerLocked(proxies, visitors); err != nil {
 		return err
 	}
 	return nil
