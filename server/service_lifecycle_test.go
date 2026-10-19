@@ -1,9 +1,14 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
+	"runtime/pprof"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -83,6 +88,168 @@ func assertLifecyclePorts(t *testing.T, addresses []string, released bool) {
 		} else {
 			require.Error(t, err, "listener %s was not bound", address)
 		}
+	}
+}
+
+func TestNewServiceDoesNotLeakWebServerOnBindFailure(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	cfg := &v1.ServerConfig{
+		BindAddr:      "127.0.0.1",
+		BindPort:      ln.Addr().(*net.TCPAddr).Port,
+		ProxyBindAddr: "127.0.0.1",
+		WebServer:     v1.WebServerConfig{Addr: "127.0.0.1", Port: freeLifecycleTCPPort(t)},
+	}
+	require.NoError(t, cfg.Complete())
+
+	svr, err := NewService(cfg)
+	if svr != nil {
+		defer svr.Close()
+	}
+	require.ErrorContains(t, err, "create server listener error")
+	require.ErrorContains(t, err, ln.Addr().String())
+	require.Nil(t, svr)
+	assertLifecyclePorts(t, []string{net.JoinHostPort(cfg.WebServer.Addr, fmt.Sprint(cfg.WebServer.Port))}, true)
+}
+
+func countPortManagerWorkers(t *testing.T) int {
+	t.Helper()
+	var profile bytes.Buffer
+	require.NoError(t, pprof.Lookup("goroutine").WriteTo(&profile, 2))
+	count := 0
+	for stack := range strings.SplitSeq(profile.String(), "\n\n") {
+		if strings.Contains(stack, "github.com/fatedier/frp/server/ports.(*Manager).cleanReservedPortsWorker") {
+			count++
+		}
+	}
+	return count
+}
+
+func TestNewServiceDoesNotLeakPortManagerWorkersOnWebServerFailure(t *testing.T) {
+	for _, mode := range []string{"port conflict", "invalid TLS certificate"} {
+		t.Run(mode, func(t *testing.T) {
+			ln, err := net.Listen("tcp", "127.0.0.1:0")
+			require.NoError(t, err)
+			defer ln.Close()
+			cfg := &v1.ServerConfig{
+				BindAddr:      "127.0.0.1",
+				ProxyBindAddr: "127.0.0.1",
+				WebServer:     v1.WebServerConfig{Addr: "127.0.0.1", Port: ln.Addr().(*net.TCPAddr).Port},
+			}
+			require.NoError(t, cfg.Complete())
+			cfg.BindPort = 0
+			if mode == "invalid TLS certificate" {
+				dir := t.TempDir()
+				certFile := filepath.Join(dir, "cert.pem")
+				keyFile := filepath.Join(dir, "key.pem")
+				require.NoError(t, os.WriteFile(certFile, []byte("invalid certificate"), 0o600))
+				require.NoError(t, os.WriteFile(keyFile, []byte("invalid key"), 0o600))
+				cfg.WebServer.TLS = &v1.TLSConfig{CertFile: certFile, KeyFile: keyFile}
+				require.NoError(t, ln.Close())
+			}
+
+			workersBefore := countPortManagerWorkers(t)
+			for range 5 {
+				svr, err := NewService(cfg)
+				if svr != nil {
+					defer svr.Close()
+				}
+				require.Nil(t, svr)
+				if mode == "port conflict" {
+					var listenErr *net.OpError
+					require.ErrorAs(t, err, &listenErr)
+					require.Equal(t, "listen", listenErr.Op)
+					require.Equal(t, ln.Addr().String(), listenErr.Addr.String())
+				} else {
+					require.ErrorContains(t, err, "failed to find any PEM data in certificate input")
+				}
+			}
+			workersAfter := countPortManagerWorkers(t)
+			t.Logf("port-manager workers after 5 failed constructions: before=%d after=%d", workersBefore, workersAfter)
+			require.Equal(t, workersBefore, workersAfter, "failed construction leaked port-manager workers")
+		})
+	}
+}
+
+func TestNewServiceReleasesListenersOnWebServerFailure(t *testing.T) {
+	for _, mode := range []string{"port conflict", "invalid TLS certificate"} {
+		t.Run(mode, func(t *testing.T) {
+			cfg := &v1.ServerConfig{
+				BindAddr:      "127.0.0.1",
+				ProxyBindAddr: "127.0.0.1",
+				WebServer:     v1.WebServerConfig{Addr: "127.0.0.1"},
+			}
+			require.NoError(t, cfg.Complete())
+			dir := t.TempDir()
+			cfg.SSHTunnelGateway.AutoGenPrivateKeyPath = filepath.Join(dir, "ssh_key")
+
+			// Hold reservations together so each listener gets a distinct port.
+			tcpPorts := []*int{
+				&cfg.BindPort, &cfg.TCPMuxHTTPConnectPort, &cfg.SSHTunnelGateway.BindPort,
+				&cfg.VhostHTTPPort, &cfg.VhostHTTPSPort, &cfg.WebServer.Port,
+			}
+			tcpReservations := make([]net.Listener, 0, len(tcpPorts))
+			tcpAddresses := make([]string, 0, len(tcpPorts))
+			for _, port := range tcpPorts {
+				ln, err := net.Listen("tcp", "127.0.0.1:0")
+				require.NoError(t, err)
+				t.Cleanup(func() { _ = ln.Close() })
+				*port = ln.Addr().(*net.TCPAddr).Port
+				tcpReservations = append(tcpReservations, ln)
+				tcpAddresses = append(tcpAddresses, ln.Addr().String())
+			}
+			udpPorts := []*int{&cfg.KCPBindPort, &cfg.QUICBindPort}
+			udpReservations := make([]net.PacketConn, 0, len(udpPorts))
+			udpAddresses := make([]string, 0, len(udpPorts))
+			for _, port := range udpPorts {
+				conn, err := net.ListenPacket("udp", "127.0.0.1:0")
+				require.NoError(t, err)
+				t.Cleanup(func() { _ = conn.Close() })
+				*port = conn.LocalAddr().(*net.UDPAddr).Port
+				udpReservations = append(udpReservations, conn)
+				udpAddresses = append(udpAddresses, conn.LocalAddr().String())
+			}
+
+			webReservation := tcpReservations[len(tcpReservations)-1]
+			if mode == "invalid TLS certificate" {
+				certFile := filepath.Join(dir, "cert.pem")
+				keyFile := filepath.Join(dir, "key.pem")
+				require.NoError(t, os.WriteFile(certFile, []byte("invalid certificate"), 0o600))
+				require.NoError(t, os.WriteFile(keyFile, []byte("invalid key"), 0o600))
+				cfg.WebServer.TLS = &v1.TLSConfig{CertFile: certFile, KeyFile: keyFile}
+				require.NoError(t, webReservation.Close())
+			}
+			for _, ln := range tcpReservations[:len(tcpReservations)-1] {
+				require.NoError(t, ln.Close())
+			}
+			for _, conn := range udpReservations {
+				require.NoError(t, conn.Close())
+			}
+
+			svr, err := NewService(cfg)
+			if svr != nil {
+				defer svr.Close()
+			}
+			require.Nil(t, svr)
+			if mode == "port conflict" {
+				var listenErr *net.OpError
+				require.ErrorAs(t, err, &listenErr)
+				require.Equal(t, "listen", listenErr.Op)
+				require.Equal(t, webReservation.Addr().String(), listenErr.Addr.String())
+				assertLifecyclePorts(t, []string{webReservation.Addr().String()}, false)
+				require.NoError(t, webReservation.Close())
+			} else {
+				require.ErrorContains(t, err, "failed to find any PEM data in certificate input")
+			}
+			assertLifecyclePorts(t, tcpAddresses, true)
+			for _, address := range udpAddresses {
+				conn, err := net.ListenPacket("udp", address)
+				require.NoError(t, err, "UDP listener %s was not released", address)
+				require.NoError(t, conn.Close())
+			}
+		})
 	}
 }
 
