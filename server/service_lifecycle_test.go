@@ -276,6 +276,50 @@ func TestServiceRunAfterEarlyShutdown(t *testing.T) {
 	}
 }
 
+func TestMetricsCollectors(t *testing.T) {
+	for _, tc := range []struct {
+		name                    string
+		webPort, metricsPort    int
+		enablePrometheus        bool
+		wantMem, wantPrometheus bool
+	}{
+		{name: "nothing enabled"},
+		{name: "web server only", webPort: 7500, wantMem: true},
+		{
+			name: "web server with enablePrometheus", webPort: 7500, enablePrometheus: true,
+			wantMem: true, wantPrometheus: true,
+		},
+		{
+			// enablePrometheus alone has no endpoint to serve metrics from, so the
+			// Prometheus collector must stay off, as it did before metricsServer.
+			name: "enablePrometheus without listeners", enablePrometheus: true,
+		},
+		{
+			// The in-memory collector only backs the dashboard API.
+			name: "metrics server only", metricsPort: 7501, wantPrometheus: true,
+		},
+		{
+			name: "both servers", webPort: 7500, metricsPort: 7501,
+			wantMem: true, wantPrometheus: true,
+		},
+		{
+			name: "both servers with enablePrometheus", webPort: 7500, metricsPort: 7501, enablePrometheus: true,
+			wantMem: true, wantPrometheus: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &v1.ServerConfig{
+				WebServer:        v1.WebServerConfig{Port: tc.webPort},
+				MetricsServer:    v1.MetricsServerConfig{Port: tc.metricsPort},
+				EnablePrometheus: tc.enablePrometheus,
+			}
+			mem, prometheus := metricsCollectors(cfg)
+			require.Equal(t, tc.wantMem, mem, "EnableMem")
+			require.Equal(t, tc.wantPrometheus, prometheus, "EnablePrometheus")
+		})
+	}
+}
+
 func TestServiceCloseMarksClosedBeforeCleanup(t *testing.T) {
 	svr, listener, addresses := newLifecycleTestService(t, false)
 	listener.closeEntered, listener.closeResume = make(chan struct{}), make(chan struct{})
