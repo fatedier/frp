@@ -83,7 +83,8 @@ webServer.password = "admin"
 # Enable golang pprof handlers in admin listener.
 webServer.pprofEnable = false
 
-# Separate health and optional profiling listener. frpc does not serve /metrics.
+# Separate health, metrics and optional profiling listener.
+# /metrics serves Go runtime metrics only (no proxy or traffic data).
 # Port 0 disables it. The default address only accepts local connections.
 metricsServer.addr = "127.0.0.1"
 metricsServer.port = 0
