@@ -616,13 +616,31 @@ Proxies and visitors managed through the Store are saved to disk and automatical
 
 When web server is enabled, frps will save monitor data in cache for 7 days. It will be cleared after process restart.
 
-Prometheus is also supported.
+Both frps and frpc support a separate `metricsServer` listener for health checks and optional profiling, without enabling the dashboard or admin API. It is disabled by default (`metricsServer.port = 0`) and binds to `127.0.0.1` unless configured otherwise.
+
+`/healthz` returns an empty HTTP 200 response without authentication. It checks that the HTTP server is responding; it does not indicate whether frpc is connected to frps or whether proxies are ready.
 
 #### Prometheus
 
-Enable dashboard first, then configure `enablePrometheus = true` in `frps.toml`.
+Configure a dedicated listener in `frps.toml`:
 
-`http://{dashboard_addr}/metrics` will provide prometheus monitor data.
+```toml
+metricsServer.addr = "127.0.0.1"
+metricsServer.port = 7501
+metricsServer.user = "monitor"
+metricsServer.password = "change-me"
+# Optional TLS, independent of webServer:
+# metricsServer.tls.certFile = "metrics.crt"
+# metricsServer.tls.keyFile = "metrics.key"
+# Profiling is disabled unless explicitly enabled:
+# metricsServer.pprofEnable = true
+```
+
+Scrape `http://127.0.0.1:7501/metrics` using these Basic Auth credentials. This automatically enables frps business metrics, even when `webServer` is disabled and `enablePrometheus` is unset. Credentials and TLS are independent of `webServer`; when credentials are configured, both `/metrics` and profiling endpoints require authentication. `/healthz` remains anonymous.
+
+Set `metricsServer.pprofEnable = true` to expose `/debug/pprof/` and profiling endpoints on this listener. `/debug/pprof/cmdline` is excluded. frpc supports the same health and profiling settings, but does not provide `/metrics` yet.
+
+The `/healthz`, `/metrics`, and pprof endpoints on `webServer` are deprecated but remain available. `enablePrometheus = true` still enables the legacy frps `/metrics` endpoint on the dashboard listener. Migrate health probes, Prometheus scrapes, and profiling to `metricsServer`; the dashboard and admin APIs continue to use `webServer`.
 
 ### Authenticating the Client
 
@@ -714,7 +732,7 @@ transport.tls.trustedCaFile = "ca.crt"
 
 By default, when neither `transport.tls.trustedCaFile` nor `transport.tls.useSystemCa` is set, `frpc` does not verify the server certificate. Set `transport.tls.useSystemCa = true` to verify it using the host's system CAs. If `trustedCaFile` is also set, its CA certificates are added to the system CA pool; setting only `trustedCaFile` trusts only the CAs in that file. CA loading or certificate verification failures cause the connection to fail without falling back to another trust source or skipping verification.
 
-`useSystemCa` is supported only in `frpc`'s `transport.tls`, and requires `transport.tls.enable = true` unless `transport.protocol = "wss"`. With `wss`, the outer TLS connection is always enabled and verification applies to the TLS endpoint, which may be a reverse proxy. Setting `useSystemCa = true` in `frps`'s `transport.tls` or either process's `webServer.tls` is a configuration error.
+`useSystemCa` is supported only in `frpc`'s `transport.tls`, and requires `transport.tls.enable = true` unless `transport.protocol = "wss"`. With `wss`, the outer TLS connection is always enabled and verification applies to the TLS endpoint, which may be a reverse proxy. Setting `useSystemCa = true` in `frps`'s `transport.tls` or either process's `webServer.tls` or `metricsServer.tls` is a configuration error.
 
 **`frps` TLS settings:**
 

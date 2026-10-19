@@ -38,6 +38,7 @@ func (v *ConfigValidator) ValidateClientCommonConfig(c *v1.ClientCommonConfig) (
 		func() (Warning, error) { return v.validateAuthConfig(&c.Auth) },
 		func() (Warning, error) { return nil, validateLogConfig(&c.Log) },
 		func() (Warning, error) { return nil, validateWebServerConfig(&c.WebServer) },
+		func() (Warning, error) { return nil, validateMetricsServerConfig(&c.MetricsServer, &c.WebServer) },
 		func() (Warning, error) { return validateTransportConfig(&c.Transport) },
 		func() (Warning, error) { return validateIncludeFiles(c.IncludeConfigFiles) },
 	}

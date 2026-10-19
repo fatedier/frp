@@ -31,6 +31,7 @@ import (
 	"github.com/fatedier/golib/crypto"
 	"github.com/fatedier/golib/net/mux"
 	fmux "github.com/fatedier/yamux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
 
@@ -120,7 +121,8 @@ type Service struct {
 	rc *controller.ResourceController
 
 	// web server for dashboard UI and apis
-	webServer *httppkg.Server
+	webServer     *httppkg.Server
+	metricsServer *httppkg.Server
 	// HTTP vhost resources are started and owned by NewService.
 	httpVhostServer   *http.Server
 	httpVhostListener net.Listener
@@ -347,8 +349,8 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	}
 	svr.rc.NatHoleController = nc
 
-	// Create the web server after all fallible steps so its listener is not
-	// leaked when an earlier error causes NewService to return.
+	// Create HTTP servers after all other fallible steps, rolling back listeners
+	// if either server cannot be created.
 	if cfg.WebServer.Port > 0 {
 		ws, err := httppkg.NewServer(cfg.WebServer)
 		if err != nil {
@@ -357,11 +359,24 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 			return nil, err
 		}
 		svr.webServer = ws
-
-		modelmetrics.EnableMem()
-		if cfg.EnablePrometheus {
-			modelmetrics.EnablePrometheus()
+	}
+	if cfg.MetricsServer.Port > 0 {
+		ms, err := httppkg.NewMetricsServer(cfg.MetricsServer, promhttp.Handler())
+		if err != nil {
+			_ = svr.Close()
+			return nil, err
 		}
+		svr.metricsServer = ms
+	}
+
+	// Collectors are enabled at most once. The in-memory collector is only read
+	// by the dashboard API, and Prometheus metrics need an endpoint to serve them.
+	enableMem, enablePrometheus := metricsCollectors(cfg)
+	if enableMem {
+		modelmetrics.EnableMem()
+	}
+	if enablePrometheus {
+		modelmetrics.EnablePrometheus()
 	}
 
 	// Start port-manager cleanup workers only after all fallible steps have succeeded.
@@ -373,6 +388,16 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		svr.webServer.RouteRegister(svr.registerRouteHandlers)
 	}
 	return svr, nil
+}
+
+// metricsCollectors reports which collectors should be started for cfg. The
+// in-memory collector only backs the dashboard API (webServer), while the
+// Prometheus collector needs a listener that serves /metrics: either the new
+// metricsServer, or the legacy webServer endpoint gated by enablePrometheus.
+func metricsCollectors(cfg *v1.ServerConfig) (mem bool, prometheus bool) {
+	mem = cfg.WebServer.Port > 0
+	prometheus = cfg.MetricsServer.Port > 0 || (cfg.EnablePrometheus && mem)
+	return mem, prometheus
 }
 
 func (svr *Service) Run(ctx context.Context) {
@@ -396,10 +421,28 @@ func (svr *Service) Run(ctx context.Context) {
 
 	// run dashboard web server.
 	if svr.webServer != nil {
+		if svr.cfg.WebServer.PprofEnable {
+			log.Warnf("webServer pprof endpoints are deprecated; use metricsServer.pprofEnable instead")
+		}
+		if svr.cfg.EnablePrometheus {
+			log.Warnf("webServer /metrics is deprecated; configure metricsServer.port instead")
+		}
+		if svr.cfg.MetricsServer.Port == 0 {
+			log.Infof("webServer /healthz is deprecated; health probes can migrate to metricsServer.port")
+		}
 		go func() {
 			log.Infof("dashboard listen on %s", svr.webServer.Address())
 			if err := svr.webServer.Run(); err != nil {
 				log.Warnf("dashboard server exit with error: %v", err)
+			}
+		}()
+	}
+
+	if svr.metricsServer != nil {
+		go func() {
+			log.Infof("metrics server listen on %s", svr.metricsServer.Address())
+			if err := svr.metricsServer.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Warnf("metrics server exit with error: %v", err)
 			}
 		}()
 	}
@@ -461,6 +504,9 @@ func (svr *Service) closeResources() {
 	}
 	if svr.webServer != nil {
 		svr.webServer.Close()
+	}
+	if svr.metricsServer != nil {
+		svr.metricsServer.Close()
 	}
 	if svr.httpVhostServer != nil {
 		svr.httpVhostServer.Close()

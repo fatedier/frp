@@ -123,7 +123,8 @@ type Service struct {
 	auth *auth.ClientAuth
 
 	// web server for admin UI and apis
-	webServer *httppkg.Server
+	webServer     *httppkg.Server
+	metricsServer *httppkg.Server
 
 	vnetController *vnet.Controller
 
@@ -188,8 +189,8 @@ func NewService(options ServiceOptions) (*Service, error) {
 	proxyCfgs = config.CompleteProxyConfigurers(proxyCfgs)
 	visitorCfgs = config.CompleteVisitorConfigurers(visitorCfgs)
 
-	// Create the web server after all fallible steps so its listener is not
-	// leaked when an earlier error causes NewService to return.
+	// Create HTTP servers after all other fallible steps, rolling back the web
+	// listener if the metrics server cannot be created.
 	var webServer *httppkg.Server
 	if options.Common.WebServer.Port > 0 {
 		ws, err := httppkg.NewServer(options.Common.WebServer)
@@ -198,11 +199,19 @@ func NewService(options ServiceOptions) (*Service, error) {
 		}
 		webServer = ws
 	}
+	metricsServer, err := httppkg.NewMetricsServer(options.Common.MetricsServer, nil)
+	if err != nil {
+		if webServer != nil {
+			_ = webServer.Close()
+		}
+		return nil, err
+	}
 
 	s := &Service{
 		ctx:              context.Background(),
 		auth:             authRuntime,
 		webServer:        webServer,
+		metricsServer:    metricsServer,
 		common:           options.Common,
 		reloadCommon:     options.Common,
 		configFilePath:   options.ConfigFilePath,
@@ -263,11 +272,27 @@ func (svr *Service) Run(ctx context.Context) error {
 	}
 
 	if svr.webServer != nil {
+		if svr.common.WebServer.PprofEnable {
+			log.Warnf("webServer pprof endpoints are deprecated; use metricsServer.pprofEnable instead")
+		}
+		if svr.common.MetricsServer.Port == 0 {
+			log.Infof("webServer /healthz is deprecated; health probes can migrate to metricsServer.port")
+		}
 		webServer := svr.webServer
 		go func() {
 			log.Infof("admin server listen on %s", webServer.Address())
 			if err := webServer.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Warnf("admin server exit with error: %v", err)
+			}
+		}()
+	}
+
+	if svr.metricsServer != nil {
+		metricsServer := svr.metricsServer
+		go func() {
+			log.Infof("metrics server listen on %s", metricsServer.Address())
+			if err := metricsServer.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Warnf("metrics server exit with error: %v", err)
 			}
 		}()
 	}
@@ -496,6 +521,10 @@ func (svr *Service) stop() {
 	if svr.webServer != nil {
 		svr.webServer.Close()
 		svr.webServer = nil
+	}
+	if svr.metricsServer != nil {
+		svr.metricsServer.Close()
+		svr.metricsServer = nil
 	}
 	if svr.vnetController != nil {
 		_ = svr.vnetController.Stop()
