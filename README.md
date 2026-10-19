@@ -809,6 +809,15 @@ webServer.port = 7400
 
 Then run command `frpc reload -c ./frpc.toml` and wait for about 10 seconds to let `frpc` create or update or remove proxies.
 
+For unchanged proxies using `https2http` or `https2https`, `frpc reload` also rereads
+certificate and key files so externally renewed certificates take effect on new
+TLS handshakes without interrupting existing connections. Unchanged file contents
+leave the certificate untouched. If either file cannot be read or the pair is
+invalid, the proxy keeps its previous certificate and reports the error in its
+status and logs; reload still succeeds. A successful retry clears the error.
+Generated self-signed certificates are unchanged, and Store API updates do not
+refresh certificates on unchanged proxies.
+
 **Note that global client parameters won't be modified except 'start'.**
 
 `start` is a global allowlist evaluated after all sources are merged (config file/include/store).

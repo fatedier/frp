@@ -149,7 +149,7 @@ func (c *Controller) buildProxyStatusResp(status *proxy.WorkingStatus) model.Pro
 	}
 	psr.Plugin = baseCfg.Plugin.Type
 
-	if status.Err == "" {
+	if status.Err == "" || status.Phase == proxy.ProxyPhaseRunning {
 		psr.RemoteAddr = status.RemoteAddr
 		if slices.Contains([]string{"tcp", "udp"}, status.Type) {
 			psr.RemoteAddr = c.serverAddr + psr.RemoteAddr
