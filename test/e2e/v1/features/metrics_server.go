@@ -47,6 +47,21 @@ var _ = ginkgo.Describe("[Feature: Metrics Server]", func() {
 		}, 5*time.Second, 50*time.Millisecond).Should(gomega.BeTrue())
 	}
 
+	// frpc serves Go runtime metrics only; no process, business or handler
+	// instrumentation metrics may appear there, on any platform.
+	expectRuntimeMetrics := func(port int) {
+		framework.NewRequestExpect(f).Request(metricsRequest(port, "/metrics", false)).
+			Ensure(framework.ExpectResponseCode(http.StatusUnauthorized))
+		framework.NewRequestExpect(f).Request(metricsRequest(port, "/metrics", true)).Ensure(func(resp *request.Response) bool {
+			body := string(resp.Content)
+			return resp.Code == http.StatusOK &&
+				strings.Contains(body, "go_goroutines") &&
+				!strings.Contains(body, "process_") &&
+				!strings.Contains(body, "frp_") &&
+				!strings.Contains(body, "promhttp_")
+		})
+	}
+
 	ginkgo.It("serves anonymous health alongside both web servers", func() {
 		serverMetrics, clientMetrics := f.AllocPort(), f.AllocPort()
 		serverWeb, clientWeb := f.AllocPort(), f.AllocPort()
@@ -102,7 +117,7 @@ webServer.password = "admin-secret"
 			framework.NewRequestExpect(f).Request(metricsRequest(port, "/healthz", false)).Ensure(framework.ExpectResponseCode(http.StatusOK))
 		}
 		expectBusinessMetrics(serverPort)
-		framework.NewRequestExpect(f).Request(metricsRequest(clientPort, "/metrics", true)).Ensure(framework.ExpectResponseCode(http.StatusNotFound))
+		expectRuntimeMetrics(clientPort)
 	})
 
 	ginkgo.It("collects once when both metrics endpoints are enabled", func() {

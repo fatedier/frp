@@ -34,6 +34,7 @@ import (
 	"github.com/fatedier/frp/pkg/config/source"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
+	"github.com/fatedier/frp/pkg/metrics/text"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/policy/security"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
@@ -199,7 +200,15 @@ func NewService(options ServiceOptions) (*Service, error) {
 		}
 		webServer = ws
 	}
-	metricsServer, err := httppkg.NewMetricsServer(options.Common.MetricsServer, nil)
+	// frpc exposes Go runtime metrics only. They are written by pkg/metrics/text
+	// so that client_golang and protobuf stay out of the frpc binary.
+	var metricsHandler http.Handler
+	if options.Common.MetricsServer.Port > 0 {
+		registry := text.NewRegistry()
+		registry.RegisterRuntime()
+		metricsHandler = registry.Handler()
+	}
+	metricsServer, err := httppkg.NewMetricsServer(options.Common.MetricsServer, metricsHandler)
 	if err != nil {
 		if webServer != nil {
 			_ = webServer.Close()

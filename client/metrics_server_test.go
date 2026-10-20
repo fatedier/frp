@@ -16,6 +16,7 @@ package client
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -82,10 +83,19 @@ func TestServiceMetricsServerLifecycle(t *testing.T) {
 		assertLifecycleAdminPort(t, address, true)
 	}()
 	client := &http.Client{Timeout: 3 * time.Second}
-	for path, status := range map[string]int{"/healthz": http.StatusOK, "/metrics": http.StatusNotFound} {
-		resp, err := client.Get("http://" + address + path)
-		require.NoError(t, err)
-		require.Equal(t, status, resp.StatusCode)
-		require.NoError(t, resp.Body.Close())
-	}
+	resp, err := client.Get("http://" + address + "/healthz")
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.NoError(t, resp.Body.Close())
+
+	// frpc serves Go runtime metrics only, and no credentials are configured
+	// here, so this endpoint is reachable without authentication.
+	resp, err = client.Get("http://" + address + "/metrics")
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Contains(t, string(body), "go_goroutines")
+	require.NotContains(t, string(body), "frp_")
 }

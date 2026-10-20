@@ -15,6 +15,8 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.0
 	github.com/pires/go-proxyproto v0.15.0
 	github.com/prometheus/client_golang v1.19.1
+	github.com/prometheus/client_model v0.5.0
+	github.com/prometheus/common v0.48.0
 	github.com/quic-go/quic-go v0.60.0
 	github.com/rodaine/table v1.2.0
 	github.com/samber/lo v1.47.0
@@ -54,8 +56,6 @@ require (
 	github.com/klauspost/reedsolomon v1.12.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_model v0.5.0 // indirect
-	github.com/prometheus/common v0.48.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/templexxx/cpu v0.1.1 // indirect
 	github.com/templexxx/xorsimd v0.4.3 // indirect

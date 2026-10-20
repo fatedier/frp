@@ -638,7 +638,7 @@ metricsServer.password = "change-me"
 
 Scrape `http://127.0.0.1:7501/metrics` using these Basic Auth credentials. This automatically enables frps business metrics, even when `webServer` is disabled and `enablePrometheus` is unset. Credentials and TLS are independent of `webServer`; when credentials are configured, both `/metrics` and profiling endpoints require authentication. `/healthz` remains anonymous.
 
-Set `metricsServer.pprofEnable = true` to expose `/debug/pprof/` and profiling endpoints on this listener. `/debug/pprof/cmdline` is excluded. frpc supports the same health and profiling settings, but does not provide `/metrics` yet.
+Set `metricsServer.pprofEnable = true` to expose `/debug/pprof/` and profiling endpoints on this listener. `/debug/pprof/cmdline` is excluded. frpc serves `/metrics` on this listener too, with Go runtime metrics only: no proxy, traffic or client data, and the same set of metrics on every platform.
 
 The `/healthz`, `/metrics`, and pprof endpoints on `webServer` are deprecated but remain available. `enablePrometheus = true` still enables the legacy frps `/metrics` endpoint on the dashboard listener. Migrate health probes, Prometheus scrapes, and profiling to `metricsServer`; the dashboard and admin APIs continue to use `webServer`.
 
