@@ -11,6 +11,7 @@ import (
 
 	"github.com/fatedier/frp/test/e2e/framework"
 	"github.com/fatedier/frp/test/e2e/framework/consts"
+	"github.com/fatedier/frp/test/e2e/mock/server/oidcserver"
 	"github.com/fatedier/frp/test/e2e/pkg/port"
 )
 
@@ -163,6 +164,78 @@ var _ = ginkgo.Describe("[Feature: WireProtocol]", func() {
 			f.RunProcesses(serverConf, []string{clientServerConf, clientVisitorConf})
 
 			framework.NewRequestExpect(f).Protocol("udp").PortName(bindPortName).Ensure()
+		})
+	}
+
+	for _, tc := range []struct {
+		name         string
+		wireProtocol string
+		token        string
+		requireKey   bool
+	}{
+		{name: "v2 without a pre-shared token", wireProtocol: "v2"},
+		{name: "v2 with a pre-shared token", wireProtocol: "v2", token: "123456"},
+		{name: "v2 requiring a key share without a token", wireProtocol: "v2", requireKey: true},
+		{name: "v2 requiring a key share with a token", wireProtocol: "v2", token: "123456", requireKey: true},
+		{name: "v1 with a pre-shared token", wireProtocol: "v1", token: "123456"},
+	} {
+		ginkgo.It(tc.name, func() {
+			var authConf string
+			if tc.token != "" {
+				authConf = fmt.Sprintf("auth.token = %q", tc.token)
+			}
+			var requireConf string
+			if tc.requireKey {
+				requireConf = "\ntransport.requireKeyShare = true\n"
+			}
+			serverConf := consts.DefaultServerConfig + authConf + requireConf
+			tcpPortName := port.GenName("WireControlKey")
+			clientConf := consts.DefaultClientConfig + authConf + requireConf + fmt.Sprintf(`
+			transport.wireProtocol = %q
+
+			[[proxies]]
+			name = "tcp"
+			type = "tcp"
+			localPort = {{ .%s }}
+			remotePort = {{ .%s }}
+			`, tc.wireProtocol, framework.TCPEchoServerPort, tcpPortName)
+
+			f.RunProcesses(serverConf, []string{clientConf})
+
+			framework.NewRequestExpect(f).PortName(tcpPortName).Ensure()
+		})
+	}
+
+	for _, requireKey := range []bool{false, true} {
+		ginkgo.It(fmt.Sprintf("v2 with OIDC authentication (requireKeyShare=%v)", requireKey), func() {
+			oidcSrv := oidcserver.New(oidcserver.WithBindPort(f.AllocPort()))
+			f.RunServer("", oidcSrv)
+
+			tcpPortName := port.GenName("WireV2OIDC")
+			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+		auth.method = "oidc"
+		auth.oidc.issuer = "%s"
+		auth.oidc.audience = "frps"
+		transport.requireKeyShare = %v
+		`, oidcSrv.Issuer(), requireKey)
+			clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
+		auth.method = "oidc"
+		auth.oidc.clientID = "test-client"
+		auth.oidc.clientSecret = "test-secret"
+		auth.oidc.tokenEndpointURL = "%s"
+		transport.wireProtocol = "v2"
+		transport.requireKeyShare = %v
+
+		[[proxies]]
+		name = "tcp"
+		type = "tcp"
+		localPort = {{ .%s }}
+		remotePort = {{ .%s }}
+		`, oidcSrv.TokenEndpoint(), requireKey, framework.TCPEchoServerPort, tcpPortName)
+
+			f.RunProcesses(serverConf, []string{clientConf})
+
+			framework.NewRequestExpect(f).PortName(tcpPortName).Ensure()
 		})
 	}
 

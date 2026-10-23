@@ -179,6 +179,10 @@ type ServerTransportConfig struct {
 	QUIC QUICOptions `json:"quic,omitempty"`
 	// TLS specifies TLS settings for the connection from the client.
 	TLS TLSServerConfig `json:"tls,omitempty"`
+	// RequireKeyShare rejects wire protocol v2 clients that do not offer an
+	// X25519 key share. By default, this value is false so that clients
+	// predating the key exchange keep working.
+	RequireKeyShare bool `json:"requireKeyShare,omitempty"`
 }
 
 func (c *ServerTransportConfig) Complete() {
