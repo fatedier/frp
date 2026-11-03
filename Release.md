@@ -9,3 +9,7 @@
 ## Fixes
 
 * Fixed proxy and visitor configuration changes being lost when reloading frpc during reconnection.
+* Updated yamux to fix a 100% CPU busy loop after a session shuts down and a session close that could hang when the underlying connection (for example WebSocket) blocks on a write, which could also delay reconnection.
+* frps now closes the multiplexed session of a replaced or failed control connection immediately, releasing its streams and work connections instead of keeping them until keepalive times out.
+* Fixed a data race when frpc updates log prefixes while other goroutines are logging, which could crash the process.
+* Fixed HTTPS and tcpmux route listeners leaving a pending connection open when the listener is removed during connection handoff; the connection is now closed instead of leaving the client to wait for a read timeout.
