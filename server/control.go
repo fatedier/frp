@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"runtime/debug"
@@ -366,6 +367,9 @@ type SessionContext struct {
 	EncryptionKey []byte
 	// control connection
 	Conn *msg.Conn
+	// A mux session carries exactly one control. Close it when the control is
+	// replaced or exits fatally to release all remaining streams and work connections.
+	Session io.Closer
 	// login message
 	LoginMsg *msg.Login
 	// server configuration
@@ -575,6 +579,10 @@ func (ctl *Control) markReplaced() <-chan struct{} {
 func (ctl *Control) interruptReadAndClose() error {
 	ctl.interruptOnce.Do(func() {
 		_ = ctl.sessionCtx.Conn.SetReadDeadline(time.Now())
+		if ctl.sessionCtx.Session != nil {
+			ctl.interruptErr = ctl.sessionCtx.Session.Close()
+			return
+		}
 		ctl.interruptErr = ctl.sessionCtx.Conn.Close()
 	})
 	return ctl.interruptErr
