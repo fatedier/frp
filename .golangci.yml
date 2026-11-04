@@ -81,6 +81,10 @@ linters:
     - linters:
       - unparam
       text: is always false
+    - linters:
+      - staticcheck
+      path: ^pkg/util/net/kcp\.go$
+      text: "SA1019: .*SetStreamMode"
     paths:
     - .*\.pb\.go
     - .*\.gen\.go
