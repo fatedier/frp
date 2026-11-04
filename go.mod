@@ -17,7 +17,7 @@ require (
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
 	github.com/prometheus/common v0.72.0
-	github.com/quic-go/quic-go v0.60.0
+	github.com/quic-go/quic-go v0.65.0
 	github.com/rodaine/table v1.4.1
 	github.com/samber/lo v1.53.0
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
