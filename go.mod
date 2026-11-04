@@ -14,9 +14,9 @@ require (
 	github.com/onsi/gomega v1.44.0
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/pires/go-proxyproto v0.15.0
-	github.com/prometheus/client_golang v1.19.1
-	github.com/prometheus/client_model v0.5.0
-	github.com/prometheus/common v0.48.0
+	github.com/prometheus/client_golang v1.25.0
+	github.com/prometheus/client_model v0.6.3
+	github.com/prometheus/common v0.72.0
 	github.com/quic-go/quic-go v0.60.0
 	github.com/rodaine/table v1.4.1
 	github.com/samber/lo v1.53.0
@@ -44,7 +44,7 @@ require (
 	github.com/Azure/go-ntlmssp v0.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
@@ -54,8 +54,9 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.6 // indirect
 	github.com/klauspost/reedsolomon v1.12.0 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/procfs v0.12.0 // indirect
+	github.com/prometheus/procfs v0.22.0 // indirect
 	github.com/templexxx/cpu v0.1.1 // indirect
 	github.com/templexxx/xorsimd v0.4.3 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
@@ -67,7 +68,7 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.51.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
-	google.golang.org/protobuf v1.36.7 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect

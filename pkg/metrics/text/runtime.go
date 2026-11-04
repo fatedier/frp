@@ -37,133 +37,131 @@ type memstats struct {
 var memstatsFamilies = []memstats{
 	{
 		name: "go_memstats_alloc_bytes",
-		help: "Number of bytes allocated and still in use.",
+		help: "Number of bytes allocated in heap and currently in use. Equals to /memory/classes/heap/objects:bytes.",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.Alloc) },
 	},
 	{
 		name: "go_memstats_alloc_bytes_total",
-		help: "Total number of bytes allocated, even if freed.",
+		help: "Total number of bytes allocated in heap until now, even if released already. Equals to /gc/heap/allocs:bytes.",
 		typ:  typeCounter,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.TotalAlloc) },
 	},
 	{
 		name: "go_memstats_buck_hash_sys_bytes",
-		help: "Number of bytes used by the profiling bucket hash table.",
+		help: "Number of bytes used by the profiling bucket hash table. Equals to /memory/classes/profiling/buckets:bytes.",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.BuckHashSys) },
 	},
 	{
 		name: "go_memstats_frees_total",
-		help: "Total number of frees.",
+		help: "Total number of heap objects frees. Equals to /gc/heap/frees:objects + /gc/heap/tiny/allocs:objects.",
 		typ:  typeCounter,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.Frees) },
 	},
 	{
 		name: "go_memstats_gc_sys_bytes",
-		help: "Number of bytes used for garbage collection system metadata.",
+		help: "Number of bytes used for garbage collection system metadata. Equals to /memory/classes/metadata/other:bytes.",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.GCSys) },
 	},
 	{
 		name: "go_memstats_heap_alloc_bytes",
-		help: "Number of heap bytes allocated and still in use.",
+		help: "Number of heap bytes allocated and currently in use, same as go_memstats_alloc_bytes. Equals to /memory/classes/heap/objects:bytes.",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.HeapAlloc) },
 	},
 	{
 		name: "go_memstats_heap_idle_bytes",
-		help: "Number of heap bytes waiting to be used.",
+		help: "Number of heap bytes waiting to be used. Equals to /memory/classes/heap/released:bytes + /memory/classes/heap/free:bytes.",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.HeapIdle) },
 	},
 	{
 		name: "go_memstats_heap_inuse_bytes",
-		help: "Number of heap bytes that are in use.",
+		help: "Number of heap bytes that are in use. Equals to /memory/classes/heap/objects:bytes + /memory/classes/heap/unused:bytes",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.HeapInuse) },
 	},
 	{
 		name: "go_memstats_heap_objects",
-		help: "Number of allocated objects.",
+		help: "Number of currently allocated objects. Equals to /gc/heap/objects:objects.",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.HeapObjects) },
 	},
 	{
 		name: "go_memstats_heap_released_bytes",
-		help: "Number of heap bytes released to OS.",
+		help: "Number of heap bytes released to OS. Equals to /memory/classes/heap/released:bytes.",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.HeapReleased) },
 	},
 	{
 		name: "go_memstats_heap_sys_bytes",
-		help: "Number of heap bytes obtained from system.",
-		typ:  typeGauge,
-		get:  func(ms *runtime.MemStats) float64 { return float64(ms.HeapSys) },
-	},
-	{
-		name: "go_memstats_lookups_total",
-		help: "Total number of pointer lookups.",
-		typ:  typeCounter,
-		get:  func(ms *runtime.MemStats) float64 { return float64(ms.Lookups) },
+		help: "Number of heap bytes obtained from system. Equals to /memory/classes/heap/objects:bytes + /memory/classes/heap/unused:bytes + /memory/classe" +
+			"s/heap/released:bytes + /memory/classes/heap/free:bytes.",
+		typ: typeGauge,
+		get: func(ms *runtime.MemStats) float64 { return float64(ms.HeapSys) },
 	},
 	{
 		name: "go_memstats_mallocs_total",
-		help: "Total number of mallocs.",
-		typ:  typeCounter,
-		get:  func(ms *runtime.MemStats) float64 { return float64(ms.Mallocs) },
+		help: "Total number of heap objects allocated, both live and gc-ed. Semantically a counter version for go_memstats_heap_objects gauge. Equals to /g" +
+			"c/heap/allocs:objects + /gc/heap/tiny/allocs:objects.",
+		typ: typeCounter,
+		get: func(ms *runtime.MemStats) float64 { return float64(ms.Mallocs) },
 	},
 	{
 		name: "go_memstats_mcache_inuse_bytes",
-		help: "Number of bytes in use by mcache structures.",
+		help: "Number of bytes in use by mcache structures. Equals to /memory/classes/metadata/mcache/inuse:bytes.",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.MCacheInuse) },
 	},
 	{
 		name: "go_memstats_mcache_sys_bytes",
-		help: "Number of bytes used for mcache structures obtained from system.",
-		typ:  typeGauge,
-		get:  func(ms *runtime.MemStats) float64 { return float64(ms.MCacheSys) },
+		help: "Number of bytes used for mcache structures obtained from system. Equals to /memory/classes/metadata/mcache/inuse:bytes + /memory/classes/met" +
+			"adata/mcache/free:bytes.",
+		typ: typeGauge,
+		get: func(ms *runtime.MemStats) float64 { return float64(ms.MCacheSys) },
 	},
 	{
 		name: "go_memstats_mspan_inuse_bytes",
-		help: "Number of bytes in use by mspan structures.",
+		help: "Number of bytes in use by mspan structures. Equals to /memory/classes/metadata/mspan/inuse:bytes.",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.MSpanInuse) },
 	},
 	{
 		name: "go_memstats_mspan_sys_bytes",
-		help: "Number of bytes used for mspan structures obtained from system.",
-		typ:  typeGauge,
-		get:  func(ms *runtime.MemStats) float64 { return float64(ms.MSpanSys) },
+		help: "Number of bytes used for mspan structures obtained from system. Equals to /memory/classes/metadata/mspan/inuse:bytes + /memory/classes/metad" +
+			"ata/mspan/free:bytes.",
+		typ: typeGauge,
+		get: func(ms *runtime.MemStats) float64 { return float64(ms.MSpanSys) },
 	},
 	{
 		name: "go_memstats_next_gc_bytes",
-		help: "Number of heap bytes when next garbage collection will take place.",
+		help: "Number of heap bytes when next garbage collection will take place. Equals to /gc/heap/goal:bytes.",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.NextGC) },
 	},
 	{
 		name: "go_memstats_other_sys_bytes",
-		help: "Number of bytes used for other system allocations.",
+		help: "Number of bytes used for other system allocations. Equals to /memory/classes/other:bytes.",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.OtherSys) },
 	},
 	{
 		name: "go_memstats_stack_inuse_bytes",
-		help: "Number of bytes in use by the stack allocator.",
+		help: "Number of bytes obtained from system for stack allocator in non-CGO environments. Equals to /memory/classes/heap/stacks:bytes.",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.StackInuse) },
 	},
 	{
 		name: "go_memstats_stack_sys_bytes",
-		help: "Number of bytes obtained from system for stack allocator.",
+		help: "Number of bytes obtained from system for stack allocator. Equals to /memory/classes/heap/stacks:bytes + /memory/classes/os-stacks:bytes.",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.StackSys) },
 	},
 	{
 		name: "go_memstats_sys_bytes",
-		help: "Number of bytes obtained from system.",
+		help: "Number of bytes obtained from system. Equals to /memory/classes/total:byte.",
 		typ:  typeGauge,
 		get:  func(ms *runtime.MemStats) float64 { return float64(ms.Sys) },
 	},
@@ -359,7 +357,7 @@ func runtimeFamilies() []family {
 	return append(out,
 		family{
 			name:    "go_gc_duration_seconds",
-			help:    "A summary of the pause duration of garbage collection cycles.",
+			help:    "A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.",
 			typ:     typeSummary,
 			samples: gcSamples,
 		},
@@ -389,7 +387,35 @@ func runtimeFamilies() []family {
 			typ:     typeGauge,
 			samples: []sample{{value: float64(threadCount())}},
 		},
+		family{
+			name: "go_gc_gogc_percent",
+			help: "Heap size target percentage configured by the user, otherwise 100. This value is set by the GOGC environment variable, and the runtime/debug" +
+				".SetGCPercent function. Sourced from /gc/gogc:percent.",
+			typ:     typeGauge,
+			samples: []sample{{value: float64(readRuntimeMetric("/gc/gogc:percent"))}},
+		},
+		family{
+			name: "go_gc_gomemlimit_bytes",
+			help: "Go runtime memory limit configured by the user, otherwise math.MaxInt64. This value is set by the GOMEMLIMIT environment variable, and the r" +
+				"untime/debug.SetMemoryLimit function. Sourced from /gc/gomemlimit:bytes.",
+			typ:     typeGauge,
+			samples: []sample{{value: float64(readRuntimeMetric("/gc/gomemlimit:bytes"))}},
+		},
+		family{
+			name: "go_sched_gomaxprocs_threads",
+			help: "The current runtime.GOMAXPROCS setting, or the number of operating system threads that can execute user-level Go code simultaneously. Source" +
+				"d from /sched/gomaxprocs:threads.",
+			typ:     typeGauge,
+			samples: []sample{{value: float64(runtime.GOMAXPROCS(0))}},
+		},
 	)
+}
+
+// readRuntimeMetric reads one runtime/metrics gauge.
+func readRuntimeMetric(name string) uint64 {
+	s := []metrics.Sample{{Name: name}}
+	metrics.Read(s)
+	return s[0].Value.Uint64()
 }
 
 func threadCount() int {

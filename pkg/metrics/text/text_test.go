@@ -24,6 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,7 +42,7 @@ func gather(t *testing.T) string {
 // so anything a scraper would reject fails the test.
 func parseFamilies(t *testing.T, body string) map[string]*dto.MetricFamily {
 	t.Helper()
-	parser := expfmt.TextParser{}
+	parser := expfmt.NewTextParser(model.UTF8Validation)
 	families, err := parser.TextToMetricFamilies(strings.NewReader(body))
 	require.NoError(t, err, "output must be valid text exposition format")
 	return families
