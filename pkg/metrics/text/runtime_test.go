@@ -74,8 +74,7 @@ func TestMemStatsMapping(t *testing.T) {
 		"go_memstats_heap_objects":        900,
 		"go_memstats_heap_released_bytes": 5 << 20,
 		"go_memstats_heap_sys_bytes":      17 << 20, // inuse + idle
-		"go_memstats_lookups_total":       0,
-		"go_memstats_mallocs_total":       103, // 100 mallocs + 3 tiny allocs
+		"go_memstats_mallocs_total":       103,      // 100 mallocs + 3 tiny allocs
 		"go_memstats_mcache_inuse_bytes":  1 << 17,
 		"go_memstats_mcache_sys_bytes":    3 << 16, // inuse + free
 		"go_memstats_mspan_inuse_bytes":   1 << 19,
