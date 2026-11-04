@@ -139,6 +139,41 @@ func (pm *Manager) GetProxyStatus(name string) (*WorkingStatus, bool) {
 	return nil, false
 }
 
+// PreparePluginReload snapshots live plugin instances before applying config.
+// Invoke the returned function only after config application succeeds and all
+// configuration locks have been released. Replaced instances are skipped.
+func (pm *Manager) PreparePluginReload() func() {
+	type target struct {
+		pw *Wrapper
+		p  reloadablePlugin
+	}
+	pm.mu.RLock()
+	targets := make([]target, 0, len(pm.proxies))
+	for _, pw := range pm.proxies {
+		pw.mu.RLock()
+		if pw.Phase == ProxyPhaseRunning {
+			if p := pw.reloadablePluginLocked(); p != nil {
+				targets = append(targets, target{pw: pw, p: p})
+			}
+		}
+		pw.mu.RUnlock()
+	}
+	pm.mu.RUnlock()
+	return func() {
+		for _, t := range targets {
+			t.pw.mu.RLock()
+			current := t.pw.Phase == ProxyPhaseRunning && t.pw.reloadablePluginLocked() == t.p
+			t.pw.mu.RUnlock()
+			if !current {
+				continue
+			}
+			if err := t.p.Reload(); err != nil {
+				t.pw.xl.Warnf("reload plugin %s: %v", t.p.Name(), err)
+			}
+		}
+	}
+}
+
 func (pm *Manager) UpdateAll(proxyCfgs []v1.ProxyConfigurer) {
 	xl := xlog.FromContextSafe(pm.ctx)
 	proxyCfgsMap := lo.KeyBy(proxyCfgs, func(c v1.ProxyConfigurer) string {

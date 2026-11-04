@@ -51,8 +51,9 @@ func rewriteHTTPPluginRequest(
 }
 
 type httpBridgePlugin struct {
-	l *Listener
-	s *http.Server
+	l           *Listener
+	s           *http.Server
+	httpsServer *httpsserver.Server
 
 	useSourceRemoteAddr bool
 }
@@ -87,7 +88,8 @@ func newHTTPSBridgePluginServer(
 	}
 	p := &httpBridgePlugin{
 		l:                   listener,
-		s:                   server,
+		s:                   server.Server,
+		httpsServer:         server,
 		useSourceRemoteAddr: useSourceRemoteAddr,
 	}
 	go func() {
@@ -123,4 +125,19 @@ func (p *httpBridgePlugin) Close() error {
 	err := p.s.Close()
 	_ = p.l.Close()
 	return err
+}
+
+// Reload refreshes only resources owned by this plugin; HTTP bridges are no-op.
+func (p *httpBridgePlugin) Reload() error {
+	if p.httpsServer == nil {
+		return nil
+	}
+	return p.httpsServer.Reload()
+}
+
+func (p *httpBridgePlugin) ReloadError() error {
+	if p.httpsServer == nil {
+		return nil
+	}
+	return p.httpsServer.ReloadError()
 }

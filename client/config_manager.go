@@ -45,8 +45,27 @@ func (m *serviceConfigManager) ReloadFromFile(strict bool) error {
 		return fmt.Errorf("%w: %v", configmgmt.ErrInvalidArgument, err)
 	}
 
-	if err := m.svr.UpdateConfigSource(result.Common, result.Proxies, result.Visitors); err != nil {
+	var reloadPlugins func()
+	err = func() error {
+		m.svr.reloadMu.Lock()
+		defer m.svr.reloadMu.Unlock()
+
+		// Snapshot plugins and apply config in the same transaction as control handoff.
+		m.svr.ctlMu.RLock()
+		ctl := m.svr.ctl
+		m.svr.ctlMu.RUnlock()
+		if ctl != nil {
+			reloadPlugins = ctl.pm.PreparePluginReload()
+		}
+		return m.svr.updateConfigSourceLocked(result.Common, result.Proxies, result.Visitors)
+	}()
+	if err != nil {
 		return fmt.Errorf("%w: %v", configmgmt.ErrApplyConfig, err)
+	}
+
+	// Certificate file I/O must not hold the reload transaction lock.
+	if reloadPlugins != nil {
+		reloadPlugins()
 	}
 
 	log.Infof("success reload conf")

@@ -75,12 +75,26 @@ webServer.password = "admin"
 # dashboard assets directory(only for debug mode)
 # webServer.assetsDir = "./static"
 
+# Deprecated: use metricsServer.pprofEnable for authenticated profiling.
 # Enable golang pprof handlers in dashboard listener.
 # Dashboard port must be set first
 webServer.pprofEnable = false
 
-# enablePrometheus will export prometheus metrics on webServer in /metrics api.
+# Deprecated: enablePrometheus exports /metrics on webServer only.
+# Use metricsServer.port instead; it enables business metrics automatically.
 enablePrometheus = true
+
+# Separate health, Prometheus metrics, and optional profiling listener.
+# Port 0 disables it. The default address only accepts local connections.
+metricsServer.addr = "127.0.0.1"
+metricsServer.port = 0
+# Credentials and TLS are independent of webServer; /healthz stays anonymous.
+# metricsServer.user = "monitor"
+# metricsServer.password = "change-me"
+# metricsServer.tls.certFile = "metrics.crt"
+# metricsServer.tls.keyFile = "metrics.key"
+# Profiling requires explicit opt-in, uses the above credentials, and excludes cmdline.
+metricsServer.pprofEnable = false
 
 # console or real logFile path like ./frps.log
 log.to = "./frps.log"

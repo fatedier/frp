@@ -60,10 +60,11 @@ type ClientCommonConfig struct {
 	// set.
 	Start []string `json:"start,omitempty"`
 
-	Log        LogConfig             `json:"log,omitempty"`
-	WebServer  WebServerConfig       `json:"webServer,omitempty"`
-	Transport  ClientTransportConfig `json:"transport,omitempty"`
-	VirtualNet VirtualNetConfig      `json:"virtualNet,omitempty"`
+	Log           LogConfig             `json:"log,omitempty"`
+	WebServer     WebServerConfig       `json:"webServer,omitempty"`
+	MetricsServer MetricsServerConfig   `json:"metricsServer,omitempty"`
+	Transport     ClientTransportConfig `json:"transport,omitempty"`
+	VirtualNet    VirtualNetConfig      `json:"virtualNet,omitempty"`
 
 	// FeatureGates specifies a set of feature gates to enable or disable.
 	// This can be used to enable alpha/beta features or disable default features.
@@ -94,6 +95,7 @@ func (c *ClientCommonConfig) Complete() error {
 	c.Log.Complete()
 	c.Transport.Complete()
 	c.WebServer.Complete()
+	c.MetricsServer.Complete()
 
 	c.UDPPacketSize = util.EmptyOr(c.UDPPacketSize, 1500)
 	return nil

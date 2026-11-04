@@ -109,11 +109,12 @@ func (c *defaultConnectorImpl) Open() error {
 			sn = c.cfg.ServerAddr
 		}
 		if lo.FromPtr(c.cfg.Transport.TLS.Enable) {
-			tlsConfig, err = transport.NewClientTLSConfig(
+			tlsConfig, err = transport.NewClientTLSConfigWithSystemCA(
 				c.cfg.Transport.TLS.CertFile,
 				c.cfg.Transport.TLS.KeyFile,
 				c.cfg.Transport.TLS.TrustedCaFile,
-				sn)
+				sn,
+				c.cfg.Transport.TLS.UseSystemCa)
 		} else {
 			tlsConfig, err = transport.NewClientTLSConfig("", "", "", sn)
 		}
@@ -194,11 +195,12 @@ func (c *defaultConnectorImpl) realConnect() (net.Conn, error) {
 			sn = c.cfg.ServerAddr
 		}
 
-		tlsConfig, err = transport.NewClientTLSConfig(
+		tlsConfig, err = transport.NewClientTLSConfigWithSystemCA(
 			c.cfg.Transport.TLS.CertFile,
 			c.cfg.Transport.TLS.KeyFile,
 			c.cfg.Transport.TLS.TrustedCaFile,
-			sn)
+			sn,
+			c.cfg.Transport.TLS.UseSystemCa)
 		if err != nil {
 			xl.Warnf("fail to build tls configuration, err: %v", err)
 			return nil, err

@@ -18,6 +18,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -30,18 +31,45 @@ import (
 )
 
 // Delay one real TCP write without injecting an error. The stream's write
-// failure must come from yamux's ConnectionWriteTimeout.
+// failure must come from yamux's ConnectionWriteTimeout, which yamux enforces
+// as a write deadline on the underlying connection, so the delayed write has
+// to observe that deadline the way a real socket does.
 type delayedTCPConn struct {
 	net.Conn
 	armed   atomic.Bool
 	entered chan struct{}
 	release chan struct{}
+
+	deadlineMu sync.Mutex
+	deadline   time.Time
+}
+
+func (c *delayedTCPConn) SetWriteDeadline(t time.Time) error {
+	c.deadlineMu.Lock()
+	c.deadline = t
+	c.deadlineMu.Unlock()
+	return c.Conn.SetWriteDeadline(t)
 }
 
 func (c *delayedTCPConn) Write(p []byte) (int, error) {
 	if c.armed.Swap(false) {
 		close(c.entered)
-		<-c.release
+		c.deadlineMu.Lock()
+		deadline := c.deadline
+		c.deadlineMu.Unlock()
+		var timeout <-chan time.Time
+		if !deadline.IsZero() {
+			timer := time.NewTimer(time.Until(deadline))
+			defer timer.Stop()
+			timeout = timer.C
+		}
+		select {
+		case <-c.release:
+		case <-timeout:
+			// Same value a real socket returns; yamux maps any timeout error
+			// to ErrConnectionWriteTimeout.
+			return 0, os.ErrDeadlineExceeded
+		}
 	}
 	return c.Conn.Write(p)
 }
@@ -206,20 +234,12 @@ func TestDispatcherYamuxWriteTimeoutInterruptsRead(t *testing.T) {
 			if observed.closeCalls.Load() != 1 {
 				t.Fatalf("control closed %d times, want once", observed.closeCalls.Load())
 			}
-			if client.IsClosed() || server.IsClosed() {
-				t.Fatal("yamux session unexpectedly closed")
-			}
-			fresh, freshPeer, freshObserved := loopbackControlPair(t, client, server, protocol)
-			for range 5 {
-				if err := fresh.WriteMsg(&ReqWorkConn{}); err != nil {
-					t.Fatal(err)
-				}
-				loopbackReadReq(t, freshPeer)
-				for len(freshObserved.writes) > 0 {
-					<-freshObserved.writes
-				}
-			}
-			t.Log("Done/readLoop exited without peer FIN; Close once; same yamux session decrypted five fresh messages")
+			// yamux enforces ConnectionWriteTimeout on the transport, so the
+			// failed write ends the whole session instead of leaving it blocked
+			// but alive.
+			regressionAwait(t, client.CloseChan(), "client yamux session close")
+			regressionAwait(t, server.CloseChan(), "server yamux session close")
+			t.Log("Done/readLoop exited without peer FIN; Close once; write timeout closed both yamux sessions")
 		})
 	}
 }

@@ -69,7 +69,8 @@ type ServerConfig struct {
 
 	SSHTunnelGateway SSHTunnelGateway `json:"sshTunnelGateway,omitempty"`
 
-	WebServer WebServerConfig `json:"webServer,omitempty"`
+	WebServer     WebServerConfig     `json:"webServer,omitempty"`
+	MetricsServer MetricsServerConfig `json:"metricsServer,omitempty"`
 	// EnablePrometheus will export prometheus metrics on webserver address
 	// in /metrics api.
 	EnablePrometheus bool `json:"enablePrometheus,omitempty"`
@@ -105,6 +106,7 @@ func (c *ServerConfig) Complete() error {
 	c.Log.Complete()
 	c.Transport.Complete()
 	c.WebServer.Complete()
+	c.MetricsServer.Complete()
 	c.SSHTunnelGateway.Complete()
 
 	c.BindAddr = util.EmptyOr(c.BindAddr, "0.0.0.0")

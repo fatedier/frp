@@ -23,6 +23,9 @@ import (
 
 func validateWebServerConfig(c *v1.WebServerConfig) error {
 	if c.TLS != nil {
+		if c.TLS.UseSystemCa {
+			return fmt.Errorf("webServer.tls.useSystemCa is only supported in frpc transport.tls")
+		}
 		if c.TLS.CertFile == "" {
 			return fmt.Errorf("tls.certFile must be specified when tls is enabled")
 		}
@@ -32,6 +35,27 @@ func validateWebServerConfig(c *v1.WebServerConfig) error {
 	}
 
 	return ValidatePort(c.Port, "webServer.port")
+}
+
+func validateMetricsServerConfig(c *v1.MetricsServerConfig, web *v1.WebServerConfig) error {
+	if err := ValidatePort(c.Port, "metricsServer.port"); err != nil {
+		return err
+	}
+	if c.TLS != nil {
+		if c.TLS.UseSystemCa {
+			return fmt.Errorf("metricsServer.tls.useSystemCa is only supported in frpc transport.tls")
+		}
+		if c.TLS.CertFile == "" || c.TLS.KeyFile == "" {
+			return fmt.Errorf("metricsServer.tls.certFile and metricsServer.tls.keyFile must both be specified when tls is enabled")
+		}
+	}
+	// Only reject an exact duplicate. Whether two different addresses can share
+	// a port depends on the address family and the platform, so leave it to
+	// net.Listen to decide.
+	if c.Port > 0 && web.Port > 0 && c.Port == web.Port && c.Addr == web.Addr {
+		return fmt.Errorf("metricsServer.addr:port conflicts with webServer.addr:port")
+	}
+	return nil
 }
 
 // ValidatePort checks that the network port is in range

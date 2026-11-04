@@ -34,6 +34,7 @@ import (
 	"github.com/fatedier/frp/pkg/config/source"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/config/v1/validation"
+	"github.com/fatedier/frp/pkg/metrics/text"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/policy/security"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
@@ -123,13 +124,14 @@ type Service struct {
 	auth *auth.ClientAuth
 
 	// web server for admin UI and apis
-	webServer *httppkg.Server
+	webServer     *httppkg.Server
+	metricsServer *httppkg.Server
 
 	vnetController *vnet.Controller
 
 	cfgMu sync.RWMutex
-	// reloadMu serializes reload transactions to keep reloadCommon and applied
-	// config in sync across concurrent API operations.
+	// reloadMu serializes config updates with control startup and publication,
+	// keeping reloadCommon and applied config in sync across reloads and reconnects.
 	reloadMu sync.Mutex
 	common   *v1.ClientCommonConfig
 	// reloadCommon is used for filtering/defaulting during config-source reloads.
@@ -188,8 +190,8 @@ func NewService(options ServiceOptions) (*Service, error) {
 	proxyCfgs = config.CompleteProxyConfigurers(proxyCfgs)
 	visitorCfgs = config.CompleteVisitorConfigurers(visitorCfgs)
 
-	// Create the web server after all fallible steps so its listener is not
-	// leaked when an earlier error causes NewService to return.
+	// Create HTTP servers after all other fallible steps, rolling back the web
+	// listener if the metrics server cannot be created.
 	var webServer *httppkg.Server
 	if options.Common.WebServer.Port > 0 {
 		ws, err := httppkg.NewServer(options.Common.WebServer)
@@ -198,11 +200,27 @@ func NewService(options ServiceOptions) (*Service, error) {
 		}
 		webServer = ws
 	}
+	// frpc exposes Go runtime metrics only. They are written by pkg/metrics/text
+	// so that client_golang and protobuf stay out of the frpc binary.
+	var metricsHandler http.Handler
+	if options.Common.MetricsServer.Port > 0 {
+		registry := text.NewRegistry()
+		registry.RegisterRuntime()
+		metricsHandler = registry.Handler()
+	}
+	metricsServer, err := httppkg.NewMetricsServer(options.Common.MetricsServer, metricsHandler)
+	if err != nil {
+		if webServer != nil {
+			_ = webServer.Close()
+		}
+		return nil, err
+	}
 
 	s := &Service{
 		ctx:              context.Background(),
 		auth:             authRuntime,
 		webServer:        webServer,
+		metricsServer:    metricsServer,
 		common:           options.Common,
 		reloadCommon:     options.Common,
 		configFilePath:   options.ConfigFilePath,
@@ -263,11 +281,27 @@ func (svr *Service) Run(ctx context.Context) error {
 	}
 
 	if svr.webServer != nil {
+		if svr.common.WebServer.PprofEnable {
+			log.Warnf("webServer pprof endpoints are deprecated; use metricsServer.pprofEnable instead")
+		}
+		if svr.common.MetricsServer.Port == 0 {
+			log.Infof("webServer /healthz is deprecated; health probes can migrate to metricsServer.port")
+		}
 		webServer := svr.webServer
 		go func() {
 			log.Infof("admin server listen on %s", webServer.Address())
 			if err := webServer.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Warnf("admin server exit with error: %v", err)
+			}
+		}()
+	}
+
+	if svr.metricsServer != nil {
+		metricsServer := svr.metricsServer
+		go func() {
+			log.Infof("metrics server listen on %s", metricsServer.Address())
+			if err := metricsServer.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Warnf("metrics server exit with error: %v", err)
 			}
 		}()
 	}
@@ -354,11 +388,6 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 		xl.AddPrefix(xlog.LogPrefix{Name: "runID", Value: svr.runID})
 		xl.Infof("login to server success, get run id [%s]", svr.runID)
 
-		svr.cfgMu.RLock()
-		proxyCfgs := svr.proxyCfgs
-		visitorCfgs := svr.visitorCfgs
-		svr.cfgMu.RUnlock()
-
 		ctl, err := NewControl(svr.ctx, sessionCtx)
 		if err != nil {
 			sessionCtx.Conn.Close()
@@ -367,6 +396,15 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 			return false, err
 		}
 		ctl.SetInWorkConnCallback(svr.handleWorkConnCb)
+
+		// An update must either precede this snapshot or apply to the published
+		// control. Keep dialing and login outside the reload transaction.
+		svr.reloadMu.Lock()
+		defer svr.reloadMu.Unlock()
+		svr.cfgMu.RLock()
+		proxyCfgs := svr.proxyCfgs
+		visitorCfgs := svr.visitorCfgs
+		svr.cfgMu.RUnlock()
 
 		ctl.Run(proxyCfgs, visitorCfgs)
 		// close and replace previous control
@@ -390,6 +428,13 @@ func (svr *Service) loopLoginUntilSuccess(maxInterval time.Duration, firstLoginE
 }
 
 func (svr *Service) UpdateAllConfigurer(proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error {
+	svr.reloadMu.Lock()
+	defer svr.reloadMu.Unlock()
+	return svr.updateAllConfigurerLocked(proxyCfgs, visitorCfgs)
+}
+
+// Caller must hold reloadMu.
+func (svr *Service) updateAllConfigurerLocked(proxyCfgs []v1.ProxyConfigurer, visitorCfgs []v1.VisitorConfigurer) error {
 	svr.cfgMu.Lock()
 	svr.proxyCfgs = proxyCfgs
 	svr.visitorCfgs = visitorCfgs
@@ -413,6 +458,15 @@ func (svr *Service) UpdateConfigSource(
 	svr.reloadMu.Lock()
 	defer svr.reloadMu.Unlock()
 
+	return svr.updateConfigSourceLocked(common, proxyCfgs, visitorCfgs)
+}
+
+// Caller must hold reloadMu.
+func (svr *Service) updateConfigSourceLocked(
+	common *v1.ClientCommonConfig,
+	proxyCfgs []v1.ProxyConfigurer,
+	visitorCfgs []v1.VisitorConfigurer,
+) error {
 	cfgSource := svr.configSource
 	if cfgSource == nil {
 		return fmt.Errorf("config source is not available")
@@ -476,6 +530,10 @@ func (svr *Service) stop() {
 	if svr.webServer != nil {
 		svr.webServer.Close()
 		svr.webServer = nil
+	}
+	if svr.metricsServer != nil {
+		svr.metricsServer.Close()
+		svr.metricsServer = nil
 	}
 	if svr.vnetController != nil {
 		_ = svr.vnetController.Stop()
@@ -556,7 +614,7 @@ func (svr *Service) reloadConfigFromSourcesLocked() error {
 	}
 
 	// Atomically replace the entire configuration
-	if err := svr.UpdateAllConfigurer(proxies, visitors); err != nil {
+	if err := svr.updateAllConfigurerLocked(proxies, visitors); err != nil {
 		return err
 	}
 	return nil

@@ -48,14 +48,20 @@ type Server struct {
 func NewServer(cfg v1.WebServerConfig) (*Server, error) {
 	assets.Load(cfg.AssetsDir)
 
-	addr := net.JoinHostPort(cfg.Addr, strconv.Itoa(cfg.Port))
-	if addr == ":" {
-		addr = ":http"
-	}
-
-	ln, err := net.Listen("tcp", addr)
+	s, err := newServer(cfg.Addr, cfg.Port, cfg.User, cfg.Password, cfg.TLS)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.PprofEnable {
+		s.registerPprofHandlers()
+	}
+	return s, nil
+}
+
+func newServer(bindAddr string, port int, user, password string, tlsConfig *v1.TLSConfig) (*Server, error) {
+	addr := net.JoinHostPort(bindAddr, strconv.Itoa(port))
+	if addr == ":" {
+		addr = ":http"
 	}
 
 	router := mux.NewRouter()
@@ -67,15 +73,11 @@ func NewServer(cfg v1.WebServerConfig) (*Server, error) {
 	}
 	s := &Server{
 		addr:   addr,
-		ln:     ln,
 		hs:     hs,
 		router: router,
 	}
-	if cfg.PprofEnable {
-		s.registerPprofHandlers()
-	}
-	if cfg.TLS != nil {
-		cert, err := tls.LoadX509KeyPair(cfg.TLS.CertFile, cfg.TLS.KeyFile)
+	if tlsConfig != nil {
+		cert, err := tls.LoadX509KeyPair(tlsConfig.CertFile, tlsConfig.KeyFile)
 		if err != nil {
 			return nil, err
 		}
@@ -83,7 +85,14 @@ func NewServer(cfg v1.WebServerConfig) (*Server, error) {
 			Certificates: []tls.Certificate{cert},
 		}
 	}
-	s.authMiddleware = netpkg.NewHTTPAuthMiddleware(cfg.User, cfg.Password).SetAuthFailDelay(200 * time.Millisecond).Middleware
+	s.authMiddleware = netpkg.NewHTTPAuthMiddleware(user, password).SetAuthFailDelay(200 * time.Millisecond).Middleware
+
+	// Bind only after all fallible preparation so an error cannot leak the listener.
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	s.ln = ln
 	return s, nil
 }
 

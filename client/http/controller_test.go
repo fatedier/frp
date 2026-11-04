@@ -213,6 +213,35 @@ func TestBuildProxyStatusRespStoreSourceEnabled(t *testing.T) {
 	}
 }
 
+func TestBuildProxyStatusRespRunningWithErrorKeepsRemoteAddr(t *testing.T) {
+	const certificateErr = "reload plugin https2http: invalid certificate"
+	controller := &Controller{serverAddr: "127.0.0.1", manager: &fakeConfigManager{}}
+	for _, tc := range []struct {
+		name, phase, err, remoteAddr string
+	}{
+		{"running", proxy.ProxyPhaseRunning, "", "127.0.0.1:43210"},
+		{"running with error", proxy.ProxyPhaseRunning, certificateErr, "127.0.0.1:43210"},
+		{"start error", proxy.ProxyPhaseStartErr, "start failed", ""},
+		{"closed with error", proxy.ProxyPhaseClosed, certificateErr, ""},
+		{"closed without error", proxy.ProxyPhaseClosed, "", "127.0.0.1:43210"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			status := &proxy.WorkingStatus{
+				Name: "https", Type: "tcp", Phase: tc.phase, Err: tc.err,
+				RemoteAddr: ":43210",
+				Cfg:        newRawTCPProxyConfig("https"), // RemotePort remains zero (allocated by frps).
+			}
+			resp := controller.buildProxyStatusResp(status)
+			if resp.RemoteAddr != tc.remoteAddr {
+				t.Fatalf("unexpected remote addr: got %q, want %q", resp.RemoteAddr, tc.remoteAddr)
+			}
+			if resp.Err != tc.err || resp.Status != tc.phase {
+				t.Fatalf("status or error changed: %+v", resp)
+			}
+		})
+	}
+}
+
 func TestReloadErrorMapping(t *testing.T) {
 	tests := []struct {
 		name         string

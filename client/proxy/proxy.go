@@ -120,6 +120,9 @@ func (pxy *BaseProxy) Run() error {
 	return nil
 }
 
+// getPlugin is accessed while the owning Wrapper holds its lifecycle lock.
+func (pxy *BaseProxy) getPlugin() plugin.Plugin { return pxy.proxyPlugin }
+
 func (pxy *BaseProxy) Close() {
 	if pxy.proxyPlugin != nil {
 		pxy.proxyPlugin.Close()
