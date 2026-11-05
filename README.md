@@ -12,6 +12,18 @@ frp is an open source project with its ongoing development made possible entirel
 
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
+<p align="center">
+  <a href="https://www.swiftproxy.net/?ref=frp" target="_blank">
+    <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_swiftproxy.png" alt="Swiftproxy">
+    <br>
+    <b>Swiftproxy - Premium Global Residential Proxy Network</b>
+    <br>
+    <sub>Reliable residential IPs across 220+ locations, helping frp users test remote access, verify connectivity, and access region-specific network resources worldwide.</sub>
+    <br>
+    <sub>Free testing available, with 10% off using code PROXY90.</sub>
+  </a>
+</p>
+
 <div align="center">
 
 ## Recall.ai - API for meeting recordings
