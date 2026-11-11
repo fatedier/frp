@@ -208,6 +208,16 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	// Init 404 not found page
 	vhost.NotFoundPagePath = cfg.Custom404Page
 
+	customErrorPages := make(map[int]vhost.CustomErrorPage, len(cfg.CustomErrorPages))
+	for _, p := range cfg.CustomErrorPages {
+		customErrorPages[p.StatusCode] = vhost.CustomErrorPage{
+			ContentType: p.ContentType,
+			Body:        p.Body,
+			Headers:     p.Headers,
+		}
+	}
+	vhost.SetCustomErrorPages(customErrorPages)
+
 	var (
 		httpMuxOn  bool
 		httpsMuxOn bool
