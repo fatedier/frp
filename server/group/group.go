@@ -16,6 +16,7 @@ package group
 
 import (
 	"errors"
+	"strings"
 )
 
 var (
@@ -27,3 +28,10 @@ var (
 
 	errGroupStale = errors.New("stale group reference")
 )
+
+// routeGroupKey returns the registry key of a group that serves a single
+// vhost route. A proxy with several domains or locations joins one such group
+// per route, so every route is balanced across the members of the group.
+func routeGroupKey(group string, route ...string) string {
+	return strings.Join(append([]string{group}, route...), "\x00")
+}
