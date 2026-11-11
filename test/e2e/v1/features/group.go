@@ -193,6 +193,60 @@ var _ = ginkgo.Describe("[Feature: Group]", func() {
 			framework.ExpectTrue(fooCount > 1 && barCount > 1, "fooCount: %d, barCount: %d", fooCount, barCount)
 		})
 
+		ginkgo.It("HTTP with multiple domains and locations", func() {
+			vhostPort := f.AllocPort()
+			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
+			vhostHTTPPort = %d
+			`, vhostPort)
+			clientConf := consts.DefaultClientConfig
+
+			fooPort := f.AllocPort()
+			f.RunServer("", newHTTPServer(fooPort, "foo"))
+
+			barPort := f.AllocPort()
+			f.RunServer("", newHTTPServer(barPort, "bar"))
+
+			clientConf += fmt.Sprintf(`
+			[[proxies]]
+			name = "foo"
+			type = "http"
+			localPort = %d
+			customDomains = ["a.example.com", "b.example.com"]
+			locations = ["/x", "/y"]
+			loadBalancer.group = "test"
+			loadBalancer.groupKey = "123"
+
+			[[proxies]]
+			name = "bar"
+			type = "http"
+			localPort = %d
+			customDomains = ["a.example.com", "b.example.com"]
+			locations = ["/x", "/y"]
+			loadBalancer.group = "test"
+			loadBalancer.groupKey = "123"
+			`, fooPort, barPort)
+
+			f.RunProcesses(serverConf, []string{clientConf})
+
+			for _, host := range []string{"a.example.com", "b.example.com"} {
+				for _, path := range []string{"/x", "/y"} {
+					var contents []string
+					for i := range 4 {
+						framework.NewRequestExpect(f).Port(vhostPort).
+							Explain(host+path+" times "+strconv.Itoa(i)).
+							RequestModify(func(r *request.Request) {
+								r.HTTP().HTTPHost(host).HTTPPath(path)
+							}).
+							Ensure(validateFooBarResponse, func(resp *request.Response) bool {
+								contents = append(contents, string(resp.Content))
+								return true
+							})
+					}
+					framework.ExpectContainElements(contents, []string{"foo", "bar"})
+				}
+			}
+		})
+
 		ginkgo.It("HTTPS", func() {
 			vhostHTTPSPort := f.AllocPort()
 			serverConf := consts.DefaultServerConfig + fmt.Sprintf(`

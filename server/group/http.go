@@ -28,7 +28,8 @@ func (ctl *HTTPGroupController) Register(
 	routeConfig vhost.RouteConfig,
 ) error {
 	for {
-		g := ctl.getOrCreate(group, func() *HTTPGroup {
+		key := httpGroupKey(group, routeConfig)
+		g := ctl.getOrCreate(key, func() *HTTPGroup {
 			return NewHTTPGroup(ctl)
 		})
 		err := g.Register(proxyName, group, groupKey, routeConfig)
@@ -39,15 +40,20 @@ func (ctl *HTTPGroupController) Register(
 	}
 }
 
-func (ctl *HTTPGroupController) UnRegister(proxyName, group string, _ vhost.RouteConfig) {
-	g, ok := ctl.get(group)
+func (ctl *HTTPGroupController) UnRegister(proxyName, group string, routeConfig vhost.RouteConfig) {
+	g, ok := ctl.get(httpGroupKey(group, routeConfig))
 	if !ok {
 		return
 	}
 	g.UnRegister(proxyName)
 }
 
+func httpGroupKey(group string, routeConfig vhost.RouteConfig) string {
+	return routeGroupKey(group, routeConfig.Domain, routeConfig.Location, routeConfig.RouteByHTTPUser)
+}
+
 type HTTPGroup struct {
+	key             string
 	group           string
 	groupKey        string
 	domain          string
@@ -76,7 +82,8 @@ func (g *HTTPGroup) Register(
 ) (err error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if !g.ctl.isCurrent(group, func(cur *HTTPGroup) bool { return cur == g }) {
+	key := httpGroupKey(group, routeConfig)
+	if !g.ctl.isCurrent(key, func(cur *HTTPGroup) bool { return cur == g }) {
 		return errGroupStale
 	}
 	if len(g.createFuncs) == 0 {
@@ -90,6 +97,7 @@ func (g *HTTPGroup) Register(
 			return
 		}
 
+		g.key = key
 		g.group = group
 		g.groupKey = groupKey
 		g.domain = routeConfig.Domain
@@ -128,7 +136,7 @@ func (g *HTTPGroup) UnRegister(proxyName string) {
 
 	if len(g.createFuncs) == 0 {
 		g.ctl.vhostRouter.Del(g.domain, g.location, g.routeByHTTPUser)
-		g.ctl.removeIf(g.group, func(cur *HTTPGroup) bool {
+		g.ctl.removeIf(g.key, func(cur *HTTPGroup) bool {
 			return cur == g
 		})
 	}

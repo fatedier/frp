@@ -39,7 +39,7 @@ func (ctl *HTTPSGroupController) Listen(
 	routeConfig vhost.RouteConfig,
 ) (l net.Listener, err error) {
 	for {
-		g := ctl.getOrCreate(group, func() *HTTPSGroup {
+		g := ctl.getOrCreate(routeGroupKey(group, routeConfig.Domain), func() *HTTPSGroup {
 			return NewHTTPSGroup(ctl)
 		})
 		l, err = g.Listen(ctx, group, groupKey, routeConfig)
@@ -70,7 +70,8 @@ func (g *HTTPSGroup) Listen(
 ) (ln *Listener, err error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if !g.ctl.isCurrent(group, func(cur *HTTPSGroup) bool { return cur == g }) {
+	key := routeGroupKey(group, routeConfig.Domain)
+	if !g.ctl.isCurrent(key, func(cur *HTTPSGroup) bool { return cur == g }) {
 		return nil, errGroupStale
 	}
 	if len(g.lns) == 0 {
@@ -82,7 +83,7 @@ func (g *HTTPSGroup) Listen(
 
 		g.domain = routeConfig.Domain
 		g.initBase(group, groupKey, httpsLn, func() {
-			g.ctl.removeIf(g.group, func(cur *HTTPSGroup) bool {
+			g.ctl.removeIf(key, func(cur *HTTPSGroup) bool {
 				return cur == g
 			})
 		})

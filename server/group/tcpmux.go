@@ -46,7 +46,8 @@ func (tmgc *TCPMuxGroupCtl) Listen(
 	routeConfig vhost.RouteConfig,
 ) (l net.Listener, err error) {
 	for {
-		tcpMuxGroup := tmgc.getOrCreate(group, func() *TCPMuxGroup {
+		key := routeGroupKey(group, routeConfig.Domain, routeConfig.RouteByHTTPUser)
+		tcpMuxGroup := tmgc.getOrCreate(key, func() *TCPMuxGroup {
 			return NewTCPMuxGroup(tmgc)
 		})
 
@@ -91,7 +92,8 @@ func (tmg *TCPMuxGroup) HTTPConnectListen(
 ) (ln *Listener, err error) {
 	tmg.mu.Lock()
 	defer tmg.mu.Unlock()
-	if !tmg.ctl.isCurrent(group, func(cur *TCPMuxGroup) bool { return cur == tmg }) {
+	key := routeGroupKey(group, routeConfig.Domain, routeConfig.RouteByHTTPUser)
+	if !tmg.ctl.isCurrent(key, func(cur *TCPMuxGroup) bool { return cur == tmg }) {
 		return nil, errGroupStale
 	}
 	if len(tmg.lns) == 0 {
@@ -106,7 +108,7 @@ func (tmg *TCPMuxGroup) HTTPConnectListen(
 		tmg.username = routeConfig.Username
 		tmg.password = routeConfig.Password
 		tmg.initBase(group, groupKey, tcpMuxLn, func() {
-			tmg.ctl.removeIf(tmg.group, func(cur *TCPMuxGroup) bool {
+			tmg.ctl.removeIf(key, func(cur *TCPMuxGroup) bool {
 				return cur == tmg
 			})
 		})
