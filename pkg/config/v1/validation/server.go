@@ -61,6 +61,17 @@ func (v *ConfigValidator) ValidateServerConfig(c *v1.ServerConfig) (Warning, err
 		errs = AppendError(errs, fmt.Errorf("invalid transport.maxPoolCount, must be non-negative"))
 	}
 
+	seenStatusCodes := make(map[int]struct{}, len(c.CustomErrorPages))
+	for _, p := range c.CustomErrorPages {
+		if p.StatusCode < 400 || p.StatusCode > 599 {
+			errs = AppendError(errs, fmt.Errorf("invalid customErrorPages statusCode %d, must be in the range [400, 599]", p.StatusCode))
+		}
+		if _, ok := seenStatusCodes[p.StatusCode]; ok {
+			errs = AppendError(errs, fmt.Errorf("duplicate customErrorPages statusCode %d", p.StatusCode))
+		}
+		seenStatusCodes[p.StatusCode] = struct{}{}
+	}
+
 	for _, p := range c.HTTPPlugins {
 		if !lo.Every(SupportedHTTPPluginOps, p.Ops) {
 			errs = AppendError(errs, fmt.Errorf("invalid http plugin ops, optional values are %v", SupportedHTTPPluginOps))

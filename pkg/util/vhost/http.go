@@ -127,14 +127,17 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 		ErrorLog:   stdlog.New(log.NewWriteLogger(log.WarnLevel, 2), "", 0),
 		ErrorHandler: func(rw http.ResponseWriter, req *http.Request, err error) {
 			log.Logf(log.WarnLevel, 1, "do http proxy request [host: %s] error: %v", req.Host, err)
-			if err != nil {
-				if e, ok := err.(net.Error); ok && e.Timeout() {
-					rw.WriteHeader(http.StatusGatewayTimeout)
-					return
-				}
+			statusCode := http.StatusNotFound
+			if e, ok := err.(net.Error); ok && e.Timeout() {
+				statusCode = http.StatusGatewayTimeout
 			}
-			rw.WriteHeader(http.StatusNotFound)
-			_, _ = rw.Write(getNotFoundPageContent())
+			if statusCode == http.StatusNotFound {
+				writeErrorPage(rw, statusCode, resolveNotFoundPage())
+				return
+			}
+			if !writeCustomErrorPage(rw, statusCode) {
+				rw.WriteHeader(statusCode)
+			}
 		},
 	}
 	rp.proxy = proxy
@@ -291,10 +294,14 @@ func (rp *HTTPReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 	if !checkRouteAuthByRequest(req, rc) {
 		if req.URL.Host != "" {
 			rw.Header().Set("Proxy-Authenticate", `Basic realm="Restricted"`)
-			http.Error(rw, http.StatusText(http.StatusProxyAuthRequired), http.StatusProxyAuthRequired)
+			if !writeCustomErrorPage(rw, http.StatusProxyAuthRequired) {
+				http.Error(rw, http.StatusText(http.StatusProxyAuthRequired), http.StatusProxyAuthRequired)
+			}
 		} else {
 			rw.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
-			http.Error(rw, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			if !writeCustomErrorPage(rw, http.StatusUnauthorized) {
+				http.Error(rw, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			}
 		}
 		return
 	}
