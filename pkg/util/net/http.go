@@ -64,7 +64,8 @@ type HTTPGzipWrapper struct {
 }
 
 func (gw *HTTPGzipWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+	// Do not change the bytes described by a range response.
+	if r.Header.Get("Range") != "" || !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		gw.h.ServeHTTP(w, r)
 		return
 	}
