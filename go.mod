@@ -2,6 +2,10 @@ module github.com/fatedier/frp
 
 go 1.26.0
 
+// Go 1.24+ makes net.Listen create MPTCP sockets on Linux; some vendor
+// kernels never complete the handshake on them (#5587).
+godebug multipathtcp=0
+
 require (
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
 	github.com/coreos/go-oidc/v3 v3.21.0
