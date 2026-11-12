@@ -39,7 +39,13 @@ func TestMultipathTCPDisabledByDefault(t *testing.T) {
 	require.NoError(t, err)
 	defer conn.Close()
 
-	isMPTCP, err := conn.(*stdnet.TCPConn).MultipathTCP()
+	// Check the accepted side: on kernels older than 5.16 the client side
+	// reports MPTCP for any MPTCP socket, even after a fallback to TCP.
+	serverConn, err := ln.Accept()
+	require.NoError(t, err)
+	defer serverConn.Close()
+
+	isMPTCP, err := serverConn.(*stdnet.TCPConn).MultipathTCP()
 	require.NoError(t, err)
 	require.False(t, isMPTCP, "listener created by net.Listen uses MPTCP")
 }
