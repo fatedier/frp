@@ -97,7 +97,9 @@ func (hp *HTTPProxy) Handle(_ context.Context, connInfo *ConnectionInfo) {
 	}
 
 	_ = wrapConn.SetReadDeadline(time.Time{})
-	_ = hp.l.PutConn(sc)
+	if err := hp.l.PutConn(sc); err != nil {
+		_ = sc.Close()
+	}
 }
 
 func (hp *HTTPProxy) Close() error {

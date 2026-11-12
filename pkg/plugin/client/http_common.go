@@ -118,7 +118,9 @@ func (p *httpBridgePlugin) Handle(_ context.Context, connInfo *ConnectionInfo) {
 	if p.useSourceRemoteAddr && connInfo.SrcAddr != nil {
 		wrapConn.SetRemoteAddr(connInfo.SrcAddr)
 	}
-	_ = p.l.PutConn(wrapConn)
+	if err := p.l.PutConn(wrapConn); err != nil {
+		_ = wrapConn.Close()
+	}
 }
 
 func (p *httpBridgePlugin) Close() error {

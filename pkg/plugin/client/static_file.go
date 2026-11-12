@@ -70,7 +70,9 @@ func NewStaticFilePlugin(_ PluginContext, options v1.ClientPluginOptions) (Plugi
 
 func (sp *StaticFilePlugin) Handle(_ context.Context, connInfo *ConnectionInfo) {
 	wrapConn := netpkg.WrapReadWriteCloserToConn(connInfo.Conn, connInfo.UnderlyingConn)
-	_ = sp.l.PutConn(wrapConn)
+	if err := sp.l.PutConn(wrapConn); err != nil {
+		_ = wrapConn.Close()
+	}
 }
 
 func (sp *StaticFilePlugin) Name() string {
