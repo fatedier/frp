@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"time"
 
 	libio "github.com/fatedier/golib/io"
@@ -78,11 +79,12 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 					log.Tracef("choose endpoint name [%s] for http request host [%s] path [%s] httpuser [%s]",
 						endpoint, originalHost, reqRouteInfo.URL, reqRouteInfo.HTTPUser)
 				}
-				// Set {domain}.{location}.{routeByHTTPUser}.{endpoint} as URL host here to let http transport reuse connections.
+				// Keep connection reuse within the same route registration and endpoint.
 				req.URL.Host = rc.Domain + "." +
 					base64.StdEncoding.EncodeToString([]byte(rc.Location)) + "." +
 					base64.StdEncoding.EncodeToString([]byte(rc.RouteByHTTPUser)) + "." +
-					base64.StdEncoding.EncodeToString([]byte(endpoint))
+					base64.StdEncoding.EncodeToString([]byte(endpoint)) + "." +
+					strconv.FormatUint(reqRouteInfo.routeID, 10)
 
 				for k, v := range rc.Headers {
 					req.Header.Set(k, v)
@@ -106,7 +108,7 @@ func NewHTTPReverseProxy(option HTTPReverseProxyOptions, vhostRouter *Routers) *
 			IdleConnTimeout:       60 * time.Second,
 			MaxIdleConnsPerHost:   5,
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				return rp.CreateConnection(ctx.Value(RouteInfoKey).(*RequestRouteInfo), true)
+				return createConnection(ctx.Value(RouteInfoKey).(*RequestRouteInfo), ctx.Value(RouteConfigKey).(*RouteConfig), true)
 			},
 			Proxy: func(req *http.Request) (*url.URL, error) {
 				// Use proxy mode if there is host in HTTP first request line.
@@ -156,31 +158,21 @@ func (rp *HTTPReverseProxy) UnRegister(routeCfg RouteConfig) {
 	rp.vhostRouter.Del(routeCfg.Domain, routeCfg.Location, routeCfg.RouteByHTTPUser)
 }
 
-func (rp *HTTPReverseProxy) GetRouteConfig(domain, location, routeByHTTPUser string) *RouteConfig {
-	vr, ok := rp.vhostRouter.getByRoute(domain, location, routeByHTTPUser)
-	if ok {
-		log.Debugf("get new http request host [%s] path [%s] httpuser [%s]", domain, location, routeByHTTPUser)
-		return vr.payload.(*RouteConfig)
-	}
-	return nil
-}
-
-// CreateConnection create a new connection by route config
-func (rp *HTTPReverseProxy) CreateConnection(reqRouteInfo *RequestRouteInfo, byEndpoint bool) (net.Conn, error) {
-	host, _ := httppkg.CanonicalHost(reqRouteInfo.Host)
-	vr, ok := rp.vhostRouter.getByRoute(host, reqRouteInfo.URL, reqRouteInfo.HTTPUser)
-	if ok {
+// createConnection uses the same route configuration that authorized the request.
+func createConnection(reqRouteInfo *RequestRouteInfo, rc *RouteConfig, byEndpoint bool) (net.Conn, error) {
+	if rc != nil {
 		if byEndpoint {
-			fn := vr.payload.(*RouteConfig).CreateConnByEndpointFn
+			fn := rc.CreateConnByEndpointFn
 			if fn != nil {
 				return fn(reqRouteInfo.Endpoint, reqRouteInfo.RemoteAddr)
 			}
 		}
-		fn := vr.payload.(*RouteConfig).CreateConnFn
+		fn := rc.CreateConnFn
 		if fn != nil {
 			return fn(reqRouteInfo.RemoteAddr)
 		}
 	}
+	host, _ := httppkg.CanonicalHost(reqRouteInfo.Host)
 	return nil, fmt.Errorf("%v: %s %s %s", ErrNoRouteFound, host, reqRouteInfo.URL, reqRouteInfo.HTTPUser)
 }
 
@@ -234,7 +226,8 @@ func (rp *HTTPReverseProxy) connectHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
-	remote, err := rp.CreateConnection(req.Context().Value(RouteInfoKey).(*RequestRouteInfo), false)
+	remote, err := createConnection(
+		req.Context().Value(RouteInfoKey).(*RequestRouteInfo), req.Context().Value(RouteConfigKey).(*RouteConfig), false)
 	if err != nil {
 		_ = NotFoundResponse().Write(client)
 		client.Close()
@@ -277,7 +270,12 @@ func (rp *HTTPReverseProxy) injectRequestInfoToCtx(req *http.Request) *http.Requ
 	}
 
 	originalHost, _ := httppkg.CanonicalHost(reqRouteInfo.Host)
-	rc := rp.GetRouteConfig(originalHost, reqRouteInfo.URL, reqRouteInfo.HTTPUser)
+	var rc *RouteConfig
+	if vr, ok := rp.vhostRouter.getByRoute(originalHost, reqRouteInfo.URL, reqRouteInfo.HTTPUser); ok {
+		rc = vr.payload.(*RouteConfig)
+		reqRouteInfo.routeID = vr.id
+		log.Debugf("get new http request host [%s] path [%s] httpuser [%s]", originalHost, reqRouteInfo.URL, reqRouteInfo.HTTPUser)
+	}
 
 	newctx := req.Context()
 	newctx = context.WithValue(newctx, RouteInfoKey, reqRouteInfo)
