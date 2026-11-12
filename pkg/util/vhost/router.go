@@ -14,11 +14,13 @@ type routerByHTTPUser map[string][]*Router
 
 type Routers struct {
 	indexByDomain map[string]routerByHTTPUser
+	nextID        uint64
 
 	mutex sync.RWMutex
 }
 
 type Router struct {
+	id       uint64
 	domain   string
 	location string
 	httpUser string
@@ -52,7 +54,9 @@ func (r *Routers) Add(domain, location, httpUser string, payload any) error {
 		vrs = make([]*Router, 0, 1)
 	}
 
+	r.nextID++
 	vr := &Router{
+		id:       r.nextID,
 		domain:   domain,
 		location: location,
 		httpUser: httpUser,
