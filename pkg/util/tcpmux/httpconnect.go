@@ -17,7 +17,6 @@ package tcpmux
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"time"
@@ -49,9 +48,7 @@ func NewHTTPConnectTCPMuxer(listener net.Listener, passthrough bool, timeout tim
 	return ret, nil
 }
 
-func (muxer *HTTPConnectTCPMuxer) readHTTPConnectRequest(rd io.Reader) (host, httpUser, httpPwd string, err error) {
-	bufioReader := bufio.NewReader(rd)
-
+func (muxer *HTTPConnectTCPMuxer) readHTTPConnectRequest(bufioReader *bufio.Reader) (host, httpUser, httpPwd string, err error) {
 	req, err := http.ReadRequest(bufioReader)
 	if err != nil {
 		return
@@ -109,7 +106,8 @@ func (muxer *HTTPConnectTCPMuxer) getHostFromHTTPConnect(c net.Conn) (net.Conn, 
 	reqInfoMap := make(map[string]string, 0)
 	sc, rd := libnet.NewSharedConn(c)
 
-	host, httpUser, httpPwd, err := muxer.readHTTPConnectRequest(rd)
+	bufioReader := bufio.NewReader(rd)
+	host, httpUser, httpPwd, err := muxer.readHTTPConnectRequest(bufioReader)
 	if err != nil {
 		return nil, reqInfoMap, err
 	}
@@ -119,9 +117,12 @@ func (muxer *HTTPConnectTCPMuxer) getHostFromHTTPConnect(c net.Conn) (net.Conn, 
 	reqInfoMap["HTTPUser"] = httpUser
 	reqInfoMap["HTTPPwd"] = httpPwd
 
-	outConn := c
-	if muxer.passthrough {
-		outConn = sc
+	if !muxer.passthrough {
+		// Drop the CONNECT request but keep tunnel data that was read along with it.
+		buffered, _ := bufioReader.Peek(bufioReader.Buffered())
+		if err := sc.ResetBuf(buffered); err != nil {
+			return nil, reqInfoMap, err
+		}
 	}
-	return outConn, reqInfoMap, nil
+	return sc, reqInfoMap, nil
 }
