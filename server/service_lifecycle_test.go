@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -244,10 +245,16 @@ func TestNewServiceReleasesListenersOnWebServerFailure(t *testing.T) {
 				require.ErrorContains(t, err, "failed to find any PEM data in certificate input")
 			}
 			assertLifecyclePorts(t, tcpAddresses, true)
+			// quic-go closes its UDP socket asynchronously after Listener.Close.
 			for _, address := range udpAddresses {
-				conn, err := net.ListenPacket("udp", address)
-				require.NoError(t, err, "UDP listener %s was not released", address)
-				require.NoError(t, conn.Close())
+				require.Eventually(t, func() bool {
+					conn, err := net.ListenPacket("udp", address)
+					if err != nil {
+						return false
+					}
+					_ = conn.Close()
+					return true
+				}, 2*time.Second, 10*time.Millisecond, "UDP listener %s was not released", address)
 			}
 		})
 	}
