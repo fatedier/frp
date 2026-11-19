@@ -145,7 +145,32 @@ type Service struct {
 	closeOnce   sync.Once
 }
 
+// ServiceOptions carries optional behavior for a Service.
+type ServiceOptions struct {
+	// VhostHTTPSListener supplies connections to the HTTPS vhost instead of frp
+	// binding VhostHTTPSPort itself. It lets a caller that already owns the
+	// public port (for example an SNI router sharing it with other services)
+	// hand accepted connections to frp.
+	//
+	// VhostHTTPSPort must still be set. It gates https proxy registration and is
+	// the port advertised to clients in NewProxyResp; vhost routing itself uses
+	// the proxy domain, not this port.
+	//
+	// The Service takes ownership of the listener and closes it on Close.
+	VhostHTTPSListener net.Listener
+}
+
+// NewService creates a Service that binds the ports in cfg itself.
 func NewService(cfg *v1.ServerConfig) (*Service, error) {
+	return NewServiceWithOptions(cfg, ServiceOptions{})
+}
+
+// NewServiceWithOptions creates a Service with optional listener injection.
+func NewServiceWithOptions(cfg *v1.ServerConfig, opts ServiceOptions) (*Service, error) {
+	if opts.VhostHTTPSListener != nil && cfg.VhostHTTPSPort == 0 {
+		return nil, fmt.Errorf("vhostHTTPSListener requires vhostHTTPSPort")
+	}
+
 	tlsConfig, err := transport.NewServerTLSConfig(
 		cfg.Transport.TLS.CertFile,
 		cfg.Transport.TLS.KeyFile,
@@ -316,9 +341,12 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	// Create https vhost muxer.
 	if cfg.VhostHTTPSPort > 0 {
 		var l net.Listener
-		if httpsMuxOn {
+		switch {
+		case opts.VhostHTTPSListener != nil:
+			l = opts.VhostHTTPSListener
+		case httpsMuxOn:
 			l = svr.muxer.ListenHTTPS(1)
-		} else {
+		default:
 			address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.VhostHTTPSPort))
 			l, err = net.Listen("tcp", address)
 			if err != nil {
