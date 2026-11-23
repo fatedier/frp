@@ -173,6 +173,19 @@ func validateTransportConfig(c *v1.ClientTransportConfig) (Warning, error) {
 	if !slices.Contains(SupportedTransportProtocols, c.Protocol) {
 		errs = AppendError(errs, fmt.Errorf("invalid transport.protocol, optional values are %v", SupportedTransportProtocols))
 	}
+	if !slices.Contains([]string{"", v1.VisitorSessionShared, v1.VisitorSessionDedicated}, c.VisitorSession) {
+		errs = AppendError(errs, fmt.Errorf("invalid transport.visitorSession, optional values are [%s %s]",
+			v1.VisitorSessionShared, v1.VisitorSessionDedicated))
+	}
+	if c.VisitorSessionQUICPort != 0 {
+		if c.VisitorSessionQUICPort < 0 || c.VisitorSessionQUICPort > 65535 {
+			errs = AppendError(errs, fmt.Errorf("invalid transport.visitorSessionQuicPort"))
+		}
+		if c.VisitorSession != v1.VisitorSessionDedicated {
+			errs = AppendError(errs, fmt.Errorf("transport.visitorSessionQuicPort requires transport.visitorSession = %q",
+				v1.VisitorSessionDedicated))
+		}
+	}
 	if !slices.Contains(SupportedWireProtocols, c.WireProtocol) {
 		errs = AppendError(errs, fmt.Errorf("invalid transport.wireProtocol, optional values are %v", SupportedWireProtocols))
 	}

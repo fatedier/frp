@@ -43,6 +43,9 @@ type Manager struct {
 	mu  sync.RWMutex
 	ctx context.Context
 
+	// sessions, when set, gives each visitor its own session to the server (transport.visitorSession = "dedicated").
+	sessions SessionProvider
+
 	stopCh chan struct{}
 }
 
@@ -105,11 +108,28 @@ func (vm *Manager) keepVisitorsRunning() {
 	}
 }
 
+// SessionProvider hands each visitor its own way to reach the server instead of the control session's.
+type SessionProvider interface {
+	ConnectServerFn(name string) func() (*msg.Conn, error)
+	Close(name string)
+	CloseAll()
+}
+
+// SetSessionProvider must be called before the first UpdateAll.
+func (vm *Manager) SetSessionProvider(p SessionProvider) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+	vm.sessions = p
+}
+
 func (vm *Manager) Close() {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 	for _, v := range vm.visitors {
 		v.Close()
+	}
+	if vm.sessions != nil {
+		vm.sessions.CloseAll()
 	}
 	select {
 	case <-vm.stopCh:
@@ -122,7 +142,13 @@ func (vm *Manager) Close() {
 func (vm *Manager) startVisitor(cfg v1.VisitorConfigurer) (err error) {
 	xl := xlog.FromContextSafe(vm.ctx)
 	name := cfg.GetBaseConfig().Name
-	visitor, err := NewVisitor(vm.ctx, cfg, vm.clientCfg, vm.helper)
+	var helper Helper = vm.helper
+	if vm.sessions != nil {
+		h := *vm.helper.(*visitorHelperImpl)
+		h.connectServerFn = vm.sessions.ConnectServerFn(name)
+		helper = &h
+	}
+	visitor, err := NewVisitor(vm.ctx, cfg, vm.clientCfg, helper)
 	if err != nil {
 		xl.Warnf("new visitor error: %v", err)
 		return
@@ -167,6 +193,9 @@ func (vm *Manager) UpdateAll(cfgs []v1.VisitorConfigurer) {
 				visitor.Close()
 			}
 			delete(vm.visitors, name)
+			if vm.sessions != nil {
+				vm.sessions.Close(name)
+			}
 		}
 	}
 	if len(delNames) > 0 {

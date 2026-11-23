@@ -6,6 +6,8 @@
 
   The `/healthz`, `/metrics` and pprof endpoints on `webServer`, `webServer.pprofEnable` and `enablePrometheus` still work but are deprecated: configure `metricsServer` instead. They will continue to work until v0.80.0 is released, and may be removed in v0.80.0 or later.
 
+* Added `transport.visitorSession = "dedicated"` to frpc: each visitor dials its own session to frps instead of sharing the control connection's session, so one visitor's bulk transfer or packet loss no longer stalls the other visitors in the same frpc. With `transport.visitorSessionQuicPort`, the visitors' sessions use QUIC while login and proxies keep `transport.protocol`. frps needs no change.
+
 ## Fixes
 
 * Fixed proxy and visitor configuration changes being lost when reloading frpc during reconnection.

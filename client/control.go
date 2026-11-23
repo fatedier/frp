@@ -104,6 +104,9 @@ func NewControl(ctx context.Context, sessionCtx *SessionContext) (*Control, erro
 	)
 	ctl.vm = visitor.NewManager(ctl.ctx, sessionCtx.RunID, sessionCtx.Common,
 		ctl.connectServer, ctl.msgTransporter, sessionCtx.VnetController, sessionCtx.UDPPacketCodec)
+	if sessionCtx.Common.Transport.VisitorSession == v1.VisitorSessionDedicated {
+		ctl.vm.SetSessionProvider(newVisitorSessions(ctl.ctx, sessionCtx.Common))
+	}
 	return ctl, nil
 }
 

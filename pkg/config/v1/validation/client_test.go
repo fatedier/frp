@@ -138,3 +138,35 @@ func TestValidateClientFeatureGatesAreConfigScoped(t *testing.T) {
 	require.ErrorContains(t, err, "VirtualNet feature is not enabled")
 	require.Equal(t, defaultGatesBefore, featuregate.DefaultFeatureGates.String())
 }
+
+func TestValidateClientVisitorSession(t *testing.T) {
+	tests := []struct {
+		name     string
+		session  string
+		quicPort int
+		wantErr  string
+	}{
+		{name: "default is shared"},
+		{name: "shared", session: "shared"},
+		{name: "dedicated", session: "dedicated"},
+		{name: "dedicated over quic", session: "dedicated", quicPort: 7000},
+		{name: "unknown value", session: "own", wantErr: "invalid transport.visitorSession"},
+		{name: "quic port without dedicated", session: "shared", quicPort: 7000, wantErr: "requires transport.visitorSession"},
+		{name: "quic port out of range", session: "dedicated", quicPort: 70000, wantErr: "invalid transport.visitorSessionQuicPort"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &v1.ClientCommonConfig{}
+			cfg.Transport.VisitorSession = tt.session
+			cfg.Transport.VisitorSessionQUICPort = tt.quicPort
+			require.NoError(t, cfg.Complete())
+
+			_, err := NewConfigValidator(security.NewUnsafeFeatures(nil)).ValidateClientCommonConfig(cfg)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
