@@ -117,6 +117,15 @@ transport.poolCount = 5
 # supports tcp, kcp, quic, websocket and wss now, default is tcp
 transport.protocol = "tcp"
 
+# How visitors reach frps. "shared" (default): every visitor opens streams on the session of the control
+# connection. "dedicated": each visitor dials its own session (its own connection and congestion control), so a
+# visitor moving a lot of data does not delay the other visitors of this frpc. frps needs no change.
+# transport.visitorSession = "shared"
+
+# With visitorSession = "dedicated", the visitors' sessions use QUIC to this UDP port (frps quicBindPort), while
+# login and proxies keep transport.protocol. If UDP is blocked, frpc still logs in and each visitor logs the error.
+# transport.visitorSessionQuicPort = 7000
+
 # FRP wire protocol used inside the selected transport.
 # supports v1 and v2, default is v1. v2 requires frps support and must be enabled explicitly.
 # transport.wireProtocol = "v1"

@@ -144,7 +144,19 @@ type ClientTransportConfig struct {
 	HeartbeatTimeout int64 `json:"heartbeatTimeout,omitempty"`
 	// TLS specifies TLS settings for the connection to the server.
 	TLS TLSClientConfig `json:"tls,omitempty"`
+	// VisitorSession selects how visitors reach the server. "shared" (default): every visitor opens streams on the
+	// session of the control connection. "dedicated": each visitor dials its own session (its own connection, with
+	// its own congestion control), so traffic of one visitor does not delay the others.
+	VisitorSession string `json:"visitorSession,omitempty"`
+	// VisitorSessionQUICPort, with VisitorSession = "dedicated", makes the visitors' sessions use QUIC to this UDP
+	// port (the server's quicBindPort) while login and proxies keep the configured protocol.
+	VisitorSessionQUICPort int `json:"visitorSessionQuicPort,omitempty"`
 }
+
+const (
+	VisitorSessionShared    = "shared"
+	VisitorSessionDedicated = "dedicated"
+)
 
 func (c *ClientTransportConfig) Complete() {
 	c.Protocol = util.EmptyOr(c.Protocol, "tcp")
@@ -155,6 +167,7 @@ func (c *ClientTransportConfig) Complete() {
 	c.PoolCount = util.EmptyOr(c.PoolCount, 1)
 	c.TCPMux = util.EmptyOr(c.TCPMux, new(true))
 	c.TCPMuxKeepaliveInterval = util.EmptyOr(c.TCPMuxKeepaliveInterval, 30)
+	c.VisitorSession = util.EmptyOr(c.VisitorSession, VisitorSessionShared)
 	if lo.FromPtr(c.TCPMux) {
 		// If TCPMux is enabled, heartbeat of application layer is unnecessary because we can rely on heartbeat in tcpmux.
 		c.HeartbeatInterval = util.EmptyOr(c.HeartbeatInterval, -1)
