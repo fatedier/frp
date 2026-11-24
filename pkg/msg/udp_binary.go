@@ -42,6 +42,12 @@ type binaryUDPAddr struct {
 // EncodeUDPPacketBinary encodes the body of a V2 binary UDP packet message.
 // RemoteAddr is required by the UDP forwarding path.
 func EncodeUDPPacketBinary(packet *UDPPacket) ([]byte, error) {
+	return encodeUDPPacketBinary(packet, 0)
+}
+
+// encodeUDPPacketBinary encodes the packet body after headroom free bytes at
+// the start of the returned buffer.
+func encodeUDPPacketBinary(packet *UDPPacket, headroom int) ([]byte, error) {
 	if packet == nil {
 		return nil, fmt.Errorf("nil UDP packet")
 	}
@@ -75,7 +81,8 @@ func EncodeUDPPacketBinary(packet *UDPPacket) ([]byte, error) {
 		return nil, fmt.Errorf("v2 frame payload length %d exceeds limit %d", 2+bodyLen, wire.DefaultMaxFramePayloadSize)
 	}
 
-	body := make([]byte, bodyLen)
+	buf := make([]byte, headroom+bodyLen)
+	body := buf[headroom:]
 	body[0] = flags
 	offset := 1
 	if flags&udpPacketFlagLocalAddr != 0 {
@@ -85,7 +92,7 @@ func EncodeUDPPacketBinary(packet *UDPPacket) ([]byte, error) {
 	binary.BigEndian.PutUint16(body[offset:offset+2], uint16(len(packet.Content)))
 	offset += 2
 	copy(body[offset:], packet.Content)
-	return body, nil
+	return buf, nil
 }
 
 // DecodeUDPPacketBinary decodes a V2 binary UDP packet body and returns data
@@ -273,13 +280,12 @@ func (rw *V2BinaryUDPPacketReadWriter) WriteMsg(message Message) error {
 		}
 		return rw.conn.WriteFrame(frame)
 	}
-	body, err := EncodeUDPPacketBinary(packet)
+	// Encode after 2 bytes of headroom for the message type, so the body is not copied.
+	payload, err := encodeUDPPacketBinary(packet, 2)
 	if err != nil {
 		return err
 	}
-	payload := make([]byte, 2+len(body))
 	binary.BigEndian.PutUint16(payload[:2], V2TypeUDPPacketBinary)
-	copy(payload[2:], body)
 	return rw.conn.WriteFrame(&wire.Frame{Type: wire.FrameTypeMessage, Payload: payload})
 }
 
