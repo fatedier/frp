@@ -64,7 +64,7 @@ func (sv *STCPVisitor) handleConn(userConn net.Conn) {
 		userConn.Close()
 	}()
 
-	xl.Debugf("get a new stcp user connection")
+	xl.Infof("get a new stcp user connection from [%s]", userConn.RemoteAddr().String())
 	visitorConn, err := sv.dialRawVisitorConn(sv.cfg.GetBaseConfig())
 	if err != nil {
 		xl.Warnf("dialRawVisitorConn error: %v", err)
