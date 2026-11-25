@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -132,7 +131,7 @@ func (c *Client) do(req *http.Request) (string, error) {
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("api status code [%d]", resp.StatusCode)
 	}
-	buf, err := io.ReadAll(resp.Body)
+	buf, err := httppkg.ReadResponseBody(resp.Body)
 	if err != nil {
 		return "", err
 	}
