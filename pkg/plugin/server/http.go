@@ -20,7 +20,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -28,6 +27,7 @@ import (
 	"strings"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	httppkg "github.com/fatedier/frp/pkg/util/http"
 )
 
 type httpPlugin struct {
@@ -106,7 +106,7 @@ func (p *httpPlugin) do(ctx context.Context, r *Request, res *Response) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("do http request error code: %d", resp.StatusCode)
 	}
-	buf, err = io.ReadAll(resp.Body)
+	buf, err = httppkg.ReadResponseBody(resp.Body)
 	if err != nil {
 		return err
 	}
