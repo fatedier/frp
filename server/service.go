@@ -25,16 +25,19 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/fatedier/golib/crypto"
 	"github.com/fatedier/golib/net/mux"
-	fmux "github.com/hashicorp/yamux"
+	fmux "github.com/fatedier/yamux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
 	modelmetrics "github.com/fatedier/frp/pkg/metrics"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
@@ -118,7 +121,11 @@ type Service struct {
 	rc *controller.ResourceController
 
 	// web server for dashboard UI and apis
-	webServer *httppkg.Server
+	webServer     *httppkg.Server
+	metricsServer *httppkg.Server
+	// HTTP vhost resources are started and owned by NewService.
+	httpVhostServer   *http.Server
+	httpVhostListener net.Listener
 
 	sshTunnelGateway *ssh.Gateway
 
@@ -132,7 +139,10 @@ type Service struct {
 	// service context
 	ctx context.Context
 	// call cancel to stop service
-	cancel context.CancelFunc
+	cancel      context.CancelFunc
+	lifecycleMu sync.Mutex
+	closed      bool
+	closeOnce   sync.Once
 }
 
 func NewService(cfg *v1.ServerConfig) (*Service, error) {
@@ -142,20 +152,6 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		cfg.Transport.TLS.TrustedCaFile)
 	if err != nil {
 		return nil, err
-	}
-
-	var webServer *httppkg.Server
-	if cfg.WebServer.Port > 0 {
-		ws, err := httppkg.NewServer(cfg.WebServer)
-		if err != nil {
-			return nil, err
-		}
-		webServer = ws
-
-		modelmetrics.EnableMem()
-		if cfg.EnablePrometheus {
-			modelmetrics.EnablePrometheus()
-		}
 	}
 
 	authRuntime, err := auth.BuildServerAuth(&cfg.Auth)
@@ -171,19 +167,13 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		pluginManager:  plugin.NewManager(),
 		rc: &controller.ResourceController{
 			VisitorManager: visitor.NewManager(),
-			TCPPortManager: ports.NewManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
-			UDPPortManager: ports.NewManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 		},
 		sshTunnelListener: netpkg.NewInternalListener(),
 		httpVhostRouter:   vhost.NewRouters(),
 		auth:              authRuntime,
-		webServer:         webServer,
 		tlsConfig:         tlsConfig,
 		cfg:               cfg,
 		ctx:               context.Background(),
-	}
-	if webServer != nil {
-		webServer.RouteRegister(svr.registerRouteHandlers)
 	}
 
 	// Create tcpmux httpconnect multiplexer.
@@ -208,9 +198,6 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		log.Infof("plugin [%s] has been registered", p.Name)
 	}
 	svr.rc.PluginManager = svr.pluginManager
-
-	// Init group controller
-	svr.rc.TCPGroupCtl = group.NewTCPGroupCtl(svr.rc.TCPPortManager)
 
 	// Init HTTP group controller
 	svr.rc.HTTPGroupCtl = group.NewHTTPGroupController(svr.httpVhostRouter)
@@ -318,6 +305,8 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 				return nil, fmt.Errorf("create vhost http listener error, %v", err)
 			}
 		}
+		svr.httpVhostServer = server
+		svr.httpVhostListener = l
 		go func() {
 			_ = server.Serve(l)
 		}()
@@ -359,20 +348,101 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		return nil, fmt.Errorf("create nat hole controller error, %v", err)
 	}
 	svr.rc.NatHoleController = nc
+
+	// Create HTTP servers after all other fallible steps, rolling back listeners
+	// if either server cannot be created.
+	if cfg.WebServer.Port > 0 {
+		ws, err := httppkg.NewServer(cfg.WebServer)
+		if err != nil {
+			// All other listeners are already created and must be released on failure.
+			_ = svr.Close()
+			return nil, err
+		}
+		svr.webServer = ws
+	}
+	if cfg.MetricsServer.Port > 0 {
+		ms, err := httppkg.NewMetricsServer(cfg.MetricsServer, promhttp.Handler())
+		if err != nil {
+			_ = svr.Close()
+			return nil, err
+		}
+		svr.metricsServer = ms
+	}
+
+	// Collectors are enabled at most once. The in-memory collector is only read
+	// by the dashboard API, and Prometheus metrics need an endpoint to serve them.
+	enableMem, enablePrometheus := metricsCollectors(cfg)
+	if enableMem {
+		modelmetrics.EnableMem()
+	}
+	if enablePrometheus {
+		modelmetrics.EnablePrometheus()
+	}
+
+	// Start port-manager cleanup workers only after all fallible steps have succeeded.
+	svr.rc.TCPPortManager = ports.NewManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts)
+	svr.rc.UDPPortManager = ports.NewManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts)
+	svr.rc.TCPGroupCtl = group.NewTCPGroupCtl(svr.rc.TCPPortManager)
+
+	if svr.webServer != nil {
+		svr.webServer.RouteRegister(svr.registerRouteHandlers)
+	}
 	return svr, nil
+}
+
+// metricsCollectors reports which collectors should be started for cfg. The
+// in-memory collector only backs the dashboard API (webServer), while the
+// Prometheus collector needs a listener that serves /metrics: either the new
+// metricsServer, or the legacy webServer endpoint gated by enablePrometheus.
+func metricsCollectors(cfg *v1.ServerConfig) (mem bool, prometheus bool) {
+	mem = cfg.WebServer.Port > 0
+	prometheus = cfg.MetricsServer.Port > 0 || (cfg.EnablePrometheus && mem)
+	return mem, prometheus
 }
 
 func (svr *Service) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
+	svr.lifecycleMu.Lock()
+	if svr.closed {
+		svr.lifecycleMu.Unlock()
+		cancel()
+		return
+	}
 	svr.ctx = ctx
 	svr.cancel = cancel
+	svr.lifecycleMu.Unlock()
+	defer svr.Close()
+	if ctx.Err() != nil {
+		return
+	}
+	// Cancellation must unblock the synchronous main listener's Accept.
+	stopClose := context.AfterFunc(ctx, func() { _ = svr.Close() })
+	defer stopClose()
 
 	// run dashboard web server.
 	if svr.webServer != nil {
+		if svr.cfg.WebServer.PprofEnable {
+			log.Warnf("webServer pprof endpoints are deprecated; use metricsServer.pprofEnable instead")
+		}
+		if svr.cfg.EnablePrometheus {
+			log.Warnf("webServer /metrics is deprecated; configure metricsServer.port instead")
+		}
+		if svr.cfg.MetricsServer.Port == 0 {
+			log.Infof("webServer /healthz is deprecated; health probes can migrate to metricsServer.port")
+		}
 		go func() {
 			log.Infof("dashboard listen on %s", svr.webServer.Address())
 			if err := svr.webServer.Run(); err != nil {
 				log.Warnf("dashboard server exit with error: %v", err)
+			}
+		}()
+	}
+
+	if svr.metricsServer != nil {
+		go func() {
+			log.Infof("metrics server listen on %s", svr.metricsServer.Address())
+			if err := svr.metricsServer.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Warnf("metrics server exit with error: %v", err)
 			}
 		}()
 	}
@@ -399,13 +469,21 @@ func (svr *Service) Run(ctx context.Context) {
 	svr.HandleListener(svr.listener, false)
 
 	<-svr.ctx.Done()
-	// service context may not be canceled by svr.Close(), we should call it here to release resources
-	if svr.listener != nil {
-		svr.Close()
-	}
 }
 
 func (svr *Service) Close() error {
+	svr.lifecycleMu.Lock()
+	svr.closed = true
+	cancel := svr.cancel
+	svr.lifecycleMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	svr.closeOnce.Do(svr.closeResources)
+	return nil
+}
+
+func (svr *Service) closeResources() {
 	if svr.kcpListener != nil {
 		svr.kcpListener.Close()
 	}
@@ -427,19 +505,23 @@ func (svr *Service) Close() error {
 	if svr.webServer != nil {
 		svr.webServer.Close()
 	}
+	if svr.metricsServer != nil {
+		svr.metricsServer.Close()
+	}
+	if svr.httpVhostServer != nil {
+		svr.httpVhostServer.Close()
+		// Close even if Serve has not registered its listener yet.
+		svr.httpVhostListener.Close()
+	}
 	if svr.sshTunnelGateway != nil {
 		svr.sshTunnelGateway.Close()
 	}
 	svr.rc.Close()
 	svr.muxer.Close()
 	svr.ctlManager.Close()
-	if svr.cancel != nil {
-		svr.cancel()
-	}
-	return nil
 }
 
-func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, internal bool) {
+func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, internal bool, session io.Closer) {
 	xl := xlog.FromContextSafe(ctx)
 
 	acceptedConn, err := svr.acceptConnection(ctx, conn)
@@ -470,7 +552,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 				}
 			}
 			if err == nil {
-				ctl, err = svr.RegisterControl(controlConn, m, internal, acceptedConn.wireProtocol, acceptedConn.udpPacketCodec)
+				ctl, err = svr.RegisterControl(controlConn, m, internal, acceptedConn.wireProtocol, acceptedConn.udpPacketCodec, session)
 			}
 		}
 
@@ -732,10 +814,10 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 						session.Close()
 						return
 					}
-					go svr.handleConnection(ctx, stream, internal)
+					go svr.handleConnection(ctx, stream, internal, session)
 				}
 			} else {
-				svr.handleConnection(ctx, frpConn, internal)
+				svr.handleConnection(ctx, frpConn, internal, nil)
 			}
 		}(ctx, c)
 	}
@@ -758,7 +840,7 @@ func (svr *Service) HandleQUICListener(l *quic.Listener) {
 					_ = frpConn.CloseWithError(0, "")
 					return
 				}
-				go svr.handleConnection(ctx, netpkg.QuicStreamToNetConn(stream, frpConn), false)
+				go svr.handleConnection(ctx, netpkg.QuicStreamToNetConn(stream, frpConn), false, nil)
 			}
 		}(context.Background(), c)
 	}
@@ -770,6 +852,7 @@ func (svr *Service) RegisterControl(
 	internal bool,
 	wireProtocol string,
 	udpPacketCodec string,
+	session io.Closer,
 ) (*Control, error) {
 	switch wireProtocol {
 	case wire.ProtocolV1:
@@ -791,6 +874,9 @@ func (svr *Service) RegisterControl(
 		if err != nil {
 			return nil, err
 		}
+	}
+	if err := validation.ValidateRunID(loginMsg.RunID); err != nil {
+		return nil, fmt.Errorf("invalid run id: %w", err)
 	}
 
 	ctx := netpkg.NewContextFromConn(ctlConn)
@@ -816,6 +902,7 @@ func (svr *Service) RegisterControl(
 		AuthVerifier:   authVerifier,
 		EncryptionKey:  svr.auth.EncryptionKey(),
 		Conn:           ctlConn,
+		Session:        session,
 		LoginMsg:       loginMsg,
 		ServerCfg:      svr.cfg,
 		WireProtocol:   wireProtocol,

@@ -11,6 +11,44 @@ import (
 	"github.com/fatedier/frp/pkg/config/types"
 )
 
+func TestManagerDoesNotReuseReservedPortWhileAcquired(t *testing.T) {
+	for _, network := range []string{"tcp", "udp"} {
+		t.Run(network, func(t *testing.T) {
+			port, closePort := listenOnLoopback(t, network)
+			defer closePort()
+			alternate, closeAlternate := listenOnLoopback(t, network)
+			defer closeAlternate()
+			require.NoError(t, closePort())
+			require.NoError(t, closeAlternate())
+			pm := NewManager(network, "127.0.0.1", []types.PortsRange{{Single: port}, {Single: alternate}})
+
+			_, err := pm.Acquire("first", port)
+			require.NoError(t, err)
+			pm.Release(port)
+
+			_, err = pm.Acquire("other", alternate)
+			require.NoError(t, err)
+			got, err := pm.Acquire("first", 0)
+			require.NoError(t, err)
+			require.Equal(t, port, got)
+			pm.Release(port)
+
+			_, err = pm.Acquire("second", port)
+			require.NoError(t, err)
+			// The second proxy owns the port, even before it starts listening.
+			_, err = pm.Acquire("first", 0)
+			require.ErrorIs(t, err, ErrNoAvailablePort)
+
+			pm.Release(alternate)
+			got, err = pm.Acquire("first", 0)
+			require.NoError(t, err)
+			require.Equal(t, alternate, got)
+			_, err = pm.Acquire("third", port)
+			require.ErrorIs(t, err, ErrPortAlreadyUsed)
+		})
+	}
+}
+
 func TestManagerUsesClockForPortTimestamps(t *testing.T) {
 	require := require.New(t)
 
@@ -63,10 +101,20 @@ func (pm *Manager) hasReservedPort(name string) bool {
 
 func freeTCPPort(t *testing.T) int {
 	t.Helper()
+	port, closePort := listenOnLoopback(t, "tcp")
+	require.NoError(t, closePort())
+	return port
+}
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+func listenOnLoopback(t *testing.T, network string) (int, func() error) {
+	t.Helper()
+	if network == "udp" {
+		conn, err := net.ListenPacket(network, "127.0.0.1:0")
+		require.NoError(t, err)
+		return conn.LocalAddr().(*net.UDPAddr).Port, conn.Close
+	}
+
+	listener, err := net.Listen(network, "127.0.0.1:0")
 	require.NoError(t, err)
-	defer listener.Close()
-
-	return listener.Addr().(*net.TCPAddr).Port
+	return listener.Addr().(*net.TCPAddr).Port, listener.Close
 }

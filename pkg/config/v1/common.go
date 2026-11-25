@@ -72,6 +72,26 @@ func (c *WebServerConfig) Complete() {
 	c.Addr = util.EmptyOr(c.Addr, "127.0.0.1")
 }
 
+// MetricsServerConfig configures a separate listener for health checks, metrics
+// (frps only), and optional pprof handlers. It does not serve the web interface.
+type MetricsServerConfig struct {
+	// Addr defaults to "127.0.0.1".
+	Addr string `json:"addr,omitempty"`
+	// Port disables the listener when set to 0.
+	Port int `json:"port,omitempty"`
+	// User and Password protect metrics and pprof; health checks remain anonymous.
+	User     string `json:"user,omitempty"`
+	Password string `json:"password,omitempty"`
+	// PprofEnable explicitly enables profiling, excluding cmdline.
+	PprofEnable bool `json:"pprofEnable,omitempty"`
+	// Enable TLS if TLS is not nil.
+	TLS *TLSConfig `json:"tls,omitempty"`
+}
+
+func (c *MetricsServerConfig) Complete() {
+	c.Addr = util.EmptyOr(c.Addr, "127.0.0.1")
+}
+
 type TLSConfig struct {
 	// CertFile specifies the path of the cert file that client will load.
 	CertFile string `json:"certFile,omitempty"`
@@ -79,6 +99,10 @@ type TLSConfig struct {
 	KeyFile string `json:"keyFile,omitempty"`
 	// TrustedCaFile specifies the path of the trusted ca file that will load.
 	TrustedCaFile string `json:"trustedCaFile,omitempty"`
+	// UseSystemCa enables server certificate verification using system CAs.
+	// If TrustedCaFile is also set, its certificates are added to the system CA pool.
+	// Only supported in frpc's transport.tls. With neither trust source, frpc skips verification.
+	UseSystemCa bool `json:"useSystemCa,omitempty"`
 	// ServerName specifies the custom server name of tls certificate. By
 	// default, server name if same to ServerAddr.
 	ServerName string `json:"serverName,omitempty"`

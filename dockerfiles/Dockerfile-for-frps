@@ -1,14 +1,16 @@
 FROM node:22 AS web-builder
 
-COPY web/package.json /web/package.json
-COPY web/shared/ /web/shared/
-COPY web/frps/ /web/frps/
 WORKDIR /web
-RUN npm install
-WORKDIR /web/frps
-RUN npm run build
+COPY web/package.json web/package-lock.json ./
+COPY web/shared/package.json ./shared/package.json
+COPY web/frpc/package.json ./frpc/package.json
+COPY web/frps/package.json ./frps/package.json
+RUN npm ci
+COPY web/shared/ ./shared/
+COPY web/frps/ ./frps/
+RUN npm run build --workspace frps
 
-FROM golang:1.25 AS building
+FROM golang:1.26 AS building
 
 COPY . /building
 COPY --from=web-builder /web/frps/dist /building/web/frps/dist

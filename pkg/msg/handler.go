@@ -19,6 +19,8 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"sync"
+	"time"
 
 	"github.com/fatedier/frp/pkg/proto/wire"
 )
@@ -111,14 +113,22 @@ type Dispatcher struct {
 
 	sendCh      chan Message
 	doneCh      chan struct{}
+	stopCh      chan struct{}
+	stopOnce    sync.Once
 	msgHandlers map[reflect.Type]func(Message)
 }
 
+// NewDispatcher uses SetReadDeadline, when supported, and Close, when rw
+// implements io.Closer, to interrupt ReadMsg after a write failure. Without a
+// working read deadline, Close or the caller must arrange for ReadMsg to return.
+// These methods must return in bounded time and must not wait for Done: Done
+// closes only after ReadMsg, any synchronous handler, and stop have returned.
 func NewDispatcher(rw ReadWriter) *Dispatcher {
 	return &Dispatcher{
 		rw:          rw,
 		sendCh:      make(chan Message, 100),
 		doneCh:      make(chan struct{}),
+		stopCh:      make(chan struct{}),
 		msgHandlers: make(map[reflect.Type]func(Message)),
 	}
 }
@@ -129,23 +139,47 @@ func (d *Dispatcher) Run() {
 	go d.readLoop()
 }
 
+// stop rejects new sends and interrupts ReadMsg when supported by rw. Done remains
+// owned by readLoop so the control owner cannot clean up while a handler is running.
+func (d *Dispatcher) stop() {
+	d.stopOnce.Do(func() {
+		close(d.stopCh)
+		if conn, ok := d.rw.(interface{ SetReadDeadline(time.Time) error }); ok {
+			_ = conn.SetReadDeadline(time.Now())
+		}
+		if closer, ok := d.rw.(io.Closer); ok {
+			_ = closer.Close()
+		}
+	})
+}
+
 func (d *Dispatcher) sendLoop() {
 	for {
 		select {
-		case <-d.doneCh:
+		case <-d.stopCh:
 			return
 		case m := <-d.sendCh:
-			_ = d.rw.WriteMsg(m)
+			if err := d.rw.WriteMsg(m); err != nil {
+				d.stop()
+				return
+			}
 		}
 	}
 }
 
 func (d *Dispatcher) readLoop() {
+	defer close(d.doneCh)
+	defer d.stop()
 	for {
 		m, err := d.rw.ReadMsg()
 		if err != nil {
-			close(d.doneCh)
 			return
+		}
+
+		select {
+		case <-d.stopCh:
+			return
+		default:
 		}
 
 		if handler, ok := d.msgHandlers[reflect.TypeOf(m)]; ok {
@@ -154,12 +188,29 @@ func (d *Dispatcher) readLoop() {
 	}
 }
 
+// Send queues m for writing. A nil error does not guarantee delivery.
 func (d *Dispatcher) Send(m Message) error {
 	select {
-	case <-d.doneCh:
+	case <-d.stopCh:
+		return io.EOF
+	default:
+	}
+	return d.enqueue(m)
+}
+
+func (d *Dispatcher) enqueue(m Message) error {
+	select {
+	case <-d.stopCh:
 		return io.EOF
 	case d.sendCh <- m:
-		return nil
+		// Both cases can be ready if shutdown races with enqueueing. Do not
+		// report success when shutdown is already observable after the send.
+		select {
+		case <-d.stopCh:
+			return io.EOF
+		default:
+			return nil
+		}
 	}
 }
 

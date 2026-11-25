@@ -74,3 +74,18 @@ func TestValidateDomainConfigForServerRejectsSubdomainHostCaseInsensitively(t *t
 		})
 	}
 }
+
+func TestValidateAnnotationsQualifiedName(t *testing.T) {
+	require.NoError(t, ValidateAnnotations(map[string]string{
+		"frp.e2e.test/foo":       "value1",
+		"app.kubernetes.io/name": "value2",
+	}))
+	// The call site lowercases keys before validation.
+	require.NoError(t, ValidateAnnotations(map[string]string{"Example.COM/MyName": "value"}))
+
+	err := ValidateAnnotations(map[string]string{"bad key": "value"})
+	require.ErrorContains(t, err, "annotation key bad key is invalid: name part must consist of alphanumeric characters")
+
+	err = ValidateAnnotations(map[string]string{"example.com/": "value"})
+	require.ErrorContains(t, err, "name part must be non-empty")
+}

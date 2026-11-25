@@ -80,17 +80,23 @@ func newRandomTLSKeyPair() (*tls.Certificate, error) {
 // Only support one ca file to add
 func newCertPool(caPath string) (*x509.CertPool, error) {
 	pool := x509.NewCertPool()
+	if err := appendCertsFromFile(pool, caPath); err != nil {
+		return nil, err
+	}
+	return pool, nil
+}
 
+func appendCertsFromFile(pool *x509.CertPool, caPath string) error {
 	caCrt, err := os.ReadFile(caPath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if !pool.AppendCertsFromPEM(caCrt) {
-		return nil, fmt.Errorf("failed to parse CA certificate from file %q: no valid PEM certificates found", caPath)
+		return fmt.Errorf("failed to parse CA certificate from file %q: no valid PEM certificates found", caPath)
 	}
 
-	return pool, nil
+	return nil
 }
 
 func NewServerTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
@@ -126,6 +132,21 @@ func NewServerTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 }
 
 func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Config, error) {
+	return NewClientTLSConfigWithSystemCA(certPath, keyPath, caPath, serverName, false)
+}
+
+// NewClientTLSConfigWithSystemCA enables verification against system CAs when
+// useSystemCa is true, adding certificates from caPath if it is also set.
+// Without either trust source, server certificate verification remains disabled.
+func NewClientTLSConfigWithSystemCA(certPath, keyPath, caPath, serverName string, useSystemCa bool) (*tls.Config, error) {
+	return newClientTLSConfig(certPath, keyPath, caPath, serverName, useSystemCa, x509.SystemCertPool)
+}
+
+func newClientTLSConfig(
+	certPath, keyPath, caPath, serverName string,
+	useSystemCa bool,
+	systemCertPool func() (*x509.CertPool, error),
+) (*tls.Config, error) {
 	base := &tls.Config{}
 
 	if certPath != "" && keyPath != "" {
@@ -139,7 +160,26 @@ func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Conf
 
 	base.ServerName = serverName
 
-	if caPath != "" {
+	switch {
+	case caPath != "" && useSystemCa:
+		// SystemCertPool returns a copy, so appending does not change the system pool.
+		// Design basis: Go 1.26.7 crypto/x509/verify.go:559-573 first uses the
+		// Windows/macOS verifier, then falls back to Go verification using only the
+		// added CAs if platform verification fails. This platform behavior has not been
+		// tested here; preserve the system pool instead of copying its subjects.
+		pool, err := systemCertPool()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load system CA pool: %w", err)
+		}
+		if pool == nil {
+			return nil, fmt.Errorf("failed to load system CA pool: no pool returned")
+		}
+		if err := appendCertsFromFile(pool, caPath); err != nil {
+			return nil, err
+		}
+		base.RootCAs = pool
+		base.InsecureSkipVerify = false
+	case caPath != "":
 		pool, err := newCertPool(caPath)
 		if err != nil {
 			return nil, err
@@ -147,7 +187,11 @@ func NewClientTLSConfig(certPath, keyPath, caPath, serverName string) (*tls.Conf
 
 		base.RootCAs = pool
 		base.InsecureSkipVerify = false
-	} else {
+	case useSystemCa:
+		// A nil RootCAs makes crypto/tls use the host root store, through the
+		// platform verifier on macOS and Windows.
+		base.InsecureSkipVerify = false
+	default:
 		base.InsecureSkipVerify = true
 	}
 

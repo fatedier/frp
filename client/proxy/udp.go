@@ -108,8 +108,10 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 
 	pxy.mu.Lock()
 	pxy.workConn = workConn
-	pxy.readCh = make(chan *msg.UDPPacket, 1024)
-	pxy.sendCh = make(chan msg.Message, 1024)
+	readCh := make(chan *msg.UDPPacket, 1024)
+	sendCh := make(chan msg.Message, 1024)
+	pxy.readCh = readCh
+	pxy.sendCh = sendCh
 	pxy.closed = false
 	pxy.mu.Unlock()
 
@@ -160,10 +162,10 @@ func (pxy *UDPProxy) InWorkConn(conn net.Conn, _ *msg.StartWorkConn) {
 		}
 	}
 
-	go workConnSenderFn(payloadRW, pxy.sendCh)
-	go workConnReaderFn(payloadRW, pxy.readCh)
-	go heartbeatFn(pxy.sendCh)
+	go workConnSenderFn(payloadRW, sendCh)
+	go workConnReaderFn(payloadRW, readCh)
+	go heartbeatFn(sendCh)
 
 	// Call Forwarder with proxy protocol version (empty string means no proxy protocol)
-	udp.Forwarder(pxy.localAddr, pxy.readCh, pxy.sendCh, int(pxy.clientCfg.UDPPacketSize), pxy.cfg.Transport.ProxyProtocolVersion)
+	udp.Forwarder(pxy.localAddr, readCh, sendCh, int(pxy.clientCfg.UDPPacketSize), pxy.cfg.Transport.ProxyProtocolVersion)
 }

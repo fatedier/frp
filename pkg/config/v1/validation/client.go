@@ -38,6 +38,7 @@ func (v *ConfigValidator) ValidateClientCommonConfig(c *v1.ClientCommonConfig) (
 		func() (Warning, error) { return v.validateAuthConfig(&c.Auth) },
 		func() (Warning, error) { return nil, validateLogConfig(&c.Log) },
 		func() (Warning, error) { return nil, validateWebServerConfig(&c.WebServer) },
+		func() (Warning, error) { return nil, validateMetricsServerConfig(&c.MetricsServer, &c.WebServer) },
 		func() (Warning, error) { return validateTransportConfig(&c.Transport) },
 		func() (Warning, error) { return validateIncludeFiles(c.IncludeConfigFiles) },
 	}
@@ -163,6 +164,10 @@ func validateTransportConfig(c *v1.ClientTransportConfig) (Warning, error) {
 		warnings = AppendError(warnings, checkTLSConfig("transport.tls.certFile", c.TLS.CertFile))
 		warnings = AppendError(warnings, checkTLSConfig("transport.tls.keyFile", c.TLS.KeyFile))
 		warnings = AppendError(warnings, checkTLSConfig("transport.tls.trustedCaFile", c.TLS.TrustedCaFile))
+		// wss keeps TLS on regardless of transport.tls.enable.
+		if c.TLS.UseSystemCa && c.Protocol != "wss" {
+			errs = AppendError(errs, fmt.Errorf("transport.tls.useSystemCa requires transport.tls.enable to be true unless transport.protocol is wss"))
+		}
 	}
 
 	if !slices.Contains(SupportedTransportProtocols, c.Protocol) {

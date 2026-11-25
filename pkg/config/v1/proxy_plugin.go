@@ -17,8 +17,6 @@ package v1
 import (
 	"reflect"
 
-	"github.com/samber/lo"
-
 	"github.com/fatedier/frp/pkg/util/jsonx"
 	"github.com/fatedier/frp/pkg/util/util"
 )
@@ -125,7 +123,7 @@ type HTTPS2HTTPPluginOptions struct {
 }
 
 func (o *HTTPS2HTTPPluginOptions) Complete() {
-	o.EnableHTTP2 = util.EmptyOr(o.EnableHTTP2, lo.ToPtr(true))
+	o.EnableHTTP2 = util.EmptyOr(o.EnableHTTP2, new(true))
 }
 
 func (o *HTTPS2HTTPPluginOptions) Clone() ClientPluginOptions {
@@ -149,7 +147,7 @@ type HTTPS2HTTPSPluginOptions struct {
 }
 
 func (o *HTTPS2HTTPSPluginOptions) Complete() {
-	o.EnableHTTP2 = util.EmptyOr(o.EnableHTTP2, lo.ToPtr(true))
+	o.EnableHTTP2 = util.EmptyOr(o.EnableHTTP2, new(true))
 }
 
 func (o *HTTPS2HTTPSPluginOptions) Clone() ClientPluginOptions {

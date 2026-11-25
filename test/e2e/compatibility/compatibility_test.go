@@ -192,19 +192,52 @@ transport.wireProtocol = "v2"
 	})
 })
 
-var _ = ginkgo.Describe("[Compatibility: BinaryUDPPacket]", func() {
+var _ = ginkgo.Describe("[Compatibility: UDPDefault]", func() {
+	f := framework.NewDefaultFramework()
+
+	ginkgo.It("current frps exchanges UDP with baseline frpc using the default wire protocol", func() {
+		portName := port.GenName("CompatDefaultUDPBaselineFRPC")
+		f.RunProcessesWithBinaries(
+			compatCtx.CurrentFRPSPath,
+			compatCtx.BaselineFRPCPath,
+			consts.DefaultServerConfig,
+			[]string{udpClientConfig(portName, "")},
+		)
+		framework.NewRequestExpect(f).Protocol("udp").PortName(portName).Ensure()
+	})
+
+	ginkgo.It("baseline frps exchanges UDP with current frpc defaulting to v1", func() {
+		portName := port.GenName("CompatDefaultUDPBaselineFRPS")
+		f.RunProcessesWithBinaries(
+			compatCtx.BaselineFRPSPath,
+			compatCtx.CurrentFRPCPath,
+			consts.DefaultServerConfig,
+			[]string{udpClientConfig(portName, "")},
+		)
+		framework.NewRequestExpect(f).Protocol("udp").PortName(portName).Ensure()
+	})
+})
+
+var _ = ginkgo.Describe("[Compatibility: UDPWireV2]", func() {
 	f := framework.NewDefaultFramework()
 
 	ginkgo.BeforeEach(func() {
-		supportsV2, knownVersion := baselineSupportsControlWireProtocolV2(compatCtx.BaselineVersion)
-		if !knownVersion || !supportsV2 {
-			ginkgo.Skip(fmt.Sprintf("baseline version %q does not have known wire protocol v2 support", compatCtx.BaselineVersion))
+		supportsV2, knownVersion := baselineSupportsUDPWireProtocolV2(compatCtx.BaselineVersion)
+		if !knownVersion {
+			ginkgo.Skip(fmt.Sprintf("baseline version %q has unknown ordinary UDP wire v2 framing support", compatCtx.BaselineVersion))
+		}
+		if !supportsV2 {
+			// v0.69.0 supports control v2 but still uses legacy ordinary UDP framing.
+			// Mixing that early v2 implementation with the v0.69.1 framing was not supported.
+			ginkgo.Skip(fmt.Sprintf("baseline %q predates ordinary UDP wire v2 framing (v0.69.1); default UDP is tested separately",
+				compatCtx.BaselineVersion))
 		}
 	})
 
-	ginkgo.It("current frps falls back to JSON for baseline frpc", func() {
-		portName := port.GenName("CompatBinaryUDPBaselineFRPC")
-		clientConf := udpClientConfig("udp", portName, `transport.wireProtocol = "v2"`)
+	// The negotiated payload codec may be JSON or binary-v1; both use v2 framing.
+	ginkgo.It("current frps exchanges v2-framed UDP with baseline frpc", func() {
+		portName := port.GenName("CompatV2UDPBaselineFRPC")
+		clientConf := udpClientConfig(portName, `transport.wireProtocol = "v2"`)
 		f.RunProcessesWithBinaries(
 			compatCtx.CurrentFRPSPath,
 			compatCtx.BaselineFRPCPath,
@@ -214,9 +247,9 @@ var _ = ginkgo.Describe("[Compatibility: BinaryUDPPacket]", func() {
 		framework.NewRequestExpect(f).Protocol("udp").PortName(portName).Ensure()
 	})
 
-	ginkgo.It("current frpc falls back to JSON for baseline frps", func() {
-		portName := port.GenName("CompatBinaryUDPBaselineFRPS")
-		clientConf := udpClientConfig("udp", portName, `transport.wireProtocol = "v2"`)
+	ginkgo.It("current frpc exchanges v2-framed UDP with baseline frps", func() {
+		portName := port.GenName("CompatV2UDPBaselineFRPS")
+		clientConf := udpClientConfig(portName, `transport.wireProtocol = "v2"`)
 		f.RunProcessesWithBinaries(
 			compatCtx.BaselineFRPSPath,
 			compatCtx.CurrentFRPCPath,
@@ -243,7 +276,7 @@ remotePort = {{ .%s }}
 `, consts.PortServerName, extra, proxyName, framework.TCPEchoServerPort, remotePortName)
 }
 
-func udpClientConfig(proxyName string, remotePortName string, extra string) string {
+func udpClientConfig(remotePortName string, extra string) string {
 	return fmt.Sprintf(`
 serverAddr = "127.0.0.1"
 serverPort = {{ .%s }}
@@ -252,11 +285,11 @@ log.level = "trace"
 %s
 
 [[proxies]]
-name = "%s"
+name = "udp"
 type = "udp"
 localPort = {{ .%s }}
 remotePort = {{ .%s }}
-`, consts.PortServerName, extra, proxyName, framework.UDPEchoServerPort, remotePortName)
+`, consts.PortServerName, extra, framework.UDPEchoServerPort, remotePortName)
 }
 
 func expectProcessExit(p *process.Process, timeout time.Duration) {
@@ -268,6 +301,14 @@ func expectProcessExit(p *process.Process, timeout time.Duration) {
 }
 
 func baselineSupportsControlWireProtocolV2(version string) (supports bool, known bool) {
+	return baselineVersionAtLeast(version, [3]int{0, 69, 0})
+}
+
+func baselineSupportsUDPWireProtocolV2(version string) (supports bool, known bool) {
+	return baselineVersionAtLeast(version, [3]int{0, 69, 1})
+}
+
+func baselineVersionAtLeast(version string, minimum [3]int) (supports bool, known bool) {
 	version = strings.TrimPrefix(version, "v")
 	parts := strings.Split(version, ".")
 	if len(parts) != 3 {
@@ -287,7 +328,39 @@ func baselineSupportsControlWireProtocolV2(version string) (supports bool, known
 		return false, false
 	}
 
-	return compareSemanticVersion(major, minor, patch, 0, 69, 0) >= 0, true
+	return compareSemanticVersion(major, minor, patch, minimum[0], minimum[1], minimum[2]) >= 0, true
+}
+
+func TestBaselineWireProtocolSupport(t *testing.T) {
+	for _, tc := range []struct {
+		version   string
+		known     bool
+		controlV2 bool
+		udpV2     bool
+	}{
+		{version: "0.61.0", known: true},
+		{version: "0.68.1", known: true},
+		{version: "0.69.0", known: true, controlV2: true},
+		{version: "v0.69.0", known: true, controlV2: true},
+		{version: "0.69.1", known: true, controlV2: true, udpV2: true},
+		{version: "v0.69.1", known: true, controlV2: true, udpV2: true},
+		{version: "0.70.0", known: true, controlV2: true, udpV2: true},
+		{version: "0.71.0", known: true, controlV2: true, udpV2: true},
+		{version: "1.0.0", known: true, controlV2: true, udpV2: true},
+		{version: "custom"},
+		{version: "0.69"},
+		{version: "0.69.x"},
+		{version: "0.69.1-rc.1"},
+	} {
+		t.Run(tc.version, func(t *testing.T) {
+			if supports, known := baselineSupportsControlWireProtocolV2(tc.version); supports != tc.controlV2 || known != tc.known {
+				t.Errorf("control v2 support = (%v, %v), want (%v, %v)", supports, known, tc.controlV2, tc.known)
+			}
+			if supports, known := baselineSupportsUDPWireProtocolV2(tc.version); supports != tc.udpV2 || known != tc.known {
+				t.Errorf("UDP v2 framing support = (%v, %v), want (%v, %v)", supports, known, tc.udpV2, tc.known)
+			}
+		})
+	}
 }
 
 func compareSemanticVersion(major, minor, patch int, baseMajor, baseMinor, basePatch int) int {

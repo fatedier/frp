@@ -15,12 +15,14 @@ frp 是一个完全开源的项目，我们的开发工作完全依靠赞助者�
 <h3 align="center">Gold Sponsors</h3>
 <!--gold sponsors start-->
 <p align="center">
-  <a href="https://github.com/beclab/Olares" target="_blank">
-    <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_olares.jpeg">
-	<br>
-	<b>The sovereign cloud that puts you in control</b>
-	<br>
-	<sub>An open source, self-hosted alternative to public clouds, built for data ownership and privacy</sub>
+  <a href="https://www.swiftproxy.net/?ref=frp" target="_blank">
+    <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_swiftproxy.png" alt="Swiftproxy">
+    <br>
+    <b>Swiftproxy - Premium Global Residential Proxy Network</b>
+    <br>
+    <sub>Reliable residential IPs across 220+ locations, helping frp users test remote access, verify connectivity, and access region-specific network resources worldwide.</sub>
+    <br>
+    <sub>Free testing available, with 10% off using code PROXY90.</sub>
   </a>
 </p>
 
@@ -41,6 +43,17 @@ an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and 
 	<b>The complete IDE crafted for professional Go developers</b>
   </a>
 </p>
+
+<p align="center">
+  <a href="https://github.com/beclab/Olares" target="_blank">
+    <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_olares.jpeg">
+	<br>
+	<b>The sovereign cloud that puts you in control</b>
+	<br>
+	<sub>An open source, self-hosted alternative to public clouds, built for data ownership and privacy</sub>
+  </a>
+</p>
+
 <!--gold sponsors end-->
 
 ## 为什么使用 frp ？

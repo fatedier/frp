@@ -31,7 +31,7 @@ func TestDateCounter(t *testing.T) {
 
 func TestDateCounterRotate(t *testing.T) {
 	loc := time.FixedZone("test", 8*60*60)
-	lastUpdateDate := time.Date(2026, time.May, 8, 0, 0, 0, 0, loc)
+	lastUpdateDate := time.Date(2026, time.May, 8, 0, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		name               string
@@ -55,19 +55,19 @@ func TestDateCounterRotate(t *testing.T) {
 			name:               "one day",
 			now:                time.Date(2026, time.May, 9, 12, 30, 0, 0, loc),
 			want:               []int64{0, 10, 7},
-			wantLastUpdateDate: time.Date(2026, time.May, 9, 0, 0, 0, 0, loc),
+			wantLastUpdateDate: time.Date(2026, time.May, 9, 0, 0, 0, 0, time.UTC),
 		},
 		{
 			name:               "two days",
 			now:                time.Date(2026, time.May, 10, 12, 30, 0, 0, loc),
 			want:               []int64{0, 0, 10},
-			wantLastUpdateDate: time.Date(2026, time.May, 10, 0, 0, 0, 0, loc),
+			wantLastUpdateDate: time.Date(2026, time.May, 10, 0, 0, 0, 0, time.UTC),
 		},
 		{
 			name:               "all reserved days elapsed",
 			now:                time.Date(2026, time.May, 11, 12, 30, 0, 0, loc),
 			want:               []int64{0, 0, 0},
-			wantLastUpdateDate: time.Date(2026, time.May, 11, 0, 0, 0, 0, loc),
+			wantLastUpdateDate: time.Date(2026, time.May, 11, 0, 0, 0, 0, time.UTC),
 		},
 	}
 
@@ -131,4 +131,64 @@ func TestDateCounterConcurrentAccess(t *testing.T) {
 		})
 	}
 	wg.Wait()
+}
+
+func TestDateCounterCalendarDaysAcrossDST(t *testing.T) {
+	loc, err := time.LoadLocation("America/New_York")
+	require.NoError(t, err)
+	midnightLoc, err := time.LoadLocation("America/Sao_Paulo")
+	require.NoError(t, err)
+	tests := []struct {
+		name  string
+		start time.Time
+		end   time.Time
+		want  []int64
+	}{
+		{
+			name:  "spring next day",
+			start: time.Date(2026, time.March, 8, 12, 0, 0, 0, loc),
+			end:   time.Date(2026, time.March, 9, 12, 0, 0, 0, loc),
+			want:  []int64{0, 10, 0},
+		},
+		{
+			name:  "spring two days",
+			start: time.Date(2026, time.March, 8, 12, 0, 0, 0, loc),
+			end:   time.Date(2026, time.March, 10, 12, 0, 0, 0, loc),
+			want:  []int64{0, 0, 10},
+		},
+		{
+			name:  "spring retention expiry",
+			start: time.Date(2026, time.March, 8, 12, 0, 0, 0, loc),
+			end:   time.Date(2026, time.March, 11, 12, 0, 0, 0, loc),
+			want:  []int64{0, 0, 0},
+		},
+		{
+			name:  "fall next day",
+			start: time.Date(2026, time.November, 1, 12, 0, 0, 0, loc),
+			end:   time.Date(2026, time.November, 2, 12, 0, 0, 0, loc),
+			want:  []int64{0, 10, 0},
+		},
+		{
+			name:  "skipped midnight",
+			start: time.Date(2018, time.November, 3, 12, 0, 0, 0, midnightLoc),
+			end:   time.Date(2018, time.November, 4, 12, 0, 0, 0, midnightLoc),
+			want:  []int64{0, 10, 0},
+		},
+		{
+			name:  "day after skipped midnight",
+			start: time.Date(2018, time.November, 4, 12, 0, 0, 0, midnightLoc),
+			end:   time.Date(2018, time.November, 5, 12, 0, 0, 0, midnightLoc),
+			want:  []int64{0, 10, 0},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clk := clocktesting.NewFakeClock(tt.start)
+			dc := newStandardDateCounterWithClock(3, clk)
+			dc.Inc(10)
+			clk.SetTime(tt.end)
+			require.Equal(t, tt.want[0], dc.TodayCount())
+			require.Equal(t, tt.want, dc.GetLastDaysCount(3))
+		})
+	}
 }

@@ -15,16 +15,21 @@
 package net
 
 import (
-	"fmt"
+	"errors"
 	"net"
+	"sync"
 
 	kcp "github.com/xtaci/kcp-go/v5"
 )
 
+var ErrKCPListenerClosed = errors.New("kcp listener closed")
+
 type KCPListener struct {
-	listener  net.Listener
-	acceptCh  chan net.Conn
-	closeFlag bool
+	listener net.Listener
+	acceptCh chan net.Conn
+	done     chan struct{}
+
+	closeOnce sync.Once
 }
 
 func ListenKcp(address string) (l *KCPListener, err error) {
@@ -36,20 +41,21 @@ func ListenKcp(address string) (l *KCPListener, err error) {
 	_ = listener.SetWriteBuffer(4194304)
 
 	l = &KCPListener{
-		listener:  listener,
-		acceptCh:  make(chan net.Conn),
-		closeFlag: false,
+		listener: listener,
+		acceptCh: make(chan net.Conn),
+		done:     make(chan struct{}),
 	}
 
 	go func() {
 		for {
 			conn, err := listener.AcceptKCP()
 			if err != nil {
-				if l.closeFlag {
-					close(l.acceptCh)
+				select {
+				case <-l.done:
 					return
+				default:
+					continue
 				}
-				continue
 			}
 			conn.SetStreamMode(true)
 			conn.SetWriteDelay(true)
@@ -58,25 +64,38 @@ func ListenKcp(address string) (l *KCPListener, err error) {
 			conn.SetWindowSize(1024, 1024)
 			conn.SetACKNoDelay(false)
 
-			l.acceptCh <- conn
+			select {
+			case <-l.done:
+				conn.Close()
+				return
+			case l.acceptCh <- conn:
+				// A ready handoff may win when Close races with it. Once delivered,
+				// the connection is owned by the caller of Accept.
+			}
 		}
 	}()
 	return l, err
 }
 
 func (l *KCPListener) Accept() (net.Conn, error) {
-	conn, ok := <-l.acceptCh
-	if !ok {
-		return conn, fmt.Errorf("channel for kcp listener closed")
+	select {
+	case <-l.done:
+		return nil, ErrKCPListenerClosed
+	default:
 	}
-	return conn, nil
+	select {
+	case <-l.done:
+		return nil, ErrKCPListenerClosed
+	case conn := <-l.acceptCh:
+		return conn, nil
+	}
 }
 
 func (l *KCPListener) Close() error {
-	if !l.closeFlag {
-		l.closeFlag = true
+	l.closeOnce.Do(func() {
+		close(l.done)
 		l.listener.Close()
-	}
+	})
 	return nil
 }
 

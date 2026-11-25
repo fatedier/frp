@@ -79,8 +79,22 @@ webServer.password = "admin"
 # Admin assets directory. By default, these assets are bundled with frpc.
 # webServer.assetsDir = "./static"
 
+# Deprecated: use metricsServer.pprofEnable for authenticated profiling.
 # Enable golang pprof handlers in admin listener.
 webServer.pprofEnable = false
+
+# Separate health, metrics and optional profiling listener.
+# /metrics serves Go runtime metrics only (no proxy or traffic data).
+# Port 0 disables it. The default address only accepts local connections.
+metricsServer.addr = "127.0.0.1"
+metricsServer.port = 0
+# Credentials and TLS are independent of webServer; /healthz stays anonymous.
+# metricsServer.user = "monitor"
+# metricsServer.password = "change-me"
+# metricsServer.tls.certFile = "metrics.crt"
+# metricsServer.tls.keyFile = "metrics.key"
+# Profiling requires explicit opt-in, uses the above credentials, and excludes cmdline.
+metricsServer.pprofEnable = false
 
 # The maximum amount of time a dial to server will wait for a connect to complete. Default value is 10 seconds.
 # transport.dialServerTimeout = 10
@@ -130,6 +144,12 @@ transport.tls.enable = true
 # transport.tls.keyFile = "client.key"
 # transport.tls.trustedCaFile = "ca.crt"
 # transport.tls.serverName = "example.com"
+
+# If useSystemCa is true, frpc verifies the server certificate using system CAs.
+# If trustedCaFile is also set, its CA certificates are added to the system CA pool.
+# Only supported in frpc transport.tls; requires tls.enable = true unless protocol is wss.
+# CA loading or certificate verification failures cause the connection to fail.
+# transport.tls.useSystemCa = false
 
 # If the disableCustomTLSFirstByte is set to false, frpc will establish a connection with frps using the
 # first custom byte when tls is enabled.

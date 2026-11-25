@@ -30,6 +30,11 @@ import (
 
 var ErrHealthCheckType = errors.New("error health check type")
 
+func newHealthTimer(interval time.Duration) (<-chan time.Time, func()) {
+	timer := time.NewTimer(interval)
+	return timer.C, func() { timer.Stop() }
+}
+
 type Monitor struct {
 	checkType      string
 	interval       time.Duration
@@ -49,6 +54,9 @@ type Monitor struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+	doneCh chan struct{}
+
+	timerFactory func(time.Duration) (<-chan time.Time, func())
 }
 
 func NewMonitor(ctx context.Context, cfg v1.HealthCheckConfig, addr string,
@@ -91,6 +99,8 @@ func NewMonitor(ctx context.Context, cfg v1.HealthCheckConfig, addr string,
 		statusFailedFn: statusFailedFn,
 		ctx:            newctx,
 		cancel:         cancel,
+		doneCh:         make(chan struct{}),
+		timerFactory:   newHealthTimer,
 	}
 }
 
@@ -102,39 +112,66 @@ func (monitor *Monitor) Stop() {
 	monitor.cancel()
 }
 
+// Done is closed when the worker launched by Start has exited.
+func (monitor *Monitor) Done() <-chan struct{} {
+	return monitor.doneCh
+}
+
 func (monitor *Monitor) checkWorker() {
-	xl := xlog.FromContextSafe(monitor.ctx)
+	defer close(monitor.doneCh)
+
 	for {
+		if monitor.ctx.Err() != nil {
+			return
+		}
+
 		doCtx, cancel := context.WithDeadline(monitor.ctx, time.Now().Add(monitor.timeout))
 		err := monitor.doCheck(doCtx)
+		cancel()
 
 		// check if this monitor has been closed
-		select {
-		case <-monitor.ctx.Done():
-			cancel()
+		if monitor.ctx.Err() != nil {
 			return
-		default:
-			cancel()
 		}
+		monitor.handleCheckResult(err)
 
-		if err == nil {
-			xl.Tracef("do one health check success")
-			if !monitor.statusOK && monitor.statusNormalFn != nil {
-				xl.Infof("health check status change to success")
-				monitor.statusOK = true
-				monitor.statusNormalFn()
-			}
-		} else {
-			xl.Warnf("do one health check failed: %v", err)
-			monitor.failedTimes++
-			if monitor.statusOK && int(monitor.failedTimes) >= monitor.maxFailedTimes && monitor.statusFailedFn != nil {
-				xl.Warnf("health check status change to failed")
-				monitor.statusOK = false
-				monitor.statusFailedFn()
-			}
+		if !monitor.waitForNextCheck() {
+			return
 		}
+	}
+}
 
-		time.Sleep(monitor.interval)
+func (monitor *Monitor) handleCheckResult(err error) {
+	xl := xlog.FromContextSafe(monitor.ctx)
+	if err == nil {
+		xl.Tracef("do one health check success")
+		monitor.failedTimes = 0
+		if !monitor.statusOK && monitor.statusNormalFn != nil {
+			xl.Infof("health check status change to success")
+			monitor.statusOK = true
+			monitor.statusNormalFn()
+		}
+		return
+	}
+
+	xl.Warnf("do one health check failed: %v", err)
+	monitor.failedTimes++
+	if monitor.statusOK && int(monitor.failedTimes) >= monitor.maxFailedTimes && monitor.statusFailedFn != nil {
+		xl.Warnf("health check status change to failed")
+		monitor.statusOK = false
+		monitor.statusFailedFn()
+	}
+}
+
+func (monitor *Monitor) waitForNextCheck() bool {
+	timerC, stopTimer := monitor.timerFactory(monitor.interval)
+	defer stopTimer()
+
+	select {
+	case <-monitor.ctx.Done():
+		return false
+	case <-timerC:
+		return monitor.ctx.Err() == nil
 	}
 }
 

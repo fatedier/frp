@@ -44,6 +44,12 @@ func (v *ConfigValidator) ValidateServerConfig(c *v1.ServerConfig) (Warning, err
 	if err := validateWebServerConfig(&c.WebServer); err != nil {
 		errs = AppendError(errs, err)
 	}
+	if err := validateMetricsServerConfig(&c.MetricsServer, &c.WebServer); err != nil {
+		errs = AppendError(errs, err)
+	}
+	if c.Transport.TLS.UseSystemCa {
+		errs = AppendError(errs, fmt.Errorf("transport.tls.useSystemCa is only supported in frpc transport.tls"))
+	}
 
 	errs = AppendError(errs, ValidatePort(c.BindPort, "bindPort"))
 	errs = AppendError(errs, ValidatePort(c.KCPBindPort, "kcpBindPort"))

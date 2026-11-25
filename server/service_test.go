@@ -17,10 +17,12 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"net"
 	"net/http"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -31,6 +33,7 @@ import (
 
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/proto/wire"
@@ -573,7 +576,7 @@ func TestServiceWorkConnRoutingClientHelloPolicy(t *testing.T) {
 				ClientSpec: msg.ClientSpec{
 					AlwaysAuthPass: true,
 				},
-			}, true, wire.ProtocolV2, tc.controlUDPPacketCodec)
+			}, true, wire.ProtocolV2, tc.controlUDPPacketCodec, nil)
 			require.NoError(t, err)
 			require.NoError(t, svr.completeControlLogin(ctl, func() error { return nil }))
 			waitForSignal(t, controlConn.readStarted, "control reader to start")
@@ -631,9 +634,25 @@ func TestServiceRegisterControlRejectsInvalidCodecSelection(t *testing.T) {
 			svr := newControlTestService(t)
 			conn := newDeadlineReadConn()
 			msgConn := msg.NewConn(conn, msg.NewV1ReadWriter(conn))
-			ctl, err := svr.RegisterControl(msgConn, &msg.Login{}, true, tc.wireProtocol, tc.udpPacketCodec)
+			ctl, err := svr.RegisterControl(msgConn, &msg.Login{}, true, tc.wireProtocol, tc.udpPacketCodec, nil)
 			require.Nil(t, ctl)
 			require.ErrorContains(t, err, tc.errorSubstring)
+		})
+	}
+}
+
+func TestServiceRegisterControlRejectsInvalidRunID(t *testing.T) {
+	for _, runID := range []string{
+		"run\nforged",
+		strings.Repeat("a", validation.MaxRunIDLength+1),
+	} {
+		t.Run(fmt.Sprintf("run_id_%d", len(runID)), func(t *testing.T) {
+			svr := newControlTestService(t)
+			conn := newDeadlineReadConn()
+			msgConn := msg.NewConn(conn, msg.NewV1ReadWriter(conn))
+			ctl, err := svr.RegisterControl(msgConn, &msg.Login{RunID: runID}, true, wire.ProtocolV1, "", nil)
+			require.Nil(t, ctl)
+			require.ErrorContains(t, err, "invalid run id")
 		})
 	}
 }
@@ -665,7 +684,7 @@ func TestServiceRegisterControlPoolCountBoundaries(t *testing.T) {
 				Timestamp:    timestamp,
 				PrivilegeKey: util.GetAuthKey("", timestamp),
 				PoolCount:    tc.poolCount,
-			}, false, wire.ProtocolV1, "")
+			}, false, wire.ProtocolV1, "", nil)
 			if tc.wantErr {
 				require.Nil(t, ctl)
 				require.ErrorContains(t, err, "unexpected error when creating new controller")
@@ -739,7 +758,7 @@ func TestServiceVisitorRoutingExcludesPendingUser(t *testing.T) {
 		ClientSpec: msg.ClientSpec{
 			AlwaysAuthPass: true,
 		},
-	}, true, wire.ProtocolV1, "")
+	}, true, wire.ProtocolV1, "", nil)
 	require.NoError(t, err)
 
 	timestamp := time.Now().Unix()
@@ -783,7 +802,7 @@ func TestServiceVisitorRoutingCarriesControlPacketCodec(t *testing.T) {
 		ClientSpec: msg.ClientSpec{
 			AlwaysAuthPass: true,
 		},
-	}, true, wire.ProtocolV2, wire.UDPPacketCodecBinary)
+	}, true, wire.ProtocolV2, wire.UDPPacketCodecBinary, nil)
 	require.NoError(t, err)
 
 	timestamp := time.Now().Unix()
@@ -872,7 +891,7 @@ func registerLifecycleTestControl(svr *Service) (*Control, *deadlineReadConn, er
 		ClientSpec: msg.ClientSpec{
 			AlwaysAuthPass: true,
 		},
-	}, true, wire.ProtocolV1, "")
+	}, true, wire.ProtocolV1, "", nil)
 	return ctl, conn, err
 }
 
