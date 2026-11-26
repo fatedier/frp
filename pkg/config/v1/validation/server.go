@@ -50,6 +50,9 @@ func (v *ConfigValidator) ValidateServerConfig(c *v1.ServerConfig) (Warning, err
 	if c.Transport.TLS.UseSystemCa {
 		errs = AppendError(errs, fmt.Errorf("transport.tls.useSystemCa is only supported in frpc transport.tls"))
 	}
+	if _, err := c.Transport.ProxyProtocolPolicy(); err != nil {
+		errs = AppendError(errs, err)
+	}
 
 	errs = AppendError(errs, ValidatePort(c.BindPort, "bindPort"))
 	errs = AppendError(errs, ValidatePort(c.KCPBindPort, "kcpBindPort"))

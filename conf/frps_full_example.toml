@@ -6,6 +6,12 @@
 bindAddr = "0.0.0.0"
 bindPort = 7000
 
+# List the IP addresses or CIDRs of proxies that forward TCP connections to bindPort.
+# Each listed peer must send a PROXY protocol v1 or v2 header before TLS or other protocol data,
+# including when HTTP or HTTPS shares bindPort. Other peers connect directly.
+# The default empty list disables PROXY protocol parsing. Only list proxies you control.
+# transport.proxyProtocolTrustedProxies = ["127.0.0.1", "::1"]
+
 # udp port used for kcp protocol, it can be same with 'bindPort'.
 # if not set, kcp is disabled in frps.
 kcpBindPort = 7000
