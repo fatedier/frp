@@ -170,17 +170,25 @@ func TestServiceControlProxyProtocol(t *testing.T) {
 			cfg := &v1.ServerConfig{BindAddr: "127.0.0.1"}
 			require.NoError(t, cfg.Complete())
 			cfg.BindPort = 0
-			cfg.Transport.TLS.Force = true
 			cfg.Transport.ProxyProtocolTrustedProxies = tc.trusted
 			svr, err := NewService(cfg)
 			require.NoError(t, err)
 			defer svr.Close()
-			go svr.HandleListener(svr.listener, false)
 
-			// Reply over the TLS listener selected by the bind-port multiplexer.
+			// A header from an unlisted peer remains on the ordinary, non-TLS stream.
+			listener := svr.tlsListener
+			if tc.reject {
+				listener = svr.listener
+			}
+			handled := make(chan struct{})
 			go func() {
-				conn, acceptErr := svr.tlsListener.Accept()
+				defer close(handled)
+				conn, acceptErr := listener.Accept()
 				if acceptErr != nil {
+					return
+				}
+				if tc.reject {
+					conn.Close()
 					return
 				}
 				tlsConn := tls.Server(conn, svr.tlsConfig)
@@ -207,12 +215,16 @@ func TestServiceControlProxyProtocol(t *testing.T) {
 			if tc.reject {
 				require.Error(t, err)
 				require.NotErrorIs(t, err, os.ErrDeadlineExceeded)
+				if tc.version != "" {
+					waitForResult(t, handled, "unlisted peer on the default listener")
+				}
 				return
 			}
 			require.NoError(t, err)
 			got, err := io.ReadAll(client)
 			require.NoError(t, err)
 			require.Equal(t, wantAddr, string(got))
+			waitForResult(t, handled, "TLS handler to finish")
 		})
 	}
 }
