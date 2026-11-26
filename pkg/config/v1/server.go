@@ -15,6 +15,9 @@
 package v1
 
 import (
+	"fmt"
+
+	"github.com/pires/go-proxyproto"
 	"github.com/samber/lo"
 
 	"github.com/fatedier/frp/pkg/config/types"
@@ -157,6 +160,10 @@ type AuthOIDCServerConfig struct {
 }
 
 type ServerTransportConfig struct {
+	// ProxyProtocolTrustedProxies lists IP addresses or CIDRs of immediate peers
+	// that must send a PROXY protocol v1 or v2 header on the TCP bindPort.
+	// Other peers connect directly. An empty list disables PROXY protocol parsing.
+	ProxyProtocolTrustedProxies []string `json:"proxyProtocolTrustedProxies,omitempty"`
 	// TCPMux toggles TCP stream multiplexing. This allows multiple requests
 	// from a client to share a single TCP connection. By default, this value
 	// is true.
@@ -179,6 +186,18 @@ type ServerTransportConfig struct {
 	QUIC QUICOptions `json:"quic,omitempty"`
 	// TLS specifies TLS settings for the connection from the client.
 	TLS TLSServerConfig `json:"tls,omitempty"`
+}
+
+// ProxyProtocolPolicy returns the TCP bindPort policy, or nil when disabled.
+func (c *ServerTransportConfig) ProxyProtocolPolicy() (proxyproto.ConnPolicyFunc, error) {
+	if len(c.ProxyProtocolTrustedProxies) == 0 {
+		return nil, nil
+	}
+	policy, err := proxyproto.PolicyFromRanges(c.ProxyProtocolTrustedProxies, proxyproto.REQUIRE, proxyproto.SKIP)
+	if err != nil {
+		return nil, fmt.Errorf("transport.proxyProtocolTrustedProxies: %w", err)
+	}
+	return policy, nil
 }
 
 func (c *ServerTransportConfig) Complete() {

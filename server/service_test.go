@@ -16,11 +16,14 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -37,6 +40,8 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/proto/wire"
+	"github.com/fatedier/frp/pkg/transport"
+	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/proxy"
@@ -143,6 +148,71 @@ func TestServiceAcceptConnectionTracksClientHelloPresence(t *testing.T) {
 			require.Equal(t, tc.expectedCodec, acceptedConn.udpPacketCodec)
 			require.IsType(t, &msg.NewWorkConn{}, acceptedConn.firstMsg)
 			require.NoError(t, acceptedConn.conn.Close())
+		})
+	}
+}
+
+func TestServiceControlProxyProtocol(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		trusted []string
+		version string
+		reject  bool
+	}{
+		{name: "disabled"},
+		{name: "direct client outside trusted range", trusted: []string{"192.0.2.0/24"}},
+		{name: "header outside trusted range", trusted: []string{"192.0.2.0/24"}, version: "v1", reject: true},
+		{name: "trusted v1", trusted: []string{"127.0.0.1"}, version: "v1"},
+		{name: "trusted v2", trusted: []string{"127.0.0.0/8"}, version: "v2"},
+		{name: "trusted peer without header", trusted: []string{"127.0.0.1"}, reject: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &v1.ServerConfig{BindAddr: "127.0.0.1"}
+			require.NoError(t, cfg.Complete())
+			cfg.BindPort = 0
+			cfg.Transport.TLS.Force = true
+			cfg.Transport.ProxyProtocolTrustedProxies = tc.trusted
+			svr, err := NewService(cfg)
+			require.NoError(t, err)
+			defer svr.Close()
+			go svr.HandleListener(svr.listener, false)
+
+			// Reply over the TLS listener selected by the bind-port multiplexer.
+			go func() {
+				conn, acceptErr := svr.tlsListener.Accept()
+				if acceptErr != nil {
+					return
+				}
+				tlsConn := tls.Server(conn, svr.tlsConfig)
+				defer tlsConn.Close()
+				_, _ = io.WriteString(tlsConn, conn.RemoteAddr().String())
+			}()
+
+			conn, err := net.DialTimeout("tcp", svr.listener.Addr().String(), 3*time.Second)
+			require.NoError(t, err)
+			defer conn.Close()
+			require.NoError(t, conn.SetDeadline(time.Now().Add(3*time.Second)))
+			wantAddr := conn.LocalAddr().String()
+			if tc.version != "" {
+				source := &net.TCPAddr{IP: net.ParseIP("192.0.2.10"), Port: 12345}
+				header := netpkg.BuildProxyProtocolHeaderStruct(source, conn.RemoteAddr(), tc.version)
+				_, err = header.WriteTo(conn)
+				require.NoError(t, err)
+				wantAddr = source.String()
+			}
+			clientConfig, err := transport.NewClientTLSConfig("", "", "", "")
+			require.NoError(t, err)
+			client := tls.Client(conn, clientConfig)
+			err = client.Handshake()
+			if tc.reject {
+				require.Error(t, err)
+				require.NotErrorIs(t, err, os.ErrDeadlineExceeded)
+				return
+			}
+			require.NoError(t, err)
+			got, err := io.ReadAll(client)
+			require.NoError(t, err)
+			require.Equal(t, wantAddr, string(got))
 		})
 	}
 }

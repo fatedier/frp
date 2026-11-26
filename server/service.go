@@ -31,6 +31,7 @@ import (
 	"github.com/fatedier/golib/crypto"
 	"github.com/fatedier/golib/net/mux"
 	fmux "github.com/fatedier/yamux"
+	"github.com/pires/go-proxyproto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
@@ -146,6 +147,10 @@ type Service struct {
 }
 
 func NewService(cfg *v1.ServerConfig) (*Service, error) {
+	proxyProtocolPolicy, err := cfg.Transport.ProxyProtocolPolicy()
+	if err != nil {
+		return nil, err
+	}
 	tlsConfig, err := transport.NewServerTLSConfig(
 		cfg.Transport.TLS.CertFile,
 		cfg.Transport.TLS.KeyFile,
@@ -223,13 +228,16 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 
 	// Listen for accepting connections from client.
 	address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.BindPort))
-	ln, err := net.Listen("tcp", address)
+	lc := net.ListenConfig{KeepAlive: time.Duration(cfg.Transport.TCPKeepAlive) * time.Second}
+	ln, err := lc.Listen(svr.ctx, "tcp", address)
 	if err != nil {
 		return nil, fmt.Errorf("create server listener error, %v", err)
 	}
+	if proxyProtocolPolicy != nil {
+		ln = &proxyproto.Listener{Listener: ln, ConnPolicy: proxyProtocolPolicy}
+	}
 
 	svr.muxer = mux.NewMux(ln)
-	svr.muxer.SetKeepAlive(time.Duration(cfg.Transport.TCPKeepAlive) * time.Second)
 	go func() {
 		_ = svr.muxer.Serve()
 	}()

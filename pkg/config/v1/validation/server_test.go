@@ -49,3 +49,29 @@ func TestValidateServerConfigMaxPoolCount(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateServerConfigProxyProtocolTrustedProxies(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		proxies []string
+		wantErr bool
+	}{
+		{name: "disabled"},
+		{name: "addresses and ranges", proxies: []string{"127.0.0.1", "::1", "192.0.2.0/24", "2001:db8::/48"}},
+		{name: "hostname", proxies: []string{"127.0.0.1", "localhost"}, wantErr: true},
+		{name: "invalid prefix length", proxies: []string{"192.0.2.0/33"}, wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := validServerConfigWithAuth(v1.AuthServerConfig{Method: v1.AuthMethodToken})
+			cfg.Transport.ProxyProtocolTrustedProxies = tc.proxies
+			require.NoError(t, cfg.Complete())
+
+			_, err := NewConfigValidator(nil).ValidateServerConfig(cfg)
+			if tc.wantErr {
+				require.ErrorContains(t, err, "transport.proxyProtocolTrustedProxies")
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
