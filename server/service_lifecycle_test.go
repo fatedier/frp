@@ -125,8 +125,8 @@ func TestNewServiceReleasesListenersOnTransportFailure(t *testing.T) {
 
 			// Reserve both TCP ports together to keep the test addresses distinct.
 			var (
-				addresses []string
-				listeners []net.Listener
+				addresses = make([]string, 0, 2)
+				listeners = make([]net.Listener, 0, 2)
 			)
 			for _, port := range []*int{&cfg.TCPMuxHTTPConnectPort, &cfg.BindPort} {
 				ln, err := net.Listen("tcp", "127.0.0.1:0")
