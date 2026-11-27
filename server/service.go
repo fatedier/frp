@@ -596,6 +596,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 			m,
 			acceptedConn.wireProtocol,
 			acceptedConn.clientHelloPresent,
+			session,
 		); err != nil {
 			_ = acceptedConn.conn.WriteMsg(&msg.StartWorkConn{
 				Error: util.GenerateResponseErrorString("invalid NewWorkConn", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
@@ -935,6 +936,7 @@ func (svr *Service) RegisterWorkConn(
 	newMsg *msg.NewWorkConn,
 	workWireProtocol string,
 	workClientHelloPresent bool,
+	session io.Closer,
 ) error {
 	if workClientHelloPresent {
 		return fmt.Errorf("ClientHello is not allowed on work connections")
@@ -943,6 +945,11 @@ func (svr *Service) RegisterWorkConn(
 	ctl, exist := svr.ctlManager.GetByID(newMsg.RunID)
 	if !exist {
 		xl.Warnf("no client control found for run id [%s]", newMsg.RunID)
+		return fmt.Errorf("no client control found for run id [%s]", newMsg.RunID)
+	}
+	// A work connection must arrive on the mux session that carried its control's login.
+	if session != ctl.sessionCtx.Session {
+		xl.Warnf("rejected work connection for run id [%s]: not on the control's session", newMsg.RunID)
 		return fmt.Errorf("no client control found for run id [%s]", newMsg.RunID)
 	}
 	if workWireProtocol != ctl.sessionCtx.WireProtocol {

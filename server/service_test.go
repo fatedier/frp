@@ -516,7 +516,7 @@ func TestServiceWorkConnRoutingRequiresCurrentRunningControl(t *testing.T) {
 
 	runningConn := newCountingCloseConn()
 	runningMsgConn := msg.NewConn(runningConn, msg.NewV1ReadWriter(runningConn))
-	require.NoError(t, svr.RegisterWorkConn(runningMsgConn, &msg.NewWorkConn{RunID: "shared-run"}, wire.ProtocolV1, false))
+	require.NoError(t, svr.RegisterWorkConn(runningMsgConn, &msg.NewWorkConn{RunID: "shared-run"}, wire.ProtocolV1, false, nil))
 	require.Len(t, ctl.workConnCh, 1)
 
 	require.NoError(t, ctl.Close())
@@ -533,7 +533,7 @@ func TestServiceWorkConnRoutingRejectsWireProtocolMismatch(t *testing.T) {
 
 	workConn := newCountingCloseConn()
 	workMsgConn := msg.NewConn(workConn, msg.NewV2ReadWriter(workConn))
-	err = svr.RegisterWorkConn(workMsgConn, &msg.NewWorkConn{RunID: "shared-run"}, wire.ProtocolV2, false)
+	err = svr.RegisterWorkConn(workMsgConn, &msg.NewWorkConn{RunID: "shared-run"}, wire.ProtocolV2, false, nil)
 	require.ErrorContains(t, err, "wire protocol mismatch")
 	require.Len(t, ctl.workConnCh, 0)
 	_ = workMsgConn.Close()
@@ -588,6 +588,7 @@ func TestServiceWorkConnRoutingClientHelloPolicy(t *testing.T) {
 				&msg.NewWorkConn{RunID: "shared-run"},
 				wire.ProtocolV2,
 				tc.workClientHelloPresent,
+				nil,
 			)
 			if tc.errorSubstring != "" {
 				require.ErrorContains(t, err, tc.errorSubstring)
@@ -915,7 +916,7 @@ func registerWorkConnAsCaller(
 	wireProtocol string,
 	clientHelloPresent bool,
 ) error {
-	err := svr.RegisterWorkConn(workConn, newMsg, wireProtocol, clientHelloPresent)
+	err := svr.RegisterWorkConn(workConn, newMsg, wireProtocol, clientHelloPresent, nil)
 	if err != nil {
 		_ = workConn.Close()
 	}
