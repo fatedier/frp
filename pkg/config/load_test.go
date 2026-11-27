@@ -138,6 +138,51 @@ func TestRenderWithTemplate(t *testing.T) {
 	}
 }
 
+func TestConfigFileSizeLimit(t *testing.T) {
+	const limit = 8 * 1024 * 1024
+	writeConfig := func(t *testing.T, content string) string {
+		t.Helper()
+		f, err := os.CreateTemp(t.TempDir(), "frpc-*.toml")
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = f.Close() })
+		n, err := f.WriteString(content)
+		require.NoError(t, err)
+		require.Equal(t, len(content), n)
+		require.NoError(t, f.Close())
+		return f.Name()
+	}
+	for _, size := range []int{limit - 1, limit, limit + 1} {
+		t.Run(fmt.Sprintf("bytes-%d", size), func(t *testing.T) {
+			require := require.New(t)
+			prefix := "serverPort = 7000\n#"
+			content := prefix + strings.Repeat("x", size-len(prefix))
+			path := writeConfig(t, content)
+
+			got, err := LoadFileContentWithTemplate(path, GetValues())
+			if size > limit {
+				require.ErrorContains(err, "exceeds maximum size of 8388608 bytes")
+				require.Nil(got)
+				_, err = LoadClientConfigResult(path, false)
+				require.ErrorContains(err, "exceeds maximum size of 8388608 bytes")
+			} else {
+				require.NoError(err)
+				require.Equal(content, string(got))
+			}
+
+			legacyPrefix := "[common]\n#"
+			legacyContent := legacyPrefix + strings.Repeat("x", size-len(legacyPrefix))
+			path = writeConfig(t, legacyContent)
+			if size > limit {
+				require.False(DetectLegacyINIFormatFromFile(path))
+				_, err = LoadClientConfigResult(path, false)
+				require.ErrorContains(err, "exceeds maximum size of 8388608 bytes")
+			} else {
+				require.True(DetectLegacyINIFormatFromFile(path))
+			}
+		})
+	}
+}
+
 func TestCustomStructStrictMode(t *testing.T) {
 	require := require.New(t)
 

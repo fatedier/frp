@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,6 +40,27 @@ import (
 )
 
 var glbEnvs map[string]string
+
+// maxConfigFileSize limits each config file to 8 MiB before template rendering.
+const maxConfigFileSize = 8 * 1024 * 1024
+
+func readConfigFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	// Read one extra byte to distinguish an exact-limit file from an oversized one.
+	b, err := io.ReadAll(io.LimitReader(f, maxConfigFileSize+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(b) > maxConfigFileSize {
+		return nil, fmt.Errorf("config file %q exceeds maximum size of %d bytes", path, maxConfigFileSize)
+	}
+	return b, nil
+}
 
 func init() {
 	glbEnvs = make(map[string]string)
@@ -74,7 +96,7 @@ func DetectLegacyINIFormat(content []byte) bool {
 }
 
 func DetectLegacyINIFormatFromFile(path string) bool {
-	b, err := os.ReadFile(path)
+	b, err := readConfigFile(path)
 	if err != nil {
 		return false
 	}
@@ -98,7 +120,7 @@ func RenderWithTemplate(in []byte, values *Values) ([]byte, error) {
 }
 
 func LoadFileContentWithTemplate(path string, values *Values) ([]byte, error) {
-	b, err := os.ReadFile(path)
+	b, err := readConfigFile(path)
 	if err != nil {
 		return nil, err
 	}
