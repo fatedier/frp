@@ -175,6 +175,12 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		cfg:               cfg,
 		ctx:               context.Background(),
 	}
+	initialized := false
+	defer func() {
+		if !initialized {
+			_ = svr.Close()
+		}
+	}()
 
 	// Create tcpmux httpconnect multiplexer.
 	if cfg.TCPMuxHTTPConnectPort > 0 {
@@ -241,10 +247,11 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	// Listen for accepting connections from client using kcp protocol.
 	if cfg.KCPBindPort > 0 {
 		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.KCPBindPort))
-		svr.kcpListener, err = netpkg.ListenKcp(address)
+		listener, err := netpkg.ListenKcp(address)
 		if err != nil {
 			return nil, fmt.Errorf("listen on kcp udp address %s error: %v", address, err)
 		}
+		svr.kcpListener = listener
 		log.Infof("frps kcp listen on udp %s", address)
 	}
 
@@ -354,8 +361,6 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	if cfg.WebServer.Port > 0 {
 		ws, err := httppkg.NewServer(cfg.WebServer)
 		if err != nil {
-			// All other listeners are already created and must be released on failure.
-			_ = svr.Close()
 			return nil, err
 		}
 		svr.webServer = ws
@@ -363,7 +368,6 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	if cfg.MetricsServer.Port > 0 {
 		ms, err := httppkg.NewMetricsServer(cfg.MetricsServer, promhttp.Handler())
 		if err != nil {
-			_ = svr.Close()
 			return nil, err
 		}
 		svr.metricsServer = ms
@@ -387,6 +391,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	if svr.webServer != nil {
 		svr.webServer.RouteRegister(svr.registerRouteHandlers)
 	}
+	initialized = true
 	return svr, nil
 }
 
@@ -517,7 +522,9 @@ func (svr *Service) closeResources() {
 		svr.sshTunnelGateway.Close()
 	}
 	svr.rc.Close()
-	svr.muxer.Close()
+	if svr.muxer != nil {
+		svr.muxer.Close()
+	}
 	svr.ctlManager.Close()
 }
 

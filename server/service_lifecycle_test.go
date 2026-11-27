@@ -114,6 +114,76 @@ func TestNewServiceDoesNotLeakWebServerOnBindFailure(t *testing.T) {
 	assertLifecyclePorts(t, []string{net.JoinHostPort(cfg.WebServer.Addr, fmt.Sprint(cfg.WebServer.Port))}, true)
 }
 
+func TestNewServiceReleasesListenersOnTransportFailure(t *testing.T) {
+	for _, protocol := range []string{"kcp", "quic"} {
+		t.Run(protocol, func(t *testing.T) {
+			blocked, err := net.ListenPacket("udp", "127.0.0.1:0")
+			require.NoError(t, err)
+			defer blocked.Close()
+			cfg := &v1.ServerConfig{BindAddr: "127.0.0.1", ProxyBindAddr: "127.0.0.1"}
+			require.NoError(t, cfg.Complete())
+
+			// Reserve both TCP ports together to keep the test addresses distinct.
+			var (
+				addresses []string
+				listeners []net.Listener
+			)
+			for _, port := range []*int{&cfg.TCPMuxHTTPConnectPort, &cfg.BindPort} {
+				ln, err := net.Listen("tcp", "127.0.0.1:0")
+				require.NoError(t, err)
+				t.Cleanup(func() { _ = ln.Close() })
+				*port = ln.Addr().(*net.TCPAddr).Port
+				addresses = append(addresses, ln.Addr().String())
+				listeners = append(listeners, ln)
+			}
+			// No service starts until every reservation has been released.
+			for _, ln := range listeners {
+				require.NoError(t, ln.Close())
+			}
+			if protocol == "kcp" {
+				cfg.KCPBindPort = blocked.LocalAddr().(*net.UDPAddr).Port
+			} else {
+				cfg.QUICBindPort = blocked.LocalAddr().(*net.UDPAddr).Port
+				kcpReservation, err := net.ListenPacket("udp", "127.0.0.1:0")
+				require.NoError(t, err)
+				cfg.KCPBindPort = kcpReservation.LocalAddr().(*net.UDPAddr).Port
+				require.NoError(t, kcpReservation.Close())
+			}
+			svr, err := NewService(cfg)
+			if svr != nil {
+				defer svr.Close()
+			}
+			require.Nil(t, svr)
+			require.ErrorContains(t, err, "listen on "+protocol+" udp address")
+			assertLifecyclePorts(t, addresses, true)
+			if protocol == "quic" {
+				conn, err := net.ListenPacket("udp", net.JoinHostPort(cfg.BindAddr, fmt.Sprint(cfg.KCPBindPort)))
+				require.NoError(t, err, "KCP listener was not released")
+				require.NoError(t, conn.Close())
+			}
+		})
+	}
+}
+
+func TestNewServiceReleasesTCPMuxOnBindFailure(t *testing.T) {
+	blocked, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer blocked.Close()
+	cfg := &v1.ServerConfig{
+		BindAddr: "127.0.0.1", ProxyBindAddr: "127.0.0.1",
+		BindPort:              blocked.Addr().(*net.TCPAddr).Port,
+		TCPMuxHTTPConnectPort: freeLifecycleTCPPort(t),
+	}
+	require.NoError(t, cfg.Complete())
+	svr, err := NewService(cfg)
+	if svr != nil {
+		defer svr.Close()
+	}
+	require.Nil(t, svr)
+	require.ErrorContains(t, err, "create server listener error")
+	assertLifecyclePorts(t, []string{net.JoinHostPort(cfg.ProxyBindAddr, fmt.Sprint(cfg.TCPMuxHTTPConnectPort))}, true)
+}
+
 func countPortManagerWorkers(t *testing.T) int {
 	t.Helper()
 	var profile bytes.Buffer
